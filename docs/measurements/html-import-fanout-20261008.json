@@ -1,0 +1,3621 @@
+{
+  "started_at": "2026-10-08T01:16:23Z",
+  "cpu": 13,
+  "method": "one warmup, three timed calls per size and process, two rounds reversing producer and size order; GC before each JavaScript/PHP call; report serialization, hashing and file I/O excluded",
+  "adapter": "word",
+  "fixture_generator_sha256": "fd8eb0a136bd08e0669e16704336646c6930f2b61018fef73c1d4a865168c480",
+  "fixtures": {
+    "long-inverse-class-1024": {
+      "bytes": 53358,
+      "sha256": "e5dfc1e5ad7a6477f72cdf6e5ac3428d27aaeecf1197144b6a48583367602f8c"
+    },
+    "long-inverse-class-4096": {
+      "bytes": 213102,
+      "sha256": "e0d8b48d5638e29bdbf1e34cf6cbc8ceef8f346b5077e1ef0c4e78b15e14b927"
+    },
+    "long-inverse-ref-class-1024": {
+      "bytes": 53339,
+      "sha256": "a87c7d7232e97dc9f41d078a718a07d083936bbc8db76b4403230d699e9d8b42"
+    },
+    "long-inverse-ref-class-4096": {
+      "bytes": 213083,
+      "sha256": "4fe52c4f4989dd1a16e2434e9123df3ffc70964eaf2c5d336458e20619701743"
+    },
+    "backs-1024": {
+      "bytes": 101256,
+      "sha256": "fc1764dc8915d95a617cad0cc9ec60f6af7f374ecc2f3d79e05bd9a00869b096"
+    },
+    "backs-4096": {
+      "bytes": 411528,
+      "sha256": "43b435391cd98e221cc2538466785ba1c29ca72397e0d46e93d4e23d729a4ec6"
+    },
+    "backparents-1024": {
+      "bytes": 115592,
+      "sha256": "7448e6c3a70bd68655eb49f4d7bd1b192763441a2be9da330f1925d0703e3b18"
+    },
+    "backparents-4096": {
+      "bytes": 468872,
+      "sha256": "31953e962ae7f12b515bf8cadcb535f29b923f74966e603df47995f9ef77098b"
+    },
+    "wrapper-2048": {
+      "bytes": 132992,
+      "sha256": "ef4b805a37141f68a09e21ec97d79371b1ccb059b54ce8e8997cd972bed1d61b"
+    },
+    "wrapper-8192": {
+      "bytes": 538496,
+      "sha256": "e42cbc4e19c92951943b8c531d8b84f51453d4a11a9d5bf31ebfb1507498c6e6"
+    },
+    "containers-layout-1024": {
+      "bytes": 92032,
+      "sha256": "a11663682bd7fad93d1d25f860aea2f040b0bd17a78dfc97a9ad18a2a562519e"
+    },
+    "containers-layout-4096": {
+      "bytes": 374656,
+      "sha256": "68f096516119ed9e97b15f257cc811d13c3cf72dbd79f89f37e3d0e90430db5b"
+    },
+    "duplicate-identities-1024": {
+      "bytes": 91183,
+      "sha256": "3b01b58e63786875ccd50e985da1ef2e59d34941722f488743edc406613762cf"
+    },
+    "duplicate-identities-4096": {
+      "bytes": 364591,
+      "sha256": "77c72addb62cc34aa09cf3a3a35c726eaa0c6d438fb13bd36e96e04f78048eb2"
+    },
+    "aliases-1024": {
+      "bytes": 105338,
+      "sha256": "219b4cfc94f3f6afab82d42d293a774628b7e15900306e5c0f7139e29a3adc62"
+    },
+    "aliases-4096": {
+      "bytes": 427898,
+      "sha256": "310a55f42e57487e57caa23611d345137ccb99cad775f1c39656bd0a9624522f"
+    },
+    "separators-512": {
+      "bytes": 9831,
+      "sha256": "c1179fd8ebb74f7ba5d8d7cbd6faca46b78185907ffdbad0cc7ed3d73c01b6ae"
+    },
+    "separators-2048": {
+      "bytes": 39015,
+      "sha256": "a248f5f184ecfa2b07fd1a6d01132f2b39bb4e237e02db0b38686edadadc5896"
+    },
+    "normal-256": {
+      "bytes": 27279,
+      "sha256": "ab1e5553134f36def6c412902f1f8ffb5bb39016c378bfba35a00b0864225b0f"
+    },
+    "normal-1024": {
+      "bytes": 111135,
+      "sha256": "46a2756040754206efce09058c748ad5eda6e2e6776c3dcd139bf7576faeaa51"
+    },
+    "ordinary-256": {
+      "bytes": 18688,
+      "sha256": "fedd6a44eb7a7182f2d221c4681994c9c252047aeebc07a6d5be33aaa9c09c44"
+    },
+    "ordinary-1024": {
+      "bytes": 74752,
+      "sha256": "17eaea28d72cc91500494905e60ce11ac75fe977daf4fcdf63b53bb56d08ea04"
+    }
+  },
+  "probes": {
+    "js": "5fecba86478dcf799600eb4e6c5d51e150d016a649bfd4330437535a643f98ed",
+    "php": "b5f3cde0bfaa03f023c73083899b10b2c88014f77ec8ff32e31131ba550686f0",
+    "rs": "bb1318c9d449bb7b02201eddff404d0f3a84d138b35d84c834c6c77ab959d9a8"
+  },
+  "revisions": {
+    "php": {
+      "before": {
+        "base": "a082ae633fe962edb3b39baf7d44e5072c3941f8",
+        "files": {
+          "src/Converter/HtmlToCarve.php": "91e4038836062e1149c0967ac0c88092dbb7b6222b6260a11e48381b5eba037e"
+        }
+      },
+      "after": {
+        "base": "a082ae633fe962edb3b39baf7d44e5072c3941f8",
+        "files": {
+          "src/Converter/HtmlToCarve.php": "8a8f6fcb1b5fa8e6f0d6603d513cedae7823b001e467e1a19e48155fdb4f9990"
+        }
+      }
+    }
+  },
+  "points": [
+    {
+      "n": 1024,
+      "bytes": 53358,
+      "api": "carve",
+      "samples": [
+        194.668461,
+        186.595475,
+        182.246352
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-class",
+      "round": 0,
+      "load_start": [
+        12.748046875,
+        8.77734375,
+        10.66162109375
+      ],
+      "load_end": [
+        12.60791015625,
+        8.814453125,
+        10.66357421875
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 213102,
+      "api": "carve",
+      "samples": [
+        1528.746533,
+        1663.824777,
+        1593.077144
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-class",
+      "round": 0,
+      "load_start": [
+        12.748046875,
+        8.77734375,
+        10.66162109375
+      ],
+      "load_end": [
+        12.60791015625,
+        8.814453125,
+        10.66357421875
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 53339,
+      "api": "carve",
+      "samples": [
+        242.45991,
+        254.103267,
+        278.624063
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-ref-class",
+      "round": 0,
+      "load_start": [
+        12.40869140625,
+        8.90185546875,
+        10.67236328125
+      ],
+      "load_end": [
+        11.505859375,
+        8.8740234375,
+        10.6337890625
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 213083,
+      "api": "carve",
+      "samples": [
+        2751.600062,
+        2634.072838,
+        2770.820483
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-ref-class",
+      "round": 0,
+      "load_start": [
+        12.40869140625,
+        8.90185546875,
+        10.67236328125
+      ],
+      "load_end": [
+        11.505859375,
+        8.8740234375,
+        10.6337890625
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 101256,
+      "api": "carve",
+      "samples": [
+        321.238877,
+        306.575422,
+        306.606231
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backs",
+      "round": 0,
+      "load_start": [
+        10.86376953125,
+        8.86328125,
+        10.6025390625
+      ],
+      "load_end": [
+        9.31884765625,
+        8.623046875,
+        10.49609375
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 411528,
+      "api": "carve",
+      "samples": [
+        3339.458844,
+        3348.743718,
+        3233.073916
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backs",
+      "round": 0,
+      "load_start": [
+        10.86376953125,
+        8.86328125,
+        10.6025390625
+      ],
+      "load_end": [
+        9.31884765625,
+        8.623046875,
+        10.49609375
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 115592,
+      "api": "carve",
+      "samples": [
+        313.270614,
+        320.890711,
+        310.374215
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backparents",
+      "round": 0,
+      "load_start": [
+        8.84716796875,
+        8.53857421875,
+        10.40625
+      ],
+      "load_end": [
+        8.52685546875,
+        8.48681640625,
+        10.3486328125
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 468872,
+      "api": "carve",
+      "samples": [
+        4394.569362,
+        5990.023539,
+        4187.774367
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backparents",
+      "round": 0,
+      "load_start": [
+        8.84716796875,
+        8.53857421875,
+        10.40625
+      ],
+      "load_end": [
+        8.52685546875,
+        8.48681640625,
+        10.3486328125
+      ]
+    },
+    {
+      "n": 2048,
+      "bytes": 132992,
+      "api": "ast",
+      "samples": [
+        1040.61415,
+        1096.085987,
+        1121.984893
+      ],
+      "hashes": [
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "wrapper",
+      "round": 0,
+      "load_start": [
+        8.2919921875,
+        8.4208984375,
+        10.23681640625
+      ],
+      "load_end": [
+        7.79638671875,
+        8.30615234375,
+        10.09423828125
+      ]
+    },
+    {
+      "n": 8192,
+      "bytes": 538496,
+      "api": "ast",
+      "samples": [
+        11865.337311,
+        12947.03445,
+        12699.673095
+      ],
+      "hashes": [
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "wrapper",
+      "round": 0,
+      "load_start": [
+        8.2919921875,
+        8.4208984375,
+        10.23681640625
+      ],
+      "load_end": [
+        7.79638671875,
+        8.30615234375,
+        10.09423828125
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 92032,
+      "api": "ast",
+      "samples": [
+        371.892816,
+        341.721851,
+        390.228171
+      ],
+      "hashes": [
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "containers-layout",
+      "round": 0,
+      "load_start": [
+        6.63671875,
+        7.9306640625,
+        9.89892578125
+      ],
+      "load_end": [
+        6.544921875,
+        7.85107421875,
+        9.84130859375
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 374656,
+      "api": "ast",
+      "samples": [
+        3531.234327,
+        3494.361011,
+        3524.027397
+      ],
+      "hashes": [
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "containers-layout",
+      "round": 0,
+      "load_start": [
+        6.63671875,
+        7.9306640625,
+        9.89892578125
+      ],
+      "load_end": [
+        6.544921875,
+        7.85107421875,
+        9.84130859375
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 91183,
+      "api": "carve",
+      "samples": [
+        251.975718,
+        265.297456,
+        270.993493
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "duplicate-identities",
+      "round": 0,
+      "load_start": [
+        6.43701171875,
+        7.7333984375,
+        9.7587890625
+      ],
+      "load_end": [
+        5.53955078125,
+        7.46875,
+        9.63916015625
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 364591,
+      "api": "carve",
+      "samples": [
+        3043.425981,
+        2982.063109,
+        3104.802134
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "duplicate-identities",
+      "round": 0,
+      "load_start": [
+        6.43701171875,
+        7.7333984375,
+        9.7587890625
+      ],
+      "load_end": [
+        5.53955078125,
+        7.46875,
+        9.63916015625
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 105338,
+      "api": "carve",
+      "samples": [
+        120.309123,
+        119.442535,
+        135.518091
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "aliases",
+      "round": 0,
+      "load_start": [
+        5.42724609375,
+        7.34716796875,
+        9.56396484375
+      ],
+      "load_end": [
+        5.42724609375,
+        7.34716796875,
+        9.56396484375
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 427898,
+      "api": "carve",
+      "samples": [
+        610.886891,
+        641.382515,
+        627.239416
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "aliases",
+      "round": 0,
+      "load_start": [
+        5.42724609375,
+        7.34716796875,
+        9.56396484375
+      ],
+      "load_end": [
+        5.42724609375,
+        7.34716796875,
+        9.56396484375
+      ]
+    },
+    {
+      "n": 512,
+      "bytes": 9831,
+      "api": "ast",
+      "samples": [
+        34.272321,
+        33.534466,
+        36.096672
+      ],
+      "hashes": [
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "separators",
+      "round": 0,
+      "load_start": [
+        5.71337890625,
+        7.375,
+        9.560546875
+      ],
+      "load_end": [
+        5.576171875,
+        7.31884765625,
+        9.5302734375
+      ]
+    },
+    {
+      "n": 2048,
+      "bytes": 39015,
+      "api": "ast",
+      "samples": [
+        501.10863,
+        500.133213,
+        482.005923
+      ],
+      "hashes": [
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "separators",
+      "round": 0,
+      "load_start": [
+        5.71337890625,
+        7.375,
+        9.560546875
+      ],
+      "load_end": [
+        5.576171875,
+        7.31884765625,
+        9.5302734375
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 213102,
+      "api": "carve",
+      "samples": [
+        1602.169113,
+        1530.081821,
+        1655.565984
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-class",
+      "round": 1,
+      "load_start": [
+        6.7509765625,
+        7.26416015625,
+        9.1884765625
+      ],
+      "load_end": [
+        6.6904296875,
+        7.2431640625,
+        9.1708984375
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 53358,
+      "api": "carve",
+      "samples": [
+        183.251334,
+        203.948269,
+        227.914824
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-class",
+      "round": 1,
+      "load_start": [
+        6.7509765625,
+        7.26416015625,
+        9.1884765625
+      ],
+      "load_end": [
+        6.6904296875,
+        7.2431640625,
+        9.1708984375
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 213083,
+      "api": "carve",
+      "samples": [
+        2593.843468,
+        2576.95804,
+        2755.822986
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-ref-class",
+      "round": 1,
+      "load_start": [
+        9.7099609375,
+        7.884765625,
+        9.3505859375
+      ],
+      "load_end": [
+        9.078125,
+        7.806640625,
+        9.30908203125
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 53339,
+      "api": "carve",
+      "samples": [
+        243.653427,
+        254.168396,
+        260.774366
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "long-inverse-ref-class",
+      "round": 1,
+      "load_start": [
+        9.7099609375,
+        7.884765625,
+        9.3505859375
+      ],
+      "load_end": [
+        9.078125,
+        7.806640625,
+        9.30908203125
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 411528,
+      "api": "carve",
+      "samples": [
+        3959.894121,
+        3398.2499,
+        3518.19812
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backs",
+      "round": 1,
+      "load_start": [
+        8.408203125,
+        7.75048828125,
+        9.2587890625
+      ],
+      "load_end": [
+        7.69580078125,
+        7.63037109375,
+        9.1953125
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 101256,
+      "api": "carve",
+      "samples": [
+        294.84124,
+        291.061267,
+        300.014144
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backs",
+      "round": 1,
+      "load_start": [
+        8.408203125,
+        7.75048828125,
+        9.2587890625
+      ],
+      "load_end": [
+        7.69580078125,
+        7.63037109375,
+        9.1953125
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 468872,
+      "api": "carve",
+      "samples": [
+        4576.541331,
+        4891.814426,
+        4452.532226
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backparents",
+      "round": 1,
+      "load_start": [
+        6.81005859375,
+        7.42431640625,
+        9.07568359375
+      ],
+      "load_end": [
+        6.8017578125,
+        7.38037109375,
+        9.02587890625
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 115592,
+      "api": "carve",
+      "samples": [
+        322.236583,
+        319.359999,
+        328.649997
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "backparents",
+      "round": 1,
+      "load_start": [
+        6.81005859375,
+        7.42431640625,
+        9.07568359375
+      ],
+      "load_end": [
+        6.8017578125,
+        7.38037109375,
+        9.02587890625
+      ]
+    },
+    {
+      "n": 8192,
+      "bytes": 538496,
+      "api": "ast",
+      "samples": [
+        11507.816824,
+        11002.630245,
+        12812.477818
+      ],
+      "hashes": [
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "wrapper",
+      "round": 1,
+      "load_start": [
+        6.2216796875,
+        7.1708984375,
+        8.86962890625
+      ],
+      "load_end": [
+        6.1533203125,
+        7.0,
+        8.71240234375
+      ]
+    },
+    {
+      "n": 2048,
+      "bytes": 132992,
+      "api": "ast",
+      "samples": [
+        1180.817298,
+        1191.246065,
+        1199.646692
+      ],
+      "hashes": [
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "wrapper",
+      "round": 1,
+      "load_start": [
+        6.2216796875,
+        7.1708984375,
+        8.86962890625
+      ],
+      "load_end": [
+        6.1533203125,
+        7.0,
+        8.71240234375
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 374656,
+      "api": "ast",
+      "samples": [
+        2753.996523,
+        2810.505707,
+        2772.704883
+      ],
+      "hashes": [
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "containers-layout",
+      "round": 1,
+      "load_start": [
+        6.08251953125,
+        6.91943359375,
+        8.64013671875
+      ],
+      "load_end": [
+        5.8486328125,
+        6.82470703125,
+        8.5810546875
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 92032,
+      "api": "ast",
+      "samples": [
+        322.850287,
+        342.641031,
+        342.820562
+      ],
+      "hashes": [
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "containers-layout",
+      "round": 1,
+      "load_start": [
+        6.08251953125,
+        6.91943359375,
+        8.64013671875
+      ],
+      "load_end": [
+        5.8486328125,
+        6.82470703125,
+        8.5810546875
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 364591,
+      "api": "carve",
+      "samples": [
+        2804.012066,
+        2879.910386,
+        2934.467408
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "duplicate-identities",
+      "round": 1,
+      "load_start": [
+        5.9560546875,
+        6.80029296875,
+        8.5439453125
+      ],
+      "load_end": [
+        6.24853515625,
+        6.82568359375,
+        8.52490234375
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 91183,
+      "api": "carve",
+      "samples": [
+        271.351868,
+        261.204758,
+        300.498115
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "duplicate-identities",
+      "round": 1,
+      "load_start": [
+        5.9560546875,
+        6.80029296875,
+        8.5439453125
+      ],
+      "load_end": [
+        6.24853515625,
+        6.82568359375,
+        8.52490234375
+      ]
+    },
+    {
+      "n": 4096,
+      "bytes": 427898,
+      "api": "carve",
+      "samples": [
+        620.254124,
+        614.642676,
+        671.212903
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "aliases",
+      "round": 1,
+      "load_start": [
+        6.03271484375,
+        6.75146484375,
+        8.47314453125
+      ],
+      "load_end": [
+        6.02978515625,
+        6.73876953125,
+        8.45947265625
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 105338,
+      "api": "carve",
+      "samples": [
+        127.393458,
+        145.234692,
+        128.351532
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "aliases",
+      "round": 1,
+      "load_start": [
+        6.03271484375,
+        6.75146484375,
+        8.47314453125
+      ],
+      "load_end": [
+        6.02978515625,
+        6.73876953125,
+        8.45947265625
+      ]
+    },
+    {
+      "n": 2048,
+      "bytes": 39015,
+      "api": "ast",
+      "samples": [
+        509.932357,
+        520.116747,
+        502.941302
+      ],
+      "hashes": [
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "separators",
+      "round": 1,
+      "load_start": [
+        6.02978515625,
+        6.73876953125,
+        8.45947265625
+      ],
+      "load_end": [
+        6.02978515625,
+        6.73876953125,
+        8.45947265625
+      ]
+    },
+    {
+      "n": 512,
+      "bytes": 9831,
+      "api": "ast",
+      "samples": [
+        35.599619,
+        35.296963,
+        34.880049
+      ],
+      "hashes": [
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "separators",
+      "round": 1,
+      "load_start": [
+        6.02978515625,
+        6.73876953125,
+        8.45947265625
+      ],
+      "load_end": [
+        6.02978515625,
+        6.73876953125,
+        8.45947265625
+      ]
+    },
+    {
+      "n": 1024,
+      "bytes": 53358,
+      "api": "carve",
+      "samples": [
+        116.838091,
+        113.556957,
+        113.411531
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-class",
+      "round": 0,
+      "load_start": [
+        6.74072265625,
+        5.81103515625,
+        6.9228515625
+      ],
+      "load_end": [
+        6.74072265625,
+        5.81103515625,
+        6.9228515625
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 213102,
+      "api": "carve",
+      "samples": [
+        556.311773,
+        537.344041,
+        1023.076087
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-class",
+      "round": 0,
+      "load_start": [
+        6.74072265625,
+        5.81103515625,
+        6.9228515625
+      ],
+      "load_end": [
+        6.74072265625,
+        5.81103515625,
+        6.9228515625
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 53339,
+      "api": "carve",
+      "samples": [
+        236.809668,
+        192.000833,
+        136.81297
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-ref-class",
+      "round": 0,
+      "load_start": [
+        6.74072265625,
+        5.81103515625,
+        6.9228515625
+      ],
+      "load_end": [
+        6.60107421875,
+        5.79736328125,
+        6.912109375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 213083,
+      "api": "carve",
+      "samples": [
+        667.020843,
+        617.834463,
+        652.719417
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-ref-class",
+      "round": 0,
+      "load_start": [
+        6.74072265625,
+        5.81103515625,
+        6.9228515625
+      ],
+      "load_end": [
+        6.60107421875,
+        5.79736328125,
+        6.912109375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 101256,
+      "api": "carve",
+      "samples": [
+        129.539263,
+        145.099084,
+        157.037975
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backs",
+      "round": 0,
+      "load_start": [
+        6.60107421875,
+        5.79736328125,
+        6.912109375
+      ],
+      "load_end": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 411528,
+      "api": "carve",
+      "samples": [
+        588.151701,
+        631.263004,
+        609.398228
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backs",
+      "round": 0,
+      "load_start": [
+        6.60107421875,
+        5.79736328125,
+        6.912109375
+      ],
+      "load_end": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 115592,
+      "api": "carve",
+      "samples": [
+        139.456596,
+        128.255175,
+        138.259202
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backparents",
+      "round": 0,
+      "load_start": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "load_end": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 468872,
+      "api": "carve",
+      "samples": [
+        667.433598,
+        760.987251,
+        676.726727
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backparents",
+      "round": 0,
+      "load_start": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "load_end": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 2048,
+      "bytes": 132992,
+      "api": "ast",
+      "samples": [
+        503.211056,
+        490.702525,
+        473.062252
+      ],
+      "hashes": [
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "wrapper",
+      "round": 0,
+      "load_start": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "load_end": [
+        8.06298828125,
+        6.1708984375,
+        7.0107421875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 8192,
+      "bytes": 538496,
+      "api": "ast",
+      "samples": [
+        2279.109576,
+        2373.956864,
+        3117.109224
+      ],
+      "hashes": [
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "wrapper",
+      "round": 0,
+      "load_start": [
+        6.71337890625,
+        5.833984375,
+        6.91796875
+      ],
+      "load_end": [
+        8.06298828125,
+        6.1708984375,
+        7.0107421875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 92032,
+      "api": "ast",
+      "samples": [
+        327.395642,
+        395.890633,
+        402.849705
+      ],
+      "hashes": [
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "containers-layout",
+      "round": 0,
+      "load_start": [
+        8.06298828125,
+        6.1708984375,
+        7.0107421875
+      ],
+      "load_end": [
+        9.25927734375,
+        6.45068359375,
+        7.0966796875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 374656,
+      "api": "ast",
+      "samples": [
+        1564.96899,
+        1642.448511,
+        1674.306471
+      ],
+      "hashes": [
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "containers-layout",
+      "round": 0,
+      "load_start": [
+        8.06298828125,
+        6.1708984375,
+        7.0107421875
+      ],
+      "load_end": [
+        9.25927734375,
+        6.45068359375,
+        7.0966796875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 91183,
+      "api": "carve",
+      "samples": [
+        179.561125,
+        178.447059,
+        193.381864
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "duplicate-identities",
+      "round": 0,
+      "load_start": [
+        9.25927734375,
+        6.45068359375,
+        7.0966796875
+      ],
+      "load_end": [
+        11.86572265625,
+        7.09619140625,
+        7.2998046875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 364591,
+      "api": "carve",
+      "samples": [
+        1213.539437,
+        1742.046567,
+        1466.09615
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "duplicate-identities",
+      "round": 0,
+      "load_start": [
+        9.25927734375,
+        6.45068359375,
+        7.0966796875
+      ],
+      "load_end": [
+        11.86572265625,
+        7.09619140625,
+        7.2998046875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 105338,
+      "api": "carve",
+      "samples": [
+        201.911666,
+        257.503014,
+        250.36851
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "aliases",
+      "round": 0,
+      "load_start": [
+        11.86572265625,
+        7.09619140625,
+        7.2998046875
+      ],
+      "load_end": [
+        13.318359375,
+        7.4765625,
+        7.421875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 427898,
+      "api": "carve",
+      "samples": [
+        982.858018,
+        963.507937,
+        972.377173
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "aliases",
+      "round": 0,
+      "load_start": [
+        11.86572265625,
+        7.09619140625,
+        7.2998046875
+      ],
+      "load_end": [
+        13.318359375,
+        7.4765625,
+        7.421875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 512,
+      "bytes": 9831,
+      "api": "ast",
+      "samples": [
+        5.345676,
+        5.255145,
+        5.05826
+      ],
+      "hashes": [
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "separators",
+      "round": 0,
+      "load_start": [
+        13.318359375,
+        7.4765625,
+        7.421875
+      ],
+      "load_end": [
+        13.318359375,
+        7.4765625,
+        7.421875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 2048,
+      "bytes": 39015,
+      "api": "ast",
+      "samples": [
+        16.880432,
+        16.784869,
+        18.617321
+      ],
+      "hashes": [
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "separators",
+      "round": 0,
+      "load_start": [
+        13.318359375,
+        7.4765625,
+        7.421875
+      ],
+      "load_end": [
+        13.318359375,
+        7.4765625,
+        7.421875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 213102,
+      "api": "carve",
+      "samples": [
+        679.071302,
+        709.35987,
+        618.404179
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-class",
+      "round": 1,
+      "load_start": [
+        17.056640625,
+        8.3486328125,
+        7.70458984375
+      ],
+      "load_end": [
+        17.53271484375,
+        8.59228515625,
+        7.787109375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 53358,
+      "api": "carve",
+      "samples": [
+        160.331688,
+        208.563037,
+        186.433452
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-class",
+      "round": 1,
+      "load_start": [
+        17.056640625,
+        8.3486328125,
+        7.70458984375
+      ],
+      "load_end": [
+        17.53271484375,
+        8.59228515625,
+        7.787109375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 213083,
+      "api": "carve",
+      "samples": [
+        819.816698,
+        681.972216,
+        838.984864
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-ref-class",
+      "round": 1,
+      "load_start": [
+        17.53271484375,
+        8.59228515625,
+        7.787109375
+      ],
+      "load_end": [
+        18.130859375,
+        8.86474609375,
+        7.8798828125
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 53339,
+      "api": "carve",
+      "samples": [
+        172.674232,
+        271.205773,
+        191.003208
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "long-inverse-ref-class",
+      "round": 1,
+      "load_start": [
+        17.53271484375,
+        8.59228515625,
+        7.787109375
+      ],
+      "load_end": [
+        18.130859375,
+        8.86474609375,
+        7.8798828125
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 411528,
+      "api": "carve",
+      "samples": [
+        675.462558,
+        721.094671,
+        875.987103
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backs",
+      "round": 1,
+      "load_start": [
+        18.130859375,
+        8.86474609375,
+        7.8798828125
+      ],
+      "load_end": [
+        17.6396484375,
+        8.9169921875,
+        7.90234375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 101256,
+      "api": "carve",
+      "samples": [
+        211.178284,
+        198.972743,
+        249.946875
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backs",
+      "round": 1,
+      "load_start": [
+        18.130859375,
+        8.86474609375,
+        7.8798828125
+      ],
+      "load_end": [
+        17.6396484375,
+        8.9169921875,
+        7.90234375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 468872,
+      "api": "carve",
+      "samples": [
+        1449.424806,
+        1095.318288,
+        1020.400666
+      ],
+      "hashes": [
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94",
+        "a903c7a106c79deb87210f0c9f2792803acb997a52efce1fa5a98cd1c409fc94"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backparents",
+      "round": 1,
+      "load_start": [
+        17.6396484375,
+        8.9169921875,
+        7.90234375
+      ],
+      "load_end": [
+        18.5498046875,
+        9.25048828125,
+        8.01611328125
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 115592,
+      "api": "carve",
+      "samples": [
+        178.833382,
+        159.340915,
+        179.347489
+      ],
+      "hashes": [
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79",
+        "4a291b13a8afecd5584e9c36d485832bea328bbe2b720b70e20088c969577e79"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "backparents",
+      "round": 1,
+      "load_start": [
+        17.6396484375,
+        8.9169921875,
+        7.90234375
+      ],
+      "load_end": [
+        18.5498046875,
+        9.25048828125,
+        8.01611328125
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 8192,
+      "bytes": 538496,
+      "api": "ast",
+      "samples": [
+        2473.862912,
+        2996.7776,
+        2965.149391
+      ],
+      "hashes": [
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f",
+        "6b86049e6c10fc408efa40a0be72ab5d8724c83cd6ca2e99fab526533c09dc6f"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "wrapper",
+      "round": 1,
+      "load_start": [
+        18.5498046875,
+        9.25048828125,
+        8.01611328125
+      ],
+      "load_end": [
+        18.0673828125,
+        9.59814453125,
+        8.14990234375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 2048,
+      "bytes": 132992,
+      "api": "ast",
+      "samples": [
+        658.930073,
+        654.197653,
+        713.140483
+      ],
+      "hashes": [
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e",
+        "3e1cf985f6522c0348313ae7ecd6b367c6ae22c06c12dca58967f136be1c263e"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "wrapper",
+      "round": 1,
+      "load_start": [
+        18.5498046875,
+        9.25048828125,
+        8.01611328125
+      ],
+      "load_end": [
+        18.0673828125,
+        9.59814453125,
+        8.14990234375
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 374656,
+      "api": "ast",
+      "samples": [
+        1260.818792,
+        1339.756721,
+        1335.869712
+      ],
+      "hashes": [
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb",
+        "a24693086eb061f2d6481dd42adc36cbdd9fd75a50db37989616be35fa5ddffb"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "containers-layout",
+      "round": 1,
+      "load_start": [
+        18.0673828125,
+        9.59814453125,
+        8.14990234375
+      ],
+      "load_end": [
+        17.9013671875,
+        9.70458984375,
+        8.1923828125
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 92032,
+      "api": "ast",
+      "samples": [
+        412.524992,
+        372.501763,
+        421.602832
+      ],
+      "hashes": [
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24",
+        "971cec6024d69d6557eac303aabdd707a26b3d6d98a07e37adcb5a7c319a7e24"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "containers-layout",
+      "round": 1,
+      "load_start": [
+        18.0673828125,
+        9.59814453125,
+        8.14990234375
+      ],
+      "load_end": [
+        17.9013671875,
+        9.70458984375,
+        8.1923828125
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 364591,
+      "api": "carve",
+      "samples": [
+        807.743618,
+        757.512614,
+        708.283294
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "duplicate-identities",
+      "round": 1,
+      "load_start": [
+        17.9013671875,
+        9.70458984375,
+        8.1923828125
+      ],
+      "load_end": [
+        17.90966796875,
+        9.8427734375,
+        8.2451171875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 91183,
+      "api": "carve",
+      "samples": [
+        149.851972,
+        183.207212,
+        157.620964
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "duplicate-identities",
+      "round": 1,
+      "load_start": [
+        17.9013671875,
+        9.70458984375,
+        8.1923828125
+      ],
+      "load_end": [
+        17.90966796875,
+        9.8427734375,
+        8.2451171875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 4096,
+      "bytes": 427898,
+      "api": "carve",
+      "samples": [
+        902.957613,
+        765.678124,
+        766.149462
+      ],
+      "hashes": [
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608",
+        "2896ce7c1204153fb22d839ec3d79f5d31d25ce9a8c770ae332b4097fb6b2608"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "aliases",
+      "round": 1,
+      "load_start": [
+        17.90966796875,
+        9.8427734375,
+        8.2451171875
+      ],
+      "load_end": [
+        17.19580078125,
+        9.82861328125,
+        8.24951171875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 1024,
+      "bytes": 105338,
+      "api": "carve",
+      "samples": [
+        183.645357,
+        166.07469,
+        151.053748
+      ],
+      "hashes": [
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d",
+        "cbf502dc7e5ea4f8bf99a626f5cc1f2d37aa55593019986b55d1694ccb42707d"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "aliases",
+      "round": 1,
+      "load_start": [
+        17.90966796875,
+        9.8427734375,
+        8.2451171875
+      ],
+      "load_end": [
+        17.19580078125,
+        9.82861328125,
+        8.24951171875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 2048,
+      "bytes": 39015,
+      "api": "ast",
+      "samples": [
+        14.951311,
+        17.994282,
+        11.977119
+      ],
+      "hashes": [
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153",
+        "883eb3db82d7083a019485d9c87b9d7c3c4d42dd0fa96e066c99e12aa53b3153"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "separators",
+      "round": 1,
+      "load_start": [
+        17.19580078125,
+        9.82861328125,
+        8.24951171875
+      ],
+      "load_end": [
+        17.19580078125,
+        9.82861328125,
+        8.24951171875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 512,
+      "bytes": 9831,
+      "api": "ast",
+      "samples": [
+        4.914278,
+        4.963602,
+        3.482717
+      ],
+      "hashes": [
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263",
+        "16ee7946cf404f5ad23a3e2a3d9adfe7e804b21549e1288a345f47d064e86263"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "separators",
+      "round": 1,
+      "load_start": [
+        17.19580078125,
+        9.82861328125,
+        8.24951171875
+      ],
+      "load_end": [
+        17.19580078125,
+        9.82861328125,
+        8.24951171875
+      ],
+      "phase": "subclass_guard_refresh"
+    },
+    {
+      "n": 256,
+      "bytes": 27279,
+      "api": "carve",
+      "samples": [
+        252.318857,
+        473.024001,
+        323.546463
+      ],
+      "hashes": [
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "normal",
+      "round": 0,
+      "load_start": [
+        14.51171875,
+        9.138671875,
+        8.419921875
+      ],
+      "load_end": [
+        19.0107421875,
+        10.2724609375,
+        8.79638671875
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 111135,
+      "api": "carve",
+      "samples": [
+        1023.62839,
+        1157.538028,
+        1076.455232
+      ],
+      "hashes": [
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "normal",
+      "round": 0,
+      "load_start": [
+        14.51171875,
+        9.138671875,
+        8.419921875
+      ],
+      "load_end": [
+        19.0107421875,
+        10.2724609375,
+        8.79638671875
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 256,
+      "bytes": 27279,
+      "api": "carve",
+      "samples": [
+        352.737843,
+        269.257718,
+        206.048005
+      ],
+      "hashes": [
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "normal",
+      "round": 0,
+      "load_start": [
+        19.0107421875,
+        10.2724609375,
+        8.79638671875
+      ],
+      "load_end": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 111135,
+      "api": "carve",
+      "samples": [
+        1244.968704,
+        962.664158,
+        751.921947
+      ],
+      "hashes": [
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "normal",
+      "round": 0,
+      "load_start": [
+        19.0107421875,
+        10.2724609375,
+        8.79638671875
+      ],
+      "load_end": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 256,
+      "bytes": 18688,
+      "api": "carve",
+      "samples": [
+        99.76915,
+        99.826147,
+        104.753257
+      ],
+      "hashes": [
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "ordinary",
+      "round": 0,
+      "load_start": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "load_end": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 74752,
+      "api": "carve",
+      "samples": [
+        516.515116,
+        550.460503,
+        523.436508
+      ],
+      "hashes": [
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "ordinary",
+      "round": 0,
+      "load_start": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "load_end": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 256,
+      "bytes": 18688,
+      "api": "carve",
+      "samples": [
+        106.64806,
+        117.346543,
+        117.334119
+      ],
+      "hashes": [
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "ordinary",
+      "round": 0,
+      "load_start": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "load_end": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 74752,
+      "api": "carve",
+      "samples": [
+        640.547905,
+        604.015931,
+        623.294289
+      ],
+      "hashes": [
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "ordinary",
+      "round": 0,
+      "load_start": [
+        19.81103515625,
+        10.58349609375,
+        8.9052734375
+      ],
+      "load_end": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 111135,
+      "api": "carve",
+      "samples": [
+        487.71174,
+        518.79705,
+        501.558942
+      ],
+      "hashes": [
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "normal",
+      "round": 1,
+      "load_start": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "load_end": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 256,
+      "bytes": 27279,
+      "api": "carve",
+      "samples": [
+        103.320744,
+        101.698479,
+        102.447584
+      ],
+      "hashes": [
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "normal",
+      "round": 1,
+      "load_start": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "load_end": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 111135,
+      "api": "carve",
+      "samples": [
+        441.927293,
+        491.716568,
+        497.471771
+      ],
+      "hashes": [
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+        "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "normal",
+      "round": 1,
+      "load_start": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "load_end": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 256,
+      "bytes": 27279,
+      "api": "carve",
+      "samples": [
+        111.398815,
+        106.044323,
+        105.376653
+      ],
+      "hashes": [
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+        "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "normal",
+      "round": 1,
+      "load_start": [
+        18.38427734375,
+        10.44091796875,
+        8.8681640625
+      ],
+      "load_end": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 74752,
+      "api": "carve",
+      "samples": [
+        476.013439,
+        553.233334,
+        530.162054
+      ],
+      "hashes": [
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "ordinary",
+      "round": 1,
+      "load_start": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "load_end": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 256,
+      "bytes": 18688,
+      "api": "carve",
+      "samples": [
+        144.863168,
+        133.584912,
+        126.300351
+      ],
+      "hashes": [
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+      ],
+      "engine": "php",
+      "variant": "after",
+      "shape": "ordinary",
+      "round": 1,
+      "load_start": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "load_end": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 1024,
+      "bytes": 74752,
+      "api": "carve",
+      "samples": [
+        520.497127,
+        498.640658,
+        475.010505
+      ],
+      "hashes": [
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+        "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "ordinary",
+      "round": 1,
+      "load_start": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "load_end": [
+        16.091796875,
+        10.2119140625,
+        8.81005859375
+      ],
+      "phase": "paired_control_repeat"
+    },
+    {
+      "n": 256,
+      "bytes": 18688,
+      "api": "carve",
+      "samples": [
+        118.941418,
+        106.728194,
+        106.333403
+      ],
+      "hashes": [
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+        "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+      ],
+      "engine": "php",
+      "variant": "before",
+      "shape": "ordinary",
+      "round": 1,
+      "load_start": [
+        17.23193359375,
+        10.333984375,
+        8.841796875
+      ],
+      "load_end": [
+        16.091796875,
+        10.2119140625,
+        8.81005859375
+      ],
+      "phase": "paired_control_repeat"
+    }
+  ],
+  "runtimes": {
+    "node": "v22.22.2",
+    "php": "PHP 8.5.11 (cli) (built: Sep 24 2026 13:49:29) (NTS)",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)"
+  },
+  "php_options": [
+    "pcov.enabled=0",
+    "xdebug.mode=off",
+    "default CLI opcache/JIT settings"
+  ],
+  "cpu_model": "AMD Ryzen 9 PRO 7940HS w/ Radeon 780M Graphics",
+  "finished_at": "2026-10-08T01:53:07Z",
+  "php_after_refresh": {
+    "reason": "Added hasClass/getElementClassList to the subclass backlink-cleanup fallback gate; reran every PHP candidate size with the same warmup and sample counts in both size orders. Base-class eligibility is unchanged. Original before samples retained.",
+    "started_at": "2026-10-08T01:42:25Z",
+    "previous_source_sha256": "758bb8a4a2ef3920f38fa13b2721c6f2951379f9fe6c7031eb7758a3f5736767",
+    "finished_at": "2026-10-08T01:44:12Z"
+  },
+  "php_control_repeat": {
+    "reason": "PHP after-refresh ordinary samples ran at higher host load than the original before samples; repeated both revisions together, retaining all samples from both size/revision orders.",
+    "started_at": "2026-10-08T01:52:39Z",
+    "superseded_points": [
+      {
+        "n": 256,
+        "bytes": 27279,
+        "api": "carve",
+        "samples": [
+          99.654723,
+          105.824743,
+          105.293393
+        ],
+        "hashes": [
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "normal",
+        "round": 0,
+        "load_start": [
+          7.26171875,
+          7.47705078125,
+          9.41455078125
+        ],
+        "load_end": [
+          7.4013671875,
+          7.50244140625,
+          9.412109375
+        ]
+      },
+      {
+        "n": 1024,
+        "bytes": 111135,
+        "api": "carve",
+        "samples": [
+          636.12955,
+          581.51014,
+          725.655602
+        ],
+        "hashes": [
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "normal",
+        "round": 0,
+        "load_start": [
+          7.26171875,
+          7.47705078125,
+          9.41455078125
+        ],
+        "load_end": [
+          7.4013671875,
+          7.50244140625,
+          9.412109375
+        ]
+      },
+      {
+        "n": 256,
+        "bytes": 18688,
+        "api": "carve",
+        "samples": [
+          99.213254,
+          99.111029,
+          102.908897
+        ],
+        "hashes": [
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "ordinary",
+        "round": 0,
+        "load_start": [
+          7.68994140625,
+          7.560546875,
+          9.4208984375
+        ],
+        "load_end": [
+          7.63427734375,
+          7.55078125,
+          9.40771484375
+        ]
+      },
+      {
+        "n": 1024,
+        "bytes": 74752,
+        "api": "carve",
+        "samples": [
+          505.054094,
+          463.923852,
+          521.683437
+        ],
+        "hashes": [
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "ordinary",
+        "round": 0,
+        "load_start": [
+          7.68994140625,
+          7.560546875,
+          9.4208984375
+        ],
+        "load_end": [
+          7.63427734375,
+          7.55078125,
+          9.40771484375
+        ]
+      },
+      {
+        "n": 1024,
+        "bytes": 111135,
+        "api": "carve",
+        "samples": [
+          447.614201,
+          432.341156,
+          402.083348
+        ],
+        "hashes": [
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "normal",
+        "round": 1,
+        "load_start": [
+          7.06640625,
+          6.82275390625,
+          8.33203125
+        ],
+        "load_end": [
+          6.82080078125,
+          6.77587890625,
+          8.30859375
+        ]
+      },
+      {
+        "n": 256,
+        "bytes": 27279,
+        "api": "carve",
+        "samples": [
+          97.362655,
+          88.671076,
+          88.20845
+        ],
+        "hashes": [
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "normal",
+        "round": 1,
+        "load_start": [
+          7.06640625,
+          6.82275390625,
+          8.33203125
+        ],
+        "load_end": [
+          6.82080078125,
+          6.77587890625,
+          8.30859375
+        ]
+      },
+      {
+        "n": 1024,
+        "bytes": 74752,
+        "api": "carve",
+        "samples": [
+          473.258039,
+          448.663449,
+          490.248825
+        ],
+        "hashes": [
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "ordinary",
+        "round": 1,
+        "load_start": [
+          6.5146484375,
+          6.712890625,
+          8.27978515625
+        ],
+        "load_end": [
+          6.7138671875,
+          6.7509765625,
+          8.28369140625
+        ]
+      },
+      {
+        "n": 256,
+        "bytes": 18688,
+        "api": "carve",
+        "samples": [
+          102.299772,
+          93.035777,
+          95.739638
+        ],
+        "hashes": [
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+        ],
+        "engine": "php",
+        "variant": "before",
+        "shape": "ordinary",
+        "round": 1,
+        "load_start": [
+          6.5146484375,
+          6.712890625,
+          8.27978515625
+        ],
+        "load_end": [
+          6.7138671875,
+          6.7509765625,
+          8.28369140625
+        ]
+      },
+      {
+        "n": 256,
+        "bytes": 27279,
+        "api": "carve",
+        "samples": [
+          173.876104,
+          144.129697,
+          171.107764
+        ],
+        "hashes": [
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "normal",
+        "round": 0,
+        "load_start": [
+          13.318359375,
+          7.4765625,
+          7.421875
+        ],
+        "load_end": [
+          17.056640625,
+          8.3486328125,
+          7.70458984375
+        ],
+        "phase": "subclass_guard_refresh"
+      },
+      {
+        "n": 1024,
+        "bytes": 111135,
+        "api": "carve",
+        "samples": [
+          825.503675,
+          979.953745,
+          852.742743
+        ],
+        "hashes": [
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "normal",
+        "round": 0,
+        "load_start": [
+          13.318359375,
+          7.4765625,
+          7.421875
+        ],
+        "load_end": [
+          17.056640625,
+          8.3486328125,
+          7.70458984375
+        ],
+        "phase": "subclass_guard_refresh"
+      },
+      {
+        "n": 256,
+        "bytes": 18688,
+        "api": "carve",
+        "samples": [
+          129.895066,
+          119.477312,
+          126.282622
+        ],
+        "hashes": [
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "ordinary",
+        "round": 0,
+        "load_start": [
+          17.056640625,
+          8.3486328125,
+          7.70458984375
+        ],
+        "load_end": [
+          17.056640625,
+          8.3486328125,
+          7.70458984375
+        ],
+        "phase": "subclass_guard_refresh"
+      },
+      {
+        "n": 1024,
+        "bytes": 74752,
+        "api": "carve",
+        "samples": [
+          772.414511,
+          689.398406,
+          776.279208
+        ],
+        "hashes": [
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "ordinary",
+        "round": 0,
+        "load_start": [
+          17.056640625,
+          8.3486328125,
+          7.70458984375
+        ],
+        "load_end": [
+          17.056640625,
+          8.3486328125,
+          7.70458984375
+        ],
+        "phase": "subclass_guard_refresh"
+      },
+      {
+        "n": 1024,
+        "bytes": 111135,
+        "api": "carve",
+        "samples": [
+          571.129246,
+          739.369684,
+          617.331532
+        ],
+        "hashes": [
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364",
+          "a393eca8e480fee073c92388b8142fd5928ade520d4aacfee0ec30521c01c364"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "normal",
+        "round": 1,
+        "load_start": [
+          17.19580078125,
+          9.82861328125,
+          8.24951171875
+        ],
+        "load_end": [
+          17.19580078125,
+          9.82861328125,
+          8.24951171875
+        ],
+        "phase": "subclass_guard_refresh"
+      },
+      {
+        "n": 256,
+        "bytes": 27279,
+        "api": "carve",
+        "samples": [
+          119.331762,
+          116.449475,
+          137.324412
+        ],
+        "hashes": [
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8",
+          "b448948d79592e59886e3b16c700dc0372f7b2296c3f1ba334f436c3b86ce7a8"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "normal",
+        "round": 1,
+        "load_start": [
+          17.19580078125,
+          9.82861328125,
+          8.24951171875
+        ],
+        "load_end": [
+          17.19580078125,
+          9.82861328125,
+          8.24951171875
+        ],
+        "phase": "subclass_guard_refresh"
+      },
+      {
+        "n": 1024,
+        "bytes": 74752,
+        "api": "carve",
+        "samples": [
+          670.372514,
+          679.382517,
+          571.506333
+        ],
+        "hashes": [
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82",
+          "9cb89b627177e8e396fa1b1d64da4eb7010c6be488673c609c56c2e70eb2fb82"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "ordinary",
+        "round": 1,
+        "load_start": [
+          17.19580078125,
+          9.82861328125,
+          8.24951171875
+        ],
+        "load_end": [
+          16.69921875,
+          9.84814453125,
+          8.2646484375
+        ],
+        "phase": "subclass_guard_refresh"
+      },
+      {
+        "n": 256,
+        "bytes": 18688,
+        "api": "carve",
+        "samples": [
+          100.313946,
+          101.668831,
+          105.619698
+        ],
+        "hashes": [
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a",
+          "fe0f3795c9639824e47b9e3dde2654f88e36304341297a6fe618c939be60c00a"
+        ],
+        "engine": "php",
+        "variant": "after",
+        "shape": "ordinary",
+        "round": 1,
+        "load_start": [
+          17.19580078125,
+          9.82861328125,
+          8.24951171875
+        ],
+        "load_end": [
+          16.69921875,
+          9.84814453125,
+          8.2646484375
+        ],
+        "phase": "subclass_guard_refresh"
+      }
+    ],
+    "finished_at": "2026-10-08T01:53:07Z"
+  },
+  "summary": [
+    {
+      "shape": "long-inverse-class",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 53358,
+      "before_ms": 190.631968,
+      "after_ms": 138.5848895,
+      "speedup": 1.3755609914456077,
+      "before_range_ms": [
+        182.246352,
+        227.914824
+      ],
+      "after_range_ms": [
+        113.411531,
+        208.563037
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "long-inverse-class",
+      "api": "carve",
+      "n": 4096,
+      "bytes": 213102,
+      "before_ms": 1597.6231285,
+      "after_ms": 648.7377405,
+      "speedup": 2.4626640763471968,
+      "before_range_ms": [
+        1528.746533,
+        1663.824777
+      ],
+      "after_range_ms": [
+        537.344041,
+        1023.076087
+      ],
+      "after_per_byte_growth": 1.1721017139850078
+    },
+    {
+      "shape": "long-inverse-ref-class",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 53339,
+      "before_ms": 254.1358315,
+      "after_ms": 191.50202050000001,
+      "speedup": 1.3270660582925806,
+      "before_range_ms": [
+        242.45991,
+        278.624063
+      ],
+      "after_range_ms": [
+        136.81297,
+        271.205773
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "long-inverse-ref-class",
+      "api": "carve",
+      "n": 4096,
+      "bytes": 213083,
+      "before_ms": 2692.83645,
+      "after_ms": 674.4965295,
+      "speedup": 3.992365167536418,
+      "before_range_ms": [
+        2576.95804,
+        2770.820483
+      ],
+      "after_range_ms": [
+        617.834463,
+        838.984864
+      ],
+      "after_per_byte_growth": 0.881662614512666
+    },
+    {
+      "shape": "backs",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 101256,
+      "before_ms": 303.294783,
+      "after_ms": 178.005359,
+      "speedup": 1.703851977849723,
+      "before_range_ms": [
+        291.061267,
+        321.238877
+      ],
+      "after_range_ms": [
+        129.539263,
+        249.946875
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "backs",
+      "api": "carve",
+      "n": 4096,
+      "bytes": 411528,
+      "before_ms": 3373.496809,
+      "after_ms": 653.362781,
+      "speedup": 5.163282799544715,
+      "before_range_ms": [
+        3233.073916,
+        3959.894121
+      ],
+      "after_range_ms": [
+        588.151701,
+        875.987103
+      ],
+      "after_per_byte_growth": 0.9031142425324004
+    },
+    {
+      "shape": "backparents",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 115592,
+      "before_ms": 320.125355,
+      "after_ms": 149.3987555,
+      "speedup": 2.1427578424507026,
+      "before_range_ms": [
+        310.374215,
+        328.649997
+      ],
+      "after_range_ms": [
+        128.255175,
+        179.347489
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "backparents",
+      "api": "carve",
+      "n": 4096,
+      "bytes": 468872,
+      "before_ms": 4514.5367785,
+      "after_ms": 890.6939585,
+      "speedup": 5.0685611319322765,
+      "before_range_ms": [
+        4187.774367,
+        5990.023539
+      ],
+      "after_range_ms": [
+        667.433598,
+        1449.424806
+      ],
+      "after_per_byte_growth": 1.4697890461518472
+    },
+    {
+      "shape": "wrapper",
+      "api": "ast",
+      "n": 2048,
+      "bytes": 132992,
+      "before_ms": 1151.4010954999999,
+      "after_ms": 578.7043544999999,
+      "speedup": 1.989618855546386,
+      "before_range_ms": [
+        1040.61415,
+        1199.646692
+      ],
+      "after_range_ms": [
+        473.062252,
+        713.140483
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "wrapper",
+      "api": "ast",
+      "n": 8192,
+      "bytes": 538496,
+      "before_ms": 12282.505203,
+      "after_ms": 2719.5061514999998,
+      "speedup": 4.516446927772284,
+      "before_range_ms": [
+        11002.630245,
+        12947.03445
+      ],
+      "after_range_ms": [
+        2279.109576,
+        3117.109224
+      ],
+      "after_per_byte_growth": 1.1605833367074494
+    },
+    {
+      "shape": "containers-layout",
+      "api": "ast",
+      "n": 1024,
+      "bytes": 92032,
+      "before_ms": 342.7307965,
+      "after_ms": 399.370169,
+      "speedup": 0.858178259428285,
+      "before_range_ms": [
+        322.850287,
+        390.228171
+      ],
+      "after_range_ms": [
+        327.395642,
+        421.602832
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "containers-layout",
+      "api": "ast",
+      "n": 4096,
+      "bytes": 374656,
+      "before_ms": 3152.4333589999997,
+      "after_ms": 1452.3628555,
+      "speedup": 2.170554931959288,
+      "before_range_ms": [
+        2753.996523,
+        3531.234327
+      ],
+      "after_range_ms": [
+        1260.818792,
+        1674.306471
+      ],
+      "after_per_byte_growth": 0.8933171651856211
+    },
+    {
+      "shape": "duplicate-identities",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 91183,
+      "before_ms": 268.1454745,
+      "after_ms": 179.004092,
+      "speedup": 1.4979851661715082,
+      "before_range_ms": [
+        251.975718,
+        300.498115
+      ],
+      "after_range_ms": [
+        149.851972,
+        193.381864
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "duplicate-identities",
+      "api": "carve",
+      "n": 4096,
+      "bytes": 364591,
+      "before_ms": 2958.2652585,
+      "after_ms": 1010.6415274999999,
+      "speedup": 2.9271162702148117,
+      "before_range_ms": [
+        2804.012066,
+        3104.802134
+      ],
+      "after_range_ms": [
+        708.283294,
+        1742.046567
+      ],
+      "after_per_byte_growth": 1.412024114053314
+    },
+    {
+      "shape": "aliases",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 105338,
+      "before_ms": 127.87249499999999,
+      "after_ms": 192.77851149999998,
+      "speedup": 0.6633130114193251,
+      "before_range_ms": [
+        119.442535,
+        145.234692
+      ],
+      "after_range_ms": [
+        151.053748,
+        257.503014
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "aliases",
+      "api": "carve",
+      "n": 4096,
+      "bytes": 427898,
+      "before_ms": 623.74677,
+      "after_ms": 933.232775,
+      "speedup": 0.668372121842806,
+      "before_range_ms": [
+        610.886891,
+        671.212903
+      ],
+      "after_range_ms": [
+        765.678124,
+        982.858018
+      ],
+      "after_per_byte_growth": 1.191725334294926
+    },
+    {
+      "shape": "separators",
+      "api": "ast",
+      "n": 512,
+      "bytes": 9831,
+      "before_ms": 35.088505999999995,
+      "after_ms": 5.010930999999999,
+      "speedup": 7.002392569364854,
+      "before_range_ms": [
+        33.534466,
+        36.096672
+      ],
+      "after_range_ms": [
+        3.482717,
+        5.345676
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "separators",
+      "api": "ast",
+      "n": 2048,
+      "bytes": 39015,
+      "before_ms": 502.024966,
+      "after_ms": 16.8326505,
+      "speedup": 29.824475117569868,
+      "before_range_ms": [
+        482.005923,
+        520.116747
+      ],
+      "after_range_ms": [
+        11.977119,
+        18.617321
+      ],
+      "after_per_byte_growth": 0.8464477763557602
+    },
+    {
+      "shape": "normal",
+      "api": "carve",
+      "n": 256,
+      "bytes": 27279,
+      "before_ms": 181.858836,
+      "after_ms": 154.6843745,
+      "speedup": 1.175676836059482,
+      "before_range_ms": [
+        105.376653,
+        473.024001
+      ],
+      "after_range_ms": [
+        101.698479,
+        352.737843
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "normal",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 111135,
+      "before_ms": 760.5500804999999,
+      "after_ms": 635.3594985,
+      "speedup": 1.197038971315544,
+      "before_range_ms": [
+        441.927293,
+        1157.538028
+      ],
+      "after_range_ms": [
+        487.71174,
+        1244.968704
+      ],
+      "after_per_byte_growth": 1.00820924016383
+    },
+    {
+      "shape": "ordinary",
+      "api": "carve",
+      "n": 256,
+      "bytes": 18688,
+      "before_ms": 105.54333,
+      "after_ms": 121.823447,
+      "speedup": 0.866363024516947,
+      "before_range_ms": [
+        99.76915,
+        118.941418
+      ],
+      "after_range_ms": [
+        106.64806,
+        144.863168
+      ],
+      "after_per_byte_growth": 1.0
+    },
+    {
+      "shape": "ordinary",
+      "api": "carve",
+      "n": 1024,
+      "bytes": 74752,
+      "before_ms": 518.5061215000001,
+      "after_ms": 578.6246325,
+      "speedup": 0.8961010167502679,
+      "before_range_ms": [
+        475.010505,
+        550.460503
+      ],
+      "after_range_ms": [
+        476.013439,
+        640.547905
+      ],
+      "after_per_byte_growth": 1.1874246024658948
+    }
+  ],
+  "semantic_cases": 173,
+  "semantic_changes": []
+}
