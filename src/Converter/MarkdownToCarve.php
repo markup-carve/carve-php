@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -273,7 +274,7 @@ class MarkdownToCarve
         $reservedFootnotes = [];
         preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
         foreach ($candidates[1] as $label) {
-            if (preg_match('/^carve-import-footnote-(\d+)$/i', trim($this->decodeLinkTitle($label)), $reserved) === 1) {
+            if (preg_match('/^carve-import-footnote-(\d+)$/i', LabelKey::normalize($this->decodeLinkTitle($label)), $reserved) === 1) {
                 $reservedFootnotes[(int)$reserved[1]] = true;
             }
         }
