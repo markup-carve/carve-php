@@ -280,7 +280,7 @@ class MarkdownToCarve
         }
         $serial = 1;
         foreach ($this->markdownFootnoteLabels as $label) {
-            if (!str_contains($label, '|')) {
+            if (!str_contains($label, '|') && $this->decodeLinkTitle($label) === $label) {
                 continue;
             }
             $key = $label;
@@ -4619,6 +4619,31 @@ class MarkdownToCarve
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
 
+        $preserveReferenceAutolinks = static function (string $value) use ($protect): string {
+            return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect): string {
+                $body = substr($match[0], 1, -1);
+                $prefix = preg_match('/^[A-Za-z][A-Za-z0-9+.-]{1,31}:/', $body) === 1 ? '' : 'mailto:';
+                $url = $prefix . str_replace(['\\', '[', ']', '`', '|'], ['%5C', '%5B', '%5D', '%60', '%7C'], $body);
+                $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
+                    . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
+
+                return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
+            }, $value) ?? $value;
+        };
+
+        $writeLiteralReference = function (string $value) use (&$protected, $preserveReferenceAutolinks): string {
+            return implode('', array_map(function (string $part) use (&$protected, $preserveReferenceAutolinks): string {
+                if (str_starts_with($part, '<') && str_ends_with($part, '>')) {
+                    return $preserveReferenceAutolinks($part);
+                }
+                if (preg_match('/^\x00P(\d+)\x00$/', $part, $token) === 1 && preg_match('/^!?`/', $protected[(int)$token[1]] ?? '') === 1) {
+                    return $part;
+                }
+
+                return preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $this->decodeLinkTitle($part, $protected)) ?? $part;
+            }, preg_split('/(\x00P\d+\x00|<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>)/', $value, flags: PREG_SPLIT_DELIM_CAPTURE) ?: []));
+        };
+
         $line = $this->protectCodeSpans($line, function (string $span) use ($protect): string {
             $fence = strspn($span, '`');
             if ($fence === 0 || $fence > 2 || !str_contains($span, "\n")) {
@@ -4741,6 +4766,12 @@ class MarkdownToCarve
             }
             $line = $written;
         }
+
+        $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect): string {
+            $label = $this->referenceSourceText($match[1], $protected);
+
+            return isset($this->importedFootnoteLabels[$label]) ? '[^' . $protect($label) . ']' : $match[0];
+        }, $line) ?? $line;
         $line = preg_replace_callback(
             '/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
             function (array $match) use ($protect): string {
@@ -4866,10 +4897,16 @@ class MarkdownToCarve
         };
 
         $line = preg_replace_callback(
-            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\]\n]|\n(?![ \t]*\n))*\])*\])(\([ \t]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
+            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\([ \t]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
             fn (array $match): string => str_starts_with($match[1], '!')
                 ? $protectDestination($imageLabel($match[1]), $match[2])
                 : $match[1] . $protectDestination('', $match[2]),
+            $line,
+        ) ?? $line;
+
+        $line = preg_replace_callback(
+            '/(?<=\])(\([ \t]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
+            fn (array $match): string => $protectDestination('', $match[1]),
             $line,
         ) ?? $line;
 
@@ -4962,6 +4999,8 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
+        $line = preg_replace_callback('/\[\^(?=[^[\]\n]*\[(?!\^))/', fn (): string => $protect('\\[') . '^', $line) ?? $line;
+
         $footnoteSource = $line;
         $footnoteCursor = 0;
         $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect, $table, $footnoteSource, &$footnoteCursor): string {
@@ -4994,7 +5033,7 @@ class MarkdownToCarve
         }, $line, flags: PREG_OFFSET_CAPTURE) ?? $line;
 
         if ($table) {
-            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protect): string {
+            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protect, $writeLiteralReference): string {
                 if (!str_contains($match[1], '|') || $this->complexReferenceTarget($match[2], $protected) !== null) {
                     return $match[0];
                 }
@@ -5003,11 +5042,11 @@ class MarkdownToCarve
                     return $match[0];
                 }
 
-                return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0]));
+                return $protect($writeLiteralReference($match[0]));
             }, $line) ?? $line;
             $line = preg_replace_callback(
                 '/(?<!\\\\)(!?)\[([^[\]\n^][^[\]\n]*)\]\[\]/',
-                function (array $match) use ($protected, $protect): string {
+                function (array $match) use ($protected, $protect, $writeLiteralReference): string {
                     if (!str_contains($match[2], '|') || $this->complexReferenceTarget($match[2], $protected) !== null) {
                         return $match[0];
                     }
@@ -5016,7 +5055,7 @@ class MarkdownToCarve
                         return $match[0];
                     }
 
-                    return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0]));
+                    return $protect($writeLiteralReference($match[0]));
                 },
                 $line,
             ) ?? $line;
@@ -5047,11 +5086,11 @@ class MarkdownToCarve
         $subject = $line;
         $line = preg_replace_callback(
             '/(?<=\])\[([^\]]*)\]/',
-            function (array $match) use ($subject, $protected, $protect, $protectDestination, $linkClosers, &$referenceClosers, $table): string {
+            function (array $match) use ($subject, $protected, $protect, $protectDestination, $linkClosers, &$referenceClosers, $table, $writeLiteralReference): string {
                 $reference = $match[1][0];
                 $offset = $match[0][1];
                 if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
-                    return $protect($match[0][0]);
+                    return $match[0][0];
                 }
                 $referenceClosers[$offset + strlen($match[0][0]) - 1] = true;
                 $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
@@ -5084,11 +5123,11 @@ class MarkdownToCarve
                     $firstStart = $linkClosers[$offset - 1];
                     $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
                     if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($firstLabel, $protected))])) {
-                        return $protect('\\[' . $literal . ']');
+                        return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
                     }
                 }
-                if ($table && $canonical === null && str_contains($match[0][0], '|')) {
-                    return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
+                if ($canonical === null && str_contains($raw, '|')) {
+                    return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
                 }
                 $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1;
 
@@ -5127,11 +5166,11 @@ class MarkdownToCarve
             if (str_contains($match[0], "\0") || str_contains($match[0], '\\')) {
                 return $match[0];
             }
-            if (!$table || !str_contains($match[0], '|')) {
+            if ((!$table || !str_contains($match[0], '|')) && !str_contains($match[0], '`')) {
                 return $protect($match[0]);
             }
             $body = substr($match[0], 1, -1);
-            $url = 'mailto:' . str_replace('|', '%7C', $body);
+            $url = 'mailto:' . str_replace(['|', '`'], ['%7C', '%60'], $body);
             $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
                 . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 
@@ -6418,7 +6457,7 @@ class MarkdownToCarve
                     continue;
                 }
             }
-            if ($line[$i] === '<' && preg_match('/\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>/', $line, $autolink, 0, $i) === 1) {
+            if ($line[$i] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $line, $autolink, 0, $i) === 1) {
                 $out .= $autolink[0];
                 $i += strlen($autolink[0]);
 
