@@ -180,7 +180,7 @@ class AdmonitionExtension implements ExtensionInterface
     protected function getAdmonitionType(Div $node): ?string
     {
         $types = array_fill_keys($this->types, true);
-        foreach ($node->getClassList() as $class) {
+        foreach ($node->getClassEntries() as $class) {
             if (isset($types[$class])) {
                 return $class;
             }
@@ -204,7 +204,7 @@ class AdmonitionExtension implements ExtensionInterface
         $classes = [$this->containerClass, $type];
         $seen = array_fill_keys($classes, true);
         $types = array_fill_keys($this->types, true);
-        foreach ($node->getClassList() as $class) {
+        foreach ($node->getClassEntries() as $class) {
             if (!isset($seen[$class]) && !isset($types[$class])) {
                 $classes[] = $class;
                 $seen[$class] = true;

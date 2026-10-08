@@ -239,7 +239,7 @@ class CodeCalloutsExtension implements ExtensionInterface
         // normal block byte-for-byte.
         $callouts = ['callouts'];
         $seen = array_fill_keys($callouts, true);
-        foreach ($p->getClassList() as $class) {
+        foreach ($p->getClassEntries() as $class) {
             if (!isset($seen[$class])) {
                 $callouts[] = $class;
                 $seen[$class] = true;

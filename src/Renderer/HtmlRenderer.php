@@ -1182,7 +1182,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         return in_array($node::class, [Div::class, Section::class, BlockQuote::class, ListBlock::class, Figure::class, FigureGroup::class], true)
             && !($node instanceof ListBlock && $this->canRenderListChain($node))
-            && !($node instanceof Div && $node->hasClass('footnotes'));
+            && !($node instanceof Div && $node->hasClassEntry('footnotes'));
     }
 
     private function renderContainerLayout(Node $node): string
@@ -1207,7 +1207,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $close = '</figure>';
         } elseif ($node instanceof FigureGroup) {
             $open = '<figure' . $this->renderAttributeArray(
-                self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group', $node->getClassList()),
+                self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group', $node->getClassEntries()),
             ) . '>';
             $prefix = '';
             $close = '</figure>';
@@ -1518,7 +1518,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassList() as $class) {
+            foreach ($node->getClassEntries() as $class) {
                 if (!in_array($class, $skipClasses, true)) {
                     $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
                         ? '.' . $class
@@ -2195,7 +2195,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // end. A document without this block is byte-identical to before. Not
         // emitted while rendering footnote bodies (a nested `::: footnotes`
         // there renders as an ordinary div).
-        if ($node->hasClass('footnotes') && !$this->renderingFootnoteSection) {
+        if ($node->hasClassEntry('footnotes') && !$this->renderingFootnoteSection) {
             $context = $this->getRenderContext();
             // Only a marker in a document that HAS a note, and at the document's
             // own top level (CARVE-P9-073), places the section; any other one
@@ -2227,7 +2227,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     private function divLayoutFrame(Div $node): array
     {
         $classes = array_values(array_filter(
-            $node->getClassList(),
+            $node->getClassEntries(),
             static fn (string $class): bool => self::sanitizeAttributeValue('class', $class) !== '',
         ));
         // The canonical admonition kinds live on Div::ADMONITION_TYPES (grammar
@@ -2337,7 +2337,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderLineBlock(LineBlock $node): string
     {
         $attrs = $this->getRenderableAttributes($node);
-        $entries = isset($attrs['class']) ? $node->getClassList() : [];
+        $entries = isset($attrs['class']) ? $node->getClassEntries() : [];
         $attrs['class'] = $this->sanitizeAttributes(['class' => [...$entries, 'line-block']])['class'];
 
         // Indent only the FIRST line of each child block; lines produced by an
@@ -2381,7 +2381,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         $attrArray = $this->getRenderableAttributes($node);
         if ($leadingClass !== null) {
-            $attrArray = self::withLeadingClass($attrArray, $leadingClass, $node->getClassList());
+            $attrArray = self::withLeadingClass($attrArray, $leadingClass, $node->getClassEntries());
         }
         $attrs = $this->renderAttributeArray($attrArray);
 
@@ -2437,7 +2437,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderFigureGroup(FigureGroup $node): string
     {
         $attrs = $this->renderAttributeArray(
-            self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group', $node->getClassList()),
+            self::withLeadingClass($this->getRenderableAttributes($node), 'carve-figure-group', $node->getClassEntries()),
         );
 
         // FLAT: panels and preserved stray content nest DIRECTLY inside the

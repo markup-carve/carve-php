@@ -217,7 +217,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
                 return;
             }
 
-            if (!$node->hasClass('code-group')) {
+            if (!$node->hasClassEntry('code-group')) {
                 return;
             }
 
@@ -250,7 +250,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         if (!$node instanceof Div) {
             return false;
         }
-        if (!$node->hasClass('code-group')) {
+        if (!$node->hasClassEntry('code-group')) {
             return false;
         }
 
@@ -571,7 +571,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         }
 
         if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassList() as $class) {
+            foreach ($node->getClassEntries() as $class) {
                 if (!in_array($class, $skipClasses, true)) {
                     $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
                         ? '.' . $class

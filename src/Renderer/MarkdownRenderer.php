@@ -3021,7 +3021,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function listTableAsTable(Div $node): ?Table
     {
-        if (!$node->isTyped() || ($node->getClassList()[0] ?? null) !== 'list-table') {
+        if (!$node->isTyped() || ($node->getClassEntries()[0] ?? null) !== 'list-table') {
             return null;
         }
         $body = $node->getChildren();

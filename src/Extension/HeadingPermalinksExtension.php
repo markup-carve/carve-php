@@ -186,7 +186,7 @@ class HeadingPermalinksExtension implements ExtensionInterface
             }
 
             // showOnHover: the anchor is wrapped in a permalink-wrapper span.
-            if (!$child instanceof Span || !$child->hasClass('permalink-wrapper')) {
+            if (!$child instanceof Span || !$child->hasClassEntry('permalink-wrapper')) {
                 continue;
             }
 

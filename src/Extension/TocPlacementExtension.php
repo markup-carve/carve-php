@@ -117,7 +117,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
 
         $converter->on('render.div', function (RenderEvent $event) use ($renderer, $tracker): void {
             $node = $event->getNode();
-            if (!$node instanceof Div || !$node->hasClass(self::KIND)) {
+            if (!$node instanceof Div || !$node->hasClassEntry(self::KIND)) {
                 return;
             }
 

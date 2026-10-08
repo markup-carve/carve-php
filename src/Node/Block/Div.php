@@ -179,7 +179,7 @@ class Div extends BlockNode
      */
     public function admonitionKind(): ?string
     {
-        foreach ($this->getClassList() as $class) {
+        foreach ($this->getClassEntries() as $class) {
             if (in_array($class, self::ADMONITION_TYPES, true)) {
                 return $class;
             }
@@ -209,7 +209,7 @@ class Div extends BlockNode
             return null;
         }
 
-        $opener = $this->getClassList()[0] ?? null;
+        $opener = $this->getClassEntries()[0] ?? null;
 
         return in_array($opener, self::GENERATED_CONTENT_KINDS, true) ? $opener : null;
     }
@@ -229,6 +229,6 @@ class Div extends BlockNode
      */
     public function isPlacementCarrier(): bool
     {
-        return $this->hasClass('footnotes') || $this->hasClass('toc');
+        return $this->hasClassEntry('footnotes') || $this->hasClassEntry('toc');
     }
 }

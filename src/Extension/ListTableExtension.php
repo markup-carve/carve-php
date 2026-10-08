@@ -125,7 +125,7 @@ class ListTableExtension implements ExtensionInterface
 
             // Only claim `::: list-table` blocks; everything else defers to the
             // core div renderer (and any other extension that wants it).
-            if (!$node->hasClass(self::KIND)) {
+            if (!$node->hasClassEntry(self::KIND)) {
                 return;
             }
 
@@ -874,7 +874,7 @@ class ListTableExtension implements ExtensionInterface
 
         if (isset($attrs['class'])) {
             $classes = array_values(array_filter(
-                $node->getClassList(),
+                $node->getClassEntries(),
                 static fn (string $class): bool => $class !== '' && $class !== self::KIND,
             ));
 

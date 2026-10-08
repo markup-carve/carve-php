@@ -911,7 +911,7 @@ class ProseMirrorRenderer
         // out would make it the real one.
         $authored = $this->authoredAttributesFor($node);
         if ($node instanceof Div && $node->directiveKind() !== null) {
-            $classes = $node->getClassList();
+            $classes = $node->getClassEntries();
             array_shift($classes);
             if ($classes === []) {
                 unset($authored['class']);
@@ -1142,7 +1142,7 @@ class ProseMirrorRenderer
             if ($node instanceof Span && $key === 'abbr') {
                 $attrs['title'] = $value;
             } elseif ($key === 'id' || $key === 'class') {
-                $attrs[$key] = $key === 'class' ? $node->getClassList() : $value;
+                $attrs[$key] = $key === 'class' ? $node->getClassEntries() : $value;
             } else {
                 $keyValues[$key] = $value;
             }
@@ -1241,7 +1241,7 @@ class ProseMirrorRenderer
             if ($key === 'id') {
                 $parts[] = '#' . $value;
             } elseif ($key === 'class') {
-                foreach ($node->getClassList() as $class) {
+                foreach ($node->getClassEntries() as $class) {
                     $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
                         ? '.' . $class
                         : 'class="' . QuotedSlotEscaper::escape($class) . '"';

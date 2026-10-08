@@ -1531,7 +1531,7 @@ class AstCodec
      */
     private static function openerKind(Div $node): ?string
     {
-        $classes = $node->getClassList();
+        $classes = $node->getClassEntries();
 
         return ($classes[0] ?? '') === '' ? null : $classes[0];
     }
@@ -2291,7 +2291,7 @@ class AstCodec
                 // because that slot arrives in the wire's `order` and is
                 // restored below.
                 $order = $node->getAttributeOrder();
-                $classes = $node->getClassList();
+                $classes = $node->getClassEntries();
                 if (!in_array($kind, $classes, true)) {
                     array_unshift($classes, $kind);
                 }

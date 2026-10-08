@@ -105,7 +105,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 return;
             }
 
-            if (!$node->hasClass('tabs')) {
+            if (!$node->hasClassEntry('tabs')) {
                 return;
             }
 
@@ -140,7 +140,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         if (!$node instanceof Div) {
             return false;
         }
-        if (!$node->hasClass('tabs')) {
+        if (!$node->hasClassEntry('tabs')) {
             return false;
         }
 
@@ -176,7 +176,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         $tabs = [];
 
         foreach ($wrapper->getChildren() as $child) {
-            if (!$child instanceof Div || !$child->hasClass('tab')) {
+            if (!$child instanceof Div || !$child->hasClassEntry('tab')) {
                 continue;
             }
 
@@ -620,7 +620,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             return rtrim($djotSrc, "\n");
         }
 
-        $classes = $div->getClassList();
+        $classes = $div->getClassEntries();
         $fenceClass = array_shift($classes) ?? 'div';
 
         $djot = '';
@@ -726,7 +726,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         }
 
         if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassList() as $class) {
+            foreach ($node->getClassEntries() as $class) {
                 if (!in_array($class, $skipClasses, true)) {
                     $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
                         ? '.' . $class

@@ -58,7 +58,7 @@ class ReferencesPlacementLinter
         foreach ($parent->getChildren() as $child) {
             if (
                 $child instanceof Div && $contained && $child->isTyped()
-                && ($child->getClassList()[0] ?? null) === 'references'
+                && ($child->getClassEntries()[0] ?? null) === 'references'
             ) {
                 $pos = $child->getPos();
                 $line = 1;

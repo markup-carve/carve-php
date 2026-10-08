@@ -105,7 +105,7 @@ class SpoilerExtension implements StaticRenderExtensionInterface
             if (!$node instanceof Div) {
                 return;
             }
-            if (!$node->hasClass(self::KIND)) {
+            if (!$node->hasClassEntry(self::KIND)) {
                 return;
             }
 
@@ -133,7 +133,7 @@ class SpoilerExtension implements StaticRenderExtensionInterface
     {
         $node = $event->getNode();
 
-        if ($node instanceof Div && $node->hasClass(self::KIND)) {
+        if ($node instanceof Div && $node->hasClassEntry(self::KIND)) {
             $event->setHtml($this->renderStaticBlock($node, $event->getChildrenHtml(), $renderer));
 
             return true;

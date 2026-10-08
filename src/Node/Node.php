@@ -669,7 +669,7 @@ abstract class Node
     }
 
     /**
-     * Check if the node has a specific CSS class
+     * Check whether `$class` is one of the names `getClassList()` returns.
      */
     public function hasClass(string $class): bool
     {
@@ -677,11 +677,37 @@ abstract class Node
     }
 
     /**
-     * Get authored class entries, including internal whitespace and empty values.
+     * Whole-entry match, which built-in extensions use for parity with carve-js and carve-rs.
+     */
+    public function hasClassEntry(string $entry): bool
+    {
+        return in_array($entry, $this->classEntries, true);
+    }
+
+    /**
+     * Class names: every entry split on HTML whitespace, empty names dropped,
+     * duplicates and source order kept.
      *
      * @return list<string>
      */
     public function getClassList(): array
+    {
+        $names = [];
+        foreach ($this->classEntries as $entry) {
+            foreach (preg_split('/[ \t\n\f\r]+/', $entry, flags: PREG_SPLIT_NO_EMPTY) ?: [] as $name) {
+                $names[] = $name;
+            }
+        }
+
+        return $names;
+    }
+
+    /**
+     * Authored class entries, including internal whitespace and empty values.
+     *
+     * @return list<string>
+     */
+    public function getClassEntries(): array
     {
         return $this->classEntries;
     }

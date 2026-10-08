@@ -1236,7 +1236,7 @@ class ProseMirrorToCarve
                 $this->setState($node, 'rawReferenceLabel', null);
             } else {
                 if (!$node->hasAttribute('class') && $definition->hasAttribute('class')) {
-                    $node->setClassList($definition->getClassList());
+                    $node->setClassList($definition->getClassEntries());
                 }
                 $this->confirmRawSpelling($node, (new HeadingIdTracker())->getPlainText($node));
             }
@@ -1734,7 +1734,7 @@ class ProseMirrorToCarve
             if (!is_string($kind) || !in_array($kind, Div::GENERATED_CONTENT_KINDS, true)) {
                 throw new RuntimeException('carveDirective needs a valid kind');
             }
-            $node->setClassList([$kind, ...$node->getClassList()]);
+            $node->setClassList([$kind, ...$node->getClassEntries()]);
             $node->setTyped(true);
         }
 
@@ -1748,7 +1748,7 @@ class ProseMirrorToCarve
 
         // Older payloads did not carry whether a `carveDiv` was opened with a
         // type word. Keep the historical single-class heuristic for those only.
-        if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassList()) >= 1) {
+        if ($node instanceof Div && !array_key_exists('carveTyped', $attrs) && count($node->getClassEntries()) >= 1) {
             $this->setState($node, 'typed', true);
         }
     }

@@ -87,7 +87,7 @@ class FigureGroupLinter
         // only parses this way when an open group's body demoted it, because
         // groups do not nest. `{.figure}` on a bare `:::` is untyped and is
         // neither - the class came from an attribute line, not an opener.
-        if ($node instanceof Div && $node->isTyped() && ($node->getClassList()[0] ?? null) === 'figure') {
+        if ($node instanceof Div && $node->isTyped() && ($node->getClassEntries()[0] ?? null) === 'figure') {
             if ($node->getHeader() !== null || $node->getLabel() !== null) {
                 $warnings[] = $this->warn(
                     $node,

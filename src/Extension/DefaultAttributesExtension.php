@@ -94,7 +94,7 @@ class DefaultAttributesExtension implements ExtensionInterface
 
             return;
         }
-        $existing = $node->getClassList();
+        $existing = $node->getClassEntries();
         $seen = array_fill_keys($existing, true);
         $changed = false;
         foreach (explode(' ', $classes) as $class) {
