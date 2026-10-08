@@ -56,6 +56,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - A GFM table whose header starts on a quoted list item marker stays a table, with row indentation held at the item's content column through nested lists, nested quotes and ordered markers of changing width (#2947).
 - An imported table footnote keeps its identity under a collision-free label, and a blank line resets the table context (#2956).
 - An escaped pipe keeps its table cell boundary across Djot import and Markdown export, so a code cell holding a literal backslash before `|` survives the round trip, and two entity-bearing footnote ids no longer merge into one (#2959).
+- Djot import keeps opaque content opaque: an autolink label survives footnote aliasing and delimiter conversion, a fence keeps its code and owner after indentation is mapped to Carve, a reference definition keeps its value literal, and a converted URL keeps IPv6 authority brackets, raw backslashes and Djot's email priority (#2962).
 
 ### Performance
 
@@ -64,6 +65,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Swatch class checks, ordered attribute lookups, callout marker detection, nested link rewrites and HTML import name lookups use bounded scans, cursors and membership maps instead of rescanning growing collections (#2935).
 - Footnote lookup caches shared target counts, backlink lists and marker classes, and backlink checks, separator removal and empty-wrapper pruning run in batches (#2944).
 - Markdown table import indexes matching backtick runs once instead of rescanning each unmatched opener's suffix (#2945), and Djot delimiter conversion merges accepted ranges once per rule and writes its edits in one pass (#2959).
+- Djot import tracks indentation on a stack instead of rescanning preceding lines for each thematic break or parenthesized list marker, and quote-prefix parsing advances offsets rather than copying the rest of the line per marker, so repeated-construct and deeply quoted input import in linear passes (#2962).
 
 ## [0.1.11] - 2026-10-06
 
