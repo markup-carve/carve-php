@@ -1,0 +1,230 @@
+[
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> -  | a | b |\n>    |---|---|\n>    | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> -   | a | b |\n>     |---|---|\n>     | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> -    | a | b |\n>      |---|---|\n>      | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> -     | a | b |\n>       |---|---|\n>       | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<pre><code>| a | b |\n|---|---|\n| c | d |\n</code></pre>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> * | a | b |\n>   |---|---|\n>   | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> *  | a | b |\n>    |---|---|\n>    | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> *   | a | b |\n>     |---|---|\n>     | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> *    | a | b |\n>      |---|---|\n>      | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> *     | a | b |\n>       |---|---|\n>       | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<pre><code>| a | b |\n|---|---|\n| c | d |\n</code></pre>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> + | a | b |\n>   |---|---|\n>   | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> +  | a | b |\n>    |---|---|\n>    | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> +   | a | b |\n>     |---|---|\n>     | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> +    | a | b |\n>      |---|---|\n>      | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> +     | a | b |\n>       |---|---|\n>       | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<pre><code>| a | b |\n|---|---|\n| c | d |\n</code></pre>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> 1. | a | b |\n>    |---|---|\n>    | c | d |",
+    "html": "<blockquote>\n<ol>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 1.  | a | b |\n>     |---|---|\n>     | c | d |",
+    "html": "<blockquote>\n<ol>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 1.   | a | b |\n>      |---|---|\n>      | c | d |",
+    "html": "<blockquote>\n<ol>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 1.    | a | b |\n>       |---|---|\n>       | c | d |",
+    "html": "<blockquote>\n<ol>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 1.     | a | b |\n>        |---|---|\n>        | c | d |",
+    "html": "<blockquote>\n<ol>\n<li>\n<pre><code>| a | b |\n|---|---|\n| c | d |\n</code></pre>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 12) | a | b |\n>     |---|---|\n>     | c | d |",
+    "html": "<blockquote>\n<ol start=\"12\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 12)  | a | b |\n>      |---|---|\n>      | c | d |",
+    "html": "<blockquote>\n<ol start=\"12\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 12)   | a | b |\n>       |---|---|\n>       | c | d |",
+    "html": "<blockquote>\n<ol start=\"12\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 12)    | a | b |\n>        |---|---|\n>        | c | d |",
+    "html": "<blockquote>\n<ol start=\"12\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 12)     | a | b |\n>         |---|---|\n>         | c | d |",
+    "html": "<blockquote>\n<ol start=\"12\">\n<li>\n<pre><code>| a | b |\n|---|---|\n| c | d |\n</code></pre>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 002. | a | b |\n>      |---|---|\n>      | c | d |",
+    "html": "<blockquote>\n<ol start=\"2\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 002.  | a | b |\n>       |---|---|\n>       | c | d |",
+    "html": "<blockquote>\n<ol start=\"2\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 002.   | a | b |\n>        |---|---|\n>        | c | d |",
+    "html": "<blockquote>\n<ol start=\"2\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 002.    | a | b |\n>         |---|---|\n>         | c | d |",
+    "html": "<blockquote>\n<ol start=\"2\">\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> 002.     | a | b |\n>          |---|---|\n>          | c | d |",
+    "html": "<blockquote>\n<ol start=\"2\">\n<li>\n<pre><code>| a | b |\n|---|---|\n| c | d |\n</code></pre>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": ">  - | a | b |\n>    |---|---|\n>    | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": ">   - | a | b |\n>     |---|---|\n>     | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": ">    - | a | b |\n>      |---|---|\n>      | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": ">     - | a | b |\n>       |---|---|\n>       | c | d |",
+    "html": "<blockquote>\n<pre><code>- | a | b |\n  |---|---|\n  | c | d |\n</code></pre>\n</blockquote>\n"
+  },
+  {
+    "md": ">> - | a | b |\n>>   |---|---|\n>>   | c | d |",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": "> > - | a | b |\n> >   |---|---|\n> >   | c | d |",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "md": ">- | a | b |\n>  |---|---|\n>  | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>| a | b |\n|---|---|\n| c | d |</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": ">\t- | a | b |\n>\t  |---|---|\n>\t  | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> paragraph\n> - | a | b |\n>   |---|---|\n>   | c | d |",
+    "html": "<blockquote>\n<p>paragraph</p>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> paragraph\n> 1. | a | b |\n>    |---|---|\n>    | c | d |",
+    "html": "<blockquote>\n<p>paragraph</p>\n<ol>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "md": "> paragraph\n> 2. | a | b |\n>    |---|---|\n>    | c | d |",
+    "html": "<blockquote>\n<p>paragraph\n2. | a | b |\n|---|---|\n| c | d |</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |\n> - next",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n<li>next</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |\n>\n> after",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n<p>after</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |\n>   after",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n<tr>\n<td>after</td>\n<td></td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |\noutside",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n<p>outside</p>\n"
+  },
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |\n> | outside | row |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n<p>| outside | row |</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> - | a | b |\n>   |---|---|\n>   | c | d |\n> - | e | f |\n>   |---|---|\n>   | g | h |",
+    "html": "<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n<li>\n<table>\n<thead>\n<tr>\n<th>e</th>\n<th>f</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>g</td>\n<td>h</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "- > - | a | b |\n  >   |---|---|\n  >   | c | d |",
+    "html": "<ul>\n<li>\n<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n</li>\n</ul>\n"
+  },
+  {
+    "md": "- outer\n  > - | a | b |\n  >   |---|---|\n  >   | c | d |",
+    "html": "<ul>\n<li>outer\n<blockquote>\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</blockquote>\n</li>\n</ul>\n"
+  },
+  {
+    "md": "> - outer\n>   - | a | b |\n>     |---|---|\n>     | c | d |",
+    "html": "<blockquote>\n<ul>\n<li>outer\n<ul>\n<li>\n<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>\n</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> para\n> 2.     code",
+    "html": "<blockquote>\n<p>para\n2.     code</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> para\n>     -     x",
+    "html": "<blockquote>\n<p>para\n-     x</p>\n</blockquote>\n"
+  },
+  {
+    "md": "> - a\n>   para\n>   2.     code",
+    "html": "<blockquote>\n<ul>\n<li>a\npara\n2.     code</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "> - a\n>       -     x",
+    "html": "<blockquote>\n<ul>\n<li>a\n-     x</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "md": "- x\n  > para\n  > 2.     code",
+    "html": "<ul>\n<li>x\n<blockquote>\n<p>para\n2.     code</p>\n</blockquote>\n</li>\n</ul>\n"
+  },
+  {
+    "md": "- > para\n  > 2.     code",
+    "html": "<ul>\n<li>\n<blockquote>\n<p>para\n2.     code</p>\n</blockquote>\n</li>\n</ul>\n"
+  }
+]
