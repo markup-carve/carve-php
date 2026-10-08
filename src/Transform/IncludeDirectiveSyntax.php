@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 
 /**
  * Recognition and serialization of the include directive shape (spec section 19
@@ -192,8 +193,8 @@ class IncludeDirectiveSyntax
             if (!preg_match($pattern, $body, $pathMatch)) {
                 return null;
             }
-            // Only `\"` and `\\` decode; every other backslash pair is path text.
-            $path = (string)preg_replace('/\\\\(["\\\\])/', '$1', $pathMatch[1]);
+            // The escape set of a quoted attribute value (carve#2778).
+            $path = AttributeParser::processEscapes($pathMatch[1]);
             $rest = trim($pathMatch[2]);
         } else {
             // The stop set holds the TAB: `bare_include_path` stops at
