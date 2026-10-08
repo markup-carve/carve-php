@@ -129,7 +129,7 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
             $taken = isset($seen[$id]);
             $seen[$id] = true;
 
-            if ($inBlockquote || $heading->hasClass('unnumbered') || $heading->getLevel() < $this->minLevel) {
+            if ($inBlockquote || $heading->hasClassEntry('unnumbered') || $heading->getLevel() < $this->minLevel) {
                 return;
             }
 

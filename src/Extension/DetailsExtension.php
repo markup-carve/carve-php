@@ -111,7 +111,7 @@ class DetailsExtension implements ExtensionInterface
 
             // Only claim `::: details` blocks; everything else defers to the
             // core div renderer (and any other extension that wants it).
-            if (!$node->hasClass(self::KIND)) {
+            if (!$node->hasClassEntry(self::KIND)) {
                 return;
             }
 

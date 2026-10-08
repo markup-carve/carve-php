@@ -146,7 +146,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
 
         $converter->on('render.div', function (RenderEvent $event) use ($renderer): void {
             $node = $event->getNode();
-            if (!$node instanceof Div || !$node->hasClass(self::KIND) || $this->counts === []) {
+            if (!$node instanceof Div || !$node->hasClassEntry(self::KIND) || $this->counts === []) {
                 return;
             }
 

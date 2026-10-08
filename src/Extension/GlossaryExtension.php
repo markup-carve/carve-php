@@ -80,7 +80,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
 
         $converter->on('render.div', function (RenderEvent $event) use ($renderer): void {
             $node = $event->getNode();
-            if (!$node instanceof Div || !$node->hasClass(self::KIND)) {
+            if (!$node instanceof Div || !$node->hasClassEntry(self::KIND)) {
                 return;
             }
 
@@ -95,7 +95,7 @@ class GlossaryExtension implements ExtensionInterface, ParsedDocumentExtensionIn
         // gets the id. Assigning on the node here is idempotent across renders.
         $seen = [];
         $this->walk($document, function (Node $node) use (&$seen): void {
-            if (!$node instanceof Div || !$node->hasClass(self::KIND)) {
+            if (!$node instanceof Div || !$node->hasClassEntry(self::KIND)) {
                 return;
             }
             foreach ($node->getChildren() as $child) {

@@ -229,6 +229,6 @@ class Div extends BlockNode
      */
     public function isPlacementCarrier(): bool
     {
-        return $this->hasClass('footnotes') || $this->hasClass('toc');
+        return $this->hasClassEntry('footnotes') || $this->hasClassEntry('toc');
     }
 }

@@ -1182,7 +1182,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         return in_array($node::class, [Div::class, Section::class, BlockQuote::class, ListBlock::class, Figure::class, FigureGroup::class], true)
             && !($node instanceof ListBlock && $this->canRenderListChain($node))
-            && !($node instanceof Div && $node->hasClass('footnotes'));
+            && !($node instanceof Div && $node->hasClassEntry('footnotes'));
     }
 
     private function renderContainerLayout(Node $node): string
@@ -2195,7 +2195,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // end. A document without this block is byte-identical to before. Not
         // emitted while rendering footnote bodies (a nested `::: footnotes`
         // there renders as an ordinary div).
-        if ($node->hasClass('footnotes') && !$this->renderingFootnoteSection) {
+        if ($node->hasClassEntry('footnotes') && !$this->renderingFootnoteSection) {
             $context = $this->getRenderContext();
             // Only a marker in a document that HAS a note, and at the document's
             // own top level (CARVE-P9-073), places the section; any other one

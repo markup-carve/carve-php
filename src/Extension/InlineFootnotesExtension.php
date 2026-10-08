@@ -67,7 +67,7 @@ class InlineFootnotesExtension implements ExtensionInterface
                 return;
             }
 
-            if (!$node->hasClass($cssClass)) {
+            if (!$node->hasClassEntry($cssClass)) {
                 return;
             }
 
@@ -106,6 +106,6 @@ class InlineFootnotesExtension implements ExtensionInterface
      */
     protected function isFootnoteSpan(Span $span): bool
     {
-        return $span->hasClass($this->cssClass);
+        return $span->hasClassEntry($this->cssClass);
     }
 }

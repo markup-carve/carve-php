@@ -501,7 +501,7 @@ class HeadingIdTracker
             // Matches carve-js / carve-rs.
             return '';
         }
-        if ($child instanceof Span && $child->hasClass('section-number')) {
+        if ($child instanceof Span && $child->hasClassEntry('section-number')) {
             // The HeadingNumbers extension (Tier-3, #198) injects a
             // `<span class="section-number">` into the heading. It is
             // presentational only and must not feed the heading-id slug

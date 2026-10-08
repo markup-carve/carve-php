@@ -669,14 +669,19 @@ abstract class Node
     }
 
     /**
-     * Check whether one authored class entry equals `$class`.
-     *
-     * Compares whole entries, like carve-js and carve-rs, so `{class="a b"}` has
-     * no `b` entry. Use `getClassList()` to test for a single class name.
+     * Check whether `$class` is one of the names `getClassList()` returns.
      */
     public function hasClass(string $class): bool
     {
-        return in_array($class, $this->getClassEntries(), true);
+        return in_array($class, $this->getClassList(), true);
+    }
+
+    /**
+     * Whole-entry match, which built-in extensions use for parity with carve-js and carve-rs.
+     */
+    public function hasClassEntry(string $entry): bool
+    {
+        return in_array($entry, $this->classEntries, true);
     }
 
     /**

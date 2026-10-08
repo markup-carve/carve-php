@@ -105,7 +105,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 return;
             }
 
-            if (!$node->hasClass('tabs')) {
+            if (!$node->hasClassEntry('tabs')) {
                 return;
             }
 
@@ -140,7 +140,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         if (!$node instanceof Div) {
             return false;
         }
-        if (!$node->hasClass('tabs')) {
+        if (!$node->hasClassEntry('tabs')) {
             return false;
         }
 
@@ -176,7 +176,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         $tabs = [];
 
         foreach ($wrapper->getChildren() as $child) {
-            if (!$child instanceof Div || !$child->hasClass('tab')) {
+            if (!$child instanceof Div || !$child->hasClassEntry('tab')) {
                 continue;
             }
 

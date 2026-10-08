@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\HeadingNumbersExtension;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Node;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -36,6 +37,7 @@ class ClassListSplitsAuthoredEntriesTest extends TestCase
     }
 
     /**
+     * @param string $attributes
      * @param array<string> $entries
      * @param array<string> $names
      */
@@ -49,6 +51,7 @@ class ClassListSplitsAuthoredEntriesTest extends TestCase
     }
 
     /**
+     * @param string $attributes
      * @param array<string> $entries
      * @param array<string> $names
      */
@@ -67,6 +70,27 @@ class ClassListSplitsAuthoredEntriesTest extends TestCase
 
         self::assertSame('a b c', $node->getAttribute('class'));
         self::assertTrue(in_array('b', $node->getClassList(), true));
+    }
+
+    public function testHasClassMatchesNamesAndHasClassEntryMatchesEntries(): void
+    {
+        $node = (new CarveConverter())->parse("{class=\"b c\"}\nx\n")->getChildren()[0];
+
+        self::assertTrue($node->hasClass('b'));
+        self::assertTrue($node->hasClass('c'));
+        self::assertFalse($node->hasClass('b c'));
+        self::assertFalse($node->hasClassEntry('b'));
+        self::assertTrue($node->hasClassEntry('b c'));
+    }
+
+    public function testHeadingNumbersStillMatchWholeEntries(): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new HeadingNumbersExtension());
+        $html = $converter->convert("{class=\"x unnumbered\"}\n# A\n\n{.unnumbered}\n# B\n");
+
+        self::assertStringContainsString('<h1 class="x unnumbered"><span class="section-number">1</span> A</h1>', $html);
+        self::assertStringContainsString('<h1 class="unnumbered">B</h1>', $html);
     }
 
     private function inlineExtension(string $source): Node

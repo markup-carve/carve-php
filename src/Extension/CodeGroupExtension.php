@@ -217,7 +217,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
                 return;
             }
 
-            if (!$node->hasClass('code-group')) {
+            if (!$node->hasClassEntry('code-group')) {
                 return;
             }
 
@@ -250,7 +250,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         if (!$node instanceof Div) {
             return false;
         }
-        if (!$node->hasClass('code-group')) {
+        if (!$node->hasClassEntry('code-group')) {
             return false;
         }
 

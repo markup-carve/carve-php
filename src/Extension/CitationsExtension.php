@@ -1188,7 +1188,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
     protected function findReferencesContainer(Document $document): ?Div
     {
         foreach ($document->getChildren() as $child) {
-            if ($child instanceof Div && $child->hasClass('references')) {
+            if ($child instanceof Div && $child->hasClassEntry('references')) {
                 return $child;
             }
         }

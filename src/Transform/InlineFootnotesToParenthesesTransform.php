@@ -29,7 +29,7 @@ class InlineFootnotesToParenthesesTransform implements TransformerInterface
     protected function walk(Node $node): void
     {
         foreach ($node->getChildren() as $child) {
-            if ($child instanceof Span && $child->hasClass($this->cssClass)) {
+            if ($child instanceof Span && $child->hasClassEntry($this->cssClass)) {
                 $replacementChildren = array_values([new Text(' ('), ...$child->getChildren(), new Text(')')]);
                 $node->replaceChildWithMany($child, $replacementChildren);
 
