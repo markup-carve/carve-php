@@ -9,11 +9,21 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.1.12] - 2026-10-08
+
 ### Breaking
 
 - Image alt text resolves ASCII punctuation escapes, including `\|` in
   tables. Literal backslashes before punctuation must be doubled. Native
-  writers preserve the decoded value when formatting.
+  writers preserve the decoded value when formatting, and the obsolete
+  image-alt pipe degradation warning is gone (#2951,
+  markup-carve/carve#2782).
+
+- A quoted include path takes the escape set of a quoted attribute value: a
+  backslash before ASCII punctuation yields that character, and any other
+  backslash is path text. It used to run through `stripcslashes()`, so
+  `"notes\new.crv"` looked for a file name holding a newline (#2948, #2954,
+  markup-carve/carve#2778).
 
 - The include rename warning carries the rule id `include-id-rename`, renamed
   from `include-heading-id-rename`, and the constant is
@@ -22,33 +32,38 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Added
 
-- `Node::getPreviousSibling()` returns the preceding child of the parent. Custom parent nodes retain their `getChildren()` behavior.
+- `Node::getPreviousSibling()` returns the preceding child of the parent. Custom parent nodes retain their `getChildren()` behavior (#2935).
+- `getClassEntries()` returns the authored class entries unsplit and `hasClassEntry()` compares whole entries, beside the split names `getClassList()` reports (#2939, #2940).
+- Markdown table import explains an unescaped code-span pipe, a mismatched header width and an omitted body cell with a warning naming the source line it came from (#2943, #2945).
 
 ### Changed
 
-- Reduced memory used by fence indexes with packed range maxima and replacement metadata limited to the mutable tail.
+- Reduced memory used by fence indexes with packed range maxima and replacement metadata limited to the mutable tail (#2930).
 
 ### Fixed
 
-- Cloning Ruby and block extension nodes keeps the original children attached to their original parent.
+- `getClassList()` returns class names again: each authored entry is split on HTML whitespace, so `{.a class="b c"}` lists `a`, `b` and `c`, and `hasClass('b')` is true for `class="b c"` as it was in 0.1.9. The merged `class` attribute does not move (#2939, #2940).
+- Cloning Ruby and block extension nodes keeps the original children attached to their original parent (#2935).
 - An include option needs no whitespace before its `@`, in either position, so
   `{{ path@shift:1 }}` and `{{ path #Name@shift:1 }}` resolve instead of
-  staying literal (carve#2773).
-- A quoted include path takes the escape set of a quoted attribute value: a
-  backslash before ASCII punctuation yields that character, and any other
-  backslash is path text. It used to run through `stripcslashes()`, so
-  `"notes\new.crv"` looked for a file name holding a newline (#2948,
-  markup-carve/carve#2778).
+  staying literal (#2937, carve#2773).
 - A tab before `#section` separates the slot instead of being read as the last
-  character of the path (#2934).
+  character of the path (#2934, #2937).
 - A directive naming two sections warns under `include-selection-conflict` and
   stays literal. The second name used to win silently, which returned the
-  wrong fragment with nothing on the page to say so (#2934).
+  wrong fragment with nothing on the page to say so (#2934, #2937).
+- Markdown table import keeps a cell boundary across an escaped trailing pipe, a literal backtick or backslash, a quoted table, a pipe-bearing reference label, an HTTP(S) or email autolink and an image title, and keeps an unresolved reference literal (#2943, #2945, #2953).
+- A GFM table whose header starts on a quoted list item marker stays a table, with row indentation held at the item's content column through nested lists, nested quotes and ordered markers of changing width (#2947).
+- An imported table footnote keeps its identity under a collision-free label, and a blank line resets the table context (#2956).
+- An escaped pipe keeps its table cell boundary across Djot import and Markdown export, so a code cell holding a literal backslash before `|` survives the round trip, and two entity-bearing footnote ids no longer merge into one (#2959).
 
 ### Performance
 
 - Joined adjacent text nodes once during HTML import and AST encoding and validation, avoiding repeated copies of growing text runs. Inline padding trims scan only the suffix (#2931).
-- Paced garbage collection across large HTML imports to avoid repeated scans of live trees.
+- Paced garbage collection across large HTML imports to avoid repeated scans of live trees (#2932).
+- Swatch class checks, ordered attribute lookups, callout marker detection, nested link rewrites and HTML import name lookups use bounded scans, cursors and membership maps instead of rescanning growing collections (#2935).
+- Footnote lookup caches shared target counts, backlink lists and marker classes, and backlink checks, separator removal and empty-wrapper pruning run in batches (#2944).
+- Markdown table import indexes matching backtick runs once instead of rescanning each unmatched opener's suffix (#2945), and Djot delimiter conversion merges accepted ranges once per rule and writes its edits in one pass (#2959).
 
 ## [0.1.11] - 2026-10-06
 
