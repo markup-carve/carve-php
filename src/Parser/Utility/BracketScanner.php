@@ -231,12 +231,8 @@ final class BracketScanner
      * Whether writing $run between a `[` and a `]` yields a run that closes
      * again at exactly that `]`.
      *
-     * A RAW run cannot be neutralized, only written or not written: nothing
-     * inside it is inline-parsed and no escape inside it is resolved, so a
-     * backslash the writer adds is a backslash the reader hands back as
-     * content. The only honest question is therefore whether the run survives
-     * being written at all, and this asks the reader's own scan rather than
-     * re-deciding it.
+     * This checks the reader's syntax boundary. Callers separately check
+     * whether escape decoding preserves the value they intend to write.
      */
     public static function rawRunCloses(string $run): bool
     {

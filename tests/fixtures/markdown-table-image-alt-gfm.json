@@ -1,0 +1,158 @@
+[
+  {
+    "md": "| ![a\\|b](/i) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b](/i) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](/i \"t\") | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" title=\"t\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b](/i \"t\") | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" title=\"t\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![*a*\\|`b`](/i) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![*a*\\|`b`](/i) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b][r] | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" title=\"t\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b][r] | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" title=\"t\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b][] | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" title=\"c\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b][] | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" title=\"c\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b] | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" title=\"c\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b] | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" title=\"c\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a&#124;b](/i) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a&#124;b](/i) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](/x\\|y) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/x%7Cy\" alt=\"a|b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b](/x\\|y) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/x%7Cy\" alt=\"a|b\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| [![a\\|b](/i)](/u) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><a href=\"/u\"><img src=\"/i\" alt=\"a|b\" /></a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| [![a\\|b](/i)](/u) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><a href=\"/u\"><img src=\"/i\" alt=\"a|b\" /></a></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| `![a\\|b](/i)` | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><code>![a|b](/i)</code></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| `![a\\|b](/i)` | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><code>![a|b](/i)</code></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| \\![a\\|b](/i) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>!<a href=\"/i\">a|b</a></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| \\![a\\|b](/i) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>!<a href=\"/i\">a|b</a></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](/i) ![c\\|d](/j) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" /> <img src=\"/j\" alt=\"c|d\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b](/i) ![c\\|d](/j) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" /> <img src=\"/j\" alt=\"c|d\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](/i) text | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" /> text</th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b](/i) text | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" /> text</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](/i \"a\\|b\") | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" title=\"a|b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b](/i \"a\\|b\") | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" title=\"a|b\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](/i \"a`b\") | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" title=\"a`b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|b](/i \"a`b\") | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|b\" title=\"a`b\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|[b]](/i) | c |\n|---|---|\n| d | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|[b]\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| a | b |\n|---|---|\n| ![a\\|[b]](/i) | e |\n\n[r]: /i \"t\"\n[a|b]: /i \"c\"",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n<th>b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td><img src=\"/i\" alt=\"a|[b]\" /></td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b\\]c](/i) | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b]c\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b&amp;c](/i) | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b&amp;c\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|&quot;b](/i) | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|&quot;b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b\\\\c](/i) | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\\c\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|\\*b\\*](/i) | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|*b*\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](javascript:evil) | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"\" alt=\"a|b\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "md": "| ![a\\|b](/i \"\\\" onerror=\\\"bad\") | c |\n|---|---|\n| d | e |",
+    "html": "<table>\n<thead>\n<tr>\n<th><img src=\"/i\" alt=\"a|b\" title=\"&quot; onerror=&quot;bad\" /></th>\n<th>c</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>d</td>\n<td>e</td>\n</tr>\n</tbody>\n</table>\n"
+  }
+]

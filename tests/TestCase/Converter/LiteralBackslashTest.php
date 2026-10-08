@@ -89,14 +89,13 @@ class LiteralBackslashTest extends TestCase
     }
 
     /**
-     * Alt text is raw, so its backslash is written once, as authored
-     * (markup-carve/carve-php#2056).
+     * Image alt text doubles a literal backslash before punctuation.
      */
     public function testAnImageAltKeepsItsBackslashes(): void
     {
         $carve = (new HtmlToCarve())->convert('<p><img src="x.png" alt="a \*b* c"></p>');
 
-        $this->assertSame("![a \\*b* c](x.png)\n", $carve);
+        $this->assertSame("![a \\\\*b* c](x.png)\n", $carve);
     }
 
     /**

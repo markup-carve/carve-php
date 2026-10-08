@@ -14,25 +14,6 @@ use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * PART 11 §2: a character is escaped IF AND ONLY IF omitting the escape would
- * change the re-parsed AST. A run the reader reads RAW cannot satisfy that: it
- * resolves no escape, so a backslash the writer adds is a backslash the reader
- * hands back as content (markup-carve/carve#1197, and
- * markup-carve/carve-js#1068 as the reference implementation).
- *
- * FIVE writers carried the same escape, not one. Every place that puts a value
- * between brackets a raw reader will pick up again: an image's alt text, an
- * admonition label, a div label, a code-fence label, and a footnote id in both
- * its definition and every reference to it. Only alt text had a corpus case
- * behind it; the other four grew one backslash per format pass in silence.
- *
- * Idempotence is asserted SEPARATELY rather than inferred from the round trip,
- * because a single `toHtml(fmt(x)) == toHtml(x)` pass is what the defect
- * survived where it was cheapest to catch: the first pass over a label whose
- * only special character is a backslash escapes it once, and the SECOND pass is
- * where the backslash starts eating itself.
- */
 class ARawBracketedRunIsWrittenAsAuthoredTest extends TestCase
 {
     /**
@@ -190,26 +171,15 @@ class ARawBracketedRunIsWrittenAsAuthoredTest extends TestCase
         );
     }
 
-    /**
-     * CONTROL, the other half of the same asymmetry: an alt text is RAW, so the
-     * backslash the reader drops from a link text stays in the alt.
-     */
-    public function testTheAltKeepsTheBackslashTheLinkTextResolves(): void
+    public function testTheAltResolvesPunctuationEscapes(): void
     {
         $this->assertSame(
-            "<p>a <img src=\"/i.png\" alt=\"t\\]z\"> b</p>\n",
+            "<p>a <img src=\"/i.png\" alt=\"t]z\"> b</p>\n",
             CarveConverter::create()->convert("a ![t\\]z](/i.png) b\n"),
         );
     }
 
-    /**
-     * An alt text with no Carve spelling at all keeps the escape. `parse` cannot
-     * produce one - an unbalanced `]` never opened an image in the first place -
-     * but an ingested AST can, and the escaped spelling is still an image where
-     * the verbatim one is a paragraph of literal text. It settles, because the
-     * escaped alt is itself representable.
-     */
-    public function testAnUnrepresentableAltKeepsTheEscape(): void
+    public function testAnIngestedAltEscapesItsBracket(): void
     {
         $paragraph = new Paragraph();
         $paragraph->appendChild(new Image('/i.png', 't]z'));

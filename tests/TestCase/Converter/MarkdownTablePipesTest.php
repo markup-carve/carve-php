@@ -110,14 +110,6 @@ final class MarkdownTablePipesTest extends TestCase
         self::assertStringNotContainsString("\x00", $carve);
     }
 
-    public function testImageAltPipeHasAnExplicitDegradationWarning(): void
-    {
-        $result = (new MarkdownToCarve())->convertWithFidelityReport("| ![a\\|b](/i) | c |\n|---|---|\n| d | e |");
-        self::assertSame('markdown-table-image-alt-pipe', $result->diagnostics[1]->code);
-        self::assertSame('degraded', $result->diagnostics[1]->fidelity);
-        self::assertSame('line:1', $result->diagnostics[1]->path);
-    }
-
     public function testHtmlBlockRowsDoNotProduceTableWarnings(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("- <div>\n  | a | b |\n  |---|\n  </div>");

@@ -30,6 +30,8 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\HeadingReferenceCollector;
 use MarkupCarve\Carve\Parser\LabelKey;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -419,9 +421,8 @@ class ReferenceLinter
 
     /**
      * The edit, relative to $span, that respells an unresolved reference
-     * image's label. An image has no positioned text nodes, so the bracket is
-     * the `][` run that ends the reference or precedes its attribute block,
-     * and only an image whose alt is plain text is respelled.
+     * image's label. The reader supplies the balanced alt boundary, and
+     * decoding that source slice must reproduce the image's alt value.
      *
      * @param \MarkupCarve\Carve\Node\Inline\Image $image
      * @param string $span
@@ -432,9 +433,20 @@ class ReferenceLinter
     private function imageLabelEdit(Image $image, string $span, array $targets): ?array
     {
         $label = (string)$image->getReferenceLabel();
-        $collapsed = $this->endingBracketAt($span, '][]');
-        $at = $collapsed ?? $this->endingBracketAt($span, '][' . $label . ']');
-        if ($at === null || !str_starts_with($span, '![')) {
+        if (!str_starts_with($span, '![')) {
+            return null;
+        }
+        $at = BracketScanner::balancedBracketEnd($span, 1);
+        if ($at === null) {
+            return null;
+        }
+        $collapsed = substr($span, $at, 3) === '][]' ? $at : null;
+        $head = $collapsed !== null ? '][]' : '][' . $label . ']';
+        if (substr($span, $at, strlen($head)) !== $head) {
+            return null;
+        }
+        $next = $at + strlen($head);
+        if ($next !== strlen($span) && $span[$next] !== '{') {
             return null;
         }
         $caseOnly = $this->labelsDifferingOnlyInCase($image, $targets, $collapsed !== null);
@@ -442,10 +454,8 @@ class ReferenceLinter
             return null;
         }
         $replacement = $caseOnly[0][0];
-        // Only a plain alt proves the bracket found is the reference's own:
-        // markup in the alt (a code span holding `][`) could hide another.
         $text = substr($span, 2, $at - 2);
-        if ($text !== $image->getAlt()) {
+        if (AttributeParser::processEscapes($text) !== $image->getAlt()) {
             return null;
         }
         if ($collapsed === null) {
@@ -455,20 +465,6 @@ class ReferenceLinter
         return $this->foldId($this->labelKey($text)) === $this->foldId($this->labelKey($replacement))
             ? [2, strlen($text), $replacement]
             : null;
-    }
-
-    private function endingBracketAt(string $span, string $bracket): ?int
-    {
-        $from = 0;
-        while (($at = strpos($span, $bracket, $from)) !== false) {
-            $next = $at + strlen($bracket);
-            if ($next === strlen($span) || $span[$next] === '{') {
-                return $at;
-            }
-            $from = $at + 1;
-        }
-
-        return null;
     }
 
     /**

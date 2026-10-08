@@ -14,9 +14,8 @@ use PHPUnit\Framework\TestCase;
  * by the same balanced, escape- and literal-span-aware scan
  * (markup-carve/carve#1206, markup-carve/carve#1197).
  *
- * The alt run is RAW. Nothing inside is inline-parsed and no escape inside it is
- * resolved, so `![t\]z](/i.png)` publishes `alt="t\]z"` with the backslash
- * intact: the escape says where the run ends, it is not a spelling of anything.
+ * Alt values resolve punctuation escapes without parsing inline markup.
+ * The balanced closer still belongs to the source run.
  *
  * This engine's link scan was already right. The alt was a SECOND scan, written
  * beside it, that agreed on depth and on `\` but skipped neither of the two
@@ -40,9 +39,9 @@ class AnImageAltTextClosesWhereLinkTextClosesTest extends TestCase
                 'a ![t[z[q]]](/i.png) b',
                 '<p>a <img src="/i.png" alt="t[z[q]]"> b</p>',
             ],
-            'an escaped bracket does not close, and stays in the alt' => [
+            'an escaped bracket is content' => [
                 'a ![t\\]z](/i.png) b',
-                '<p>a <img src="/i.png" alt="t\\]z"> b</p>',
+                '<p>a <img src="/i.png" alt="t]z"> b</p>',
             ],
             'a bracket inside a code span is content' => [
                 'a ![t`]`z](/i.png) b',

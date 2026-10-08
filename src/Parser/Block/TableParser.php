@@ -347,6 +347,13 @@ class TableParser
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
 
+            if (!$inCode && $char === '\\' && $i + 1 < $length && ctype_punct($line[$i + 1])) {
+                $currentCell .= substr($line, $i, 2);
+                $i++;
+
+                continue;
+            }
+
             // Track code spans (backticks)
             if ($char === '`' && !$inCode) {
                 // Count backticks for code span opener
