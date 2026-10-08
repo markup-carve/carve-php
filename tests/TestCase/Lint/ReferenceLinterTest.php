@@ -375,6 +375,11 @@ class ReferenceLinterTest extends TestCase
     public static function caseOnlyRewrites(): array
     {
         return [
+            'an escaped image alt with code and attributes' => [
+                "x ![a\\|b `][]`][R]{title=\"] [R]\"} y\n\n[r]: /i\n",
+                "x ![a\\|b `][]`][r]{title=\"] [R]\"} y\n\n[r]: /i\n",
+            ],
+            'an escaped image alt' => ["x ![a\\|b][R] y\n\n[r]: /i\n", "x ![a\\|b][r] y\n\n[r]: /i\n"],
             'a heading crossref' => ["# Getting Started\n\nSee </#getting-started>.\n", "# Getting Started\n\nSee </#Getting-Started>.\n"],
             'a caption crossref' => [
                 "{#Fig-A}\n![x](a.jpg)\n^ Figure #: A\n\nSee </#fig-a>.\n",
@@ -417,7 +422,7 @@ class ReferenceLinterTest extends TestCase
                 "[x][Caf\u{00E9}]\n\n[Cafe\u{0301}]: /u\n",
             ],
             'a reference image label' => ["![alt][pic]{.c}\n\n[Pic]: i.png\n", "![alt][Pic]{.c}\n\n[Pic]: i.png\n"],
-            'an image whose alt is markup is left alone' => ["![`a][pic]{b`][pic]\n\n[Pic]: i.png\n", "![`a][pic]{b`][pic]\n\n[Pic]: i.png\n"],
+            'an image alt with a hidden bracket keeps its source' => ["![`a][pic]{b`][pic]\n\n[Pic]: i.png\n", "![`a][pic]{b`][Pic]\n\n[Pic]: i.png\n"],
             'a collapsed reference image' => ["x ![pic][]\n\n[Pic]: i.png\n", "x ![Pic][]\n\n[Pic]: i.png\n"],
             'an attribute value repeating the label is left alone' => [
                 "[x][PLAN]{title=\"[y][PLAN]\"}\n\n[Plan]: /u\n",

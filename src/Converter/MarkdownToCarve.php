@@ -3817,6 +3817,17 @@ class MarkdownToCarve
         return $row . '|';
     }
 
+    private function escapeTablePipes(string $text): string
+    {
+        return preg_replace_callback('/(\\\\*)\||\\\\+/', static function (array $match): string {
+            if (!isset($match[1])) {
+                return $match[0];
+            }
+
+            return $match[1] . (strlen($match[1]) % 2 === 0 ? '\\|' : '|');
+        }, $text) ?? $text;
+    }
+
     private function escapeTableInlineText(string $cell): string
     {
         if (strpbrk($cell, '\\`|') !== false) {
@@ -3829,7 +3840,7 @@ class MarkdownToCarve
             });
             // Closed literal spans preserve cell boundaries; the comment separates adjacent backtick runs.
             $cell = preg_replace_callback('/\\\\([\\\\`])/', static fn (array $match): string => $match[1] === '`' ? '!`` ` ``{% %}' : '!`\\`{% %}', $cell) ?? $cell;
-            $cell = preg_replace_callback('/(\\\\*)\|/', static fn (array $match): string => $match[1] . (strlen($match[1]) % 2 === 0 ? '\\|' : '|'), $cell) ?? $cell;
+            $cell = $this->escapeTablePipes($cell);
             $cell = strtr($cell, $spans);
         }
 
@@ -5187,7 +5198,7 @@ class MarkdownToCarve
                     return $span;
                 }
                 if (str_starts_with($span, '![') || str_starts_with($span, '(')) {
-                    return preg_replace_callback('/(\\\\*)\|/', static fn (array $pipe): string => $pipe[1] . (strlen($pipe[1]) % 2 === 0 ? '\\|' : '|'), $span) ?? $span;
+                    return $this->escapeTablePipes($span);
                 }
 
                 return $this->escapeTableInlineText($span);
