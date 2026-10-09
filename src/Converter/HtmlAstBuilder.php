@@ -3770,7 +3770,9 @@ final class HtmlAstBuilder
             $closing = $this->session->quoteDepth % 2 === 0 ? '”' : '’';
             ++$this->session->quoteDepth;
             try {
-                $quoted = $this->inlines($this->children($node));
+                $quoted = $node->hasAttribute('cite')
+                    ? $this->bracketedChildren($node)
+                    : $this->inlines($this->children($node));
             } finally {
                 --$this->session->quoteDepth;
             }
@@ -3830,6 +3832,8 @@ final class HtmlAstBuilder
                 array_pop($this->session->inlineTypeStack);
             }
             if ($this->sourceSafe && $nestedSameKind) {
+                $this->session->unwrappedSameKindSpans[$node] = null;
+
                 return $children;
             }
             $span = ['type' => $type];
@@ -3852,7 +3856,6 @@ final class HtmlAstBuilder
         }
 
         if ($tag === 'span' || in_array($tag, ['abbr', 'time', 'samp', 'var', 'kbd', 'cite', 'dfn'], true)) {
-            $span = ['type' => 'span', 'children' => $this->inlines($this->children($node))];
             $skip = [];
             $attrs = $this->attrs($node, $skip);
             if ($tag !== 'span') {
@@ -3870,6 +3873,10 @@ final class HtmlAstBuilder
                     $attrs['keyValues'][$tag] = $node->hasAttribute($source) ? $node->getAttribute($source) : '';
                 }
             }
+            $children = $attrs !== []
+                ? $this->bracketedChildren($node)
+                : $this->inlines($this->children($node));
+            $span = ['type' => 'span', 'children' => $children];
             if ($attrs !== []) {
                 $span['attrs'] = $attrs;
             }
@@ -4006,6 +4013,20 @@ final class HtmlAstBuilder
     /**
      * @return list<ImportedNode>
      */
+    private function bracketedChildren(DOMElement $node): array
+    {
+        $outerKinds = $this->session->inlineTypeStack;
+        $this->session->inlineTypeStack = [];
+        try {
+            return $this->inlines($this->children($node));
+        } finally {
+            $this->session->inlineTypeStack = $outerKinds;
+        }
+    }
+
+    /**
+     * @return list<ImportedNode>
+     */
     private function inlineLink(DOMElement $node): array
     {
         // Raw HTML would write a denied destination the report says was dropped.
@@ -4025,15 +4046,6 @@ final class HtmlAstBuilder
                 }
             }
         }
-        $outerKinds = $this->session->inlineTypeStack;
-        if (!self::carriesNoDestination($node->getAttribute('href'))) {
-            $this->session->inlineTypeStack = [];
-        }
-        try {
-            $children = $this->inlines($this->children($node));
-        } finally {
-            $this->session->inlineTypeStack = $outerKinds;
-        }
         if (self::carriesNoDestination($node->getAttribute('href'))) {
             $skip = ['href'];
             foreach ($node->attributes as $attribute) {
@@ -4042,12 +4054,16 @@ final class HtmlAstBuilder
                 }
             }
             $attrs = $this->attrs($node, $skip);
+            $children = $attrs !== []
+                ? $this->bracketedChildren($node)
+                : $this->inlines($this->children($node));
             if ($attrs !== []) {
                 return [['type' => 'span', 'children' => $children, 'attrs' => $attrs]];
             }
 
             return $children;
         }
+        $children = $this->bracketedChildren($node);
         if ($node->hasAttribute('data-djot-inline-footnote-html')) {
             $content = $this->inlineHtml($node->getAttribute('data-djot-inline-footnote-html'));
             $class = $node->getAttribute('data-djot-inline-footnote-class');

@@ -41,7 +41,7 @@ class AnEmphasisWrappingAStrongIsBracedTest extends TestCase
         return [
             'the combined form itself' => ['/*x*/', "/*x*/\n"],
             'an emphasis inside a strong' => ['{*/x/*}', "*/x/*\n"],
-            'a strong at the leading edge only' => ['{/*x* y/}', "/*x* y/\n"],
+            'a strong at the leading edge only' => ['{/*x* y/}', "{/*x* y/}\n"],
             'a strong at the trailing edge only' => ['{/y *x*/}', "/y *x*/\n"],
             'an underline wrapping a strong' => ['{_*x*_}', "_*x*_\n"],
             'a strike wrapping a strong' => ['{~*x*~}', "~*x*~\n"],

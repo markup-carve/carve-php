@@ -435,6 +435,7 @@ class HtmlToCarve
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
+        $this->unwrappedSameKindImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
@@ -453,6 +454,7 @@ class HtmlToCarve
         $this->summaryImportTitles = $session->summaryTitles;
         $this->keptRawImportElements = $session->keptRawElements;
         $this->droppedEmptyImportElements = $session->droppedEmptyElements;
+        $this->unwrappedSameKindImportSpans = $session->unwrappedSameKindSpans;
         $this->droppedEmptyImportHeadings = $session->droppedEmptyHeadings;
         $this->urlListImportCarriers = $session->urlListCarriers;
         $this->droppedBlankImportRows = $session->droppedBlankTableRows;
@@ -1116,11 +1118,10 @@ class HtmlToCarve
         }
         $parent = $node->parentNode;
         $kind = $parent instanceof DOMElement ? $this->formattingKind($node) : null;
-        if (
-            $parent instanceof DOMElement
-            && $kind !== null
-            && $kind === $this->formattingKind($parent)
-        ) {
+        $unwrappedSameKind = $this->inspectedAst === null && $this->unwrappedSameKindImportSpans !== null
+            ? isset($this->unwrappedSameKindImportSpans[$node])
+            : ($parent instanceof DOMElement && $kind !== null && $kind === $this->formattingKind($parent));
+        if ($unwrappedSameKind) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
@@ -3638,6 +3639,7 @@ class HtmlToCarve
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
+        $this->unwrappedSameKindImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
@@ -4901,6 +4903,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $droppedEmptyImportElements = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $unwrappedSameKindImportSpans = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null

@@ -39,6 +39,11 @@ final class HtmlImportSession
     /**
      * @var \SplObjectStorage<\DOMElement, null>
      */
+    public SplObjectStorage $unwrappedSameKindSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
     public SplObjectStorage $droppedEmptyHeadings;
 
     /**
@@ -151,6 +156,7 @@ final class HtmlImportSession
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();
         $this->droppedEmptyElements = new SplObjectStorage();
+        $this->unwrappedSameKindSpans = new SplObjectStorage();
         $this->droppedEmptyHeadings = new SplObjectStorage();
         $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();

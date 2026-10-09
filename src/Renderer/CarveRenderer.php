@@ -4251,10 +4251,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // and a trailing line break puts the closer at the start of the next
             // line, where only the braced closer closes.
             || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
-            // `/*` opens `bold_italic` and `*/` closes it, so a bare emphasis
-            // whose content has both would read back as a strong wrapping an
-            // emphasis -- the other nesting (carve-php#2012).
-            || ($delimiter === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
+            // A leading `*` would form the combined bold-italic opener.
+            || ($delimiter === '/' && str_starts_with($content, '*'));
 
         return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
     }
