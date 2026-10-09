@@ -178,7 +178,7 @@ final class ATaskLabelThatIsAlsoAReferenceDefinitionReadsAsTheCheckboxTest exten
         $result = (new MarkdownToCarve())->convertWithFidelityReport("- [x] done\n\n[x]: /u\n");
         $codes = array_values(array_filter(
             array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics),
-            static fn (string $code): bool => $code !== 'fidelity-unverified',
+            static fn (string $code): bool => $code === 'structure-unspellable',
         ));
 
         $this->assertSame([], $codes);

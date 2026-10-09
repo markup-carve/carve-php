@@ -130,40 +130,27 @@ final class AnOrderedTaskItemIsNotSpellableTest extends TestCase
         }
     }
 
-    /**
-     * The blanket row the Markdown importer owes for having no construct-level
-     * evidence stays where it was: the new row is additional, not a replacement.
-     */
-    public function testTheUnverifiedRowStaysFirst(): void
+    public function testCompleteAssessmentReportsTheOrderedTaskLoss(): void
     {
         $report = (new MarkdownToCarve())->convertWithFidelityReport("1. [x] done\n")->report();
-
-        $this->assertSame(
-            ['fidelity-unverified', 'structure-unspellable'],
-            array_column($report['diagnostics'], 'code'),
-        );
+        $losses = array_values(array_filter($report['diagnostics'], static fn (array $row): bool => $row['fidelity'] === 'dropped'));
+        $this->assertSame(['structure-unspellable'], array_column($losses, 'code'));
+        $this->assertSame(['line:1'], array_column($losses, 'path'));
+        $this->assertNotContains('fidelity-unverified', array_column($report['diagnostics'], 'code'));
     }
 
-    /**
-     * A document with no unspellable item reports exactly what it did before.
-     */
-    public function testAReportWithoutOneIsUnchanged(): void
+    public function testAReportWithoutLossHasConstructEvidence(): void
     {
         $report = (new MarkdownToCarve())->convertWithFidelityReport("**strong**\n")->report();
-
-        $this->assertSame(['fidelity-unverified'], array_column($report['diagnostics'], 'code'));
+        $this->assertSame(['markdown-paragraph', 'markdown-strong'], array_column($report['diagnostics'], 'code'));
     }
 
-    /**
-     * The rows belong to the document just converted, not to the one before it.
-     */
     public function testTheRowsDoNotSurviveTheNextConversion(): void
     {
         $converter = new MarkdownToCarve();
         $converter->convertWithFidelityReport("1. [x] done\n");
         $report = $converter->convertWithFidelityReport("- [x] done\n")->report();
-
-        $this->assertSame(['fidelity-unverified'], array_column($report['diagnostics'], 'code'));
+        $this->assertSame(['markdown-bullet-list', 'markdown-list-item', 'markdown-bullet-task'], array_column($report['diagnostics'], 'code'));
     }
 
     /**

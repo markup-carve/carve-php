@@ -1491,11 +1491,25 @@ class MarkdownToCarve
     public function convertWithFidelityReport(string $markdown): MigrationResult
     {
         $value = $this->convert($markdown);
-        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis);
-        if (
-            $this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis
-            && $this->tableDiagnostics === [] && !$this->frontmatterSynthesized
-        ) {
+        $supportedDialect = !$this->convertMath && !$this->convertHighlight && !$this->convertInlineFootnotes
+            && !$this->convertAbbreviations && !$this->convertFencedDivs && !$this->convertAttributes && !$this->convertRawHtml;
+        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis, $supportedDialect);
+        if (($result->diagnostics[0]->code ?? null) === 'literal-text-verified') {
+            $row = $result->diagnostics[0];
+
+            return new MigrationResult($value, 'markdown', [new MigrationDiagnostic($row->code, $row->message, $row->severity, $row->fidelity, $row->confidence, 'line:1')]);
+        }
+        if ($supportedDialect && ($result->diagnostics[0]->code ?? null) !== 'literal-text-verified') {
+            $assessment = (new MarkdownAssessment())->assess($markdown, $value);
+            $losses = count($this->unspellableOrderedTasks) + ($this->flattenedEmphasis ? 1 : 0) + count($this->tableDiagnostics);
+            $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
+            // `frontmatter-synthesized` is a report the assessment knows nothing
+            // about, so the fast path must not replace a report that carries it.
+            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $losses <= $assessedLosses) {
+                return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
+            }
+        }
+        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
