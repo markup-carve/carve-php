@@ -711,7 +711,7 @@ class DjotToCarve
                     $value = preg_replace_callback('/\\\\(.)/us', static fn (array $match): string => str_contains(".,\\/#!$%^&*;:{}=-_`~+[]()'\"?|", $match[1]) ? $match[1] : $match[0], $value) ?? $value;
                     $parts[] = $key[0] . $quoteValue($value);
                 } else {
-                    while ($i < $length && preg_match('/[\s{}%"\'=<>]/', $source[$i]) !== 1) {
+                    while ($i < $length && preg_match('/[A-Za-z0-9_:-]/', $source[$i]) === 1) {
                         $i++;
                     }
                     if ($i === $from) {
@@ -1202,7 +1202,8 @@ class DjotToCarve
                     $invalid = true;
                 }
             }
-            if (($source[$i + 1] ?? '') === '#' && (($source[$end] ?? '') !== '}' || $invalid)) {
+            if (($source[$i + 1] ?? '') === '#' && (($source[$end] ?? '') !== '}' || $invalid)
+                || preg_match('/\G[A-Za-z][A-Za-z0-9_-]*(?:=|})/', $source, offset: $i + 1) === 1 && $this->readDjotWordAttributes($source, $i) === null) {
                 $escapes[] = $i;
             }
             $i = max($i, $end - (($source[$end] ?? '') === '{' ? 1 : 0));
@@ -1210,8 +1211,9 @@ class DjotToCarve
         $output = '';
         $cursor = 0;
         foreach ($escapes as $at) {
-            $output .= substr($source, $cursor, $at - $cursor) . '\\{\\#';
-            $cursor = $at + 2;
+            $hash = ($source[$at + 1] ?? '') === '#';
+            $output .= substr($source, $cursor, $at - $cursor) . '\\{' . ($hash ? '\\#' : '');
+            $cursor = $at + ($hash ? 2 : 1);
         }
 
         return $output . substr($source, $cursor);
