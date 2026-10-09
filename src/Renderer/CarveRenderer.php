@@ -2795,6 +2795,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function padCell(string $prefix, string $content): string
     {
+        $content = trim($content, ' ');
         if ($content === '') {
             return $prefix . ' ';
         }
@@ -2845,7 +2846,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
 
         $inlines = $cell->hasBlockContent()
-            ? TableCellBlockFlattener::flatten($cell)->getChildren()
+            ? TableCellBlockFlattener::flatten($cell, keepHardBreaks: true)->getChildren()
             : $cell->getChildren();
         $previousFlattenedCell = $this->flattenedTableCell;
         $this->flattenedTableCell = $cell->hasBlockContent() ? $cell : null;
@@ -2860,6 +2861,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $this->padCell($prefix, $content);
+    }
+
+    protected function recordCellHardBreak(HardBreak $node): void
+    {
+        $this->recordUnspellableStructure($node, 'Carve source cannot spell a hard break in a single-line table cell');
+    }
+
+    protected function renderHardBreak(HardBreak $node): string
+    {
+        if ($this->tableCellDepth === 0) {
+            return "\\\n";
+        }
+        $this->recordCellHardBreak($node);
+
+        return isset($this->edgeCellBreaks[spl_object_id($node)]) ? '' : ' ';
     }
 
     /**
@@ -3599,7 +3615,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // is the only place that can see the line the break ends
             // (PART 11 §7c) - see verseLineBreak().
             // A pipe cell is one line and has no hard break: one space (PART 11 §1b).
-            $node instanceof HardBreak => $this->tableCellDepth === 0 ? "\\\n" : (isset($this->edgeCellBreaks[spl_object_id($node)]) ? '' : ' '),
+            $node instanceof HardBreak => $this->renderHardBreak($node),
             $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->renderMarked('insert', $node) . '+}')),
             $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->renderMarked('delete', $node) . '-}')),
             $node instanceof Substitution => '{~' . $this->renderInlines($node->getOld()->getChildren()) . '~>' . $this->renderInlines($node->getNew()->getChildren()) . '~}',
