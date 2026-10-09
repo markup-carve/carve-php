@@ -227,8 +227,28 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert("```math\n\\int_0^1 x^2 < 1\n```\n"));
 
-        // Source preserved, escaped, never blank; no interactive \[ ... \] div.
-        $this->assertSame('<pre class="math display">\int_0^1 x^2 &lt; 1</pre>', $html);
+        // "Else the source" is about the BODY, not the wrapper: the source
+        // rides in the same display-math div the contract gives MathBlock, so a
+        // downstream typesetter still sees delimited TeX. carve-js 0.1.10 and
+        // carve-rs both emit this in static mode with no math renderer.
+        $this->assertSame('<div class="math display">\[\int_0^1 x^2 &lt; 1\]</div>', $html);
+    }
+
+    public function testMathStaticWithoutRendererMatchesInteractive(): void
+    {
+        $source = "```math\n\\int_0^1 x^2 < 1\n```\n";
+
+        $static = new CarveConverter(mode: RenderMode::STATIC);
+        $static->addExtension(new MathBlockExtension());
+        $interactive = new CarveConverter();
+        $interactive->addExtension(new MathBlockExtension());
+
+        // There is no interaction in a math block to drop, so static output
+        // without a renderer is the interactive output unchanged.
+        $this->assertSame(
+            trim($interactive->convert($source)),
+            trim($static->convert($source)),
+        );
     }
 
     public function testMathStaticUsesSuppliedRenderer(): void
@@ -447,7 +467,8 @@ class StaticRenderModeTest extends TestCase
 
         $html = trim($converter->convert($source));
 
-        $this->assertSame('<pre id="eq" class="math display big">\pi</pre>', $html);
+        // The same attributes, in the same order, as the interactive div.
+        $this->assertSame('<div id="eq" class="math display big">\[\pi\]</div>', $html);
     }
 
     public function testMermaidInteractiveModeEmitsHydrationElement(): void

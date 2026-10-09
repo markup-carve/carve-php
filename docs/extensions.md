@@ -125,7 +125,7 @@ output:
 | --- | --- |
 | `TabsExtension` | each panel as a `<section class="tabs-panel">` headed by `<h3 class="tabs-label">` carrying the tab label (no radio inputs, no tab buttons) |
 | `CodeGroupExtension` | each code block as a `<section class="code-group-panel">` headed by `<h3 class="code-group-label">` carrying its `[label]` |
-| `MathBlockExtension` | the `math` renderer's server-side output (MathML/HTML) inside `<div class="math display">`, else the LaTeX source inside `<pre class="math display">` |
+| `MathBlockExtension` | the `math` renderer's server-side output (MathML/HTML) inside `<div class="math display">`, else the LaTeX source inside the same div, delimited `\[ ... \]` - the interactive output unchanged, since a math block has no interaction to drop |
 | `FencedRenderExtension` (mermaid, chart, ...) | the renderer's image inside a `<div class="mermaid">` named for the fence's CSS class, else the source inside `<pre class="mermaid">` holding `<code class="language-mermaid">` |
 | `ImgFenceExtension` | what it emits interactively, unchanged: the sanitized SVG in a sandboxed `<img>` carrying a `data:image/svg+xml` URI - or inline `<svg>`, but only where the host passed `allowInline: true` AND the block attribute line carries `{inline}`. A body the sanitizer rejects falls back to the source inside `<pre>` holding `<code class="language-img">` |
 | `SpoilerExtension` | block: a revealed `<section class="spoiler spoiler-revealed">` headed by `<h3 class="spoiler-title">`, with any grouping `[label]` following as a `<p class="div-label">` caption; inline: `<span class="spoiler spoiler-revealed">` |

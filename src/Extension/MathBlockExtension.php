@@ -65,9 +65,13 @@ class MathBlockExtension implements StaticRenderExtensionInterface
 
     /**
      * Static render: server-side output if a `math` renderer is supplied, else
-     * the LaTeX source preserved verbatim (never blank). A KaTeX/MathJax client
-     * script cannot run in a static target, so the interactive `\[ ... \]` div
-     * would otherwise show as raw markup; this keeps it self-contained.
+     * the LaTeX source preserved verbatim (never blank) in the same display
+     * math div the interactive path writes.
+     *
+     * The contract's "else the source" is about the body, not the wrapper: a
+     * math block has no interaction to drop, and the delimiters are what a
+     * downstream typesetter recognizes. carve-js and carve-rs both emit the
+     * interactive div here.
      */
     public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
     {
@@ -90,9 +94,8 @@ class MathBlockExtension implements StaticRenderExtensionInterface
             return true;
         }
 
-        // No renderer: keep the source readable as an escaped block.
-        $event->setHtml('<pre' . $this->renderExtensionAttributes($node, $renderer, ['math', 'display'])
-            . '>' . $this->escapeMath($source) . "</pre>\n");
+        // No renderer: the escaped source inside the display math div.
+        $event->setHtml($this->renderMath($node, $renderer));
 
         return true;
     }
@@ -100,9 +103,9 @@ class MathBlockExtension implements StaticRenderExtensionInterface
     /**
      * Render the display-math div for a `math` code block.
      */
-    protected function renderMath(CodeBlock $node): string
+    protected function renderMath(CodeBlock $node, ?HtmlRenderer $renderer = null): string
     {
-        $renderer = $this->renderer;
+        $renderer ??= $this->renderer;
         $attrs = $renderer !== null
             ? $this->renderExtensionAttributes($node, $renderer, ['math', 'display'], tag: 'div')
             : ' class="' . StringUtil::escapeHtml($this->classAttr($node)) . '"';
