@@ -3759,6 +3759,12 @@ class InlineParser
             return "\u{00A0}";
         }
 
+        // A soft or hard line break counts as whitespace, so a quote that
+        // starts a line opens (carve#2822).
+        if ($previous instanceof SoftBreak || $previous instanceof HardBreak) {
+            return "\n";
+        }
+
         if ($previous instanceof Text) {
             $literal = $this->lastCharOf($previous->getContent());
             if ($literal !== '') {
@@ -3870,16 +3876,8 @@ class InlineParser
 
         // $prevConverted is one character; a multibyte char (e.g. a dash or
         // curly quote not matched above) is not in the single-byte opener set.
-        // A newline / carriage return (a soft line break) is NOT an opening
-        // context: a straight quote right after a wrapped line is word-adjacent
-        // and stays CLOSING (`a"b\n""` -> `a”b\n””`), matching carve-js (which
-        // treats a flushed buffer at a soft break as word context, not start).
-        if (
-            strlen($prevConverted) === 1
-            && StringUtil::isWhitespaceChar($prevConverted)
-            && $prevConverted !== "\n"
-            && $prevConverted !== "\r"
-        ) {
+        // A line break is whitespace here too (carve#2822).
+        if (strlen($prevConverted) === 1 && StringUtil::isWhitespaceChar($prevConverted)) {
             return true;
         }
 
