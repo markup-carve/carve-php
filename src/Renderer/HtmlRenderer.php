@@ -4080,7 +4080,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // An escaping safe policy writes any raw block as a code block in its
         // format (PART 10 §6); that is not a loss, so no render-loss row.
         if ($this->safeMode?->getRawHtmlMode() === SafeMode::RAW_HTML_ESCAPE) {
-            return $this->renderPreCode($node, $this->rawBlockAsCodeContent($node->getContent()), $node->getFormat());
+            return $this->renderPreCode($node, $node->getCodeBlockContent(), $node->getFormat());
         }
 
         // Only output if format is HTML
@@ -4103,17 +4103,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         return $this->rawBlockLines($content) . "\n";
-    }
-
-    /**
-     * Raw block content in the shape a code block stores for the same lines.
-     *
-     * The parser drops a raw block's final payload newline unless every payload
-     * line is blank; a code block keeps it.
-     */
-    protected function rawBlockAsCodeContent(string $content): string
-    {
-        return trim($content, "\n") === '' ? $content : $content . "\n";
     }
 
     /**

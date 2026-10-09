@@ -30,9 +30,24 @@ class ProfileFixtureParityTest extends TestCase
             'minimal' => fn (): Profile => Profile::minimal(),
         ];
 
+        // Outputs this build moved ahead of the pinned battery, which carve-php
+        // generates. Delete an entry once the pin carries the new value.
+        $pendingRegeneration = [
+            'article-raw-denied' => "<p>Para.</p>\n<pre><code class=\"language-html\">&lt;b&gt;x&lt;/b&gt;\n</code></pre>\n",
+        ];
+
         foreach ($fixtures as $name => $case) {
             $factory = $factories[$case['profile']] ?? null;
             $this->assertNotNull($factory, "unknown profile id '{$case['profile']}' in fixture '{$name}'");
+
+            if (isset($pendingRegeneration[$name])) {
+                $this->assertNotSame(
+                    $pendingRegeneration[$name],
+                    $case['html'],
+                    "fixture '{$name}' is regenerated - drop its pending-regeneration entry",
+                );
+                $case['html'] = $pendingRegeneration[$name];
+            }
 
             $converter = new CarveConverter(profile: $factory());
             $this->assertSame(

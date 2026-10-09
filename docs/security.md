@@ -134,7 +134,8 @@ human-readable reason per denied feature. Four presets:
 | `Profile::minimal()` | single-line fields, tightest cap |
 
 Denied constructs degrade rather than disappear - a denied heading renders as its
-own text - and each one is reported:
+own text, a denied raw block as a code block in its format when the profile allows
+code blocks - and each one is reported:
 
 ```php
 $converter->setProfile(Profile::comment());

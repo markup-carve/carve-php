@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\SafeMode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -89,5 +90,37 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
         $latex = $converter->convertWithReport("```=latex\n\\textbf{x}\n```\n");
         self::assertSame('', $latex->value);
         self::assertSame(['raw-format-dropped'], array_column($latex->losses, 'code'));
+    }
+
+    #[DataProvider('escapedRawBlocks')]
+    public function testAProfileThatEscapesARawBlockWritesACodeBlock(string $source, string $expected): void
+    {
+        self::assertSame($expected, (new CarveConverter(profile: Profile::article()))->convert($source));
+    }
+
+    public function testTheProfileCodeBlockKeepsTheRawBlockAttributes(): void
+    {
+        self::assertSame(
+            "<pre id=\"i\" class=\"c\"><code class=\"language-html\">&lt;b&gt;x&lt;/b&gt;\n</code></pre>\n",
+            (new CarveConverter(profile: Profile::article()))->convert("{#i .c}\n```=html\n<b>x</b>\n```\n"),
+        );
+    }
+
+    public function testAProfileThatStripsStillDropsTheRawBlock(): void
+    {
+        $profile = Profile::article()->onDisallowed(Profile::ACTION_STRIP);
+
+        self::assertSame(
+            "<p>Para.</p>\n",
+            (new CarveConverter(profile: $profile))->convert("Para.\n\n```=html\n<b>x</b>\n```\n"),
+        );
+    }
+
+    public function testAProfileThatDeniesCodeBlocksKeepsTheTextFallback(): void
+    {
+        self::assertSame(
+            "<p>Para.</p>\n<p>&lt;b&gt;x&lt;/b&gt;</p>\n",
+            (new CarveConverter(profile: Profile::minimal()))->convert("Para.\n\n```=html\n<b>x</b>\n```\n"),
+        );
     }
 }
