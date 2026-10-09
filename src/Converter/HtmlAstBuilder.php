@@ -4349,6 +4349,9 @@ final class HtmlAstBuilder
             if (!$this->sourceSafe) {
                 return $children;
             }
+            if ($this->session->pipeCellDepth > 0) {
+                return $children;
+            }
             $this->setPrivateAttribute($children[0], "\0carve-stored-source", $source);
 
             return self::nodeList([$children[0]]);

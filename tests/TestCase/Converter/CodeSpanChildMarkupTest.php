@@ -109,4 +109,18 @@ class CodeSpanChildMarkupTest extends TestCase
         $this->assertStringContainsString('<code>x1</code>', $rendered);
         $this->assertStringContainsString('note', $rendered);
     }
+
+    public function testARawCarrierIsNotReportedAsADiscardedCodeSpan(): void
+    {
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<p><code data-djot-raw="html"><strong>x</strong></code></p>');
+        $this->assertStringContainsString('<strong>x</strong>', $result->value);
+        $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'inside <code>')));
+    }
+
+    public function testStoredSourceKeepsAllProjectedPipeCellBlocks(): void
+    {
+        $result = (new HtmlToCarve(trustedRoundTrip: true))->convertWithReport('<table><tr><td><p data-djot-src="first&#10;&#10;`a&#10;b`">shown</p></td></tr></table>');
+        $this->assertSame("| first `a b` |\n", $result->value);
+        $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
+    }
 }

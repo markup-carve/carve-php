@@ -1088,7 +1088,7 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'code' && $this->emptyCodeSpanIsDropped($node)) {
+        if ($this->isImportedCodeSpan($node) && $this->emptyCodeSpanIsDropped($node)) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
@@ -1099,7 +1099,7 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'code' && $this->codeSpanLosesBlockBoundary($node)) {
+        if ($this->isImportedCodeSpan($node) && $this->codeSpanLosesBlockBoundary($node)) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
@@ -1109,7 +1109,7 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'code' && $this->foldedImportCodeSpans !== null && isset($this->foldedImportCodeSpans[$node])) {
+        if ($this->isImportedCodeSpan($node) && $this->foldedImportCodeSpans !== null && isset($this->foldedImportCodeSpans[$node])) {
             $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in <code> inside a table cell: a table row is one line', 'warning', $path);
         }
 
@@ -2596,6 +2596,23 @@ class HtmlToCarve
         return false;
     }
 
+    private function isImportedCodeSpan(DOMElement $node): bool
+    {
+        if (strtolower(HtmlDomLoader::elementName($node)) !== 'code') {
+            return false;
+        }
+        if ($this->importMode === 'roundtrip' && ($node->hasAttribute('data-djot-raw') || $node->hasAttribute('data-djot-escaped'))) {
+            return false;
+        }
+        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
+            if (strtolower(HtmlDomLoader::elementName($parent)) === 'pre') {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     /**
      * @param \DOMNode $node
      * @param string $path
@@ -2654,7 +2671,7 @@ class HtmlToCarve
      */
     protected function inspectImportChildren(DOMElement $node, string $tag, string $path, array &$diagnostics): void
     {
-        if ($tag === 'code' && !($node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'pre')) {
+        if ($this->isImportedCodeSpan($node)) {
             $this->inspectCodeSpanChildren($node, $path, $diagnostics);
 
             return;
