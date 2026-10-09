@@ -3919,7 +3919,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             '/([\\\\`*_~\[\]#])/',
             fn (array $m): string => $m[1] === '#'
                 ? $this->positionalHash('#')
-                : ($this->narrowedSentinels[$m[1]] ?? '\\' . $m[1]),
+                : ($m[1] === '[' && $this->linkTextDepth > 0
+                    ? '\\['
+                    : ($this->narrowedSentinels[$m[1]] ?? '\\' . $m[1])),
             $text,
         ) ?? $text;
 
