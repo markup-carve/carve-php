@@ -36,7 +36,7 @@ final class MarkdownAssessment
         $this->diagnostics = [];
         $this->definitions = [];
         $this->complete = true;
-        if (strlen($source) > 1000000 || !class_exists(DOMDocument::class)) {
+        if (strlen($source) > 1000000 || preg_match('//u', $source) !== 1 || !class_exists(DOMDocument::class)) {
             return ['complete' => false, 'diagnostics' => []];
         }
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $source));
@@ -79,48 +79,62 @@ final class MarkdownAssessment
         $this->diagnostics[] = new MigrationDiagnostic($code ?? 'markdown-' . $construct, $message, $fidelity === 'dropped' ? 'warning' : 'info', $fidelity, 'exact', 'line:' . $line);
     }
 
+    /**
+     * @param string $pattern
+     * @param string $text
+     * @param int $offset
+     * @param array<array-key, string> $matches
+     */
+    private static function match(string $pattern, string $text, int $offset, array &$matches): bool
+    {
+        $anchored = $pattern[0] . '\\G' . substr($pattern, 2);
+
+        return preg_match($anchored, $text, $matches, 0, $offset) === 1;
+    }
+
     private function inline(string $text, int $line): string
     {
         $result = '';
+        $m = [];
+        $run = [];
         for ($i = 0, $length = strlen($text); $i < $length;) {
-            $rest = substr($text, $i);
-            if ($rest[0] === '`' && preg_match('/^`+/', $rest, $run) && strlen($run[0]) > 64) {
+            if ($text[$i] === '`' && self::match('/^`+/', $text, $i, $run) && strlen($run[0]) > 64) {
                 $this->complete = false;
 
-                return $result . self::escape($rest);
+                return $result . self::escape(substr($text, $i));
             }
-            if (preg_match('/^(`{1,64})([\s\S]*?)\1(?!`)/', $rest, $m) && !str_contains($m[2], '`')) {
+            if (self::match('/^(`{1,64})([\s\S]*?)\1(?!`)/', $text, $i, $m) && !str_contains($m[2], '`')) {
                 $body = str_replace("\n", ' ', $m[2]);
                 if (str_starts_with($body, ' ') && str_ends_with($body, ' ') && trim($body, ' ') !== '') {
                     $body = substr($body, 1, -1);
                 }
                 $this->emit('code-span', $line);
                 $result .= '<code>' . self::escape($body) . '</code>';
-            } elseif (preg_match('/^\\\\([!"#$%&\'()*+,\-.\/:;<=>?@\[\]\\\\^_`{|}~])/', $rest, $m)) {
+            } elseif (self::match('/^\\\\([!"#$%&\'()*+,\-.\/:;<=>?@\[\]\\\\^_`{|}~])/', $text, $i, $m)) {
                 $this->emit('escape', $line, 'normalized');
                 $result .= self::escape($m[1]);
-            } elseif (preg_match('/^&(?:#[xX][\da-fA-F]+|#\d+|[A-Za-z][A-Za-z\d]+);/', $rest, $m)) {
+            } elseif (self::match('/^&(?:#[xX][\da-fA-F]+|#\d+|[A-Za-z][A-Za-z\d]+);/', $text, $i, $m)) {
                 if (html_entity_decode($m[0], ENT_QUOTES | ENT_HTML5, 'UTF-8') !== $m[0]) {
                     $this->emit('entity', $line, 'normalized');
                 }
                 $result .= $m[0];
-            } elseif (preg_match('/^(!?)\[([^\]\n]*)\]\(([^ ()\n]+)(?:[ \t]+"([^"\n]*)")?\)/', $rest, $m)) {
+            } elseif (self::match('/^(!?)\[([^\]\n]*)\]\(([^ ()\n]+)(?:[ \t]+"([^"\n]*)")?\)/', $text, $i, $m)) {
                 if (!preg_match('~^(https?://|mailto:|[./#])~', $m[3]) && preg_match('/^[A-Za-z][\w+.-]*:/', $m[3])) {
                     $this->complete = false;
                 }
                 $this->emit($m[1] === '!' ? 'image' : 'link', $line);
                 $title = isset($m[4]) ? ' title="' . self::escape($m[4]) . '"' : '';
                 $result .= $m[1] === '!' ? '<img src="' . self::escape($m[3]) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($m[3]) . '"' . $title . '>' . $this->inline($m[2], $line) . '</a>';
-            } elseif (preg_match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $rest, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
+            } elseif (self::match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $text, $i, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
                 $definition = $this->definitions[self::label(($m[3] ?? '') ?: $m[2])];
                 $this->emit('reference-link', $line, 'normalized');
                 $title = $definition['title'] === null ? '' : ' title="' . self::escape($definition['title']) . '"';
                 $result .= $m[1] === '!' ? '<img src="' . self::escape($definition['destination']) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($definition['destination']) . '"' . $title . '>' . $this->inline($m[2], $line) . '</a>';
-            } elseif (preg_match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $rest, $m)) {
+            } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($m[1]) . '</a>';
-            } elseif (preg_match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $rest, $m) && !str_contains($m[2], $m[1][0])) {
+            } elseif (self::match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $text, $i, $m) && !str_contains($m[2], $m[1][0])) {
                 if ((str_contains($m[1], '_') && $i > 0 && preg_match('/[A-Za-z0-9]/', $text[$i - 1])) || preg_match('/^\s|\s$/', $m[2])) {
                     $this->complete = false;
                 }
@@ -128,36 +142,44 @@ final class MarkdownAssessment
                 $this->emit($kind, $line);
                 $tag = $kind === 'strong' ? 'strong' : ($kind === 'emphasis' ? 'em' : 's');
                 $result .= '<' . $tag . '>' . $this->inline($m[2], $line) . '</' . $tag . '>';
-            } elseif (preg_match('/^(?: {2,}|\\\\)\n/', $rest, $m)) {
+            } elseif (self::match('/^(?: {2,}|\\\\)\n/', $text, $i, $m)) {
                 $this->emit('hard-break', $line, 'normalized');
                 $result .= "<br>\n";
-                $line++;
-            } elseif ($rest[0] === "\n") {
+            } elseif ($text[$i] === "\n") {
                 $m = ["\n"];
                 $this->emit('soft-break', $line);
                 $result .= "\n";
-                $line++;
-            } elseif (preg_match('/^<(?:!--[\s\S]*?--|\/?[A-Za-z][^<>]*|\?[\s\S]*?\?)>/', $rest, $m)) {
-                if (preg_match('/^<\/?(?:section|h[1-6])\b/i', $m[0])) {
+            } elseif (self::match('/^<(?:!--[\s\S]*?--|\/?[A-Za-z][^<>]*|\?[\s\S]*?\?)>/', $text, $i, $m)) {
+                if (preg_match('/^<\/?(?:section|h[1-6]|input)\b/i', $m[0])) {
                     $this->complete = false;
                 }
                 $this->emit('raw-html', $line, 'degraded', 'raw-preserved');
                 $result .= $m[0];
             } else {
-                if (str_contains('*_`[\\', $rest[0]) || preg_match('~^(?:\~\~|https?://|www\.)~', $rest) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && preg_match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $rest))) {
+                if (str_contains('*_`[\\<', $text[$i]) || self::match('~^(?:\~\~|https?://|www\.)~', $text, $i, $m) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
                     $this->complete = false;
 
-                    return $result . self::escape($rest);
+                    return $result . self::escape(substr($text, $i));
                 }
-                // Copy a complete UTF-8 code point, not its individual bytes.
-                preg_match('/^./us', $rest, $m);
-                if (!isset($m[0])) {
-                    $this->complete = false;
+                if (self::match('~^[^*_\~`\\\\[<&\n]+~', $text, $i, $m)) {
+                    $next = $text[$i + strlen($m[0])] ?? '';
+                    if ($next === '[' && str_ends_with($m[0], '!')) {
+                        $m[0] = substr($m[0], 0, -1);
+                    }
+                    if ($next === "\n") {
+                        $m[0] = preg_replace('/ {2,}$/', '', $m[0]) ?? $m[0];
+                    }
+                    if ($m[0] === '' || preg_match('~https?://|www\.|[\w.+-]+@[\w.-]+\.[A-Za-z]~', $m[0])) {
+                        $this->complete = false;
 
-                    return $result;
+                        return $result . self::escape(substr($text, $i));
+                    }
+                } else {
+                    $m = [$text[$i]];
                 }
                 $result .= self::escape($m[0]);
             }
+            $line += substr_count($m[0], "\n");
             $i += strlen($m[0]);
         }
 
@@ -334,7 +356,7 @@ final class MarkdownAssessment
                 while ($i < $count && trim($lines[$i]) !== '') {
                     $body[] = $lines[$i++];
                 }
-                if (preg_match('/<\/?(?:section|h[1-6])\b/i', implode("\n", $body))) {
+                if (preg_match('/<\/?(?:section|h[1-6]|input)\b/i', implode("\n", $body))) {
                     $this->complete = false;
                 }
                 $this->emit('raw-html', $n, 'degraded', 'raw-preserved');
@@ -396,7 +418,7 @@ final class MarkdownAssessment
             }
             $attributes = [];
             foreach ($node->attributes ?? [] as $attribute) {
-                if (($attribute->name === 'id' && preg_match('/^h[1-6]$/', $tag)) || ($attribute->name === 'scope' && $tag === 'th')) {
+                if (($attribute->name === 'id' && preg_match('/^h[1-6]$/', $tag)) || ($attribute->name === 'scope' && $tag === 'th') || ($attribute->name === 'aria-label' && $tag === 'input')) {
                     continue;
                 }
                 $attributes[] = [$attribute->name, $attribute->value];

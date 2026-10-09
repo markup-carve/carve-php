@@ -650,11 +650,11 @@ class CliTest extends TestCase
     {
         $result = $this->runCliInput(
             ['migrate', '--from', 'markdown', '--mode', 'raw', '--check-loss'],
-            "**bold**\n",
+            "https://example.org\n",
         );
 
         $this->assertSame(1, $result['exit']);
-        $this->assertSame("*bold*\n", $result['out']);
+        $this->assertSame("https://example.org\n", $result['out']);
     }
 
     public function testMigrateWritesTheVersionedReportForEveryImporter(): void

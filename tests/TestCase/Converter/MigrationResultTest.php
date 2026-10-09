@@ -82,7 +82,7 @@ final class MigrationResultTest extends TestCase
         foreach ($results as $result) {
             self::assertSame([
                 'code' => 'fidelity-unverified',
-                'message' => 'The ' . $result->sourceFormat . ' importer does not yet provide construct-level fidelity evidence',
+                'message' => $result->sourceFormat === 'markdown' ? 'Markdown construct assessment is incomplete.' : 'The ' . $result->sourceFormat . ' importer does not yet provide construct-level fidelity evidence',
                 'severity' => 'warning',
                 'fidelity' => 'dropped',
                 'confidence' => 'fallback',
