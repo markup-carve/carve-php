@@ -149,7 +149,7 @@ class AdjacentMarkdownRunsMergeTest extends TestCase
      */
     public function testTheInlineHtmlKindsCarryNoRunAndAreLeftAlone(): void
     {
-        $this->assertSame("a <del>x</del><del>y</del>\n", $this->md("a {-x-}{-y-}\n"));
+        $this->assertSame("a <del class=\"critic-delete\">x</del><del class=\"critic-delete\">y</del>\n", $this->md("a {-x-}{-y-}\n"));
     }
 
     public function testAnEscapedAsteriskIsNotCountedAsPartOfTheRun(): void

@@ -5006,6 +5006,34 @@ class MarkdownToCarve
                 },
                 $line,
             ) ?? $line;
+            // §8c spells a deletion `<del class="critic-delete">`, so it no
+            // longer collides with the bare `<del>` a `strike` falls back to
+            // (carve#2845). The substitution shape is read FIRST: its two
+            // elements are one construct, and the deletion rule alone would
+            // leave a strike beside an unrelated insertion.
+            $delete = '<del[ \t]+class[ \t]*=[ \t]*"critic-delete"[ \t]*>([^<]*)<\/del[ \t]*>';
+            $line = preg_replace_callback(
+                '/' . $delete . '<ins[ \t]*>([^<]*)<\/ins[ \t]*>/i',
+                function (array $match) use ($protect): string {
+                    if ($this->breaksOutOfACriticBody($match[1]) || $this->breaksOutOfACriticBody($match[2])) {
+                        return $match[0];
+                    }
+
+                    return $protect('{~') . $match[1] . $protect('~>') . $match[2] . $protect('~}');
+                },
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/' . $delete . '/i',
+                function (array $match) use ($protect): string {
+                    if ($this->breaksOutOfACriticBody($match[1])) {
+                        return $match[0];
+                    }
+
+                    return $protect('{-') . $match[1] . $protect('-}');
+                },
+                $line,
+            ) ?? $line;
             $line = preg_replace_callback(
                 '/<abbr[ \t]+title[ \t]*=[ \t]*"([^"]*)"[ \t]*>([^<]*)<\/abbr[ \t]*>/i',
                 function (array $match) use ($protect): string {
@@ -6718,6 +6746,15 @@ class MarkdownToCarve
         $line = preg_replace_callback('/(?<=\x00|[\]\/*_~=,^}])\{([^}\n]*)\}/', $escapeUnlessDelimiterPair, $line) ?? $line;
 
         return preg_replace_callback('/^\{([^}\n]*)\}(?=[ \t]*$)/m', $escapeUnlessDelimiterPair, $line) ?? $line;
+    }
+
+    /**
+     * A body that would close or re-open the braced critic construct it is
+     * about to be written into, so the tag stays a raw span instead.
+     */
+    protected function breaksOutOfACriticBody(string $body): bool
+    {
+        return preg_match('/[{}\\\\\n]|~>/', $body) === 1;
     }
 
     /**
