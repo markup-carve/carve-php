@@ -31,7 +31,7 @@ final class DjotEmphasisRenderer
      * @param array<int, true> $structural
      * @param array<int, true> $literalBrackets
      * @param \Closure(string): string $convert
-     * @param array<int, array{end: int, source: string}> $attributes
+     * @param array<int, array{end: int, source: string, single?: bool}> $attributes
      * @param array<int, true> $bracketCloses
      */
     public function __construct(
@@ -66,7 +66,7 @@ final class DjotEmphasisRenderer
                 $listAttribute = preg_match('/[-*+.)]/', $matchedPrefix) === 1;
             }
             if (
-                $attrs['source'] === '{}' && $attrs['end'] <= $lineEnd
+                $attrs['source'] === '{}' && ($attrs['single'] ?? true) && $attrs['end'] <= $lineEnd
                 && $at === $prefixEnd
                 && trim(substr($source, $attrs['end'], $lineEnd - $attrs['end'])) === ''
                 && ($listAttribute || $lineStart === 0 || trim($previous) === '' || preg_match('/^\{.*\}$/', trim($previous)) === 1)

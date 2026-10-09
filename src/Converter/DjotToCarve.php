@@ -507,6 +507,7 @@ class DjotToCarve
             if ($attrs === null) {
                 continue;
             }
+            $firstAttributeEnd = $attrs['end'];
             while (($source[$attrs['end']] ?? '') === '{') {
                 $next = $readNative !== null ? $readNative($attrs['end']) : $this->readDjotWordAttributes($source, $attrs['end']);
                 if ($next === null) {
@@ -516,7 +517,7 @@ class DjotToCarve
                 $attrs = ['end' => $next['end'], 'source' => $joined !== '' ? $joined : '{}'];
             }
             if ($wire !== null) {
-                $wire[$i] = $attrs;
+                $wire[$i] = $attrs + ['single' => $attrs['end'] === $firstAttributeEnd];
             }
             for ($at = $i; $at < $attrs['end']; $at++) {
                 if ($masked[$at] !== "\n") {
