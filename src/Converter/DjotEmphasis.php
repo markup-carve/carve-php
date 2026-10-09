@@ -18,10 +18,13 @@ final class DjotEmphasis
      * @param string $mask
      * @param callable(string): string $convert
      * @param array<int, array{end: int, source: string}> $attributes
+     * @param callable|null $onFlattened
      */
-    public static function convert(string $source, string $mask, callable $convert, array $attributes = []): string
+    public static function convert(string $source, string $mask, callable $convert, array $attributes = [], ?callable $onFlattened = null): string
     {
-        return self::process($source, $mask, $convert, $attributes);
+        $paired = null;
+
+        return self::process($source, $mask, $convert, $attributes, $paired, $onFlattened);
     }
 
     /**
@@ -41,12 +44,20 @@ final class DjotEmphasis
      * @param callable(string): string $convert
      * @param array<int, array{end: int, source: string}> $attributes
      * @param array<int, int>|null $paired
+     * @param callable|null $onFlattened
      */
-    private static function process(string $source, string $mask, callable $convert, array $attributes, ?array &$paired = null): string
-    {
+    private static function process(
+        string $source,
+        string $mask,
+        callable $convert,
+        array $attributes,
+        ?array &$paired = null,
+        ?callable $onFlattened = null,
+    ): string {
         $validBraces = [];
         $validBraceClosers = [];
         $pendingBraces = [];
+        $literalDashes = [];
         $braceLineStart = 0;
         $lastEscaped = -1;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
@@ -80,6 +91,20 @@ final class DjotEmphasis
                     }
                     unset($stack);
                 }
+            }
+        }
+        for ($i = 1, $length = strlen($source); $i < $length; $i++) {
+            if ($source[$i] !== '}' || $source[$i - 1] !== '-' || isset($validBraceClosers[$i - 1]) || $i - 1 === $lastEscaped) {
+                continue;
+            }
+            $first = $i - 1;
+            while ($first > 0 && $source[$first - 1] === '-') {
+                $first--;
+            }
+            if ($i - $first === 2 && $mask[$first] === '-' && $mask[$first + 1] === '-') {
+                $literalDashes[$first] = $literalDashes[$first + 1] = true;
+            } elseif ($i - $first > 2) {
+                $literalDashes[$i - 1] = true;
             }
         }
         /** @var array<string, list<array{start: int, end: int, forced: bool}>> $openers */
@@ -285,7 +310,7 @@ final class DjotEmphasis
 
         $bracketCloses = array_fill_keys(array_column($bracketPairs, 1), true);
 
-        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert), $attributes, $bracketCloses, $validBraceClosers, $validBraces))->convert($roots);
+        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, $literalDashes, Closure::fromCallable($convert), $attributes, $bracketCloses, $validBraceClosers, $validBraces, $onFlattened === null ? null : Closure::fromCallable($onFlattened)))->convert($roots);
     }
 
     public static function structuralPrefixEnd(string $line): int
