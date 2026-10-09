@@ -2615,7 +2615,10 @@ class HtmlToCarve
             }
             if (!($tag === 'span' && !$child->hasAttributes())) {
                 $dropped = !$child->hasChildNodes();
-                $this->addImportDiagnostic($diagnostics, $dropped ? 'element-dropped' : 'element-unwrapped', ($dropped ? 'Dropped' : 'Unwrapped') . ' <' . $tag . '> inside <code>', $dropped ? 'warning' : 'info', $childPath);
+                $message = $dropped && in_array($tag, $this->blockElements, true)
+                    ? 'Dropped empty <' . $tag . '> element'
+                    : ($dropped ? 'Dropped' : 'Unwrapped') . ' <' . $tag . '> inside <code>';
+                $this->addImportDiagnostic($diagnostics, $dropped ? 'element-dropped' : 'element-unwrapped', $message, $dropped ? 'warning' : 'info', $childPath);
             }
             foreach ($child->attributes as $attribute) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . HtmlDomLoader::attributeName($attribute) . ' on <' . $tag . '> inside <code>: a code span holds only text', 'info', $childPath);
