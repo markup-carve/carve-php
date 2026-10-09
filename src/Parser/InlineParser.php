@@ -3640,7 +3640,7 @@ class InlineParser
                     $visited[] = $searchPos;
                 }
             }
-            if ($this->skipsEscapedBacktick($text, $searchPos)) {
+            if ($text[$searchPos] === '\\') {
                 $searchPos += 2;
 
                 continue;
@@ -3665,8 +3665,11 @@ class InlineParser
 
                     continue;
                 }
-                // A run nothing closes ENDS at this span's closer (PART 3
-                // UNCLOSED RUN, markup-carve/carve#2056), so the scan goes on.
+                $rawClose = $this->nextRawCloser($text, $marker . '}', $searchPos);
+                if ($rawClose === null) {
+                    break;
+                }
+                $searchPos = $rawClose;
             }
             if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') !== $marker) {
                 $scopeEnd = $this->bracedInlineEnd($text, $searchPos);
@@ -4479,6 +4482,15 @@ class InlineParser
 
                 continue;
             }
+            if ($char === '[') {
+                $runEnd = $this->bracketRunSkip($text, $at);
+                if ($runEnd !== null) {
+                    $destination = $this->linkDestinationSkip($text, $at);
+                    $at = ($destination === null ? $runEnd : $destination[1]) - 1;
+
+                    continue;
+                }
+            }
             if ($char === '`') {
                 $end = $this->findCodeSpanEnd($text, $at);
                 if ($end === null) {
@@ -4601,11 +4613,8 @@ class InlineParser
     }
 
     /**
-     * Whether the closer scans step over a backslash pair here: an escaped
-     * backtick opens no verbatim run, so it must not send the scan past this
-     * span's closer, and an escaped backslash must not make the backtick after
-     * it look escaped. An escaped MARKER is left alone - `{_x\_}` closes on
-     * it, as in the other engines.
+     * Backtick escape helper retained for parser subclasses. Native braced
+     * closer scans skip every escaped character outside verbatim content.
      */
     protected function skipsEscapedBacktick(string $text, int $at): bool
     {
@@ -4668,10 +4677,19 @@ class InlineParser
                     $visited[] = $searchPos;
                 }
             }
-            if ($this->skipsEscapedBacktick($text, $searchPos)) {
+            if ($text[$searchPos] === '\\') {
                 $searchPos += 2;
 
                 continue;
+            }
+            if ($text[$searchPos] === '[') {
+                $runEnd = $this->bracketRunSkip($text, $searchPos);
+                if ($runEnd !== null) {
+                    $destination = $this->linkDestinationSkip($text, $searchPos);
+                    $searchPos = $destination === null ? $runEnd : $destination[1];
+
+                    continue;
+                }
             }
             if ($text[$searchPos] === '`') {
                 $codeEnd = $this->findCodeSpanEnd($text, $searchPos);
@@ -4680,6 +4698,11 @@ class InlineParser
 
                     continue;
                 }
+                $rawClose = $this->nextRawCloser($text, $marker . '}', $searchPos);
+                if ($rawClose === null) {
+                    break;
+                }
+                $searchPos = $rawClose;
             }
             if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') !== $marker) {
                 $scopeEnd = $this->bracedInlineEnd($text, $searchPos);

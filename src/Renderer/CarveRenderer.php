@@ -3735,7 +3735,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     'a span inside a span of the same kind has no Carve source spelling',
                 );
             }
-            if (!$child instanceof Link && !isset($this->bracedSpans[spl_object_id($child)])) {
+            if (!$child instanceof Link && !$child instanceof Span && !isset($this->bracedSpans[spl_object_id($child)])) {
                 array_push($pending, ...$child->getChildren());
             }
         }
@@ -3747,13 +3747,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * Whether a link label separates this span from an enclosing span of its kind.
+     * Whether a bracketed label separates this span from an enclosing span of its kind.
      */
     protected function holdsOuterKindAcrossLink(Node $node): bool
     {
         $crossedLink = false;
         for ($parent = $node->getParent(); $parent instanceof InlineNode; $parent = $parent->getParent()) {
-            if ($parent instanceof Link) {
+            if ($parent instanceof Link || $parent instanceof Span) {
                 $crossedLink = true;
             } elseif ($crossedLink && $parent::class === $node::class) {
                 return true;
