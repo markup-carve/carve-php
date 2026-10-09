@@ -3210,5 +3210,155 @@
     "source": "> - word\n>   {%}%}\n>   next",
     "html": "<blockquote><ul><li>word\n%}\nnext</li></ul></blockquote>",
     "table": true
+  },
+  {
+    "name": "owner-review-0",
+    "source": "{}x\n```\nc\n```",
+    "html": "<p>x\n<code>\nc\n</code></p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-1",
+    "source": "{%c%}x\n```\nc\n```",
+    "html": "<p>x\n<code>\nc\n</code></p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-2",
+    "source": "- item\n  more\n{}\n- b",
+    "html": "<ul><li>item\nmore</li></ul><ul><li>b</li></ul>",
+    "table": true
+  },
+  {
+    "name": "owner-review-3",
+    "source": "text\ncivil. {}\nnext",
+    "html": "<p>text\ncivil. \nnext</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-4",
+    "source": "text\n{.a}{.b}\nmore",
+    "html": "<p>text\n\nmore</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-5",
+    "source": "text\n{.a}\nmore",
+    "html": "<p>text\n\nmore</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-6",
+    "source": "\n{}\nword",
+    "html": "<p>word</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-7",
+    "source": "\nword{}",
+    "html": "<p>word</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-8",
+    "source": "w\\{x\\}{.d}",
+    "html": "<p>w{x<span class=\"d\">}</span></p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-9",
+    "source": "a\n{}\n```\nx\n```",
+    "html": "<p>a\n\n<code>\nx\n</code></p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-10",
+    "source": "a\n{%c%}\n```\nx\n```",
+    "html": "<p>a\n\n<code>\nx\n</code></p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-11",
+    "source": "a\n{}\n[r]: u\n\n[r]: v\n\n[x][r]",
+    "html": "<p>a\n\n[r]: u</p><p><a href=\"v\">x</a></p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-12",
+    "source": "{}{.c}\npara",
+    "html": "<p>\npara</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-13",
+    "source": "> a\n>\n> {}\n> b",
+    "html": "<blockquote><p>a</p><p>b</p></blockquote>",
+    "table": true
+  },
+  {
+    "name": "owner-review-14",
+    "source": "- item\n{}\n- b",
+    "html": "<ul><li>item</li></ul><ul><li>b</li></ul>",
+    "table": true
+  },
+  {
+    "name": "owner-review-15",
+    "source": "Hello. {}\nnext",
+    "html": "<p>Hello. \nnext</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-16",
+    "source": "word. {}\nnext",
+    "html": "<p>word. \nnext</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-17",
+    "source": "Mr. {}\nnext",
+    "html": "<p>Mr. \nnext</p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-18",
+    "source": "{}\n```\ncode\n```",
+    "html": "<pre><code>code\n</code></pre>",
+    "table": true
+  },
+  {
+    "name": "owner-review-19",
+    "source": "{%c%}\n```\ncode\n```",
+    "html": "<pre><code>code\n</code></pre>",
+    "table": true
+  },
+  {
+    "name": "owner-review-20",
+    "source": "{ }\n```\ncode\n```",
+    "html": "<pre><code>code\n</code></pre>",
+    "table": true
+  },
+  {
+    "name": "owner-review-21",
+    "source": "- item\n  {}\n  b",
+    "html": "<ul><li>item\n\nb</li></ul>",
+    "table": true
+  },
+  {
+    "name": "owner-review-22",
+    "source": "> - item\n> {}\n> - b",
+    "html": "<blockquote><ul><li>item</li></ul><ul><li>b</li></ul></blockquote>",
+    "table": true
+  },
+  {
+    "name": "owner-review-23",
+    "source": "word{a=b.c}{.d}",
+    "html": "<p><span class=\"d\">word{a=b.c}</span></p>",
+    "table": true
+  },
+  {
+    "name": "owner-review-24",
+    "source": "w{x}{.d}",
+    "html": "<p><span class=\"d\">w{x}</span></p>",
+    "table": true
   }
 ]

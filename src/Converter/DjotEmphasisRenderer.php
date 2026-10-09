@@ -26,6 +26,11 @@ final class DjotEmphasisRenderer
     private array $emptyBlockAttributes = [];
 
     /**
+     * @var array<int, string>
+     */
+    private array $attributeComments = [];
+
+    /**
      * @param string $source
      * @param string $mask
      * @param array<int, true> $structural
@@ -52,6 +57,11 @@ final class DjotEmphasisRenderer
         $previous = '';
         $prefixEnd = 0;
         $listAttribute = false;
+        $previousContent = '';
+        $previousItemWidth = 0;
+        $attributeIndent = 0;
+        $matchedPrefix = '';
+        $activeListColumn = null;
         foreach ($attributes as $at => $attrs) {
             while ($lineEnd < $at) {
                 if ($lineEnd >= 0) {
@@ -60,18 +70,39 @@ final class DjotEmphasisRenderer
                 }
                 $newline = strpos($source, "\n", $lineStart);
                 $lineEnd = $newline === false ? strlen($source) : $newline;
-                preg_match('/^[ \t>]*(?:(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)?/', substr($source, $lineStart, $lineEnd - $lineStart), $prefix);
+                preg_match('/^[ \t>]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)?/', substr($source, $lineStart, $lineEnd - $lineStart), $prefix);
                 $matchedPrefix = $prefix[0] ?? '';
                 $prefixEnd = $lineStart + strlen($matchedPrefix);
                 $listAttribute = preg_match('/[-*+.)]/', $matchedPrefix) === 1;
+                $previousContent = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $previous) ?? $previous;
+                preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+/', $previousContent, $previousItem);
+                $previousItemWidth = strlen($previousItem[0] ?? '');
+                $attributeIndent = strlen(preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $matchedPrefix) ?? $matchedPrefix);
+                $listAttribute = $listAttribute && ($lineStart === 0 || trim($previousContent) === '' || $activeListColumn !== null);
+                if ($activeListColumn !== null && trim(substr($source, $lineStart, $lineEnd - $lineStart)) !== '' && $attributeIndent < $activeListColumn && !$listAttribute) {
+                    $previousItemWidth = $activeListColumn;
+                    $activeListColumn = null;
+                }
+                if ($listAttribute) {
+                    $activeListColumn = $attributeIndent;
+                }
+            }
+            if (
+                $at === $prefixEnd && !($attrs['single'] ?? true) && $attrs['end'] <= $lineEnd
+                && trim(substr($source, $attrs['end'], $lineEnd - $attrs['end'])) === ''
+            ) {
+                $this->attributeComments[$at] = '{%%}';
             }
             if (
                 $attrs['source'] === '{}' && ($attrs['single'] ?? true) && $attrs['end'] <= $lineEnd
                 && $at === $prefixEnd
                 && trim(substr($source, $attrs['end'], $lineEnd - $attrs['end'])) === ''
-                && ($listAttribute || $lineStart === 0 || trim($previous) === '' || preg_match('/^\{.*\}$/', trim($previous)) === 1)
+                && ($listAttribute || $lineStart === 0 || trim($previousContent) === '' || preg_match('/^\{.*\}$/', trim($previousContent)) === 1 || $attributeIndent < $previousItemWidth)
             ) {
                 $this->emptyBlockAttributes[$at] = true;
+                if ($attributeIndent < $previousItemWidth) {
+                    $this->attributeComments[$at] = "%%%\n" . $matchedPrefix . '%%%';
+                }
             }
         }
     }
@@ -114,7 +145,7 @@ final class DjotEmphasisRenderer
         for ($i = $start; $i < $end; $i++) {
             $attributes = $this->attributes[$i] ?? null;
             if ($attributes !== null && $attributes['end'] <= $end) {
-                $written = $attributes['source'];
+                $written = $this->attributeComments[$i] ?? $attributes['source'];
                 if ($written === '{}') {
                     $span = isset($this->bracketCloses[$i - 1]) && !isset($this->literalBrackets[$i - 1]);
                     $written = $span ? '{}' : (isset($this->emptyBlockAttributes[$i]) ? '%%' : '{%%}');
