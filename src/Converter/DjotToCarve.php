@@ -658,7 +658,6 @@ class DjotToCarve
                 if ($carve && $table) {
                     for ($at = $start; $at <= $i; $at++) {
                         if ($source[$at] === '\\') {
-                            $lastEscaped = $at + 1;
                             $at++;
                         } elseif ($source[$at] === '|') {
                             return null;
@@ -841,7 +840,7 @@ class DjotToCarve
                 $braceStack[] = ['begin' => $at, 'literal' => false, 'spaces' => $spaces];
             } elseif ($source[$at] === '}') {
                 $open = array_pop($braceStack);
-                if (($open['literal'] ?? false) && $open['spaces'] === $spaces) {
+                if (($open['literal'] ?? false) && $open['spaces'] === $spaces && !isset($escapedBraceCloses[$at])) {
                     $literalBraces[$at] = $open['begin'];
                 }
             }
@@ -2217,7 +2216,6 @@ class DjotToCarve
                     continue;
                 }
                 if ($source[$at] === '\\') {
-                    $lastEscaped = $at + 1;
                     $label .= substr($source, $at, 2);
                     $at++;
 
