@@ -24,9 +24,8 @@ use PHPUnit\Framework\TestCase;
  *
  * The reconstruction claim - the same source coming back out of the rendered
  * HTML with no sidecar to read - is a different question, and it lives in
- * `Converter\TheHtmlRoundTripWithoutTheSidecarTest`, which measures how much of
- * this population actually holds it: 22 of these 80 round trips, because HTML
- * import is lossy by design.
+ * `Converter\TheHtmlRoundTripWithoutTheSidecarTest`, which measures reconstruction
+ * separately, because HTML import is lossy by design.
  */
 class RoundTripThroughTheSidecarTest extends TestCase
 {
@@ -585,17 +584,12 @@ CARVE;
 
     public function testHeadingWithoutCustomId(): void
     {
-        // Auto-generated IDs should not be preserved
         $carve = '# Simple Heading';
         $html = $this->converter->convert($carve);
-        $back = trim($this->htmlToCarve->convert($html));
-        // Should NOT have ID attribute in round-trip
-        $this->assertSame($carve, $back);
+        $this->assertStringContainsString('id="', $html);
+        $this->assertStringNotContainsString('data-djot-explicit-id', $html);
+        $this->assertRoundTrip($carve);
     }
-
-    // =========================================================================
-    // Inline Code with Backticks
-    // =========================================================================
 
     public function testInlineCodeWithBackticks(): void
     {
