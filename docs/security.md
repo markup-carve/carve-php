@@ -108,6 +108,10 @@ without one, none of these rules apply at all:
 | blocked attribute prefixes | `on` - covers `onclick`, `onload`, every handler |
 | blocked attributes | `srcdoc`, `formaction` (`strict()` adds `style`) |
 
+Under `RAW_HTML_ESCAPE` a `` ```=html `` raw block renders as a code block in its
+format, `<pre><code class="language-html">`, with the content escaped.
+`RAW_HTML_STRIP` drops it. A raw block in another format is dropped either way.
+
 ```php
 $safe = SafeMode::defaults()
     ->setAllowedSchemes(['https', 'mailto'])   // allowlist instead of denylist
@@ -130,7 +134,8 @@ human-readable reason per denied feature. Four presets:
 | `Profile::minimal()` | single-line fields, tightest cap |
 
 Denied constructs degrade rather than disappear - a denied heading renders as its
-own text - and each one is reported:
+own text, a denied raw block as a code block in its format when the profile allows
+code blocks - and each one is reported:
 
 ```php
 $converter->setProfile(Profile::comment());

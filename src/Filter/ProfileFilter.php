@@ -23,6 +23,7 @@ use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
@@ -41,6 +42,7 @@ use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\NodeType;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\ProfileViolation;
 
@@ -308,10 +310,26 @@ class ProfileFilter
 
         match ($profile->getDisallowedAction()) {
             Profile::ACTION_STRIP => $this->stripNode($node, $parent),
-            Profile::ACTION_TO_TEXT => $this->convertToText($node, $parent),
+            Profile::ACTION_TO_TEXT => $this->escapeOrConvertToText($node, $parent, $profile),
             Profile::ACTION_ERROR => throw new ProfileViolationException($this->violations),
-            default => $this->convertToText($node, $parent),
+            default => $this->escapeOrConvertToText($node, $parent, $profile),
         };
+    }
+
+    /**
+     * An escaped raw block is a code block in its format (PART 10 §6).
+     */
+    protected function escapeOrConvertToText(Node $node, Node $parent, Profile $profile): void
+    {
+        if (!$node instanceof RawBlock || !$profile->isBlockAllowed(NodeType::CODE_BLOCK)) {
+            $this->convertToText($node, $parent);
+
+            return;
+        }
+
+        $codeBlock = new CodeBlock($node->getCodeBlockContent(), $node->getFormat());
+        $codeBlock->setAttributesWithOrder($node->getAttributeEntries(), $node->getAttributeOrder());
+        $parent->replaceChildNode($node, $codeBlock);
     }
 
     protected function stripNode(Node $node, Node $parent): void
