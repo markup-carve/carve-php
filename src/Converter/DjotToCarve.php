@@ -2866,7 +2866,7 @@ class DjotToCarve
                     break;
                 }
             }
-            if (!preg_match('/[^:]@|[A-Za-z]:/', $body) || (!$image && !$angleAttributes && !strpbrk($body, '[]{}`|\\') && !(preg_match('/[^:]@/', $body) && str_contains($body, ':')))) {
+            if (!preg_match('/[^:]@|[A-Za-z]:/', $body) || (!$image && !$angleAttributes && !strpbrk($body, '[]{}`|\\'))) {
                 continue;
             }
             if ($rows[$line] && strpbrk($body, '|`')) {
