@@ -73,7 +73,7 @@ final class DjotEmphasis
                 if ($i > $start + 2) {
                     $validBraces[$start] = true;
                     $validBraceClosers[$i - 1] = true;
-                    if ($paired !== null) {
+                    if ($paired !== null && str_contains('+-=', $source[$start + 1])) {
                         $paired[$start + 1] = $i + 1;
                     }
                     foreach ($pendingBraces as &$stack) {
