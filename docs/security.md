@@ -108,9 +108,9 @@ without one, none of these rules apply at all:
 | blocked attribute prefixes | `on` - covers `onclick`, `onload`, every handler |
 | blocked attributes | `srcdoc`, `formaction` (`strict()` adds `style`) |
 
-Under `RAW_HTML_ESCAPE` a raw block of any format renders as a code block in that
-format: `` ```=html `` becomes `<pre><code class="language-html">` with the content
-escaped. `RAW_HTML_STRIP` drops the block.
+Under `RAW_HTML_ESCAPE` a `` ```=html `` raw block renders as a code block in its
+format, `<pre><code class="language-html">`, with the content escaped.
+`RAW_HTML_STRIP` drops it. A raw block in another format is dropped either way.
 
 ```php
 $safe = SafeMode::defaults()

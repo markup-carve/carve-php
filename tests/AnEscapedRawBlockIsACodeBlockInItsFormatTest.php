@@ -26,10 +26,6 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
                 "Before.\n\n```=html\n<p>raw</p>\n```\n\nAfter.\n",
                 "<p>Before.</p>\n<pre><code class=\"language-html\">&lt;p&gt;raw&lt;/p&gt;\n</code></pre>\n<p>After.</p>\n",
             ],
-            'a non-html format names its class verbatim' => [
-                "```=latex\n\\textbf{x}\n```\n",
-                "<pre><code class=\"language-latex\">\\textbf{x}\n</code></pre>\n",
-            ],
             'markup characters and a blank payload line' => [
                 "```=html\na & <b>\n\nc\n```\n",
                 "<pre><code class=\"language-html\">a &amp; &lt;b&gt;\n\nc\n</code></pre>\n",
@@ -65,6 +61,14 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
         );
     }
 
+    public function testSafeModeStillDropsANonHtmlRawBlock(): void
+    {
+        $result = (new CarveConverter(safeMode: true))->convertWithReport("```=latex\n\\textbf{x}\n```\n");
+
+        self::assertSame('', $result->value);
+        self::assertSame(['raw-format-dropped'], array_column($result->losses, 'code'));
+    }
+
     public function testRawAllowedPassesTheContentThroughUnchanged(): void
     {
         $source = "Before.\n\n```=html\n<p>raw</p>\n```\n\nAfter.\n";
@@ -96,6 +100,14 @@ class AnEscapedRawBlockIsACodeBlockInItsFormatTest extends TestCase
     public function testAProfileThatEscapesARawBlockWritesACodeBlock(string $source, string $expected): void
     {
         self::assertSame($expected, (new CarveConverter(profile: Profile::article()))->convert($source));
+    }
+
+    public function testAProfileNamesTheCodeClassAfterAnyRawFormat(): void
+    {
+        self::assertSame(
+            "<pre><code class=\"language-latex\">\\textbf{x}\n</code></pre>\n",
+            (new CarveConverter(profile: Profile::article()))->convert("```=latex\n\\textbf{x}\n```\n"),
+        );
     }
 
     public function testTheProfileCodeBlockKeepsTheRawBlockAttributes(): void
