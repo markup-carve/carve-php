@@ -34,6 +34,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 - `Node::getPreviousSibling()` returns the preceding child of the parent. Custom parent nodes retain their `getChildren()` behavior (#2935).
 - `getClassEntries()` returns the authored class entries unsplit and `hasClassEntry()` compares whole entries, beside the split names `getClassList()` reports (#2939, #2940).
+- A render loss carries the `code` value `editorial-comment-flattened` on the targets that flatten an editorial comment, and the CLI accepts it under `--allow-loss`. The vendored spec schema's `code` enum does not list it yet (#2964, carve#2791).
 - Markdown table import explains an unescaped code-span pipe, a mismatched header width and an omitted body cell with a warning naming the source line it came from (#2943, #2945).
 
 ### Changed
@@ -43,6 +44,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Fixed
 
 - `getClassList()` returns class names again: each authored entry is split on HTML whitespace, so `{.a class="b c"}` lists `a`, `b` and `c`, and `hasClass('b')` is true for `class="b c"` as it was in 0.1.9. The merged `class` attribute does not move (#2939, #2940).
+- An editorial comment keeps its boundary on the Markdown target, which wraps it in a `critic-comment` span with the content escaped as ordinary text. Plain text and ANSI output is unchanged and each comment reports one render-loss row (#2964, carve#2791).
 - Cloning Ruby and block extension nodes keeps the original children attached to their original parent (#2935).
 - An include option needs no whitespace before its `@`, in either position, so
   `{{ path@shift:1 }}` and `{{ path #Name@shift:1 }}` resolve instead of
