@@ -401,9 +401,9 @@ class DjotToCarve
     private function rewriteDjotInline(string $source): string
     {
         $source = $this->escapeInvalidAttributeHashes($source);
-        $masked = $this->djotEmphasisMask($source, false);
+        $masked = $this->djotEmphasisMask($source);
         $source = $this->escapePlainDjotText($source, $masked);
-        $masked = $this->djotEmphasisMask($source, false);
+        $masked = $this->djotEmphasisMask($source);
 
         // Accepted [start, end] delimiter ranges per family, kept sorted by start
         // and disjoint, so the overlap check is a binary search instead of a
@@ -689,6 +689,9 @@ class DjotToCarve
                     return null;
                 }
                 $value = substr($source, $from, $i - $from);
+                if ($kind === '#' ? preg_match('/[\]\[~!@#$%^&*(){}`,.<>\\\\|=+\/?\s]/u', $value) === 1 : preg_match('/^[A-Za-z0-9_:-]+$/D', $value) !== 1) {
+                    return null;
+                }
                 $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/', $value) === 1
                     ? $kind . $value
                     : ($kind === '#' ? 'id' : 'class') . '=' . $quoteValue($value);

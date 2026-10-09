@@ -23,6 +23,7 @@ final class DjotEmphasis
         $validBraces = [];
         $pendingBraces = [];
         $braceLineStart = 0;
+        $lastEscaped = -1;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
             if ($source[$i] === "\n") {
                 $line = preg_replace('/^(?:[ \t]*>)*[ \t]*/', '', substr($source, $braceLineStart, $i - $braceLineStart)) ?? '';
@@ -34,14 +35,15 @@ final class DjotEmphasis
             if ($mask[$i] !== $source[$i]) {
                 continue;
             }
-            if ($source[$i] === '\\') {
+            if ($source[$i] === '\\' && ($source[$i + 1] ?? '') !== "\n") {
+                $lastEscaped = $i + 1;
                 $i++;
 
                 continue;
             }
             if ($source[$i] === '{' && str_contains('+-=^~', $source[$i + 1] ?? "\x00")) {
                 $pendingBraces[$source[$i + 1]][] = $i;
-            } elseif ($source[$i] === '}' && isset($pendingBraces[$source[$i - 1]]) && $pendingBraces[$source[$i - 1]] !== []) {
+            } elseif ($source[$i] === '}' && $i - 1 !== $lastEscaped && isset($pendingBraces[$source[$i - 1]]) && $pendingBraces[$source[$i - 1]] !== []) {
                 $start = array_pop($pendingBraces[$source[$i - 1]]);
                 if ($i > $start + 2) {
                     $validBraces[$start] = true;
@@ -220,6 +222,20 @@ final class DjotEmphasis
         foreach ($bracketPairs as [$start, $end]) {
             if (($contexts[$start] ?? null) !== ($contexts[$end] ?? null)) {
                 $literalBrackets[$start] = $literalBrackets[$end] = true;
+            }
+        }
+
+        for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            if ($source[$i] === '\\') {
+                $i++;
+
+                continue;
+            }
+            if ($mask[$i] === '{' && str_contains('+-=^~_*', $source[$i + 1] ?? "\0") && !isset($validBraces[$i]) && !isset($starts[$i])) {
+                if ($i > 0 && $source[$i - 1] === '`' && $mask[$i - 1] === ' ' && preg_match('/\G\{=[^\s{}`]+\}/u', $source, offset: $i) === 1) {
+                    continue;
+                }
+                $literalBrackets[$i] = $literalBrackets[$i + 1] = true;
             }
         }
 
