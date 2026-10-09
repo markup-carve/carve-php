@@ -322,7 +322,7 @@ class DjotToCarve
 
                             continue;
                         }
-                        if ($masked[$end] === $candidate) {
+                        if ($masked[$end] === $candidate && ($candidate === '_' || ($source[$end + 1] ?? '') !== '}')) {
                             break;
                         }
                     }
@@ -333,9 +333,6 @@ class DjotToCarve
                         continue;
                     }
                     if ($end === $start + 1 || str_contains(" \t\n\r\f\v", $masked[$end - 1])) {
-                        continue;
-                    }
-                    if ($candidate !== '_' && ($source[$end + 1] ?? '') === '}') {
                         continue;
                     }
                     if ($candidate === '_' && (($end + 1 < $length && str_contains($word, $masked[$end + 1])) !== $intraword)) {

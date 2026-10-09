@@ -37,6 +37,8 @@ final class DjotEmphasisRenderer
      * @param array<int, true> $literalBrackets
      * @param \Closure(string): string $convert
      * @param array<int, array{end: int, source: string, single?: bool}> $attributes
+     * @param array<int, true> $validBraces
+     * @param array<int, true> $validBraceClosers
      * @param array<int, true> $bracketCloses
      */
     public function __construct(
@@ -47,6 +49,8 @@ final class DjotEmphasisRenderer
         private readonly Closure $convert,
         private readonly array $attributes = [],
         private readonly array $bracketCloses = [],
+        private readonly array $validBraceClosers = [],
+        private readonly array $validBraces = [],
     ) {
         $this->literalPrefix = "\0DJOTLITERAL\0";
         while (str_contains($source, $this->literalPrefix)) {
@@ -161,7 +165,12 @@ final class DjotEmphasisRenderer
 
                 continue;
             }
-            if ($this->mask[$i] === $ch && ((str_contains('_*', $ch) && !isset($this->structural[$i])) || isset($this->literalBrackets[$i]))) {
+            if ($ch === '=' && (isset($this->validBraceClosers[$i]) || isset($this->validBraces[$i - 1]))) {
+                $text .= $this->protect($ch);
+
+                continue;
+            }
+            if ($this->mask[$i] === $ch && ((str_contains('~^', $ch) && ($this->source[$i + 1] ?? '') === '}' && !isset($this->validBraceClosers[$i])) || (str_contains('_*', $ch) && !isset($this->structural[$i])) || isset($this->literalBrackets[$i]))) {
                 $token = $this->literalPrefix . count($this->literals) . "\0";
                 $this->literals[$token] = '\\' . $ch;
                 $text .= $token;
