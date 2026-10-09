@@ -300,6 +300,9 @@ class MarkdownToCarve
             }
         }
         $result = [];
+        // Where $result holds a thematic break this conversion wrote, so the
+        // frontmatter-collision guard below respells those lines and no others.
+        $breakLines = [];
         $inCodeBlock = false;
         $fenceChar = '';
         $fenceLength = 0;
@@ -729,6 +732,7 @@ class MarkdownToCarve
                 if (isset($quoteMarkers[$ruleKey])) {
                     $quoteMarkers[$ruleKey]->end($this->indentWidth(substr(ltrim($line), strlen($rulePrefix))));
                 }
+                $breakLines[] = count($result);
                 $result[] = $rule;
                 $next = $lines[$i + 1] ?? null;
                 if ($next !== null && trim($next) !== '') {
@@ -1425,13 +1429,6 @@ class MarkdownToCarve
             }
         }
 
-        // Frontmatter-collision guard: Carve reads a line-0 `---` as a
-        // frontmatter OPEN fence and, with a later closer, swallows everything
-        // between as opaque metadata. A body that opens with a rule and holds
-        // another bare `---` would vanish entirely. A leading blank keeps line
-        // 0 off `---` so every rule stays a rule. Real frontmatter already
-        // occupies line 0, so the guard is skipped there - it would only inject
-        // a stray blank after the closing fence.
         if ($this->movedFootnotes !== [] || $this->movedDefinitions !== []) {
             while ($result !== [] && trim((string)end($result)) === '') {
                 array_pop($result);
@@ -1457,27 +1454,40 @@ class MarkdownToCarve
         foreach (array_keys($result) as $at) {
             $fromSource[] = isset($sourceBlanks[$at]);
         }
-        if ($frontmatter === [] && ($result[0] ?? null) === '---') {
-            foreach (array_slice($result, 1) as $bodyLine) {
-                // $result is inferred as string|null (preg_replace can return
-                // null upstream); implode() coerces the same way at the end.
-                if (preg_match('/^---\s*$/', (string)$bodyLine)) {
-                    array_unshift($result, '');
-                    array_unshift($fromSource, false);
+        $assemble = function () use (&$result, $fromSource, $markdown): string {
+            [$carve, $writtenBlanks] = $this->joinOutput(array_values($result), $fromSource);
+            $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
+            $carve = $this->separateLooseItems($carve, $writtenBlanks);
+            $carve = $this->applyHeadingIdPreservation($carve, $markdown);
 
-                    break;
+            // An empty quote line is written as its markers alone, which is what
+            // `carve fmt` writes. The separator space carries no content, so the
+            // markers of a quoted blank code line lose it too.
+            return preg_replace('/^((?:> )*>) $/m', '$1', $carve) ?? $carve;
+        };
+
+        $carve = $assemble();
+        // Frontmatter-collision guard: Carve reads a line-0 `---` as a
+        // frontmatter OPEN fence and, with a later closer, swallows everything
+        // between as opaque metadata, so a body that opens with a rule and
+        // holds another bare `---` would vanish entirely. The canonical writer
+        // meets the same hazard and answers it by respelling every break in the
+        // document (PART 11 section 1a), which is what `carve fmt` then writes
+        // - so the import takes the same answer, through the writer's own
+        // parser test and its own marker, rather than a leading blank that
+        // moved line 0 off `---` and lost the round trip (carve-php#2977).
+        if ($frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
+            foreach ($breakLines as $at) {
+                $line = (string)($result[$at] ?? '');
+                if (str_ends_with($line, '---')) {
+                    $result[$at] = substr($line, 0, -3) . CarveRenderer::FRONTMATTER_SAFE_BREAK_MARKER;
                 }
             }
+            $respelled = $assemble();
+            if (!CarveRenderer::textOpensFrontmatter($respelled)) {
+                $carve = $respelled;
+            }
         }
-
-        [$carve, $writtenBlanks] = $this->joinOutput(array_values($result), $fromSource);
-        $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
-        $carve = $this->separateLooseItems($carve, $writtenBlanks);
-        $carve = $this->applyHeadingIdPreservation($carve, $markdown);
-        // An empty quote line is written as its markers alone, which is what
-        // `carve fmt` writes. The separator space carries no content, so the
-        // markers of a quoted blank code line lose it too.
-        $carve = preg_replace('/^((?:> )*>) $/m', '$1', $carve) ?? $carve;
 
         if ($frontmatter === []) {
             return $carve;
