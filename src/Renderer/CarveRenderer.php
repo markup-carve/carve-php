@@ -862,6 +862,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     public const FRONTMATTER_SAFE_BREAK_MARKER = '***';
 
     /**
+     * The closer the writer writes under a frontmatter block: a bare `---`.
+     *
+     * `frontmatter_close` names no format slot, so unlike the opener the closer
+     * takes no token. A reader also accepts a trailing run of spaces and tabs
+     * on it (PART 1), but that leniency is not a writer's license: the Markdown
+     * importer reads this constant so a source closer spelled `---<TAB>` comes
+     * back the one way this writer spells it (carve-php#2998).
+     *
+     * @var string
+     */
+    public const FRONTMATTER_CLOSER = '---';
+
+    /**
      * Render, and fall back to a break spelling that cannot be read as
      * frontmatter when the finished bytes would be.
      */
@@ -3066,7 +3079,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderFrontmatter(Frontmatter $node): string
     {
-        return static::canonicalFrontmatterOpener($node->getFormat()) . "\n" . $this->protectVerbatim($node->getContent()) . "\n---";
+        return static::canonicalFrontmatterOpener($node->getFormat()) . "\n" . $this->protectVerbatim($node->getContent()) . "\n" . self::FRONTMATTER_CLOSER;
     }
 
     /**
