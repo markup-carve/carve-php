@@ -3595,7 +3595,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderSuperscript(Superscript $node): string
     {
         // Markdown doesn't have native superscript, use HTML
-        return '<sup>' . $this->renderChildren($node) . '</sup>';
+        return '<sup' . $this->htmlAttributes($node) . '>' . $this->renderChildren($node) . '</sup>';
     }
 
     protected function escapeTitle(string $title): string
@@ -3611,13 +3611,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderSubscript(Subscript $node): string
     {
         // Markdown doesn't have native subscript, use HTML
-        return '<sub>' . $this->renderChildren($node) . '</sub>';
+        return '<sub' . $this->htmlAttributes($node) . '>' . $this->renderChildren($node) . '</sub>';
     }
 
     protected function renderHighlight(Highlight $node): string
     {
         // Markdown doesn't have native highlight, use HTML
-        return '<mark>' . $this->renderChildren($node) . '</mark>';
+        return '<mark' . $this->htmlAttributes($node) . '>' . $this->renderChildren($node) . '</mark>';
     }
 
     protected function renderInsert(Insert $node): string
@@ -3641,7 +3641,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderUnderline(Underline $node): string
     {
         // Markdown has no native underline; emit raw HTML.
-        return '<u>' . $this->renderChildren($node) . '</u>';
+        return '<u' . $this->htmlAttributes($node) . '>' . $this->renderChildren($node) . '</u>';
     }
 
     protected function renderStrike(Strike $node): string
