@@ -953,7 +953,10 @@ class MarkdownToCarve
             if ($tableWidth > 0 && $this->indentWidth($line) >= $tableCol && $this->continuesGfmTableBody($this->stripColumns($line, $tableCol))) {
                 $cells = $this->splitPipeCells($trimmed);
                 $this->recordTableRowDiagnostics($trimmed, $i, $tableWidth, $cells);
-                $result[] = str_repeat(' ', $tableCol) . $this->writeTableRow($cells, [], $tableWidth);
+                $row = $this->writeTableRow($cells, [], $tableWidth);
+                if ($this->keepTableRow($row, $i)) {
+                    $result[] = str_repeat(' ', $tableCol) . $row;
+                }
 
                 continue;
             }
@@ -1050,7 +1053,10 @@ class MarkdownToCarve
                     $result[] = '';
                 }
                 $this->recordTableRowDiagnostics($trimmed, $i);
-                $result[] = str_repeat(' ', $contentCol) . $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
+                $header = $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
+                if ($this->keepTableRow($header, $i)) {
+                    $result[] = str_repeat(' ', $contentCol) . $header;
+                }
                 $tableWidth = count($this->splitPipeCells($trimmed));
                 $tableCol = $contentCol;
                 $i++; // skip the delimiter row
@@ -2906,8 +2912,10 @@ class MarkdownToCarve
             if ($this->startsTableHeader($held, 0)) {
                 $this->recordTableRowDiagnostics(trim($text), $index);
 
+                $header = $this->gfmHeaderToCarve(trim($text), trim($held[1]));
+
                 return [
-                    'lines' => [$lead . $this->gfmHeaderToCarve(trim($text), trim($held[1]))],
+                    'lines' => $this->keepTableRow($header, $index) ? [$lead . $header] : [],
                     'end' => $index + 1,
                     'table' => count($this->splitPipeCells(trim($text))),
                     'closes' => true,
@@ -3954,6 +3962,36 @@ class MarkdownToCarve
     }
 
     /**
+     * A row whose every cell is blank and unmarked, which `writeTableRow` can
+     * produce from §10n's scaffolding header row. Carve spells no such row: its
+     * own parser reads `|= |= |` as a paragraph, so emitting it puts a line of
+     * pipes above the table (carve#2840). The row is dropped and reported
+     * instead, which is what carve-js already does.
+     */
+    private function keepTableRow(string $row, int $index): bool
+    {
+        foreach ($this->splitPipeCells(rtrim($row)) as $cell) {
+            $marker = preg_match('/^=([<>~])?/', $cell, $match) === 1 ? $match[0] : '';
+            if ($marker !== '' && $marker !== '=') {
+                return true;
+            }
+            if (trim(substr($cell, strlen($marker))) !== '') {
+                return true;
+            }
+        }
+        $this->tableDiagnostics[] = new MigrationDiagnostic(
+            'structure-unspellable',
+            'Dropped a table row of ' . (substr_count(rtrim($row), '|') - 1) . ' blank cells; Carve spells no row whose every cell is blank',
+            'warning',
+            'dropped',
+            'exact',
+            'line:' . $this->sourceLine($index),
+        );
+
+        return false;
+    }
+
+    /**
      * Convert a GFM header row + its delimiter row to the Carve `|=` header
      * form, carrying the column alignment from the delimiter colons into the
      * `|=<` / `|=>` / `|=~` markers.
@@ -4286,7 +4324,8 @@ class MarkdownToCarve
         }
         $this->recordTableRowDiagnostics(trim($header), $index);
         $width = count($this->splitPipeCells($header));
-        $written = [$prefix . $this->gfmHeaderToCarve(trim($header), trim($delimiter))];
+        $headerRow = $this->gfmHeaderToCarve(trim($header), trim($delimiter));
+        $written = $this->keepTableRow($headerRow, $index) ? [$prefix . $headerRow] : [];
         $end = $index + 1;
         $count = count($lines);
         for ($at = $index + 2; $at < $count; $at++) {
@@ -4296,7 +4335,10 @@ class MarkdownToCarve
             }
             $cells = $this->splitPipeCells($body);
             $this->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
-            $written[] = $prefix . $this->writeTableRow($cells, [], $width);
+            $bodyRow = $this->writeTableRow($cells, [], $width);
+            if ($this->keepTableRow($bodyRow, $at)) {
+                $written[] = $prefix . $bodyRow;
+            }
             $end = $at;
         }
 
@@ -4869,12 +4911,49 @@ class MarkdownToCarve
         // does this unconditionally, ahead of any raw-HTML handling, so verbatim
         // mode must not emit it as `<code>...</code>`{=html}.
         $line = preg_replace_callback('/<code>([^<]+)<\/code>/i', fn (array $match): string => $protect('`' . $match[1] . '`'), $line) ?? $line;
+        // PART 11 §8c writes two constructs with no Markdown delimiter spelling
+        // as an ATTRIBUTE-BEARING inline tag: an abbreviation as
+        // `<abbr title="...">` and an editorial comment as
+        // `<span class="critic-comment">`. `$htmlRules` below excludes
+        // attribute-bearing tags because migrating one would drop its
+        // attributes - the Carve construct carries them here, so nothing drops
+        // and the exclusion does not apply (carve#2838). The match is on the
+        // shape §8c emits and refuses anything wider, falling back to the raw
+        // span the rest of this method would otherwise write.
+        if (!$this->convertRawHtml) {
+            $line = preg_replace_callback(
+                '/<span[ \t]+class[ \t]*=[ \t]*"critic-comment"[ \t]*>([^<]*)<\/span[ \t]*>/i',
+                function (array $match) use ($protect): string {
+                    // CARVE-P3-016 makes a comment's content literal, so the
+                    // whole construct is protected from every later inline pass.
+                    $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+
+                    return preg_match('/[#{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}');
+                },
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/<abbr[ \t]+title[ \t]*=[ \t]*"([^"]*)"[ \t]*>([^<]*)<\/abbr[ \t]*>/i',
+                function (array $match) use ($protect): string {
+                    $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    if (preg_match('/["\\\\\n{}]/', $value) === 1 || preg_match('/[\[\]\\\n]/', $match[2]) === 1) {
+                        return $match[0];
+                    }
+
+                    // The label stays live so the later inline passes still
+                    // convert markup inside it; only the attribute block is
+                    // protected, from the quote escaping further down.
+                    return '[' . $match[2] . ']' . $protect('{abbr="' . $value . '"}');
+                },
+                $line,
+            ) ?? $line;
+        }
         // Native inline tags with an exact Carve spelling. They are converted by
         // `$htmlRules` later in this method in BOTH modes, so neither the
         // HtmlToCarve import path nor the verbatim raw-HTML path may swallow
         // them first - carve-js converts `<b>`/`<em>`/`<sup>`/... to Carve even
         // when other raw HTML passes through verbatim.
-        $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i';
+        $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i|u';
         if ($this->convertRawHtml) {
             $line = preg_replace_callback(
                 '/(?:<!--(?:>|->|[\s\S]*?-->)|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
@@ -5455,9 +5534,18 @@ class MarkdownToCarve
             $line = preg_replace('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line) ?? $line;
             $line = preg_replace('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line) ?? $line;
             $line = preg_replace('/<mark>([^<]+)<\/mark>/i', '=$1=', $line) ?? $line;
+            // §8c writes `underline` as `<u>`, which this table did not read back
+            // at all (carve#2838). The bare `_x_` form is preferred, braced where
+            // a bare underline would be literal: against a word character, or
+            // around a whitespace-padded body.
+            $line = preg_replace('/(?<=[A-Za-z0-9])<u>([^<]+)<\/u>/i', '{_$1_}', $line) ?? $line;
+            $line = preg_replace('/<u>([^<]+)<\/u>(?=[A-Za-z0-9])/i', '{_$1_}', $line) ?? $line;
+            $line = preg_replace('/<u>(\s[^<]*|[^<]*\s)<\/u>/i', '{_$1_}', $line) ?? $line;
+            $line = preg_replace('/<u>([^<]+)<\/u>/i', '_$1_', $line) ?? $line;
         }
         $htmlRules = [
             '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
+            '/<u>([^<]+)<\/u>/i' => '{_$1_}',
             '/<ins>([^<]+)<\/ins>/i' => '{+$1+}',
             '/<del>([^<]+)<\/del>/i' => '~$1~',
             '/<s>([^<]+)<\/s>/i' => '~$1~',
