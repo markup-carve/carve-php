@@ -367,7 +367,6 @@ trait NormalizesDjotStructure
 
     private function normalizeDjotInlineSpellings(string $source): string
     {
-        $source = preg_replace('/^\{\}[ \t]*\n/', '', $source) ?? $source;
         $comments = [];
         $this->maskCodeAndDestinations($source, opaqueOptions: [
 
@@ -400,15 +399,7 @@ trait NormalizesDjotStructure
                 return substr($text, 0, $end - $at) . '\\';
             }
             if (str_starts_with($text, '{}')) {
-                if ($at > 0 && $mask[$at - 1] === ']' && !$this->isDjotEscaped($source, $at - 1)) {
-                    return '{}';
-                }
-                $end = $at + strlen($text);
-                if ($at > 0 && str_contains('_*', $source[$at - 1]) && $source[$at - 1] === ($source[$end] ?? '')) {
-                    return $text;
-                }
-
-                return '';
+                return $text;
             }
 
             return match ($text) {

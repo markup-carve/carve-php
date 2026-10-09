@@ -1466,8 +1466,8 @@ class DjotToCarve
 
     private function maskDjotAttributeSource(string $source): string
     {
-        $codeMask = $this->maskCodeAndDestinations($source, false);
-        $mask = $this->maskCodeAndDestinations($source);
+        $codeMask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['comments' => false]);
+        $mask = $this->maskCodeAndDestinations($source, opaqueOptions: ['comments' => false]);
         $rows = $this->djotTableRows($source, $codeMask);
         $definitionIndent = -1;
         $definitionOffset = 0;

@@ -134,7 +134,7 @@ class DjotLossReportTest extends TestCase
     {
         foreach (['*a*{}*b*', '*a*{}{}*b*'] as $source) {
             $carve = (new DjotToCarve())->convert($source);
-            self::assertSame('{*a*}{%%}{*b*}', $carve);
+            self::assertSame('*a*{%%}*b*', $carve);
             self::assertSame("<p><strong>a</strong><strong>b</strong></p>\n", (new CarveConverter())->convert($carve));
         }
     }
