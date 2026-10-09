@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  * survived an export while `{#id .class data-*}` did not (carve-php#458).
  *
  * `AttributeFallback::Html` is the opt-in that keeps them, as raw HTML. The
- * default stays Drop, so no consumer's output moves.
+ * default drops attributes that Markdown cannot represent.
  */
 class MarkdownAttributeFallbackTest extends TestCase
 {
@@ -260,11 +260,19 @@ class MarkdownAttributeFallbackTest extends TestCase
      * A `title` attribute is the only source of the title when the image itself
      * carries none, so it is kept.
      */
-    public function testHtmlModeKeepsATitleAttributeOnAnImageWithoutOne(): void
+    public function testHtmlModeKeepsAnImageTitleInMarkdownSyntax(): void
     {
         $this->assertSame(
-            '<img src="p.png" alt="P" title="U">' . "\n",
+            '![P](p.png "U")' . "\n",
             $this->html()->convert('![P](p.png){title=U}'),
+        );
+    }
+
+    public function testHtmlFallbackKeepsAnExplicitEmptyTitleOverTheAttribute(): void
+    {
+        $this->assertSame(
+            '<img src="p.png" alt="P" title="" class="photo">' . "\n",
+            $this->html()->convert('![P](p.png ""){.photo title=Attribute}'),
         );
     }
 

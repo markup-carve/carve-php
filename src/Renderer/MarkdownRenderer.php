@@ -3450,6 +3450,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         return $this->renderLink($node);
     }
 
+    private function markdownTitle(Link|Image $node): ?string
+    {
+        $title = $node->getTitle();
+        $attribute = $node->getAttribute('title');
+
+        return $title ?? (is_string($attribute) ? $attribute : null);
+    }
+
     protected function renderLink(Link $node): string
     {
         $destination = (string)$node->getDestination();
@@ -3465,7 +3473,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         } finally {
             $this->linkTextDepth--;
         }
-        $title = $node->getTitle();
+        $title = $this->markdownTitle($node);
 
         if ($title !== null) {
             return '[' . $text . '](' . $url . ' "' . $this->escapeTitle($this->stripControls($title)) . '")';
@@ -3496,7 +3504,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             // was the ONLY attribute, nothing is left to carry and the ordinary
             // Markdown image (which already spells alt and title) is emitted.
             $exclude = ['src', 'alt'];
-            if ($node->getTitle() !== null) {
+            if ($this->markdownTitle($node) !== null) {
                 $exclude[] = 'title';
             }
 
@@ -3510,7 +3518,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $src = $this->encodeMarkdownDestination((string)$node->getSource(), $node, self::DESTINATION_SINK_IMAGE);
         $alt = $this->neutralizeCharacterReferences($alt);
 
-        $title = $node->getTitle();
+        $title = $this->markdownTitle($node);
 
         if ($title !== null) {
             return '![' . $alt . '](' . $src . ' "' . $this->escapeTitle($this->stripControls($title)) . '")';
@@ -3540,7 +3548,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $html = '<img src="' . $serializer->escapeAttribute($src) . '"'
             . ' alt="' . $serializer->escapeAttribute($this->stripControls($node->getAlt())) . '"';
 
-        $title = $node->getTitle();
+        $title = $this->markdownTitle($node);
         if ($title !== null) {
             $html .= ' title="' . $serializer->escapeAttribute($this->stripControls($title)) . '"';
         }

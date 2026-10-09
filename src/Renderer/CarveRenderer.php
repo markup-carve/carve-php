@@ -3833,6 +3833,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
+        if ($this->tableCellDepth > 0) {
+            $title = str_replace(['`', '|'], ['\\`', '\\|'], $title);
+        }
 
         return '[' . $text . '](' . $this->escapeDestination((string)$node->getDestination()) . $title . ')' . $this->renderAttrs($node);
     }
