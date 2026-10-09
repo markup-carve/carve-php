@@ -2538,8 +2538,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
         $content = $this->stripControls($node->getContent());
 
-        $backticks = StringUtil::findSafeCodeFence($content, 3);
-
         // Re-emit the fence header ("title") and label ([label]) so this
         // structured metadata survives carve -> markdown conversion. Order and
         // spacing follow the carve#201 fence grammar (lang "Header" [Label]) so a
@@ -2547,20 +2545,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // and ignores the rest. The header is only emitted when a language is
         // present, since a leading quote with no language is not a valid fence
         // header (it would fall back to an inline code span).
-        // Backticks are stripped from the title/label (as they are from the
-        // language above) so the emitted opener can never contain a backtick run
-        // that clashes with the fence delimiter, which would break re-parsing.
         $info = $language;
         if ($language !== '') {
             $title = $node->getAttribute('title');
             if (is_string($title) && $title !== '') {
-                $info .= ' "' . str_replace(['"', '`'], '', $this->stripControls($title)) . '"';
+                $info .= ' "' . $this->escapeTitle($this->stripControls($title)) . '"';
             }
         }
         $label = $node->getLabel();
         if ($label !== null && $label !== '') {
-            $info .= ' [' . str_replace(['[', ']', '`'], '', $this->stripControls($label)) . ']';
+            $info .= ' [' . str_replace(['[', ']'], '', $this->stripControls($label)) . ']';
         }
+
+        $backticks = StringUtil::findSafeCodeFence($content, 3, str_contains($info, '`') ? '~' : '`');
 
         // The separator a payload of no lines does not own, and an all-blank one
         // already carries; the same rule the Carve target reads

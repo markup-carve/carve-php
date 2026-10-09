@@ -218,16 +218,14 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('[Main]', $twice);
     }
 
-    public function testCodeBlockHeaderBacktickIsStrippedSoOutputRoundTrips(): void
+    public function testCodeBlockHeaderBacktickUsesATildeFence(): void
     {
-        // A longer fence lets the title carry a backtick; the emitted opener must
-        // not reintroduce a clashing backtick run.
-        $source = "````php \"a`b\"\necho 1;\n````";
-        $once = $this->renderer->render($this->converter->parse($source));
-        $twice = $this->renderer->render($this->converter->parse($once));
-
-        $this->assertStringContainsString('```php "ab"', $once);
-        $this->assertSame($once, $twice);
+        $source = "```php \"src/`Auth.php\"\n~~~\n\$ok = true;\n```";
+        $result = $this->renderer->render($this->converter->parse($source));
+        $this->assertStringStartsWith('~~~~php "src/`Auth.php"', $result);
+        $this->assertStringContainsString("\n~~~\n", $result);
+        $imported = (new MarkdownToCarve())->convert($result);
+        $this->assertStringContainsString('<code class="language-php">~~~', $this->converter->convert($imported));
     }
 
     public function testInlineCode(): void
