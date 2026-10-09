@@ -3500,7 +3500,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $parent = $node->getParent();
 
-        return $parent !== null && !$parent instanceof Paragraph && !$parent instanceof InlineNode;
+        return $parent !== null
+            && !$parent instanceof Paragraph
+            && !$parent instanceof Heading
+            && !$parent instanceof DefinitionTerm
+            && !$parent instanceof Caption
+            && !($parent instanceof TableCell && !$parent->hasBlockContent())
+            && !$parent instanceof InlineNode;
     }
 
     protected function renderImage(Image $node): string
