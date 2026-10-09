@@ -505,6 +505,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->expandedBoldItalic = [];
         $this->treeCache = null;
         $this->writerState->structuralEscapes = [];
+        $this->writerState->fixedBracketSites = [];
         $this->writerState->pairedClosers = [];
         $this->escapedOpeners = [];
         $this->planStructuralEscapes($document);

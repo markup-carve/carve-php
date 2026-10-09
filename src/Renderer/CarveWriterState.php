@@ -101,6 +101,11 @@ final class CarveWriterState
     public array $structuralEscapes = [];
 
     /**
+     * @var array<int, array<int, bool>>
+     */
+    public array $fixedBracketSites = [];
+
+    /**
      * Stable unit numbers for occurrence keys.
      *
      * @var array<int, int>|null

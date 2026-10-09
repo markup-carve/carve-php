@@ -151,6 +151,35 @@ final class BracketScanner
     }
 
     /**
+     * @return array<int, bool>|null
+     */
+    public static function structuralBracketOffsets(string $text): ?array
+    {
+        if (preg_match('/^[ \t]*%%/m', $text) === 1) {
+            return null;
+        }
+        $offsets = [];
+        for ($pos = 0, $length = strlen($text); $pos < $length; $pos++) {
+            if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\') {
+                $end = self::opaqueEnd($text, $pos);
+                if (is_int($end)) {
+                    $pos = $end - 1;
+
+                    continue;
+                }
+                if ($end === null || ($text[$pos] === '{' && in_array($text[$pos + 1] ?? '', ['#', '%'], true))) {
+                    return null;
+                }
+            }
+            if ($text[$pos] === '[' || $text[$pos] === ']') {
+                $offsets[$pos] = true;
+            }
+        }
+
+        return $offsets;
+    }
+
+    /**
      * Skip the same opaque runs in both bracket scanners. Null marks an
      * unclosed code span; false means this byte is not an opaque opener.
      */
