@@ -1075,6 +1075,10 @@ class HtmlToCarve
             );
         }
 
+        if ($tag === 'code' && strpbrk($node->textContent, "\r\n") !== false && $this->hardBreakIsFlattened($node)) {
+            $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in <code> inside a table cell: a table row is one line', 'warning', $path);
+        }
+
         if ($tag === 'code' && $this->emptyCodeSpanIsDropped($node)) {
             $this->addImportDiagnostic(
                 $diagnostics,
@@ -1107,6 +1111,10 @@ class HtmlToCarve
      */
     private function inspectImportNodeStructure(DOMElement $node, string $tag, string $path, array &$diagnostics): bool
     {
+        if ($this->enclosingImportCodeSpan($node) instanceof DOMElement && !in_array($tag, $this->blockElements, true) && in_array($tag, [...self::INLINE_SLOT_ELEMENTS, 'img', 'br', 'math', 'ruby', 'input'], true) && !($tag === 'span' && !$node->hasAttributes())) {
+            $dropped = in_array($tag, ['img', 'br', 'input'], true);
+            $this->addImportDiagnostic($diagnostics, $dropped ? 'element-dropped' : 'element-unwrapped', ($dropped ? 'Dropped' : 'Unwrapped') . ' <' . $tag . '> inside <code>', $dropped ? 'warning' : 'info', $path);
+        }
         if ($this->retainedListTypes !== null && isset($this->retainedListTypes[$node])) {
             $this->addImportDiagnostic(
                 $diagnostics,

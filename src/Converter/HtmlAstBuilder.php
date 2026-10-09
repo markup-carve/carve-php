@@ -3760,7 +3760,11 @@ final class HtmlAstBuilder
 
                 return [['type' => 'code', 'value' => '']];
             }
-            $code = ['type' => 'code', 'value' => $node->textContent];
+            $value = $node->textContent;
+            if ($this->session->tableCellAllowsEmptyCode !== null && $this->session->inInlineProjection) {
+                $value = str_replace(["\r\n", "\r", "\n"], ' ', $value);
+            }
+            $code = ['type' => 'code', 'value' => $value];
             $this->attachAttrs($code, $node);
 
             return [$code];
