@@ -270,7 +270,9 @@ final class DjotEmphasis
             }
         }
 
-        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert), $attributes))->convert($roots);
+        $bracketCloses = array_fill_keys(array_column($bracketPairs, 1), true);
+
+        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert), $attributes, $bracketCloses))->convert($roots);
     }
 
     public static function structuralPrefixEnd(string $line): int

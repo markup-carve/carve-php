@@ -67,6 +67,6 @@ JSON
             $converted = (new DjotToCarve())->convert($source);
             $this->assertStringNotContainsString('class="tag"', (new CarveConverter())->convert($converted));
         }
-        $this->assertStringContainsString('<https://x.y/{#a>', (new DjotToCarve())->convert('<https://x.y/{#a>'));
+        $this->assertSame('<p><a href="https://x.y/{#a">https://x.y/{#a</a></p>', trim((new CarveConverter())->convert((new DjotToCarve())->convert('<https://x.y/{#a>'))));
     }
 }
