@@ -3871,10 +3871,16 @@ class MarkdownToCarve
             $this->frontmatterOpenerTyped = $open[1] !== '';
             $frontmatter = array_slice($lines, 0, $i + 1);
             // The metadata between the fences is opaque and survives
-            // byte-for-byte, but the opener is a delimiter the canonical writer
-            // owns: a bare `---` and a spaced `--- toml` both read fine and
-            // neither is the canonical spelling.
+            // byte-for-byte, but both fences are delimiters the canonical
+            // writer owns: a bare `---` and a spaced `--- toml` both read fine
+            // and neither is the canonical spelling.
             $frontmatter[0] = CarveRenderer::canonicalFrontmatterOpener($open[1] === '' ? 'yaml' : $open[1]);
+            // The closer is a delimiter the writer owns too. A reader accepts a
+            // trailing run of spaces and tabs on it, so `---<TAB>` closes the
+            // block, but the writer spells it bare - echoing the source's run
+            // made the import fail this engine's own `fmt --check`
+            // (carve-php#2998).
+            $frontmatter[$i] = CarveRenderer::FRONTMATTER_CLOSER;
 
             return $frontmatter;
         }

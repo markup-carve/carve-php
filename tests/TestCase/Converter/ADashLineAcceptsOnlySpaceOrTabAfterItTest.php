@@ -52,7 +52,11 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
     {
         $carve = (new MarkdownToCarve())->convert("---yaml\na: 1\n--- \t\n...\n***\nu\n");
 
-        $this->assertSame("---yaml\na: 1\n--- \t\n\n...\n\n---\n\nu\n", $carve);
+        // The closer still CLOSES, which is what this case is about and what
+        // the render below holds. It is WRITTEN bare: the trailing run is a
+        // reader's leniency, not a writer's license, so echoing it left the
+        // import failing this engine's own `fmt --check` (carve-php#2998).
+        $this->assertSame("---yaml\na: 1\n---\n\n...\n\n---\n\nu\n", $carve);
         $this->assertSame("<p>\u{2026}</p>\n<hr>\n<p>u</p>\n", CarveConverter::create()->convert($carve));
     }
 
