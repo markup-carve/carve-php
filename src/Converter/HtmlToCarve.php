@@ -2639,9 +2639,10 @@ class HtmlToCarve
         ?string $lang = null,
     ): void {
         $context = $block ? 'pre' : 'code';
+        $description = $block ? 'a code block' : 'a code span';
         foreach ($node->childNodes as $index => $child) {
             if ($child instanceof DOMComment) {
-                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a comment inside <' . $context . '>: code holds only text', 'warning', $path . '/comment()[' . ($index + 1) . ']');
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a comment inside <' . $context . '>: ' . $description . ' holds only text', 'warning', $path . '/comment()[' . ($index + 1) . ']');
 
                 continue;
             }
@@ -2665,14 +2666,17 @@ class HtmlToCarve
             foreach ($child->attributes as $attribute) {
                 $name = HtmlDomLoader::attributeName($attribute);
                 if ($child === $languageWrapper && $lang !== null) {
-                    if ($name === 'data-lang' && trim($attribute->value) === $lang) {
+                    if ($name === 'data-lang' && trim($attribute->value, " \t\r\n\f") === $lang) {
                         continue;
                     }
                     if ($name === 'class' && self::codeLanguageOnlyClasses($attribute->value, $lang)) {
                         continue;
                     }
                 }
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . HtmlDomLoader::attributeName($attribute) . ' on <' . $tag . '> inside <' . $context . '>: code holds only text', 'info', $childPath);
+                $lowerName = strtolower($name);
+                $unsafe = str_starts_with($lowerName, 'on') || in_array($lowerName, ['srcdoc', 'formaction'], true)
+                    || ((($tag === 'a' && $lowerName === 'href') || ($tag === 'img' && $lowerName === 'src')) && HtmlAstBuilder::hasDeniedScheme($attribute->value));
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . '> inside <' . $context . '>: ' . $description . ' holds only text', $block && $unsafe ? 'warning' : 'info', $childPath);
             }
             $this->inspectCodeSpanChildren($child, $childPath, $diagnostics, $block, $languageWrapper, $lang);
         }
@@ -2680,7 +2684,7 @@ class HtmlToCarve
 
     private static function codeLanguageOnlyClasses(string $classes, string $lang): bool
     {
-        $tokens = preg_split('/[ \t\r\n\f]+/', trim($classes)) ?: [];
+        $tokens = preg_split('/[ \t\r\n\f]+/', trim($classes, " \t\r\n\f")) ?: [];
         foreach ($tokens as $token) {
             if ($token !== 'language-' . $lang && $token !== 'lang-' . $lang) {
                 return false;

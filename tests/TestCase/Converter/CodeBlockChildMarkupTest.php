@@ -22,6 +22,10 @@ class CodeBlockChildMarkupTest extends TestCase
                 $this->assertSame($case['content'], $ast->value['children'][0]['content'], $case['name']);
                 foreach ([$ast, $source] as $result) {
                     $this->assertSame($case['codes'], array_column($result->diagnostics, 'code'), $case['name']);
+                    if (isset($case['warnings'])) {
+                        $warnings = array_filter($result->diagnostics, static fn ($d) => $d->severity === 'warning');
+                        $this->assertSame($case['warnings'], array_column($warnings, 'code'), $case['name']);
+                    }
                 }
                 $html = (new CarveConverter())->convert($source->value);
                 $this->assertStringContainsString('<p>after</p>', $html, $case['name']);
