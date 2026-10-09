@@ -15,15 +15,15 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `CARVE-P2-024`'s `code` enum holds `raw-format-dropped`, `ruby-flattened` and
- * `destination-denied` (PART 11 §1d, markup-carve/carve#2679), each naming a
- * whole node or destination one selected renderer dropped, flattened or
- * blanked. A dropped FIELD goes to the conversion-diagnostics channel as
+ * `CARVE-P2-024`'s `code` enum holds `raw-format-dropped`, `ruby-flattened`,
+ * `destination-denied` (PART 11 §1d, markup-carve/carve#2679) and
+ * `editorial-comment-flattened` (markup-carve/carve#2793), each naming a whole
+ * node or destination one selected renderer dropped, flattened or blanked. A dropped FIELD goes to the conversion-diagnostics channel as
  * `field-unspellable`, which is the only one of the two reports that can name a
  * field.
  *
  * THE BAR IS THE PUBLISHED SCHEMA, NOT THIS FILE'S LIST. The permitted codes are
- * read out of the vendored `render-loss-report.schema.json`, so a third code
+ * read out of the vendored `render-loss-report.schema.json`, so a new code
  * added to either side fails here without anyone editing an assertion.
  */
 class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
@@ -82,10 +82,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheThreeCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheFourCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened'],
             self::schemaCodes(),
         );
     }
@@ -100,9 +100,9 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
     }
 
     /**
-     * A document carrying all four: a dropped raw block, a flattened ruby, a
-     * link whose scheme the PART 9 section 25 denylist denies, and the three
-     * section-attribute fields. The union over the four writers must be exactly
+     * A document carrying all five: a dropped raw block, a flattened ruby, a
+     * link whose scheme the PART 9 section 25 denylist denies, an editorial
+     * comment, and the three section-attribute fields. The union over the four writers must be exactly
      * the schema's codes - an empty union would pass a subset assertion while
      * proving nothing.
      */
@@ -127,6 +127,7 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
                     'type' => 'paragraph',
                     'children' => [['type' => 'link', 'href' => 'javascript:one', 'children' => [['type' => 'text', 'value' => 'a']]]],
                 ],
+                ['type' => 'paragraph', 'children' => [['type' => 'critic_comment', 'text' => 'note']]],
                 self::tableWire(),
             ],
         ]);
