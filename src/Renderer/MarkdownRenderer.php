@@ -78,6 +78,7 @@ use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
+use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
 use Normalizer;
 
@@ -369,6 +370,19 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
 
     /**
+     * PART 11 §10s: whether an element-less container is bracketed with a
+     * carrier marker. OFF by default, because a renderer with raw HTML turned
+     * off shows the comment as text.
+     */
+    protected bool $carryMarkers = false;
+
+    /**
+     * How many carried containers enclose the block being written, which is
+     * what decides the colon-fence width a marker payload carries.
+     */
+    private int $carrierDepth = 0;
+
+    /**
      * Lazily built HTML renderer used ONLY to serialize attributes under
      * AttributeFallback::Html, so the raw HTML this target emits is validated and
      * escaped by the same code as the HTML target rather than by a second copy.
@@ -447,6 +461,105 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $this->attributeFallback = $mode;
 
         return $this;
+    }
+
+    /**
+     * Carry an element-less container through a Markdown round trip in an HTML
+     * comment holding its Carve opener verbatim (PART 11 §10s).
+     *
+     * The visible fallback is unchanged: the mode only ADDS comment lines, so
+     * with it off the emitted bytes are the ones this target emits today.
+     */
+    public function setCarryMarkers(bool $carry = true): self
+    {
+        $this->carryMarkers = $carry;
+
+        return $this;
+    }
+
+    /**
+     * Whether the carrier mode is on.
+     */
+    public function getCarryMarkers(): bool
+    {
+        return $this->carryMarkers;
+    }
+
+    /**
+     * The marker payloads a container takes, or null when the mode is off or
+     * the container is not element-less on this target.
+     *
+     * A LIST TABLE and a container whose attributes degrade to a `<div>` are
+     * both spelled by the output already, so neither is element-less and
+     * neither takes a marker.
+     *
+     * @return array{prelude: list<string>, opener: string, closer: string}|null
+     */
+    protected function carrierMarkers(Node $node): ?array
+    {
+        if (!$this->carryMarkers) {
+            return null;
+        }
+        // A HOST THAT PREFIXES ITS LINES TAKES NO MARKER YET. Inside a list
+        // item, a block quote or a table cell the comment is written at the
+        // host's content column or behind its `>`, and the import reads a
+        // marker only at column 0 - so the marker would be emitted and never
+        // read back, which is worse than degrading honestly
+        // (markup-carve/carve#2810 follow-up).
+        if ($this->listDepth > 0 || $this->inBlockQuote || $this->tableCellDepth > 0) {
+            return null;
+        }
+        if ($node instanceof Div) {
+            if ($this->listTableAsTable($node) !== null) {
+                return null;
+            }
+            if ($this->attributeFallback === AttributeFallback::Html && $this->htmlAttributes($node) !== '') {
+                return null;
+            }
+        }
+
+        return (new CarrierOpenerWriter())->spell($node, $this->carrierDepth);
+    }
+
+    /**
+     * Render a carried container's children one fence width in.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param array{prelude: list<string>, opener: string, closer: string}|null $markers
+     */
+    protected function renderCarriedChildren(Node $node, ?array $markers): string
+    {
+        if ($markers === null) {
+            return $this->renderChildren($node);
+        }
+        $this->carrierDepth++;
+        try {
+            return $this->renderChildren($node);
+        } finally {
+            $this->carrierDepth--;
+        }
+    }
+
+    /**
+     * Bracket a container's output with its marker lines.
+     *
+     * The body is emitted UNCHANGED, separator and all: the mode adds lines and
+     * moves none, which is what keeps the mode-off bytes the bytes of today.
+     *
+     * @param array{prelude: list<string>, opener: string, closer: string}|null $markers
+     * @param string $body
+     */
+    protected function carried(?array $markers, string $body): string
+    {
+        if ($markers === null) {
+            return $body;
+        }
+        $head = '';
+        foreach ([...$markers['prelude'], $markers['opener']] as $payload) {
+            $head .= CarrierMarkers::line($payload) . "\n";
+        }
+
+        return $head . $body . CarrierMarkers::line($markers['closer']) . "\n";
     }
 
     /**
@@ -2897,7 +3010,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // Divs/admonitions don't exist in Markdown; render the content. An
         // admonition's quoted opener header would otherwise be lost; preserve
         // it as a leading bold line.
-        $body = $this->renderChildren($node);
+        $markers = $this->carrierMarkers($node);
+        $body = $this->renderCarriedChildren($node, $markers);
         $prefix = '';
         $title = $node->getHeader();
         if (is_string($title)) {
@@ -2937,7 +3051,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             }
         }
 
-        return $prefix . $body;
+        return $this->carried($markers, $prefix . $body);
     }
 
     /**
@@ -3796,6 +3910,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function renderFigureGroup(FigureGroup $node): string
     {
+        $markers = $this->carrierMarkers($node);
+        if ($markers !== null) {
+            $this->carrierDepth++;
+        }
         $output = '';
         foreach ($node->getChildren() as $child) {
             if ($child instanceof Figure) {
@@ -3816,6 +3934,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             }
         }
 
+        if ($markers !== null) {
+            $this->carrierDepth--;
+            $output = $this->carried($markers, $output);
+        }
+
+        // The group's own caption sits OUTSIDE the container in Carve too (the
+        // slot hangs on the closing fence), so its fallback follows the closer.
         $caption = $node->getCaption();
         if ($caption !== null) {
             $output .= $this->padOutsideOnItsOwnLine(
