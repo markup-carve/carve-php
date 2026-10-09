@@ -342,8 +342,6 @@ CARVE;
 
     public function testTabsWithRichContent(): void
     {
-        $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
-
         $carve = <<<'CARVE'
 {#wrapper .outer}
 :::: tabs
@@ -386,8 +384,6 @@ CARVE;
 
     public function testMixedContent(): void
     {
-        $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
-
         $carve = <<<'CARVE'
 # Heading
 
@@ -589,8 +585,6 @@ CARVE;
 
     public function testHeadingWithoutCustomId(): void
     {
-        $this->markTestSkipped('Round-trip (HtmlToCarve) materializes auto-generated heading ids/refs back into source; should only re-emit explicitly authored ids. Tracked separately, unrelated to the flat-heading / auto-id / </#id> rendering this change delivers.');
-
         // Auto-generated IDs should not be preserved
         $carve = '# Simple Heading';
         $html = $this->converter->convert($carve);
@@ -1024,8 +1018,6 @@ CARVE;
 
     public function testLineBlockWithFormatting(): void
     {
-        $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
-
         $carve = <<<'CARVE'
 ::: |
 This is *strong*
