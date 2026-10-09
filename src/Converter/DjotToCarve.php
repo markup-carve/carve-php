@@ -947,6 +947,7 @@ class DjotToCarve
         $dedent = null;
         $heading = false;
         $table = false;
+        $noteParents = [];
         $metadataNote = false;
         $noteColumn = null;
         $referenceColumn = null;
@@ -981,7 +982,19 @@ class DjotToCarve
                     $lines[$n] = ($quotes[0] ?? '') . substr($line, strlen(($quotes[0] ?? '')) + $dedent['delta']);
                 }
             }
-            if ($metadataNote && $noteColumn !== null && $content !== '' && $column === $noteColumn - 1) {
+            while ($noteColumn !== null && $content !== '' && $column + 1 < $noteColumn) {
+                if ($metadataNote && $listColumn !== null && $column >= $listColumn && $n > 0 && preg_match('/^[ \t]*$/', $lines[$n - 1]) === 1) {
+                    while (isset($reserved[$serial])) {
+                        $serial++;
+                    }
+                    $comments[$serial] = true;
+                    $lines[$n - 1] = str_repeat(' ', $listColumn) . "\x00DJOTNOTEATTR" . $serial++ . "\x00";
+                }
+                $noteColumn = $noteParents === [] ? null : array_pop($noteParents);
+                $metadataNote = false;
+                $boundary = true;
+            }
+            if ($noteColumn !== null && $content !== '' && $column === $noteColumn - 1) {
                 $raw = $lines[$n];
                 preg_match('/^(?:[ \t]*>[ \t]?)*/', $raw, $quotes);
                 $quoteText = $quotes[0] ?? '';
@@ -997,18 +1010,6 @@ class DjotToCarve
                 $listColumn = null;
                 $boundary = true;
                 $heading = false;
-            }
-            if ($noteColumn !== null && $content !== '' && $column < $noteColumn) {
-                if ($metadataNote && $listColumn !== null && $column >= $listColumn && $n > 0 && preg_match('/^[ \t]*$/', $lines[$n - 1]) === 1) {
-                    while (isset($reserved[$serial])) {
-                        $serial++;
-                    }
-                    $comments[$serial] = true;
-                    $lines[$n - 1] = str_repeat(' ', $listColumn) . "\x00DJOTNOTEATTR" . $serial++ . "\x00";
-                }
-                $noteColumn = null;
-                $metadataNote = false;
-                $boundary = true;
             }
             $opensItem = $marker && ($boundary || $pending !== [] || $listColumn !== null);
             $opensQuote = $depth > $quoteDepth && ($boundary || $pending !== [] || $opensItem);
@@ -1048,7 +1049,7 @@ class DjotToCarve
                 if ($pending !== [] && preg_match('/^\[\^[^\]\n]+\]:(?:[ \t]|$)/', $content) === 1 && ($mask[$offset + strlen($prefix)] ?? '') === '[') {
                     $handledNote = true;
                     preg_match('/^(?:[ \t]*>[ \t]?)*/', $prefix, $quotePrefix);
-                    $targetColumn = min($column, max($listColumn ?? 0, $parentNoteColumn ?? 0));
+                    $targetColumn = max($listColumn ?? 0, $parentNoteColumn ?? 0);
                     $notePrefix = ($quotePrefix[0] ?? '') . str_repeat(' ', $targetColumn);
                     if ($column > $targetColumn) {
                         $dedent = ['column' => $column, 'delta' => $column - $targetColumn, 'depth' => $depth];
@@ -1088,6 +1089,9 @@ class DjotToCarve
             }
             $note = preg_match('/^\[\^[^\]\n]+\]:(?:[ \t]|$)/', $content) === 1;
             if ($note && $blockAllowed && ($mask[$offset + strlen($prefix)] ?? '') === '[') {
+                if ($noteColumn !== null) {
+                    $noteParents[] = $noteColumn;
+                }
                 $noteColumn = $column + 2;
                 $metadataNote = $handledNote;
                 $heading = false;
