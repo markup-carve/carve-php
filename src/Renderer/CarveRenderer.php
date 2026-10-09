@@ -2855,7 +2855,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $previousFlattenedCell = $this->flattenedTableCell;
         $this->flattenedTableCell = $cell->hasBlockContent() ? $cell : null;
         $this->tableCellDepth++;
-        $this->edgeCellBreaks = $this->edgeHardBreaks($inlines);
+        $this->edgeCellBreaks = $this->edgeHardBreaks(array_values(array_filter($inlines, static fn (Node $inline): bool => !$inline instanceof CarveFieldDiagnostic)));
         try {
             $content = $this->renderInlines($inlines);
         } finally {

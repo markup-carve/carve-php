@@ -27,8 +27,8 @@ final class TableCellBlockFlattener
     /**
      * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param bool $keepHardBreaks Keep a hard break as itself instead of a space.
-     * @param bool $collectCarveFields
      *   The Markdown target writes it as `<br>` (PART 11 section 9a).
+     * @param bool $collectCarveFields
      */
     public static function flatten(TableCell $cell, bool $keepHardBreaks = false, bool $collectCarveFields = false): Paragraph
     {
@@ -103,10 +103,10 @@ final class TableCellBlockFlattener
         $fields = [];
         if ($collectCarveFields) {
             if (($node instanceof Table || $node instanceof Figure) && $node->getShortCaption() !== null) {
-                $fields[] = new CarveFieldDiagnostic($node, 'shortCaption', 'Carve source cannot spell a short caption');
+                $fields[] = CarveFieldDiagnostic::create($node, 'shortCaption', 'Carve source cannot spell a short caption');
             }
             if ($node instanceof TableCell && $node->hasBlockContent()) {
-                $fields[] = new CarveFieldDiagnostic($node, 'blocks', 'Carve table cells cannot hold blocks');
+                $fields[] = CarveFieldDiagnostic::create($node, 'blocks', 'Carve table cells cannot hold blocks');
             }
         }
         $children = self::children($node, $keepHardBreaks, $collectCarveFields);
@@ -115,7 +115,7 @@ final class TableCellBlockFlattener
             foreach ($node->getHeaderNodes() as $inline) {
                 array_push($title, ...self::node($inline, $keepHardBreaks, $collectCarveFields));
             }
-            if ($title !== [] && $children !== []) {
+            if ($title !== [] && array_filter($children, static fn (Node $child): bool => !$child instanceof CarveFieldDiagnostic) !== []) {
                 $title[] = new Text(' ');
             }
 
