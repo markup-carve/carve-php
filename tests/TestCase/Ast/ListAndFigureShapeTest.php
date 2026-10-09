@@ -45,16 +45,19 @@ class ListAndFigureShapeTest extends TestCase
         $dot = $this->firstBlock("1. a\n");
         $paren = $this->firstBlock("1) a\n");
 
-        $this->assertSame('.', $dot['delim']);
+        // The default is spelled by absence, so only `)` is published
+        // (carve#2828). Keeping the non-default beside it is what separates the
+        // ruling from dropping the field.
+        $this->assertArrayNotHasKey('delim', $dot);
         $this->assertSame(')', $paren['delim']);
         // `bulletChar` is for bullets, and its enum does not admit a `.`.
         $this->assertArrayNotHasKey('bulletChar', $dot);
         $this->assertArrayNotHasKey('bulletChar', $paren);
     }
 
-    public function testABulletListStillPublishesBulletChar(): void
+    public function testABulletListPublishesOnlyANonDefaultBulletChar(): void
     {
-        $this->assertSame('-', $this->firstBlock("- a\n")['bulletChar']);
+        $this->assertArrayNotHasKey('bulletChar', $this->firstBlock("- a\n"));
         $this->assertSame('*', $this->firstBlock("* a\n")['bulletChar']);
         $this->assertArrayNotHasKey('delim', $this->firstBlock("- a\n"));
     }
@@ -67,7 +70,8 @@ class ListAndFigureShapeTest extends TestCase
         $alpha = $this->firstBlock("a. apple\nb. banana\n");
 
         $this->assertSame('a', $alpha['olType']);
-        $this->assertSame('.', $alpha['delim']);
+        $this->assertArrayNotHasKey('delim', $alpha);
+        $this->assertSame(')', $this->firstBlock("a) apple\nb) banana\n")['delim']);
     }
 
     public function testAFigureIsATargetAndACaption(): void

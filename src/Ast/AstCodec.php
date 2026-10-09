@@ -1313,6 +1313,15 @@ class AstCodec
             return true;
         }
 
+        // PART 12 §22 reaches the list markers now that the schema calls their
+        // defaults absent (carve#2828). The question below asks the NODE CLASS
+        // for a default, and this engine keeps one `marker` property whose
+        // default is null, so a payload spelling `.` or `-` out would read as a
+        // loss when the re-encode legitimately leaves it out.
+        if ($type === 'list' && (($field === 'delim' && $value === '.') || ($field === 'bulletChar' && $value === '-'))) {
+            return true;
+        }
+
         $class = self::classMap()[ReferenceShape::classTypeFor($type)] ?? null;
         if ($class === null) {
             return false;
@@ -1993,6 +2002,13 @@ class AstCodec
      * Both are AUTHOR-CHOICE fields under PART 11 §6, and §11 makes them
      * semantic: a sibling item with a different delimiter starts a NEW list.
      *
+     * NEITHER IS PUBLISHED AT ITS DEFAULT (carve#2828). The schema calls
+     * `delim: "."` and `bulletChar: "-"` absent, so writing them would publish
+     * two legal trees for one document and leave a consumer comparing engines
+     * or versions to guess which it holds. This engine still keeps the
+     * character internally - the formatter reproduces it - and drops it on the
+     * way out, the same place the ordered rename happens.
+     *
      * @param array<string, mixed> $encoded
      *
      * @return array<string, mixed>
@@ -2002,13 +2018,20 @@ class AstCodec
         if (($encoded['type'] ?? null) !== 'list' || !array_key_exists('bulletChar', $encoded)) {
             return $encoded;
         }
+
+        $marker = $encoded['bulletChar'];
         if (($encoded['ordered'] ?? false) !== true) {
+            if ($marker === '-') {
+                unset($encoded['bulletChar']);
+            }
+
             return $encoded;
         }
 
-        $marker = $encoded['bulletChar'];
         unset($encoded['bulletChar']);
-        $encoded['delim'] = $marker;
+        if ($marker !== '.') {
+            $encoded['delim'] = $marker;
+        }
 
         return $encoded;
     }
