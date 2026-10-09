@@ -1966,6 +1966,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if ($start !== 1) {
                 $olAttrs .= ' start="' . $start . '"';
             }
+            // PART 10 section 12: the authored delimiter, which HTML has no
+            // attribute of its own for, trailing type and start.
+            if ($marker === ')') {
+                $olAttrs .= ' data-delim="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
+            }
             if ($this->roundTripMode && $marker !== null && $marker !== '.') {
                 $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
             }

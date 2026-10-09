@@ -50,7 +50,7 @@ final class AnOrderedTaskItemIsNotSpellableTest extends TestCase
             'a paren delimiter' => [
                 "1) [x] done\n",
                 "1) [x] done\n",
-                '<ol><li>[x] done</li></ol>',
+                '<ol data-delim=")"><li>[x] done</li></ol>',
             ],
             'a start other than one' => [
                 "3. [x] done\n",

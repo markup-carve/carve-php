@@ -1723,7 +1723,16 @@ final class HtmlAstBuilder
                     || (count($items) === 1 && str_contains('ivxlcdm', $letter));
             }
         }
+        // PART 10 section 12, the only place the delimiter survives a render:
+        // `1)` and `1.` rendered the same bytes before that clause.
+        $consumesDelim = $ordered && $node->getAttribute('data-delim') === ')';
+        if ($consumesDelim) {
+            $list['delim'] = ')';
+        }
         $skipListAttrs = ['start', 'reversed', 'data-type', 'data-marker'];
+        if ($consumesDelim) {
+            $skipListAttrs[] = 'data-delim';
+        }
         if (!$fallbackTypeAttribute) {
             $skipListAttrs[] = 'type';
         }
