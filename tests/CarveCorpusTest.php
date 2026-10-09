@@ -49,6 +49,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-ordered-list-carries-its-authored-delimiter',
         'multiple-table-bodies-have-positional-source-metadata',
         'empty-table-bodies-keep-their-source-boundaries',
         'a-table-with-no-bodies-keeps-its-head-and-foot',
@@ -1156,13 +1157,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '31-ordered-list-start-and-delimiter-2' => [
-            'reason' => 'markup-carve/carve#2796: PART 10 section 12 carries the authored `)` as '
-                . '`data-delim`, and the pinned golden predates the clause.',
-            'html' => "<ol data-delim=\")\">\n  <li>one</li>\n  <li>two</li>\n</ol>",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 

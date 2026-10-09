@@ -68,7 +68,6 @@ class HtmlImportOrderedListTypeTest extends TestCase
             'roman with a start' => ['<ol type="i" start="4"><li>one</li></ol>', 'i', 4],
             'roman with a subtractive start' => ['<ol type="I" start="9"><li>one</li></ol>', 'I', 9],
             'roman past the single letters' => ['<ol type="i" start="27"><li>one</li></ol>', 'i', 27],
-            'roman past the subtractive range' => ['<ol type="I" start="4000"><li>one</li></ol>', 'I', 4000],
         ];
     }
 
@@ -144,6 +143,25 @@ class HtmlImportOrderedListTypeTest extends TestCase
     {
         $this->assertSame(['i', 9], $this->importedListStyle('<ol type="i" start="9"><li>one</li></ol>'));
         $this->assertSame(['a', 9], $this->importedListStyle('<ol type="a" start="9"><li>one</li><li>two</li></ol>'));
+    }
+
+    public function testUnspellableStylesKeepTheirNumberingAndReportTheFallback(): void
+    {
+        foreach ([['a', 9], ['A', 27], ['i', 5], ['I', 10], ['I', 4000]] as [$type, $start]) {
+            $html = '<ol type="' . $type . '" start="' . $start . '" data-delim=")"><li>one</li></ol>';
+            $source = $this->converter->convertWithReport($html);
+            $this->assertStringContainsString('{type=' . $type . '}', $source->value);
+            $this->assertStringContainsString($start . ') one', $source->value);
+            $rendered = $this->carve->convert($source->value);
+            $this->assertStringContainsString('type="' . $type . '"', $rendered);
+            $this->assertStringContainsString('start="' . $start . '"', $rendered);
+            $this->assertSame(['raw-preserved'], array_map(static fn ($row): string => $row->code, $source->diagnostics));
+            $this->assertSame('/ol[1]', $source->diagnostics[0]->path);
+            $ast = $this->converter->convertToAstWithReport($html);
+            $this->assertSame($type, $ast->value['children'][0]['olType']);
+            $this->assertSame($start, $ast->value['children'][0]['start']);
+            $this->assertSame([], $ast->diagnostics);
+        }
     }
 
     /**

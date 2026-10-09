@@ -440,6 +440,7 @@ class HtmlToCarve
         $this->droppedBlankImportRows = null;
         $this->mergedImportDefinitionLists = null;
         $this->flattenedImportSummaryBlocks = null;
+        $this->retainedListTypes = null;
         $this->entrylessImportDefinitionLists = [];
         $this->displacedImportFigureAttributes = [];
     }
@@ -448,6 +449,7 @@ class HtmlToCarve
     {
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
+        $this->retainedListTypes = $session->retainedListTypes;
         $this->summaryImportTitles = $session->summaryTitles;
         $this->keptRawImportElements = $session->keptRawElements;
         $this->droppedEmptyImportElements = $session->droppedEmptyElements;
@@ -1103,6 +1105,15 @@ class HtmlToCarve
      */
     private function inspectImportNodeStructure(DOMElement $node, string $tag, string $path, array &$diagnostics): bool
     {
+        if ($this->retainedListTypes !== null && isset($this->retainedListTypes[$node])) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'raw-preserved',
+                'Kept the ordered-list type as an attribute on decimal markers because native markers cannot retain this style within the supported marker range',
+                'info',
+                $path,
+            );
+        }
         $parent = $node->parentNode;
         $kind = $parent instanceof DOMElement ? $this->formattingKind($node) : null;
         if (
@@ -2400,6 +2411,9 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . ">: the semantic span's marker owns that key", 'warning', $path);
+            } elseif ($tag === 'ol' && $name === 'start' && filter_var($attribute->value, FILTER_VALIDATE_INT) === 1) {
+                // The native default preserves this value without an attribute.
+                continue;
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
                 // attribute - so asking the output for it is the wrong
@@ -4821,6 +4835,11 @@ class HtmlToCarve
     private ?int $inspectedImportSourceBytes = null;
 
     private ?HtmlImportSession $astImportSession = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, true>|null
+     */
+    private ?SplObjectStorage $retainedListTypes = null;
 
     /**
      * @var array<string, true>

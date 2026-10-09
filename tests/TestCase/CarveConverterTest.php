@@ -1378,8 +1378,8 @@ DJOT;
 
     public function testRomanNumeralList(): void
     {
-        // x. is parsed as Roman numeral 10
-        $djot = "x. first\nx. second\nx. third";
+        // The consecutive Roman sibling fixes the first marker as Roman.
+        $djot = "x. first\nxi. second\nxii. third";
 
         $result = $this->converter->convert($djot);
 
@@ -1391,8 +1391,8 @@ DJOT;
 
     public function testRomanNumeralListUppercase(): void
     {
-        // X. is parsed as uppercase Roman numeral 10
-        $djot = "X. first\nX. second\nX. third";
+        // The consecutive Roman sibling fixes the uppercase dialect.
+        $djot = "X. first\nXI. second\nXII. third";
 
         $result = $this->converter->convert($djot);
 

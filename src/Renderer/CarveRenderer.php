@@ -1090,16 +1090,29 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * Whether two adjacent sibling lists would read back as ONE list.
-     *
-     * PART 9 section 11 N1's axes. `listType` already separates a task list
-     * from a plain one, so what remains is the authored marker character (the
-     * bullet, or the ordered delimiter) and the ordered dialect. Where any of
-     * them differs the lists separate on their own and the writer owes them
-     * nothing, which is what carve#286 established.
+     * Keep a hard boundary when list markers overlap or sibling lookahead would
+     * change the first marker's dialect (PART 9 section 11 N1/N3).
      */
     protected static function listsWouldMerge(ListBlock $a, ListBlock $b): bool
     {
+        if ($a->getListType() === ListBlock::TYPE_ORDERED && $b->getListType() === ListBlock::TYPE_ORDERED && $b->getChildren() !== []) {
+            $alphaRoman = ($a->getStyle() === 'a' && $b->getStyle() === 'i') || ($a->getStyle() === 'A' && $b->getStyle() === 'I');
+            $romanAlpha = ($a->getStyle() === 'i' && $b->getStyle() === 'a') || ($a->getStyle() === 'I' && $b->getStyle() === 'A');
+            if ($alphaRoman && in_array($b->getStart(), [1, 5, 10, 50, 100, 500, 1000], true)) {
+                return true;
+            }
+            if ($romanAlpha && in_array($b->getStart(), [3, 4, 9, 12, 13, 22, 24], true)) {
+                return true;
+            }
+            $romanValue = [3 => 100, 4 => 500, 12 => 50, 13 => 1000, 22 => 5, 24 => 10][$a->getStart()] ?? null;
+            if (count($a->getChildren()) === 1 && $alphaRoman && $romanValue !== null && $b->getStart() === $romanValue + 1) {
+                return true;
+            }
+            if (count($a->getChildren()) === 1 && $romanAlpha && $a->getStart() === 1 && $b->getStart() === 10) {
+                return true;
+            }
+        }
+
         return $a->getListType() === $b->getListType()
             && $a->getMarker() === $b->getMarker()
             && $a->getStyle() === $b->getStyle();

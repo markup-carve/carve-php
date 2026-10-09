@@ -329,6 +329,7 @@ class ProfileFilter
 
         $codeBlock = new CodeBlock($node->getCodeBlockContent(), $node->getFormat());
         $codeBlock->setAttributesWithOrder($node->getAttributeEntries(), $node->getAttributeOrder());
+        $codeBlock->setPos($node->getPos());
         $parent->replaceChildNode($node, $codeBlock);
     }
 

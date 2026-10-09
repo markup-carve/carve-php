@@ -32,9 +32,7 @@ class ProfileFixtureParityTest extends TestCase
 
         // Outputs this build moved ahead of the pinned battery, which carve-php
         // generates. Delete an entry once the pin carries the new value.
-        $pendingRegeneration = [
-            'article-raw-denied' => "<p>Para.</p>\n<pre><code class=\"language-html\">&lt;b&gt;x&lt;/b&gt;\n</code></pre>\n",
-        ];
+        $pendingRegeneration = [];
 
         foreach ($fixtures as $name => $case) {
             $factory = $factories[$case['profile']] ?? null;

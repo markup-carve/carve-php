@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Exception\ProfileViolationException;
 use MarkupCarve\Carve\Extension\InlineFootnotesExtension;
 use MarkupCarve\Carve\LinkPolicy;
 use MarkupCarve\Carve\NodeType;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\ProfileViolation;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +21,16 @@ use ReflectionClass;
  */
 class ProfileTest extends TestCase
 {
+    public function testDeniedRawBlockKeepsItsSourcePosition(): void
+    {
+        $source = "``` =html\n<b>x</b>\n```\n";
+        $raw = (new CarveConverter(parser: new BlockParser(trackPositions: true)))->parse($source)->getChildren()[0];
+        $filtered = (new CarveConverter(profile: Profile::article(), parser: new BlockParser(trackPositions: true)))->parse($source)->getChildren()[0];
+        $this->assertNotNull($raw->getPos());
+        $this->assertSame(NodeType::CODE_BLOCK, $filtered->getType());
+        $this->assertEquals($raw->getPos(), $filtered->getPos());
+    }
+
     // ==================== Comment Profile Tests ====================
 
     public function testCommentProfileAllowsBasicFormatting(): void

@@ -1474,7 +1474,7 @@ class MarkdownToCarve
         // meets the same hazard and answers it by respelling every break in the
         // document (PART 11 section 1a), which is what `carve fmt` then writes
         // - so the import takes the same answer, through the writer's own
-        // parser test and its own marker, rather than a leading blank that
+        // parser test, marker and formatter, rather than a leading blank that
         // moved line 0 off `---` and lost the round trip (carve-php#2977).
         if ($frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
             foreach ($breakLines as $at) {
@@ -1485,7 +1485,7 @@ class MarkdownToCarve
             }
             $respelled = $assemble();
             if (!CarveRenderer::textOpensFrontmatter($respelled)) {
-                $carve = $respelled;
+                $carve = CarveConverter::toCarve($respelled);
             }
         }
 
@@ -1495,7 +1495,7 @@ class MarkdownToCarve
 
         $prefix = implode("\n", $frontmatter);
 
-        return $carve === '' ? $prefix : $prefix . "\n" . $carve;
+        return $carve === '' ? $prefix : $prefix . "\n\n" . ltrim($carve, "\n");
     }
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
