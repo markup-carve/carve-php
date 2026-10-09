@@ -243,18 +243,19 @@ final class StringUtil
      * extending the marker length as needed.
      *
      * @param string $content The content that will be fenced
-     * @param int $minTicks Minimum number of backticks (1 for inline, 3 for blocks)
+     * @param int $minTicks Minimum fence length (1 for inline, 3 for blocks)
+     * @param string $marker Fence character
      *
      * @return string Safe fence marker
      */
-    public static function findSafeCodeFence(string $content, int $minTicks = 1): string
+    public static function findSafeCodeFence(string $content, int $minTicks = 1, string $marker = '`'): string
     {
         $maxRun = 0;
         $currentRun = 0;
         $length = strlen($content);
 
         for ($i = 0; $i < $length; $i++) {
-            if ($content[$i] === '`') {
+            if ($content[$i] === $marker) {
                 $currentRun++;
                 if ($currentRun > $maxRun) {
                     $maxRun = $currentRun;
@@ -266,7 +267,7 @@ final class StringUtil
             $currentRun = 0;
         }
 
-        return str_repeat('`', max($minTicks, $maxRun + 1));
+        return str_repeat($marker, max($minTicks, $maxRun + 1));
     }
 
     /**

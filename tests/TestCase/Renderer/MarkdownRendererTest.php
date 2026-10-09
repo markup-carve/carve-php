@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -218,16 +219,25 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('[Main]', $twice);
     }
 
-    public function testCodeBlockHeaderBacktickIsStrippedSoOutputRoundTrips(): void
+    public function testCodeBlockHeaderBacktickUsesATildeFence(): void
     {
-        // A longer fence lets the title carry a backtick; the emitted opener must
-        // not reintroduce a clashing backtick run.
-        $source = "````php \"a`b\"\necho 1;\n````";
-        $once = $this->renderer->render($this->converter->parse($source));
-        $twice = $this->renderer->render($this->converter->parse($once));
+        $source = "```php \"src/`Auth.php\"\n~~~\n\$ok = true;\n```";
+        $result = $this->renderer->render($this->converter->parse($source));
+        $this->assertStringStartsWith('~~~~php "src/`Auth.php"', $result);
+        $this->assertStringContainsString("\n~~~\n", $result);
+        $imported = (new MarkdownToCarve())->convert($result);
+        $this->assertStringContainsString('<code class="language-php">~~~', $this->converter->convert($imported));
+    }
 
-        $this->assertStringContainsString('```php "ab"', $once);
-        $this->assertSame($once, $twice);
+    public function testALeadingTildeLanguageDoesNotExtendTheFence(): void
+    {
+        $document = $this->converter->parse("```php \"a`b\"\nbody\n```\n\nafter\n");
+        $code = $document->getChildren()[0];
+        $this->assertInstanceOf(CodeBlock::class, $code);
+        $code->setLanguage('~x');
+        $result = $this->renderer->render($document);
+        $this->assertStringStartsWith('~~~ ~x "a`b"', $result);
+        $this->assertStringContainsString("\n~~~\n\nafter", $result);
     }
 
     public function testInlineCode(): void
