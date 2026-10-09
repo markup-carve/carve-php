@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -232,7 +233,7 @@ class MarkdownRendererTest extends TestCase
     {
         $document = $this->converter->parse("```php \"a`b\"\nbody\n```\n\nafter\n");
         $code = $document->getChildren()[0];
-        $this->assertInstanceOf(\MarkupCarve\Carve\Node\Block\CodeBlock::class, $code);
+        $this->assertInstanceOf(CodeBlock::class, $code);
         $code->setLanguage('~x');
         $result = $this->renderer->render($document);
         $this->assertStringStartsWith('~~~ ~x "a`b"', $result);
