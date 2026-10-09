@@ -154,7 +154,8 @@ class DjotToCarve
      */
     public function convert(string $djot): string
     {
-        $source = str_replace(["\r\n", "\r"], "\n", $djot);
+        $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
+        $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
         $source = $this->escapeInvalidDjotAttributes($source);
         $source = $this->normalizeDjotFootnotes($this->foldDjotReferences($this->normalizeDjotFences($this->normalizeDjotAttributeLines($source))));
@@ -228,7 +229,7 @@ class DjotToCarve
         $carve = strtr($carve, $strongSpans);
         $carve = $this->applyHeadingIdPreservation($carve, $djotBody);
 
-        return $frontmatter === '' ? $carve : $frontmatter . $separator . $carve;
+        return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
 
     /**
@@ -913,9 +914,94 @@ class DjotToCarve
         return $output . substr($source, $cursor);
     }
 
+
+    /**
+     * @return array{source: string, losses: list<int>, restore: Closure(string): string}
+     */
+    private function stripFootnoteDefinitionAttributes(string $input): array
+    {
+        $source = str_replace(["\r\n", "\r"], "\n", $input);
+        if (!str_contains($source, '{') || !str_contains($source, '[^')) {
+            return ['source' => $source, 'losses' => [], 'restore' => static fn (string $text): string => $text];
+        }
+        [$frontmatter, $separator, $body] = $this->splitSiteFrontmatter($source);
+        $header = $frontmatter === '' ? '' : $frontmatter . $separator;
+        $headerLines = substr_count($header, "\n");
+        $mask = $this->maskCodeAndDestinations($body);
+        $lines = explode("\n", $body);
+        $losses = [];
+        preg_match_all('/\x00DJOTNOTEATTR(\d+)\x00/', $source, $tokens);
+        $reserved = array_fill_keys(array_map('intval', $tokens[1]), true);
+        $comments = [];
+        $serial = 0;
+        $offset = 0;
+        $boundary = true;
+        $pending = [];
+        $owner = '';
+        foreach ($lines as $n => $line) {
+            preg_match('/^(?:[ \t]*>[ \t]?)*[ \t]*(?:(?:[-*+]|[0-9]+[.)]|[A-Za-z][.)])[ \t]+)?/', $line, $prefixMatch);
+            $prefix = $prefixMatch[0] ?? '';
+            $content = rtrim(substr($line, strlen($prefix)));
+            $indent = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $prefix) ?? $prefix;
+            $scope = substr_count($prefix, '>') . ':' . (preg_replace('/[^ \t]/', ' ', $indent) ?? $indent);
+            $attrs = str_starts_with($content, '{') && ($mask[$offset + strlen($prefix)] ?? '') === '{' ? $this->readDjotWordAttributes($content, 0) : null;
+            $standalone = $attrs !== null && $attrs['end'] === strlen($content);
+            if ($standalone && ($boundary || $pending !== [] || preg_match('/[-*+.)]/', $prefix) === 1)) {
+                if ($pending !== [] && $scope !== $owner) {
+                    $pending = [];
+                }
+                $pending[] = $n;
+                $owner = $scope;
+            } else {
+                if ($pending !== [] && $scope === $owner && preg_match('/^\[\^[^\]\n]+\]:(?:[ \t]|$)/', $content) === 1 && ($mask[$offset + strlen($prefix)] ?? '') === '[') {
+                    $lines[$n] = rtrim($prefix) . "\n" . $line;
+                    foreach ($pending as $at) {
+                        $raw = $lines[$at];
+                        $start = strpos($raw, '{');
+                        if ($start === false) {
+                            continue;
+                        }
+                        $parsed = $this->readDjotWordAttributes(rtrim(substr($raw, $start)), 0);
+                        if ($parsed !== null && $parsed['source'] !== '{}') {
+                            $losses[] = $headerLines + $at + 1;
+                        }
+                        while (isset($reserved[$serial])) {
+                            $serial++;
+                        }
+                        $comments[$serial] = true;
+                        $lines[$at] = substr($raw, 0, $start) . "\x00DJOTNOTEATTR" . $serial++ . "\x00";
+                    }
+                }
+                $pending = [];
+            }
+            $boundary = $content === '' || preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|(?:[-*][ \t]*){3,}$)/', $content) === 1;
+            $offset += strlen($line) + 1;
+        }
+
+        return [
+            'source' => $header . implode("\n", $lines),
+            'losses' => $losses,
+            'restore' => static fn (string $text): string => preg_replace_callback('/\x00DJOTNOTEATTR(\d+)\x00/', static fn (array $match): string => isset($comments[(int) $match[1]]) ? '%%' : $match[0], $text) ?? $text,
+        ];
+    }
+
     public function convertWithFidelityReport(string $djot): MigrationResult
     {
-        return $this->assessedMigrationResult($djot, $this->convert($djot), 'djot');
+        $stripped = $this->stripFootnoteDefinitionAttributes($djot);
+        $result = $this->assessedMigrationResult($djot, ($stripped['restore'])($this->convert($stripped['source'])), 'djot', $stripped['losses'] !== []);
+        $diagnostics = $result->diagnostics;
+        foreach ($stripped['losses'] as $line) {
+            $diagnostics[] = new MigrationDiagnostic(
+                'djot-footnote-definition-attributes-dropped',
+                'Carve cannot represent attributes on a footnote definition; they were dropped instead of applying them to later content.',
+                'warning',
+                'dropped',
+                'exact',
+                'line:' . $line,
+            );
+        }
+
+        return new MigrationResult($result->value, 'djot', $diagnostics);
     }
 
     /**
