@@ -153,6 +153,18 @@ class MarkdownToCarve
     private array $tableDiagnostics = [];
 
     /**
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private array $rawSpanWhitespaceDiagnostics = [];
+
+    /**
+     * The source line the inline run under conversion starts on, so a loss
+     * inside it names a line of the INPUT rather than an index into the folded
+     * array the importer writes from (markup-carve/carve#2792).
+     */
+    private ?int $inlineRunSourceLine = null;
+
+    /**
      * @var array<int, int>
      */
     private array $markdownSourceLines = [];
@@ -275,6 +287,8 @@ class MarkdownToCarve
         $this->flattenedEmphasis = false;
         $this->tableUnderWay = [];
         $this->tableDiagnostics = [];
+        $this->rawSpanWhitespaceDiagnostics = [];
+        $this->inlineRunSourceLine = null;
         $this->markdownSourceLines = [];
         $this->markdownHtmlSourceLines = [];
         $this->frontmatterSynthesized = false;
@@ -394,6 +408,7 @@ class MarkdownToCarve
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
+            $this->inlineRunSourceLine = $this->sourceLine($i);
             if (!$inCodeBlock && $emptyMarkerColumn !== null && trim($lines[$i]) !== '') {
                 if ($prevBlank && $this->indentWidth($lines[$i]) > $emptyMarkerColumn) {
                     while ($listCols !== [] && end($listCols) > $emptyMarkerColumn) {
@@ -1561,17 +1576,17 @@ class MarkdownToCarve
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
-            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $losses <= $assessedLosses) {
+            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $losses <= $assessedLosses) {
                 return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && !$this->frontmatterSynthesized) {
+        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
-        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics);
+        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics);
         if ($this->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
@@ -6378,6 +6393,7 @@ class MarkdownToCarve
 
     protected function verbatimHtmlInline(string $html): string
     {
+        $this->reportRawSpanTrailingWhitespace($html);
         $delimiterLength = 1;
         if (preg_match_all('/`+/', $html, $runs) > 0) {
             foreach ($runs[0] as $run) {
@@ -6387,6 +6403,35 @@ class MarkdownToCarve
         $delimiter = str_repeat('`', $delimiterLength);
 
         return $delimiter . $html . $delimiter . '{=html}';
+    }
+
+    /**
+     * Report every whitespace run a raw span would leave at the end of a
+     * content line.
+     *
+     * CARVE-P2-025 drops such a run from every content line and a verbatim run
+     * crossing a line break is no exception, so the bytes are written and never
+     * read back (markup-carve/carve#2804). Whitespace anywhere else in the span
+     * survives and is not reported.
+     */
+    private function reportRawSpanTrailingWhitespace(string $html): void
+    {
+        if (preg_match_all('/[ \t\v\f]+\n/', $html, $matches, PREG_OFFSET_CAPTURE) < 1) {
+            return;
+        }
+        foreach ($matches[0] as $match) {
+            $line = $this->inlineRunSourceLine === null
+                ? null
+                : $this->inlineRunSourceLine + substr_count(substr($html, 0, (int)$match[1]), "\n");
+            $this->rawSpanWhitespaceDiagnostics[] = new MigrationDiagnostic(
+                'raw-span-whitespace-trimmed',
+                self::RAW_SPAN_WHITESPACE_TRIMMED,
+                'warning',
+                'degraded',
+                'exact',
+                $line === null ? null : 'line:' . $line,
+            );
+        }
     }
 
     /**

@@ -45,6 +45,23 @@ trailing line endings. When the imported text matches and no known loss was
 reported, `literal-text-verified` records preserved/exact evidence. All other
 inputs retain the dropped/fallback `fidelity-unverified` warning.
 
+Markdown reports `raw-span-whitespace-trimmed`, warning/degraded/exact, at the
+source line of every raw span whose content would end a content line in
+whitespace. CARVE-P2-025 drops a whitespace run at the end of every content
+line, and a verbatim run crossing a line break is no exception, so this input:
+
+```markdown
+<a href="foo  
+bar">
+```
+
+is written with its two spaces and read back without them. Degraded rather than
+dropped, because the span and its text survive and the whitespace does not; the
+loss is reported rather than respelled as a raw block, which would keep the
+bytes at the cost of a different block structure
+(markup-carve/carve#2804). Whitespace a raw span carries anywhere but a line
+end is not reported, because Carve keeps it.
+
 HTML reports its import
 `mode` and `adapter`; its resource-limit exceptions are reported as command
 errors rather than partial migration reports. Opaque raw HTML is `degraded` even
