@@ -123,7 +123,7 @@ final class HtmlImportSession
     public SplObjectStorage $nativeCodeSpans;
 
     /**
-     * @var \SplObjectStorage<\DOMElement, null>
+     * @var \SplObjectStorage<\DOMElement, bool>
      */
     public SplObjectStorage $projectedStoredBlocks;
 
@@ -169,6 +169,8 @@ final class HtmlImportSession
     public bool $inCaption = false;
 
     public bool $inInlineProjection = false;
+
+    public bool $flattensStoredBlocks = false;
 
     public bool $preserveInlineWhitespace = false;
 

@@ -737,8 +737,12 @@ class HtmlToCarve
             return;
         }
         if ($this->storedSourceImportElements !== null && isset($this->storedSourceImportElements[$node])) {
-            if ($this->projectedStoredImportBlocks !== null && isset($this->projectedStoredImportBlocks[$node])) {
-                $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened multiple stored blocks into an inline-only slot', 'warning', $path);
+            $projectedBlocks = $this->projectedStoredImportBlocks;
+            if ($projectedBlocks !== null && isset($projectedBlocks[$node])) {
+                $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Projected stored block structure into an inline-only slot', 'warning', $path);
+                if ($projectedBlocks[$node]) {
+                    $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped stored content with no inline spelling', 'warning', $path);
+                }
             }
             if ($this->foldedStoredImportCodeSpans !== null && isset($this->foldedStoredImportCodeSpans[$node])) {
                 $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in stored code inside a table cell: a table row is one line', 'warning', $path);
@@ -5040,7 +5044,7 @@ class HtmlToCarve
     private ?SplObjectStorage $nativeImportCodeSpans = null;
 
     /**
-     * @var \SplObjectStorage<\DOMElement, null>|null
+     * @var \SplObjectStorage<\DOMElement, bool>|null
      */
     private ?SplObjectStorage $projectedStoredImportBlocks = null;
 

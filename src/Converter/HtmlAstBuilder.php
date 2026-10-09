@@ -2071,6 +2071,8 @@ final class HtmlAstBuilder
                 $this->session->pipeCellDepth = $listForm ? 0 : $previousPipeCellDepth + 1;
                 $previousProjection = $this->session->inInlineProjection;
                 $this->session->inInlineProjection = $previousProjection || !$listForm;
+                $previousStoredProjection = $this->session->flattensStoredBlocks;
+                $this->session->flattensStoredBlocks = $previousStoredProjection || !$listForm;
                 $previousCellContext = $this->session->tableCellAllowsEmptyCode;
                 $this->session->tableCellAllowsEmptyCode = $allowsEmptyCode;
                 try {
@@ -2080,6 +2082,7 @@ final class HtmlAstBuilder
                     $this->session->pipeCellDepth = $previousPipeCellDepth;
                     $this->session->tableCellAllowsEmptyCode = $previousCellContext;
                     $this->session->inInlineProjection = $previousProjection;
+                    $this->session->flattensStoredBlocks = $previousStoredProjection;
                 }
                 $cell = HtmlImportNodes::tableCell($children, $tag === 'th');
                 $horizontal = $this->styleEnum($cellElement, 'text-align', ['left', 'right', 'center']);
@@ -3915,10 +3918,13 @@ final class HtmlAstBuilder
         if ($this->isBlock($node)) {
             $previousProjection = $this->session->inInlineProjection;
             $this->session->inInlineProjection = true;
+            $previousStoredProjection = $this->session->flattensStoredBlocks;
+            $this->session->flattensStoredBlocks = true;
             try {
                 return $this->flattenBlocks($this->block($node));
             } finally {
                 $this->session->inInlineProjection = $previousProjection;
+                $this->session->flattensStoredBlocks = $previousStoredProjection;
             }
         }
 
@@ -4350,9 +4356,26 @@ final class HtmlAstBuilder
             if (!$this->sourceSafe) {
                 return $children;
             }
-            if ($this->session->inInlineProjection) {
-                if (count($children) > 1) {
-                    $this->session->projectedStoredBlocks[$node] = null;
+            if ($this->session->flattensStoredBlocks) {
+                $projected = count($children) > 1;
+                $dropped = false;
+                $pending = $children;
+                while ($pending !== []) {
+                    $stored = array_pop($pending);
+                    if ($stored['type'] !== 'paragraph') {
+                        $projected = $projected || in_array($stored['type'], ['list', 'heading', 'block_quote', 'code_block', 'raw_block', 'thematic_break', 'table', 'definition_list', 'div'], true);
+                    }
+                    if (in_array($stored['type'], ['raw_block', 'comment'], true) && ($stored['content'] ?? '') !== '' && $this->projectToInlines($stored) === []) {
+                        $dropped = true;
+                    }
+                    foreach (['children', 'items', 'rows', 'cells'] as $slot) {
+                        if (is_array($stored[$slot] ?? null)) {
+                            array_push($pending, ...self::nodeList($stored[$slot]));
+                        }
+                    }
+                }
+                if ($projected || $dropped) {
+                    $this->session->projectedStoredBlocks[$node] = $dropped;
                 }
 
                 return $children;
