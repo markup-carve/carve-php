@@ -1503,7 +1503,9 @@ class MarkdownToCarve
             $assessment = (new MarkdownAssessment())->assess($markdown, $value);
             $losses = count($this->unspellableOrderedTasks) + ($this->flattenedEmphasis ? 1 : 0) + count($this->tableDiagnostics);
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
-            if ($assessment['complete'] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $losses <= $assessedLosses) {
+            // `frontmatter-synthesized` is a report the assessment knows nothing
+            // about, so the fast path must not replace a report that carries it.
+            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $losses <= $assessedLosses) {
                 return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
             }
         }
