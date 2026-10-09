@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- HTML code-block import keeps sibling text, omits active payloads and reports discarded child markup, comments and attributes (carve-php#3024).
+
 - Markdown export uses a safe tilde fence for headers and labels containing backticks (carve-php#3017).
 - Markdown import drops blank table rows that Carve cannot spell, including
   the empty header added for a headerless table. Lists and quotes keep their

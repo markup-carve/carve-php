@@ -445,6 +445,7 @@ class HtmlToCarve
         $this->storedSourceImportElements = null;
         $this->foldedStoredImportCodeSpans = null;
         $this->nativeImportCodeSpans = null;
+        $this->nativeImportCodeBlocks = null;
         $this->projectedStoredImportBlocks = null;
         $this->retainedListTypes = null;
         $this->entrylessImportDefinitionLists = [];
@@ -469,6 +470,7 @@ class HtmlToCarve
         $this->storedSourceImportElements = $session->storedSourceElements;
         $this->foldedStoredImportCodeSpans = $session->foldedStoredCodeSpans;
         $this->nativeImportCodeSpans = $session->nativeCodeSpans;
+        $this->nativeImportCodeBlocks = $session->nativeCodeBlocks;
         $this->projectedStoredImportBlocks = $session->projectedStoredBlocks;
         $this->displacedImportFigureAttributes = $session->displacedFigureAttributes;
     }
@@ -2624,12 +2626,23 @@ class HtmlToCarve
      * @param \DOMNode $node
      * @param string $path
      * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     * @param string|null $lang
+     * @param \DOMElement|null $languageWrapper
+     * @param bool $block
      */
-    private function inspectCodeSpanChildren(DOMNode $node, string $path, array &$diagnostics): void
-    {
+    private function inspectCodeSpanChildren(
+        DOMNode $node,
+        string $path,
+        array &$diagnostics,
+        bool $block = false,
+        ?DOMElement $languageWrapper = null,
+        ?string $lang = null,
+    ): void {
+        $context = $block ? 'pre' : 'code';
+        $description = $block ? 'a code block' : 'a code span';
         foreach ($node->childNodes as $index => $child) {
             if ($child instanceof DOMComment) {
-                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a comment inside <code>: a code span holds only text', 'warning', $path . '/comment()[' . ($index + 1) . ']');
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a comment inside <' . $context . '>: ' . $description . ' holds only text', 'warning', $path . '/comment()[' . ($index + 1) . ']');
 
                 continue;
             }
@@ -2643,18 +2656,42 @@ class HtmlToCarve
 
                 continue;
             }
-            if (!($tag === 'span' && !$child->hasAttributes())) {
+            if (!($tag === 'span' && !$child->hasAttributes()) && !($block && $tag === 'code')) {
                 $dropped = !$child->hasChildNodes();
                 $message = $dropped && in_array($tag, $this->blockElements, true)
                     ? 'Dropped empty <' . $tag . '> element'
-                    : ($dropped ? 'Dropped' : 'Unwrapped') . ' <' . $tag . '> inside <code>';
+                    : ($dropped ? 'Dropped' : 'Unwrapped') . ' <' . $tag . '> inside <' . $context . '>';
                 $this->addImportDiagnostic($diagnostics, $dropped ? 'element-dropped' : 'element-unwrapped', $message, $dropped ? 'warning' : 'info', $childPath);
             }
             foreach ($child->attributes as $attribute) {
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . HtmlDomLoader::attributeName($attribute) . ' on <' . $tag . '> inside <code>: a code span holds only text', 'info', $childPath);
+                $name = HtmlDomLoader::attributeName($attribute);
+                if ($child === $languageWrapper && $lang !== null) {
+                    if ($name === 'data-lang' && trim($attribute->value, " \t\r\n\f") === $lang) {
+                        continue;
+                    }
+                    if ($name === 'class' && self::codeLanguageOnlyClasses($attribute->value, $lang)) {
+                        continue;
+                    }
+                }
+                $lowerName = strtolower($name);
+                $unsafe = str_starts_with($lowerName, 'on') || in_array($lowerName, ['srcdoc', 'formaction'], true)
+                    || ((($tag === 'a' && $lowerName === 'href') || ($tag === 'img' && $lowerName === 'src')) && HtmlAstBuilder::hasDeniedScheme($attribute->value));
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . '> inside <' . $context . '>: ' . $description . ' holds only text', $block && $unsafe ? 'warning' : 'info', $childPath);
             }
-            $this->inspectCodeSpanChildren($child, $childPath, $diagnostics);
+            $this->inspectCodeSpanChildren($child, $childPath, $diagnostics, $block, $languageWrapper, $lang);
         }
+    }
+
+    private static function codeLanguageOnlyClasses(string $classes, string $lang): bool
+    {
+        $tokens = preg_split('/[ \t\r\n\f]+/', trim($classes, " \t\r\n\f")) ?: [];
+        foreach ($tokens as $token) {
+            if ($token !== 'language-' . $lang && $token !== 'lang-' . $lang) {
+                return false;
+            }
+        }
+
+        return $tokens !== [];
     }
 
     /**
@@ -2678,6 +2715,12 @@ class HtmlToCarve
      */
     protected function inspectImportChildren(DOMElement $node, string $tag, string $path, array &$diagnostics): void
     {
+        if ($this->nativeImportCodeBlocks !== null && isset($this->nativeImportCodeBlocks[$node])) {
+            $block = $this->nativeImportCodeBlocks[$node];
+            $this->inspectCodeSpanChildren($node, $path, $diagnostics, true, $block['code'], $block['lang']);
+
+            return;
+        }
         if ($this->isImportedCodeSpan($node)) {
             $this->inspectCodeSpanChildren($node, $path, $diagnostics);
 
@@ -5045,6 +5088,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $nativeImportCodeSpans = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, array{code: ?\DOMElement, lang: ?string}>|null
+     */
+    private ?SplObjectStorage $nativeImportCodeBlocks = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, array{projected: bool, dropped: bool}>|null

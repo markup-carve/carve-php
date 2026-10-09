@@ -123,6 +123,11 @@ final class HtmlImportSession
     public SplObjectStorage $nativeCodeSpans;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, array{code: ?\DOMElement, lang: ?string}>
+     */
+    public SplObjectStorage $nativeCodeBlocks;
+
+    /**
      * @var \SplObjectStorage<\DOMElement, array{projected: bool, dropped: bool}>
      */
     public SplObjectStorage $projectedStoredBlocks;
@@ -198,6 +203,7 @@ final class HtmlImportSession
         $this->storedSourceElements = new SplObjectStorage();
         $this->foldedStoredCodeSpans = new SplObjectStorage();
         $this->nativeCodeSpans = new SplObjectStorage();
+        $this->nativeCodeBlocks = new SplObjectStorage();
         $this->projectedStoredBlocks = new SplObjectStorage();
     }
 }

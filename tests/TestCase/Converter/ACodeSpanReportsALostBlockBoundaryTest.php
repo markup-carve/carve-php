@@ -176,8 +176,8 @@ class ACodeSpanReportsALostBlockBoundaryTest extends TestCase
         $this->assertSame(['element-unwrapped', 'element-unwrapped'], array_column($rows, 'code'));
         $this->assertSame(['/pre[1]/code[1]/div[1]', '/pre[1]/code[1]/div[2]'], array_column($rows, 'path'));
         $this->assertSame([
-            'Unwrapped unsupported <div> element',
-            'Unwrapped unsupported <div> element',
+            'Unwrapped <div> inside <pre>',
+            'Unwrapped <div> inside <pre>',
         ], array_column($rows, 'message'));
     }
 
