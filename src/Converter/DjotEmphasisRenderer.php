@@ -21,12 +21,18 @@ final class DjotEmphasisRenderer
     private array $rendered = [];
 
     /**
+     * @var array<int, true>
+     */
+    private array $emptyBlockAttributes = [];
+
+    /**
      * @param string $source
      * @param string $mask
      * @param array<int, true> $structural
      * @param array<int, true> $literalBrackets
      * @param \Closure(string): string $convert
      * @param array<int, array{end: int, source: string}> $attributes
+     * @param array<int, true> $bracketCloses
      */
     public function __construct(
         private readonly string $source,
@@ -35,10 +41,38 @@ final class DjotEmphasisRenderer
         private readonly array $literalBrackets,
         private readonly Closure $convert,
         private readonly array $attributes = [],
+        private readonly array $bracketCloses = [],
     ) {
         $this->literalPrefix = "\0DJOTLITERAL\0";
         while (str_contains($source, $this->literalPrefix)) {
             $this->literalPrefix .= "\0";
+        }
+        $lineStart = 0;
+        $lineEnd = -1;
+        $previous = '';
+        $prefixEnd = 0;
+        $listAttribute = false;
+        foreach ($attributes as $at => $attrs) {
+            while ($lineEnd < $at) {
+                if ($lineEnd >= 0) {
+                    $previous = substr($source, $lineStart, $lineEnd - $lineStart);
+                    $lineStart = $lineEnd + 1;
+                }
+                $newline = strpos($source, "\n", $lineStart);
+                $lineEnd = $newline === false ? strlen($source) : $newline;
+                preg_match('/^[ \t>]*(?:(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)?/', substr($source, $lineStart, $lineEnd - $lineStart), $prefix);
+                $matchedPrefix = $prefix[0] ?? '';
+                $prefixEnd = $lineStart + strlen($matchedPrefix);
+                $listAttribute = preg_match('/[-*+.)]/', $matchedPrefix) === 1;
+            }
+            if (
+                $attrs['source'] === '{}' && $attrs['end'] <= $lineEnd
+                && $at === $prefixEnd
+                && trim(substr($source, $attrs['end'], $lineEnd - $attrs['end'])) === ''
+                && ($listAttribute || $lineStart === 0 || trim($previous) === '' || preg_match('/^\{.*\}$/', trim($previous)) === 1)
+            ) {
+                $this->emptyBlockAttributes[$at] = true;
+            }
         }
     }
 
@@ -80,7 +114,12 @@ final class DjotEmphasisRenderer
         for ($i = $start; $i < $end; $i++) {
             $attributes = $this->attributes[$i] ?? null;
             if ($attributes !== null && $attributes['end'] <= $end) {
-                $text .= $this->protect($attributes['source']);
+                $written = $attributes['source'];
+                if ($written === '{}') {
+                    $span = isset($this->bracketCloses[$i - 1]) && !isset($this->literalBrackets[$i - 1]);
+                    $written = $span ? '{}' : (isset($this->emptyBlockAttributes[$i]) ? '%%' : '{%%}');
+                }
+                $text .= $this->protect($written);
                 $i = $attributes['end'] - 1;
 
                 continue;
