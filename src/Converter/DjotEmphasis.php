@@ -84,6 +84,9 @@ final class DjotEmphasis
                 if ($i > $start + 2) {
                     $validBraces[$start] = true;
                     $validBraceClosers[$i - 1] = true;
+                    if ($paired !== null) {
+                        $paired[$start + 1] = $i + 1;
+                    }
                     foreach ($pendingBraces as &$stack) {
                         while ($stack !== [] && $stack[array_key_last($stack)] > $start) {
                             array_pop($stack);
