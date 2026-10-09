@@ -108,6 +108,10 @@ without one, none of these rules apply at all:
 | blocked attribute prefixes | `on` - covers `onclick`, `onload`, every handler |
 | blocked attributes | `srcdoc`, `formaction` (`strict()` adds `style`) |
 
+Under `RAW_HTML_ESCAPE` a raw block of any format renders as a code block in that
+format: `` ```=html `` becomes `<pre><code class="language-html">` with the content
+escaped. `RAW_HTML_STRIP` drops the block.
+
 ```php
 $safe = SafeMode::defaults()
     ->setAllowedSchemes(['https', 'mailto'])   // allowlist instead of denylist

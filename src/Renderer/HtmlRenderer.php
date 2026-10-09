@@ -1444,21 +1444,28 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        $language = $node->getLanguage();
-        $attrs = $this->renderAttributes($node);
-
-        $code = $this->escape($node->getContent());
-
-        // Convert tabs to spaces if configured
-        if ($this->codeBlockTabWidth !== null) {
-            $code = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $code);
-        }
-
         // Add data-djot-src for round-trip support
         $djotSrcAttr = '';
         if ($this->roundTripMode) {
             $djotSrc = $this->reconstructCodeBlockSource($node);
             $djotSrcAttr = ' data-djot-src="' . $this->escapeAttribute($djotSrc) . '"';
+        }
+
+        return $this->renderPreCode($node, $node->getContent(), $node->getLanguage(), $djotSrcAttr);
+    }
+
+    /**
+     * The `<pre><code>` element shared by code blocks and escaped raw blocks.
+     */
+    protected function renderPreCode(Node $node, string $content, ?string $language, string $djotSrcAttr = ''): string
+    {
+        $attrs = $this->renderAttributes($node);
+
+        $code = $this->escape($content);
+
+        // Convert tabs to spaces if configured
+        if ($this->codeBlockTabWidth !== null) {
+            $code = str_replace("\t", str_repeat(' ', $this->codeBlockTabWidth), $code);
         }
 
         if ($language !== null) {
@@ -4070,6 +4077,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderRawBlock(RawBlock $node): string
     {
+        // An escaping safe policy writes any raw block as a code block in its
+        // format (PART 10 §6); that is not a loss, so no render-loss row.
+        if ($this->safeMode?->getRawHtmlMode() === SafeMode::RAW_HTML_ESCAPE) {
+            return $this->renderPreCode($node, $this->rawBlockAsCodeContent($node->getContent()), $node->getFormat());
+        }
+
         // Only output if format is HTML
         if ($node->getFormat() !== 'html') {
             if (!$this->roundTripMode) {
@@ -4087,12 +4100,20 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if ($mode === SafeMode::RAW_HTML_STRIP) {
                 return '';
             }
-            if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                return $this->rawBlockLines($this->escape($content)) . "\n";
-            }
         }
 
         return $this->rawBlockLines($content) . "\n";
+    }
+
+    /**
+     * Raw block content in the shape a code block stores for the same lines.
+     *
+     * The parser drops a raw block's final payload newline unless every payload
+     * line is blank; a code block keeps it.
+     */
+    protected function rawBlockAsCodeContent(string $content): string
+    {
+        return trim($content, "\n") === '' ? $content : $content . "\n";
     }
 
     /**
