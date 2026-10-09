@@ -110,7 +110,10 @@ final class TableCellBlockFlattener
     private static function inline(InlineNode $node, bool $keepHardBreaks): InlineNode
     {
         if ($node instanceof HardBreak && $keepHardBreaks) {
-            return clone $node;
+            $copy = clone $node;
+            $copy->setRenderHint("\0carve-conversion-origin", $node->getRenderHint("\0carve-conversion-origin") ?? (string)spl_object_id($node));
+
+            return $copy;
         }
         if ($node instanceof HardBreak || $node instanceof SoftBreak) {
             return new Text(' ');
