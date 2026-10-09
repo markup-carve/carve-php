@@ -1594,8 +1594,8 @@ final class HtmlAstBuilder
             }
         }
         $source = $code ?? $node;
-        $content = $source->textContent;
-        if (!HtmlDomLoader::usesHtml5() && $source === $node && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
+        $content = self::codeSpanText($node);
+        if (!HtmlDomLoader::usesHtml5() && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
             $content = substr($content, 1);
         }
         // The newline before `</code>` TERMINATES the last payload line rather
@@ -1606,6 +1606,7 @@ final class HtmlAstBuilder
         $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
+        $this->session->nativeCodeBlocks[$node] = ['code' => $code, 'lang' => $language];
         if ($language !== null) {
             $block['lang'] = $language;
         }
