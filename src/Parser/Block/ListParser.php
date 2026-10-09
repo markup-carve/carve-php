@@ -812,10 +812,21 @@ class ListParser
         $letter = $match[1] ?? 'i';
         $roman = strtolower($letter) === 'i';
         $baseIndent = IndentationHelper::getLeadingColumns($lines[$start]);
+        $blankRun = 0;
         for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
-            if (IndentationHelper::isBlankLine($line) || IndentationHelper::getLeadingColumns($line) > $baseIndent) {
+            if (IndentationHelper::isBlankLine($line)) {
+                $blankRun++;
+
                 continue;
+            }
+            if (IndentationHelper::getLeadingColumns($line) > $baseIndent) {
+                $blankRun = 0;
+
+                continue;
+            }
+            if ($blankRun >= 3) {
+                break;
             }
             if (IndentationHelper::getLeadingColumns($line) === $baseIndent) {
                 $next = $this->parseListItemMarker(ltrim($line, " \t"));

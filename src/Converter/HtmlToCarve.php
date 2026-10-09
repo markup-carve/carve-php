@@ -1109,7 +1109,7 @@ class HtmlToCarve
             $this->addImportDiagnostic(
                 $diagnostics,
                 'raw-preserved',
-                'Kept the ordered-list type as an attribute on decimal markers because its native markers would change its numbering',
+                'Kept the ordered-list type as an attribute on decimal markers because native markers cannot retain this style within the supported marker range',
                 'info',
                 $path,
             );
@@ -2411,6 +2411,9 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . ">: the semantic span's marker owns that key", 'warning', $path);
+            } elseif ($tag === 'ol' && $name === 'start' && filter_var($attribute->value, FILTER_VALIDATE_INT) === 1) {
+                // The native default preserves this value without an attribute.
+                continue;
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
                 // attribute - so asking the output for it is the wrong
