@@ -3803,7 +3803,7 @@ class MarkdownToCarve
     protected function splitFrontmatter(array $lines): array
     {
         $count = count($lines);
-        if ($count < 2 || !preg_match('/^---[ \t]*(\w*)\s*$/', $lines[0], $open)) {
+        if ($count < 2 || !preg_match('/^---[ \t]*(\w*)[ \t]*$/', $lines[0], $open)) {
             return [];
         }
 
