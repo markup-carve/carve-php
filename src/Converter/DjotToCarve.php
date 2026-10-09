@@ -84,7 +84,7 @@ class DjotToCarve
         [
             'id' => 'djot-subscript-tilde',
             'family' => '~',
-            'pattern' => '/~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~/',
+            'pattern' => '/~(?!\s)((?:(?!\n[ \t]*\n)[^~])+?)(?<!\s)~(?!\})/',
             'open' => '{,',
             'close' => ',}',
         ],
@@ -105,7 +105,7 @@ class DjotToCarve
             // form is literal), so every Djot `^x^` needs the braced form.
             'id' => 'djot-superscript-caret',
             'family' => '^',
-            'pattern' => '/\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^/',
+            'pattern' => '/\^(?!\s)((?:(?!\n[ \t]*\n)[^^])+?)(?<!\s)\^(?!\})/',
             'open' => '{^',
             'close' => '^}',
         ],
@@ -254,6 +254,103 @@ class DjotToCarve
         return ($at - $start) % 2 !== 0;
     }
 
+    /**
+     * @param string $masked
+     * @param array{id: string, family: string, pattern: string, open: string, close: string} $rule
+     * @param string $source
+     *
+     * @return iterable<array<array{0: string, 1: int}>>
+     */
+    private function migrationRuleMatches(string $masked, array $rule, string $source): iterable
+    {
+        $opener = match ($rule['id']) {
+            'djot-subscript-tilde-braced' => '{~',
+            'djot-superscript-caret-braced' => '{^',
+            'djot-highlight-braces' => '{=',
+            default => null,
+        };
+        if ($opener === null) {
+            $candidate = match ($rule['id']) {
+                'djot-subscript-tilde' => '~',
+                'djot-superscript-caret' => '^',
+                'djot-emphasis-underscore', 'djot-intraword-underscore' => '_',
+                default => null,
+            };
+            if ($candidate !== null) {
+                $length = strlen($masked);
+                for ($cursor = 0; $cursor < $length;) {
+                    $start = strpos($masked, $candidate, $cursor);
+                    if ($start === false) {
+                        break;
+                    }
+                    $cursor = $start + 1;
+                    if ($this->isDjotEscaped($source, $start) || ($candidate !== '_' && ($source[$start + 1] ?? '') === '}') || ($candidate !== '_' && $start > 0 && ($source[$start - 1] ?? '') === '{' && !$this->isDjotEscaped($source, $start - 1))) {
+                        continue;
+                    }
+                    if (preg_match($rule['pattern'] . 'A', $masked, $match, PREG_OFFSET_CAPTURE, $start) === 1) {
+                        $cursor = $start + strlen($match[0][0]);
+
+                        yield $match;
+                    }
+                }
+
+                return;
+            }
+            preg_match_all($rule['pattern'], $masked, $found, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+            foreach ($found as $match) {
+                yield $match;
+            }
+
+            return;
+        }
+        $closer = $opener[1] . '}';
+        $length = strlen($masked);
+        for ($cursor = 0; $cursor < $length;) {
+            $start = strpos($masked, $opener, $cursor);
+            if ($start === false) {
+                break;
+            }
+            $from = $start + 2;
+            if ($this->isDjotEscaped($masked, $start)) {
+                $cursor = $from;
+
+                continue;
+            }
+            $end = $from;
+            for (; $end < $length; $end++) {
+                if (substr($masked, $end, 2) === $opener && !$this->isDjotEscaped($source, $end)) {
+                    break;
+                }
+                if ($masked[$end] === "\n") {
+                    $next = $end + 1;
+                    while (($source[$next] ?? '') === ' ' || ($source[$next] ?? '') === "\t") {
+                        $next++;
+                    }
+                    while (($source[$next] ?? '') === '>') {
+                        $next++;
+                        while (($source[$next] ?? '') === ' ' || ($source[$next] ?? '') === "\t") {
+                            $next++;
+                        }
+                    }
+                    if (($source[$next] ?? '') === "\n") {
+                        break;
+                    }
+                }
+                if (substr($masked, $end, 2) === $closer && !$this->isDjotEscaped($masked, $end)) {
+                    break;
+                }
+            }
+            if (substr($masked, $end, 2) === $closer) {
+                $cursor = $end + 2;
+                if ($end !== $from) {
+                    yield [[substr($masked, $start, $cursor - $start), $start], [substr($masked, $from, $end - $from), $from]];
+                }
+            } else {
+                $cursor = substr($masked, $end, 2) === $opener ? $end : $end + 1;
+            }
+        }
+    }
+
     private function rewriteDjotInline(string $source): string
     {
         $source = $this->escapeInvalidAttributeHashes($source);
@@ -271,11 +368,8 @@ class DjotToCarve
 
         foreach ($this->rules as $rule) {
             $ruleTaken = [];
-            if (!preg_match_all($rule['pattern'], $masked, $found, PREG_OFFSET_CAPTURE | PREG_SET_ORDER)) {
-                continue;
-            }
             /** @var array<array{0: string, 1: int}> $match */
-            foreach ($found as $match) {
+            foreach ($this->migrationRuleMatches($masked, $rule, $source) as $match) {
                 $start = $match[0][1];
                 $end = $start + strlen($match[0][0]);
 
