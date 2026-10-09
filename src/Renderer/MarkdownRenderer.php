@@ -2549,7 +2549,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($language !== '') {
             $title = $node->getAttribute('title');
             if (is_string($title) && $title !== '') {
-                $info .= ' "' . $this->escapeTitle($this->stripControls($title)) . '"';
+                $info .= ' "' . str_replace('"', '', $this->stripControls($title)) . '"';
             }
         }
         $label = $node->getLabel();
@@ -2572,7 +2572,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // this string on newlines still see the lines they saw.
         $sentinel = $this->fenceSentinel;
 
-        return $backticks . $info . $sentinel . "\n"
+        $infoSeparator = str_starts_with($backticks, '~') && str_starts_with($info, '~') ? ' ' : '';
+
+        return $backticks . $infoSeparator . $info . $sentinel . "\n"
             . $content . $closerSeparator . $backticks . $sentinel . "\n\n";
     }
 

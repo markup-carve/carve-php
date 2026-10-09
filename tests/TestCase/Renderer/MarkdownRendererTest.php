@@ -228,6 +228,17 @@ class MarkdownRendererTest extends TestCase
         $this->assertStringContainsString('<code class="language-php">~~~', $this->converter->convert($imported));
     }
 
+    public function testALeadingTildeLanguageDoesNotExtendTheFence(): void
+    {
+        $document = $this->converter->parse("```php \"a`b\"\nbody\n```\n\nafter\n");
+        $code = $document->getChildren()[0];
+        $this->assertInstanceOf(\MarkupCarve\Carve\Node\Block\CodeBlock::class, $code);
+        $code->setLanguage('~x');
+        $result = $this->renderer->render($document);
+        $this->assertStringStartsWith('~~~ ~x "a`b"', $result);
+        $this->assertStringContainsString("\n~~~\n\nafter", $result);
+    }
+
     public function testInlineCode(): void
     {
         $djot = 'Use `print()` function.';
