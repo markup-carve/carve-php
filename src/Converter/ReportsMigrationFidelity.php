@@ -20,6 +20,20 @@ trait ReportsMigrationFidelity
     public const ORDERED_TASK_ITEM_UNSPELLABLE = 'An ordered task item is not spellable as a Carve task item; '
         . 'the checkbox marker was kept as text';
 
+    /**
+     * A raw span whose content ends a line in whitespace, which CARVE-P2-025
+     * drops from every content line - a verbatim run crossing a line break
+     * included (markup-carve/carve#2804).
+     *
+     * Reported rather than respelled: the shape is inline content inside a
+     * paragraph, so writing a raw block to keep the bytes would change the
+     * block structure into a different document.
+     *
+     * @var string
+     */
+    public const RAW_SPAN_WHITESPACE_TRIMMED = 'A raw span ends a content line in whitespace, which Carve drops; '
+        . 'the whitespace did not reach the converted source';
+
     protected function assessedMigrationResult(
         string $source,
         string $value,
