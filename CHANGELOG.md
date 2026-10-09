@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- Formatting preserves literal backslashes in cross-reference targets. Targets with no source spelling are refused (carve-php#3009).
+
 - Ordered-list formatting and HTML import keep adjacent alphabetic and Roman lists separate. A hard list boundary also ends the dialect lookahead (carve-php#2993).
 
 - A lone ordered-list letter follows the shared Roman/alphabetic tie-break. HTML import retains unspellable numbering styles on decimal markers so the start value survives (carve-php#2993).

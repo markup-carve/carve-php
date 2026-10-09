@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -42,6 +43,11 @@ class CrossrefLiteralTargetTest extends TestCase
     {
         foreach (["| </#a\\> |\n", "| </#a\\|b> |\n", "[x </#a\\]>](u)\n"] as $source) {
             $once = CarveConverter::toCarve($source);
+            $this->assertSame($source, $once);
+            $target = substr($source, strpos($source, '</#') + 3, strpos($source, '>') - strpos($source, '</#') - 3);
+            $tree = (new AstCodec())->encodeJson((new CarveConverter())->parse($source));
+            $this->assertStringContainsString('"type":"heading_ref"', $tree);
+            $this->assertStringContainsString('"target":' . json_encode($target, JSON_THROW_ON_ERROR), $tree);
             $this->assertSame($once, CarveConverter::toCarve($once));
             $converter = new CarveConverter();
             $this->assertSame($converter->convert($source), $converter->convert($once));
@@ -59,7 +65,7 @@ class CrossrefLiteralTargetTest extends TestCase
     }
 
     #[DataProvider('unspellableTargets')]
-    public function testAnIngestedTargetWithNoSpellingIsRefused(string $target): void
+    public function testAHandBuiltTargetWithNoSpellingIsRefused(string $target): void
     {
         $document = new Document();
         $paragraph = new Paragraph();
