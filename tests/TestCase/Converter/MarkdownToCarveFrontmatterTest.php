@@ -35,7 +35,7 @@ class MarkdownToCarveFrontmatterTest extends TestCase
     {
         $markdown = "---\ntitle: X\ndescription: Y\n---\n\n# H\n\na **bold** word\n";
         $this->assertSame(
-            "---\ntitle: X\ndescription: Y\n---\n\n# H\n\na *bold* word\n",
+            "---yaml\ntitle: X\ndescription: Y\n---\n\n# H\n\na *bold* word\n",
             $this->convert($markdown),
         );
     }
@@ -44,7 +44,7 @@ class MarkdownToCarveFrontmatterTest extends TestCase
     {
         $markdown = "---\ntitle: a **bold** and _under_ value\n---\n\na **bold** word\n";
         $this->assertSame(
-            "---\ntitle: a **bold** and _under_ value\n---\n\na *bold* word\n",
+            "---yaml\ntitle: a **bold** and _under_ value\n---\n\na *bold* word\n",
             $this->convert($markdown),
         );
     }
@@ -55,11 +55,14 @@ class MarkdownToCarveFrontmatterTest extends TestCase
         $this->assertSame("---toml\ntitle = \"X\"\n---\n\ntext\n", $this->convert($markdown));
     }
 
-    public function testPreservesTheLenientSpacedFormatLabel(): void
+    public function testReadsTheLenientSpacedFormatLabelAndWritesItCanonically(): void
     {
+        // The parser accepts `--- toml` as well as `---toml`; the migrator must
+        // recognize the same openers or a spaced fence would be shredded. What
+        // it WRITES is the canonical opener either way (CARVE-P11-011).
         $markdown = "--- toml\ntitle = \"X\"\n---\n\na **bold** word\n";
         $this->assertSame(
-            "--- toml\ntitle = \"X\"\n---\n\na *bold* word\n",
+            "---toml\ntitle = \"X\"\n---\n\na *bold* word\n",
             $this->convert($markdown),
         );
     }
@@ -71,7 +74,7 @@ class MarkdownToCarveFrontmatterTest extends TestCase
 
     public function testHandlesAFrontmatterOnlyDocument(): void
     {
-        $this->assertSame("---\ntitle: X\n---", $this->convert("---\ntitle: X\n---"));
+        $this->assertSame("---yaml\ntitle: X\n---", $this->convert("---\ntitle: X\n---"));
     }
 
     public function testAnUnclosedLeadingFenceStaysAThematicBreak(): void

@@ -3754,7 +3754,7 @@ class MarkdownToCarve
     protected function splitFrontmatter(array $lines): array
     {
         $count = count($lines);
-        if ($count < 2 || !preg_match('/^---[ \t]*(\w*)\s*$/', $lines[0])) {
+        if ($count < 2 || !preg_match('/^---[ \t]*(\w*)\s*$/', $lines[0], $open)) {
             return [];
         }
 
@@ -3772,7 +3772,18 @@ class MarkdownToCarve
                 }
             }
 
-            return $hasContent ? array_slice($lines, 0, $i + 1) : [];
+            if (!$hasContent) {
+                return [];
+            }
+
+            $frontmatter = array_slice($lines, 0, $i + 1);
+            // The metadata between the fences is opaque and survives
+            // byte-for-byte, but the opener is a delimiter the canonical writer
+            // owns: a bare `---` and a spaced `--- toml` both read fine and
+            // neither is the canonical spelling.
+            $frontmatter[0] = CarveRenderer::canonicalFrontmatterOpener($open[1] === '' ? 'yaml' : $open[1]);
+
+            return $frontmatter;
         }
 
         return [];

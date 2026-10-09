@@ -3016,7 +3016,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderFrontmatter(Frontmatter $node): string
     {
-        return '---' . $this->escapeFormat($node->getFormat()) . "\n" . $this->protectVerbatim($node->getContent()) . "\n---";
+        return static::canonicalFrontmatterOpener($node->getFormat()) . "\n" . $this->protectVerbatim($node->getContent()) . "\n---";
+    }
+
+    /**
+     * The canonical frontmatter opener, which spells the format token for every
+     * format including the default (CARVE-P11-011).
+     *
+     * Public so the Markdown importer spells the opener the one way this writer
+     * does. A reader accepts a bare `---` as yaml, but that leniency is not a
+     * writer's license, so an importer that emitted the source opener verbatim
+     * produced output this engine's own `fmt --check` rejected.
+     */
+    public static function canonicalFrontmatterOpener(string $format): string
+    {
+        return '---' . static::escapeFormatToken($format);
     }
 
     /**
@@ -5687,6 +5701,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     protected function escapeFormat(string $text): string
+    {
+        return static::escapeFormatToken($text);
+    }
+
+    protected static function escapeFormatToken(string $text): string
     {
         $safe = (string)preg_replace('/[^\w-]/u', '', $text);
 
