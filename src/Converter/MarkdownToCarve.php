@@ -160,6 +160,12 @@ class MarkdownToCarve
     private int $markdownFrontmatterLines = 0;
 
     /**
+     * Whether a leading `---` block was converted to Carve frontmatter, which
+     * every migration reports.
+     */
+    private bool $frontmatterSynthesized = false;
+
+    /**
      * @var array<int, true>
      */
     private array $markdownHtmlSourceLines = [];
@@ -260,6 +266,7 @@ class MarkdownToCarve
         $this->tableDiagnostics = [];
         $this->markdownSourceLines = [];
         $this->markdownHtmlSourceLines = [];
+        $this->frontmatterSynthesized = false;
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both
@@ -269,6 +276,7 @@ class MarkdownToCarve
         // setext underline, turning `description: y` into an `##` heading.
         $frontmatter = $this->splitFrontmatter($allLines);
         $this->markdownFrontmatterLines = count($frontmatter);
+        $this->frontmatterSynthesized = $frontmatter !== [];
         $lines = $this->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
         $this->importedFootnoteLabels = [];
         $reservedFootnotes = [];
@@ -1484,7 +1492,10 @@ class MarkdownToCarve
     {
         $value = $this->convert($markdown);
         $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis);
-        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === []) {
+        if (
+            $this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis
+            && $this->tableDiagnostics === [] && !$this->frontmatterSynthesized
+        ) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
@@ -1510,6 +1521,17 @@ class MarkdownToCarve
                 // A source line, since Markdown has no node path to name. The
                 // schema types `path` as a free string for exactly this.
                 'line:' . ($line + 1),
+            );
+        }
+
+        if ($this->frontmatterSynthesized) {
+            $diagnostics[] = new MigrationDiagnostic(
+                'frontmatter-synthesized',
+                'Converted a leading `---` block with the shape of a mapping to Carve frontmatter',
+                'info',
+                'normalized',
+                'inferred',
+                'line:1',
             );
         }
 
@@ -3742,10 +3764,11 @@ class MarkdownToCarve
      * frontmatter - including the format label in both spellings the parser
      * accepts (`---toml` and `--- toml`).
      *
-     * The fence must enclose at least one non-blank line. An empty pair
-     * (`---\n---`, `---\n\n---`) carries no metadata, so the CommonMark reading
-     * - two thematic breaks - is the meaning-preserving one, and it stays on
-     * the thematic-break path guarded at the end of convert().
+     * The enclosed lines must have the SHAPE OF A MAPPING. CommonMark reads
+     * `---` / `Foo` / `---` as a thematic break and a setext heading, and `Foo`
+     * is a scalar rather than a mapping, so taking it as metadata loses a rule
+     * and a heading. An empty or comment-only block is no mapping either, and
+     * stays on the thematic-break path guarded at the end of convert().
      *
      * @param array<int, string> $lines
      *
@@ -3763,16 +3786,7 @@ class MarkdownToCarve
                 continue;
             }
 
-            $hasContent = false;
-            foreach (array_slice($lines, 1, $i - 1) as $line) {
-                if (trim($line) !== '') {
-                    $hasContent = true;
-
-                    break;
-                }
-            }
-
-            if (!$hasContent) {
+            if (!$this->frontmatterContentIsMapping(array_slice($lines, 1, $i - 1), $open[1])) {
                 return [];
             }
 
@@ -3787,6 +3801,44 @@ class MarkdownToCarve
         }
 
         return [];
+    }
+
+    /**
+     * Whether the lines enclosed by a frontmatter fence have the shape of a
+     * mapping.
+     *
+     * This is a SHAPE TEST on the bytes, never a parse. Three YAML libraries
+     * disagree about edge cases, and the three engines have to agree with each
+     * other, so the test is pure string inspection and no parser may be
+     * introduced here. It differs from a real parse on malformed content such
+     * as `title: [unclosed`, which counts as a mapping; that is deliberate.
+     *
+     * Blank lines and comment lines are skipped, and the FIRST line left has to
+     * carry a key at column 0.
+     *
+     * @param array<int, string> $content Lines between the fences.
+     * @param string $format Format label from the opener; `` is yaml.
+     */
+    protected function frontmatterContentIsMapping(array $content, string $format): bool
+    {
+        if ($format !== '' && $format !== 'yaml' && $format !== 'toml') {
+            // No shape rule is written for any other label, so the block is
+            // taken as metadata the way it always was.
+            return true;
+        }
+        foreach ($content as $line) {
+            if (trim($line) === '' || preg_match('/^[ \t]*#/', $line) === 1) {
+                continue;
+            }
+            $key = '(?:"[^"]*"|\'[^\']*\'|[^\s\-\[\{"\'#:][^:]*)';
+            $pattern = $format === 'toml'
+                ? '/^(?:\[|' . $key . '[ ]*=)/'
+                : '/^' . $key . ':(?:[ \t]|$)/';
+
+            return preg_match($pattern, $line) === 1;
+        }
+
+        return false;
     }
 
     /**
