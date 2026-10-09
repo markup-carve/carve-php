@@ -4345,13 +4345,14 @@ final class HtmlAstBuilder
         );
         $tree = (new AstCodec())->encode(CarveConverter::create()->parse($source));
         $children = self::nodeList($tree['children']);
-        if ($this->sourceSafe && $this->session->pipeCellDepth > 0 && $this->foldStoredPipeCodes($children)) {
+        $droppedPipeContent = false;
+        if ($this->sourceSafe && $this->session->pipeCellDepth > 0 && $this->foldStoredPipeCodes($children, $droppedPipeContent)) {
             $this->session->foldedStoredCodeSpans[$node] = null;
         }
 
         if ($this->session->flattensStoredBlocks) {
             $projected = count($children) > 1;
-            $dropped = false;
+            $dropped = $droppedPipeContent;
             $pending = $children;
             while ($pending !== []) {
                 $stored = array_pop($pending);
@@ -4359,6 +4360,9 @@ final class HtmlAstBuilder
                 $projected = $projected || ($isBlock && ($stored['type'] !== 'paragraph' || ($stored['attrs'] ?? []) !== []));
                 if ($isBlock && ($stored['content'] ?? null) !== '' && !isset($stored['children']) && !isset($stored['items']) && !isset($stored['rows']) && $this->projectToInlines($stored) === []) {
                     $dropped = true;
+                }
+                if (is_array($stored['target'] ?? null)) {
+                    $pending[] = self::importedNode($stored['target']);
                 }
                 foreach (['title', 'children', 'items', 'rows', 'cells', 'caption'] as $slot) {
                     if (is_array($stored[$slot] ?? null)) {
@@ -4390,21 +4394,34 @@ final class HtmlAstBuilder
 
     /**
      * @param list<ImportedNode> $nodes
+     * @param bool $dropped
      */
-    private function foldStoredPipeCodes(array &$nodes): bool
+    private function foldStoredPipeCodes(array &$nodes, bool &$dropped): bool
     {
         $folded = false;
         foreach ($nodes as &$node) {
-            if ($node['type'] === 'code' && is_string($node['value'] ?? null) && strpbrk($node['value'], "\r\n") !== false) {
-                $node['value'] = str_replace(["\r\n", "\r", "\n"], ' ', $node['value']);
+            $valueKey = $node['type'] === 'math' ? 'content' : 'value';
+            if (in_array($node['type'], ['code', 'math'], true) && is_string($node[$valueKey] ?? null) && strpbrk($node[$valueKey], "\r\n") !== false) {
+                $node[$valueKey] = str_replace(["\r\n", "\r", "\n"], ' ', $node[$valueKey]);
                 $folded = true;
+            }
+            if ($node['type'] === 'raw_inline' && is_string($node['content'] ?? null) && strpbrk($node['content'], "\r\n") !== false) {
+                $node = HtmlImportNodes::text('');
+                $dropped = true;
+
+                continue;
+            }
+            if (is_array($node['target'] ?? null)) {
+                $target = [self::importedNode($node['target'])];
+                $folded = $this->foldStoredPipeCodes($target, $dropped) || $folded;
+                $node['target'] = $target[0];
             }
             foreach (['children', 'items', 'rows', 'cells', 'caption', 'title', 'old', 'new', 'inline'] as $slot) {
                 if (!is_array($node[$slot] ?? null)) {
                     continue;
                 }
                 $children = self::nodeList($node[$slot]);
-                if ($this->foldStoredPipeCodes($children)) {
+                if ($this->foldStoredPipeCodes($children, $dropped)) {
                     $node[$slot] = $children;
                     $folded = true;
                 }
@@ -4913,6 +4930,12 @@ final class HtmlAstBuilder
         }
 
         $out = [];
+        if (is_array($node['target'] ?? null)) {
+            $out = $this->projectToInlines(self::importedNode($node['target']));
+            if ($out !== [] && self::nodeList($node['caption'] ?? null) !== []) {
+                $out[] = HtmlImportNodes::text(' ');
+            }
+        }
         // `title` leads, because it is a node's first visible text: an
         // admonition built from a `<details>` carries its `<summary>` there, and
         // walking only `children` left the summary out of the caption it reached

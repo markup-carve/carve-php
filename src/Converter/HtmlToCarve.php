@@ -745,7 +745,7 @@ class HtmlToCarve
                 }
             }
             if ($this->foldedStoredImportCodeSpans !== null && isset($this->foldedStoredImportCodeSpans[$node])) {
-                $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in stored code inside a table cell: a table row is one line', 'warning', $path);
+                $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in stored code or math inside a table cell: a table row is one line', 'warning', $path);
             }
 
             return;

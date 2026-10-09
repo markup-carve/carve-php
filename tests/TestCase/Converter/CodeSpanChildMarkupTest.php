@@ -187,4 +187,31 @@ class CodeSpanChildMarkupTest extends TestCase
             $this->assertStringContainsString('<td>' . $expected . '</td>', $rendered, $source);
         }
     }
+
+    public function testStoredFigureKeepsItsTargetDuringProjection(): void
+    {
+        $html = '<table><tr><td><p data-djot-src="![a](x)&#10;^ cap">x</p></td></tr></table>';
+        $result = (new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true))->convertWithReport($html);
+        $this->assertStringContainsString('![a](x)', $result->value);
+        $this->assertStringContainsString('cap', $result->value);
+        $this->assertNotContains('element-dropped', array_column($result->diagnostics, 'code'));
+    }
+
+    public function testStoredMultilineMathIsFoldedOnlyInSource(): void
+    {
+        $html = '<table><tr><td><p data-djot-src="$`a&#10;b`">x</p></td></tr></table>';
+        $converter = new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true);
+        $result = $converter->convertWithReport($html);
+        $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
+        $this->assertStringContainsString('a b', $result->value);
+        $this->assertSame([], $converter->convertToAstWithReport($html)->diagnostics);
+    }
+
+    public function testStoredMultilineRawContentIsDroppedAndReportedOnlyInSource(): void
+    {
+        $html = '<table><tr><td><p data-djot-src="`&lt;b&gt;&#10;&lt;/b&gt;`{=html}">x</p></td></tr></table>';
+        $converter = new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true);
+        $this->assertContains('element-dropped', array_column($converter->convertWithReport($html)->diagnostics, 'code'));
+        $this->assertSame([], $converter->convertToAstWithReport($html)->diagnostics);
+    }
 }
