@@ -3764,11 +3764,13 @@ class MarkdownToCarve
      * frontmatter - including the format label in both spellings the parser
      * accepts (`---toml` and `--- toml`).
      *
-     * The enclosed lines must have the SHAPE OF A MAPPING. CommonMark reads
-     * `---` / `Foo` / `---` as a thematic break and a setext heading, and `Foo`
-     * is a scalar rather than a mapping, so taking it as metadata loses a rule
-     * and a heading. An empty or comment-only block is no mapping either, and
-     * stays on the thematic-break path guarded at the end of convert().
+     * Under a BARE `---` the enclosed lines must have the SHAPE OF A MAPPING.
+     * CommonMark reads `---` / `Foo` / `---` as a thematic break and a setext
+     * heading, and `Foo` is a scalar rather than a mapping, so taking it as
+     * metadata loses a rule and a heading. An empty or comment-only block is no
+     * mapping either, and stays on the thematic-break path guarded at the end
+     * of convert(). A typed opener carries no such collision and skips the
+     * test.
      *
      * @param array<int, string> $lines
      *
@@ -3786,7 +3788,13 @@ class MarkdownToCarve
                 continue;
             }
 
-            if (!$this->frontmatterContentIsMapping(array_slice($lines, 1, $i - 1), $open[1])) {
+            // Only a BARE `---` faces the shape test: that is the single
+            // opener a thematic break and a setext underline can also spell.
+            // A typed `---yaml` names the format, so it is frontmatter
+            // whatever its payload holds. The capture tells them apart - it is
+            // the empty string only when no label was written, while the
+            // parser still reads the bare opener AS yaml.
+            if ($open[1] === '' && !$this->bareFrontmatterContentIsMapping(array_slice($lines, 1, $i - 1))) {
                 return [];
             }
 
@@ -3804,8 +3812,8 @@ class MarkdownToCarve
     }
 
     /**
-     * Whether the lines enclosed by a frontmatter fence have the shape of a
-     * mapping.
+     * Whether the lines enclosed by a BARE `---` fence have the shape of a
+     * yaml mapping.
      *
      * This is a SHAPE TEST on the bytes, never a parse. Three YAML libraries
      * disagree about edge cases, and the three engines have to agree with each
@@ -3817,25 +3825,15 @@ class MarkdownToCarve
      * carry a key at column 0.
      *
      * @param array<int, string> $content Lines between the fences.
-     * @param string $format Format label from the opener; `` is yaml.
      */
-    protected function frontmatterContentIsMapping(array $content, string $format): bool
+    protected function bareFrontmatterContentIsMapping(array $content): bool
     {
-        if ($format !== '' && $format !== 'yaml' && $format !== 'toml') {
-            // No shape rule is written for any other label, so the block is
-            // taken as metadata the way it always was.
-            return true;
-        }
         foreach ($content as $line) {
             if (trim($line) === '' || preg_match('/^[ \t]*#/', $line) === 1) {
                 continue;
             }
-            $key = '(?:"[^"]*"|\'[^\']*\'|[^\s\-\[\{"\'#:][^:]*)';
-            $pattern = $format === 'toml'
-                ? '/^(?:\[|' . $key . '[ ]*=)/'
-                : '/^' . $key . ':(?:[ \t]|$)/';
 
-            return preg_match($pattern, $line) === 1;
+            return preg_match('/^(?:"[^"]*"|\'[^\']*\'|[^\s\-\[\{"\'#:][^:]*):(?:[ \t]|$)/', $line) === 1;
         }
 
         return false;
