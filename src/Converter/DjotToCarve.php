@@ -646,6 +646,7 @@ class DjotToCarve
                 if ($carve && $table) {
                     for ($at = $start; $at <= $i; $at++) {
                         if ($source[$at] === '\\') {
+                            $lastEscaped = $at + 1;
                             $at++;
                         } elseif ($source[$at] === '|') {
                             return null;
@@ -769,6 +770,7 @@ class DjotToCarve
         $readNative = $this->nativeAttributeReader($source);
         $masked = $this->maskFootnoteTokens($this->maskCodeAndDestinations($source), '/\[\^[^\]\n]*\]/', true);
         $literalBraces = [];
+        $pairedCloses = array_fill_keys(array_values($paired), true);
         $escapedBraceCloses = [];
         preg_match_all('/\[\^[^\]\n]*\]/', $source, $literalNotes, PREG_OFFSET_CAPTURE);
         foreach ($literalNotes[0] as [$note, $at]) {
@@ -788,11 +790,13 @@ class DjotToCarve
         }
         $braceStack = [];
         $spaces = 0;
+        $lastEscaped = -1;
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
             if (ctype_space($source[$at])) {
                 $spaces++;
             }
             if ($source[$at] === '\\') {
+                $lastEscaped = $at + 1;
                 if (($source[$at + 1] ?? '') === '{' && $masked[$at + 1] === '{') {
                     $braceStack[] = ['begin' => $at, 'literal' => true, 'spaces' => $spaces];
                 } elseif (($source[$at + 1] ?? '') === '}' || ($source[$at + 1] ?? '') === ']') {
@@ -809,6 +813,12 @@ class DjotToCarve
             }
             if ($masked[$at] !== $source[$at]) {
                 continue;
+            }
+            if ($source[$at] === '}' && $at > 0 && str_contains('+-=~^*_', $source[$at - 1]) && !isset($pairedCloses[$at + 1])) {
+                $literalBraces[$at] = $at - 1 === $lastEscaped ? $at - 2 : $at - 1;
+                if ($at - 1 === $lastEscaped) {
+                    $escapedBraceCloses[$at] = true;
+                }
             }
             if ($source[$at] === '{') {
                 $braceStack[] = ['begin' => $at, 'literal' => false, 'spaces' => $spaces];
@@ -901,7 +911,7 @@ class DjotToCarve
                 if (str_starts_with($body, '^')) {
                     $body = '\\' . $body;
                 }
-                $spans[$token] = (($source[$start - 1] ?? '') === ']' ? '{%%}' : '') . '[' . $body . ']' . $attrs['source'];
+                $spans[$token] = (in_array($source[$start - 1] ?? '', [']', '^', '!'], true) ? '{%%}' : '') . '[' . $body . ']' . $attrs['source'];
                 $output .= substr($source, $cursor, $start - $cursor) . $token;
                 $cursor = $attrs['end'];
             }
@@ -2201,6 +2211,7 @@ class DjotToCarve
                     continue;
                 }
                 if ($source[$at] === '\\') {
+                    $lastEscaped = $at + 1;
                     $label .= substr($source, $at, 2);
                     $at++;
 
