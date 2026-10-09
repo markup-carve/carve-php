@@ -653,7 +653,7 @@ class MarkdownToCarve
                 $dedented = $lineStrip > 0 ? $this->stripColumns($line, $lineStrip) : $line;
                 if (
                     $closerIndent <= $fenceItemCol + 3
-                    && preg_match('/^' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}\s*$/', ltrim($line, " \t")) === 1
+                    && preg_match('/^' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}[ \t]*$/', ltrim($line, " \t")) === 1
                 ) {
                     $inCodeBlock = false;
                     $fenceChar = '';
@@ -691,8 +691,8 @@ class MarkdownToCarve
             $isHeading = (bool)preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed);
             $indent = strlen($line) - strlen(ltrim($line));
             $isBlockquote = str_starts_with($trimmed, '>');
-            $ordered = preg_match('/^(\d+)[.)]\s/', $trimmed, $orderedMatches) === 1 ? $orderedMatches : null;
-            $isList = ((bool)preg_match('/^[-*+]\s/', $trimmed) || $ordered !== null)
+            $ordered = preg_match('/^(\d+)[.)][ \t]/', $trimmed, $orderedMatches) === 1 ? $orderedMatches : null;
+            $isList = ((bool)preg_match('/^[-*+][ \t]/', $trimmed) || $ordered !== null)
                 && !($prevLineType === 'text' && $ordered !== null && (int)$ordered[1] !== 1)
                 && !$paragraphMarker;
 
@@ -1104,7 +1104,7 @@ class MarkdownToCarve
                 for ($at = $i; $at < $setext; $at++) {
                     $texts[] = $this->setextLineText($lines[$at], $at + 1 === $setext);
                 }
-                $marker = trim($lines[$setext])[0] === '=' ? '#' : '##';
+                $marker = ltrim($lines[$setext], " \t")[0] === '=' ? '#' : '##';
                 $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($marker . ' ' . implode(' ', $texts));
                 $i = $setext;
                 if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
@@ -1398,7 +1398,7 @@ class MarkdownToCarve
 
             if ($isHeading && $i + 1 < $lineCount) {
                 $nextTrimmed = trim($lines[$i + 1]);
-                if ($nextTrimmed !== '' && !preg_match('/^#{1,6}\s/', $nextTrimmed) && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
+                if ($nextTrimmed !== '' && !preg_match('/^#{1,6}[ \t]/', $nextTrimmed) && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
                     $result[] = '';
                 }
             }
@@ -2389,7 +2389,7 @@ class MarkdownToCarve
             return false;
         }
 
-        return preg_match('/^#{1,6}(?:\s|$)/', $trimmed) !== 1
+        return preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed) !== 1
             && preg_match(self::THEMATIC_BREAK, $trimmed) !== 1
             && preg_match('/^\|.*\|$/', $trimmed) !== 1;
     }
@@ -2411,7 +2411,7 @@ class MarkdownToCarve
         if (preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed) === 1 || str_starts_with($trimmed, '>')) {
             return false;
         }
-        $underline = trim($lines[$index + 1] ?? '');
+        $underline = trim($lines[$index + 1] ?? '', " \t");
         if (preg_match(self::THEMATIC_BREAK, $trimmed) === 1 || preg_match('/^(?:=+|-+)$/', $underline) === 1) {
             return false;
         }
@@ -2419,7 +2419,7 @@ class MarkdownToCarve
             return false;
         }
 
-        return preg_match('/^(?:[-*+]\s|1[.)]\s)/', $trimmed) !== 1;
+        return preg_match('/^(?:[-*+][ \t]|1[.)][ \t])/', $trimmed) !== 1;
     }
 
     /**
@@ -2482,7 +2482,7 @@ class MarkdownToCarve
             if (trim($line) === '' || $indent < $contentCol) {
                 return null;
             }
-            $held = trim($line);
+            $held = trim($line, " \t");
             if ($at === $start) {
                 if ($indent - $contentCol >= 4 || !$this->continuesParagraph($held)) {
                     return null;
@@ -2538,7 +2538,7 @@ class MarkdownToCarve
             return true;
         }
         // An ordered marker other than 1 interrupts no paragraph (CommonMark 5.2).
-        $text = $this->continuesParagraph($held) || preg_match('/^0*(?:[2-9]|1\d)\d*[.)]\s/', $held) === 1;
+        $text = $this->continuesParagraph($held) || preg_match('/^0*(?:[2-9]|1\d)\d*[.)][ \t]/', $held) === 1;
         if (!$text || preg_match('/^\|.*\|$/', $held) === 1 || $this->htmlBlockInterrupts($held)) {
             return false;
         }
@@ -2690,8 +2690,8 @@ class MarkdownToCarve
             ) {
                 return null;
             }
-            if ($over <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest)) === 1) {
-                $heading = (trim($rest)[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
+            if ($over <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest, " \t")) === 1) {
+                $heading = (trim($rest, " \t")[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
 
                 return [$lead . $heading, $at];
             }
@@ -2878,7 +2878,7 @@ class MarkdownToCarve
             if (trim($candidate) === '' || $indent < $contentCol) {
                 return null;
             }
-            $held = trim($this->stripColumns($candidate, $contentCol));
+            $held = trim($this->stripColumns($candidate, $contentCol), " \t");
             if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', $held) === 1) {
                 $heading = ($held[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
 
@@ -3808,7 +3808,7 @@ class MarkdownToCarve
         }
 
         for ($i = 1; $i < $count; $i++) {
-            if (!preg_match('/^---\s*$/', $lines[$i])) {
+            if (!preg_match('/^---[ \t]*$/', $lines[$i])) {
                 continue;
             }
 
@@ -4416,7 +4416,7 @@ class MarkdownToCarve
         if ($isList) {
             // Another marker starts a new item, so there is nothing to break.
             // An indented non-blank line is this item's own paragraph.
-            if (trim($next) === '' || preg_match('/^\s*(?:[-*+]\s|\d+[.)]\s)/', $next)) {
+            if (trim($next) === '' || preg_match('/^[ \t]*(?:[-*+][ \t]|\d+[.)][ \t])/', $next)) {
                 return false;
             }
 
@@ -4433,7 +4433,7 @@ class MarkdownToCarve
             return false;
         }
 
-        return !preg_match('/^(?:#{1,6}\s|>|[-*+]\s|\d+[.)]\s|`{3,}|~{3,})/', $trimmed)
+        return !preg_match('/^(?:#{1,6}[ \t]|>|[-*+][ \t]|\d+[.)][ \t]|`{3,}|~{3,})/', $trimmed)
             && !preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $trimmed);
     }
 
