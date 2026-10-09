@@ -259,7 +259,7 @@ class ProseMirrorCorpusTest extends TestCase
      *
      * The corpus is GENERATED from the spec's `resources/examples/*.md`: its
      * `scripts/generate-corpus.mjs` emits one `.crv` / `.html` pair per
-     * `::: compare` block, so the block count in that submodule's own examples
+     * Carve/HTML fence pair, so the source count in that submodule's examples
      * is the population, and it moves with the pin instead of going stale
      * against it.
      *

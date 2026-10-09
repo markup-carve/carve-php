@@ -140,8 +140,14 @@ final class HtmlImportSession
 
     public bool $preserveInlineWhitespace = false;
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
+    public SplObjectStorage $retainedListTypes;
+
     public function __construct()
     {
+        $this->retainedListTypes = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();
         $this->droppedEmptyElements = new SplObjectStorage();

@@ -1714,13 +1714,16 @@ final class HtmlAstBuilder
         $olType = $ordered ? $node->getAttribute('type') : '';
         $fallbackTypeAttribute = false;
         if (in_array($olType, ['a', 'A', 'i', 'I'], true)) {
-            $list['olType'] = $olType;
-            if (strtolower($olType) === 'a') {
-                $start = (int)($list['start'] ?? 1);
-                $last = $start + count($items) - 1;
-                $letter = $start >= 1 && $start <= 26 ? chr(96 + $start) : '';
-                $fallbackTypeAttribute = $last > 26
-                    || (count($items) === 1 && str_contains('ivxlcdm', $letter));
+            $start = (int)($list['start'] ?? 1);
+            $last = $start + max(count($items), 1) - 1;
+            $alphabetic = strtolower($olType) === 'a';
+            $fallbackTypeAttribute = $this->sourceSafe && ($alphabetic
+                ? $start < 1 || $last > 26 || (count($items) === 1 && $start === 9)
+                : $start < 1 || $last > 3999 || (count($items) === 1 && in_array($start, [5, 10, 50, 100, 500, 1000], true)));
+            if (!$fallbackTypeAttribute) {
+                $list['olType'] = $olType;
+            } else {
+                $this->session->retainedListTypes[$node] = true;
             }
         }
         // PART 10 section 12, the only place the delimiter survives a render:

@@ -46,7 +46,7 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
     {
         $carve = (new MarkdownToCarve())->convert("---yaml\na: 1\n--- \t\n...\n***\nu\n");
 
-        $this->assertSame("---yaml\na: 1\n--- \t\n...\n---\n\nu\n", $carve);
+        $this->assertSame("---yaml\na: 1\n--- \t\n\n...\n---\n\nu\n", $carve);
         $this->assertSame("<p>\u{2026}</p>\n<hr>\n<p>u</p>\n", CarveConverter::create()->convert($carve));
     }
 

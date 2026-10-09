@@ -9,6 +9,14 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixed
+
+- A lone ordered-list letter follows the shared Roman/alphabetic tie-break. HTML import retains unspellable numbering styles on decimal markers so the start value survives (markup-carve/carve#2826).
+
+- A raw block converted to code by a profile keeps its original source position (markup-carve/carve#2801).
+
+- Markdown import separates front matter from its body and normalizes thematic-break collisions so formatting the imported source leaves it unchanged (carve-php#2977).
+
 ## [0.1.12] - 2026-10-08
 
 ### Breaking

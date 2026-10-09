@@ -807,106 +807,42 @@ class ListParser
      */
     public function disambiguateListStyle(array $listInfo, array $lines, int $start): array
     {
-        $marker = $listInfo['marker'];
-        $firstMarkerLetter = null;
-        $firstIsLower = null;
-
-        // Extract the letter from the first marker for comparison
-        if (preg_match('/^([ivxlcdmIVXLCDM])/', $lines[$start], $m)) {
-            $firstMarkerLetter = strtolower($m[1]);
-            $firstIsLower = ctype_lower($m[1]);
-        }
-
-        $hasMultiCharRoman = false;
-        $hasNonRomanLetter = false;
-        $allSameLetter = true;
-        $lineCount = count($lines);
-
-        // Look ahead at subsequent items
-        for ($i = $start + 1; $i < $lineCount; $i++) {
+        $first = ltrim($lines[$start], " \t");
+        preg_match('/^([ivxlcdmIVXLCDM])/', $first, $match);
+        $letter = $match[1] ?? 'i';
+        $roman = strtolower($letter) === 'i';
+        $baseIndent = IndentationHelper::getLeadingColumns($lines[$start]);
+        for ($i = $start + 1, $count = count($lines); $i < $count; $i++) {
             $line = $lines[$i];
-
-            // Stop at blank lines or non-list content
-            if (IndentationHelper::isBlankLine($line)) {
+            if (IndentationHelper::isBlankLine($line) || IndentationHelper::getLeadingColumns($line) > $baseIndent) {
                 continue;
             }
-
-            // Check if this line is a list item with the same marker type
-            $itemInfo = $this->parseListItemMarker($line);
-            if ($itemInfo === null || $itemInfo['marker'] !== $marker) {
-                break;
-            }
-
-            // Extract the marker text (preserve original case for comparison)
-            $markerTextRaw = null;
-            if (preg_match('/^([a-zA-Z]+)[.)]/', $line, $m)) {
-                $markerTextRaw = $m[1];
-            }
-
-            if ($markerTextRaw === null) {
-                break;
-            }
-
-            // Check if case matches - different case means different list style
-            $itemIsLower = ctype_lower($markerTextRaw[0]);
-            if ($firstIsLower !== null && $itemIsLower !== $firstIsLower) {
-                break;
-            }
-
-            $markerText = strtolower($markerTextRaw);
-
-            // Check for multi-character roman numerals
-            if (strlen($markerText) > 1 && preg_match('/^[ivxlcdm]+$/', $markerText)) {
-                $hasMultiCharRoman = true;
-
-                break;
-            }
-
-            // Check if it's a letter not used in roman numerals
-            if (strlen($markerText) === 1 && !str_contains(self::ROMAN_CHARS, $markerText)) {
-                $hasNonRomanLetter = true;
-
-                break;
-            }
-
-            // A single-letter sibling that is the consecutive LETTER of the
-            // first marker (c -> d, v -> w) but NOT its consecutive roman
-            // numeral means alphabetical (§11). This catches `c.`/`d.`: `d` is a
-            // roman char (500) so the non-roman check above misses it, yet it
-            // is the next letter after `c`, not the next roman after 100.
-            if (strlen($markerText) === 1 && $firstMarkerLetter !== null) {
-                $firstRoman = $this->romanToInt(strtoupper($firstMarkerLetter));
-                $sibRoman = $this->romanToInt(strtoupper($markerText));
-                $firstAlpha = ord($firstMarkerLetter) - ord('a') + 1;
-                $sibAlpha = ord($markerText) - ord('a') + 1;
-                if ($sibAlpha === $firstAlpha + 1 && $sibRoman !== $firstRoman + 1) {
-                    $hasNonRomanLetter = true;
-
-                    break;
+            if (IndentationHelper::getLeadingColumns($line) === $baseIndent) {
+                $next = $this->parseListItemMarker(ltrim($line, " \t"));
+                if (
+                    $next !== null && $next['type'] === ListBlock::TYPE_ORDERED
+                    && preg_match('/^([a-zA-Z]+)[.)]/', ltrim($line, " \t"), $sibling)
+                    && ctype_lower($sibling[1][0]) === ctype_lower($letter)
+                ) {
+                    $nextLetter = $sibling[1];
+                    if (
+                        preg_match('/^[ivxlcdm]+$/i', $nextLetter)
+                        && $this->romanToInt(strtoupper($nextLetter)) === ($listInfo['start'] ?? 1) + 1
+                    ) {
+                        $roman = true;
+                    } elseif (strlen($nextLetter) === 1 && ord(strtolower($nextLetter)) === ord(strtolower($letter)) + 1) {
+                        $roman = false;
+                    }
                 }
             }
 
-            // Check if all letters are the same
-            if ($firstMarkerLetter !== null && $markerText !== $firstMarkerLetter) {
-                $allSameLetter = false;
-            }
+            break;
         }
-
-        // Decision logic
-        if ($hasMultiCharRoman) {
-            return $listInfo;
-        }
-
-        if ($hasNonRomanLetter) {
-            // Both are set together with `ambiguous`, by the only branch that
-            // sets it; the defaults keep the shape honest for a caller that
-            // hands us an info array without them.
+        if (!$roman) {
             $listInfo['start'] = $listInfo['alpha_start'] ?? 1;
             $listInfo['style'] = $listInfo['alpha_style'] ?? 'a';
-            unset($listInfo['ambiguous'], $listInfo['alpha_start'], $listInfo['alpha_style']);
-
-            return $listInfo;
         }
+        unset($listInfo['ambiguous'], $listInfo['alpha_start'], $listInfo['alpha_style']);
 
         return $listInfo;
     }

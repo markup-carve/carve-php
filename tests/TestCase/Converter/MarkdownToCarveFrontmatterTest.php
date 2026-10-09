@@ -102,4 +102,22 @@ class MarkdownToCarveFrontmatterTest extends TestCase
         $this->assertSame("<hr>\n<hr>\n", $this->html("***\n\n***\n"));
         $this->assertSame("<hr>\n<p>text</p>\n<hr>\n", $this->html("***\n\ntext\n\n***\n"));
     }
+
+    public function testAnImmediateFrontMatterBodyIsSeparatedAndCanonical(): void
+    {
+        $converted = $this->convert("---\ntitle: Hi\n---\nBody\n");
+        $this->assertSame("---yaml\ntitle: Hi\n---\n\nBody\n", $converted);
+        $this->assertSame($converted, CarveConverter::toCarve($converted));
+    }
+
+    public function testRespelledRulesKeepOptInBodyAttributes(): void
+    {
+        $converter = new MarkdownToCarve(convertFencedDivs: true, convertAttributes: true);
+        $converted = $converter->convert("---\n- one\n- two\n---\n::: note\n{.kept data-x=payload}\nbody\n:::\n");
+        $this->assertSame($converted, CarveConverter::toCarve($converted));
+        $this->assertStringContainsString(
+            '<p class="kept" data-x="payload">body</p>',
+            (new CarveConverter())->convert($converted),
+        );
+    }
 }

@@ -219,8 +219,8 @@ CRV;
             }
         }
 
-        // Configured routes accept the same seven additional corpus sources.
-        self::assertSame(['tier2' => 59, 'events' => 59], $accepted, 'A configured fast-path routing change needs explicit review.');
+        // The new 549 all-dot list (-2) is accepted on both configured routes.
+        self::assertSame(['tier2' => 60, 'events' => 60], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

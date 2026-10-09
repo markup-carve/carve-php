@@ -440,6 +440,7 @@ class HtmlToCarve
         $this->droppedBlankImportRows = null;
         $this->mergedImportDefinitionLists = null;
         $this->flattenedImportSummaryBlocks = null;
+        $this->retainedListTypes = null;
         $this->entrylessImportDefinitionLists = [];
         $this->displacedImportFigureAttributes = [];
     }
@@ -448,6 +449,7 @@ class HtmlToCarve
     {
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
+        $this->retainedListTypes = $session->retainedListTypes;
         $this->summaryImportTitles = $session->summaryTitles;
         $this->keptRawImportElements = $session->keptRawElements;
         $this->droppedEmptyImportElements = $session->droppedEmptyElements;
@@ -1103,6 +1105,15 @@ class HtmlToCarve
      */
     private function inspectImportNodeStructure(DOMElement $node, string $tag, string $path, array &$diagnostics): bool
     {
+        if ($this->retainedListTypes !== null && isset($this->retainedListTypes[$node])) {
+            $this->addImportDiagnostic(
+                $diagnostics,
+                'raw-preserved',
+                'Kept the ordered-list type as an attribute on decimal markers because its native markers would change its numbering',
+                'info',
+                $path,
+            );
+        }
         $parent = $node->parentNode;
         $kind = $parent instanceof DOMElement ? $this->formattingKind($node) : null;
         if (
@@ -4821,6 +4832,11 @@ class HtmlToCarve
     private ?int $inspectedImportSourceBytes = null;
 
     private ?HtmlImportSession $astImportSession = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, true>|null
+     */
+    private ?SplObjectStorage $retainedListTypes = null;
 
     /**
      * @var array<string, true>

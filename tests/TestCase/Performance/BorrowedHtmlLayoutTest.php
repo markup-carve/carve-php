@@ -199,8 +199,8 @@ CRV;
             $this->assertSame($converter->convert($source), $attempt['html'], basename($path));
         }
 
-        // Unicode letters, simple images, and flat star lists add seven sources.
-        $this->assertSame(59, $accepted, 'A fast-path routing change needs explicit review.');
+        // The new 549 delimiter corpus adds one accepted source: its all-dot list (-2).
+        $this->assertSame(60, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void
