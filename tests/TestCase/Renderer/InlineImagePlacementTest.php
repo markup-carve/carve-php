@@ -54,6 +54,7 @@ class InlineImagePlacementTest extends TestCase
                                     'blocks' => [
                                         ['type' => 'image', 'src' => 'u', 'alt' => 'a'],
                                         ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'after']]],
+                                        ['type' => 'image', 'src' => 'u', 'alt' => 'a'],
                                     ],
                                 ],
                             ],
@@ -65,9 +66,10 @@ class InlineImagePlacementTest extends TestCase
         $html = (new CarveConverter())->render($document);
         $this->assertStringContainsString("<img src=\"u\" alt=\"a\">\n", $html);
         $this->assertStringNotContainsString('<img src="u" alt="a"><p>', $html);
-        $this->assertSame("a after\n", CarveConverter::plainText()->render($document));
+        $this->assertSame("a after a\n", CarveConverter::plainText()->render($document));
+        $this->assertSame("|  |\n| --- |\n| ![a](u) after ![a](u) |\n", CarveConverter::markdown()->render($document));
         $ansi = CarveConverter::ansi()->render($document);
         $unstyled = (string)preg_replace('/\\x1b\\[[0-9;]*m/', '', $ansi);
-        $this->assertStringContainsString('[img: a] after', $unstyled);
+        $this->assertStringContainsString('[img: a] after [img: a]', $unstyled);
     }
 }
