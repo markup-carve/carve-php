@@ -22,6 +22,7 @@ class MarkdownWriterTargetsFixtureTest extends TestCase
     {
         /** @var array<array{name: string, carve?: string, ast?: array<string, mixed>, markdown: string}> $cases */
         $cases = json_decode((string)file_get_contents(__DIR__ . '/../../spec/tests/fixtures/markdown-writer-targets.json'), true, flags: JSON_THROW_ON_ERROR);
+        $cases = array_merge($cases, json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/markdown-link-label-brackets.json'), true, flags: JSON_THROW_ON_ERROR));
         $out = [];
         foreach ($cases as $case) {
             $out[$case['name']] = [$case];
@@ -32,7 +33,8 @@ class MarkdownWriterTargetsFixtureTest extends TestCase
 
     public function testTheFixtureIsNotEmpty(): void
     {
-        $this->assertGreaterThanOrEqual(3, count(static::cases()));
+        $cases = json_decode((string)file_get_contents(__DIR__ . '/../../spec/tests/fixtures/markdown-writer-targets.json'), true, flags: JSON_THROW_ON_ERROR);
+        $this->assertGreaterThanOrEqual(3, count($cases));
     }
 
     /**

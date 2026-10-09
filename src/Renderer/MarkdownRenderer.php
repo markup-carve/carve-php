@@ -1613,46 +1613,56 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $target = $node->getTargetId();
         $id = $this->headingIdTracker->findId($target);
-        if ($id !== null && !$this->labelExpansionStillAffordable($id)) {
-            // Ask the budget before doing the work it would reject
-            // (carve-php#2647).
-            return $this->headingRefLink($id, $this->escapeText($target));
+        $linkLabel = $id !== null && isset($this->gfmSlugs[$id]);
+        if ($linkLabel) {
+            $this->linkTextDepth++;
         }
+        try {
+            if ($id !== null && !$this->labelExpansionStillAffordable($id)) {
+                // Ask the budget before doing the work it would reject
+                // (carve-php#2647).
+                return $this->headingRefLink($id, $this->escapeText($target));
+            }
 
-        $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
-        if ($id === null || $label === null) {
-            // Unresolved target: keep the literal source (matches HtmlRenderer).
-            // The authored marker stays readable rather than being escaped into
-            // noise - a reader can still act on `</#nope>`. The TARGET inside it
-            // is author content and can hold a `<`, and `</#a<script>` is a
-            // complete opening tag once this Markdown is rendered, so the target
-            // takes the HTML pass while the writer's own delimiters stay literal
-            // (carve-php#1063).
-            return '</#' . $this->escapeHtml($this->stripControls($target)) . '>';
+            $label = $id === null ? null : $this->headingIdTracker->getTextForId($id, $this->smartTypography);
+            if ($id === null || $label === null) {
+                // Unresolved target: keep the literal source (matches HtmlRenderer).
+                // The authored marker stays readable rather than being escaped into
+                // noise - a reader can still act on `</#nope>`. The TARGET inside it
+                // is author content and can hold a `<`, and `</#a<script>` is a
+                // complete opening tag once this Markdown is rendered, so the target
+                // takes the HTML pass while the writer's own delimiters stay literal
+                // (carve-php#1063).
+                return '</#' . $this->escapeHtml($this->stripControls($target)) . '>';
+            }
+
+            // A heading target gets a real `[label](#id)` link — renderHeading emits a
+            // matching `{#id}` anchor for it. A non-heading target (a numbered
+            // figure/table caption) has no markdown anchor to point at, so its label
+            // renders as plain text.
+            // Same expansion budget the abbreviation arm spends, degrading to the
+            // authored target (carve-php#1061). See AbbreviationBudgetTrait.
+            //
+            // THE LABEL IS THE HEADING'S INLINE NODES, rendered by THIS target
+            // (PART 9R R4, markup-carve/carve#957): a heading holding a code span
+            // comes back as a Markdown code span rather than as its bare content.
+            // A caption id has no heading behind it and keeps the composed string.
+            $nodes = $this->headingIdTracker->getLabelNodesForId($id);
+            $rendered = $nodes === null
+                ? $this->escapeText($label)
+                : $this->renderDerivedLabel($nodes);
+            // Charged as the characters it resolves to: a sentinel is three bytes
+            // standing for one.
+            if (!$this->chargeLabelExpansion($id, strtr($rendered, $this->sentinelCharacters()))) {
+                $rendered = $this->escapeText($target);
+            }
+
+            return $this->headingRefLink($id, $rendered);
+        } finally {
+            if ($linkLabel) {
+                $this->linkTextDepth--;
+            }
         }
-
-        // A heading target gets a real `[label](#id)` link — renderHeading emits a
-        // matching `{#id}` anchor for it. A non-heading target (a numbered
-        // figure/table caption) has no markdown anchor to point at, so its label
-        // renders as plain text.
-        // Same expansion budget the abbreviation arm spends, degrading to the
-        // authored target (carve-php#1061). See AbbreviationBudgetTrait.
-        //
-        // THE LABEL IS THE HEADING'S INLINE NODES, rendered by THIS target
-        // (PART 9R R4, markup-carve/carve#957): a heading holding a code span
-        // comes back as a Markdown code span rather than as its bare content.
-        // A caption id has no heading behind it and keeps the composed string.
-        $nodes = $this->headingIdTracker->getLabelNodesForId($id);
-        $rendered = $nodes === null
-            ? $this->escapeText($label)
-            : $this->renderDerivedLabel($nodes);
-        // Charged as the characters it resolves to: a sentinel is three bytes
-        // standing for one.
-        if (!$this->chargeLabelExpansion($id, strtr($rendered, $this->sentinelCharacters()))) {
-            $rendered = $this->escapeText($target);
-        }
-
-        return $this->headingRefLink($id, $rendered);
     }
 
     /**
