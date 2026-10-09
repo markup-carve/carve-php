@@ -38,7 +38,17 @@ class TablePipeAuditTest extends TestCase
                 preg_match_all('/<table\b/', $html, $tables);
                 self::assertCount($case['tables'], $tables[0], $case['name']);
             }
-            self::assertSame($html, $converter->convert((new CarveRenderer())->render($converter->parse($source))), $case['name']);
+            $renderer = new CarveRenderer();
+            $renderer->beginConversionDiagnosticCollection();
+            $roundTrip = $converter->convert($renderer->render($converter->parse($source)));
+            $report = $renderer->finishConversionDiagnosticCollection();
+            if ($case['finalCodeNewlineLoss'] ?? false) {
+                self::assertSame(['field-unspellable'], array_column($report['diagnostics'], 'code'));
+                self::assertSame(['content'], array_column($report['diagnostics'], 'field'));
+                self::assertSame(str_replace('<code>code</code>', "<code>code\n</code>", $html), $roundTrip, $case['name']);
+            } else {
+                self::assertSame($html, $roundTrip, $case['name']);
+            }
         }
     }
 }

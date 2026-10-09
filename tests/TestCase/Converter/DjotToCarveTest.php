@@ -53,13 +53,13 @@ class DjotToCarveTest extends TestCase
 
     public function testFootnoteReferenceIsUntouched(): void
     {
-        $input = 'See this[^f1].';
+        $input = "See this[^f1].\n\n[^f1]: Note.";
         $this->assertSame($input, $this->converter->convert($input));
     }
 
     public function testTwoFootnoteReferencesAreUntouched(): void
     {
-        $input = 'See this[^a] and that[^b].';
+        $input = "See this[^a] and that[^b].\n\n[^a]: First.\n\n[^b]: Second.";
         $this->assertSame($input, $this->converter->convert($input));
     }
 
@@ -197,8 +197,8 @@ class DjotToCarveTest extends TestCase
 
     public function testMixedProtectedConstructsAndRealSuperscript(): void
     {
-        $input = 'Math $`x^2 + y^3`, note[^a], real ^x^.';
-        $this->assertSame('Math $`x^2 + y^3`, note[^a], real {^x^}.', $this->converter->convert($input));
+        $input = "Math $`x^2 + y^3`, note[^a], real ^x^.\n\n[^a]: Note.";
+        $this->assertSame("Math $`x^2 + y^3`, note[^a], real {^x^}.\n\n[^a]: Note.", $this->converter->convert($input));
     }
 
     public function testHighlightBracesBecomesEquals(): void
