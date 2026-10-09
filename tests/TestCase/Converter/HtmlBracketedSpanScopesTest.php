@@ -34,6 +34,16 @@ class HtmlBracketedSpanScopesTest extends TestCase
             ];
         }
 
+        foreach (
+            [
+                '<p><em><strong>a</strong>,</em> <em><strong>c</strong></em></p>',
+                '<p><em><strong>a</strong>,</em><strong><em>c</em></strong></p>',
+                '<p><em><strong>b</strong><span class="x"><em><strong>x</strong></em></span></em></p>',
+            ] as $index => $html
+        ) {
+            $cases['bold child before punctuation or a host ' . $index] = [$html, $html];
+        }
+
         return $cases;
     }
 
