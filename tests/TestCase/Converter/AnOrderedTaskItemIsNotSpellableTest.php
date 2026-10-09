@@ -139,6 +139,39 @@ final class AnOrderedTaskItemIsNotSpellableTest extends TestCase
         $this->assertNotContains('fidelity-unverified', array_column($report['diagnostics'], 'code'));
     }
 
+    /**
+     * The same document with and without a leading reference definition: the
+     * reported line has to MOVE with the item. Counting in the stripped array
+     * gives `line:3` for both (carve-php#2980), and a single reading cannot
+     * tell the two apart.
+     */
+    public function testTheReportedLineMovesWithTheItem(): void
+    {
+        $body = "visit www.bare.example now\n\n1. [x] done\n";
+
+        self::assertSame(['line:5'], $this->unspellablePaths("[ref]: https://example.org\n\n" . $body));
+        self::assertSame(['line:3'], $this->unspellablePaths($body));
+    }
+
+    /**
+     * Frontmatter is split off before the body array too, so its lines count.
+     */
+    public function testTheReportedLineCountsFrontmatterLines(): void
+    {
+        self::assertSame(['line:5'], $this->unspellablePaths("---\ntitle: x\n---\n\n1. [x] done\n"));
+    }
+
+    /**
+     * @return array<int, string|null>
+     */
+    private function unspellablePaths(string $markdown): array
+    {
+        return array_column(array_values(array_filter(
+            (new MarkdownToCarve())->convertWithFidelityReport($markdown)->report()['diagnostics'],
+            static fn (array $row): bool => $row['code'] === 'structure-unspellable',
+        )), 'path');
+    }
+
     public function testAReportWithoutLossHasConstructEvidence(): void
     {
         $report = (new MarkdownToCarve())->convertWithFidelityReport("**strong**\n")->report();

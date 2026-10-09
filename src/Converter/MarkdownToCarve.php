@@ -166,6 +166,17 @@ class MarkdownToCarve
     private bool $frontmatterSynthesized = false;
 
     /**
+     * Whether the claimed frontmatter block's opener named its format.
+     *
+     * A typed opener is frontmatter unconditionally (CARVE-P2-030), so the
+     * reading was declared rather than derived, and the report says `exact`
+     * where a bare `---` says `inferred` (markup-carve/carve#2806).
+     *
+     * @var bool
+     */
+    private bool $frontmatterOpenerTyped = false;
+
+    /**
      * @var array<int, true>
      */
     private array $markdownHtmlSourceLines = [];
@@ -267,6 +278,7 @@ class MarkdownToCarve
         $this->markdownSourceLines = [];
         $this->markdownHtmlSourceLines = [];
         $this->frontmatterSynthesized = false;
+        $this->frontmatterOpenerTyped = false;
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both
@@ -1544,7 +1556,7 @@ class MarkdownToCarve
                 'exact',
                 // A source line, since Markdown has no node path to name. The
                 // schema types `path` as a free string for exactly this.
-                'line:' . ($line + 1),
+                'line:' . $this->sourceLine($line),
             );
         }
 
@@ -1554,7 +1566,7 @@ class MarkdownToCarve
                 'Converted a leading `---` block with the shape of a mapping to Carve frontmatter',
                 'info',
                 'normalized',
-                'inferred',
+                $this->frontmatterOpenerTyped ? 'exact' : 'inferred',
                 'line:1',
             );
         }
@@ -3822,6 +3834,7 @@ class MarkdownToCarve
                 return [];
             }
 
+            $this->frontmatterOpenerTyped = $open[1] !== '';
             $frontmatter = array_slice($lines, 0, $i + 1);
             // The metadata between the fences is opaque and survives
             // byte-for-byte, but the opener is a delimiter the canonical writer
@@ -4237,8 +4250,22 @@ class MarkdownToCarve
 
     private function tableDiagnostic(string $code, string $message, int $index, string $fidelity = 'preserved'): void
     {
-        $line = ($this->markdownSourceLines[$index] ?? $index) + $this->markdownFrontmatterLines + 1;
-        $this->tableDiagnostics[] = new MigrationDiagnostic($code, $message, 'warning', $fidelity, 'exact', 'line:' . $line);
+        $this->tableDiagnostics[] = new MigrationDiagnostic($code, $message, 'warning', $fidelity, 'exact', 'line:' . $this->sourceLine($index));
+    }
+
+    /**
+     * The 1-based line of the SOURCE the importer was given that the given
+     * index of the body line array came from.
+     *
+     * A diagnostic's `path` names a source line, never an offset into the
+     * frontmatter-split, reference-definition-stripped array the importer
+     * builds for itself (markup-carve/carve#2792).
+     *
+     * @param int $index Index into the stripped body line array.
+     */
+    private function sourceLine(int $index): int
+    {
+        return ($this->markdownSourceLines[$index] ?? $index) + $this->markdownFrontmatterLines + 1;
     }
 
     /**

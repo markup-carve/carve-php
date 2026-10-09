@@ -66,6 +66,38 @@ final class AFrontmatterBlockNeedsTheShapeOfAMappingTest extends TestCase
         self::assertContains('frontmatter-synthesized', array_column($result->report()['diagnostics'], 'code'));
     }
 
+    /**
+     * The one triple all three engines carry (markup-carve/carve#2806):
+     * `normalized` fidelity because an alternate block form was resolved,
+     * `line:1` because a synthesized block starts there, and a confidence that
+     * follows the opener.
+     *
+     * @return iterable<string, array{string, string}>
+     */
+    public static function openerForms(): iterable
+    {
+        // A bare `---` was claimed by the shape test, so the reading is
+        // derived. A typed opener names the format, and CARVE-P2-030 makes it
+        // frontmatter unconditionally, so nothing is inferred.
+        yield 'a bare opener is inferred' => ["---\ntitle: x\n---\n\n# Heading\n\nText here.\n", 'inferred'];
+        yield 'a typed opener is exact' => ["---yaml\ntitle: x\n---\n\n# Heading\n\nText here.\n", 'exact'];
+    }
+
+    #[DataProvider('openerForms')]
+    public function testTheSynthesizedRowCarriesOneTriple(string $source, string $confidence): void
+    {
+        $rows = array_values(array_filter(
+            (new MarkdownToCarve())->convertWithFidelityReport($source)->report()['diagnostics'],
+            static fn (array $row): bool => $row['code'] === 'frontmatter-synthesized',
+        ));
+
+        self::assertCount(1, $rows);
+        self::assertSame('info', $rows[0]['severity']);
+        self::assertSame('normalized', $rows[0]['fidelity']);
+        self::assertSame($confidence, $rows[0]['confidence']);
+        self::assertSame('line:1', $rows[0]['path']);
+    }
+
     public function testARejectedBlockIsNotReportedAsFrontmatter(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("---\nFoo\n---\nBar\n---\nBaz\n");
