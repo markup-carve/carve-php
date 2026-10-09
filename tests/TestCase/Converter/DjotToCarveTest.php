@@ -29,6 +29,18 @@ class DjotToCarveTest extends TestCase
         $this->assertSame('H{,2,}O', $this->converter->convert('H~2~O'));
     }
 
+    public function testLongSpansKeepEscapedDelimitersAndTheirRealCloser(): void
+    {
+        foreach ([1000, 4000, 8000, 16000] as $count) {
+            foreach (['~' => 'sub', '^' => 'sup', '_' => 'em'] as $marker => $tag) {
+                $body = str_repeat('a\\' . $marker, $count) . 'z';
+                $carve = $this->converter->convert($marker . $body . $marker);
+                $html = CarveConverter::create()->convert($carve);
+                $this->assertStringContainsString('<' . $tag . '>' . str_repeat('a' . $marker, $count) . 'z</' . $tag . '>', $html);
+            }
+        }
+    }
+
     public function testMathSpanWithCaretIsUntouched(): void
     {
         $input = 'inline $`x^2 + y^3` math';
