@@ -45,6 +45,7 @@ final class DjotEmphasis
     private static function process(string $source, string $mask, callable $convert, array $attributes, ?array &$paired = null): string
     {
         $validBraces = [];
+        $validBraceClosers = [];
         $pendingBraces = [];
         $braceLineStart = 0;
         $lastEscaped = -1;
@@ -71,6 +72,7 @@ final class DjotEmphasis
                 $start = array_pop($pendingBraces[$source[$i - 1]]);
                 if ($i > $start + 2) {
                     $validBraces[$start] = true;
+                    $validBraceClosers[$i - 1] = true;
                 }
             }
         }
@@ -96,6 +98,7 @@ final class DjotEmphasis
                 }
             }
         };
+        $lastEscaped = -1;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
             if ($i === $lineStart) {
                 $end = strpos($source, "\n", $i);
@@ -137,6 +140,7 @@ final class DjotEmphasis
                 continue;
             }
             if ($ch === '\\' && ($source[$i + 1] ?? '') !== "\n") {
+                $lastEscaped = $i + 1;
                 $i++;
 
                 continue;
@@ -188,7 +192,7 @@ final class DjotEmphasis
                     continue;
                 }
             }
-            $forcedOpen = $i > 0 && $source[$i - 1] === '{' && $mask[$i - 1] === '{';
+            $forcedOpen = $i > 0 && $source[$i - 1] === '{' && $mask[$i - 1] === '{' && $i - 1 !== $lastEscaped;
             $forcedClose = ($source[$i + 1] ?? '') === '}';
             $canOpen = $forcedOpen || (!$forcedClose && isset($source[$i + 1]) && !str_contains(" \t\r\n", $source[$i + 1]));
             $canClose = !$forcedOpen && ($forcedClose || ($i > 0 && !str_contains(" \t\r\n", $source[$i - 1])));
@@ -272,7 +276,7 @@ final class DjotEmphasis
 
         $bracketCloses = array_fill_keys(array_column($bracketPairs, 1), true);
 
-        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert), $attributes, $bracketCloses))->convert($roots);
+        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert), $attributes, $bracketCloses, $validBraceClosers, $validBraces))->convert($roots);
     }
 
     public static function structuralPrefixEnd(string $line): int
