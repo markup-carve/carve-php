@@ -19,6 +19,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
   containers and preserve boundaries between adjacent lists. The imported
   source is formatted canonically after a row is omitted
   (markup-carve/carve#2840).
+- HTML import reports markup discarded inside code spans and flattens line breaks in pipe-table code spans without breaking the row.
+- HTML import reports markup discarded inside code spans and flattens line breaks in pipe-table code spans without breaking the row (#3011).
+- Formatting keeps raw reference-label brackets available to enclosing labels without adding destination escapes inside consumed reference keys (carve-php#3018).
+
 - HTML import reports discarded code-span markup, attributes and comments, and removes active subtree text. Pipe-cell line breaks are folded only when writing source (carve-php#3011).
 
 - Formatting preserves literal backslashes in cross-reference targets. Targets with no source spelling are refused (carve-php#3009).

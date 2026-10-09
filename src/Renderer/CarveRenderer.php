@@ -5099,10 +5099,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * brackets and read a destination, and where its brackets and parens sit.
      *
      * A construct writing its own brackets is planned as a run of its own, one
-     * that writes none lends its text to this run, and verbatim content and
-     * every other node take no part. Each stands in as a space, which ends a
-     * destination, so the approximation can miss an escape but never invent
-     * one. An inline extension's reader stops at the first `]` without
+     * that writes none lends its text to this run. Raw references lend their
+     * emitted brackets without allowing escapes inside the reference. Other
+     * verbatim nodes stand in as a space, which ends a destination. An inline extension's reader stops at the first `]` without
      * pairing, so its content gets the paren rule only.
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes

@@ -23,7 +23,7 @@ class RawReferenceLabelBracketsTest extends TestCase
 
     public function testAReferenceFollowedByParenthesesNeedsNoExtraEscape(): void
     {
-        foreach (["see [x][r](note)\n", "see [x][r](note)\n\n[r]: /v\n"] as $source) {
+        foreach (["see [x][r](note)\n", "see [x][r](note)\n\n[r]: /v\n", "see [x][r[n] a](note)\n", "see [x][r[n] a](note)\n\n[r[n]: /v\n"] as $source) {
             $this->assertSame($source, CarveConverter::toCarve($source));
         }
     }

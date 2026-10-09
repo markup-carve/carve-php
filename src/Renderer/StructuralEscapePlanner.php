@@ -99,7 +99,7 @@ final class StructuralEscapePlanner
                 $opener = array_pop($open);
                 $paired[$opener] = true;
                 $paired[$i] = true;
-                if (!isset($this->state->fixedBracketSites[$marks[$i][1]][$marks[$i][2]])) {
+                if (!isset($this->state->fixedBracketSites[$marks[$i][1]][$marks[$i][2]]) && !isset($this->state->fixedBracketSites[$marks[$opener][1]][$marks[$opener][2]])) {
                     $closers[$at] = $opener;
                 }
                 // Brackets across formatting boundaries must not isolate a delimiter.
@@ -166,10 +166,9 @@ final class StructuralEscapePlanner
      * brackets and read a destination, and where its brackets and parens sit.
      *
      * A construct writing its own brackets is planned as a run of its own, one
-     * that writes none lends its text to this run, and verbatim content and
-     * every other node take no part. Each stands in as a space, which ends a
-     * destination, so the approximation can miss an escape but never invent
-     * one. An inline extension's reader stops at the first `]` without
+     * that writes none lends its text to this run. Raw references lend their
+     * emitted brackets without allowing escapes inside the reference. Other
+     * verbatim nodes stand in as a space, which ends a destination. An inline extension's reader stops at the first `]` without
      * pairing, so its content gets the paren rule only.
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
