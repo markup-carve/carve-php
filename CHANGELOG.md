@@ -12,6 +12,13 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Fixed
 
 - Markdown export uses a safe tilde fence for headers and labels containing backticks (carve-php#3017).
+- Markdown import drops blank table rows that Carve cannot spell, including
+  the empty header added for a headerless table. Lists and quotes keep their
+  table bodies, and each omitted row has a migration loss report
+- Markdown imports with omitted blank table rows keep their list and quote
+  containers and preserve boundaries between adjacent lists. The imported
+  source is formatted canonically after a row is omitted
+  (markup-carve/carve#2840).
 
 - Formatting preserves literal backslashes in cross-reference targets. Targets with no source spelling are refused (carve-php#3009).
 

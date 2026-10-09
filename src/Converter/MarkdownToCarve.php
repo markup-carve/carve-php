@@ -8,12 +8,14 @@ use Closure;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
@@ -152,6 +154,10 @@ class MarkdownToCarve
      */
     private array $tableDiagnostics = [];
 
+    private string $omittedTableComment = '';
+
+    private bool $droppedTableRows = false;
+
     /**
      * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
      */
@@ -287,6 +293,11 @@ class MarkdownToCarve
         $this->flattenedEmphasis = false;
         $this->tableUnderWay = [];
         $this->tableDiagnostics = [];
+        $this->droppedTableRows = false;
+        $this->omittedTableComment = 'CARVE_OMITTED_TABLE';
+        while (str_contains($markdown, $this->omittedTableComment)) {
+            $this->omittedTableComment .= '_';
+        }
         $this->rawSpanWhitespaceDiagnostics = [];
         $this->inlineRunSourceLine = null;
         $this->markdownSourceLines = [];
@@ -1056,6 +1067,9 @@ class MarkdownToCarve
                 $header = $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
                 if ($this->keepTableRow($header, $i)) {
                     $result[] = str_repeat(' ', $contentCol) . $header;
+                } else {
+                    // Keep the block boundary until the writer separates adjacent lists.
+                    $result[] = str_repeat(' ', $contentCol) . '%% ' . $this->omittedTableComment;
                 }
                 $tableWidth = count($this->splitPipeCells($trimmed));
                 $tableCol = $contentCol;
@@ -1289,14 +1303,28 @@ class MarkdownToCarve
 
                         continue;
                     }
-                    if ($listCols === [] && ($quoteMarkers[$quoteKey] ?? null)?->openItemContentColumn() === null) {
-                        $quotedTable = $this->collectQuotedTable($lines, $i, $quoted[1], $quotedText);
+                    $atQuoteTop = $quotedItemCol === null
+                        || ($this->indentWidth($quotedText) < $quotedItemCol
+                            && ($quotePrev === null || !$this->quoteParagraphIsOpen($quotePrev['text'])));
+                    if ($listCols === []) {
+                        $quotedTableCol = $atQuoteTop ? 0 : $quotedItemCol;
+                        $quotedTable = $this->collectQuotedTable(
+                            $lines,
+                            $i,
+                            $quoted[1],
+                            $this->stripColumns($quotedText, $quotedTableCol),
+                            quoteContentCol: $quotedTableCol,
+                        );
                         if ($quotedTable !== null) {
-                            if ($prevLineType === 'blockquote' && rtrim((string)end($result)) !== rtrim($quoted[1])) {
+                            if ($quotedTableCol === 0 && isset($quoteMarkers[$quoteKey])) {
+                                $quoteMarkers[$quoteKey]->end($this->indentWidth($quotedText));
+                            }
+                            if ($quotedTableCol === 0 && $prevLineType === 'blockquote' && rtrim((string)end($result)) !== rtrim($quoted[1])) {
                                 $result[] = rtrim($quoted[1]);
                             }
                             foreach ($quotedTable['lines'] as $row) {
-                                $result[] = str_repeat(' ', $contentCol) . $row;
+                                $result[] = str_repeat(' ', $contentCol) . $quoted[1]
+                                    . str_repeat(' ', $quotedTableCol) . substr($row, strlen($quoted[1]));
                             }
                             $i = $quotedTable['end'];
                             $prevLineType = 'blockquote';
@@ -1547,6 +1575,10 @@ class MarkdownToCarve
             if (!CarveRenderer::textOpensFrontmatter($respelled)) {
                 $carve = CarveConverter::toCarve($respelled);
             }
+        }
+
+        if ($this->droppedTableRows) {
+            $carve = $this->writeWithoutOmittedTableComments($carve);
         }
 
         if ($frontmatter === []) {
@@ -2912,12 +2944,35 @@ class MarkdownToCarve
             if ($this->startsTableHeader($held, 0)) {
                 $this->recordTableRowDiagnostics(trim($text), $index);
 
+                $width = count($this->splitPipeCells(trim($text)));
                 $header = $this->gfmHeaderToCarve(trim($text), trim($held[1]));
+                $end = $index + 1;
+                if (!$this->keepTableRow($header, $index)) {
+                    $header = '%%';
+                    for ($at = $index + 2, $count = count($lines); $at < $count; $at++) {
+                        if ($this->indentWidth($lines[$at]) < $contentCol) {
+                            break;
+                        }
+                        $body = $this->stripColumns($lines[$at], $contentCol);
+                        if (!$this->continuesGfmTableBody($body)) {
+                            break;
+                        }
+                        $cells = $this->splitPipeCells($body);
+                        $this->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
+                        $row = $this->writeTableRow($cells, [], $width);
+                        $end = $at;
+                        if ($this->keepTableRow($row, $at)) {
+                            $header = $row;
+
+                            break;
+                        }
+                    }
+                }
 
                 return [
-                    'lines' => $this->keepTableRow($header, $index) ? [$lead . $header] : [],
-                    'end' => $index + 1,
-                    'table' => count($this->splitPipeCells(trim($text))),
+                    'lines' => [$lead . $header],
+                    'end' => $end,
+                    'table' => $width,
                     'closes' => true,
                 ];
             }
@@ -3970,15 +4025,10 @@ class MarkdownToCarve
      */
     private function keepTableRow(string $row, int $index): bool
     {
-        foreach ($this->splitPipeCells(rtrim($row)) as $cell) {
-            $marker = preg_match('/^=([<>~])?/', $cell, $match) === 1 ? $match[0] : '';
-            if ($marker !== '' && $marker !== '=') {
-                return true;
-            }
-            if (trim(substr($cell, strlen($marker))) !== '') {
-                return true;
-            }
+        if ((new TableParser())->isTableRow($row)) {
+            return true;
         }
+        $this->droppedTableRows = true;
         $this->tableDiagnostics[] = new MigrationDiagnostic(
             'structure-unspellable',
             'Dropped a table row of ' . (substr_count(rtrim($row), '|') - 1) . ' blank cells; Carve spells no row whose every cell is blank',
@@ -4275,6 +4325,9 @@ class MarkdownToCarve
         }
         $written = $this->respellQuotedLine($lines, $index, $prefix, $text, $inRun, $markers, $prev, $lazy, $result);
         $writtenCol = $markers[$prefix]->openItemContentColumn() ?? $sourceCol;
+        if ($table['lines'] === [$prefix . '%% ' . $this->omittedTableComment]) {
+            $table['lines'] = [$prefix . '%%'];
+        }
         foreach ($table['lines'] as $at => $row) {
             $lead = $at === 0 ? substr($written, 0, -strlen($item[2])) : $prefix . str_repeat(' ', $writtenCol);
             $table['lines'][$at] = str_repeat(' ', $contentCol) . $lead . substr($row, strlen($prefix));
@@ -4342,7 +4395,28 @@ class MarkdownToCarve
             $end = $at;
         }
 
+        if ($written === []) {
+            $written = [$prefix . '%% ' . $this->omittedTableComment];
+        }
+
         return ['lines' => $written, 'end' => $end];
+    }
+
+    private function writeWithoutOmittedTableComments(string $source): string
+    {
+        $document = CarveConverter::carve()->parse($source);
+        $remove = function (Node $node) use (&$remove): void {
+            foreach ($node->getChildren() as $child) {
+                if ($child instanceof Comment && trim($child->getContent()) === $this->omittedTableComment) {
+                    $node->removeChild($child);
+                } else {
+                    $remove($child);
+                }
+            }
+        };
+        $remove($document);
+
+        return (new CarveRenderer())->render($document);
     }
 
     private function tableDiagnostic(string $code, string $message, int $index, string $fidelity = 'preserved'): void

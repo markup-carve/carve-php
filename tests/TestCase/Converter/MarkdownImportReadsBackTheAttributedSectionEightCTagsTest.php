@@ -148,7 +148,7 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
             'a headerless table' => ["|  |  |\n| --- | --- |\n| 1 | 2 |\n| 3 | 4 |\n", "| 1 | 2 |\n| 3 | 4 |\n"],
             'three columns' => ["|  |  |  |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n", "| 1 | 2 | 3 |\n"],
             'inside a block quote' => ["> |  |  |\n> | --- | --- |\n> | 1 | 2 |\n", "> | 1 | 2 |\n"],
-            'inside a list item' => ["- |  |  |\n  | --- | --- |\n  | 1 | 2 |\n", "  | 1 | 2 |\n"],
+            'inside a list item' => ["- |  |  |\n  | --- | --- |\n  | 1 | 2 |\n", "- | 1 | 2 |\n"],
             'a blank body row' => ["| a | b |\n| --- | --- |\n|  |  |\n| 3 | 4 |\n", "|= a |= b |\n| 3 | 4 |\n"],
         ];
     }
