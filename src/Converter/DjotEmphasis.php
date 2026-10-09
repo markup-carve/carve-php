@@ -243,7 +243,7 @@ final class DjotEmphasis
         return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert), $attributes))->convert($roots);
     }
 
-    private static function structuralPrefixEnd(string $line): int
+    public static function structuralPrefixEnd(string $line): int
     {
         $length = strlen($line);
         $at = 0;
