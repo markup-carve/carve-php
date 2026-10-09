@@ -820,6 +820,9 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $parent !== null
             && !$parent instanceof Paragraph
             && !$parent instanceof Heading
+            && !$parent instanceof DefinitionTerm
+            && !$parent instanceof Caption
+            && !($parent instanceof TableCell && !$parent->hasBlockContent())
             && !$parent instanceof InlineNode;
     }
 

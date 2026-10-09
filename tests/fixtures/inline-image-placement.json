@@ -1,0 +1,47 @@
+[
+  {
+    "source": ":: term ![a](u) tail\n",
+    "outputs": {
+      "html": "<dl>\n  <dt>term <img src=\"u\" alt=\"a\"> tail</dt>\n</dl>\n",
+      "markdown": "**term ![a](u) tail**\n",
+      "plain": "term a tail\n",
+      "ansi": "\u001b[1m\u001b[33mterm \u001b[35m[img:\u001b[0m a\u001b[35m]\u001b[0m tail\u001b[0m\n"
+    }
+  },
+  {
+    "source": "| before ![a](u) after |\n",
+    "outputs": {
+      "html": "<table>\n  <tbody>\n    <tr><td>before <img src=\"u\" alt=\"a\"> after</td></tr>\n  </tbody>\n</table>\n",
+      "markdown": "|  |\n| --- |\n| before ![a](u) after |\n",
+      "plain": "before a after\n",
+      "ansi": "\u001b[2m┌───────────────────────┐\u001b[0m\n\u001b[2m│\u001b[0m before \u001b[35m[img:\u001b[0m a\u001b[35m]\u001b[0m after \u001b[2m│\u001b[0m\n\u001b[2m└───────────────────────┘\u001b[0m\n"
+    }
+  },
+  {
+    "source": "# before ![a](u) after\n",
+    "outputs": {
+      "html": "<section id=\"before-a-after\">\n  <h1>before <img src=\"u\" alt=\"a\"> after</h1>\n</section>\n",
+      "markdown": "# before ![a](u) after\n",
+      "plain": "before a after\n",
+      "ansi": "\u001b[1m\u001b[95mbefore \u001b[35m[img:\u001b[0m a\u001b[35m]\u001b[0m after\u001b[0m\n\u001b[95m═════════════════════\u001b[0m\n"
+    }
+  },
+  {
+    "source": "![one](a)\n^ before ![a](u) after\n",
+    "outputs": {
+      "html": "<figure>\n  <img src=\"a\" alt=\"one\">\n  <figcaption>before <img src=\"u\" alt=\"a\"> after</figcaption>\n</figure>\n",
+      "markdown": "![one](a)\nbefore ![a](u) after\n",
+      "plain": "one\nbefore a after\n",
+      "ansi": "\u001b[35m[img:\u001b[0m one\u001b[35m]\u001b[0m\n\u001b[3m\u001b[2mbefore \u001b[35m[img:\u001b[0m a\u001b[35m]\u001b[0m after\u001b[0m\n"
+    }
+  },
+  {
+    "source": "![a](u)\n",
+    "outputs": {
+      "html": "<img src=\"u\" alt=\"a\">\n",
+      "markdown": "![a](u)\n",
+      "plain": "a\n",
+      "ansi": "\u001b[35m[img:\u001b[0m a\u001b[35m]\u001b[0m\n"
+    }
+  }
+]

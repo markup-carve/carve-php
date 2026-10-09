@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CitationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
@@ -729,6 +730,9 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         return $parent !== null
             && !$parent instanceof Paragraph
             && !$parent instanceof Heading
+            && !$parent instanceof DefinitionTerm
+            && !$parent instanceof Caption
+            && !($parent instanceof TableCell && !$parent->hasBlockContent())
             && !$parent instanceof InlineNode;
     }
 
