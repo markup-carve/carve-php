@@ -268,6 +268,14 @@ class MarkdownAttributeFallbackTest extends TestCase
         );
     }
 
+    public function testHtmlFallbackKeepsAnExplicitEmptyTitleOverTheAttribute(): void
+    {
+        $this->assertSame(
+            '<img src="p.png" alt="P" title="" class="photo">' . "\n",
+            $this->html()->convert('![P](p.png ""){.photo title=Attribute}'),
+        );
+    }
+
     /**
      * The shadowed name was the only attribute, so nothing survives to carry and
      * the ordinary Markdown image is emitted rather than a tag that adds nothing.
