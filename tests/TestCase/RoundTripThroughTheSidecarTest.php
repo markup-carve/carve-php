@@ -24,9 +24,8 @@ use PHPUnit\Framework\TestCase;
  *
  * The reconstruction claim - the same source coming back out of the rendered
  * HTML with no sidecar to read - is a different question, and it lives in
- * `Converter\TheHtmlRoundTripWithoutTheSidecarTest`, which measures how much of
- * this population actually holds it: 22 of these 80 round trips, because HTML
- * import is lossy by design.
+ * `Converter\TheHtmlRoundTripWithoutTheSidecarTest`, which measures reconstruction
+ * separately, because HTML import is lossy by design.
  */
 class RoundTripThroughTheSidecarTest extends TestCase
 {
@@ -342,8 +341,6 @@ CARVE;
 
     public function testTabsWithRichContent(): void
     {
-        $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
-
         $carve = <<<'CARVE'
 {#wrapper .outer}
 :::: tabs
@@ -386,8 +383,6 @@ CARVE;
 
     public function testMixedContent(): void
     {
-        $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
-
         $carve = <<<'CARVE'
 # Heading
 
@@ -589,19 +584,12 @@ CARVE;
 
     public function testHeadingWithoutCustomId(): void
     {
-        $this->markTestSkipped('Round-trip (HtmlToCarve) materializes auto-generated heading ids/refs back into source; should only re-emit explicitly authored ids. Tracked separately, unrelated to the flat-heading / auto-id / </#id> rendering this change delivers.');
-
-        // Auto-generated IDs should not be preserved
         $carve = '# Simple Heading';
         $html = $this->converter->convert($carve);
-        $back = trim($this->htmlToCarve->convert($html));
-        // Should NOT have ID attribute in round-trip
-        $this->assertSame($carve, $back);
+        $this->assertStringContainsString('id="', $html);
+        $this->assertStringNotContainsString('data-djot-explicit-id', $html);
+        $this->assertRoundTrip($carve);
     }
-
-    // =========================================================================
-    // Inline Code with Backticks
-    // =========================================================================
 
     public function testInlineCodeWithBackticks(): void
     {
@@ -1024,8 +1012,6 @@ CARVE;
 
     public function testLineBlockWithFormatting(): void
     {
-        $this->markTestSkipped('Pending Phase 8: HTML<->Carve round-trip converter still emits Djot syntax.');
-
         $carve = <<<'CARVE'
 ::: |
 This is *strong*
