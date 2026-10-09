@@ -17,8 +17,9 @@ final class DjotEmphasis
      * @param string $source
      * @param string $mask
      * @param callable(string): string $convert
+     * @param array<int, array{end: int, source: string}> $attributes
      */
-    public static function convert(string $source, string $mask, callable $convert): string
+    public static function convert(string $source, string $mask, callable $convert, array $attributes = []): string
     {
         $validBraces = [];
         $pendingBraces = [];
@@ -239,7 +240,7 @@ final class DjotEmphasis
             }
         }
 
-        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert)))->convert($roots);
+        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert), $attributes))->convert($roots);
     }
 
     private static function structuralPrefixEnd(string $line): int
