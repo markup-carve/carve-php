@@ -26,6 +26,7 @@ final class DjotEmphasisRenderer
      * @param array<int, true> $structural
      * @param array<int, true> $literalBrackets
      * @param \Closure(string): string $convert
+     * @param array<int, array{end: int, source: string}> $attributes
      */
     public function __construct(
         private readonly string $source,
@@ -33,6 +34,7 @@ final class DjotEmphasisRenderer
         private readonly array $structural,
         private readonly array $literalBrackets,
         private readonly Closure $convert,
+        private readonly array $attributes = [],
     ) {
         $this->literalPrefix = "\0DJOTLITERAL\0";
         while (str_contains($source, $this->literalPrefix)) {
@@ -76,6 +78,13 @@ final class DjotEmphasisRenderer
     {
             $text = '';
         for ($i = $start; $i < $end; $i++) {
+            $attributes = $this->attributes[$i] ?? null;
+            if ($attributes !== null && $attributes['end'] <= $end) {
+                $text .= $this->protect($attributes['source']);
+                $i = $attributes['end'] - 1;
+
+                continue;
+            }
             $ch = $this->source[$i];
             if ($ch === '\\' && ($this->source[$i + 1] ?? '') !== "\n") {
                 $text .= substr($this->source, $i, min(2, $end - $i));

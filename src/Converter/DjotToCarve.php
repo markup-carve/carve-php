@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
@@ -214,10 +216,11 @@ class DjotToCarve
 
             return '![' . $token . ']';
         }, $source, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $source;
-        $source = $this->protectAttributedStrong($source, $strongSpans);
         $source = $this->protectAttributedWords($source, $strongSpans);
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
-        $carve = DjotEmphasis::convert($source, $this->djotEmphasisMask($source), fn (string $plain): string => $this->rewriteDjotInline($plain));
+        $wire = [];
+        $mask = $this->djotEmphasisMask($source, true, $wire);
+        $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? []);
 
         $carve = str_replace($emptyTerm, '%%', $carve);
         $carve = strtr($carve, $orphanSpans);
@@ -475,8 +478,14 @@ class DjotToCarve
         return $this->collapseFalseListBoundaries($this->normalizePlusBullets($source, $masked));
     }
 
-    private function djotEmphasisMask(string $source, bool $attributes = true): string
+    /**
+     * @param string $source
+     * @param bool $attributes
+     * @param array<int, array{end: int, source: string}>|null $wire
+     */
+    private function djotEmphasisMask(string $source, bool $attributes = true, ?array &$wire = null): string
     {
+        $readNative = $wire !== null ? $this->nativeAttributeReader($source) : null;
         $masked = $this->maskCodeAndDestinations($source);
         $previousLines = $this->previousSourceLines($source);
         $masked = preg_replace_callback('/<[^<>\s]+>/', static fn (array $match): string => preg_match('/[^:]@|[A-Za-z]:/', $match[0]) === 1 ? str_repeat(' ', strlen($match[0])) : $match[0], $masked) ?? $masked;
@@ -494,9 +503,12 @@ class DjotToCarve
             if ($masked[$i] !== '{' || preg_match('/[.#A-Za-z]/', $source[$i + 1] ?? '') !== 1) {
                 continue;
             }
-            $attrs = $this->readDjotWordAttributes($source, $i);
+            $attrs = $readNative !== null ? $readNative($i) : $this->readDjotWordAttributes($source, $i);
             if ($attrs === null) {
                 continue;
+            }
+            if ($wire !== null) {
+                $wire[$i] = $attrs;
             }
             for ($at = $i; $at < $attrs['end']; $at++) {
                 if ($masked[$at] !== "\n") {
@@ -550,47 +562,6 @@ class DjotToCarve
     }
 
     /**
-     * @param string $source
-     * @param array<string, string> $spans
-     */
-    private function protectAttributedStrong(string $source, array &$spans): string
-    {
-        if (!str_contains($source, '{')) {
-            return $source;
-        }
-        $masked = $this->maskCodeAndDestinations($source);
-        $attribute = '\{(?:\s*(?:[.#][^\s{}"=]+|[\w:-]+=(?:"(?:\\\\.|[^"\\\\])*"|[^\s{}"]+)))+\s*\}';
-        $pattern = '~(?<![\\\\*])\*(?![\s*])([^*\n{}]+)(' . $attribute . ')([^*\n{}]*)(?<!\s)\*(?!\*)~u';
-        $prefix = "\0DJOTSTRONG";
-        while (str_contains($source, $prefix)) {
-            $prefix .= "\0";
-        }
-
-        $token = "\0DJOTATTR\0";
-        while (str_contains($source, $token)) {
-            $token .= "\0";
-        }
-
-        return preg_replace_callback($pattern, function (array $match) use ($masked, $token, $prefix, &$spans): string {
-            if (
-                ($masked[$match[0][1]] ?? '') !== '*'
-                || ($masked[$match[0][1] + strlen($match[0][0]) - 1] ?? '') !== '*'
-                || str_ends_with($match[3][0], '\\')
-            ) {
-                return $match[0][0];
-            }
-            if (!preg_match('/[^\s*{}\[\]`_~^]+$/u', $match[1][0], $word, PREG_OFFSET_CAPTURE)) {
-                return $match[0][0];
-            }
-            $body = $this->convert(substr($match[1][0], 0, $word[0][1]) . '[' . $word[0][0] . ']' . $token . $match[3][0]);
-            $key = $prefix . count($spans) . "\0";
-            $spans[$key] = '{*' . str_replace($token, $match[2][0], $body) . '*}';
-
-            return $key;
-        }, $source, flags: PREG_OFFSET_CAPTURE) ?? $source;
-    }
-
-    /**
      * @return array{depth: int, indent: ?int, minimum: int}
      */
     private function djotAttributeContext(string $source, int $start): array
@@ -626,13 +597,13 @@ class DjotToCarve
     /**
      * @return array{end: int, source: string}|null
      */
-    private function readDjotWordAttributes(string $source, int $start): ?array
+    private function readDjotWordAttributes(string $source, int $start, bool $carve = false, bool $table = false): ?array
     {
         $parts = [];
         $length = strlen($source);
         $i = $start + 1;
         $context = null;
-        $quoteValue = static fn (string $value): string => '"' . QuotedSlotEscaper::escape($value) . '"';
+        $quoteValue = static fn (string $value): string => '"' . QuotedSlotEscaper::escape($value, $carve ? AttributeParser::ESCAPABLE_PUNCTUATION : '"') . '"';
         while ($i < $length) {
             while ($i < $length && str_contains(" \t\n\r", $source[$i])) {
                 if ($source[$i] === "\n" && preg_match('/\G[ \t]*\n/', $source, offset: $i + 1) === 1) {
@@ -665,6 +636,16 @@ class DjotToCarve
                 }
             }
             if (($source[$i] ?? '') === '}') {
+                if ($carve && $table) {
+                    for ($at = $start; $at <= $i; $at++) {
+                        if ($source[$at] === '\\') {
+                            $at++;
+                        } elseif ($source[$at] === '|') {
+                            return null;
+                        }
+                    }
+                }
+
                 return $parts !== [] ? ['end' => $i + 1, 'source' => '{' . implode(' ', $parts) . '}'] : null;
             }
             if (($source[$i] ?? '') === '%') {
@@ -682,14 +663,19 @@ class DjotToCarve
             if (($source[$i] ?? '') === '#' || ($source[$i] ?? '') === '.') {
                 $kind = $source[$i++];
                 $from = $i;
-                while ($i < $length && preg_match('/[\s{}%"\'=<>]/', $source[$i]) !== 1) {
-                    $i++;
+                if ($kind === '#') {
+                    if (preg_match('/\G[^\]\[~!@#$%^&*(){}`,.<>\\\\|=+\/?\x{0009}-\x{000D}\x{0020}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]+/u', $source, $identifier, offset: $i) !== 1) {
+                        return null;
+                    }
+                    $i += strlen($identifier[0]);
+                } else {
+                    $i += strspn($source, 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_:-', $i);
                 }
                 if ($i === $from) {
                     return null;
                 }
                 $value = substr($source, $from, $i - $from);
-                if ($kind === '#' ? preg_match('/[\]\[~!@#$%^&*(){}`,.<>\\\\|=+\/?\s]/u', $value) === 1 : preg_match('/^[A-Za-z0-9_:-]+$/D', $value) !== 1) {
+                if ($kind === '#' ? preg_match('/[\]\[~!@#$%^&*(){}`,.<>\\\\|=+\/?\x{0009}-\x{000D}\x{0020}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', $value) === 1 : preg_match('/^[A-Za-z0-9_:-]+$/D', $value) !== 1) {
                     return null;
                 }
                 $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/', $value) === 1
@@ -716,12 +702,14 @@ class DjotToCarve
                         return null;
                     }
                     $i++;
-                    $value = substr($source, $from, $i - $from);
+                    $value = substr($source, $from + 1, $i - $from - 2);
                     if (str_contains($value, "\n")) {
                         $context = $this->djotAttributeContext($source, $start);
                         $value = preg_replace_callback('/\r?\n([^\n]*)/', fn (array $match): string => ' ' . ltrim($this->djotAttributeLine($match[1], $context['depth']) ?? $match[1], " \t"), $value) ?? $value;
                     }
-                    $parts[] = $key[0] . $value;
+                    $value = preg_replace('/[ \r\n]+/', ' ', $value) ?? $value;
+                    $value = preg_replace_callback('/\\\\(.)/us', static fn (array $match): string => str_contains(".,\\/#!$%^&*;:{}=-_`~+[]()'\"?|", $match[1]) ? $match[1] : $match[0], $value) ?? $value;
+                    $parts[] = $key[0] . $quoteValue($value);
                 } else {
                     while ($i < $length && preg_match('/[\s{}%"\'=<>]/', $source[$i]) !== 1) {
                         $i++;
@@ -741,11 +729,37 @@ class DjotToCarve
     }
 
     /**
+     * @return \Closure(int): (array{end: int, source: string}|null)
+     */
+    private function nativeAttributeReader(string $source): Closure
+    {
+        $lineEnd = -1;
+        $table = false;
+
+        return function (int $start) use ($source, &$lineEnd, &$table): ?array {
+            while ($lineEnd < $start) {
+                $lineStart = $lineEnd + 1;
+                $newline = strpos($source, "\n", $lineStart);
+                $lineEnd = $newline === false ? strlen($source) : $newline;
+                $line = substr($source, $lineStart, $lineEnd - $lineStart);
+                $table = ($line[DjotEmphasis::structuralPrefixEnd($line)] ?? '') === '|';
+            }
+
+            return $this->readDjotWordAttributes($source, $start, true, $table);
+        };
+    }
+
+    /**
      * @param string $source
      * @param array<string, string> $spans
      */
     private function protectAttributedWords(string $source, array &$spans): string
     {
+        if (!str_contains($source, '{')) {
+            return $source;
+        }
+        $paired = DjotEmphasis::pairedOpeners($source, $this->djotEmphasisMask($source));
+        $readNative = $this->nativeAttributeReader($source);
         $masked = $this->maskCodeAndDestinations($source);
         $prefix = "\0DJOTWORD";
         while (str_contains($source, $prefix)) {
@@ -754,10 +768,6 @@ class DjotToCarve
         $output = '';
         $cursor = 0;
         $lastClose = strrpos($source, '}');
-        $lastDelimiters = [];
-        foreach (str_split('_*~^') as $delimiter) {
-            $lastDelimiters[$delimiter] = strrpos($source, $delimiter);
-        }
         for ($i = 0; $lastClose !== false && $i <= $lastClose; $i++) {
             if ($source[$i] !== '{' || $masked[$i] !== '{') {
                 continue;
@@ -769,9 +779,16 @@ class DjotToCarve
             if ($slashes % 2 !== 0) {
                 continue;
             }
-            $attrs = $this->readDjotWordAttributes($source, $i);
+            $attrs = $readNative($i);
             if ($attrs === null) {
                 continue;
+            }
+            while (($source[$attrs['end']] ?? '') === '{') {
+                $next = $readNative($attrs['end']);
+                if ($next === null) {
+                    break;
+                }
+                $attrs = ['end' => $next['end'], 'source' => $attrs['source'] . $next['source']];
             }
             $start = $i;
             if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && !str_contains('`*_~^]}>', $source[$i - 1])) {
@@ -783,24 +800,16 @@ class DjotToCarve
                 } else {
                     $start = $i;
                 }
-                $closer = $source[$attrs['end']] ?? '';
-                if ($closer !== '' && str_contains('_*~^', $closer)) {
-                    for ($at = $i - 1; $at >= $start; $at--) {
-                        if ($source[$at] !== $closer) {
-                            continue;
-                        }
-                        $escapes = 0;
-                        for ($back = $at - 1; $back >= 0 && $source[$back] === '\\'; $back--) {
-                            $escapes++;
-                        }
-                        if ($escapes % 2 === 0) {
-                            $start = $at + 1;
+                $pairedWord = null;
+                for ($at = $i - 1; $at >= $start; $at--) {
+                    if (($paired[$at] ?? -1) > $attrs['end']) {
+                        $pairedWord = $at + 1;
 
-                            break;
-                        }
+                        break;
                     }
-                } elseif ($start < $i && str_contains('_*~^', $source[$start]) && $lastDelimiters[$source[$start]] >= $attrs['end']) {
-                    $start = $i;
+                }
+                if ($pairedWord !== null) {
+                    $start = $pairedWord;
                 }
                 if ($start > 0 && $source[$start - 1] === '{' && str_contains('+-=', $source[$start] ?? '')) {
                     $start++;
