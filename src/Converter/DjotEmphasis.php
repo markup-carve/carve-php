@@ -21,6 +21,29 @@ final class DjotEmphasis
      */
     public static function convert(string $source, string $mask, callable $convert, array $attributes = []): string
     {
+        return self::process($source, $mask, $convert, $attributes);
+    }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function pairedOpeners(string $source, string $mask): array
+    {
+        $paired = [];
+        self::process($source, $mask, static fn (string $plain): string => $plain, [], $paired);
+
+        return $paired ?? [];
+    }
+
+    /**
+     * @param string $source
+     * @param string $mask
+     * @param callable(string): string $convert
+     * @param array<int, array{end: int, source: string}> $attributes
+     * @param array<int, int>|null $paired
+     */
+    private static function process(string $source, string $mask, callable $convert, array $attributes, ?array &$paired = null): string
+    {
         $validBraces = [];
         $pendingBraces = [];
         $braceLineStart = 0;
@@ -52,7 +75,7 @@ final class DjotEmphasis
             }
         }
         /** @var array<string, list<array{start: int, end: int, forced: bool}>> $openers */
-        $openers = ['_' => [], '*' => [], '{_' => [], '{*' => []];
+        $openers = ['_' => [], '*' => [], '~' => [], '^' => [], '{_' => [], '{*' => [], '{~' => [], '{^' => []];
         /** @var list<\MarkupCarve\Carve\Converter\DjotEmphasisSpan> $pairs */
         $pairs = [];
         $structural = [];
@@ -145,7 +168,7 @@ final class DjotEmphasis
 
                 continue;
             }
-            if ($ch !== '_' && $ch !== '*') {
+            if ($ch !== '_' && $ch !== '*' && !($paired !== null && str_contains('~^', $ch))) {
                 continue;
             }
             if ($ch === '*' && $i <= $structuralEnd) {
@@ -171,7 +194,7 @@ final class DjotEmphasis
             $canClose = !$forcedOpen && ($forcedClose || ($i > 0 && !str_contains(" \t\r\n", $source[$i - 1])));
             $key = ($forcedClose ? '{' : '') . $ch;
             $opener = $openers[$key] === [] ? null : $openers[$key][array_key_last($openers[$key])];
-            if ($canClose && $opener !== null && $opener['end'] < $i && $opener['start'] > ($braces !== [] ? $braces[array_key_last($braces)] : -1)) {
+            if ($canClose && $opener !== null && $opener['end'] < $i && ($opener['start'] > ($braces !== [] ? $braces[array_key_last($braces)] : -1) || ($paired !== null && $opener['forced'] && $braces !== [] && $opener['start'] === $braces[array_key_last($braces)]))) {
                 $clear($opener['start']);
                 $pairs[] = new DjotEmphasisSpan($opener['start'], $opener['end'], $i, $i + ($forcedClose ? 2 : 1), $ch, $opener['forced']);
                 if ($forcedClose) {
@@ -182,6 +205,13 @@ final class DjotEmphasis
             } elseif ($forcedClose) {
                 $i++;
             }
+        }
+        if ($paired !== null) {
+            foreach ($pairs as $pair) {
+                $paired[$pair->openEnd - 1] = $pair->end;
+            }
+
+            return $source;
         }
         usort($pairs, static fn (DjotEmphasisSpan $a, DjotEmphasisSpan $b): int => $a->start <=> $b->start ?: $b->end <=> $a->end);
         $roots = [];

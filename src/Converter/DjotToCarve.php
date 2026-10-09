@@ -216,7 +216,6 @@ class DjotToCarve
 
             return '![' . $token . ']';
         }, $source, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $source;
-        $source = $this->protectAttributedStrong($source, $strongSpans);
         $source = $this->protectAttributedWords($source, $strongSpans);
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
         $wire = [];
@@ -563,55 +562,6 @@ class DjotToCarve
     }
 
     /**
-     * @param string $source
-     * @param array<string, string> $spans
-     */
-    private function protectAttributedStrong(string $source, array &$spans): string
-    {
-        if (!str_contains($source, '{')) {
-            return $source;
-        }
-        $readNative = $this->nativeAttributeReader($source);
-        $masked = $this->maskCodeAndDestinations($source);
-        $attribute = '\{(?:\s*(?:[.#][^\s{}"=]+|[\w:-]+=(?:"(?:\\\\.|[^"\\\\])*"|[^\s{}"]+)))+\s*\}';
-        $pattern = '~(?<![\\\\*])\*(?![\s*])([^*\n{}]+)(' . $attribute . ')([^*\n{}]*)(?<!\s)\*(?!\*)~u';
-        $prefix = "\0DJOTSTRONG";
-        while (str_contains($source, $prefix)) {
-            $prefix .= "\0";
-        }
-
-        $token = "\0DJOTATTR\0";
-        while (str_contains($source, $token)) {
-            $token .= "\0";
-        }
-
-        return preg_replace_callback($pattern, function (array $match) use ($masked, $token, $prefix, $readNative, &$spans): string {
-            if (
-                ($masked[$match[0][1]] ?? '') !== '*'
-                || ($masked[$match[0][1] + strlen($match[0][0]) - 1] ?? '') !== '*'
-                || str_ends_with($match[3][0], '\\')
-            ) {
-                return $match[0][0];
-            }
-            if (!preg_match('/[^\s*{}\[\]`_~^]+$/u', $match[1][0], $word, PREG_OFFSET_CAPTURE)) {
-                return $match[0][0];
-            }
-            if ($masked[$match[0][1] + 1 + $word[0][1]] !== $match[0][0][1 + $word[0][1]]) {
-                return $match[0][0];
-            }
-            $attributes = $readNative($match[0][1] + 1 + strlen($match[1][0]));
-            if ($attributes === null) {
-                return $match[0][0];
-            }
-            $body = $this->convert(substr($match[1][0], 0, $word[0][1]) . '[' . $word[0][0] . ']' . $token . $match[3][0]);
-            $key = $prefix . count($spans) . "\0";
-            $spans[$key] = '{*' . str_replace($token, $attributes['source'], $body) . '*}';
-
-            return $key;
-        }, $source, flags: PREG_OFFSET_CAPTURE) ?? $source;
-    }
-
-    /**
      * @return array{depth: int, indent: ?int, minimum: int}
      */
     private function djotAttributeContext(string $source, int $start): array
@@ -805,6 +755,10 @@ class DjotToCarve
      */
     private function protectAttributedWords(string $source, array &$spans): string
     {
+        if (!str_contains($source, '{')) {
+            return $source;
+        }
+        $paired = DjotEmphasis::pairedOpeners($source, $this->djotEmphasisMask($source));
         $readNative = $this->nativeAttributeReader($source);
         $masked = $this->maskCodeAndDestinations($source);
         $prefix = "\0DJOTWORD";
@@ -814,10 +768,6 @@ class DjotToCarve
         $output = '';
         $cursor = 0;
         $lastClose = strrpos($source, '}');
-        $lastDelimiters = [];
-        foreach (str_split('_*~^') as $delimiter) {
-            $lastDelimiters[$delimiter] = strrpos($source, $delimiter);
-        }
         for ($i = 0; $lastClose !== false && $i <= $lastClose; $i++) {
             if ($source[$i] !== '{' || $masked[$i] !== '{') {
                 continue;
@@ -850,24 +800,16 @@ class DjotToCarve
                 } else {
                     $start = $i;
                 }
-                $closer = $source[$attrs['end']] ?? '';
-                if ($closer !== '' && str_contains('_*~^', $closer)) {
-                    for ($at = $i - 1; $at >= $start; $at--) {
-                        if ($source[$at] !== $closer) {
-                            continue;
-                        }
-                        $escapes = 0;
-                        for ($back = $at - 1; $back >= 0 && $source[$back] === '\\'; $back--) {
-                            $escapes++;
-                        }
-                        if ($escapes % 2 === 0) {
-                            $start = $at + 1;
+                $pairedWord = null;
+                for ($at = $i - 1; $at >= $start; $at--) {
+                    if (($paired[$at] ?? -1) > $attrs['end']) {
+                        $pairedWord = $at + 1;
 
-                            break;
-                        }
+                        break;
                     }
-                } elseif ($start < $i && str_contains('_*~^', $source[$start]) && $lastDelimiters[$source[$start]] >= $attrs['end']) {
-                    $start++;
+                }
+                if ($pairedWord !== null) {
+                    $start = $pairedWord;
                 }
                 if ($start > 0 && $source[$start - 1] === '{' && str_contains('+-=', $source[$start] ?? '')) {
                     $start++;
