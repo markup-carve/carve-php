@@ -489,7 +489,9 @@ class DjotToCarve
      */
     private function djotEmphasisMask(string $source, bool $attributes = true, ?array &$wire = null): string
     {
-        $readNative = $wire !== null ? $this->nativeAttributeReader($source) : null;
+        $readAttributes = $wire !== null
+            ? $this->nativeAttributeReader($source)
+            : fn (int $at): ?array => $this->readDjotWordAttributes($source, $at);
         $masked = $this->maskCodeAndDestinations($source, opaqueOptions: ['comments' => false]);
         $previousLines = $this->previousSourceLines($source);
         $masked = preg_replace_callback('/<[^<>\s]+>/', static fn (array $match): string => preg_match('/[^:]@|[A-Za-z]:/', $match[0]) === 1 ? str_repeat(' ', strlen($match[0])) : $match[0], $masked) ?? $masked;
@@ -507,13 +509,13 @@ class DjotToCarve
             if ($masked[$i] !== '{') {
                 continue;
             }
-            $attrs = $readNative !== null ? $readNative($i) : $this->readDjotWordAttributes($source, $i);
+            $attrs = $readAttributes($i);
             if ($attrs === null) {
                 continue;
             }
             $firstAttributeEnd = $attrs['end'];
             while (($source[$attrs['end']] ?? '') === '{') {
-                $next = $readNative !== null ? $readNative($attrs['end']) : $this->readDjotWordAttributes($source, $attrs['end']);
+                $next = $readAttributes($attrs['end']);
                 if ($next === null) {
                     break;
                 }
