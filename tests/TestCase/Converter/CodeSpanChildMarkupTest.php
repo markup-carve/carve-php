@@ -209,9 +209,31 @@ class CodeSpanChildMarkupTest extends TestCase
 
     public function testStoredMultilineRawContentIsDroppedAndReportedOnlyInSource(): void
     {
-        $html = '<table><tr><td><p data-djot-src="`&lt;b&gt;&#10;&lt;/b&gt;`{=html}">x</p></td></tr></table>';
+        foreach (['before `<b>\n</b>`{=html} after', 'before *a `<b>\n</b>`{=html} b* after'] as $source) {
+            $source = str_replace('\n', "\n", $source);
+            $html = '<table><tr><td><p data-djot-src="' . htmlspecialchars($source, ENT_QUOTES) . '">x</p></td></tr></table>';
+            $converter = new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true);
+            $result = $converter->convertWithReport($html);
+            $this->assertSame(['element-dropped'], array_column($result->diagnostics, 'code'));
+            $this->assertStringNotContainsString('<b>', $result->value);
+            $this->assertSame([], $converter->convertToAstWithReport($html)->diagnostics);
+        }
+    }
+
+    public function testStoredEmptyTableCellsDoNotReportDroppedContent(): void
+    {
+        $html = '<table><tr><td><p data-djot-src="| a |&#10;|  |">x</p></td></tr></table>';
+        $result = (new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true))->convertWithReport($html);
+        $this->assertNotContains('element-dropped', array_column($result->diagnostics, 'code'));
+    }
+
+    public function testStoredInlineExtensionFoldsNestedCodeOnlyInSource(): void
+    {
+        $html = '<table><tr><td><p data-djot-src=":index[`a&#10;b`]">x</p></td></tr></table>';
         $converter = new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true);
-        $this->assertContains('element-dropped', array_column($converter->convertWithReport($html)->diagnostics, 'code'));
+        $result = $converter->convertWithReport($html);
+        $this->assertContains('structure-unspellable', array_column($result->diagnostics, 'code'));
+        $this->assertStringContainsString('`a b`', $result->value);
         $this->assertSame([], $converter->convertToAstWithReport($html)->diagnostics);
     }
 }

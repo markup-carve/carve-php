@@ -2068,7 +2068,7 @@ final class HtmlAstBuilder
                     }
                 }
                 $previousPipeCellDepth = $this->session->pipeCellDepth;
-                $this->session->pipeCellDepth = $listForm ? 0 : $previousPipeCellDepth + 1;
+                $this->session->pipeCellDepth = $listForm ? $previousPipeCellDepth : $previousPipeCellDepth + 1;
                 $previousProjection = $this->session->inInlineProjection;
                 $this->session->inInlineProjection = $previousProjection || !$listForm;
                 $previousStoredProjection = $this->session->flattensStoredBlocks;
@@ -4358,7 +4358,7 @@ final class HtmlAstBuilder
                 $stored = array_pop($pending);
                 $isBlock = !isset(self::INLINE_PROJECTION_TYPES[$stored['type']]) || ($stored['type'] === 'comment' && ($stored['block'] ?? false) === true);
                 $projected = $projected || ($isBlock && ($stored['type'] !== 'paragraph' || ($stored['attrs'] ?? []) !== []));
-                if ($isBlock && ($stored['content'] ?? null) !== '' && !isset($stored['children']) && !isset($stored['items']) && !isset($stored['rows']) && $this->projectToInlines($stored) === []) {
+                if ($isBlock && ($stored['content'] ?? null) !== '' && !isset($stored['children']) && !isset($stored['items']) && !isset($stored['rows']) && !isset($stored['cells']) && $this->projectToInlines($stored) === []) {
                     $dropped = true;
                 }
                 if (is_array($stored['target'] ?? null)) {
@@ -4371,7 +4371,7 @@ final class HtmlAstBuilder
                 }
             }
             if ($projected || $dropped) {
-                $this->session->projectedStoredBlocks[$node] = $dropped;
+                $this->session->projectedStoredBlocks[$node] = ['projected' => $projected, 'dropped' => $dropped];
             }
 
             return $children;
@@ -4416,15 +4416,26 @@ final class HtmlAstBuilder
                 $folded = $this->foldStoredPipeCodes($target, $dropped) || $folded;
                 $node['target'] = $target[0];
             }
-            foreach (['children', 'items', 'rows', 'cells', 'caption', 'title', 'old', 'new', 'inline'] as $slot) {
+            foreach (['children', 'items', 'rows', 'cells', 'caption', 'title', 'old', 'new', 'inline', 'content', 'prefix', 'locator', 'suffix'] as $slot) {
                 if (!is_array($node[$slot] ?? null)) {
                     continue;
                 }
                 $children = self::nodeList($node[$slot]);
-                if ($this->foldStoredPipeCodes($children, $dropped)) {
-                    $node[$slot] = $children;
-                    $folded = true;
+                $folded = $this->foldStoredPipeCodes($children, $dropped) || $folded;
+                $node[$slot] = $children;
+            }
+            if ($node['type'] === 'ruby' && is_array($node['pairs'] ?? null)) {
+                foreach ($node['pairs'] as &$pair) {
+                    if (!is_array($pair)) {
+                        continue;
+                    }
+                    foreach (['base', 'annotation'] as $slot) {
+                        $children = self::nodeList($pair[$slot] ?? []);
+                        $folded = $this->foldStoredPipeCodes($children, $dropped) || $folded;
+                        $pair[$slot] = $children;
+                    }
                 }
+                unset($pair);
             }
         }
 

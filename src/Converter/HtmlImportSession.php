@@ -123,7 +123,7 @@ final class HtmlImportSession
     public SplObjectStorage $nativeCodeSpans;
 
     /**
-     * @var \SplObjectStorage<\DOMElement, bool>
+     * @var \SplObjectStorage<\DOMElement, array{projected: bool, dropped: bool}>
      */
     public SplObjectStorage $projectedStoredBlocks;
 
