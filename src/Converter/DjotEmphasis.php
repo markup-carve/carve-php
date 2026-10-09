@@ -9,6 +9,11 @@ use Closure;
 final class DjotEmphasis
 {
     /**
+     * @var string
+     */
+    private const THEMATIC_STAR_LINE = '/^(?:[ \t]*+>)*+[ \t]*+(?:\*[ \t]*+){3,}+$/D';
+
+    /**
      * @param string $source
      * @param string $mask
      * @param callable(string): string $convert
@@ -52,6 +57,9 @@ final class DjotEmphasis
         $braces = [];
         $bracketPairs = [];
         $lineStart = 0;
+        $lineEnd = strlen($source);
+        $structuralEnd = 0;
+        $thematicLine = false;
         $previousBlank = true;
         $container = false;
         $listColumn = null;
@@ -65,7 +73,11 @@ final class DjotEmphasis
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
             if ($i === $lineStart) {
                 $end = strpos($source, "\n", $i);
-                $line = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', substr($source, $i, ($end === false ? $length : $end) - $i)) ?? '';
+                $lineEnd = $end === false ? $length : $end;
+                $rawLine = substr($source, $i, $lineEnd - $i);
+                $structuralEnd = $i + self::structuralPrefixEnd($rawLine);
+                $thematicLine = preg_match(self::THEMATIC_STAR_LINE, $rawLine) === 1;
+                $line = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', $rawLine) ?? '';
                 preg_match('/^[ \t]*/', $line, $indentMatch);
                 $indent = strlen($indentMatch[0] ?? '');
                 if (trim($line) !== '' && $listColumn !== null && $indent < $listColumn && preg_match('/^[ \t]*(?:[-*+] |[0-9]+[.)] )/', $line) !== 1) {
@@ -133,17 +145,14 @@ final class DjotEmphasis
             if ($ch !== '_' && $ch !== '*') {
                 continue;
             }
-            if ($ch === '*' && preg_match('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)])[ \t]+(?:\[[ xX-]\][ \t]+)?)*[ \t]*$/', substr($source, $lineStart, $i - $lineStart)) === 1) {
-                $end = strpos($source, "\n", $i);
-                $line = substr($source, $lineStart, ($end === false ? $length : $end) - $lineStart);
-                if (preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:\*[ \t]*){3,}$/', $line) === 1) {
-                    $lineEnd = $lineStart + strlen($line);
+            if ($ch === '*' && $i <= $structuralEnd) {
+                if ($thematicLine) {
                     for ($at = $i; $at < $lineEnd; $at++) {
                         if ($source[$at] === '*') {
                             $structural[$at] = true;
                         }
                     }
-                    $i = $lineStart + strlen($line) - 1;
+                    $i = $lineEnd - 1;
 
                     continue;
                 }
@@ -215,5 +224,50 @@ final class DjotEmphasis
         }
 
         return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, Closure::fromCallable($convert)))->convert($roots);
+    }
+
+    private static function structuralPrefixEnd(string $line): int
+    {
+        $length = strlen($line);
+        $at = 0;
+        $spaces = static function () use (&$at, $line, $length): void {
+            while ($at < $length && ($line[$at] === ' ' || $line[$at] === "\t")) {
+                $at++;
+            }
+        };
+        do {
+            $spaces();
+            if (($line[$at] ?? '') !== '>') {
+                break;
+            }
+            $at++;
+        } while ($at < $length);
+        $spaces();
+        while (true) {
+            $start = $at;
+            $end = $at;
+            if ($end < $length && str_contains('-*+', $line[$end])) {
+                $end++;
+            } else {
+                while ($end < $length && $line[$end] >= '0' && $line[$end] <= '9') {
+                    $end++;
+                }
+                if ($end === $start || (($line[$end] ?? '') !== '.' && ($line[$end] ?? '') !== ')')) {
+                    break;
+                }
+                $end++;
+            }
+            if (($line[$end] ?? '') !== ' ' && ($line[$end] ?? '') !== "\t") {
+                break;
+            }
+            $at = $end;
+            $spaces();
+            if (($line[$at] ?? '') === '[' && str_contains(' xX-', $line[$at + 1] ?? "\0") && ($line[$at + 2] ?? '') === ']' && (($line[$at + 3] ?? '') === ' ' || ($line[$at + 3] ?? '') === "\t")) {
+                $at += 3;
+                $spaces();
+            }
+        }
+
+        return $at;
     }
 }
