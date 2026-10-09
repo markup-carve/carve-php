@@ -100,6 +100,33 @@ final class HtmlImportSession
      */
     public SplObjectStorage $tableBlockCells;
 
+    public int $pipeCellDepth = 0;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $foldedCodeSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $storedSourceElements;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $foldedStoredCodeSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $nativeCodeSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, array{projected: bool, dropped: bool}>
+     */
+    public SplObjectStorage $projectedStoredBlocks;
+
     public ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -143,6 +170,8 @@ final class HtmlImportSession
 
     public bool $inInlineProjection = false;
 
+    public bool $flattensStoredBlocks = false;
+
     public bool $preserveInlineWhitespace = false;
 
     /**
@@ -165,5 +194,10 @@ final class HtmlImportSession
         $this->mergedDefinitionLists = new SplObjectStorage();
         $this->flattenedSummaryBlocks = new SplObjectStorage();
         $this->tableBlockCells = new SplObjectStorage();
+        $this->foldedCodeSpans = new SplObjectStorage();
+        $this->storedSourceElements = new SplObjectStorage();
+        $this->foldedStoredCodeSpans = new SplObjectStorage();
+        $this->nativeCodeSpans = new SplObjectStorage();
+        $this->projectedStoredBlocks = new SplObjectStorage();
     }
 }

@@ -499,6 +499,11 @@ final class HtmlAstBuilder
             if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
                 continue;
             }
+            for ($ancestor = $anchor->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre'], true)) {
+                    continue 2;
+                }
+            }
             $href = $anchor->getAttribute('href');
             if (str_starts_with($href, '#') && strlen($href) > 1) {
                 $this->session->footnoteTargets[substr($href, 1)] = true;
@@ -2062,16 +2067,22 @@ final class HtmlAstBuilder
                         break;
                     }
                 }
+                $previousPipeCellDepth = $this->session->pipeCellDepth;
+                $this->session->pipeCellDepth = $listForm ? $previousPipeCellDepth : $previousPipeCellDepth + 1;
                 $previousProjection = $this->session->inInlineProjection;
                 $this->session->inInlineProjection = $previousProjection || !$listForm;
+                $previousStoredProjection = $this->session->flattensStoredBlocks;
+                $this->session->flattensStoredBlocks = $previousStoredProjection || !$listForm;
                 $previousCellContext = $this->session->tableCellAllowsEmptyCode;
                 $this->session->tableCellAllowsEmptyCode = $allowsEmptyCode;
                 try {
                     $blocks = $this->blocks($this->children($cellElement));
                     $children = $listForm ? [] : $this->flattenBlocks($blocks);
                 } finally {
+                    $this->session->pipeCellDepth = $previousPipeCellDepth;
                     $this->session->tableCellAllowsEmptyCode = $previousCellContext;
                     $this->session->inInlineProjection = $previousProjection;
+                    $this->session->flattensStoredBlocks = $previousStoredProjection;
                 }
                 $cell = HtmlImportNodes::tableCell($children, $tag === 'th');
                 $horizontal = $this->styleEnum($cellElement, 'text-align', ['left', 'right', 'center']);
@@ -3753,14 +3764,20 @@ final class HtmlAstBuilder
             return $this->inlineLink($node);
         }
         if ($tag === 'code') {
-            if ($node->textContent === '') {
+            $this->session->nativeCodeSpans[$node] = null;
+            $value = self::codeSpanText($node);
+            if ($value === '') {
                 if (!$this->emptyCodeRunEndsAt($node)) {
                     return [];
                 }
 
                 return [['type' => 'code', 'value' => '']];
             }
-            $code = ['type' => 'code', 'value' => $node->textContent];
+            if ($this->sourceSafe && $this->session->pipeCellDepth > 0 && strpbrk($value, "\r\n") !== false) {
+                $this->session->foldedCodeSpans[$node] = null;
+                $value = str_replace(["\r\n", "\r", "\n"], ' ', $value);
+            }
+            $code = ['type' => 'code', 'value' => $value];
             $this->attachAttrs($code, $node);
 
             return [$code];
@@ -3901,10 +3918,13 @@ final class HtmlAstBuilder
         if ($this->isBlock($node)) {
             $previousProjection = $this->session->inInlineProjection;
             $this->session->inInlineProjection = true;
+            $previousStoredProjection = $this->session->flattensStoredBlocks;
+            $this->session->flattensStoredBlocks = true;
             try {
                 return $this->flattenBlocks($this->block($node));
             } finally {
                 $this->session->inInlineProjection = $previousProjection;
+                $this->session->flattensStoredBlocks = $previousStoredProjection;
             }
         }
 
@@ -4286,6 +4306,24 @@ final class HtmlAstBuilder
         return rtrim($html, "\n");
     }
 
+    public static function codeSpanText(DOMNode $node): string
+    {
+        $value = '';
+        $pending = [$node];
+        while ($pending !== []) {
+            $current = array_pop($pending);
+            if ($current instanceof DOMText) {
+                $value .= $current->textContent;
+            } elseif (!$current instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($current)), ['script', 'style', 'template', 'noscript'], true)) {
+                foreach (array_reverse(iterator_to_array($current->childNodes)) as $child) {
+                    $pending[] = $child;
+                }
+            }
+        }
+
+        return $value;
+    }
+
     /**
      * @return list<ImportedNode>|null
      */
@@ -4299,6 +4337,7 @@ final class HtmlAstBuilder
         ) {
             return null;
         }
+        $this->session->storedSourceElements[$node] = null;
         $source = html_entity_decode(
             $node->getAttribute('data-djot-src'),
             ENT_QUOTES | ENT_HTML5,
@@ -4306,6 +4345,37 @@ final class HtmlAstBuilder
         );
         $tree = (new AstCodec())->encode(CarveConverter::create()->parse($source));
         $children = self::nodeList($tree['children']);
+        $droppedPipeContent = false;
+        if ($this->sourceSafe && $this->session->pipeCellDepth > 0 && $this->foldStoredPipeCodes($children, $droppedPipeContent)) {
+            $this->session->foldedStoredCodeSpans[$node] = null;
+        }
+
+        if ($this->session->flattensStoredBlocks) {
+            $projected = count($children) > 1;
+            $dropped = $droppedPipeContent;
+            $pending = $children;
+            while ($pending !== []) {
+                $stored = array_pop($pending);
+                $isBlock = !isset(self::INLINE_PROJECTION_TYPES[$stored['type']]) || ($stored['type'] === 'comment' && ($stored['block'] ?? false) === true);
+                $projected = $projected || ($isBlock && ($stored['type'] !== 'paragraph' || ($stored['attrs'] ?? []) !== []));
+                if ($isBlock && ($stored['content'] ?? null) !== '' && !isset($stored['children']) && !isset($stored['items']) && !isset($stored['rows']) && !isset($stored['cells']) && $this->projectToInlines($stored) === []) {
+                    $dropped = true;
+                }
+                if (is_array($stored['target'] ?? null)) {
+                    $pending[] = self::importedNode($stored['target']);
+                }
+                foreach (['title', 'children', 'items', 'rows', 'cells', 'caption'] as $slot) {
+                    if (is_array($stored[$slot] ?? null)) {
+                        array_push($pending, ...self::nodeList($stored[$slot]));
+                    }
+                }
+            }
+            if ($projected || $dropped) {
+                $this->session->projectedStoredBlocks[$node] = ['projected' => $projected, 'dropped' => $dropped];
+            }
+
+            return $children;
+        }
 
         if (
             isset($children[0])
@@ -4320,6 +4390,56 @@ final class HtmlAstBuilder
         }
 
         return $children;
+    }
+
+    /**
+     * @param list<ImportedNode> $nodes
+     * @param bool $dropped
+     */
+    private function foldStoredPipeCodes(array &$nodes, bool &$dropped): bool
+    {
+        $folded = false;
+        foreach ($nodes as &$node) {
+            $valueKey = $node['type'] === 'math' ? 'content' : 'value';
+            if (in_array($node['type'], ['code', 'math'], true) && is_string($node[$valueKey] ?? null) && strpbrk($node[$valueKey], "\r\n") !== false) {
+                $node[$valueKey] = str_replace(["\r\n", "\r", "\n"], ' ', $node[$valueKey]);
+                $folded = true;
+            }
+            if ($node['type'] === 'raw_inline' && is_string($node['content'] ?? null) && strpbrk($node['content'], "\r\n") !== false) {
+                $node = HtmlImportNodes::text('');
+                $dropped = true;
+
+                continue;
+            }
+            if (is_array($node['target'] ?? null)) {
+                $target = [self::importedNode($node['target'])];
+                $folded = $this->foldStoredPipeCodes($target, $dropped) || $folded;
+                $node['target'] = $target[0];
+            }
+            foreach (['children', 'items', 'rows', 'cells', 'caption', 'title', 'old', 'new', 'inline', 'content', 'prefix', 'locator', 'suffix'] as $slot) {
+                if (!is_array($node[$slot] ?? null)) {
+                    continue;
+                }
+                $children = self::nodeList($node[$slot]);
+                $folded = $this->foldStoredPipeCodes($children, $dropped) || $folded;
+                $node[$slot] = $children;
+            }
+            if ($node['type'] === 'ruby' && is_array($node['pairs'] ?? null)) {
+                foreach ($node['pairs'] as &$pair) {
+                    if (!is_array($pair)) {
+                        continue;
+                    }
+                    foreach (['base', 'annotation'] as $slot) {
+                        $children = self::nodeList($pair[$slot] ?? []);
+                        $folded = $this->foldStoredPipeCodes($children, $dropped) || $folded;
+                        $pair[$slot] = $children;
+                    }
+                }
+                unset($pair);
+            }
+        }
+
+        return $folded;
     }
 
     private function isSupportedInlineTag(string $tag): bool
@@ -4677,6 +4797,54 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @var array<string, bool>
+     */
+    private const INLINE_PROJECTION_TYPES = [
+        'abbreviation' => true,
+        'citation' => true,
+        'citation_group' => true,
+        'critic_comment' => true,
+        'escaped_text' => true,
+        'heading_ref' => true,
+        'inline_extension' => true,
+        'inline_footnote' => true,
+        'literal_inline' => true,
+        'mention' => true,
+        'non_breaking_space' => true,
+        'raw_text' => true,
+        'small_caps' => true,
+        'smart_punctuation' => true,
+        'substitution' => true,
+        'substitution_half' => true,
+        'autolink' => true,
+        'caption_number' => true,
+        'code' => true,
+        'comment' => true,
+        'delete' => true,
+        'emphasis' => true,
+        'emoji' => true,
+        'footnote_ref' => true,
+        'hard_break' => true,
+        'highlight' => true,
+        'image' => true,
+        'insert' => true,
+        'link' => true,
+        'math' => true,
+        'raw_inline' => true,
+        'soft_break' => true,
+        'span' => true,
+        'strike' => true,
+        'strong' => true,
+        'subscript' => true,
+        'superscript' => true,
+        'symbol' => true,
+        'ruby' => true,
+        'tag' => true,
+        'text' => true,
+        'underline' => true,
+    ];
+
+    /**
      * @phpstan-param ImportedNode $node
      *
      * @param array $node
@@ -4685,34 +4853,6 @@ final class HtmlAstBuilder
      */
     private function projectToInlines(array $node): array
     {
-        static $inlineTypes = [
-            'autolink' => true,
-            'caption_number' => true,
-            'code' => true,
-            'comment' => true,
-            'delete' => true,
-            'emphasis' => true,
-            'emoji' => true,
-            'footnote_ref' => true,
-            'hard_break' => true,
-            'highlight' => true,
-            'image' => true,
-            'insert' => true,
-            'link' => true,
-            'math' => true,
-            'raw_inline' => true,
-            'soft_break' => true,
-            'span' => true,
-            'strike' => true,
-            'strong' => true,
-            'subscript' => true,
-            'superscript' => true,
-            'symbol' => true,
-            'ruby' => true,
-            'tag' => true,
-            'text' => true,
-            'underline' => true,
-        ];
         $type = $node['type'];
         // A block comment reaching an inline-only slot is spelled inline: a
         // line comment there would swallow the rest of the row.
@@ -4724,7 +4864,7 @@ final class HtmlAstBuilder
 
             return [['type' => 'comment', 'content' => $content, 'delimited' => true, 'block' => false]];
         }
-        if (isset($inlineTypes[$type])) {
+        if (isset(self::INLINE_PROJECTION_TYPES[$type])) {
             return [$node];
         }
         // A code block reaching an inline-only slot becomes a code SPAN, which is
@@ -4801,6 +4941,12 @@ final class HtmlAstBuilder
         }
 
         $out = [];
+        if (is_array($node['target'] ?? null)) {
+            $out = $this->projectToInlines(self::importedNode($node['target']));
+            if ($out !== [] && self::nodeList($node['caption'] ?? null) !== []) {
+                $out[] = HtmlImportNodes::text(' ');
+            }
+        }
         // `title` leads, because it is a node's first visible text: an
         // admonition built from a `<details>` carries its `<summary>` there, and
         // walking only `children` left the summary out of the caption it reached
@@ -4811,7 +4957,7 @@ final class HtmlAstBuilder
                 if (
                     $out !== []
                     && $projected !== []
-                    && !isset($inlineTypes[$child['type']])
+                    && !isset(self::INLINE_PROJECTION_TYPES[$child['type']])
                     && !$this->inlineEndsWithSpace(self::importedNode($out[count($out) - 1]))
                     && !$this->inlineStartsWithSpace($projected[0])
                 ) {
