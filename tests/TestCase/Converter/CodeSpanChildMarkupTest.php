@@ -172,4 +172,19 @@ class CodeSpanChildMarkupTest extends TestCase
         $result = (new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true))->convertToAstWithReport('<table><tr><td><p data-djot-src="- a&#10;- b">x</p></td></tr></table>');
         $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
     }
+
+    public function testStoredInlineValuesSurviveProjectionWithoutFalseLosses(): void
+    {
+        foreach (['a \\* b', '"q"', 'a*b*c'] as $source) {
+            $html = '<table><tr><td><p data-djot-src="' . htmlspecialchars($source, ENT_QUOTES) . '">x</p></td></tr></table>';
+            $converter = new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true);
+            foreach ([$converter->convertWithReport($html), $converter->convertToAstWithReport($html)] as $result) {
+                $this->assertSame([], $result->diagnostics, $source);
+            }
+            $rendered = (new CarveConverter())->convert($converter->convert($html));
+            $expected = trim((new CarveConverter())->convert($source));
+            $expected = substr($expected, 3, -4);
+            $this->assertStringContainsString('<td>' . $expected . '</td>', $rendered, $source);
+        }
+    }
 }

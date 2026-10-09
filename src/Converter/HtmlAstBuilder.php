@@ -4769,12 +4769,25 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @var array
-     */
-    /**
      * @var array<string, bool>
      */
     private const INLINE_PROJECTION_TYPES = [
+        'abbreviation' => true,
+        'citation' => true,
+        'citation_group' => true,
+        'critic_comment' => true,
+        'escaped_text' => true,
+        'heading_ref' => true,
+        'inline_extension' => true,
+        'inline_footnote' => true,
+        'literal_inline' => true,
+        'mention' => true,
+        'non_breaking_space' => true,
+        'raw_text' => true,
+        'small_caps' => true,
+        'smart_punctuation' => true,
+        'substitution' => true,
+        'substitution_half' => true,
         'autolink' => true,
         'caption_number' => true,
         'code' => true,
