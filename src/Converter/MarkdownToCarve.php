@@ -744,6 +744,33 @@ class MarkdownToCarve
                 if (isset($quoteMarkers[$ruleKey])) {
                     $quoteMarkers[$ruleKey]->end($this->indentWidth(substr(ltrim($line), strlen($rulePrefix))));
                 }
+                // `fmt` writes a blank line ABOVE a break as well as below
+                // it, because a break is a block and the writer separates two
+                // sibling blocks with CarveRenderer::BLOCK_SEPARATOR. The
+                // import echoed the source instead, so a break written tight
+                // under its predecessor was not a writer fixed point
+                // (carve-php#2989).
+                //
+                // The separator is measured on the EMITTED lines, not the
+                // source: `>>` is written `> >`, and a separator carrying the
+                // source's own markers was read back as paragraph text. It
+                // sits at the shallower of the two containers, by the same
+                // reading as the one below.
+                $above = $result === [] ? null : (string)end($result);
+                if ($above !== null && trim($above, " \t>") !== '') {
+                    $separator = $this->containerSeparator(
+                        $this->quoteDepth($above) < $this->quoteDepth($rule) ? $above : $rule,
+                        $contentCol,
+                    );
+                    // An EMPTY separator inside a list item would make the list
+                    // loose, which `fmt` does not do: it keeps `- a` over
+                    // `  ---` tight. Inside a quote the separator carries the
+                    // quote's markers, so the item's own content is unbroken
+                    // and `fmt` writes it (`  > >`).
+                    if ($separator !== '' || $contentCol === 0) {
+                        $result[] = $separator;
+                    }
+                }
                 $breakLines[] = count($result);
                 $result[] = $rule;
                 $next = $lines[$i + 1] ?? null;
@@ -1506,8 +1533,15 @@ class MarkdownToCarve
         }
 
         $prefix = implode("\n", $frontmatter);
+        // The boundary under a frontmatter closer is the writer's own block
+        // separator, and a frontmatter-only document still ends on a newline,
+        // so the import is a `carve fmt` fixed point (carve-php#2984). Any
+        // blank the body already carries is the same boundary spelled twice.
+        $body = ltrim($carve, "\n");
 
-        return $carve === '' ? $prefix : $prefix . "\n\n" . ltrim($carve, "\n");
+        return $body === ''
+            ? $prefix . "\n"
+            : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body;
     }
 
     public function convertWithFidelityReport(string $markdown): MigrationResult

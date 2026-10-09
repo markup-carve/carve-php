@@ -100,7 +100,7 @@ class AMarkdownThematicBreakImportsAsACarveBreakTest extends TestCase
             'on an item continuation line' => ["- a\n  - - -", "- a\n  ---"],
             'in a quote' => ["> a\n>\n> * * *", "> a\n>\n> ---"],
             'abutting the quote marker' => ['>* * *', '> ---'],
-            'closing the list it dedents past' => ["- x\n- - -", "- x\n---"],
+            'closing the list it dedents past' => ["- x\n- - -", "- x\n\n---"],
         ];
     }
 

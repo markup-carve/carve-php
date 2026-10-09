@@ -35,7 +35,13 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
     {
         $carve = (new MarkdownToCarve())->convert("---yaml\na: 1\n" . $closer . "\n...\n***\nu\n");
 
-        $this->assertSame('\\-\\-\\-yaml' . "\na: 1\n" . '\\-\\-\\-' . substr($closer, 3) . "\n...\n---\n\nu\n", $carve);
+        // `fmt` writes a blank line above a break (carve-php#2989), and the
+        // rejected closer leaves the whole block one paragraph, so the break
+        // below it takes that separator.
+        $this->assertSame(
+            '\\-\\-\\-yaml' . "\na: 1\n" . '\\-\\-\\-' . substr($closer, 3) . "\n...\n\n---\n\nu\n",
+            $carve,
+        );
         $this->assertSame(
             "<p>---yaml\na: 1\n" . $rendered . "\n\u{2026}</p>\n<hr>\n<p>u</p>\n",
             CarveConverter::create()->convert($carve),
@@ -46,7 +52,7 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
     {
         $carve = (new MarkdownToCarve())->convert("---yaml\na: 1\n--- \t\n...\n***\nu\n");
 
-        $this->assertSame("---yaml\na: 1\n--- \t\n\n...\n---\n\nu\n", $carve);
+        $this->assertSame("---yaml\na: 1\n--- \t\n\n...\n\n---\n\nu\n", $carve);
         $this->assertSame("<p>\u{2026}</p>\n<hr>\n<p>u</p>\n", CarveConverter::create()->convert($carve));
     }
 
