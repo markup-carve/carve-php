@@ -499,6 +499,11 @@ final class HtmlAstBuilder
             if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
                 continue;
             }
+            for ($ancestor = $anchor->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre'], true)) {
+                    continue 2;
+                }
+            }
             $href = $anchor->getAttribute('href');
             if (str_starts_with($href, '#') && strlen($href) > 1) {
                 $this->session->footnoteTargets[substr($href, 1)] = true;
@@ -3764,7 +3769,7 @@ final class HtmlAstBuilder
 
                 return [['type' => 'code', 'value' => '']];
             }
-            if ($this->session->pipeCellDepth > 0 && strpbrk($value, "\r\n") !== false) {
+            if ($this->sourceSafe && $this->session->pipeCellDepth > 0 && strpbrk($value, "\r\n") !== false) {
                 $this->session->foldedCodeSpans[$node] = null;
                 $value = str_replace(["\r\n", "\r", "\n"], ' ', $value);
             }
@@ -4333,6 +4338,9 @@ final class HtmlAstBuilder
         );
         $tree = (new AstCodec())->encode(CarveConverter::create()->parse($source));
         $children = self::nodeList($tree['children']);
+        if ($this->sourceSafe && $this->session->pipeCellDepth > 0 && $this->foldStoredPipeCodes($children)) {
+            $this->session->foldedStoredCodeSpans[$node] = null;
+        }
 
         if (
             isset($children[0])
@@ -4347,6 +4355,32 @@ final class HtmlAstBuilder
         }
 
         return $children;
+    }
+
+    /**
+     * @param list<ImportedNode> $nodes
+     */
+    private function foldStoredPipeCodes(array &$nodes): bool
+    {
+        $folded = false;
+        foreach ($nodes as &$node) {
+            if ($node['type'] === 'code' && is_string($node['value'] ?? null) && strpbrk($node['value'], "\r\n") !== false) {
+                $node['value'] = str_replace(["\r\n", "\r", "\n"], ' ', $node['value']);
+                $folded = true;
+            }
+            foreach (['children', 'items', 'rows', 'cells', 'caption', 'title', 'old', 'new', 'inline'] as $slot) {
+                if (!is_array($node[$slot] ?? null)) {
+                    continue;
+                }
+                $children = self::nodeList($node[$slot]);
+                if ($this->foldStoredPipeCodes($children)) {
+                    $node[$slot] = $children;
+                    $folded = true;
+                }
+            }
+        }
+
+        return $folded;
     }
 
     private function isSupportedInlineTag(string $tag): bool

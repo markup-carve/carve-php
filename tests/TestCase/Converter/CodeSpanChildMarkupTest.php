@@ -76,6 +76,7 @@ class CodeSpanChildMarkupTest extends TestCase
         $this->assertMatchesRegularExpression('/x\n[ \t]*y/', $result->value);
         $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'line break in <code>')));
     }
+
     public function testAnActiveOnlyCodeSpanReportsItsEmptySpanRefusal(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<p><code><script>x</script></code>tail</p>');
@@ -83,4 +84,29 @@ class CodeSpanChildMarkupTest extends TestCase
         $this->assertSame(['structure-unspellable', 'element-dropped'], array_column($result->diagnostics, 'code'));
     }
 
+    public function testStoredSourceCodeLinesAreFoldedAndReportedInPipeCells(): void
+    {
+        foreach (['`a&#10;b`', '*`a&#10;b`*'] as $source) {
+            $result = (new HtmlToCarve(trustedRoundTrip: true))->convertWithReport('<table><tr><td><p data-djot-src="' . $source . '">shown</p></td></tr></table>');
+            $this->assertStringContainsString('<td>', (new CarveConverter())->convert($result->value));
+            $this->assertSame($result->value, CarveConverter::toCarve($result->value));
+            $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
+        }
+    }
+
+    public function testAstTableCodePreservesItsLineBreaks(): void
+    {
+        $result = (new HtmlToCarve())->convertToAstWithReport('<table><tr><td><code>x' . "\n" . 'y</code></td></tr></table>');
+        $this->assertSame([], $result->diagnostics);
+        $this->assertStringContainsString('"value":"x\ny"', json_encode($result->value, JSON_THROW_ON_ERROR));
+    }
+
+    public function testFootnoteLookingCodeTextDoesNotConsumeAnEndnote(): void
+    {
+        $html = '<p><code>x<sup><a href="#fn1" role="doc-noteref">1</a></sup></code></p><section role="doc-endnotes"><ol><li id="fn1"><p>note</p></li></ol></section>';
+        $result = (new HtmlToCarve())->convertWithReport($html);
+        $rendered = (new CarveConverter())->convert($result->value);
+        $this->assertStringContainsString('<code>x1</code>', $rendered);
+        $this->assertStringContainsString('note', $rendered);
+    }
 }

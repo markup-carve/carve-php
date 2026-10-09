@@ -443,6 +443,7 @@ class HtmlToCarve
         $this->flattenedImportSummaryBlocks = null;
         $this->foldedImportCodeSpans = null;
         $this->storedSourceImportElements = null;
+        $this->foldedStoredImportCodeSpans = null;
         $this->retainedListTypes = null;
         $this->entrylessImportDefinitionLists = [];
         $this->displacedImportFigureAttributes = [];
@@ -464,6 +465,7 @@ class HtmlToCarve
         $this->flattenedImportSummaryBlocks = $session->flattenedSummaryBlocks;
         $this->foldedImportCodeSpans = $session->foldedCodeSpans;
         $this->storedSourceImportElements = $session->storedSourceElements;
+        $this->foldedStoredImportCodeSpans = $session->foldedStoredCodeSpans;
         $this->displacedImportFigureAttributes = $session->displacedFigureAttributes;
     }
 
@@ -731,6 +733,10 @@ class HtmlToCarve
             return;
         }
         if ($this->storedSourceImportElements !== null && isset($this->storedSourceImportElements[$node])) {
+            if ($this->foldedStoredImportCodeSpans !== null && isset($this->foldedStoredImportCodeSpans[$node])) {
+                $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in stored code inside a table cell: a table row is one line', 'warning', $path);
+            }
+
             return;
         }
         $tag = strtolower(HtmlDomLoader::elementName($node));
@@ -1082,10 +1088,6 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'code' && $this->foldedImportCodeSpans !== null && isset($this->foldedImportCodeSpans[$node])) {
-            $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in <code> inside a table cell: a table row is one line', 'warning', $path);
-        }
-
         if ($tag === 'code' && $this->emptyCodeSpanIsDropped($node)) {
             $this->addImportDiagnostic(
                 $diagnostics,
@@ -1105,6 +1107,10 @@ class HtmlToCarve
                 'warning',
                 $path,
             );
+        }
+
+        if ($tag === 'code' && $this->foldedImportCodeSpans !== null && isset($this->foldedImportCodeSpans[$node])) {
+            $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in <code> inside a table cell: a table row is one line', 'warning', $path);
         }
 
         return false;
@@ -1506,7 +1512,7 @@ class HtmlToCarve
                     }
                     // A block bounds the run on BOTH sides, so text after it is
                     // a side of its own too.
-                    $block = in_array(strtolower(HtmlDomLoader::elementName($child)), $this->blockElements, true);
+                    $block = in_array(strtolower(HtmlDomLoader::elementName($child)), $this->blockElements, true) || in_array(strtolower(HtmlDomLoader::elementName($child)), ['dt', 'dd', 'td', 'th', 'tr', 'caption', 'figcaption'], true);
                     if ($block) {
                         $runs[] = '';
                     }
@@ -1519,7 +1525,7 @@ class HtmlToCarve
         };
         $walk($node);
 
-        return count(array_filter($runs, static fn (string $run): bool => $run !== '')) >= 2;
+        return count(array_filter($runs, static fn (string $run): bool => preg_match('/[^ \t\r\n\f]/', $run) === 1)) >= 2;
     }
 
     private function directAstUnwraps(DOMElement $node): bool
@@ -5005,6 +5011,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $storedSourceImportElements = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $foldedStoredImportCodeSpans = null;
 
     /**
      * Paths of the `<dl>` elements left with no entry to write.

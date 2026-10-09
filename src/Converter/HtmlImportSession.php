@@ -112,6 +112,11 @@ final class HtmlImportSession
      */
     public SplObjectStorage $storedSourceElements;
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $foldedStoredCodeSpans;
+
     public ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -179,5 +184,6 @@ final class HtmlImportSession
         $this->tableBlockCells = new SplObjectStorage();
         $this->foldedCodeSpans = new SplObjectStorage();
         $this->storedSourceElements = new SplObjectStorage();
+        $this->foldedStoredCodeSpans = new SplObjectStorage();
     }
 }
