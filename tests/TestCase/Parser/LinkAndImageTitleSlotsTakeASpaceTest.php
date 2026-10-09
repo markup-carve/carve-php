@@ -205,7 +205,7 @@ class LinkAndImageTitleSlotsTakeASpaceTest extends TestCase
     public function testALineBreakDoesNotFillTheTitleSlot(): void
     {
         $this->assertSame(
-            "<p>[t](/u\n\u{201D}T\u{201D})</p>\n",
+            "<p>[t](/u\n\u{201C}T\u{201D})</p>\n",
             $this->html("[t](/u\n\"T\")"),
         );
     }

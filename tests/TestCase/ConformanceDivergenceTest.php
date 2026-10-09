@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use function trim;
 
@@ -167,19 +168,34 @@ class ConformanceDivergenceTest extends TestCase
     }
 
     /**
-     * SQ: a straight quote right after a line break (soft OR hard) is
-     * word-adjacent, so it stays CLOSING. This matches the corpus-pinned
-     * smart-typography case (`a"b\n""` -> `a”b\n””`) and the carve-js oracle,
-     * which keys quote context off the output buffer and sees a flushed buffer
-     * with prior output as word context. (carve-rs diverges here and opens the
-     * quote after a break; the corpus follows carve-js.)
+     * SQ: a soft or hard line break counts as whitespace, so a quote that
+     * starts a line opens (markup-carve/carve#2822).
+     *
+     * @return array<string, array{string, string}>
      */
-    public function testSmartQuoteClosesAfterHardBreak(): void
+    public static function quoteAfterLineBreak(): array
     {
-        $this->assertSame(
-            "<p>a<br>\n\u{201D}b\u{201D}</p>",
-            trim($this->converter->convert("a\\\n\"b\"\n")),
-        );
+        return [
+            'soft break, double' => ["a\n\"b\"\n", "<p>a\n\u{201C}b\u{201D}</p>"],
+            'soft break, single' => ["a\n'b'\n", "<p>a\n\u{2018}b\u{2019}</p>"],
+            'hard break' => ["a\\\n\"b\"\n", "<p>a<br>\n\u{201C}b\u{201D}</p>"],
+            'block quote line' => [
+                "> a\n> \"no\"\n",
+                "<blockquote><p>a\n\u{201C}no\u{201D}</p></blockquote>",
+            ],
+            'list continuation line' => [
+                "- a\n  \"no\"\n",
+                "<ul>\n  <li>a\n\u{201C}no\u{201D}</li>\n</ul>",
+            ],
+            'two quotes after a break' => ["a\n\"\"\n", "<p>a\n\u{201C}\u{201C}</p>"],
+            'decade apostrophe stays' => ["a\n'90s\n", "<p>a\n\u{2019}90s</p>"],
+        ];
+    }
+
+    #[DataProvider('quoteAfterLineBreak')]
+    public function testSmartQuoteOpensAfterALineBreak(string $source, string $expected): void
+    {
+        $this->assertSame($expected, trim($this->converter->convert($source)));
     }
 
     /**
