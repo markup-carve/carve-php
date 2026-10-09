@@ -41,7 +41,7 @@ class BareDotOrderedMarkerTest extends TestCase
     public function testDifferentOrderedDelimiterStartsSiblingList(): void
     {
         $this->assertSame(
-            "<ol>\n  <li>a</li>\n</ol>\n<ol>\n  <li>b</li>\n</ol>\n",
+            "<ol>\n  <li>a</li>\n</ol>\n<ol data-delim=\")\">\n  <li>b</li>\n</ol>\n",
             $this->html(". a\n1) b\n"),
         );
         $this->assertCount(2, (new CarveConverter())->parse(". a\n1) b\n")->getChildren());
