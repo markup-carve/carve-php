@@ -834,6 +834,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected string $thematicBreakMarker = '---';
 
     /**
+     * The spelling a break takes when `---` at byte 0 would be read as a
+     * frontmatter opener.
+     *
+     * PART 11 section 1a respells EVERY break in the document, which is the
+     * smallest departure that keeps section 1's
+     * `to_html(fmt(x)) == to_html(x)`. The Markdown importer reads this too, so
+     * import output and `fmt` cannot disagree on the spelling
+     * (carve-php#2977).
+     *
+     * @var string
+     */
+    public const FRONTMATTER_SAFE_BREAK_MARKER = '***';
+
+    /**
      * Render, and fall back to a break spelling that cannot be read as
      * frontmatter when the finished bytes would be.
      */
@@ -851,7 +865,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $previousMarker = $this->thematicBreakMarker;
-        $this->thematicBreakMarker = '***';
+        $this->thematicBreakMarker = self::FRONTMATTER_SAFE_BREAK_MARKER;
         try {
             $fallback = $this->renderOnePass($document, $escapeMode);
 
@@ -865,9 +879,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * Whether the AST itself carries frontmatter, which the writer emits as
      * frontmatter rather than manufacturing.
      */
-    protected function documentOpensFrontmatter(Document $document): bool
+    public static function documentOpensFrontmatter(Document $document): bool
     {
         return ($document->getChildren()[0] ?? null) instanceof Frontmatter;
+    }
+
+    protected function opensFrontmatter(string $text): bool
+    {
+        return self::textOpensFrontmatter($text);
     }
 
     /**
@@ -882,8 +901,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * with N larger than anyone claimed - so the bytes are parsed instead, by
      * the same default converter escapingIsRedundant() already trusts to
      * decide the escape mode.
+     *
+     * Static, because the Markdown importer meets the same hazard on bytes it
+     * assembled line by line and has to answer it the way the writer does or
+     * its output is not canonical.
      */
-    protected function opensFrontmatter(string $text): bool
+    public static function textOpensFrontmatter(string $text): bool
     {
         // Frontmatter is document-leading, so nothing that does not start with
         // the fence can open one. The gate keeps a whole parse off the path
@@ -892,7 +915,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return false;
         }
 
-        return $this->documentOpensFrontmatter((new CarveConverter())->parse($text));
+        return self::documentOpensFrontmatter((new CarveConverter())->parse($text));
     }
 
     protected function renderOnePass(Document $document, string $escapeMode): string
