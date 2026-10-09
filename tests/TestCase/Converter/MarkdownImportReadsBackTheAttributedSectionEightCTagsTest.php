@@ -101,17 +101,32 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
     }
 
     /**
-     * §8c makes `<del>` the fallback spelling for `strike` as well as the shape
-     * a critic delete is written in, so reading `<del>` back as either one is a
-     * semantic ruling and not an implementation detail. These pin the behavior
-     * still in place so the ruling has a visible place to land
-     * (markup-carve/carve#2838).
+     * §8c spells a deletion `<del class="critic-delete">` and leaves a bare
+     * `<del>` meaning `strike`, so the two stop colliding on one tag
+     * (markup-carve/carve#2845).
      */
-    public function testCriticDeleteAndSubstitutionStillComeBackAsStrike(): void
+    public function testADeletionAndASubstitutionRoundTrip(): void
     {
-        $this->assertSame("delete ~del~ here\n", $this->round("delete {-del-} here\n"));
-        $this->assertSame("substitute ~old~{+new+} here\n", $this->round("substitute {~old~>new~} here\n"));
-        $this->assertSame($this->markdown("{~ ~}\n"), $this->markdown("{- -}\n"));
+        $this->assertSame("delete <del class=\"critic-delete\">del</del> here\n", $this->markdown("delete {-del-} here\n"));
+        $this->assertSame("delete {-del-} here\n", $this->round("delete {-del-} here\n"));
+        $this->assertSame(
+            "substitute <del class=\"critic-delete\">old</del><ins>new</ins> here\n",
+            $this->markdown("substitute {~old~>new~} here\n"),
+        );
+        $this->assertSame("substitute {~old~>new~} here\n", $this->round("substitute {~old~>new~} here\n"));
+    }
+
+    /**
+     * The control the ruling turns on: §8c's own worked example is a `strike`
+     * written as a bare `<del>`, and a bare `<del>` must keep reading back as
+     * a `strike` rather than as the deletion (markup-carve/carve#2845).
+     */
+    public function testABareDelIsStillAStrike(): void
+    {
+        $this->assertSame("f <del> </del> g\n", $this->markdown("f {~ ~} g\n"));
+        $this->assertSame("f ~ ~ g\n", $this->carve("f <del> </del> g\n"));
+        $this->assertSame("a ~x~ b\n", $this->carve("a <del>x</del> b\n"));
+        $this->assertStringContainsString('<s>x</s>', $this->html($this->carve("a <del>x</del> b\n")));
     }
 
     /**
@@ -124,6 +139,8 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
             'subscript' => ["subscript {,s,} here\n"],
             'superscript' => ["superscript {^s^} here\n"],
             'a critic insert' => ["insert {+ins+} here\n"],
+            'a deletion' => ["delete {-del-} here\n"],
+            'a substitution' => ["substitute {~old~>new~} here\n"],
             'strike' => ["strike ~str~ here\n"],
         ];
     }

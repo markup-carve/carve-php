@@ -423,7 +423,7 @@ class MarkdownRendererTest extends TestCase
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertSame("Text <del>deleted</del> here\n", $result);
+        $this->assertSame("Text <del class=\"critic-delete\">deleted</del> here\n", $result);
     }
 
     public function testSubstitutionUsesDelAndInsTags(): void
@@ -432,7 +432,7 @@ class MarkdownRendererTest extends TestCase
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertSame("Text <del>a</del><ins>b</ins> here\n", $result);
+        $this->assertSame("Text <del class=\"critic-delete\">a</del><ins>b</ins> here\n", $result);
     }
 
     public function testSubstitutionEmitsControlCharacters(): void
@@ -443,7 +443,7 @@ class MarkdownRendererTest extends TestCase
         $document = $this->converter->parse($djot);
         $result = $this->renderer->render($document);
 
-        $this->assertSame("Text <del>a\x1bx</del><ins>b\x1by</ins> here\n", $result);
+        $this->assertSame("Text <del class=\"critic-delete\">a\x1bx</del><ins>b\x1by</ins> here\n", $result);
     }
 
     public function testInsert(): void

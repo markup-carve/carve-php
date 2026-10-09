@@ -3627,13 +3627,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDelete(Delete $node): string
     {
-        // Markdown has no native critic deletion distinct from strikethrough.
-        return '<del>' . $this->renderChildren($node) . '</del>';
+        // PART 11 §8c: the class is what tells a deletion from the bare `<del>`
+        // a `strike` falls back to, which otherwise reads back as a strike.
+        return '<del class="critic-delete">' . $this->renderChildren($node) . '</del>';
     }
 
     protected function renderSubstitution(Substitution $node): string
     {
-        return '<del>' . $this->renderChildren($node->getOld()) . '</del>'
+        return '<del class="critic-delete">' . $this->renderChildren($node->getOld()) . '</del>'
             . '<ins>' . $this->renderChildren($node->getNew()) . '</ins>';
     }
 
