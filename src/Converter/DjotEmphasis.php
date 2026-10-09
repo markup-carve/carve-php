@@ -154,12 +154,12 @@ final class DjotEmphasis
             if ($mask[$i] !== $ch) {
                 continue;
             }
-            if ($ch === '{' && isset($validBraces[$i])) {
+            if ($ch === '{' && isset($validBraces[$i]) && !str_contains('_*', $source[$i + 1] ?? '?')) {
                 $braces[] = $i;
 
                 continue;
             }
-            if ($ch === '}' && $braces !== [] && $source[$i - 1] === $source[$braces[array_key_last($braces)] + 1]) {
+            if ($ch === '}' && $i - 1 !== $lastEscaped && $braces !== [] && $source[$i - 1] === $source[$braces[array_key_last($braces)] + 1]) {
                 $clear(array_pop($braces));
 
                 continue;
