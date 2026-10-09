@@ -9,11 +9,13 @@ use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\Highlight;
+use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Insert;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Strike;
 use MarkupCarve\Carve\Node\Inline\Strong;
@@ -21,7 +23,9 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 
 /**
  * Plans escapes for structural sigils and paired brackets.
@@ -95,9 +99,11 @@ final class StructuralEscapePlanner
                 $opener = array_pop($open);
                 $paired[$opener] = true;
                 $paired[$i] = true;
-                $closers[$at] = $opener;
+                if (!isset($this->state->fixedBracketSites[$marks[$i][1]][$marks[$i][2]]) && !isset($this->state->fixedBracketSites[$marks[$opener][1]][$marks[$opener][2]])) {
+                    $closers[$at] = $opener;
+                }
                 // Brackets across formatting boundaries must not isolate a delimiter.
-                if ($marks[$opener][4] !== $marks[$i][4]) {
+                if ($marks[$opener][4] !== $marks[$i][4] && !isset($this->state->fixedBracketSites[$marks[$opener][1]][$marks[$opener][2]])) {
                     $this->state->structuralEscapes[$marks[$opener][1]][$marks[$opener][2]] = true;
                 }
                 if ($bracketed) {
@@ -121,7 +127,9 @@ final class StructuralEscapePlanner
             } elseif (!$bracketed || isset($paired[$i])) {
                 continue;
             }
-            $this->state->structuralEscapes[$id][$offset] = true;
+            if (!isset($this->state->fixedBracketSites[$id][$offset])) {
+                $this->state->structuralEscapes[$id][$offset] = true;
+            }
         }
     }
 
@@ -158,10 +166,9 @@ final class StructuralEscapePlanner
      * brackets and read a destination, and where its brackets and parens sit.
      *
      * A construct writing its own brackets is planned as a run of its own, one
-     * that writes none lends its text to this run, and verbatim content and
-     * every other node take no part. Each stands in as a space, which ends a
-     * destination, so the approximation can miss an escape but never invent
-     * one. An inline extension's reader stops at the first `]` without
+     * that writes none lends its text to this run. Raw references lend their
+     * emitted brackets without allowing escapes inside the reference. Other
+     * verbatim nodes stand in as a space, which ends a destination. An inline extension's reader stops at the first `]` without
      * pairing, so its content gets the paren rule only.
      *
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
@@ -192,20 +199,41 @@ final class StructuralEscapePlanner
      */
     public function collectBracketMarksWithScope(array $nodes, string &$flat, array &$marks, array &$literalOpeners, array &$literalHosts): bool
     {
+        $complete = true;
         foreach ($nodes as $node) {
             // An empty code span is written as a bare backtick run, which can
             // swallow what follows it, so the scan ends there.
             if ($node instanceof Code && $node->getContent() === '') {
                 return false;
             }
-            if ($node instanceof Text) {
-                $content = str_replace("\r", '', $node->getContent());
+            $rawReference = ($node instanceof Mention || ($node instanceof Link && $node->isAutolink())) ? null : UnresolvedReference::sourceOf($node);
+            if ($rawReference === null && !$node instanceof Mention && ($node instanceof Image || ($node instanceof Link && !$node->isAutolink()))) {
+                $referenceLabel = $node->getReferenceLabel();
+                if (($referenceLabel !== null && $referenceLabel !== '') || ($node instanceof Link && $node->isFromHeadingReference())) {
+                    $rawReference = $node->getRawReferenceLabel();
+                }
+            }
+            if ($node instanceof Text || $rawReference !== null) {
+                $content = $rawReference ?? str_replace("\r", '', $node->getContent());
                 if (strpbrk($content, '[](') !== false) {
                     $id = spl_object_id($node);
                     $host = spl_object_id($node->getParent() ?? $node);
-                    $reference = self::literalReferenceOpener($content);
+                    $reference = $rawReference === null ? self::literalReferenceOpener($content) : null;
+                    $structural = $rawReference !== null ? BracketScanner::structuralBracketOffsets($content) : null;
+                    if ($rawReference !== null && $structural === null) {
+                        $complete = false;
+                        $flat .= ' ';
+
+                        continue;
+                    }
                     preg_match_all('/[\[\](]/', $content, $found, PREG_OFFSET_CAPTURE);
                     foreach ($found[0] as [$char, $offset]) {
+                        if ($structural !== null) {
+                            if (!isset($structural[$offset])) {
+                                continue;
+                            }
+                            $this->state->fixedBracketSites[$id][$offset] = true;
+                        }
                         if ($offset === $reference) {
                             $sameHost = $literalHosts[$host] ?? [];
                             unset($literalHosts[$host]);
@@ -213,7 +241,9 @@ final class StructuralEscapePlanner
                             foreach ($literalHosts as $openers) {
                                 foreach ($openers as $index => $_) {
                                     [, $markId, $markOffset] = $marks[$index];
-                                    $this->state->structuralEscapes[$markId][$markOffset] = true;
+                                    if (!isset($this->state->fixedBracketSites[$markId][$markOffset])) {
+                                        $this->state->structuralEscapes[$markId][$markOffset] = true;
+                                    }
                                 }
                             }
                             $literalHosts = $sameHost === [] ? [] : [$host => $sameHost];
@@ -262,16 +292,14 @@ final class StructuralEscapePlanner
             ) {
                 // Their delimiters are written, and none is a space or a paren.
                 $flat .= "\x01";
-                if (!$this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts)) {
-                    return false;
-                }
+                $complete = $this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts) && $complete;
                 $flat .= "\x01";
             } else {
                 $flat .= ' ';
             }
         }
 
-        return true;
+        return $complete;
     }
 
     /**
