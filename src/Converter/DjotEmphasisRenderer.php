@@ -89,7 +89,6 @@ final class DjotEmphasisRenderer
             }
             if (
                 $at === $prefixEnd && !($attrs['single'] ?? true) && $attrs['end'] <= $lineEnd
-                && trim(substr($source, $attrs['end'], $lineEnd - $attrs['end'])) === ''
             ) {
                 $this->attributeComments[$at] = '{%%}';
             }
