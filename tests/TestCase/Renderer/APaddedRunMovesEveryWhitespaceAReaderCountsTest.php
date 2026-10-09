@@ -141,16 +141,15 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
      * A hard break is a BACKSLASH then a newline. The newline is in the class,
      * so moving it alone left the backslash against the closing delimiter and
      * escaped it - `x **a\\**` came back as `x *<em>a*</em>`, break gone and
-     * emphasis invented. The backslash travels with its newline. The space
-     * that lands at the start of the next line is not written (PART 11 §10m).
+     * emphasis invented. The HTML wrapper keeps the break inside the emphasis.
      *
      * @return iterable<string, array{string, string}>
      */
     public static function hardBreakAtTheEndOfARun(): iterable
     {
-        yield 'a strong run' => ["x {*a\\\n*} y\n", "x **a**\\\ny\n"];
-        yield 'an em run' => ["x {/a\\\n/} y\n", "x *a*\\\ny\n"];
-        yield 'a strike run' => ["x {~a\\\n~} y\n", "x ~~a~~\\\ny\n"];
+        yield 'a strong run' => ["x {*a\\\n*} y\n", "x <strong>a\\\n</strong> y\n"];
+        yield 'an em run' => ["x {/a\\\n/} y\n", "x <em>a\\\n</em> y\n"];
+        yield 'a strike run' => ["x {~a\\\n~} y\n", "x <del>a\\\n</del> y\n"];
     }
 
     /**
@@ -209,6 +208,7 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
     public function testNothingInsideAPairBeginsOrEndsWithWhitespace(string $source, string $expected): void
     {
         $markdown = $this->markdown($source);
+        self::assertSame($expected, $markdown);
 
         $pairs = [
             '/\*\*(.*?)\*\*/su',

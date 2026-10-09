@@ -2129,8 +2129,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * Take a rendered part back apart into the pieces padOutside() built it
      * from, or null when it is not a delimiter run at all - an empty render, the
      * inline-HTML form padOutside() falls back to for whitespace-only content,
-     * or a run whose content ends in the backslash of a hard break, which
-     * padOutside() moved out with the newline it belongs to.
+     * or a run whose final hard break is kept inside an HTML wrapper.
      *
      * @return array{string, string, string}|null
      */
@@ -3368,13 +3367,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $trail = $this->flankingRunAtEnd($rest);
         $core = substr($rest, 0, strlen($rest) - strlen($trail));
 
-        // A hard break is a BACKSLASH then a newline. Moving the newline alone
-        // would leave the backslash against the closing delimiter, escaping it
-        // (`**a\**` reads back as a literal asterisk and a stray `<em>`), so
-        // the backslash travels with the newline it belongs to.
+        // Keep a final hard break inside the HTML wrapper. CommonMark does
+        // not recognize a hard break at the end of a paragraph.
         if ($trail !== '' && $trail[0] === "\n" && $this->endsInAnEscapingBackslash($core)) {
-            $trail = '\\' . $trail;
-            $core = substr($core, 0, -1);
+            return str_contains($lead, "\n")
+                ? $lead . $openTag . $core . $trail . $closeTag
+                : $openTag . $inner . $closeTag;
         }
 
         if ($core === '') {
