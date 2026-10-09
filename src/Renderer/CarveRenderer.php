@@ -77,6 +77,7 @@ use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
@@ -3027,6 +3028,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         if ($this->inlineDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
+        }
+        if ($this->inlineDepth >= InlineParser::MAX_INLINE_DEPTH && count($nodes) === 1 && $nodes[0] instanceof Text) {
+            return $nodes[0]->getContent();
         }
         $this->inlineDepth++;
         try {

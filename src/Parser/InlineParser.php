@@ -657,7 +657,7 @@ class InlineParser
      *
      * @var int
      */
-    protected const MAX_INLINE_DEPTH = 100;
+    public const MAX_INLINE_DEPTH = 100;
 
     /**
      * @var string
