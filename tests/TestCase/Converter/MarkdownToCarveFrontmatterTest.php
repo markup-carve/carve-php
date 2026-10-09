@@ -74,7 +74,9 @@ class MarkdownToCarveFrontmatterTest extends TestCase
 
     public function testHandlesAFrontmatterOnlyDocument(): void
     {
-        $this->assertSame("---yaml\ntitle: X\n---", $this->convert("---\ntitle: X\n---"));
+        // `fmt` ends the document on a newline, so the import does too
+        // (carve-php#2984).
+        $this->assertSame("---yaml\ntitle: X\n---\n", $this->convert("---\ntitle: X\n---"));
     }
 
     public function testAnUnclosedLeadingFenceStaysAThematicBreak(): void

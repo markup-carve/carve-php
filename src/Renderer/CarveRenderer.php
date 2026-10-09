@@ -834,6 +834,20 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected string $thematicBreakMarker = '---';
 
     /**
+     * The separator the writer writes between two sibling blocks: exactly one
+     * blank line.
+     *
+     * The Markdown importer joins its frontmatter prefix to the body with this
+     * too, so import output and `fmt` cannot disagree about that boundary
+     * (carve-php#2984). Frontmatter is a block the writer renders through
+     * renderBlocks(), so the boundary below its closer is this separator and
+     * nothing more specific.
+     *
+     * @var string
+     */
+    public const BLOCK_SEPARATOR = "\n\n";
+
+    /**
      * The spelling a break takes when `---` at byte 0 would be read as a
      * frontmatter opener.
      *
@@ -1037,7 +1051,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $parts[] = implode("\n\n", $residual);
         }
 
-        return $this->normalize(implode("\n\n", $parts));
+        return $this->normalize(implode(self::BLOCK_SEPARATOR, $parts));
     }
 
     /**
@@ -1208,7 +1222,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $previousBlock = $block;
             }
 
-            return implode("\n\n", $parts);
+            return implode(self::BLOCK_SEPARATOR, $parts);
         } finally {
             $this->blockDepth--;
             $this->afterCaptionHost = $previousCaptionHost;

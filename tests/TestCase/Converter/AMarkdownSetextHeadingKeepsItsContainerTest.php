@@ -58,14 +58,17 @@ class AMarkdownSetextHeadingKeepsItsContainerTest extends TestCase
 
     /**
      * A delimiter row under a quoted line makes the two a table, so the rule
-     * under them is no underline. The imported header keeps that table.
+     * under them is no underline. The imported header keeps that table, with
+     * the quote's own separator between it and the rule - `fmt` writes that
+     * line too, and the rendered table and rule are the same either way
+     * (carve-php#2989).
      */
     public function testAQuotedTableHeaderIsNotFoldedIntoAHeading(): void
     {
-        $this->assertSame(
-            "> |= foo |= bar |\n> ---\n",
-            (new MarkdownToCarve())->convert("> foo | bar\n> --- | ---\n> ---\n"),
-        );
+        $imported = (new MarkdownToCarve())->convert("> foo | bar\n> --- | ---\n> ---\n");
+
+        $this->assertSame("> |= foo |= bar |\n>\n> ---\n", $imported);
+        $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 
     /**
