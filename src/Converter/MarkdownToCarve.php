@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
+use MarkupCarve\Carve\Util\CarrierMarkers;
 use RuntimeException;
 use Throwable;
 
@@ -284,11 +285,257 @@ class MarkdownToCarve
     }
 
     /**
+     * The carrier payloads this conversion lifted out of the source, in the
+     * order their marker lines appeared.
+     *
+     * @var list<array{payload: string, closer: bool}>
+     */
+    protected array $carrierSlots = [];
+
+    /**
+     * Whether the source carried a damaged marker set. The conversion then
+     * reads the file as ordinary Markdown, comments and all (PART 11 §10s).
+     */
+    protected bool $carrierDamaged = false;
+
+    /**
+     * The placeholder a lifted marker line stands in as, unique in the source.
+     */
+    protected string $carrierToken = '';
+
+    /**
+     * Whether the source carried a damaged carrier marker set.
+     */
+    public function hadDamagedCarrierMarkers(): bool
+    {
+        return $this->carrierDamaged;
+    }
+
+    /**
+     * Lift every carrier marker line out of the source, leaving a placeholder.
+     *
+     * A set that does not balance is NEVER reconstructed: the source comes back
+     * untouched, the markers import as the raw HTML they are, and the caller
+     * reports one `carrier-markers-damaged` row.
+     */
+    protected function prepareCarrierMarkers(string $markdown): string
+    {
+        $this->carrierSlots = [];
+        $this->carrierDamaged = false;
+        $this->carrierToken = '';
+        if (!str_contains($markdown, CarrierMarkers::PREFIX)) {
+            return $markdown;
+        }
+
+        $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
+        $payloads = [];
+        $seen = false;
+        foreach ($lines as $at => $line) {
+            $payload = CarrierMarkers::payload($line);
+            if ($payload !== null) {
+                $payloads[$at] = $payload;
+                $seen = true;
+            }
+        }
+        if (!$seen) {
+            return $markdown;
+        }
+        if (!$this->carrierSetBalances($payloads)) {
+            $this->carrierDamaged = true;
+
+            return $markdown;
+        }
+
+        $token = 'CARVECARRIER';
+        while (str_contains($markdown, $token)) {
+            $token .= 'X';
+        }
+        $this->carrierToken = $token;
+
+        $out = [];
+        $drop = 0;
+        $skipBlank = false;
+        foreach ($lines as $at => $line) {
+            if (!isset($payloads[$at])) {
+                if ($drop > 0 && preg_match('/^\*\*.+\*\*$/D', $line) === 1) {
+                    $drop--;
+                    $skipBlank = true;
+
+                    continue;
+                }
+                if ($skipBlank && $line === '') {
+                    $skipBlank = false;
+
+                    continue;
+                }
+                $skipBlank = false;
+                $out[] = $line;
+
+                continue;
+            }
+            $payload = $payloads[$at];
+            $closer = CarrierMarkers::isCloser($payload);
+            $out[] = $token . count($this->carrierSlots) . 'Z';
+            $this->carrierSlots[] = ['payload' => $payload, 'closer' => $closer];
+            // The writer emitted the opener's title and label as bold lines of
+            // their own; the payload carries them now, so the fallback would be
+            // the same text twice.
+            $drop = $closer ? 0 : $this->carrierFallbackLines($payload);
+        }
+
+        return implode("\n", $out);
+    }
+
+    /**
+     * How many bold fallback lines the Markdown target wrote for an opener's
+     * own metadata: one for a quoted title, one for a `[label]`.
+     */
+    protected function carrierFallbackLines(string $payload): int
+    {
+        $width = CarrierMarkers::fenceWidth($payload);
+        if ($width === 0) {
+            return 0;
+        }
+        $rest = substr($payload, $width);
+        $lines = 0;
+        if (preg_match('/[ \t]?\[.*\]$/D', $rest, $label) === 1) {
+            $lines++;
+            $rest = substr($rest, 0, -strlen($label[0]));
+        }
+        if (preg_match('/[ \t]"[^"]*"$/D', $rest) === 1) {
+            $lines++;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * Whether a marker set records a structure at all: every opener closed by a
+     * bare fence of its own width, every attribute line against an opener, and
+     * nothing left open.
+     *
+     * @param array<int, string> $payloads
+     */
+    protected function carrierSetBalances(array $payloads): bool
+    {
+        $open = [];
+        $prelude = false;
+        foreach ($payloads as $payload) {
+            $width = CarrierMarkers::fenceWidth($payload);
+            if ($width === 0) {
+                // An attribute line belongs to the opener on the next marker.
+                $prelude = true;
+
+                continue;
+            }
+            if (CarrierMarkers::isCloser($payload)) {
+                if ($prelude || $open === [] || array_pop($open) !== $width) {
+                    return false;
+                }
+
+                continue;
+            }
+            $prelude = false;
+            if ($open !== [] && $width <= $open[count($open) - 1]) {
+                return false;
+            }
+            $open[] = $width;
+        }
+
+        return !$prelude && $open === [];
+    }
+
+    /**
+     * Write every lifted payload back as the Carve line it is.
+     *
+     * The blank lines around it are the canonical writer's: a container's closer
+     * hugs its body, and two siblings are separated by one blank line.
+     */
+    protected function restoreCarrierMarkers(string $carve): string
+    {
+        if ($this->carrierSlots === []) {
+            return $carve;
+        }
+        $pattern = '/^' . preg_quote($this->carrierToken, '/') . '(\d+)Z$/D';
+        // Each line as its text plus which kind of marker, if any, produced it:
+        // 'open' for an opener or the attribute line travelling with it,
+        // 'close' for a bare closer.
+        /** @var list<array{text: string, kind: string|null}> $items */
+        $items = [];
+        foreach (explode("\n", $carve) as $line) {
+            if (preg_match($pattern, trim($line), $match) !== 1) {
+                $items[] = ['text' => $line, 'kind' => null];
+
+                continue;
+            }
+            $slot = $this->carrierSlots[(int)$match[1]];
+            $items[] = ['text' => $slot['payload'], 'kind' => $slot['closer'] ? 'close' : 'open'];
+        }
+
+        return implode("\n", array_column($this->separateCarrierLines($items), 'text'));
+    }
+
+    /**
+     * Give every restored marker line the blank lines the canonical writer puts
+     * around it: a container's opener and closer hug its body, and what follows
+     * a closer is a block of its own.
+     *
+     * @param list<array{text: string, kind: string|null}> $items
+     *
+     * @return list<array{text: string, kind: string|null}>
+     */
+    protected function separateCarrierLines(array $items): array
+    {
+        $count = count($items);
+        $hugged = [];
+        for ($at = 0; $at < $count; $at++) {
+            if ($items[$at]['kind'] !== null || $items[$at]['text'] !== '') {
+                continue;
+            }
+            $end = $at;
+            while ($end < $count && $items[$end]['kind'] === null && $items[$end]['text'] === '') {
+                $end++;
+            }
+            $before = $at - 1;
+            while ($before >= 0 && $items[$before]['kind'] === null && $items[$before]['text'] === '') {
+                $before--;
+            }
+            $above = $before >= 0 ? $items[$before]['kind'] : null;
+            $below = $end < $count ? $items[$end]['kind'] : null;
+            if ($below === 'close' || $above === 'open' || ($above === 'close' && $below === 'close')) {
+                for ($drop = $at; $drop < $end; $drop++) {
+                    $hugged[$drop] = true;
+                }
+            }
+            $at = $end - 1;
+        }
+
+        $out = [];
+        foreach ($items as $at => $item) {
+            if (isset($hugged[$at])) {
+                continue;
+            }
+            if (
+                $out !== []
+                && end($out)['kind'] === 'close'
+                && $item['kind'] !== 'close'
+                && $item['text'] !== ''
+            ) {
+                $out[] = ['text' => '', 'kind' => null];
+            }
+            $out[] = $item;
+        }
+
+        return $out;
+    }
+
+    /**
      * Convert Markdown text to Carve text.
      */
     public function convert(string $markdown): string
     {
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
+        $markdown = $this->prepareCarrierMarkers($markdown);
         $this->unspellableOrderedTasks = [];
         $this->flattenedEmphasis = false;
         $this->tableUnderWay = [];
@@ -1581,6 +1828,8 @@ class MarkdownToCarve
             $carve = $this->writeWithoutOmittedTableComments($carve);
         }
 
+        $carve = $this->restoreCarrierMarkers($carve);
+
         if ($frontmatter === []) {
             return $carve;
         }
@@ -1598,6 +1847,34 @@ class MarkdownToCarve
     }
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
+    {
+        $result = $this->assessedFidelityReport($markdown);
+        if (!$this->carrierDamaged) {
+            return $result;
+        }
+
+        // PART 11 §10s: one row for the set, no partial reconstruction. The
+        // source read as ordinary Markdown is the honest fallback, and the
+        // fidelity and the confidence are properties of this code
+        // (resources/migration-report-schema.json pins both).
+        return new MigrationResult(
+            $result->value,
+            $result->sourceFormat,
+            [
+                ...$result->diagnostics, new MigrationDiagnostic(
+                    'carrier-markers-damaged',
+                    'Carrier markers no longer record a structure; read the source as plain Markdown',
+                    'warning',
+                    'degraded',
+                    'fallback',
+                ),
+            ],
+            $result->mode,
+            $result->adapter,
+        );
+    }
+
+    protected function assessedFidelityReport(string $markdown): MigrationResult
     {
         $value = $this->convert($markdown);
         $supportedDialect = !$this->convertMath && !$this->convertHighlight && !$this->convertInlineFootnotes

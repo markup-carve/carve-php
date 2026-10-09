@@ -90,7 +90,10 @@ wrong document. `--json` asks the parser to track source positions and publishes
 them (PART 12 §4); the other formats do not, since tracking costs work on every
 parse and only this one publishes the result.
 See [`docs/ast-json.md`](ast-json.md). `--stamp-info` and `--stamp-check`
-report a document's provenance marker (see below). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
+report a document's provenance marker (see below). `--carry-markers` applies to
+`--markdown` only: it brackets every container Markdown drops with an HTML
+comment holding its Carve opener, so `carve migrate --from markdown` returns the
+container (see [`docs/markdown-output.md`](markdown-output.md)). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
 parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
 to HTML output only. Run `bin/carve --help` for the full list.
 

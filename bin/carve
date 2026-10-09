@@ -411,6 +411,7 @@ function parseArgs(array $argv): array
         'maxRenderLosses' => 100,
         'includeRoot' => null,
         'noIncludes' => false,
+        'carryMarkers' => false,
         'help' => false,
         'version' => false,
     ];
@@ -497,6 +498,10 @@ function parseArgs(array $argv): array
             }
             $i++;
             $options['maxRenderLosses'] = (int)$value;
+        } elseif ($arg === '--carry-markers') {
+            // PART 11 §10s. Opt-in because a Markdown renderer with raw HTML
+            // turned off shows the carrier comment as text.
+            $options['carryMarkers'] = true;
         } elseif ($arg === '--smart-typography') {
             // The document-global switch the spec documents. Source mode is
             // for machine-facing output - text piped into something that
@@ -686,6 +691,9 @@ Output format (default --html; last one wins):
 Rendering:
   --smart-typography MODE  glyph (default) or source: emit the runs the author
                            typed instead of the resolved glyphs (HTML/Markdown)
+  --carry-markers          Markdown only: bracket every container Markdown
+                           drops with an HTML comment holding its Carve
+                           opener, so `carve migrate --from md` returns it
   --strict-losses          Refuse output when a raw format would be dropped
   --report-losses FILE     Write the machine-readable render-loss report (`-` for stderr)
   --allow-loss CODE        Permit raw-format-dropped, ruby-flattened or
@@ -1021,6 +1029,18 @@ $converter = match ($options['format']) {
 // Markdown, plain text and ANSI. The last two used to emit the glyph whatever
 // the flag said, so `--smart-typography source` was accepted and ignored there
 // (carve#560).
+// The carrier mode belongs to the Markdown target alone: no other writer has a
+// comment a Markdown reader passes through.
+if ($options['carryMarkers'] ?? false) {
+    $renderer = $converter->getRenderer();
+    if (!$renderer instanceof MarkdownRenderer) {
+        fwrite(STDERR, "Error: --carry-markers applies to --markdown output only\n");
+
+        exit(1);
+    }
+    $renderer->setCarryMarkers();
+}
+
 if (($options['smartTypography'] ?? 'glyph') === 'source') {
     $renderer = $converter->getRenderer();
     if (
