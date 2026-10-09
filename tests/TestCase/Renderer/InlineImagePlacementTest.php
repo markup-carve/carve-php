@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -34,4 +35,34 @@ class InlineImagePlacementTest extends TestCase
         };
         $this->assertSame($expected, $converter->convert($source));
     }
+
+    public function testAnImageInAnIngestedBlockCellKeepsItsSeparator(): void
+    {
+        $document = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [[
+                'type' => 'table',
+                'rows' => [[
+                    'type' => 'table_row',
+                    'cells' => [[
+                        'type' => 'table_cell',
+                        'header' => false,
+                        'blocks' => [
+                            ['type' => 'image', 'src' => 'u', 'alt' => 'a'],
+                            ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'after']]],
+                        ],
+                    ]],
+                ]],
+            ]],
+        ]);
+        $html = (new CarveConverter())->render($document);
+        $this->assertStringContainsString("<img src=\"u\" alt=\"a\">\n", $html);
+        $this->assertStringNotContainsString('<img src="u" alt="a"><p>', $html);
+        $this->assertSame("a after\n", CarveConverter::plainText()->render($document));
+        $ansi = CarveConverter::ansi()->render($document);
+        $unstyled = (string)preg_replace('/\\x1b\\[[0-9;]*m/', '', $ansi);
+        $this->assertStringContainsString('[img: a] after', $unstyled);
+    }
+
 }
