@@ -35,4 +35,20 @@ class CodeBlockChildMarkupTest extends TestCase
             }
         }
     }
+
+    public function testLargeHighlightedCodeReportsTruncatedLosses(): void
+    {
+        $html = '<pre><code>' . str_repeat('<span class="token">x</span>', 600) . '</code></pre>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $converter = new HtmlToCarve(importMode: $mode);
+            $ast = $converter->convertToAstWithReport($html);
+            $this->assertSame(str_repeat('x', 600), $ast->value['children'][0]['content']);
+            foreach ([$ast, $converter->convertWithReport($html)] as $result) {
+                $this->assertCount(1000, $result->diagnostics);
+                $last = $result->diagnostics[array_key_last($result->diagnostics)];
+                $this->assertSame('diagnostics-truncated', $last->code);
+                $this->assertSame('error', $last->severity);
+            }
+        }
+    }
 }
