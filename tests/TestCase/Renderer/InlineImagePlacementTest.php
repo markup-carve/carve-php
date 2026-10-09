@@ -41,20 +41,26 @@ class InlineImagePlacementTest extends TestCase
         $document = (new AstCodec())->decode([
             'type' => 'document',
             'srcByteLength' => 0,
-            'children' => [[
-                'type' => 'table',
-                'rows' => [[
-                    'type' => 'table_row',
-                    'cells' => [[
-                        'type' => 'table_cell',
-                        'header' => false,
-                        'blocks' => [
-                            ['type' => 'image', 'src' => 'u', 'alt' => 'a'],
-                            ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'after']]],
+            'children' => [
+                [
+                    'type' => 'table',
+                    'rows' => [
+                        [
+                            'type' => 'table_row',
+                            'cells' => [
+                                [
+                                    'type' => 'table_cell',
+                                    'header' => false,
+                                    'blocks' => [
+                                        ['type' => 'image', 'src' => 'u', 'alt' => 'a'],
+                                        ['type' => 'paragraph', 'children' => [['type' => 'text', 'value' => 'after']]],
+                                    ],
+                                ],
+                            ],
                         ],
-                    ]],
-                ]],
-            ]],
+                    ],
+                ],
+            ],
         ]);
         $html = (new CarveConverter())->render($document);
         $this->assertStringContainsString("<img src=\"u\" alt=\"a\">\n", $html);
@@ -64,5 +70,4 @@ class InlineImagePlacementTest extends TestCase
         $unstyled = (string)preg_replace('/\\x1b\\[[0-9;]*m/', '', $ansi);
         $this->assertStringContainsString('[img: a] after', $unstyled);
     }
-
 }
