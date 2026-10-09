@@ -1306,17 +1306,25 @@ class MarkdownToCarve
                     $atQuoteTop = $quotedItemCol === null
                         || ($this->indentWidth($quotedText) < $quotedItemCol
                             && ($quotePrev === null || !$this->quoteParagraphIsOpen($quotePrev['text'])));
-                    if ($listCols === [] && $atQuoteTop) {
-                        $quotedTable = $this->collectQuotedTable($lines, $i, $quoted[1], $quotedText);
+                    if ($listCols === []) {
+                        $quotedTableCol = $atQuoteTop ? 0 : ($quotedItemCol ?? 0);
+                        $quotedTable = $this->collectQuotedTable(
+                            $lines,
+                            $i,
+                            $quoted[1],
+                            $this->stripColumns($quotedText, $quotedTableCol),
+                            quoteContentCol: $quotedTableCol,
+                        );
                         if ($quotedTable !== null) {
-                            if (isset($quoteMarkers[$quoteKey])) {
+                            if ($quotedTableCol === 0 && isset($quoteMarkers[$quoteKey])) {
                                 $quoteMarkers[$quoteKey]->end($this->indentWidth($quotedText));
                             }
                             if ($prevLineType === 'blockquote' && rtrim((string)end($result)) !== rtrim($quoted[1])) {
                                 $result[] = rtrim($quoted[1]);
                             }
                             foreach ($quotedTable['lines'] as $row) {
-                                $result[] = str_repeat(' ', $contentCol) . $row;
+                                $result[] = str_repeat(' ', $contentCol) . $quoted[1]
+                                    . str_repeat(' ', $quotedTableCol) . substr($row, strlen($quoted[1]));
                             }
                             $i = $quotedTable['end'];
                             $prevLineType = 'blockquote';

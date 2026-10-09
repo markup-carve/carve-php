@@ -32,6 +32,7 @@ final class AnEmptyMarkdownHeaderDoesNotBecomeAParagraphTest extends TestCase
             'nested quote' => ["> > | | |\n> > | --- | --- |\n> > | 1 | 2 |\n"],
             'item first block' => ["- | | |\n  | --- | --- |\n  | 1 | 2 |\n"],
             'item later block' => ["- text\n\n  | | |\n  | --- | --- |\n  | 1 | 2 |\n"],
+            'quoted item later block' => ["> - text\n>\n>   | | |\n>   | --- | --- |\n>   | 1 | 2 |\n"],
             'quoted item' => ["> - | | |\n>   | --- | --- |\n>   | 1 | 2 |\n"],
             'quote in item' => ["- > | | |\n  > | --- | --- |\n  > | 1 | 2 |\n"],
         ];
@@ -150,6 +151,16 @@ final class AnEmptyMarkdownHeaderDoesNotBecomeAParagraphTest extends TestCase
     {
         $source = "CARVE_OMITTED_TABLE\n\n| |\n| --- |\n";
         $this->assertSame("CARVE_OMITTED_TABLE\n", (new MarkdownToCarve())->convert($source));
+    }
+
+    public function testImportsWithDroppedRowsUseCanonicalFormatting(): void
+    {
+        $markdown = "*x*\\_y\n\n| |\n| --- |\n";
+        $imported = (new MarkdownToCarve())->convert($markdown);
+        $this->assertSame("{/x/}\\_y\n", $imported);
+        $withoutTable = (new MarkdownToCarve())->convert("*x*\\_y\n");
+        $this->assertSame($this->html($withoutTable), $this->html($imported));
+        $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 
     public function testADroppedHeaderReportsItsSourceLine(): void
