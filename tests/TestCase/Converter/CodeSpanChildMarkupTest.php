@@ -157,4 +157,19 @@ class CodeSpanChildMarkupTest extends TestCase
         $result = (new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true))->convertWithReport('<table><tr><td><p data-djot-src="```=html&#10;a&#10;b&#10;```">x</p></td></tr></table>');
         $this->assertContains('element-dropped', array_column($result->diagnostics, 'code'));
     }
+
+    public function testAllStoredBlockKindsReportInlineProjection(): void
+    {
+        foreach (["::: note\nx\n:::", "- `<td>` a\n- b", "{.x}\npara"] as $source) {
+            $html = '<table><tr><td><p data-djot-src="' . htmlspecialchars($source, ENT_QUOTES) . '">x</p></td></tr></table>';
+            $result = (new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true))->convertWithReport($html);
+            $this->assertContains('structure-unspellable', array_column($result->diagnostics, 'code'), $source);
+        }
+    }
+
+    public function testAstStoredListReportsProjectionWithoutFoldingCode(): void
+    {
+        $result = (new HtmlToCarve(importMode: 'roundtrip', trustedRoundTrip: true))->convertToAstWithReport('<table><tr><td><p data-djot-src="- a&#10;- b">x</p></td></tr></table>');
+        $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
+    }
 }

@@ -4349,35 +4349,35 @@ final class HtmlAstBuilder
             $this->session->foldedStoredCodeSpans[$node] = null;
         }
 
+        if ($this->session->flattensStoredBlocks) {
+            $projected = count($children) > 1;
+            $dropped = false;
+            $pending = $children;
+            while ($pending !== []) {
+                $stored = array_pop($pending);
+                $isBlock = !isset(self::INLINE_PROJECTION_TYPES[$stored['type']]) || ($stored['type'] === 'comment' && ($stored['block'] ?? false) === true);
+                $projected = $projected || ($isBlock && ($stored['type'] !== 'paragraph' || ($stored['attrs'] ?? []) !== []));
+                if ($isBlock && ($stored['content'] ?? null) !== '' && !isset($stored['children']) && !isset($stored['items']) && !isset($stored['rows']) && $this->projectToInlines($stored) === []) {
+                    $dropped = true;
+                }
+                foreach (['title', 'children', 'items', 'rows', 'cells', 'caption'] as $slot) {
+                    if (is_array($stored[$slot] ?? null)) {
+                        array_push($pending, ...self::nodeList($stored[$slot]));
+                    }
+                }
+            }
+            if ($projected || $dropped) {
+                $this->session->projectedStoredBlocks[$node] = $dropped;
+            }
+
+            return $children;
+        }
+
         if (
             isset($children[0])
             && !preg_match('/`<(?:th|td|dt|dd)\b/i', $source)
         ) {
             if (!$this->sourceSafe) {
-                return $children;
-            }
-            if ($this->session->flattensStoredBlocks) {
-                $projected = count($children) > 1;
-                $dropped = false;
-                $pending = $children;
-                while ($pending !== []) {
-                    $stored = array_pop($pending);
-                    if ($stored['type'] !== 'paragraph') {
-                        $projected = $projected || in_array($stored['type'], ['list', 'heading', 'block_quote', 'code_block', 'raw_block', 'thematic_break', 'table', 'definition_list', 'div'], true);
-                    }
-                    if (in_array($stored['type'], ['raw_block', 'comment'], true) && ($stored['content'] ?? '') !== '' && $this->projectToInlines($stored) === []) {
-                        $dropped = true;
-                    }
-                    foreach (['children', 'items', 'rows', 'cells'] as $slot) {
-                        if (is_array($stored[$slot] ?? null)) {
-                            array_push($pending, ...self::nodeList($stored[$slot]));
-                        }
-                    }
-                }
-                if ($projected || $dropped) {
-                    $this->session->projectedStoredBlocks[$node] = $dropped;
-                }
-
                 return $children;
             }
             $this->setPrivateAttribute($children[0], "\0carve-stored-source", $source);
@@ -4769,6 +4769,41 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @var array
+     */
+    /**
+     * @var array<string, bool>
+     */
+    private const INLINE_PROJECTION_TYPES = [
+        'autolink' => true,
+        'caption_number' => true,
+        'code' => true,
+        'comment' => true,
+        'delete' => true,
+        'emphasis' => true,
+        'emoji' => true,
+        'footnote_ref' => true,
+        'hard_break' => true,
+        'highlight' => true,
+        'image' => true,
+        'insert' => true,
+        'link' => true,
+        'math' => true,
+        'raw_inline' => true,
+        'soft_break' => true,
+        'span' => true,
+        'strike' => true,
+        'strong' => true,
+        'subscript' => true,
+        'superscript' => true,
+        'symbol' => true,
+        'ruby' => true,
+        'tag' => true,
+        'text' => true,
+        'underline' => true,
+    ];
+
+    /**
      * @phpstan-param ImportedNode $node
      *
      * @param array $node
@@ -4777,34 +4812,6 @@ final class HtmlAstBuilder
      */
     private function projectToInlines(array $node): array
     {
-        static $inlineTypes = [
-            'autolink' => true,
-            'caption_number' => true,
-            'code' => true,
-            'comment' => true,
-            'delete' => true,
-            'emphasis' => true,
-            'emoji' => true,
-            'footnote_ref' => true,
-            'hard_break' => true,
-            'highlight' => true,
-            'image' => true,
-            'insert' => true,
-            'link' => true,
-            'math' => true,
-            'raw_inline' => true,
-            'soft_break' => true,
-            'span' => true,
-            'strike' => true,
-            'strong' => true,
-            'subscript' => true,
-            'superscript' => true,
-            'symbol' => true,
-            'ruby' => true,
-            'tag' => true,
-            'text' => true,
-            'underline' => true,
-        ];
         $type = $node['type'];
         // A block comment reaching an inline-only slot is spelled inline: a
         // line comment there would swallow the rest of the row.
@@ -4816,7 +4823,7 @@ final class HtmlAstBuilder
 
             return [['type' => 'comment', 'content' => $content, 'delimited' => true, 'block' => false]];
         }
-        if (isset($inlineTypes[$type])) {
+        if (isset(self::INLINE_PROJECTION_TYPES[$type])) {
             return [$node];
         }
         // A code block reaching an inline-only slot becomes a code SPAN, which is
@@ -4903,7 +4910,7 @@ final class HtmlAstBuilder
                 if (
                     $out !== []
                     && $projected !== []
-                    && !isset($inlineTypes[$child['type']])
+                    && !isset(self::INLINE_PROJECTION_TYPES[$child['type']])
                     && !$this->inlineEndsWithSpace(self::importedNode($out[count($out) - 1]))
                     && !$this->inlineStartsWithSpace($projected[0])
                 ) {
