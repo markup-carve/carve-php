@@ -278,6 +278,8 @@ class DjotToCarve
             };
             if ($candidate !== null) {
                 $length = strlen($masked);
+                $intraword = $rule['id'] === 'djot-intraword-underscore';
+                $word = $intraword ? 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789' : 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_';
                 for ($cursor = 0; $cursor < $length;) {
                     $start = strpos($masked, $candidate, $cursor);
                     if ($start === false) {
@@ -287,11 +289,56 @@ class DjotToCarve
                     if ($this->isDjotEscaped($source, $start) || ($candidate !== '_' && ($source[$start + 1] ?? '') === '}') || ($candidate !== '_' && $start > 0 && ($source[$start - 1] ?? '') === '{' && !$this->isDjotEscaped($source, $start - 1))) {
                         continue;
                     }
-                    if (preg_match($rule['pattern'] . 'A', $masked, $match, PREG_OFFSET_CAPTURE, $start) === 1) {
-                        $cursor = $start + strlen($match[0][0]);
-
-                        yield $match;
+                    if (str_contains(" \t\n\r\f\v", $masked[$start + 1] ?? "\0")) {
+                        continue;
                     }
+                    if ($candidate === '_' && (($start > 0 && str_contains($word, $masked[$start - 1])) !== $intraword)) {
+                        continue;
+                    }
+                    $end = $start + 1;
+                    for (; $end < $length; $end++) {
+                        if ($masked[$end] === "\n") {
+                            $next = $end + 1;
+                            while (($source[$next] ?? '') === ' ' || ($source[$next] ?? '') === "\t") {
+                                $next++;
+                            }
+                            while (($source[$next] ?? '') === '>') {
+                                $next++;
+                                while (($source[$next] ?? '') === ' ' || ($source[$next] ?? '') === "\t") {
+                                    $next++;
+                                }
+                            }
+                            if (($source[$next] ?? '') === "\n") {
+                                break;
+                            }
+                        }
+                        if ($masked[$end] === '\\' && ($masked[$end + 1] ?? '') !== "\n") {
+                            $end++;
+
+                            continue;
+                        }
+                        if ($masked[$end] === $candidate) {
+                            break;
+                        }
+                    }
+                    $cursor = $end;
+                    if ($end >= $length || $masked[$end] !== $candidate) {
+                        $cursor++;
+
+                        continue;
+                    }
+                    if ($end === $start + 1 || str_contains(" \t\n\r\f\v", $masked[$end - 1])) {
+                        continue;
+                    }
+                    if ($candidate !== '_' && ($source[$end + 1] ?? '') === '}') {
+                        continue;
+                    }
+                    if ($candidate === '_' && (($end + 1 < $length && str_contains($word, $masked[$end + 1])) !== $intraword)) {
+                        continue;
+                    }
+                    $cursor = $end + 1;
+
+                    yield [[substr($masked, $start, $cursor - $start), $start], [substr($masked, $start + 1, $end - $start - 1), $start + 1]];
                 }
 
                 return;
