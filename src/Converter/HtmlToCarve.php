@@ -444,6 +444,8 @@ class HtmlToCarve
         $this->foldedImportCodeSpans = null;
         $this->storedSourceImportElements = null;
         $this->foldedStoredImportCodeSpans = null;
+        $this->nativeImportCodeSpans = null;
+        $this->projectedStoredImportBlocks = null;
         $this->retainedListTypes = null;
         $this->entrylessImportDefinitionLists = [];
         $this->displacedImportFigureAttributes = [];
@@ -466,6 +468,8 @@ class HtmlToCarve
         $this->foldedImportCodeSpans = $session->foldedCodeSpans;
         $this->storedSourceImportElements = $session->storedSourceElements;
         $this->foldedStoredImportCodeSpans = $session->foldedStoredCodeSpans;
+        $this->nativeImportCodeSpans = $session->nativeCodeSpans;
+        $this->projectedStoredImportBlocks = $session->projectedStoredBlocks;
         $this->displacedImportFigureAttributes = $session->displacedFigureAttributes;
     }
 
@@ -733,6 +737,9 @@ class HtmlToCarve
             return;
         }
         if ($this->storedSourceImportElements !== null && isset($this->storedSourceImportElements[$node])) {
+            if ($this->projectedStoredImportBlocks !== null && isset($this->projectedStoredImportBlocks[$node])) {
+                $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened multiple stored blocks into an inline-only slot', 'warning', $path);
+            }
             if ($this->foldedStoredImportCodeSpans !== null && isset($this->foldedStoredImportCodeSpans[$node])) {
                 $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in stored code inside a table cell: a table row is one line', 'warning', $path);
             }
@@ -2598,19 +2605,12 @@ class HtmlToCarve
 
     private function isImportedCodeSpan(DOMElement $node): bool
     {
-        if (strtolower(HtmlDomLoader::elementName($node)) !== 'code') {
-            return false;
-        }
-        if ($this->importMode === 'roundtrip' && ($node->hasAttribute('data-djot-raw') || $node->hasAttribute('data-djot-escaped'))) {
-            return false;
-        }
-        for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (strtolower(HtmlDomLoader::elementName($parent)) === 'pre') {
-                return false;
-            }
+        if ($this->nativeImportCodeSpans !== null) {
+            return isset($this->nativeImportCodeSpans[$node]);
         }
 
-        return true;
+        return strtolower(HtmlDomLoader::elementName($node)) === 'code'
+            && !($node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'pre');
     }
 
     /**
@@ -5033,6 +5033,16 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $foldedStoredImportCodeSpans = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $nativeImportCodeSpans = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $projectedStoredImportBlocks = null;
 
     /**
      * Paths of the `<dl>` elements left with no entry to write.

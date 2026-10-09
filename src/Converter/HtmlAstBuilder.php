@@ -3761,6 +3761,7 @@ final class HtmlAstBuilder
             return $this->inlineLink($node);
         }
         if ($tag === 'code') {
+            $this->session->nativeCodeSpans[$node] = null;
             $value = self::codeSpanText($node);
             if ($value === '') {
                 if (!$this->emptyCodeRunEndsAt($node)) {
@@ -4349,7 +4350,11 @@ final class HtmlAstBuilder
             if (!$this->sourceSafe) {
                 return $children;
             }
-            if ($this->session->pipeCellDepth > 0) {
+            if ($this->session->inInlineProjection) {
+                if (count($children) > 1) {
+                    $this->session->projectedStoredBlocks[$node] = null;
+                }
+
                 return $children;
             }
             $this->setPrivateAttribute($children[0], "\0carve-stored-source", $source);

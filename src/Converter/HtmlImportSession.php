@@ -117,6 +117,16 @@ final class HtmlImportSession
      */
     public SplObjectStorage $foldedStoredCodeSpans;
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $nativeCodeSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $projectedStoredBlocks;
+
     public ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -185,5 +195,7 @@ final class HtmlImportSession
         $this->foldedCodeSpans = new SplObjectStorage();
         $this->storedSourceElements = new SplObjectStorage();
         $this->foldedStoredCodeSpans = new SplObjectStorage();
+        $this->nativeCodeSpans = new SplObjectStorage();
+        $this->projectedStoredBlocks = new SplObjectStorage();
     }
 }

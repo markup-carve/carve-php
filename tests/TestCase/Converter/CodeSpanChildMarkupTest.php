@@ -121,6 +121,19 @@ class CodeSpanChildMarkupTest extends TestCase
     {
         $result = (new HtmlToCarve(trustedRoundTrip: true))->convertWithReport('<table><tr><td><p data-djot-src="first&#10;&#10;`a&#10;b`">shown</p></td></tr></table>');
         $this->assertSame("| first `a b` |\n", $result->value);
-        $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
+        $this->assertSame(['structure-unspellable', 'structure-unspellable'], array_column($result->diagnostics, 'code'));
+    }
+
+    public function testProjectedPreStillReportsItsNativeCodeSpanChildren(): void
+    {
+        $result = (new HtmlToCarve())->convertWithReport('<table><tr><td><pre><b><code><i>x</i></code></b></pre></td></tr></table>');
+        $this->assertCount(1, array_filter($result->diagnostics, static fn ($d) => $d->message === 'Unwrapped <i> inside <code>'));
+    }
+
+    public function testASpanRawCarrierDoesNotReportDiscardedCodeChildren(): void
+    {
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<span data-djot-raw="html"><code><b>x</b></code></span>');
+        $this->assertStringContainsString('<code><b>x</b></code>', $result->value);
+        $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'inside <code>')));
     }
 }
