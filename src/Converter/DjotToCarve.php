@@ -801,6 +801,8 @@ class DjotToCarve
             }
         }
         $braceStack = [];
+        $readBraceAttributes = $this->nativeAttributeReader($source);
+        $attributeEnd = 0;
         $spaces = 0;
         $lastEscaped = -1;
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
@@ -826,7 +828,10 @@ class DjotToCarve
             if ($masked[$at] !== $source[$at]) {
                 continue;
             }
-            if ($source[$at] === '}' && $at > 0 && str_contains('+-=~^*_', $source[$at - 1]) && !isset($pairedCloses[$at + 1])) {
+            if ($source[$at] === '{' && $at >= $attributeEnd) {
+                $attributeEnd = $readBraceAttributes($at)['end'] ?? $at;
+            }
+            if ($at >= $attributeEnd && $source[$at] === '}' && $at > 0 && str_contains('+-=~^*_', $source[$at - 1]) && !isset($pairedCloses[$at + 1])) {
                 $literalBraces[$at] = $at - 1 === $lastEscaped ? $at - 2 : $at - 1;
                 if ($at - 1 === $lastEscaped) {
                     $escapedBraceCloses[$at] = true;
