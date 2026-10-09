@@ -27,6 +27,11 @@ final class AFrontmatterBlockNeedsTheShapeOfAMappingTest extends TestCase
      */
     public static function shapeCases(): iterable
     {
+        // Every shape case is spelled with a BARE `---`, the one opener that
+        // collides with a thematic break and a setext underline. A typed
+        // opener names the format, so the last two cases pin that it is
+        // frontmatter whatever its payload looks like.
+
         yield 'cmark example 96 scalar' => ["---\nFoo\n---\nBar\n---\nBaz\n", false];
         yield 'a real mapping' => ["---\ntitle: Hi\n---\nBody\n", true];
         yield 'a key with a tab separator' => ["---\ntitle:\tHi\n---\nBody\n", true];
@@ -40,9 +45,8 @@ final class AFrontmatterBlockNeedsTheShapeOfAMappingTest extends TestCase
         yield 'a list first line' => ["---\n- one\n- two\n---\nBody\n", false];
         yield 'an indented key' => ["---\n  title: Hi\n---\nBody\n", false];
         yield 'malformed but mapping-shaped' => ["---\ntitle: [unclosed\n---\nBody\n", true];
-        yield 'toml table' => ["---toml\n[table]\nkey = 1\n---\nBody\n", true];
-        yield 'toml key' => ["---toml\nkey = 1\n---\nBody\n", true];
-        yield 'toml scalar' => ["---toml\nFoo\n---\nBody\n", false];
+        yield 'a typed yaml opener over a scalar' => ["---yaml\nFoo\n---\nBody\n", true];
+        yield 'a typed toml opener over a scalar' => ["---toml\nFoo\n---\nBody\n", true];
     }
 
     public function testExample96KeepsItsCommonMarkMeaning(): void
