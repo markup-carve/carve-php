@@ -1307,7 +1307,7 @@ class MarkdownToCarve
                         || ($this->indentWidth($quotedText) < $quotedItemCol
                             && ($quotePrev === null || !$this->quoteParagraphIsOpen($quotePrev['text'])));
                     if ($listCols === []) {
-                        $quotedTableCol = $atQuoteTop ? 0 : ($quotedItemCol ?? 0);
+                        $quotedTableCol = $atQuoteTop ? 0 : $quotedItemCol;
                         $quotedTable = $this->collectQuotedTable(
                             $lines,
                             $i,
