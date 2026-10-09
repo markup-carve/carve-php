@@ -169,7 +169,7 @@ class DjotToCarve
         $source = $this->normalizeDjotFences($this->normalizeDjotAttributeLines($source));
         $source = $this->normalizeDjotReferenceUses($this->normalizeDjotStructure($source));
         $source = $this->normalizeDjotFootnotes($this->foldDjotReferences($source), $strippedDefinitions['isBoundary'], $inherited);
-        $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source)))));
+        $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source, $inherited)))));
         $source = $this->normalizeDjotInlineSpellings($source);
         $collapsedMask = $this->maskCodeAndDestinations($source);
         $collapsedMask = preg_replace_callback('/<[^<>\s]+>/', static fn (array $match): string => preg_match('/[^:]@|[A-Za-z]:/', $match[0]) === 1 ? str_repeat(' ', strlen($match[0])) : $match[0], $collapsedMask) ?? $collapsedMask;
@@ -775,6 +775,20 @@ class DjotToCarve
         };
     }
 
+    private function djotWordWhitespaceAt(string $source, int $at): bool
+    {
+        $ch = $source[$at] ?? '';
+        if ($ch === '') {
+            return false;
+        }
+        if (ctype_space($ch)) {
+            return true;
+        }
+
+        return str_contains("\xC2\xE1\xE2\xE3\xEF", $ch)
+            && preg_match('/\G(?:\xC2\xA0|\xE1\x9A\x80|\xE2\x80[\x80-\x8A\xA8\xA9\xAF]|\xE2\x81\x9F|\xE3\x80\x80|\xEF\xBB\xBF)/', $source, offset: $at) === 1;
+    }
+
     /**
      * @param string $source
      * @param array<string, string> $spans
@@ -810,22 +824,26 @@ class DjotToCarve
         $braceStack = [];
         $readBraceAttributes = $this->nativeAttributeReader($source);
         $attributeEnd = 0;
-        preg_match_all('/[' . self::DJOT_WORD_WHITESPACE . ']/u', $source, $whitespaceMatches, PREG_OFFSET_CAPTURE);
-        $whitespace = array_fill_keys(array_column($whitespaceMatches[0], 1), true);
         $lastSpace = -1;
         $lastAtomEscape = -1;
         $lastInlineEnd = -1;
         $lastEscaped = -1;
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
-            if (isset($whitespace[$at])) {
+            if ($this->djotWordWhitespaceAt($source, $at)) {
                 $lastSpace = $at;
             }
             if (isset($pairedCloses[$at])) {
                 $lastInlineEnd = $at;
             }
             if ($source[$at] === '\\') {
+                if ($masked[$at] !== $source[$at] || ($masked[$at + 1] ?? '') !== ($source[$at + 1] ?? '')) {
+                    $lastInlineEnd = $at + 2;
+                    $at++;
+
+                    continue;
+                }
                 $lastEscaped = $at + 1;
-                if (isset($whitespace[$at + 1])) {
+                if ($this->djotWordWhitespaceAt($source, $at + 1)) {
                     $lastSpace = $at + 1;
                 }
                 $generated = $inherited !== [] && preg_match('/\G\x00DJOTINVALIDATTR[0-9]+\x00/', $source, $marker, offset: $at + 2) === 1 && isset($inherited[$marker[0]]);
@@ -1562,6 +1580,15 @@ class DjotToCarve
     }
 
     /**
+     * @param string $source
+     * @param array<string, true> $inherited
+     */
+    private function removeInheritedAttributeMarkers(string $source, array $inherited): string
+    {
+        return preg_replace_callback('/\x00DJOTINVALIDATTR[0-9]+\x00/', static fn (array $match): string => isset($inherited[$match[0]]) ? '' : $match[0], $source) ?? $source;
+    }
+
+    /**
      * @return array{string, array<string, true>}
      */
     private function escapeInvalidDjotAttributes(string $source): array
@@ -2109,7 +2136,11 @@ class DjotToCarve
         return [$depth, substr($line, $offset)];
     }
 
-    private function normalizeDjotLinks(string $source): string
+    /**
+     * @param string $source
+     * @param array<string, true> $inherited
+     */
+    private function normalizeDjotLinks(string $source, array $inherited = []): string
     {
         if (!str_contains($source, '](')) {
             return $source;
@@ -2304,7 +2335,7 @@ class DjotToCarve
                 $destination = preg_replace_callback('/\\\\+\|/', static fn (array $match): string => str_repeat('%5C', intdiv(strlen($match[0]) - 1, 2)) . '%7C', $destination) ?? $destination;
             }
             if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && str_contains($label, '[')) {
-                $label = (new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert($this->convert('DJOTALT ' . $label . ' DJOTEND'));
+                $label = (new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert($this->convert('DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND'));
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
                 $label = str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $label);
             }
@@ -2548,7 +2579,8 @@ class DjotToCarve
         preg_match_all('/carve-djot-note-(\d+)/i', $source, $reservedMatches);
         $reserved = array_fill_keys(array_map('intval', $reservedMatches[1]), true);
         $serial = 0;
-        $keyOf = static function (string $key): string {
+        $keyOf = function (string $key) use ($inherited): string {
+            $key = $this->removeInheritedAttributeMarkers($key, $inherited);
             $edge = '\x09-\x0D \x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}';
             $key = preg_replace('/^[' . $edge . ']+|[' . $edge . ']+$/u', '', $key) ?? $key;
 

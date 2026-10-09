@@ -29,7 +29,9 @@ class DjotEscapedBraceAtomsTest extends TestCase
         $html = str_replace('&nbsp;', "\u{00a0}", $html);
         $html = preg_replace('/<\/?tbody>/', '', $html);
         $html = preg_replace('/>\s+</', '><', $html);
-        self::assertSame(str_replace('&nbsp;', "\u{00a0}", $expected), $html);
+        $expected = str_replace('&nbsp;', "\u{00a0}", $expected);
+        $expected = preg_replace('/<img alt="([^"]*)" src="([^"]*)">/', '<img src="$2" alt="$1">', $expected);
+        self::assertSame($expected, $html);
     }
 
     public function testUserPlaceholdersAndFrontmatterArePreserved(): void
@@ -43,5 +45,15 @@ class DjotEscapedBraceAtomsTest extends TestCase
                 self::assertStringStartsWith($prefix, $converted);
             }
         }
+    }
+
+    public function testRawBraceFootnoteLabelKeepsItsDefinition(): void
+    {
+        $converted = (new DjotToCarve())->convert("[^a{b}]: note\n\nsee [^a{b}]");
+        $html = (new CarveConverter())->convert($converted);
+        self::assertStringContainsString('<li id="fn1"><p>note', preg_replace('/>\s+</', '><', $html));
+        self::assertStringContainsString('href="#fn1"', $html);
+        self::assertStringNotContainsString('href="#fn2"', $html);
+        self::assertStringNotContainsString('DJOTINVALIDATTR', $converted);
     }
 }
