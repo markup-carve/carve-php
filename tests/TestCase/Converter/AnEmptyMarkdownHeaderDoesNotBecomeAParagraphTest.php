@@ -163,6 +163,26 @@ final class AnEmptyMarkdownHeaderDoesNotBecomeAParagraphTest extends TestCase
         $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 
+    public function testAQuotedTableInterruptsItsItemWithoutMakingItLoose(): void
+    {
+        $markdown = "> - a\n>   | | |\n>   | --- | --- |\n> - b\n";
+        $imported = (new MarkdownToCarve())->convert($markdown);
+        $this->assertSame("> - a\n> - b\n", $imported);
+        $this->assertStringContainsString('<li>a</li>', $this->html($imported));
+        $this->assertSame($imported, CarveConverter::toCarve($imported));
+    }
+
+    public function testAQuotedItemTableAddsNoBlankSeparator(): void
+    {
+        foreach ([['- x', '  '], ['1. x', '   ']] as [$marker, $indent]) {
+            $markdown = '> ' . $marker . "\n> " . $indent . "| A | B |\n> " . $indent . "| --- | --- |\n> " . $indent . "| 1 | 2 |\n";
+            $imported = (new MarkdownToCarve())->convert($markdown);
+            $this->assertStringNotContainsString("\n>\n", $imported);
+            $this->assertStringContainsString('<thead>', $this->html($imported));
+            $this->assertSame($imported, CarveConverter::toCarve($imported));
+        }
+    }
+
     public function testADroppedHeaderReportsItsSourceLine(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("text\n\n| | |\n| --- | --- |\n| 1 | 2 |\n");

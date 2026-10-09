@@ -1319,7 +1319,7 @@ class MarkdownToCarve
                             if ($quotedTableCol === 0 && isset($quoteMarkers[$quoteKey])) {
                                 $quoteMarkers[$quoteKey]->end($this->indentWidth($quotedText));
                             }
-                            if ($prevLineType === 'blockquote' && rtrim((string)end($result)) !== rtrim($quoted[1])) {
+                            if ($quotedTableCol === 0 && $prevLineType === 'blockquote' && rtrim((string)end($result)) !== rtrim($quoted[1])) {
                                 $result[] = rtrim($quoted[1]);
                             }
                             foreach ($quotedTable['lines'] as $row) {
