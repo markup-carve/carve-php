@@ -4503,6 +4503,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $enclosures = [];
         $markers = '';
         for ($parent = $node->getParent(); $parent instanceof InlineNode; $parent = $parent->getParent()) {
+            if ($parent instanceof Span || $parent instanceof Link || $parent instanceof InlineFootnote || ($parent instanceof SmallCaps && $parent->getAttributeEntries() !== [])) {
+                $markers .= '[]';
+
+                continue;
+            }
             $marker = match (true) {
                 $parent instanceof Emphasis => '/',
                 $parent instanceof Strong => $parent->isBoldItalic() && !isset($this->expandedBoldItalic[spl_object_id($parent)]) ? '*/' : '*',
@@ -4531,7 +4536,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $payload .= $key . (is_array($value) ? implode('', $value) : $value);
         }
         foreach ($enclosures as $id => $marker) {
-            if (strpbrk($payload, $marker) !== false) {
+            if (strpbrk($payload, $marker) !== false || ($marker === '=' && (str_contains($rendered, '="') || str_contains($rendered, "='")))) {
                 $this->bracedForAttributes[$id] = true;
             }
         }
@@ -4566,7 +4571,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if (!is_string($id)) {
                     return;
                 }
-                $parts[] = $this->isExplicitIdOrClassIdentifier($id) && ($markers === '' || strpbrk($id, $markers) === false) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteAttrValue($id, ($markers !== '' && strpbrk($id, $markers) !== false));
+                $parts[] = $this->isExplicitIdOrClassIdentifier($id) && ($markers === '' || strpbrk($id, $markers) === false) ? '#' . $this->escapeAttrNameValue($id) : 'id=' . $this->quoteEnclosedAttrValue($id, ($markers !== '' && strpbrk($id, $markers) !== false), $markers);
 
                 return;
             }
@@ -4578,7 +4583,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 foreach ((array)($attrs['class'] ?? []) as $class) {
                     $parts[] = $this->isExplicitIdOrClassIdentifier($class) && ($markers === '' || strpbrk($class, $markers) === false)
                         ? '.' . $this->escapeAttrNameValue($class)
-                        : 'class=' . $this->quoteAttrValue($class, true);
+                        : 'class=' . $this->quoteEnclosedAttrValue($class, true, $markers);
                 }
 
                 return;
@@ -4623,7 +4628,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // writer would change the document, which PART 11 SS1 forbids.
                 $parts[] = $this->escapeAttrKey($slot);
             } else {
-                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteAttrValue($value, ($markers !== '' && strpbrk($value, $markers) !== false));
+                $parts[] = $this->escapeAttrKey($slot) . '=' . $this->quoteEnclosedAttrValue($value, ($markers !== '' && strpbrk($value, $markers) !== false), $markers);
             }
         };
 
@@ -5784,6 +5789,27 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function isBooleanAttrName(string $text): bool
     {
         return preg_match('/^[A-Za-z][\w-]*$/', $text) === 1;
+    }
+
+    private function quoteEnclosedAttrValue(string $value, bool $forceQuotes, string $markers): string
+    {
+        $quoted = $this->quoteAttrValue($value, $forceQuotes || ($markers !== '' && strpbrk($value, '{}[]`') !== false));
+        $length = strlen($quoted);
+        if ($markers === '' || $length < 2 || !str_contains("\"'", $quoted[0]) || $quoted[$length - 1] !== $quoted[0]) {
+            return $quoted;
+        }
+        $out = $quoted[0];
+        for ($at = 1; $at < $length - 1; $at++) {
+            $char = $quoted[$at];
+            if ($char === '\\' && $at + 1 < $length - 1 && str_contains(AttributeParser::ESCAPABLE_PUNCTUATION, $quoted[$at + 1])) {
+                $out .= $char . $quoted[++$at];
+
+                continue;
+            }
+            $out .= str_contains('{}[]`', $char) ? '\\' . $char : $char;
+        }
+
+        return $out . $quoted[0];
     }
 
     protected function quoteAttrValue(string $value, bool $forceQuotes = false): string
