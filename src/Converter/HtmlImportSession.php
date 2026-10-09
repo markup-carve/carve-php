@@ -100,6 +100,18 @@ final class HtmlImportSession
      */
     public SplObjectStorage $tableBlockCells;
 
+    public int $pipeCellDepth = 0;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $foldedCodeSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $storedSourceElements;
+
     public ?bool $tableCellAllowsEmptyCode = null;
 
     /**
@@ -165,5 +177,7 @@ final class HtmlImportSession
         $this->mergedDefinitionLists = new SplObjectStorage();
         $this->flattenedSummaryBlocks = new SplObjectStorage();
         $this->tableBlockCells = new SplObjectStorage();
+        $this->foldedCodeSpans = new SplObjectStorage();
+        $this->storedSourceElements = new SplObjectStorage();
     }
 }

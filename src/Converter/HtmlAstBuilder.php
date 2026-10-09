@@ -2062,6 +2062,8 @@ final class HtmlAstBuilder
                         break;
                     }
                 }
+                $previousPipeCellDepth = $this->session->pipeCellDepth;
+                $this->session->pipeCellDepth = $listForm ? 0 : $previousPipeCellDepth + 1;
                 $previousProjection = $this->session->inInlineProjection;
                 $this->session->inInlineProjection = $previousProjection || !$listForm;
                 $previousCellContext = $this->session->tableCellAllowsEmptyCode;
@@ -2070,6 +2072,7 @@ final class HtmlAstBuilder
                     $blocks = $this->blocks($this->children($cellElement));
                     $children = $listForm ? [] : $this->flattenBlocks($blocks);
                 } finally {
+                    $this->session->pipeCellDepth = $previousPipeCellDepth;
                     $this->session->tableCellAllowsEmptyCode = $previousCellContext;
                     $this->session->inInlineProjection = $previousProjection;
                 }
@@ -3753,15 +3756,16 @@ final class HtmlAstBuilder
             return $this->inlineLink($node);
         }
         if ($tag === 'code') {
-            if ($node->textContent === '') {
+            $value = self::codeSpanText($node);
+            if ($value === '') {
                 if (!$this->emptyCodeRunEndsAt($node)) {
                     return [];
                 }
 
                 return [['type' => 'code', 'value' => '']];
             }
-            $value = $node->textContent;
-            if ($this->session->tableCellAllowsEmptyCode !== null && $this->session->inInlineProjection) {
+            if ($this->session->pipeCellDepth > 0 && strpbrk($value, "\r\n") !== false) {
+                $this->session->foldedCodeSpans[$node] = null;
                 $value = str_replace(["\r\n", "\r", "\n"], ' ', $value);
             }
             $code = ['type' => 'code', 'value' => $value];
@@ -4290,6 +4294,24 @@ final class HtmlAstBuilder
         return rtrim($html, "\n");
     }
 
+    public static function codeSpanText(DOMNode $node): string
+    {
+        $value = '';
+        $pending = [$node];
+        while ($pending !== []) {
+            $current = array_pop($pending);
+            if ($current instanceof DOMText) {
+                $value .= $current->textContent;
+            } elseif (!$current instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($current)), ['script', 'style', 'template', 'noscript'], true)) {
+                foreach (array_reverse(iterator_to_array($current->childNodes)) as $child) {
+                    $pending[] = $child;
+                }
+            }
+        }
+
+        return $value;
+    }
+
     /**
      * @return list<ImportedNode>|null
      */
@@ -4303,6 +4325,7 @@ final class HtmlAstBuilder
         ) {
             return null;
         }
+        $this->session->storedSourceElements[$node] = null;
         $source = html_entity_decode(
             $node->getAttribute('data-djot-src'),
             ENT_QUOTES | ENT_HTML5,

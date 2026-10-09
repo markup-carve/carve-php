@@ -441,6 +441,8 @@ class HtmlToCarve
         $this->droppedBlankImportRows = null;
         $this->mergedImportDefinitionLists = null;
         $this->flattenedImportSummaryBlocks = null;
+        $this->foldedImportCodeSpans = null;
+        $this->storedSourceImportElements = null;
         $this->retainedListTypes = null;
         $this->entrylessImportDefinitionLists = [];
         $this->displacedImportFigureAttributes = [];
@@ -460,6 +462,8 @@ class HtmlToCarve
         $this->droppedBlankImportRows = $session->droppedBlankTableRows;
         $this->mergedImportDefinitionLists = $session->mergedDefinitionLists;
         $this->flattenedImportSummaryBlocks = $session->flattenedSummaryBlocks;
+        $this->foldedImportCodeSpans = $session->foldedCodeSpans;
+        $this->storedSourceImportElements = $session->storedSourceElements;
         $this->displacedImportFigureAttributes = $session->displacedFigureAttributes;
     }
 
@@ -724,6 +728,9 @@ class HtmlToCarve
     protected function inspectImportNode(DOMNode $node, string $path, array &$diagnostics): void
     {
         if (!$node instanceof DOMElement) {
+            return;
+        }
+        if ($this->storedSourceImportElements !== null && isset($this->storedSourceImportElements[$node])) {
             return;
         }
         $tag = strtolower(HtmlDomLoader::elementName($node));
@@ -1075,7 +1082,7 @@ class HtmlToCarve
             );
         }
 
-        if ($tag === 'code' && strpbrk($node->textContent, "\r\n") !== false && $this->hardBreakIsFlattened($node)) {
+        if ($tag === 'code' && $this->foldedImportCodeSpans !== null && isset($this->foldedImportCodeSpans[$node])) {
             $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in <code> inside a table cell: a table row is one line', 'warning', $path);
         }
 
@@ -1111,10 +1118,6 @@ class HtmlToCarve
      */
     private function inspectImportNodeStructure(DOMElement $node, string $tag, string $path, array &$diagnostics): bool
     {
-        if ($this->enclosingImportCodeSpan($node) instanceof DOMElement && !in_array($tag, $this->blockElements, true) && in_array($tag, [...self::INLINE_SLOT_ELEMENTS, 'img', 'br', 'math', 'ruby', 'input'], true) && !($tag === 'span' && !$node->hasAttributes())) {
-            $dropped = in_array($tag, ['img', 'br', 'input'], true);
-            $this->addImportDiagnostic($diagnostics, $dropped ? 'element-dropped' : 'element-unwrapped', ($dropped ? 'Dropped' : 'Unwrapped') . ' <' . $tag . '> inside <code>', $dropped ? 'warning' : 'info', $path);
-        }
         if ($this->retainedListTypes !== null && isset($this->retainedListTypes[$node])) {
             $this->addImportDiagnostic(
                 $diagnostics,
@@ -1498,6 +1501,9 @@ class HtmlToCarve
                 if ($child instanceof DOMText) {
                     $runs[array_key_last($runs)] .= $child->textContent;
                 } elseif ($child instanceof DOMElement) {
+                    if (in_array(strtolower(HtmlDomLoader::elementName($child)), self::ACTIVE_ELEMENTS, true)) {
+                        continue;
+                    }
                     // A block bounds the run on BOTH sides, so text after it is
                     // a side of its own too.
                     $block = in_array(strtolower(HtmlDomLoader::elementName($child)), $this->blockElements, true);
@@ -2585,6 +2591,40 @@ class HtmlToCarve
     }
 
     /**
+     * @param \DOMNode $node
+     * @param string $path
+     * @param list<\MarkupCarve\Carve\Converter\HtmlImportDiagnostic> $diagnostics
+     */
+    private function inspectCodeSpanChildren(DOMNode $node, string $path, array &$diagnostics): void
+    {
+        foreach ($node->childNodes as $index => $child) {
+            if ($child instanceof DOMComment) {
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a comment inside <code>: a code span holds only text', 'warning', $path . '/comment()[' . ($index + 1) . ']');
+
+                continue;
+            }
+            if (!$child instanceof DOMElement) {
+                continue;
+            }
+            $childPath = $this->importChildPath($path, $child, $index + 1);
+            $tag = strtolower(HtmlDomLoader::elementName($child));
+            if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
+                $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $childPath);
+
+                continue;
+            }
+            if (!($tag === 'span' && !$child->hasAttributes())) {
+                $dropped = !$child->hasChildNodes();
+                $this->addImportDiagnostic($diagnostics, $dropped ? 'element-dropped' : 'element-unwrapped', ($dropped ? 'Dropped' : 'Unwrapped') . ' <' . $tag . '> inside <code>', $dropped ? 'warning' : 'info', $childPath);
+            }
+            foreach ($child->attributes as $attribute) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . HtmlDomLoader::attributeName($attribute) . ' on <' . $tag . '> inside <code>: a code span holds only text', 'info', $childPath);
+            }
+            $this->inspectCodeSpanChildren($child, $childPath, $diagnostics);
+        }
+    }
+
+    /**
      * Number a node's children the way the CONVERSION reads them.
      *
      * A path names the importer's traversal, not the parsed tree, so the
@@ -2605,6 +2645,12 @@ class HtmlToCarve
      */
     protected function inspectImportChildren(DOMElement $node, string $tag, string $path, array &$diagnostics): void
     {
+        if ($tag === 'code' && !($node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'pre')) {
+            $this->inspectCodeSpanChildren($node, $path, $diagnostics);
+
+            return;
+        }
+
         if ($tag === 'table') {
             $this->inspectImportTableChildren($node, $path, $diagnostics);
 
@@ -4465,7 +4511,7 @@ class HtmlToCarve
             return false;
         }
 
-        return $node->textContent === '' && !$this->emptyCodeSpanIsSpellable($node);
+        return HtmlAstBuilder::codeSpanText($node) === '' && !$this->emptyCodeSpanIsSpellable($node);
     }
 
     /**
@@ -4946,6 +4992,16 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $flattenedImportSummaryBlocks = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $foldedImportCodeSpans = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $storedSourceImportElements = null;
 
     /**
      * Paths of the `<dl>` elements left with no entry to write.
