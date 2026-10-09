@@ -106,7 +106,7 @@ final class AnInterruptingMarkerKeepsInterruptingTest extends TestCase
             ],
             'a paren ordered marker starting at 1' => [
                 "> foo\n>    1) bar\n",
-                '<blockquote><p>foo</p><ol><li>bar</li></ol></blockquote>',
+                '<blockquote><p>foo</p><ol data-delim=")"><li>bar</li></ol></blockquote>',
             ],
             'inside a quote' => [
                 "> > foo\n> >    - bar\n",
