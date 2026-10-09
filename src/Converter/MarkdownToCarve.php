@@ -1492,10 +1492,15 @@ class MarkdownToCarve
     {
         $value = $this->convert($markdown);
         $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis);
-        if (
-            $this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis
-            && $this->tableDiagnostics === [] && !$this->frontmatterSynthesized
-        ) {
+        if (($result->diagnostics[0]->code ?? null) !== 'literal-text-verified') {
+            $assessment = (new MarkdownAssessment())->assess($markdown, $value);
+            $losses = count($this->unspellableOrderedTasks) + ($this->flattenedEmphasis ? 1 : 0) + count($this->tableDiagnostics);
+            $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
+            if ($assessment['complete'] && $losses <= $assessedLosses) {
+                return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
+            }
+        }
+        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
