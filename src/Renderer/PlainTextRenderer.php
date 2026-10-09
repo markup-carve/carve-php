@@ -405,7 +405,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 $node instanceof Text => $this->stripControls($node->getContent()),
                 $node instanceof EscapedText => $this->stripControls($node->getContent()),
                 $node instanceof Code => $this->stripControls($node->getContent()),
-                $node instanceof CriticComment => $this->stripControls($node->getContent()),
+                $node instanceof CriticComment => $this->renderCriticComment($node),
                 $node instanceof Math => $this->stripControls($node->getContent()),
                 $rawReference !== null => $this->stripControls($rawReference),
                 // A BLOCK-position image needs the separator a paragraph would
@@ -575,6 +575,13 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         }
 
         return $text;
+    }
+
+    protected function renderCriticComment(CriticComment $node): string
+    {
+        $this->recordEditorialCommentFlattened($node);
+
+        return $this->stripControls($node->getContent());
     }
 
     protected function renderRuby(Ruby $node): string

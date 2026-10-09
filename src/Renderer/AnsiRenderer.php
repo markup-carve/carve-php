@@ -693,7 +693,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $node instanceof Delete => $this->renderDelete($node),
                 $node instanceof Substitution => $this->renderSubstitution($node),
                 $node instanceof Ruby => $this->renderRuby($node),
-                $node instanceof CriticComment => $this->stripControls($node->getContent()),
+                $node instanceof CriticComment => $this->renderCriticComment($node),
                 $node instanceof Span => $this->renderSpan($node),
                 $node instanceof Math => $this->renderMath($node),
                 $node instanceof Symbol => $this->renderSymbol($node),
@@ -760,6 +760,13 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         return $output;
+    }
+
+    protected function renderCriticComment(CriticComment $node): string
+    {
+        $this->recordEditorialCommentFlattened($node);
+
+        return $this->stripControls($node->getContent());
     }
 
     protected function renderRuby(Ruby $node): string

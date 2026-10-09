@@ -794,7 +794,7 @@ class CliTest extends TestCase
         $this->assertSame(0, $strict['exit']);
         $this->assertSame('', $strict['err']);
         $this->assertSame(2, $refused['exit']);
-        $this->assertStringContainsString('--allow-loss expects raw-format-dropped or ruby-flattened', $refused['err']);
+        $this->assertStringContainsString('--allow-loss expects raw-format-dropped, ruby-flattened or editorial-comment-flattened', $refused['err']);
     }
 
     public function testATextTargetWritesTheDroppedSectionFieldToTheDiagnosticsChannel(): void
@@ -835,6 +835,18 @@ class CliTest extends TestCase
         $this->assertSame('', $denied['out']);
         $this->assertSame(0, $allowed['exit']);
         $this->assertSame("x(a)\n", $allowed['out']);
+        $this->assertSame('', $allowed['err']);
+    }
+
+    public function testEditorialCommentLossCanBeAllowed(): void
+    {
+        $denied = $this->runCliInput(['--plain', '--strict-losses'], "a {#b#} c\n");
+        $allowed = $this->runCliInput(['--plain', '--strict-losses', '--allow-loss', 'editorial-comment-flattened'], "a {#b#} c\n");
+
+        $this->assertSame(1, $denied['exit']);
+        $this->assertSame('', $denied['out']);
+        $this->assertSame(0, $allowed['exit']);
+        $this->assertSame("a b c\n", $allowed['out']);
         $this->assertSame('', $allowed['err']);
     }
 }
