@@ -200,6 +200,7 @@ final class StructuralEscapePlanner
      */
     public function collectBracketMarksWithScope(array $nodes, string &$flat, array &$marks, array &$literalOpeners, array &$literalHosts): bool
     {
+        $complete = true;
         foreach ($nodes as $node) {
             // An empty code span is written as a bare backtick run, which can
             // swallow what follows it, so the scan ends there.
@@ -221,7 +222,10 @@ final class StructuralEscapePlanner
                     $reference = $rawReference === null ? self::literalReferenceOpener($content) : null;
                     $structural = $rawReference !== null ? BracketScanner::structuralBracketOffsets($content) : null;
                     if ($rawReference !== null && $structural === null) {
-                        return false;
+                        $complete = false;
+                        $flat .= ' ';
+
+                        continue;
                     }
                     preg_match_all('/[\[\](]/', $content, $found, PREG_OFFSET_CAPTURE);
                     foreach ($found[0] as [$char, $offset]) {
@@ -289,16 +293,14 @@ final class StructuralEscapePlanner
             ) {
                 // Their delimiters are written, and none is a space or a paren.
                 $flat .= "\x01";
-                if (!$this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts)) {
-                    return false;
-                }
+                $complete = $this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts) && $complete;
                 $flat .= "\x01";
             } else {
                 $flat .= ' ';
             }
         }
 
-        return true;
+        return $complete;
     }
 
     /**

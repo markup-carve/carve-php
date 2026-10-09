@@ -23,8 +23,9 @@ class RawReferenceLabelBracketsTest extends TestCase
 
     public function testAReferenceFollowedByParenthesesNeedsNoExtraEscape(): void
     {
-        $source = "see [x][r](note)\n";
-        $this->assertSame($source, CarveConverter::toCarve($source));
+        foreach (["see [x][r](note)\n", "see [x][r](note)\n\n[r]: /v\n"] as $source) {
+            $this->assertSame($source, CarveConverter::toCarve($source));
+        }
     }
 
     public function testReusingARendererDoesNotReuseFixedReferenceSites(): void
