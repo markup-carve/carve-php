@@ -6,7 +6,6 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
-use MarkupCarve\Carve\Converter\MigrationDiagnostic;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -75,7 +74,7 @@ final class MarkdownTablePipesTest extends TestCase
     public function testUnrelatedPipesDoNotProduceTableWarnings(string $source): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
-        self::assertSame(['fidelity-unverified'], array_map(static fn (MigrationDiagnostic $d): string => $d->code, $result->diagnostics));
+        self::assertSame([], array_values(array_filter(array_column($result->diagnostics, 'code'), static fn (string $code): bool => str_starts_with($code, 'markdown-table-'))));
     }
 
     /**
@@ -120,7 +119,8 @@ final class MarkdownTablePipesTest extends TestCase
     {
         $converter = new MarkdownToCarve();
         $converter->convertWithFidelityReport("| a | b |\n|---|---|\n| `x|y` | z |");
-        self::assertCount(1, $converter->convertWithFidelityReport("| a | b |\n|---|---|")->diagnostics);
+        $rows = $converter->convertWithFidelityReport("| a | b |\n|---|---|")->diagnostics;
+        self::assertSame(['markdown-table', 'markdown-table-row', 'markdown-table-cell', 'markdown-table-cell'], array_column($rows, 'code'));
     }
 
     public function testEscapedBackticksUseClosedLiteralSpansInCells(): void

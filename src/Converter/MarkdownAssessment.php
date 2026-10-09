@@ -19,6 +19,11 @@ final class MarkdownAssessment
     private bool $complete = true;
 
     /**
+     * @var list<string>
+     */
+    private array $sourceLines = [];
+
+    /**
      * @var array<string, array{destination: string, title: ?string}>
      */
     private array $definitions = [];
@@ -35,6 +40,7 @@ final class MarkdownAssessment
             return ['complete' => false, 'diagnostics' => []];
         }
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $source));
+        $this->sourceLines = $lines;
         foreach ($lines as $line) {
             if (preg_match('/^ {0,3}\[([^\]\n]+)\]:[ \t]+(\S+)(?:[ \t]+"([^"\n]*)")?[ \t]*$/', $line, $m)) {
                 $key = self::label($m[1]);
@@ -94,7 +100,9 @@ final class MarkdownAssessment
                 $this->emit('escape', $line, 'normalized');
                 $result .= self::escape($m[1]);
             } elseif (preg_match('/^&(?:#[xX][\da-fA-F]+|#\d+|[A-Za-z][A-Za-z\d]+);/', $rest, $m)) {
-                $this->emit('entity', $line, 'normalized');
+                if (html_entity_decode($m[0], ENT_QUOTES | ENT_HTML5, 'UTF-8') !== $m[0]) {
+                    $this->emit('entity', $line, 'normalized');
+                }
                 $result .= $m[0];
             } elseif (preg_match('/^(!?)\[([^\]\n]*)\]\(([^ ()\n]+)(?:[ \t]+"([^"\n]*)")?\)/', $rest, $m)) {
                 if (!preg_match('~^(https?://|mailto:|[./#])~', $m[3]) && preg_match('/^[A-Za-z][\w+.-]*:/', $m[3])) {
@@ -112,7 +120,7 @@ final class MarkdownAssessment
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($m[1]) . '</a>';
-            } elseif (preg_match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $rest, $m) && !preg_match('/[*_~]/', $m[2])) {
+            } elseif (preg_match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $rest, $m) && !str_contains($m[2], $m[1][0])) {
                 if ((str_contains($m[1], '_') && $i > 0 && preg_match('/[A-Za-z0-9]/', $text[$i - 1])) || preg_match('/^\s|\s$/', $m[2])) {
                     $this->complete = false;
                 }
@@ -304,7 +312,9 @@ final class MarkdownAssessment
                     $body = $m[2];
                     if (preg_match('/^\[([ xX])\][ \t]+(.*)$/', $body, $task)) {
                         if ($ordered) {
-                            $this->emit('ordered-task', $first + $i, 'dropped', 'structure-unspellable');
+                            if (preg_match('/^[ \t]*\d{1,9}[.)][ \t]+\[[ xX]\](?=[ \t])/', $this->sourceLines[$first + $i - 1] ?? '')) {
+                                $this->emit('ordered-task', $first + $i, 'dropped', 'structure-unspellable');
+                            }
                             $html .= '<li>' . self::escape(substr($body, 0, 3)) . ' ' . $this->inline($task[2], $first + $i) . "</li>\n";
                         } else {
                             $this->emit('bullet-task', $first + $i);
@@ -339,7 +349,7 @@ final class MarkdownAssessment
             }
             $this->emit('paragraph', $n);
             foreach ($body as $text) {
-                if (preg_match('/^ {0,3}\[|\||\t/', $text)) {
+                if (preg_match('/\||\t/', $text)) {
                     $this->complete = false;
                 }
             }
