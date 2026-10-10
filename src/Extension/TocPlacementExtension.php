@@ -365,7 +365,7 @@ class TocPlacementExtension implements ExtensionInterface, BeforeRenderExtension
                 }
             }
 
-            $html .= '<li><a href="#' . StringUtil::escapeHtml($heading['id']) . '">';
+            $html .= '<li><a href="#' . StringUtil::escapeHtmlAttribute($heading['id']) . '">';
             // Already escaped: the entry is rendered HTML from the heading's own
             // nodes, escaped ONCE by the renderer that produced it. Escaping it
             // again emitted `&quot;` where the heading emitted `"` (PART 10 §2:

@@ -4140,10 +4140,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     public function escapeAttribute(string $text): string
     {
-        // ENT_QUOTES: Escape both single and double quotes for attribute values
-        $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        return $escaped;
+        return StringUtil::escapeHtmlAttribute($text);
     }
 
     /**
@@ -4155,9 +4152,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     public function escapeHeadingId(string $text): string
     {
-        $escaped = htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8');
-
-        return $escaped;
+        return StringUtil::escapeHtmlAttribute($text);
     }
 
     protected function renderRawBlock(RawBlock $node): string

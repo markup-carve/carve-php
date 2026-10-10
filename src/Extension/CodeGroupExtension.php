@@ -365,7 +365,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         // Add data-djot-src for round-trip support
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $codeBlocks);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtml($djotSrc) . '"';
+            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";
@@ -448,7 +448,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         // was written second.
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $codeBlocks);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtml($djotSrc) . '"';
+            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";

@@ -317,7 +317,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Add data-djot-src for round-trip support
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $tabs, $renderer);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtml($djotSrc) . '"';
+            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";
@@ -380,7 +380,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Add data-djot-src for round-trip support
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $tabs, $renderer);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtml($djotSrc) . '"';
+            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";
@@ -389,8 +389,8 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         foreach ($tabs as $index => $tab) {
             $tabNum = $index + 1;
             $tabIds[$index] = [
-                'tab' => $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-tab' : $tracker->uniqueId($setId . '-tab-' . $tabNum),
-                'panel' => $tab['id'] ? StringUtil::escapeHtml($tab['id']) . '-panel' : $tracker->uniqueId($setId . '-panel-' . $tabNum),
+                'tab' => $tab['id'] ? StringUtil::escapeHtmlAttribute($tab['id']) . '-tab' : $tracker->uniqueId($setId . '-tab-' . $tabNum),
+                'panel' => $tab['id'] ? StringUtil::escapeHtmlAttribute($tab['id']) . '-panel' : $tracker->uniqueId($setId . '-panel-' . $tabNum),
             ];
         }
 

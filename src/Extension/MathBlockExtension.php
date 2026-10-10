@@ -155,7 +155,7 @@ class MathBlockExtension implements StaticRenderExtensionInterface
 
         $out = '';
         foreach ($attrs as $name => $value) {
-            $out .= ' ' . StringUtil::escapeHtml((string)$name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
+            $out .= ' ' . StringUtil::escapeHtmlAttribute((string)$name) . '="' . StringUtil::escapeHtmlAttribute((string)$value) . '"';
         }
 
         return $out;

@@ -941,7 +941,7 @@ final class BorrowedHtmlLayout
 
     private function escapeAttribute(string $text): string
     {
-        return StringUtil::escapeHtml($text);
+        return StringUtil::escapeHtmlAttribute($text);
     }
 
     private function indent(int $depth): string

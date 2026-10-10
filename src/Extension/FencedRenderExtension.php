@@ -423,11 +423,11 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
 
         // APPENDED, so naming the fence never moves an attribute the author placed.
         foreach ($this->namingDefaults($node) as $name => $value) {
-            $attrs .= ' ' . $name . '="' . StringUtil::escapeHtml($value) . '"';
+            $attrs .= ' ' . $name . '="' . StringUtil::escapeHtmlAttribute($value) . '"';
         }
 
         if ($this->roundTripMode) {
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtml($this->reconstructCodeBlockSource($node)) . '"';
+            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($this->reconstructCodeBlockSource($node)) . '"';
         }
 
         return '<' . $this->tag . $attrs . '>';
@@ -476,7 +476,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
 
         $out = '';
         foreach ($attrs as $name => $value) {
-            $out .= ' ' . StringUtil::escapeHtml((string)$name) . '="' . StringUtil::escapeHtml((string)$value) . '"';
+            $out .= ' ' . StringUtil::escapeHtmlAttribute((string)$name) . '="' . StringUtil::escapeHtmlAttribute((string)$value) . '"';
         }
 
         return $out;
