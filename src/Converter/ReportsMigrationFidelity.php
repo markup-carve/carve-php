@@ -50,6 +50,20 @@ trait ReportsMigrationFidelity
     public const LEADING_WHITESPACE_UNSPELLABLE = 'Dropped whitespace a decoded reference put at the start of a line; '
         . 'Carve spells no leading whitespace on a paragraph';
 
+    /**
+     * The same character at a HEADING's head, which Carve spells no better.
+     *
+     * A heading's marker separator is a run of spaces and none of it is
+     * content, so widening the separator keeps bytes rather than the
+     * character: a padded separator renders the document a single-space
+     * separator renders, and `carve fmt` rewrites the padding away
+     * (markup-carve/carve-rs#2449).
+     *
+     * @var string
+     */
+    public const HEADING_LEADING_WHITESPACE_UNSPELLABLE = 'Dropped whitespace a decoded reference put at the start of a heading; '
+        . "Carve spells no leading whitespace after a heading's marker";
+
     protected function assessedMigrationResult(
         string $source,
         string $value,

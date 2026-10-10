@@ -105,4 +105,105 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
     {
         $this->assertSame("x\n second line\n", (new MarkdownToCarve())->convert("x\n&#32;second line\n"));
     }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function headingDrops(): array
+    {
+        return [
+            'the ticket shape' => ['# &#32;head', '# head'],
+            'a level-2 heading' => ['## &#32;h2', '## h2'],
+            'a level-6 heading' => ['###### &#32;h6', '###### h6'],
+            'a tab' => ['# &#9;tab', '# tab'],
+            'a run of references' => ['# &#32;&#32;two', '# two'],
+            // Past the marker there is no block to open, so nothing is escaped.
+            'an uncovered bullet' => ['# &#32;- x', '# - x'],
+            'a heading inside a quote' => ['> # &#32;q', '> # q'],
+        ];
+    }
+
+    #[DataProvider('headingDrops')]
+    public function testTheWhitespaceIsDroppedAtAHeadingHead(string $markdown, string $carve): void
+    {
+        $this->assertSame($carve . "\n", (new MarkdownToCarve())->convert($markdown . "\n"));
+    }
+
+    #[DataProvider('headingDrops')]
+    public function testTheHeadingDropIsReported(string $markdown, string $carve): void
+    {
+        $rows = array_values(array_filter(
+            (new MarkdownToCarve())->convertWithFidelityReport($markdown . "\n")->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->message === MarkdownToCarve::HEADING_LEADING_WHITESPACE_UNSPELLABLE,
+        ));
+
+        $this->assertCount(1, $rows, 'converting to ' . $carve);
+        $this->assertSame('structure-unspellable', $rows[0]->code);
+        $this->assertSame('warning', $rows[0]->severity);
+        $this->assertSame('dropped', $rows[0]->fidelity);
+        $this->assertSame('exact', $rows[0]->confidence);
+        $this->assertSame('line:1', $rows[0]->path);
+    }
+
+    /**
+     * THE CONTROL at a heading head. U+00A0 is a real character Carve holds,
+     * so it survives and owes no row (markup-carve/carve-rs#2449).
+     */
+    public function testANonBreakingSpaceSurvivesAHeadingHead(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("# &nbsp;head\n");
+
+        $this->assertSame("# \u{00a0}head\n", $result->value);
+        $this->assertSame([], array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped',
+        )));
+    }
+
+    /**
+     * Whitespace a decode puts PAST the head of a heading is content, and is
+     * left exactly as it decoded.
+     */
+    public function testADecodedSpaceAwayFromTheHeadIsKept(): void
+    {
+        $this->assertSame("# mid  x\n", (new MarkdownToCarve())->convert("# mid &#32;x\n"));
+    }
+
+    /**
+     * A separator run the author wrote themselves is normalized by the reader,
+     * not dropped here, so nothing is reported for it.
+     */
+    public function testAnAuthoredSeparatorRunIsNotReported(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("#    lit\n");
+
+        $this->assertSame("# lit\n", $result->value);
+        $this->assertSame([], array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped',
+        )));
+    }
+
+    /**
+     * The separator goes with it when the decode WAS the heading's content.
+     */
+    public function testAnEmptiedHeadingKeepsOnlyItsMarker(): void
+    {
+        $this->assertSame("#\n", (new MarkdownToCarve())->convert("# &#32;\n"));
+    }
+
+    /**
+     * Raised by codex review. A `#` run in a table CELL is literal text, so the
+     * space after it is content Carve holds and carve-rs keeps.
+     */
+    public function testAHeadingShapedTableCellIsLeftAlone(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("| # &#32;x |\n| --- |\n| a |\n");
+
+        $this->assertSame("|= #  x |\n| a |\n", $result->value);
+        $this->assertSame([], array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped',
+        )));
+    }
 }
