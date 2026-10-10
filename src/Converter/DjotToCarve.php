@@ -2415,23 +2415,6 @@ class DjotToCarve
     }
 
     /**
-     * @param array<int, array{at: int, depth: int, parens: int, labelEnd?: int, target?: int}> $stack
-     * @param int|null $destinationOwner
-     * @param array<int, true> $pendingNotes
-     * @param array<int, array{end: int, text: string}> $edits
-     */
-    private function clearDjotLinkScope(array &$stack, ?int &$destinationOwner, array &$pendingNotes, array &$edits): void
-    {
-        if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
-            $at = $stack[$destinationOwner]['at'];
-            $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
-        }
-        $stack = [];
-        $destinationOwner = null;
-        $pendingNotes = [];
-    }
-
-    /**
      * @param string $source
      * @param array<string, true> $inherited
      */
@@ -2461,12 +2444,24 @@ class DjotToCarve
         $length = strlen($source);
         for ($i = 0; $i < $length; $i++) {
             if (isset($boundaries[$i])) {
-                $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
+                if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
+                    $at = $stack[$destinationOwner]['at'];
+                    $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+                }
+                $stack = [];
+                $destinationOwner = null;
+                $pendingNotes = [];
             }
             if ($source[$i] === "\n") {
                 $line++;
                 if (preg_match('/\G\n[ \t]*(?:>[ \t]*)*\n/', $source, offset: $i)) {
-                    $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
+                    if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
+                        $at = $stack[$destinationOwner]['at'];
+                        $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+                    }
+                    $stack = [];
+                    $destinationOwner = null;
+                    $pendingNotes = [];
                     $literalNotes = [];
 
                     continue;
@@ -2492,7 +2487,13 @@ class DjotToCarve
                 continue;
             }
             if (($rows[$line] ?? false) && $source[$i] === '|' && ($source[$i - 1] ?? '') !== '\\') {
-                $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
+                if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
+                    $at = $stack[$destinationOwner]['at'];
+                    $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+                }
+                $stack = [];
+                $destinationOwner = null;
+                $pendingNotes = [];
 
                 continue;
             }
@@ -2584,7 +2585,9 @@ class DjotToCarve
             }
             if ($tip !== $destinationOwner) {
                 $edits[$owner['at']] = ['end' => $owner['at'] + 1, 'text' => '\\['];
-                $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
+                $stack = [];
+                $destinationOwner = null;
+                $pendingNotes = [];
 
                 continue;
             }
@@ -2625,7 +2628,13 @@ class DjotToCarve
                 $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
             } $pendingNotes = [];
         }
-        $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
+        if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
+            $at = $stack[$destinationOwner]['at'];
+            $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+        }
+        $stack = [];
+        $destinationOwner = null;
+        $pendingNotes = [];
         $output = '';
         for ($i = 0; $i < $length;) {
             if (isset($edits[$i])) {
