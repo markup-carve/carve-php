@@ -412,6 +412,17 @@ class HeadingIdTracker
         return $this->extractPlainText($node);
     }
 
+    public function getMarkdownHeadingText(Heading $node, SmartTypographyMode $mode): string
+    {
+        $id = $this->getIdForHeading($node);
+        $text = '';
+        foreach ($this->nodesById[$id] ?? array_values($node->getChildren()) as $child) {
+            $text .= $this->extractPlainTextFrom($child, $mode === SmartTypographyMode::Source, false, '');
+        }
+
+        return $text;
+    }
+
     public function getDisplayText(Node $node): string
     {
         return $this->extractPlainText($node, false, true);
@@ -423,6 +434,7 @@ class HeadingIdTracker
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param bool $sourceRuns Read a smart-typography node's SOURCE RUN instead
      * @param bool $includeSymbols
+     * @param string $hardBreakText
      *   of its glyph. Only ever true for a cross-reference LABEL: a heading id
      *   is slugged from the glyph and must not move (see the branch below).
      */
@@ -430,10 +442,11 @@ class HeadingIdTracker
         Node $node,
         bool $sourceRuns = false,
         bool $includeSymbols = false,
+        string $hardBreakText = ' ',
     ): string {
         $text = '';
         foreach ($node->getChildren() as $child) {
-            $text .= $this->extractPlainTextFrom($child, $sourceRuns, $includeSymbols);
+            $text .= $this->extractPlainTextFrom($child, $sourceRuns, $includeSymbols, $hardBreakText);
         }
 
         return $text;
@@ -451,21 +464,23 @@ class HeadingIdTracker
      * @param \MarkupCarve\Carve\Node\Node $child
      * @param bool $sourceRuns See extractPlainText().
      * @param bool $includeSymbols
+     * @param string $hardBreakText
      */
     protected function extractPlainTextFrom(
         Node $child,
         bool $sourceRuns = false,
         bool $includeSymbols = false,
+        string $hardBreakText = ' ',
     ): string {
         if ($child instanceof Ruby) {
             $text = '';
             foreach ($child->getPairs() as $pair) {
                 foreach ($pair['base'] as $base) {
-                    $text .= $this->extractPlainTextFrom($base, $sourceRuns, $includeSymbols);
+                    $text .= $this->extractPlainTextFrom($base, $sourceRuns, $includeSymbols, $hardBreakText);
                 }
                 $text .= '(';
                 foreach ($pair['annotation'] as $annotation) {
-                    $text .= $this->extractPlainTextFrom($annotation, $sourceRuns, $includeSymbols);
+                    $text .= $this->extractPlainTextFrom($annotation, $sourceRuns, $includeSymbols, $hardBreakText);
                 }
                 $text .= ')';
             }
@@ -473,8 +488,8 @@ class HeadingIdTracker
             return $text;
         }
 
-        return $this->inlineTextLeaf($child, $sourceRuns, $includeSymbols)
-            ?? $this->extractPlainText($child, $sourceRuns, $includeSymbols);
+        return $this->inlineTextLeaf($child, $sourceRuns, $includeSymbols, $hardBreakText)
+            ?? $this->extractPlainText($child, $sourceRuns, $includeSymbols, $hardBreakText);
     }
 
     /**
@@ -489,11 +504,13 @@ class HeadingIdTracker
      * @param \MarkupCarve\Carve\Node\Node $child
      * @param bool $sourceRuns See extractPlainText().
      * @param bool $includeSymbols
+     * @param string $hardBreakText
      */
     protected function inlineTextLeaf(
         Node $child,
         bool $sourceRuns = false,
         bool $includeSymbols = false,
+        string $hardBreakText = ' ',
     ): ?string {
         if ($child instanceof InlineExtension && $child->getExtensionType() === 'index') {
             // An `:index[term]` marker is invisible (§8.1): it emits no
@@ -534,7 +551,10 @@ class HeadingIdTracker
         if ($child instanceof NonBreakingSpace) {
             return "\u{00A0}";
         }
-        if ($child instanceof SoftBreak || $child instanceof HardBreak) {
+        if ($child instanceof HardBreak) {
+            return $hardBreakText;
+        }
+        if ($child instanceof SoftBreak) {
             return ' ';
         }
         if ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
