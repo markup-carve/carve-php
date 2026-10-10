@@ -1561,8 +1561,43 @@ class DjotToCarve
         return $output . substr($source, $cursor);
     }
 
+    /**
+     * Make an angle run that only LOOKS like an autolink visible to the
+     * plain-text escape again.
+     *
+     * The emphasis mask hides every angle run shaped like an autolink, which
+     * exempts its body from the rules that keep Carve text reading as text.
+     * That is right while the body is one: an autolink body is opaque, so
+     * `<a--@b.c>` keeps its `@` bare and its link. A body holding a lifted
+     * construct is NOT one - the reader takes the comment out before it ever
+     * looks for an autolink - so `<mailto:a{%%}@b.c>` is plain text whose `@`
+     * opens a MENTION instead of belonging to the address
+     * (markup-carve/carve-php#3037). Its Djot source `<mailto:a{ }@b.c>` is
+     * plain text too, and carve-js writes the escape.
+     *
+     * A lifted construct is a NUL-delimited placeholder, and Carve source
+     * carries no NUL of its own, so the byte is the whole test.
+     */
+    private function unmaskDjotAutolinkBodies(string $source, string $masked): string
+    {
+        if (!str_contains($source, '<') || !str_contains($source, "\0")) {
+            return $masked;
+        }
+        $visible = $this->maskCodeAndDestinations($source, opaqueOptions: ['autolinks' => false, 'comments' => false]);
+        preg_match_all('/<[^<>\s]+>/', $source, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as [$value, $at]) {
+            if (!str_contains($value, "\0") || $visible[$at] !== '<' || trim(substr($masked, $at, strlen($value))) !== '') {
+                continue;
+            }
+            $masked = substr_replace($masked, $value, $at, strlen($value));
+        }
+
+        return $masked;
+    }
+
     protected function escapePlainDjotText(string $source, string $masked): string
     {
+        $masked = $this->unmaskDjotAutolinkBodies($source, $masked);
         $result = '';
         $plain = '';
         $length = strlen($source);
