@@ -78,5 +78,29 @@
   {
     "source": "- - +\n    ```\n x\n",
     "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    ```\n    code\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    ```\n    code\n    ```\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    ~~~\n    code\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    ~~~\n    code\n    ~~~\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    ```=html\n    code\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        code\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    ```=html\n    code\n    ```\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        code\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   }
 ]
