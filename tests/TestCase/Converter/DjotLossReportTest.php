@@ -24,8 +24,22 @@ class DjotLossReportTest extends TestCase
             'empty destination' => ["[link][]\n\n[link]:\n[link2]: url\n", 1, 'empty destination'],
             'unresolved multiline label' => ["[link][a and\nb]\n", 1, 'unresolved Djot reference'],
             'multiline definition is text' => ["[link][a and\nb]\n\n[a and\nb]: url\n", 1, 'unresolved Djot reference'],
+            'reference inside escaped bracket suffix' => ['\\[a]([b][c])', 1, 'unresolved Djot reference'],
+            'reference after footnote' => ['text[^1]([see][ref])', 1, 'unresolved Djot reference'],
+            'nested bracket empty destination' => ['[a [b]]()', 1, 'empty destination'],
+            'empty image destination' => ['![a]()', 1, 'image with an empty destination'],
+            'unresolved image reference' => ['![a][missing]', 1, 'unresolved Djot image reference'],
+            'empty image reference' => ["![a][]\n\n[a]:", 1, 'image with an empty destination'],
+            'empty inline destination' => ['[literal]()', 1, 'empty destination'],
+            'escaped bang unresolved reference' => ['\\![x][undefined]', 1, 'unresolved Djot reference'],
             'case-sensitive reference' => ["[Link][]\n\n[link]: /url\n", 1, 'unresolved Djot reference'],
             'definition inside fenced code' => ["[x][r]\n\n```\n\n[r]: /url\n```\n", 1, 'unresolved Djot reference'],
+            'escaped bang before nested link' => ["\\![[foo](bar)](baz)\n", 1, 'link inside a link'],
+            'nested link through plain bracket' => ['[a [b [c](u)] d](v)', 1, 'link inside a link'],
+            'nested link through span' => ['[text [span [x](u)]{.c}](v)', 1, 'link inside a link'],
+            'nested link through invalid image' => ['[![a [b](u)] text](v)', 1, 'link inside a link'],
+            'nested reference link' => ["[[a][r]](v)\n\n[r]: u", 1, 'link inside a link'],
+            'nested parenthesized destination' => ['[[a](u(1))](v)', 1, 'link inside a link'],
             'nested link' => ["[[foo](bar)](baz)\n", 1, 'link inside a link'],
             'empty definition description' => [": apple\n fruit\n\n  Body\n\n: orange\n", 6, 'empty definition description'],
             'interior table separator' => ["|a|b|\n|:-|---:|\n|c|d|\n|cc|dd|\n|-:|:-:|\n|e|f|\n", 5, 'separator inside a table'],
@@ -55,7 +69,7 @@ class DjotLossReportTest extends TestCase
 
     public function testCodeAndResolvedReferencesHaveNoStructuralLoss(): void
     {
-        foreach (["```\n##\n[x][]\n|--|--|\n```\n", '`_({_foo_})_`', "[x][r]\n\n[r]: /url\n", "- a\n\n  - b\n  - c\n\n- d\n", "[x][]\n\n[x]:\n url\n", "See [Introduction][].\n\n# Introduction\n", "[link _and_ link][]\n\n[link and link]: url\n", "[![image](img)](url)\n", "\n|`|\n", '| `a |`', '[literal]()'] as $source) {
+        foreach (["```\n##\n[x][]\n|--|--|\n```\n", '`_({_foo_})_`', "[x][r]\n\n[r]: /url\n", "- a\n\n  - b\n  - c\n\n- d\n", "[x][]\n\n[x]:\n url\n", "See [Introduction][].\n\n# Introduction\n", "[link _and_ link][]\n\n[link and link]: url\n", "[![image](img)](url)\n", "\n|`|\n", '| `a |`', '[see [^1][^2]](v)'] as $source) {
             self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'));
         }
     }
@@ -162,5 +176,12 @@ class DjotLossReportTest extends TestCase
         $carve = (new DjotToCarve())->convert($source);
         self::assertSame("[b](/u){title=\"t\"}\n\nnext\n", $carve);
         self::assertSame("<p><a href=\"/u\" title=\"t\">b</a></p>\n<p>next</p>\n", (new CarveConverter())->convert($carve));
+    }
+
+    public function testNestedLinkReportsRespectParagraphAndCellBoundaries(): void
+    {
+        foreach (["[a [b](u)\\\n\nc](v)", "> [x [a](u)\n>\n> b](v)", '| [a [b](u) | c](v) |'] as $source) {
+            self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'));
+        }
     }
 }

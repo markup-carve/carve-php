@@ -18,18 +18,22 @@ trait ReportsDjotLosses
     {
         $source = str_replace(["\r\n", "\r"], "\n", $source);
         $mask = $this->djotEmphasisMask($source);
-        $losses = [];
-        $add = static function (int $at, string $message) use ($source, &$losses): void {
-            $line = substr_count(substr($source, 0, $at), "\n") + 1;
-            $key = $line . ':' . $message;
-            $losses[$key] = new MigrationDiagnostic('structure-unspellable', $message, 'warning', 'dropped', 'exact', 'line:' . $line);
+        $findings = [];
+        $add = static function (int $at, string $message) use (&$findings): void {
+            $findings[] = [$at, $message];
         };
         DjotEmphasis::convert($source, $mask, static fn (string $text): string => $text, [], static function (int $at) use ($add): void {
             $add($at, 'Nested emphasis of the same kind is flattened; its text is preserved.');
         });
         $lines = explode("\n", $source);
         $lineCount = count($lines);
-        $linkMask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => true]);
+        $destinations = [];
+        $linkMask = $this->maskCodeAndDestinations($source, false, opaqueOptions: [
+            'destinations' => true,
+            'onDestination' => static function (int $start, int $end) use (&$destinations): void {
+                $destinations[$start] = $end;
+            },
+        ]);
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
             if ($linkMask[$at] !== '{' || $this->isDjotEscaped($source, $at)) {
                 continue;
@@ -83,6 +87,7 @@ trait ReportsDjotLosses
             }
             if (preg_match('/^(#{1,6})(?:[ \t]+|$)/', $contentMask, $heading) === 1 && $boundary && !isset($headingLines[$n])) {
                 $text = substr($content, strlen($heading[0]));
+                $lastPart = $text;
                 $marker = '/^' . preg_quote($heading[1], '/') . '[ \t]+/';
                 for ($next = $n + 1; $next < $lineCount; $next++) {
                     $following = $lines[$next];
@@ -92,15 +97,17 @@ trait ReportsDjotLosses
                         break;
                     }
                     $part = substr($following, $nextAt);
-                    if (trim($part) === '' || preg_match('/(?:^|[^\\\\])(?:\\\\\\\\)*\\\\$/', $text) === 1) {
+                    if (trim($part) === '' || preg_match('/(?:^|[^\\\\])(?:\\\\\\\\)*\\\\$/', $lastPart) === 1) {
                         break;
                     }
                     if (preg_match($marker, $part) === 1) {
-                        $text .= "\n" . preg_replace($marker, '', $part);
+                        $lastPart = preg_replace($marker, '', $part) ?? $part;
+                        $text .= "\n" . $lastPart;
                     } else {
                         if (preg_match('/^(?:[#>|{]|[-*+][ \t]|[0-9A-Za-z]+[.)][ \t]|:[ \t]|:{2,}|\([0-9a-zA-Z]+\)[ \t]|[`~]{3,}|\[[^\]\n]*\]:|(?:[*-][ \t]*){3,}$)/', $part) === 1) {
                             break;
                         }
+                        $lastPart = $part;
                         $text .= "\n" . $part;
                     }
                     $headingLines[$next] = true;
@@ -160,29 +167,46 @@ trait ReportsDjotLosses
         }
         $this->reportDjotTableLosses($rows, $add);
         $mask = $linkMask;
-        preg_match_all('/(?<!!)\[([^\[\]]*)\](?:\[([^\[\]]*)\]|\(([^()\n]*)\))/', $source, $links, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
+        preg_match_all('/\[([^\[\]]*)\]\[([^\[\]]*)\]/', $source, $links, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
         foreach ($links as $link) {
             [$text, $at] = $link[0];
             if (($mask[$at] ?? '') !== '[' || $this->isDjotEscaped($source, $at) || str_starts_with($link[1][0], '^')) {
                 continue;
             }
-            if (isset($link[3]) && $link[3][1] >= 0) {
-                continue;
-            }
-            $reference = $link[2][0] ?? '';
+            $image = $at > 0 && $source[$at - 1] === '!' && !$this->isDjotEscaped($source, $at - 1);
+            $reference = $link[2][0];
             $label = $reference === '' ? $link[1][0] : $reference;
             if ($reference === '') {
                 $label = rtrim($plain->convert($this->convert($label)), "\n");
             }
             $label = $this->djotReferenceKey($label);
             if (!array_key_exists($label, $definitions)) {
-                $add($at, 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
+                $add($at, $image ? 'An unresolved Djot image reference has no src; Carve cannot spell that image.' : 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
             } elseif ($definitions[$label] === '') {
-                $add($at, 'A link with an empty destination has no Carve spelling.');
+                $add($at, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
+            }
+        }
+        $boundaryOffsets = $this->djotInlineBoundaries($source, $mask);
+        $boundaries = array_fill_keys($boundaryOffsets, true);
+        $referenceEnds = [];
+        $next = -1;
+        for ($at = strlen($source) - 1; $at >= 0; $at--) {
+            if (isset($boundaries[$at])) {
+                $next = -1;
+            } elseif ($mask[$at] === ']' && !$this->isDjotEscaped($source, $at)) {
+                $next = $at;
+            }
+            if ($at >= 2 && $source[$at - 1] === '[' && $source[$at - 2] === ']') {
+                $referenceEnds[$at] = $next;
             }
         }
         $starts = $images = $innerLinks = [];
+        $boundary = 0;
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+            while (($boundaryOffsets[$boundary] ?? $length) <= $at) {
+                $starts = $images = $innerLinks = [];
+                $boundary++;
+            }
             if ($mask[$at] === '\\') {
                 $at++;
 
@@ -190,22 +214,45 @@ trait ReportsDjotLosses
             }
             if ($mask[$at] === '[') {
                 $starts[] = $at;
-                $images[] = $at > 0 && $source[$at - 1] === '!';
+                $images[] = $at > 0 && $source[$at - 1] === '!' && !$this->isDjotEscaped($source, $at - 1);
                 $innerLinks[] = false;
             } elseif ($mask[$at] === ']' && $starts !== []) {
                 $start = array_pop($starts);
                 $image = array_pop($images);
                 $innerLink = array_pop($innerLinks);
-                $isLink = !$image && preg_match('/\G\([^()\n]+\)/', $source, offset: $at + 1) === 1;
+                $validForm = isset($destinations[$at + 1]) || ($source[$at + 1] ?? '') === '[' && ($referenceEnds[$at + 2] ?? -1) >= 0;
+                $isLink = !$image && ($source[$start + 1] ?? '') !== '^' && $validForm;
+                if (($source[$start + 1] ?? '') !== '^' && isset($destinations[$at + 1]) && $destinations[$at + 1] === $at + 3) {
+                    $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
+                }
                 if ($isLink && $innerLink) {
                     $add($start, 'A link inside a link has no Carve spelling.');
                 }
-                if ($starts !== [] && $isLink) {
+                if ($starts !== [] && ($isLink || $innerLink && !($image && $validForm))) {
                     $innerLinks[count($starts) - 1] = true;
                 }
             }
         }
 
+        $positions = array_column($findings, 0);
+        sort($positions, SORT_NUMERIC);
+        $linesAt = [];
+        $cursor = 0;
+        $line = 1;
+        foreach ($positions as $at) {
+            if (isset($linesAt[$at])) {
+                continue;
+            }
+            $line += substr_count(substr($source, $cursor, $at - $cursor), "\n");
+            $linesAt[$at] = $line;
+            $cursor = $at;
+        }
+        $losses = [];
+        foreach ($findings as [$at, $message]) {
+            $line = $linesAt[$at];
+            $key = $line . ':' . $message;
+            $losses[$key] = new MigrationDiagnostic('structure-unspellable', $message, 'warning', 'dropped', 'exact', 'line:' . $line);
+        }
         $losses = array_values($losses);
         usort($losses, static fn (MigrationDiagnostic $left, MigrationDiagnostic $right): int => (int)substr($left->path ?? '', 5) <=> (int)substr($right->path ?? '', 5));
 

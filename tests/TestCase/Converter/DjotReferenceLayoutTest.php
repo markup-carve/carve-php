@@ -54,4 +54,20 @@ class DjotReferenceLayoutTest extends TestCase
         $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
         self::assertSame(implode(' ', array_fill(0, 1024, '[a](/u){class=c}')), $method->invoke($converter, implode(' ', $uses) . "\n\n" . implode("\n", $definitions)));
     }
+
+    public function testConsecutiveReferenceAttributeBlocks(): void
+    {
+        $converter = new DjotToCarve();
+        $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
+        foreach (
+            [
+                ["[a][r]{title=first}{title=last}\n\n{.base}\n[r]: /u", '[a](/u){class=base title=last}'],
+                ["[a][r]{.a}{.b}\n\n{title=base}\n[r]: /u", '[a](/u){title=base class="a b"}'],
+                ["[a][r]{.a title=x}{.b title=y}\n\n{.base title=z}\n[r]: /u", '[a](/u){class="a b" title=y}'],
+                ["[a][r]\n\n{.a}\n{.b}\n[r]: /u", '[a](/u){class="a b"}'],
+            ] as [$source, $expected]
+        ) {
+            self::assertSame($expected, $method->invoke($converter, $source));
+        }
+    }
 }

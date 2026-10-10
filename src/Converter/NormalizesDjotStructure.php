@@ -480,18 +480,22 @@ trait NormalizesDjotStructure
     }
 
     /**
-     * @param array{end: int, source: string, parts: list<string>} $parsed
+     * @param list<string> $parts
      *
      * @return array<string, string>
      */
-    private function djotReferenceAttributes(array $parsed): array
+    private function djotReferenceAttributes(array $parts): array
     {
         $slots = [];
-        foreach ($parsed['parts'] as $part) {
+        foreach ($parts as $part) {
             foreach (AttributeParser::parse($part) as $key => $value) {
                 $value = is_array($value) ? implode(' ', $value) : $value;
                 if ($part[0] === '.') {
-                    $slots[$key] = isset($slots[$key]) ? $slots[$key] . ' ' . $value : $value;
+                    if (isset($slots[$key])) {
+                        $slots[$key] .= ' ' . $value;
+                    } else {
+                        $slots[$key] = $value;
+                    }
                 } else {
                     $slots[$key] = $value;
                 }
@@ -517,17 +521,17 @@ trait NormalizesDjotStructure
                     if ($parsed === null || $parsed['end'] !== strlen($lines[$k])) {
                         break;
                     }
-                    $parsedAttrs = $this->djotReferenceAttributes($parsed);
-                    $attributeParts[] = $parsedAttrs;
-                    if ($parsedAttrs !== []) {
+                    $attributeParts[] = $parsed['parts'];
+                    if ($parsed['parts'] !== []) {
                         $removed[$k] = true;
                     }
                 }
                 foreach (array_reverse($attributeParts) as $part) {
-                    foreach ($part as $key => $value) {
-                        $attrs[$key] = $value;
+                    foreach ($part as $value) {
+                        $attrs[] = $value;
                     }
                 }
+                $attrs = $this->djotReferenceAttributes($attrs);
                 $definitions[$definition[1]] = ['url' => $definition[2], 'attrs' => $attrs];
             }
             $offset += strlen($line) + 1;
@@ -632,8 +636,19 @@ trait NormalizesDjotStructure
             if ($definition['url'] !== '' && ($formatted || $definition['attrs'] !== [])) {
                 $inlined[$key] = true;
                 $attrs = '';
-                $own = isset($match[4]) && $this->readDjotWordAttributes($match[4][0], 0) !== null
-                    ? $this->djotReferenceAttributes($this->readDjotWordAttributes($match[4][0], 0)) : [];
+                $ownSource = $match[4][0] ?? '';
+                $ownParts = [];
+                for ($start = 0, $ownLength = strlen($ownSource); $start < $ownLength;) {
+                    $parsed = $this->readDjotWordAttributes($ownSource, $start);
+                    if ($parsed === null) {
+                        break;
+                    }
+                    foreach ($parsed['parts'] as $part) {
+                        $ownParts[] = $part;
+                    }
+                    $start = $parsed['end'];
+                }
+                $own = $this->djotReferenceAttributes($ownParts);
                 foreach (array_replace($definition['attrs'], $own) as $key => $value) {
                     $quoted = preg_match('/^[A-Za-z0-9_-]+$/', $value) !== 1;
                     $value = QuotedSlotEscaper::escape($value);

@@ -1954,7 +1954,7 @@ class DjotToCarve
      * @param bool $inlineForms
      * @param callable|null $onFenceLine
      * @param array<int, bool> $rowBoundaries
-     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void} $opaqueOptions
+     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void} $opaqueOptions
      * @param bool $unclosedCode
      */
     protected function maskCodeAndDestinations(
