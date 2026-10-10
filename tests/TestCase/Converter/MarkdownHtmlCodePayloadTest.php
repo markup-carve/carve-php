@@ -100,6 +100,23 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
     }
 
+    public function testAutolinkDelimitersDoNotDegradeNativeCode(): void
+    {
+        foreach ([false, true] as $mode) {
+            $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport('<code>*a</code> <http://e.test/b*>');
+            $this->assertSame([], array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback')));
+            $this->assertStringContainsString('<code>*a</code>', (new CarveConverter())->convert($result->value));
+        }
+    }
+
+    public function testConvertedHtmlWrappersKeepLiteralBrackets(): void
+    {
+        $source = (new MarkdownToCarve(convertRawHtml: true))->convert('<a href="u">a]b</a> <span class="x">a[b</span>');
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString('<a href="u">a]b</a>', $html);
+        $this->assertStringContainsString('a[b', $html);
+    }
+
     public function testCodeFallbacksKeepTheirOriginalSourceLine(): void
     {
         foreach ([false, true] as $mode) {
@@ -112,12 +129,12 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
     }
 
-    public function testFootnoteFollowingTextKeepsItsCode(): void
+    public function testFootnoteShapedLabelWithDestinationIsALink(): void
     {
         foreach ([false, true] as $mode) {
             $source = (new MarkdownToCarve(convertRawHtml: $mode))->convert("x[^1](u<code>a</code>)\n\n[^1]: note");
             $html = (new CarveConverter())->convert($source);
-            $this->assertStringContainsString('<code>a</code>', $html);
+            $this->assertSame('<p>x<a href="u%3Ccode%3Ea%3C/code%3E">^1</a></p>', rtrim($html, "\n"));
         }
     }
 

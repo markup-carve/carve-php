@@ -45,9 +45,9 @@ final class MarkdownEmphasis
         $pairs = [];
         $claimed = [];
         $literalEscapes = [];
-        preg_match_all($strikethrough ? '/~+/' : '/\*+|_+/', $source, $matches, PREG_OFFSET_CAPTURE);
+        preg_match_all($strikethrough ? '/\*+|_+|~+/' : '/\*+|_+/', $source, $matches, PREG_OFFSET_CAPTURE);
         foreach ($matches[0] as [$text, $start]) {
-            if ($strikethrough && strlen($text) > 2) {
+            if ($text[0] === '~' && strlen($text) > 2) {
                 continue;
             }
             $end = $start + strlen($text);
@@ -110,10 +110,10 @@ final class MarkdownEmphasis
                     }
                     $a = $opener->remaining();
                     $b = $closer->remaining();
-                    if ($strikethrough && $a !== $b) {
+                    if ($closer->char === '~' && $a !== $b) {
                         continue;
                     }
-                    if (!$strikethrough && ($opener->close || $closer->open) && ($a + $b) % 3 === 0 && ($a % 3 !== 0 || $b % 3 !== 0)) {
+                    if ($closer->char !== '~' && ($opener->close || $closer->open) && ($a + $b) % 3 === 0 && ($a % 3 !== 0 || $b % 3 !== 0)) {
                         continue;
                     }
 
@@ -126,7 +126,7 @@ final class MarkdownEmphasis
                 }
                 $width = min($runs[$o]->remaining(), $closer->remaining()) >= 2 ? 2 : 1;
                 $open = $runs[$o]->end - $runs[$o]->right - $width;
-                $pairs[$open] = ['close' => $closer->start + $closer->left, 'width' => $width, 'kind' => $strikethrough ? '~' : ($width === 2 ? '*' : '/'), 'scope' => $closer->scope];
+                $pairs[$open] = ['close' => $closer->start + $closer->left, 'width' => $width, 'kind' => $closer->char === '~' ? '~' : ($width === 2 ? '*' : '/'), 'scope' => $closer->scope];
                 for ($k = 0; $k < $width; $k++) {
                     $claimed[$open + $k] = true;
                     $claimed[$closer->start + $closer->left + $k] = true;

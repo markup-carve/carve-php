@@ -5402,7 +5402,7 @@ class MarkdownToCarve
         });
 
         $validateCodeScalar = function (string $paren) use ($protected, $table): ?string {
-            $inner = trim(substr($paren, 1, -1), " \t");
+            $inner = trim(substr($paren, 1, -1), " \t\n");
             if (str_starts_with($inner, '<')) {
                 preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
                 $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
@@ -5447,10 +5447,8 @@ class MarkdownToCarve
                 } elseif ($subject[$at] === '[') {
                     $opens[] = $at;
                 } elseif ($subject[$at] === ']' && $opens !== []) {
-                    $open = array_pop($opens);
-                    if (($subject[$open + 1] ?? '') !== '^') {
-                        $closers[$at] = true;
-                    }
+                    array_pop($opens);
+                    $closers[$at] = true;
                 }
             }
 
@@ -5504,7 +5502,7 @@ class MarkdownToCarve
         $scalarOpaqueCursor = 0;
         $line = preg_replace_callback(
             '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\n]|\n(?![ \t]*\n)|\([^()\n]*\))*\))/',
-            static function (array $match) use ($validateCodeScalar, $protectCodeTags, $scalarSubject, $scalarOpaqueRanges, $scalarDestinationClosers, &$scalarOpaqueCursor): string {
+            static function (array $match) use ($validateCodeScalar, $protectCodeTags, $protect, $scalarSubject, $scalarOpaqueRanges, $scalarDestinationClosers, &$scalarOpaqueCursor): string {
                 $start = $match[0][1];
                 while (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][1] <= $start) {
                     $scalarOpaqueCursor++;
@@ -5528,7 +5526,7 @@ class MarkdownToCarve
                     return $match[0];
                 }
                 if ($validateCodeScalar($match[2]) === null) {
-                    return $match[0];
+                    return $match[1] . $protect('\\(', '(') . substr($match[2], 1);
                 }
                 if (!str_starts_with($match[1], '!') && preg_match_all('/\[[^\[\]\n]*\](\([^()\n]*\))/', $match[1], $nestedDestinations) !== false) {
                     foreach ($nestedDestinations[1] as $destination) {
@@ -5732,6 +5730,7 @@ class MarkdownToCarve
                     $i += strlen($following[0]);
                 } elseif ($this->decodeHtmlReferenceText($entity[0]) === "\r" && ($line[$i] ?? '') === "\n") {
                     $i++;
+                    $i += strspn($line, " \t", $i);
                 }
                 $escaped .= $protect($this->verbatimHtmlInline('<!---->&#10;<!---->'), substr($line, $start, $i - $start));
 
@@ -5865,7 +5864,12 @@ class MarkdownToCarve
                 ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
             $line = preg_replace_callback(
                 '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+(?:"[^"]*"|\'[^\']*\'|[^<>"\'])*?)?>[\s\S]*?<\/\1[ \t]*>/i',
-                function (array $match) use ($protect, &$htmlBodyIndex, $htmlBodyReserved): string {
+                function (array $match) use ($protect, &$protectedSources, &$htmlBodyIndex, $htmlBodyReserved): string {
+                    if (preg_match('/^<(?:address|article|aside|blockquote|details|dialog|div|dl|fieldset|figure|footer|form|h[1-6]|header|main|nav|ol|p|pre|script|section|style|table|template|ul|noscript)\b/i', $match[0]) === 1) {
+                        $html = $this->referenceSourceText($match[0], $protectedSources);
+
+                        return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
+                    }
                     while (isset($htmlBodyReserved[(string)$htmlBodyIndex])) {
                         $htmlBodyIndex++;
                     }
@@ -5876,6 +5880,24 @@ class MarkdownToCarve
                         return $match[0];
                     }
                     $body = substr($match[0], $opening['end'], $closing - $opening['end']);
+                    $depth = 0;
+                    $unbalanced = false;
+                    for ($at = 0, $length = strlen($body); $at < $length; $at++) {
+                        if ($body[$at] === '\\') {
+                            $at++;
+                        } elseif ($body[$at] === '[') {
+                            $depth++;
+                        } elseif ($body[$at] === ']' && --$depth < 0) {
+                            $unbalanced = true;
+
+                            break;
+                        }
+                    }
+                    if ($unbalanced || $depth !== 0) {
+                        $html = $this->referenceSourceText($match[0], $protectedSources);
+
+                        return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
+                    }
                     $template = substr($match[0], 0, $opening['end']) . $marker . substr($match[0], $closing);
                     $converted = rtrim((new HtmlToCarve())->convert($template), "\n");
 
@@ -6111,7 +6133,7 @@ class MarkdownToCarve
 
         $encodeDest = function (string $paren) use ($protected, $table, $codeScalarTags): ?string {
             $paren = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeScalarTags[$token[0]] ?? $token[0], $paren) ?? $paren;
-            $inner = trim(substr($paren, 1, -1), " \t");
+            $inner = trim(substr($paren, 1, -1), " \t\n");
             if (str_starts_with($inner, '<')) {
                 preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
                 $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
@@ -6147,23 +6169,23 @@ class MarkdownToCarve
             return '(' . $this->writeMarkdownDestination($url, $protected) . $rest . ')';
         };
 
-        $protectDestination = function (string $alt, string $paren) use ($encodeDest, $protect): string {
+        $protectDestination = function (string $alt, string $paren, ?string $source = null) use ($encodeDest, $protect): string {
             $encoded = $encodeDest($paren);
 
-            return $encoded === null ? $alt . '\\(' . substr($paren, 1) : $protect($alt . $encoded);
+            return $encoded === null ? $alt . '\\(' . substr($paren, 1) : $protect($alt . $encoded, $source ?? $alt . $paren);
         };
 
         $line = preg_replace_callback(
-            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\([ \t]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
+            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\([ \t\n]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
             fn (array $match): string => str_starts_with($match[1], '!')
-                ? $protectDestination($imageLabel($match[1]), $match[2])
+                ? $protectDestination($imageLabel($match[1]), $match[2], $match[1] . $match[2])
                 : $match[1] . $protectDestination('', $match[2]),
             $line,
         ) ?? $line;
 
         $activeDestinationClosers = $destinationClosers($line);
         $line = preg_replace_callback(
-            '/(?<=\])(\([ \t]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
+            '/(?<=\])(\([ \t\n]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
             static fn (array $match): string => isset($activeDestinationClosers[$match[1][1] - 1])
                 ? $protectDestination('', $match[1][0]) : $match[0][0],
             $line,
@@ -6172,10 +6194,10 @@ class MarkdownToCarve
             PREG_OFFSET_CAPTURE,
         ) ?? $line;
 
-        $destination = '\((?:[^()\n]|\([^()\n]*\))*\)';
+        $destination = '\([ \t]*(?:\n(?![ \t]*\n)[ \t]*)?(?:[^()\n]|\([^()\n]*\))*\)';
         $line = preg_replace_callback(
             '/(!\[(?:[^[\]]|\[[^\]]*\])*\])(' . $destination . ')/',
-            fn (array $match): string => $protectDestination($imageLabel($match[1]), $match[2]),
+            fn (array $match): string => $protectDestination($imageLabel($match[1]), $match[2], $match[1] . $match[2]),
             $line,
         ) ?? $line;
         $activeDestinationClosers = $destinationClosers($line);
@@ -6187,6 +6209,13 @@ class MarkdownToCarve
             -1,
             $destinationCount,
             PREG_OFFSET_CAPTURE,
+        ) ?? $line;
+
+        $line = preg_replace_callback(
+            '/\[\^([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
+            static fn (array $match): string => str_starts_with($protected[(int)$match[2]] ?? '', '(')
+                ? '[' . $protect('\\^', '^') . $match[1] . ']' : $match[0],
+            $line,
         ) ?? $line;
 
         $chainSubject = $line;
@@ -7899,7 +7928,7 @@ class MarkdownToCarve
      * @param string $source
      * @param array<string> $protected
      *
-     * @return array<string, true>
+     * @return array<int, true>
      */
     private function htmlCodeUnchangedByEmphasis(string $source, array $protected): array
     {
@@ -7918,6 +7947,9 @@ class MarkdownToCarve
             $end = $source[$at] === '<'
                 ? $this->opaqueHtmlEnd($source, $at, $ends) ?? ($this->htmlTagAt($source, $at)['end'] ?? null)
                 : null;
+            if ($end === null && $source[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/', $source, $autolink, 0, $at) === 1) {
+                $end = $at + strlen($autolink[0]);
+            }
             if ($end === null) {
                 $masked .= $source[$at++];
 
@@ -7928,7 +7960,7 @@ class MarkdownToCarve
             $masked .= $token;
             $at = $end;
         }
-        $converted = strtr(MarkdownEmphasis::convert(MarkdownEmphasis::convert($masked, protectedSpans: $protected, plainText: true), protectedSpans: $protected, plainText: true, strikethrough: true), $restorations);
+        $converted = strtr(MarkdownEmphasis::convert($masked, protectedSpans: $protected, plainText: true, strikethrough: true), $restorations);
         preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $source, $before, PREG_OFFSET_CAPTURE);
         preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $converted, $after);
         $unchanged = [];
