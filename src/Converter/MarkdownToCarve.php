@@ -347,13 +347,84 @@ class MarkdownToCarve
     }
 
     /**
+     * Which lines of the given source this importer reads as HTML BLOCK
+     * content, keyed by line index into the whole source.
+     *
+     * The answer is the reference-definition pass's own, because that pass
+     * already carries fence state, a block quote's `>` prefix and a list item's
+     * content column; a marker at a list item's content column is HTML there
+     * and one at four columns is code text, which is the distinction a flat
+     * scan cannot make.
+     *
+     * @return array<int, true>
+     */
+    protected function markdownHtmlBlockLines(string $markdown): array
+    {
+        if (!str_contains($markdown, CarrierMarkers::PREFIX)) {
+            return [];
+        }
+        $all = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
+        $offset = count($this->splitFrontmatter($all));
+        $sourceLines = $this->markdownSourceLines;
+        $htmlSourceLines = $this->markdownHtmlSourceLines;
+        $found = [];
+        $this->extractReferenceDefinitions(array_slice($all, $offset), $found);
+        // The pass is run for its block reading alone, so everything else it
+        // touched goes back to what the conversion proper will reset anyway.
+        $this->markdownSourceLines = $sourceLines;
+        $this->markdownHtmlSourceLines = $htmlSourceLines;
+        $html = [];
+        foreach (array_keys($found ?? []) as $at) {
+            $html[$at + $offset] = true;
+        }
+
+        return $html;
+    }
+
+    /**
+     * The host prefix a marker line carries before the marker itself: a block
+     * quote's `>` runs, a list item's indentation and the item marker that
+     * opens it. The placeholder keeps it, so the marker stays in its host when
+     * the lifted source is read.
+     */
+    protected function carrierHostPrefix(string $line): string
+    {
+        $at = strpos($line, CarrierMarkers::PREFIX);
+        if ($at === false) {
+            return '';
+        }
+
+        return substr($line, 0, $at);
+    }
+
+    /**
+     * A line with the recorded host prefix taken off, for the fallback lines
+     * travelling under an opener. A block quote writes its blank lines as a
+     * bare `>`, which the opener's own prefix does not cover.
+     */
+    protected function withoutCarrierHost(string $line, string $host): string
+    {
+        if ($host === '') {
+            return $line;
+        }
+        if (str_starts_with($line, $host)) {
+            return substr($line, strlen($host));
+        }
+
+        return ltrim($line, " \t>");
+    }
+
+    /**
      * Lift every carrier marker line out of the source, leaving a placeholder.
      *
      * A set that does not balance is NEVER reconstructed: the source comes back
      * untouched, the markers import as the raw HTML they are, and the caller
      * reports one `carrier-markers-damaged` row.
+     *
+     * @param string $markdown
+     * @param array<int, true> $htmlLines Source lines read as HTML block content.
      */
-    protected function prepareCarrierMarkers(string $markdown): string
+    protected function prepareCarrierMarkers(string $markdown, array $htmlLines = []): string
     {
         $this->carrierSlots = [];
         $this->carrierDamaged = false;
@@ -364,38 +435,23 @@ class MarkdownToCarve
 
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         $payloads = [];
+        $hosts = [];
         $seen = false;
-        // A MARKER INSIDE A FENCED CODE BLOCK IS NOT A MARKER. A code block's
-        // payload is verbatim content, so a page documenting the mode holds
-        // marker-shaped lines that record no container, and lifting one rewrote
-        // the sample inside the fence (markup-carve/carve-php#3038, measured on
-        // spec/docs/graceful-degradation.md). An indented code block and an
-        // inline code span need no guard of their own: a marker is read at
-        // column 0 only.
-        $fence = null;
+        // A MARKER IS A LINE THE BLOCK STRUCTURE READ AS HTML. A code
+        // construct's payload is verbatim content, so a marker-shaped line in
+        // one records no container and must be left where it is
+        // (markup-carve/carve-php#3038); the structure map answers that at
+        // every indent and behind every host prefix, which a fence scan over
+        // the raw lines could not (markup-carve/carve#2850).
         foreach ($lines as $at => $line) {
-            $opener = preg_match('/^([ \t]*)(`{3,}|~{3,})(.*)$/D', $line, $match) === 1
-                && $this->columnWidth($match[1]) <= 3
-                    ? $match
-                    : null;
-            if ($fence !== null) {
-                if (
-                    $opener !== null && $opener[2][0] === $fence[0]
-                    && strlen($opener[2]) >= strlen($fence) && trim($opener[3]) === ''
-                ) {
-                    $fence = null;
-                }
-
+            if (!isset($htmlLines[$at])) {
                 continue;
             }
-            if ($opener !== null && !($opener[2][0] === '`' && str_contains($opener[3], '`'))) {
-                $fence = $opener[2];
-
-                continue;
-            }
-            $payload = CarrierMarkers::payload($line);
+            $host = $this->carrierHostPrefix($line);
+            $payload = CarrierMarkers::payload(substr($line, strlen($host)));
             if ($payload !== null) {
                 $payloads[$at] = $payload;
+                $hosts[$at] = $host;
                 $seen = true;
             }
         }
@@ -417,10 +473,12 @@ class MarkdownToCarve
         $out = [];
         $drop = 0;
         $skipBlank = false;
+        $host = '';
         $last = count($lines) - 1;
         foreach ($lines as $at => $line) {
             if (!isset($payloads[$at])) {
-                if ($drop > 0 && preg_match('/^\*\*.+\*\*$/D', $line) === 1) {
+                $body = $this->withoutCarrierHost($line, $host);
+                if ($drop > 0 && preg_match('/^\*\*.+\*\*$/D', $body) === 1) {
                     $drop--;
                     $skipBlank = true;
 
@@ -429,7 +487,7 @@ class MarkdownToCarve
                 // The LAST element is the source's trailing newline, not a
                 // separator the dropped fallback brought with it: consuming it
                 // would leave the Carve output without its own final newline.
-                if ($skipBlank && $at !== $last && $line === '') {
+                if ($skipBlank && $at !== $last && $body === '') {
                     $skipBlank = false;
 
                     continue;
@@ -440,8 +498,9 @@ class MarkdownToCarve
                 continue;
             }
             $payload = $payloads[$at];
+            $host = $hosts[$at];
             $closer = CarrierMarkers::isCloser($payload);
-            $out[] = $token . count($this->carrierSlots) . 'Z';
+            $out[] = $host . $token . count($this->carrierSlots) . 'Z';
             $this->carrierSlots[] = [
                 'payload' => $payload,
                 'closer' => $closer,
@@ -546,24 +605,82 @@ class MarkdownToCarve
             return $carve;
         }
         $pattern = '/^' . preg_quote($this->carrierToken, '/') . '(\d+)Z$/D';
-        // Each line as its text plus which kind of marker, if any, produced it:
-        // 'open' for an opener or the attribute line travelling with it,
-        // 'close' for a bare closer, 'caption' for a composite figure's
-        // caption line.
-        /** @var list<array{text: string, kind: string|null}> $items */
+        // Each line as its host prefix, its text, and which kind of marker, if
+        // any, produced it: 'open' for an opener or the attribute line
+        // travelling with it, 'close' for a bare closer, 'caption' for a
+        // composite figure's caption line.
+        /** @var list<array{lead: string, text: string, kind: string|null}> $items */
         $items = [];
         foreach (explode("\n", $carve) as $line) {
-            if (preg_match($pattern, trim($line), $match) !== 1) {
-                $items[] = ['text' => $line, 'kind' => null];
+            // THE PREFIX IS WHATEVER STANDS BEFORE THE TOKEN rather than a
+            // character class: a container opening a list item puts the marker
+            // behind that item's `-`, and leaving the token in the output would
+            // be corruption rather than a missed restore.
+            $at = strpos($line, $this->carrierToken);
+            if ($at === false || preg_match($pattern, rtrim(substr($line, $at)), $match) !== 1) {
+                $lead = strlen($line) - strlen(ltrim($line, " \t>"));
+                $items[] = ['lead' => substr($line, 0, $lead), 'text' => substr($line, $lead), 'kind' => null];
 
                 continue;
             }
             $slot = $this->carrierSlots[(int)$match[1]];
             $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
-            $items[] = ['text' => $slot['payload'], 'kind' => $kind];
+            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind];
+        }
+        $items = $this->anchorCarrierClosers($items);
+        $spelled = [];
+        foreach ($this->separateCarrierLines($items) as $item) {
+            $spelled[] = $item['lead'] . $item['text'];
         }
 
-        return implode("\n", array_column($this->separateCarrierLines($items), 'text'));
+        return implode("\n", $spelled);
+    }
+
+    /**
+     * Put every restored closer at its OPENER's column.
+     *
+     * Where a container opens a list item and its body begins with a list, the
+     * closer's placeholder is a lazy continuation of that inner item's
+     * paragraph, so the written Carve puts it at the inner content column and
+     * the container would close in the wrong host. The opener's own prefix is
+     * the answer, with any list marker in it blanked out, because a closer
+     * cannot repeat an item's marker.
+     *
+     * @param list<array{lead: string, text: string, kind: string|null}> $items
+     *
+     * @return list<array{lead: string, text: string, kind: string|null}>
+     */
+    protected function anchorCarrierClosers(array $items): array
+    {
+        $open = [];
+        $closed = null;
+        foreach ($items as $at => $item) {
+            if ($item['kind'] === 'open' && CarrierMarkers::fenceWidth($item['text']) > 0) {
+                // A TASK BOX IS NOT PART OF THE COLUMN. It stands in the item's
+                // content, so the body of a container opening a task item sits
+                // at the item's own content column, not past the box.
+                $lead = preg_replace('/\[[ xX]\][ \t]+$/', '', $item['lead']) ?? $item['lead'];
+                $open[] = preg_replace('/[^>\t]/', ' ', $lead) ?? $lead;
+                $closed = null;
+
+                continue;
+            }
+            if ($item['kind'] === 'close' && $open !== []) {
+                $closed = array_pop($open);
+                $items[$at]['lead'] = $closed;
+
+                continue;
+            }
+            // A CAPTION HANGS ON THE CLOSING FENCE, so it stands at that
+            // closer's column. Its placeholder is a lazy continuation of the
+            // same inner item, and a caption at the wrong column attaches to
+            // nothing.
+            if ($item['kind'] === 'caption' && $closed !== null) {
+                $items[$at]['lead'] = $closed;
+            }
+        }
+
+        return $items;
     }
 
     /**
@@ -571,34 +688,52 @@ class MarkdownToCarve
      * around it: a container's opener and closer hug its body, and what follows
      * a closer is a block of its own.
      *
-     * @param list<array{text: string, kind: string|null}> $items
+     * @param list<array{lead: string, text: string, kind: string|null}> $items
      *
-     * @return list<array{text: string, kind: string|null}>
+     * @return list<array{lead: string, text: string, kind: string|null}>
      */
     protected function separateCarrierLines(array $items): array
     {
         $count = count($items);
         $hugged = [];
+        // A line carrying nothing but its host prefix is blank: inside a block
+        // quote the canonical writer spells a blank line as a bare `>`.
+        $blank = static fn (array $item): bool => $item['kind'] === null && $item['text'] === '';
         for ($at = 0; $at < $count; $at++) {
-            if ($items[$at]['kind'] !== null || $items[$at]['text'] !== '') {
+            if (!$blank($items[$at])) {
                 continue;
             }
             $end = $at;
-            while ($end < $count && $items[$end]['kind'] === null && $items[$end]['text'] === '') {
+            while ($end < $count && $blank($items[$end])) {
                 $end++;
             }
             $before = $at - 1;
-            while ($before >= 0 && $items[$before]['kind'] === null && $items[$before]['text'] === '') {
+            while ($before >= 0 && $blank($items[$before])) {
                 $before--;
             }
             $above = $before >= 0 ? $items[$before]['kind'] : null;
             $below = $end < $count ? $items[$end]['kind'] : null;
-            if (
-                $below === 'close'
-                || $below === 'caption'
-                || $above === 'open'
-                || ($above === 'close' && ($below === 'close' || $below === 'caption'))
-            ) {
+            $marker = null;
+            if ($below === 'close' || $below === 'caption') {
+                $marker = $items[$end];
+            } elseif ($above === 'open') {
+                $marker = $items[$before];
+            } elseif ($above === 'close' && ($below === 'close' || $below === 'caption')) {
+                $marker = $items[$end];
+            }
+            // The blank has to share the marker's HOST to be inside it: a `>`
+            // line next to a marker standing at column 0 belongs to a block
+            // quote of its own.
+            if ($marker !== null) {
+                for ($drop = $at; $drop < $end; $drop++) {
+                    if (rtrim($items[$drop]['lead']) !== rtrim($marker['lead'])) {
+                        $marker = null;
+
+                        break;
+                    }
+                }
+            }
+            if ($marker !== null) {
                 for ($drop = $at; $drop < $end; $drop++) {
                     $hugged[$drop] = true;
                 }
@@ -617,8 +752,15 @@ class MarkdownToCarve
                 && $item['kind'] !== 'close'
                 && $item['kind'] !== 'caption'
                 && $item['text'] !== ''
+                // A closer and what follows take a blank line between them only
+                // where they are SIBLINGS. A list item opening after a closer
+                // is a block of the host above, and a blank there would turn a
+                // tight list loose.
+                && strlen($item['lead']) >= strlen(end($out)['lead'])
             ) {
-                $out[] = ['text' => '', 'kind' => null];
+                // The separator carries the closer's own host prefix, so a
+                // blank line inside a block quote is still a `>` line.
+                $out[] = ['lead' => rtrim(end($out)['lead']), 'text' => '', 'kind' => null];
             }
             $out[] = $item;
         }
@@ -632,7 +774,14 @@ class MarkdownToCarve
     public function convert(string $markdown): string
     {
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
-        $markdown = $this->prepareCarrierMarkers($markdown);
+        // PART 11 §10s: WHICH MARKER-SHAPED LINES ARE MARKERS comes from the
+        // block structure this importer derives, not from a flat scan of the
+        // source. A flat scan cannot tell a marker standing at a list item's
+        // content column from code text inside that item, so it either corrupts
+        // the verbatim run or refuses the nesting a document most often has
+        // (markup-carve/carve#2850). Everything this probe dirties is reset
+        // below, before the conversion proper reads any of it.
+        $markdown = $this->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
         $this->unspellableOrderedTasks = [];
         $this->flattenedEmphasis = false;
         $this->tableUnderWay = [];
@@ -7015,10 +7164,14 @@ class MarkdownToCarve
      * document.
      *
      * @param array<string> $lines
+     * @param array<int, true>|null $blockHtml Filled, when given, with the index
+     *   of every line this pass reads as HTML BLOCK content - a carrier marker
+     *   standing behind a task box included, since `[ ] ` is inline content and
+     *   no HTML block can begin after it (markup-carve/carve#2850).
      *
      * @return array<string>
      */
-    protected function extractReferenceDefinitions(array $lines): array
+    protected function extractReferenceDefinitions(array $lines, ?array &$blockHtml = null): array
     {
         $this->markdownFootnoteLabels = [];
         $this->emptyDestinationLabels = [];
@@ -7042,6 +7195,8 @@ class MarkdownToCarve
         $canStart = true;
         $depth = 0;
         $listIndent = 0;
+        // The content column every container prefix on the line put the body at.
+        $blockIndent = 0;
         $count = count($lines);
         $outdent = 0;
         for ($i = 0; $i < $count; $i++) {
@@ -7068,6 +7223,9 @@ class MarkdownToCarve
                     $diagnosticHtml = null;
                 } else {
                     $this->markdownHtmlSourceLines[$i] = true;
+                    if ($blockHtml !== null) {
+                        $blockHtml[$i] = true;
+                    }
                 }
             }
             $opensItem = false;
@@ -7089,6 +7247,9 @@ class MarkdownToCarve
             }
             if ($htmlCloser !== null) {
                 $this->markdownHtmlSourceLines[$i] = true;
+                if ($blockHtml !== null) {
+                    $blockHtml[$i] = true;
+                }
                 if (preg_match($htmlCloser, $line) === 1) {
                     $htmlCloser = null;
                     $canStart = true;
@@ -7110,8 +7271,60 @@ class MarkdownToCarve
                     $listIndent = 0;
                 }
             }
+            // CONTAINER PREFIXES NEST, and the BLOCK decisions below need the
+            // innermost content. An item's indentation or marker came off the
+            // line without the quote regex running again, so a block quote
+            // inside that item still has its `>` run on the content and a fence
+            // or an HTML block opening there would be read as the block's own
+            // text. Only the fence and HTML-block readings take the nested run
+            // off; everything else keeps the content it has today, so a
+            // definition inside such a quote is handled exactly as before
+            // (markup-carve/carve#2850).
+            // Every container prefix the line carries comes off, not just the
+            // first: `- - ::: note` opens TWO items on one line, and a quote
+            // inside an item carries both prefixes.
+            //
+            // A LIST MARKER INSIDE AN OPEN FENCE IS VERBATIM CONTENT, so only
+            // the quote prefix keeps coming off there - stripping a marker
+            // would let a `- ```` line inside the fence read as its closer.
+            $blockContent = $fence !== null && strspn($line, ' ') >= $blockIndent
+                ? substr($line, $blockIndent)
+                : $content;
+            while ($listIndent > 0) {
+                if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
+                    $blockContent = substr($blockContent, strlen($nested[1]));
+
+                    continue;
+                }
+                if ($fence !== null) {
+                    break;
+                }
+                // `- - -` is a thematic break, not two nested items.
+                if (
+                    preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $blockContent) === 1
+                    || preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?=\S)/', $blockContent, $inner) !== 1
+                ) {
+                    break;
+                }
+                $blockContent = substr($blockContent, strlen($inner[0]));
+            }
+            // The content column EVERY prefix on the line put the body at,
+            // which is what a continuation line of this item is read against.
+            // `$listIndent` only counts the first marker, so a body six columns
+            // in under `- - - ` would otherwise read as code.
+            if ($opensItem) {
+                $blockIndent = strlen($line) - strlen($blockContent);
+            } elseif ($listIndent === 0) {
+                $blockIndent = 0;
+            }
+            if (!$opensItem && $blockIndent > $listIndent && strspn($line, ' ') >= $blockIndent) {
+                $blockContent = substr($line, $blockIndent);
+                if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
+                    $blockContent = substr($blockContent, strlen($nested[1]));
+                }
+            }
             if ($fence !== null) {
-                if (preg_match('/^ {0,3}(`{3,}|~{3,})[ \t]*$/', $content, $close) === 1 && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)) {
+                if (preg_match('/^ {0,3}(`{3,}|~{3,})[ \t]*$/', $blockContent, $close) === 1 && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)) {
                     $fence = null;
                     $canStart = true;
                 }
@@ -7121,7 +7334,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $content, $open) === 1) {
+            if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $blockContent, $open) === 1) {
                 $fence = $open[1];
                 $blockDepth = $lineDepth;
                 $blockList = $listIndent;
@@ -7131,14 +7344,26 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($this->htmlBlockInterrupts(ltrim($content, ' ')) && strspn($content, ' ') <= 3) {
+            if (
+                $blockHtml !== null && $opensItem && strspn($blockContent, ' ') <= 3
+                && preg_match('/^\[[ xX]\][ \t]+<!--/', ltrim($blockContent, ' ')) === 1
+            ) {
+                $blockHtml[$i] = true;
+            }
+            if ($this->htmlBlockInterrupts(ltrim($blockContent, ' ')) && strspn($blockContent, ' ') <= 3) {
                 $this->markdownHtmlSourceLines[$i] = true;
+                if ($blockHtml !== null) {
+                    $blockHtml[$i] = true;
+                }
                 $diagnosticHtml = ['depth' => $lineDepth, 'list' => $listIndent];
             }
-            $closer = $this->htmlBlockCloser(ltrim($content, ' '));
-            if ($closer !== null && strspn($content, ' ') <= 3) {
+            $closer = $this->htmlBlockCloser(ltrim($blockContent, ' '));
+            if ($closer !== null && strspn($blockContent, ' ') <= 3) {
                 $this->markdownHtmlSourceLines[$i] = true;
-                if (preg_match($closer, substr(ltrim($content, ' '), 2)) !== 1) {
+                if ($blockHtml !== null) {
+                    $blockHtml[$i] = true;
+                }
+                if (preg_match($closer, substr(ltrim($blockContent, ' '), 2)) !== 1) {
                     $htmlCloser = $closer;
                     $blockDepth = $lineDepth;
                     $blockList = $listIndent;
