@@ -2044,7 +2044,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $close = $this->xhtml ? ' />' : '>';
             $first = $node->getChildren()[0] ?? null;
             $taskName = $first instanceof Paragraph
-                ? trim((string)preg_replace('/[ \t\n\r\f\v]+/', ' ', $this->getPlainText($first)))
+                ? trim((string)preg_replace('/[ \t\n\r\f\v]+/', ' ', $this->getRenderContext()->headingIdTracker->getPlainText($first, $this->smartTypography)))
                 : '';
             $name = $taskName === '' ? '' : ' aria-label="' . $this->escapeAttribute($taskName) . '"';
             $lead = '<input type="checkbox"' . $checked . ' disabled' . $name . $close . ' ' . $lead;
@@ -3377,7 +3377,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function renderSmartPunctuation(SmartPunctuation $node): string
     {
-        if ($this->smartTypography === SmartTypographyMode::Source) {
+        if ($this->smartTypography->usesSource($node->getKind())) {
             return $this->escape($node->getContent());
         }
 

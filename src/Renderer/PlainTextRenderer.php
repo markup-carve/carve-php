@@ -97,7 +97,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
      */
     protected function renderSmartPunctuation(SmartPunctuation $node): string
     {
-        if ($this->smartTypography === SmartTypographyMode::Source) {
+        if ($this->smartTypography->usesSource($node->getKind())) {
             return $node->getContent();
         }
 

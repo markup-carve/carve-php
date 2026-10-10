@@ -222,10 +222,10 @@ class HeadingIdTracker
      */
     public function getTextForId(string $id, SmartTypographyMode $mode = SmartTypographyMode::Glyph): ?string
     {
-        if ($mode === SmartTypographyMode::Source && isset($this->nodesById[$id])) {
+        if ($mode !== SmartTypographyMode::Glyph && isset($this->nodesById[$id])) {
             $text = '';
             foreach ($this->nodesById[$id] as $child) {
-                $text .= $this->extractPlainTextFrom($child, true);
+                $text .= $this->extractPlainTextFrom($child, $mode);
             }
 
             return $text;
@@ -395,8 +395,12 @@ class HeadingIdTracker
      * the original text is preserved even if extensions later modify
      * the heading's children (e.g., appending a permalink symbol).
      */
-    public function getPlainText(Node $node): string
+    public function getPlainText(Node $node, SmartTypographyMode $mode = SmartTypographyMode::Glyph): string
     {
+        if ($mode !== SmartTypographyMode::Glyph) {
+            return $this->extractPlainText($node, $mode);
+        }
+
         if ($node instanceof Heading) {
             $objectId = spl_object_id($node);
             if (isset($this->resolvedTexts[$objectId])) {
@@ -417,22 +421,22 @@ class HeadingIdTracker
         $id = $this->getIdForHeading($node);
         $text = '';
         foreach ($this->nodesById[$id] ?? array_values($node->getChildren()) as $child) {
-            $text .= $this->extractPlainTextFrom($child, $mode === SmartTypographyMode::Source, false, '');
+            $text .= $this->extractPlainTextFrom($child, $mode, false, '');
         }
 
         return $text;
     }
 
-    public function getDisplayText(Node $node): string
+    public function getDisplayText(Node $node, SmartTypographyMode $mode = SmartTypographyMode::Glyph): string
     {
-        return $this->extractPlainText($node, false, true);
+        return $this->extractPlainText($node, $mode, true);
     }
 
     /**
      * Recursively extract plain text from a node tree
      *
      * @param \MarkupCarve\Carve\Node\Node $node
-     * @param bool $sourceRuns Read a smart-typography node's SOURCE RUN instead
+     * @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool $sourceRuns Read a smart-typography node's SOURCE RUN instead
      * @param bool $includeSymbols
      * @param string $hardBreakText
      *   of its glyph. Only ever true for a cross-reference LABEL: a heading id
@@ -440,7 +444,7 @@ class HeadingIdTracker
      */
     protected function extractPlainText(
         Node $node,
-        bool $sourceRuns = false,
+        SmartTypographyMode|bool $sourceRuns = false,
         bool $includeSymbols = false,
         string $hardBreakText = ' ',
     ): string {
@@ -462,13 +466,13 @@ class HeadingIdTracker
      * second spelling of every branch here.
      *
      * @param \MarkupCarve\Carve\Node\Node $child
-     * @param bool $sourceRuns See extractPlainText().
+     * @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool $sourceRuns See extractPlainText().
      * @param bool $includeSymbols
      * @param string $hardBreakText
      */
     protected function extractPlainTextFrom(
         Node $child,
-        bool $sourceRuns = false,
+        SmartTypographyMode|bool $sourceRuns = false,
         bool $includeSymbols = false,
         string $hardBreakText = ' ',
     ): string {
@@ -502,13 +506,13 @@ class HeadingIdTracker
      * `:index[]` marker count".
      *
      * @param \MarkupCarve\Carve\Node\Node $child
-     * @param bool $sourceRuns See extractPlainText().
+     * @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool $sourceRuns See extractPlainText().
      * @param bool $includeSymbols
      * @param string $hardBreakText
      */
     protected function inlineTextLeaf(
         Node $child,
-        bool $sourceRuns = false,
+        SmartTypographyMode|bool $sourceRuns = false,
         bool $includeSymbols = false,
         string $hardBreakText = ' ',
     ): ?string {
@@ -536,7 +540,7 @@ class HeadingIdTracker
             // asks for. A cross-reference LABEL is presentation, not identity,
             // and PART 9R R4 gives it the heading's nodes precisely so the run
             // survives (markup-carve/carve#952).
-            if ($sourceRuns) {
+            if ($sourceRuns === true || ($sourceRuns instanceof SmartTypographyMode && $sourceRuns->usesSource($child->getKind()))) {
                 return $child->getContent();
             }
 

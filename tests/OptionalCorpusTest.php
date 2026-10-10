@@ -215,6 +215,7 @@ class OptionalCorpusTest extends TestCase
                     ? new CarveConverter(renderer: $r->setSmartTypography(SmartTypographyMode::Source))
                     : null;
             },
+            'smart-typography-quotes-off' => static fn (?RendererInterface $r): CarveConverter => new CarveConverter(renderer: $r, smartTypography: SmartTypographyMode::QuotesSource),
             'smart-typography-off' => static fn (?RendererInterface $r): CarveConverter => new CarveConverter(renderer: $r, smartTypography: false),
             // The DEFAULT mode, named as a feature so a case can pin it. Its
             // job is to be the control a source-mode case needs: without it a

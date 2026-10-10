@@ -451,6 +451,15 @@ class CliTest extends TestCase
         }
     }
 
+    public function testSmartTypographyQuotesSourceOnEveryTarget(): void
+    {
+        foreach (['--html', '--markdown', '--plain', '--ansi'] as $target) {
+            $result = $this->runCliInput([$target, '--smart-typography', 'quotes-source'], "He said \"hi\"... a--b\n");
+            $this->assertSame(0, $result['exit'], $result['err']);
+            $this->assertStringContainsString('He said "hi"… a–b', $result['out']);
+        }
+    }
+
     public function testSmartTypographySourceOnHtml(): void
     {
         // The CLI is the machine-facing case the switch exists for, and it is

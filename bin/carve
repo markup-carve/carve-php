@@ -507,12 +507,12 @@ function parseArgs(array $argv): array
             // for machine-facing output - text piped into something that
             // re-parses it - which is the shape of a CLI invocation.
             if (!isset($argv[$i + 1])) {
-                fwrite(STDERR, "Error: --smart-typography requires a mode (glyph|source)\n");
+                fwrite(STDERR, "Error: --smart-typography requires a mode (glyph|source|quotes-source)\n");
                 exit(1);
             }
             $mode = $argv[++$i];
-            if ($mode !== 'glyph' && $mode !== 'source') {
-                fwrite(STDERR, "Error: Unknown smart typography mode: $mode (expected glyph|source)\n");
+            if ($mode !== 'glyph' && $mode !== 'source' && $mode !== 'quotes-source') {
+                fwrite(STDERR, "Error: Unknown smart typography mode: $mode (expected glyph|source|quotes-source)\n");
                 exit(1);
             }
             $options['smartTypography'] = $mode;
@@ -689,8 +689,8 @@ Output format (default --html; last one wins):
   --carve             canonical Carve source
 
 Rendering:
-  --smart-typography MODE  glyph (default) or source: emit the runs the author
-                           typed instead of the resolved glyphs (HTML/Markdown)
+  --smart-typography MODE  glyph (default), source (all source runs),
+                           quotes-source (quotes only); every presentation target
   --carry-markers          Markdown only: bracket every container Markdown
                            drops with an HTML comment holding its Carve
                            opener, so `carve migrate --from md` returns it
@@ -1041,7 +1041,7 @@ if ($options['carryMarkers'] ?? false) {
     $renderer->setCarryMarkers();
 }
 
-if (($options['smartTypography'] ?? 'glyph') === 'source') {
+if (($options['smartTypography'] ?? 'glyph') !== 'glyph') {
     $renderer = $converter->getRenderer();
     if (
         $renderer instanceof HtmlRenderer
@@ -1049,7 +1049,7 @@ if (($options['smartTypography'] ?? 'glyph') === 'source') {
         || $renderer instanceof PlainTextRenderer
         || $renderer instanceof AnsiRenderer
     ) {
-        $renderer->setSmartTypography(SmartTypographyMode::Source);
+        $renderer->setSmartTypography(SmartTypographyMode::from($options['smartTypography']));
     }
 }
 

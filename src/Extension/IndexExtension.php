@@ -173,7 +173,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
         // Only the body is indexed: skip Footnote subtrees (deferred content the
         // renderer may drop or reorder). A marker inside one stays uncounted and
         // renders inert, so the index never points at a dropped anchor.
-        $this->walkMarkers($renderDocument, function (InlineExtension $marker): void {
+        $this->walkMarkers($renderDocument, function (InlineExtension $marker) use ($context): void {
             $slug = $this->slug($marker);
             $occurrence = ($this->counts[$slug] ?? 0) + 1;
             $this->counts[$slug] = $occurrence;
@@ -183,7 +183,7 @@ class IndexExtension implements ExtensionInterface, BeforeRenderExtensionInterfa
                     array_values($marker->getChildren()),
                     false,
                 );
-                $this->termText[$slug] = $this->slugger->getPlainText($marker);
+                $this->termText[$slug] = $this->slugger->getPlainText($marker, $context->smartTypography());
             }
         });
 

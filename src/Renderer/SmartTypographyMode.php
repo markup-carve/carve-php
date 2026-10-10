@@ -30,4 +30,13 @@ enum SmartTypographyMode: string
      * consumer did not ask for and cannot reverse.
      */
     case Source = 'source';
+
+    case QuotesSource = 'quotes-source';
+
+    public function usesSource(string $kind): bool
+    {
+        return $this === self::Source || ($this === self::QuotesSource && in_array($kind, [
+            'left_double_quote', 'right_double_quote', 'left_single_quote', 'right_single_quote',
+        ], true));
+    }
 }
