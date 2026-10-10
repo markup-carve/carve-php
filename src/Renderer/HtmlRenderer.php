@@ -987,10 +987,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
             $context = $this->getRenderContext();
             $previousHeadingRawCodeTracker = $context->headingRawCodeTracker;
-            $context->headingRawCodeTracker = new HeadingRawCodeTracker();
+            $tracker = new HeadingRawCodeTracker();
+            $context->headingRawCodeTracker = $tracker;
             try {
                 $headingHtml ??= $this->renderHeadingContent($node);
-                $unclosedHeadingCode = $context->headingRawCodeTracker->hasOpenCode();
+                $unclosedHeadingCode = $tracker->hasOpenCode();
             } finally {
                 $context->headingRawCodeTracker = $previousHeadingRawCodeTracker;
             }

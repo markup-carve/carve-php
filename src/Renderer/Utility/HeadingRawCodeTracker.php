@@ -33,6 +33,8 @@ final class HeadingRawCodeTracker
         if ($this->rawTextTag !== null) {
             if ($this->rawTextTag !== 'plaintext' && preg_match('/^<\/' . $this->rawTextTag . '[ \t\r\n\f]*>$/iD', $content) === 1) {
                 $this->rawTextTag = null;
+            } elseif ($this->rawTextTag === 'script' && str_contains($content, '<')) {
+                $this->wholeTags = false;
             }
 
             return;
@@ -53,8 +55,14 @@ final class HeadingRawCodeTracker
             return;
         }
         $name = strtolower($tag[2]);
+        if (in_array($name, ['template', 'select', 'table', 'object', 'applet', 'marquee', 'noscript', 'svg', 'math', 'plaintext'], true)) {
+            $this->wholeTags = false;
+        }
         if ($name === 'code') {
             $this->depth = $tag[1] === '' ? $this->depth + 1 : max(0, $this->depth - 1);
+            if ($this->depth > 3) {
+                $this->wholeTags = false;
+            }
         } elseif ($tag[1] === '' && in_array($name, ['script', 'style', 'title', 'textarea', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'], true)) {
             $this->rawTextTag = $name;
         }

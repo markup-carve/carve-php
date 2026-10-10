@@ -101,4 +101,48 @@ class RawCodeSectionBoundaryTest extends TestCase
         $source = '# `<span title="`{=html}`<code>`{=html}`">`{=html}x';
         $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
     }
+
+    public function testReentrantRenderDoesNotDiscardTheHeadingTrackerReference(): void
+    {
+        $renderer = new HtmlRenderer();
+        $nested = (new CarveConverter())->parse('# Other');
+        $reentered = false;
+        $renderer->on('render.raw_inline', static function (RenderEvent $event) use ($renderer, $nested, &$reentered): void {
+            if (!$reentered) {
+                $reentered = true;
+                $renderer->render($nested);
+            }
+        });
+        $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x');
+        $this->assertTrue($reentered);
+        $this->assertStringContainsString('<h1><code>x</h1>', $html);
+    }
+
+    public function testNestedAndNonemptySectionsKeepTheirClosingSeparator(): void
+    {
+        foreach (["# Parent\n\n## `<code>`{=html}x", "# `<code>`{=html}x\n\nbody"] as $source) {
+            $this->assertStringNotContainsString('</h1></section>', (new CarveConverter())->convert($source));
+            $this->assertStringNotContainsString('</h2></section>', (new CarveConverter())->convert($source));
+        }
+    }
+
+    public function testCustomHeadingOutputKeepsItsClosingSeparator(): void
+    {
+        $renderer = new HtmlRenderer();
+        $renderer->on('render.heading', static function (RenderEvent $event): void {
+            $event->setHtml('<h1><code>x</h1>' . "\n");
+        });
+        $html = (new CarveConverter(renderer: $renderer))->convert('# x');
+        $this->assertStringContainsString('</h1>' . "\n</section>\n", $html);
+    }
+
+    public function testComplexRawScopesKeepTheirClosingSeparator(): void
+    {
+        foreach (['select', 'template', 'object', 'noscript', 'svg'] as $tag) {
+            $source = '# `<' . $tag . '>`{=html}`<code>`{=html}x';
+            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        }
+        $source = '# `<code>`{=html}`<code>`{=html}`<code>`{=html}`<code>`{=html}x';
+        $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+    }
 }
