@@ -18,7 +18,7 @@ class DjotEscapedBraceAtomsTest extends TestCase
     {
         $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-escaped-brace-atoms.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ($rows as $row) {
-            yield $row['name'] => [$row['source'], $row['html']];
+            yield $row['name'] => [$row['source'], $row['carveHtml'] ?? $row['html']];
         }
     }
 

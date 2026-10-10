@@ -162,6 +162,22 @@ class DjotToCarve
      */
     public function convert(string $djot): string
     {
+        if (!str_contains($djot, "\0")) {
+            return $this->convertDocument($djot);
+        }
+        $token = "\0U\0";
+
+        $converted = str_replace($token, "\0", $this->convertDocument(str_replace("\0", $token, $djot), false));
+        if ($this->headingIdSource !== null) {
+            [, , $body] = $this->splitSiteFrontmatter($this->stripFootnoteDefinitionAttributes($djot)['source']);
+            $converted = $this->applyHeadingIdPreservation($converted, $body);
+        }
+
+        return $converted;
+    }
+
+    private function convertDocument(string $djot, bool $preserveHeadingIds = true): string
+    {
         $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
@@ -219,7 +235,7 @@ class DjotToCarve
             }
             $label = preg_replace_callback('/(\\\\+)$/', static fn (array $tail): string => strlen($tail[0]) % 2 !== 0 ? $tail[0] . '\\' : $tail[0], $match[1][0]) ?? $match[1][0];
             $token = $altPrefix . count($strongSpans) . "\x00";
-            $strongSpans[$token] = substr(rtrim((new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert($this->convert('DJOTALT ' . $label . ' DJOTEND')), "\n"), 8, -8);
+            $strongSpans[$token] = substr(rtrim((new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert('DJOTALT ' . $label . ' DJOTEND'))), "\n"), 8, -8);
 
             return '![' . $token . ']';
         }, $source, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $source;
@@ -233,7 +249,9 @@ class DjotToCarve
         $carve = strtr($carve, $orphanSpans + $strongSpans);
         $dropInherited = array_fill_keys(array_keys($inherited), '');
         $carve = strtr($carve, $dropInherited);
-        $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
+        if ($preserveHeadingIds) {
+            $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
+        }
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
@@ -798,6 +816,7 @@ class DjotToCarve
         $literalBraces = [];
         $pairedCloses = array_fill_keys(array_values($paired), true);
         $escapedBraceCloses = [];
+        $escapedWordCharacters = [];
         preg_match_all('/\[\^[^\]\n]*\]/', $source, $literalNotes, PREG_OFFSET_CAPTURE);
         foreach ($literalNotes[0] as [$note, $at]) {
             $begin = $at;
@@ -829,6 +848,9 @@ class DjotToCarve
                 $lastInlineEnd = $at;
             }
             if ($source[$at] === '\\') {
+                if (isset($source[$at + 1]) && !$this->djotWordWhitespaceAt($source, $at + 1)) {
+                    $escapedWordCharacters[substr($source, $at + 1, 3) === "\0U\0" ? $at + 4 : $at + 2] = $at;
+                }
                 if ($masked[$at] !== $source[$at] || ($masked[$at + 1] ?? '') !== ($source[$at + 1] ?? '')) {
                     $lastInlineEnd = $at + 2;
                     $at++;
@@ -839,7 +861,7 @@ class DjotToCarve
                 if ($this->djotWordWhitespaceAt($source, $at + 1)) {
                     $lastSpace = $at + 1;
                 }
-                $generated = $inherited !== [] && preg_match('/\G\x00DJOTINVALIDATTR[0-9]+\x00/', $source, $marker, offset: $at + 2) === 1 && isset($inherited[$marker[0]]);
+                $generated = $inherited !== [] && preg_match('/\G\x00DJOTINVALIDATTR\x00[0-9]+\x00/', $source, $marker, offset: $at + 2) === 1 && isset($inherited[$marker[0]]);
                 if ($generated) {
                     $literalBraces[$at + 1 + strlen($marker[0])] = $at + 2;
                 }
@@ -922,7 +944,7 @@ class DjotToCarve
                 continue;
             }
             $start = $i;
-            if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && (!str_contains('`*_~^]}>', $source[$i - 1]) || isset($literalBraces[$i - 1]) || $this->escapedWordCharacter($source, $i - 1, $cursor))) {
+            if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && (!str_contains('`*_~^]}>', $source[$i - 1]) || isset($literalBraces[$i - 1]) || isset($escapedWordCharacters[$i]))) {
                 while ($start > $cursor && $masked[$start - 1] === $source[$start - 1]) {
                     $literal = $literalBraces[$start - 1] ?? null;
                     if ($literal !== null && $literal >= $cursor) {
@@ -930,8 +952,8 @@ class DjotToCarve
 
                         continue;
                     }
-                    if ($this->escapedWordCharacter($source, $start - 1, $cursor)) {
-                        $start -= 2;
+                    if (isset($escapedWordCharacters[$start]) && $escapedWordCharacters[$start] >= $cursor) {
+                        $start = $escapedWordCharacters[$start];
 
                         continue;
                     }
@@ -1014,7 +1036,7 @@ class DjotToCarve
         $mask = $this->maskCodeAndDestinations($body);
         $lines = explode("\n", $body);
         $losses = [];
-        preg_match_all('/\x00DJOTNOTEATTR(\d+)\x00/', $source, $tokens);
+        preg_match_all('/\x00DJOTNOTEATTR\x00(\d+)\x00/', $source, $tokens);
         $reserved = array_fill_keys(array_map('intval', $tokens[1]), true);
         $comments = [];
         $serial = 0;
@@ -1069,7 +1091,7 @@ class DjotToCarve
                         $serial++;
                     }
                     $comments[$serial] = true;
-                    $lines[$n - 1] = str_repeat(' ', $listColumn) . "\x00DJOTNOTEATTR" . $serial++ . "\x00";
+                    $lines[$n - 1] = str_repeat(' ', $listColumn) . "\x00DJOTNOTEATTR\x00" . $serial++ . "\x00";
                 }
                 $noteColumn = $noteParents === [] ? null : array_pop($noteParents);
                 $metadataNote = false;
@@ -1155,7 +1177,7 @@ class DjotToCarve
                                 $serial++;
                             }
                             $comments[$serial] = true;
-                            $lines[$at] = $lead . "\x00DJOTNOTEATTR" . $serial++ . "\x00";
+                            $lines[$at] = $lead . "\x00DJOTNOTEATTR\x00" . $serial++ . "\x00";
                             $position += strlen($raw) + 1;
                             $at++;
                         }
@@ -1209,9 +1231,9 @@ class DjotToCarve
             'source' => $header . implode("\n", $lines),
             'losses' => $losses,
             'isBoundary' => static function (string $line) use ($comments): bool {
-                return preg_match('/\x00DJOTNOTEATTR(\d+)\x00$/', rtrim($line, " \t"), $token) === 1 && isset($comments[(int)$token[1]]);
+                return preg_match('/\x00DJOTNOTEATTR\x00(\d+)\x00$/', rtrim($line, " \t"), $token) === 1 && isset($comments[(int)$token[1]]);
             },
-            'restore' => static fn (string $text): string => preg_replace_callback('/\x00DJOTNOTEATTR(\d+)\x00/', static fn (array $match): string => isset($comments[(int)$match[1]]) ? '%%' : $match[0], $text) ?? $text,
+            'restore' => static fn (string $text): string => preg_replace_callback('/\x00DJOTNOTEATTR\x00(\d+)\x00/', static fn (array $match): string => isset($comments[(int)$match[1]]) ? '%%' : $match[0], $text) ?? $text,
         ];
     }
 
@@ -1572,7 +1594,7 @@ class DjotToCarve
      */
     private function removeInheritedAttributeMarkers(string $source, array $inherited): string
     {
-        return preg_replace_callback('/\x00DJOTINVALIDATTR[0-9]+\x00/', static fn (array $match): string => isset($inherited[$match[0]]) ? '' : $match[0], $source) ?? $source;
+        return preg_replace_callback('/\x00DJOTINVALIDATTR\x00[0-9]+\x00/', static fn (array $match): string => isset($inherited[$match[0]]) ? '' : $match[0], $source) ?? $source;
     }
 
     /**
@@ -1614,13 +1636,13 @@ class DjotToCarve
                 continue;
             }
         }
-        preg_match_all('/\x00DJOTINVALIDATTR[0-9]+\x00/', $source, $matches);
+        preg_match_all('/\x00DJOTINVALIDATTR\x00[0-9]+\x00/', $source, $matches);
         $reserved = array_fill_keys($matches[0], true);
         $inherited = [];
         $serial = 0;
         $marker = static function () use (&$serial, $reserved, &$inherited): string {
             do {
-                $value = "\0DJOTINVALIDATTR" . $serial++ . "\0";
+                $value = "\0DJOTINVALIDATTR\x00" . $serial++ . "\0";
             } while (isset($reserved[$value]));
             $inherited[$value] = true;
 
@@ -2161,7 +2183,7 @@ class DjotToCarve
             }
             if ($rows[$row] ?? false) {
                 for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-                    if ($line[$at] === '|' && $mask[$offset + $at] === '|' && !$this->isDjotEscaped($line, $at)) {
+                    if ($line[$at] === '|' && $mask[$offset + $at] === '|' && ($line[$at - 1] ?? '') !== '\\') {
                         $boundaries[] = $offset + $at;
                     }
                 }
@@ -2342,6 +2364,75 @@ class DjotToCarve
 
     /**
      * @param string $source
+     * @param string $mask
+     * @param array<int, int> $angles
+     * @param array<int, array{end: int, text: string}> $edits
+     * @param int $end
+     * @param int $start
+     */
+    private function djotLinkLabel(string $source, string $mask, array $angles, array $edits, int $start, int $end): string
+    {
+        $label = '';
+        $brackets = 0;
+        for ($at = $start; $at < $end; $at++) {
+            if (isset($edits[$at]) && $edits[$at]['end'] <= $end) {
+                $label .= $edits[$at]['text'];
+                $at = $edits[$at]['end'] - 1;
+
+                continue;
+            }
+            if (isset($angles[$at])) {
+                $label .= substr($source, $at, $angles[$at] - $at);
+                $at = $angles[$at] - 1;
+
+                continue;
+            }
+            if ($mask[$at] === ' ') {
+                $label .= $source[$at];
+
+                continue;
+            }
+            if ($source[$at] === '\\') {
+                $label .= substr($source, $at, 2);
+                $at++;
+
+                continue;
+            }
+            if ($source[$at] === '[') {
+                $brackets++;
+            }
+            if ($source[$at] === ']') {
+                if ($brackets > 0) {
+                    $brackets--;
+                } else {
+                    $label .= '\\';
+                }
+            }
+            $label .= $source[$at];
+        }
+
+        return $label;
+    }
+
+    /**
+     * @param array<int, array{at: int, depth: int, parens: int, labelEnd?: int, target?: int}> $stack
+     * @param int|null $destinationOwner
+     * @param array<int, true> $pendingNotes
+     * @param array<int, array{end: int, text: string}> $edits
+     */
+    private function clearDjotLinkScope(array &$stack, ?int &$destinationOwner, array &$pendingNotes, array &$edits): void
+    {
+        if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
+            $at = $stack[$destinationOwner]['at'];
+            $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+        }
+        $stack = [];
+        $destinationOwner = null;
+        $pendingNotes = [];
+    }
+
+    /**
+     * @param string $source
      * @param array<string, true> $inherited
      */
     private function normalizeDjotLinks(string $source, array $inherited = []): string
@@ -2370,16 +2461,12 @@ class DjotToCarve
         $length = strlen($source);
         for ($i = 0; $i < $length; $i++) {
             if (isset($boundaries[$i])) {
-                $stack = [];
-                $destinationOwner = null;
-                $pendingNotes = [];
+                $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
             }
             if ($source[$i] === "\n") {
                 $line++;
                 if (preg_match('/\G\n[ \t]*(?:>[ \t]*)*\n/', $source, offset: $i)) {
-                    $stack = [];
-                    $destinationOwner = null;
-                    $pendingNotes = [];
+                    $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
                     $literalNotes = [];
 
                     continue;
@@ -2405,9 +2492,7 @@ class DjotToCarve
                 continue;
             }
             if (($rows[$line] ?? false) && $source[$i] === '|' && ($source[$i - 1] ?? '') !== '\\') {
-                $stack = [];
-                $destinationOwner = null;
-                $pendingNotes = [];
+                $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
 
                 continue;
             }
@@ -2441,6 +2526,7 @@ class DjotToCarve
                     }
                     $stack[$tip]['labelEnd'] = $i;
                     $stack[$tip]['target'] = $i + 2;
+                    $stack[$tip]['parens'] = 0;
                     $destinationOwner = $tip;
                     $i++;
 
@@ -2454,13 +2540,33 @@ class DjotToCarve
                         } $end++;
                     }
                     if (($source[$end] ?? '') === ']') {
+                        if (isset($stack[$tip]['target'])) {
+                            $at = $stack[$tip]['at'];
+                            $edits[$at] = ['end' => $i + 1, 'text' => '[' . $this->djotLinkLabel($source, $mask, $angles, $edits, $at + 1, $i) . ']'];
+                        }
+                        if ($destinationOwner === $tip) {
+                            $destinationOwner = null;
+                        }
                         array_pop($stack);
                         $i = $end;
                     }
 
                     continue;
                 }
-                if (($source[$i + 1] ?? '') === '{' && $this->readDjotWordAttributes($source, $i + 1) !== null) {
+                $rejected = ($source[$i + 1] ?? '') === '\\' && ($source[$i + 2] ?? '') === '{'
+                    && preg_match('/\G\x00DJOTINVALIDATTR\x00[0-9]+\x00/', $source, $marker, offset: $i + 3) === 1
+                    && isset($inherited[$marker[0]]);
+                if (($source[$i + 1] ?? '') === '{' || $rejected) {
+                    if (isset($stack[$tip]['target'])) {
+                        $at = $stack[$tip]['at'];
+                        $text = ($source[$i + 1] ?? '') === '{' && $this->readDjotWordAttributes($source, $i + 1) !== null
+                            ? '[' . $this->djotLinkLabel($source, $mask, $angles, $edits, $at + 1, $i) . ']'
+                            : '\\[' . substr($source, $at + 1, $i - $at);
+                        $edits[$at] = ['end' => $i + 1, 'text' => $text];
+                    }
+                    if ($destinationOwner === $tip) {
+                        $destinationOwner = null;
+                    }
                     array_pop($stack);
                 }
             }
@@ -2478,50 +2584,11 @@ class DjotToCarve
             }
             if ($tip !== $destinationOwner) {
                 $edits[$owner['at']] = ['end' => $owner['at'] + 1, 'text' => '\\['];
-                $stack = [];
-                $destinationOwner = null;
-                $pendingNotes = [];
+                $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
 
                 continue;
             }
-            $label = '';
-            $brackets = 0;
-            for ($at = $owner['at'] + 1; $at < $owner['labelEnd']; $at++) {
-                if (isset($edits[$at]) && $edits[$at]['end'] <= $owner['labelEnd']) {
-                    $label .= $edits[$at]['text'];
-                    $at = $edits[$at]['end'] - 1;
-
-                    continue;
-                }
-                if (isset($angles[$at])) {
-                    $label .= substr($source, $at, $angles[$at] - $at);
-                    $at = $angles[$at] - 1;
-
-                    continue;
-                }
-                if ($mask[$at] === ' ') {
-                    $label .= $source[$at];
-
-                    continue;
-                }
-                if ($source[$at] === '\\') {
-                    $label .= substr($source, $at, 2);
-                    $at++;
-
-                    continue;
-                }
-                if ($source[$at] === '[') {
-                    $brackets++;
-                }
-                if ($source[$at] === ']') {
-                    if ($brackets > 0) {
-                        $brackets--;
-                    } else {
-                        $label .= '\\';
-                    }
-                }
-                $label .= $source[$at];
-            }
+            $label = $this->djotLinkLabel($source, $mask, $angles, $edits, $owner['at'] + 1, $owner['labelEnd']);
             $rawDestination = '';
             for ($at = $owner['target']; $at < $i;) {
                 $end = !($rows[$line] ?? false) ? ($literalNotes[$at] ?? null) : null;
@@ -2545,7 +2612,7 @@ class DjotToCarve
                 $destination = preg_replace_callback('/\\\\+\|/', static fn (array $match): string => str_repeat('%5C', intdiv(strlen($match[0]) - 1, 2)) . '%7C', $destination) ?? $destination;
             }
             if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && str_contains($label, '[')) {
-                $label = (new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert($this->convert('DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND'));
+                $label = (new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert('DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND')));
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
                 $label = str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $label);
             }
@@ -2558,6 +2625,7 @@ class DjotToCarve
                 $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
             } $pendingNotes = [];
         }
+        $this->clearDjotLinkScope($stack, $destinationOwner, $pendingNotes, $edits);
         $output = '';
         for ($i = 0; $i < $length;) {
             if (isset($edits[$i])) {
@@ -2876,7 +2944,7 @@ class DjotToCarve
                 $nextBrace = null;
             } elseif ($source[$at] === '}') {
                 $nextBrace = $at + 1;
-            } elseif ($source[$at] === '{' && $nextBrace !== null && preg_match('/\G\{(\x00DJOTINVALIDATTR[0-9]+\x00)?[A-Za-z][\w-]*=/', $source, $malformed, offset: $at) === 1 && (empty($malformed[1]) || isset($inherited[$malformed[1]]))) {
+            } elseif ($source[$at] === '{' && $nextBrace !== null && preg_match('/\G\{(\x00DJOTINVALIDATTR\x00[0-9]+\x00)?[A-Za-z][\w-]*=/', $source, $malformed, offset: $at) === 1 && (empty($malformed[1]) || isset($inherited[$malformed[1]]))) {
                 $malformedEnds[$at] = $nextBrace;
             }
         }

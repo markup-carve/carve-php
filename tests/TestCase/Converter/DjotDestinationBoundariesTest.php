@@ -27,6 +27,7 @@ class DjotDestinationBoundariesTest extends TestCase
     {
         $html = trim((new CarveConverter())->convert((new DjotToCarve())->convert($source)));
         $html = preg_replace_callback('/(?:href|src)="([^"]*)"/', fn (array $match): string => str_replace($match[1], strtr($match[1], ['(' => '%28', ')' => '%29', '`' => '%60']), $match[0]), $html);
+        $html = str_replace([' aria-label="Footnotes"', ' aria-label="Back to reference"'], '', $html);
         $html = str_replace('&nbsp;', "\u{00a0}", $html);
         $html = preg_replace('/<\/?tbody>/', '', $html);
         $html = preg_replace('/>\s+</', '><', $html);

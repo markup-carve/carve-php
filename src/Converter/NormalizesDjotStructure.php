@@ -126,7 +126,7 @@ trait NormalizesDjotStructure
                 continue;
             }
             $table = false;
-            if (!$item && (preg_match('/\x00DJOTNOTEATTR\d+\x00/', $text) === 1 || trim($view) === '' && str_starts_with($text, '{%'))) {
+            if (!$item && (preg_match('/\x00DJOTNOTEATTR\x00\d+\x00/', $text) === 1 || trim($view) === '' && str_starts_with($text, '{%'))) {
                 $out[] = $original;
                 $headingMarker = '';
                 $depth = $quoteDepth;
@@ -252,7 +252,7 @@ trait NormalizesDjotStructure
                 if ($itemQuote) {
                     $depth = $quoteDepth + substr_count($itemQuoteMatch[0], '>');
                 }
-                $paragraph = !$itemDiv && !$itemHeading && !str_contains($body, "\x00DJOTNOTEATTR");
+                $paragraph = !$itemDiv && !$itemHeading && !str_contains($body, "\x00DJOTNOTEATTR\x00");
                 $blank = $itemDiv;
 
                 continue;
