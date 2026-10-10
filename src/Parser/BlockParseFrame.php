@@ -56,6 +56,11 @@ final class BlockParseFrame
     public ?array $blockQuoteCommentCloserIndex = null;
 
     /**
+     * @var array<string, array<int, int>|null>
+     */
+    public array $blockQuoteCommentCloserIndexes = [];
+
+    /**
      * Where a closer of each fence shape LAST occurs in the current line set,
      * built once by fenceCloserIndex().
      *

@@ -4636,6 +4636,7 @@ class BlockParser
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $bareLeadQuoteState = null;
                 // Keep the run for the child parser, including a fence that
                 // reaches the end of its item. The next content line still
                 // decides whether this item continues.
@@ -7022,7 +7023,8 @@ class BlockParser
      */
     private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo, int $column = 0): bool
     {
-        $key = $depth . ':' . $column . ':' . $char;
+        $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
+        $key = $sourceIndent . ':' . $depth . ':' . $column . ':' . $char;
         $start = $index + 1;
         $cached = $memo[$key] ?? null;
         if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun']) {
@@ -7031,7 +7033,10 @@ class BlockParser
         $maxRun = 0;
         $count = count($lines);
         for ($i = $start; $i < $count; $i++) {
-            $content = self::quotedContentAtDepth($lines[$i], $depth);
+            if (IndentationHelper::getLeadingColumns($lines[$i]) !== $sourceIndent) {
+                break;
+            }
+            $content = self::quotedContentAtDepth(IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent), $depth);
             if ($content === null) {
                 break;
             }
@@ -7058,7 +7063,20 @@ class BlockParser
      */
     protected function hasClosingCommentFenceAheadInBlockQuote(array $lines, int $index, int $length): bool
     {
-        if ($this->state->frame->blockQuoteCommentCloserIndex === null) {
+        $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
+        $opener = IndentationHelper::stripLeadingColumns($lines[$index], $sourceIndent);
+        $depth = 0;
+        $at = 0;
+        while (($width = ContainerPrefix::quoteMarkerWidth($opener, $at)) !== null) {
+            $depth++;
+            $at += $width;
+        }
+        if ($sourceIndent === 0 && $depth <= 1) {
+            $cache = &$this->state->frame->blockQuoteCommentCloserIndex;
+        } else {
+            $cache = &$this->state->frame->blockQuoteCommentCloserIndexes[$sourceIndent . ':' . $depth];
+        }
+        if ($cache === null) {
             $nextByLength = [];
             $indexByLine = [];
             for ($i = count($lines) - 1; $i >= 0; $i--) {
@@ -7067,7 +7085,10 @@ class BlockParser
 
                     continue;
                 }
-                $content = $this->blockQuoteLineContent($lines[$i]);
+                $line = IndentationHelper::getLeadingColumns($lines[$i]) === $sourceIndent
+                    ? IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent)
+                    : '';
+                $content = $depth <= 1 ? $this->blockQuoteLineContent($line) : self::quotedContentAtDepth($line, $depth);
                 if ($content === null) {
                     // A non-quoted line ends the quoted region. A later fence
                     // cannot close an opener before this boundary.
@@ -7083,10 +7104,10 @@ class BlockParser
                 $indexByLine[$i] = $nextByLength[$fenceLength] ?? -1;
                 $nextByLength[$fenceLength] = $i;
             }
-            $this->state->frame->blockQuoteCommentCloserIndex = $indexByLine;
+            $cache = $indexByLine;
         }
 
-        return ($this->state->frame->blockQuoteCommentCloserIndex[$index] ?? -1) > $index;
+        return ($cache[$index] ?? -1) > $index;
     }
 
     /**

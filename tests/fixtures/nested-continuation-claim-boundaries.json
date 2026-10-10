@@ -114,5 +114,29 @@
   {
     "source": "- - +\n    > > ~~~\n    > > code\n x\n",
     "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <blockquote>\n            <pre><code>code\n</code></pre>\n          </blockquote>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    > ```\n    > code\n\n    > text\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <pre><code>code\n</code></pre>\n        </blockquote>\n        <blockquote><p>text\nx</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    > ```\n    > code\n    > ```\n\n    > text\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <pre><code>code\n</code></pre>\n        </blockquote>\n        <blockquote><p>text\nx</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    > %%%\n    > hidden\n    > %%%\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    > > ```\n    > > code\n\n    > > text\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <blockquote>\n            <pre><code>code\n</code></pre>\n          </blockquote>\n        </blockquote>\n        <blockquote>\n          <blockquote><p>text\nx</p></blockquote>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    > > ```\n    > > code\n    > > ```\n\n    > > text\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <blockquote>\n            <pre><code>code\n</code></pre>\n          </blockquote>\n        </blockquote>\n        <blockquote>\n          <blockquote><p>text\nx</p></blockquote>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    > > %%%\n    > > hidden\n    > > %%%\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <blockquote>\n\n          </blockquote>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   }
 ]
