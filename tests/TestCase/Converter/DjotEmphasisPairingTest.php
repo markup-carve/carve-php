@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Parser\InlineParser;
 use PHPUnit\Framework\TestCase;
 
 class DjotEmphasisPairingTest extends TestCase
@@ -50,7 +51,7 @@ class DjotEmphasisPairingTest extends TestCase
     {
         $source = str_repeat('{_', 10000) . 'x' . str_repeat('_}', 10000);
         $carve = (new DjotToCarve())->convert($source);
-        $depth = \MarkupCarve\Carve\Parser\InlineParser::MAX_INLINE_DEPTH - 1;
+        $depth = InlineParser::MAX_INLINE_DEPTH - 1;
         $this->assertSame(str_repeat('{/', $depth) . 'x' . str_repeat('/}', $depth), $carve);
         $this->assertSame('<p>' . str_repeat('<em>', $depth) . 'x' . str_repeat('</em>', $depth) . '</p>', trim((new CarveConverter())->convert($carve)));
     }

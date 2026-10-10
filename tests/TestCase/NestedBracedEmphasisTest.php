@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
+use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\TestCase;
 
 class NestedBracedEmphasisTest extends TestCase
@@ -24,6 +28,7 @@ class NestedBracedEmphasisTest extends TestCase
         if (!array_is_list($value)) {
             ksort($value);
         }
+
         return $value;
     }
 
@@ -35,6 +40,7 @@ class NestedBracedEmphasisTest extends TestCase
                 $children = $children[0]['children'];
             }
             $node['children'] = $children;
+
             return true;
         }
         foreach ($node as &$value) {
@@ -42,6 +48,7 @@ class NestedBracedEmphasisTest extends TestCase
                 return true;
             }
         }
+
         return false;
     }
 
@@ -85,12 +92,14 @@ class NestedBracedEmphasisTest extends TestCase
     public function testCommentAndUnclosedCodeBoundaries(): void
     {
         $converter = new CarveConverter();
-        foreach ([
-            ['{*a {% *} %} b*}', '<p><strong>a  b</strong></p>'],
-            ['{*a {# *} #} b*}', '<p><strong>a <span class="critic-comment"> *} </span> b</strong></p>'],
-            ['a {*b %% c*}', '<p>a <strong>b</strong></p>'],
-            ['{*a `{*}', '<p><strong>a <code>{</code></strong></p>'],
-        ] as [$source, $html]) {
+        foreach (
+            [
+                ['{*a {% *} %} b*}', '<p><strong>a  b</strong></p>'],
+                ['{*a {# *} #} b*}', '<p><strong>a <span class="critic-comment"> *} </span> b</strong></p>'],
+                ['a {*b %% c*}', '<p>a <strong>b</strong></p>'],
+                ['{*a `{*}', '<p><strong>a <code>{</code></strong></p>'],
+            ] as [$source, $html]
+        ) {
             $this->assertSame($html, trim($converter->convert($source)), $source);
             $written = CarveConverter::toCarve($source);
             $this->assertSame($html, trim($converter->convert($written)), $source);
@@ -162,6 +171,60 @@ class NestedBracedEmphasisTest extends TestCase
             if (isset($vector['canonical'])) {
                 $this->assertSame($vector['canonical'], rtrim($written), $vector['id']);
             }
+        }
+    }
+
+    public function testAttributeCommentBoundaries(): void
+    {
+        $vectors = json_decode(file_get_contents(__DIR__ . '/../fixtures/attribute-comment-boundaries.json'), true, flags: JSON_THROW_ON_ERROR);
+        $converter = new CarveConverter();
+        foreach ($vectors as $vector) {
+            $this->assertSame($vector['html'], trim($converter->convert($vector['source'])), $vector['id']);
+            $written = CarveConverter::toCarve($vector['source']);
+            $this->assertSame($vector['html'], trim($converter->convert($written)), $vector['id']);
+        }
+    }
+
+    public function testNativeWriterRefusesAnOverBudgetApiTree(): void
+    {
+        $document = (new CarveConverter())->parse('x');
+        $paragraph = $document->getChildren()[0];
+        $children = $paragraph->getChildren();
+        for ($depth = 0; $depth < InlineParser::MAX_INLINE_DEPTH; $depth++) {
+            $strong = new Strong();
+            $strong->setChildren($children);
+            $children = [$strong];
+        }
+        $paragraph->setChildren($children);
+        $this->expectException(SourceUnspellableException::class);
+        $this->expectExceptionMessage('native parser nesting limit');
+        (new CarveRenderer())->render($document);
+    }
+
+    public function testDjotLinkDepthHasAnExplicitLossReport(): void
+    {
+        $source = '[' . str_repeat('{*', InlineParser::MAX_INLINE_DEPTH - 1) . 'x' . str_repeat('*}', InlineParser::MAX_INLINE_DEPTH - 1) . '](/u)';
+        $result = (new DjotToCarve())->convertWithFidelityReport($source);
+        $this->assertStringNotContainsString('{*', (new CarveConverter())->convert($result->value));
+        $this->assertContains('structure-unspellable', array_column($result->report()['diagnostics'], 'code'));
+    }
+
+    public function testGluedEditorialCommentCannotBecomeAnAttribute(): void
+    {
+        $document = (new CarveConverter())->parse('/y/ {#a}b#}');
+        $paragraph = $document->getChildren()[0];
+        $paragraph->setChildren(array_values(array_filter($paragraph->getChildren(), static fn ($node): bool => $node->getType() !== 'text')));
+        $this->expectException(SourceUnspellableException::class);
+        $this->expectExceptionMessage('glued editorial comment');
+        (new CarveRenderer())->render($document);
+    }
+
+    public function testRawCodeAndAutolinkAttributesPreserveTheirParent(): void
+    {
+        foreach (['{*a `x`{=html}{#id} b*} {# n #}', '{*a <https://a.b>{#id} b*} {#n#}'] as $source) {
+            $html = (new CarveConverter())->convert($source);
+            $this->assertStringStartsWith('<p><strong>a ', $html);
+            $this->assertSame($html, (new CarveConverter())->convert(CarveConverter::toCarve($source)));
         }
     }
 }

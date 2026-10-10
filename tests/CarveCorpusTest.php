@@ -959,7 +959,7 @@ class CarveCorpusTest extends TestCase
         // Arrived with spec f8a99b6; every pair renders byte-exact.
         'an-empty-link-destination-is-not-a-link',
         'a-quote-is-an-ordinary-link-destination-character',
-        'a-forced-opener-of-an-open-kind-is-literal',
+        'braced-emphasis-can-nest-its-own-kind',
         'substitution-content-is-inline-and-only-a-top-level-arrow-splits-it',
         'a-run-of-asterisks-inside-a-combined-token-is-content',
         'glued-attribute-blocks-on-an-inline-element-merge',

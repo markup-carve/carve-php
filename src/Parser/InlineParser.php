@@ -3126,9 +3126,10 @@ class InlineParser
 
     private ?BracedPairIndex $bracedPairIndex = null;
 
-    /** @var array<int, array{0:int, 1:int}|null> */
+    /**
+     * @var array<int, array{0:int, 1:int}|null>
+     */
     private array $nestedSubstitutions = [];
-
 
     /**
      * Parse $content as the children of $node with $kind open around it.
@@ -3223,10 +3224,14 @@ class InlineParser
         // Link destinations met so far, by `(` index.
         $destinationEnds = [];
 
+        if ($this::class === self::class && str_contains($text, '{')) {
+            $this->indexedBracedEnd($text, 0);
+        }
+        $attached = [];
         $searchPos = $searchStart;
         while ($searchPos < $length) {
             if (isset($destinationEnds[$searchPos])) {
-                $searchPos = $destinationEnds[$searchPos];
+                $searchPos = $this->bracedPairIndex?->afterAttributes($destinationEnds[$searchPos]) ?? $destinationEnds[$searchPos];
                 $failedStarts[] = $searchPos;
 
                 continue;
@@ -3235,6 +3240,16 @@ class InlineParser
                 break;
             }
             $char = $text[$searchPos];
+            $child = $char !== $delimiter && !in_array($char, $this->openSpanKinds, true)
+                ? $this->bracedPairIndex?->bareAttributes($searchPos) : null;
+            if ($child !== null) {
+                $attached[$child['close'] + 1] = $child['end'];
+            }
+            if (isset($attached[$searchPos])) {
+                $searchPos = $attached[$searchPos];
+
+                continue;
+            }
 
             if ($char === '[') {
                 $skip = $this->linkDestinationSkip($text, $searchPos);
@@ -3248,7 +3263,7 @@ class InlineParser
                 // $destinationEnds.
                 $runEnd = $this->bracketRunSkip($text, $searchPos);
                 if ($runEnd !== null) {
-                    $searchPos = $runEnd;
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($runEnd) ?? $runEnd;
                     // A queued destination makes this cursor context-dependent.
                     if (!isset($destinationEnds[$searchPos])) {
                         $failedStarts[] = $searchPos;
@@ -3261,7 +3276,7 @@ class InlineParser
             if ($char === '<') {
                 $autolinkEnd = $this->findAutolinkEnd($text, $searchPos);
                 if ($autolinkEnd !== null) {
-                    $searchPos = $autolinkEnd;
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($autolinkEnd) ?? $autolinkEnd;
                     $failedStarts[] = $searchPos;
 
                     continue;
@@ -3304,7 +3319,7 @@ class InlineParser
                     if (preg_match('/\G\{=[a-zA-Z0-9-]+\}/', $text, $rawFormat, 0, $codeEnd) === 1) {
                         $codeEnd += strlen($rawFormat[0]);
                     }
-                    $searchPos = $codeEnd;
+                    $searchPos = $this->bracedPairIndex?->afterAttributes($codeEnd) ?? $codeEnd;
                     $failedStarts[] = $searchPos;
 
                     continue;
@@ -4573,6 +4588,7 @@ class InlineParser
                     $char = $text[$at];
                     if ($char === '\\') {
                         $at++;
+
                         continue;
                     }
                     $skip = null;
@@ -4602,10 +4618,12 @@ class InlineParser
                     }
                     if ($skip !== null && $skip <= $end - 2) {
                         $at = $skip - 1;
+
                         continue;
                     }
                     if ($char === '~' && ($text[$at + 1] ?? '') === '>') {
                         $result = [$at, $end - 2];
+
                         break;
                     }
                 }
@@ -4804,6 +4822,7 @@ class InlineParser
             $codes = [];
             $bounds = [];
             $lineComments = [];
+            $attributeTails = [];
             $labels = [];
             $length = strlen($text);
             for ($at = 0; $at < $length; $at++) {
@@ -4813,11 +4832,23 @@ class InlineParser
                 $char = $text[$at];
                 if ($char === '\\') {
                     $at++;
+
                     continue;
                 }
                 $end = null;
+                $attributeEnd = null;
+                if ($char === '{' && preg_match('/[.#:a-zA-Z]/', $text[$at + 1] ?? '')) {
+                    $close = $this->findAttributeEnd($text, $at);
+                    if ($close !== null && $this->isValidInlineAttrPayload(substr($text, $at + 1, $close - $at - 1))) {
+                        $attributeEnd = $close + 1;
+                        $attributeTails[$at] = $attributeEnd;
+                    }
+                }
                 if ($char === '`') {
                     $codes[$at] = $this->findCodeSpanEnd($text, $at);
+                    if ($codes[$at] !== null && preg_match('/\G\{=[a-zA-Z0-9-]+\}/', $text, $rawFormat, 0, $codes[$at]) === 1) {
+                        $codes[$at] += strlen($rawFormat[0]);
+                    }
                     $end = $codes[$at];
                 } elseif ($char === '[') {
                     $end = $this->bracketRunSkip($text, $at);
@@ -4833,6 +4864,15 @@ class InlineParser
                     $lineEnd = strpos($text, "\n", $at);
                     $end = min($lineEnd === false ? $length : $lineEnd, $labels !== [] ? $labels[array_key_last($labels)] : $length);
                     $lineComments[$at] = $end;
+                } elseif ($char === '{' && ($text[$at + 1] ?? '') === '#' && isset($bounds[$at - 1])) {
+                    $close = $this->findAttributeEnd($text, $at);
+                    if ($close !== null && $this->isValidInlineAttrPayload(substr($text, $at + 1, $close - $at - 1))) {
+                        $end = $close + 1;
+                    }
+                    if ($end === null) {
+                        $close = $this->nextRawCloser($text, '#}', $at + 2);
+                        $end = $close !== null && $close > $at + 2 ? $close + 2 : null;
+                    }
                 } elseif ($char === '{' && str_contains('%#', $text[$at + 1] ?? "\0")) {
                     $close = $this->nextRawCloser($text, $text[$at + 1] . '}', $at + 2);
                     if ($close !== null && ($text[$at + 1] === '%' || $close > $at + 2)) {
@@ -4847,11 +4887,11 @@ class InlineParser
                 if ($end !== null) {
                     $opaque[$at] = $end;
                     if ($char !== '[') {
-                        $at = $end - 1;
+                        $at = ($attributeEnd ?? $end) - 1;
                     }
                 }
             }
-            $this->bracedPairIndex = new BracedPairIndex($text, $opaque, $codes, $bounds, $lineComments);
+            $this->bracedPairIndex = new BracedPairIndex($text, $opaque, $codes, $bounds, $lineComments, $attributeTails);
         }
 
         return $this->bracedPairIndex->end($pos);
@@ -4860,7 +4900,9 @@ class InlineParser
     protected function bracedInlineEnd(string $text, int $pos): ?int
     {
         if ($this::class === self::class && str_contains('/*_^,~=', $text[$pos + 1] ?? "\0")) {
-            return $this->indexedBracedEnd($text, $pos);
+            $end = $this->indexedBracedEnd($text, $pos);
+
+            return $end === null ? null : ($this->bracedPairIndex?->afterAttributes($end) ?? $end);
         }
         $cache = $this::class === self::class;
         if ($cache) {

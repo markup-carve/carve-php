@@ -177,7 +177,7 @@ final class MarkdownEmphasis
         $output = [];
         $stack = [];
         $frame = ['i' => 0, 'end' => strlen($source), 'kind' => '', 'parent' => '', 'slot' => -1, 'first' => '', 'last' => '', 'pair' => null, 'scope' => -1, 'force' => false, 'strong' => false, 'italic' => false, 'strike' => false, 'repeated' => false, 'keep' => true];
-        $active = [];
+        $active = ['/' => 0, '*' => 0, '~' => 0];
         while (true) {
             if ($frame['i'] < $frame['end']) {
                 $pair = $pairs[$frame['i']] ?? null;
@@ -200,10 +200,10 @@ final class MarkdownEmphasis
                         'strong' => false,
                         'italic' => false,
                         'strike' => false,
-                        'repeated' => ($active[$pair['kind']] ?? 0) > 0,
+                        'repeated' => $active[$pair['kind']] > 0,
                         'keep' => count($stack) < InlineParser::MAX_INLINE_DEPTH,
                     ];
-                    $active[$pair['kind']] = ($active[$pair['kind']] ?? 0) + 1;
+                    $active[$pair['kind']] = $active[$pair['kind']] + 1;
                     $output[] = '';
                 } else {
                     $ch = $source[$frame['i']++];

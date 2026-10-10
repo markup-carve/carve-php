@@ -3194,6 +3194,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
     protected function renderInlines(array $nodes): string
@@ -3203,6 +3204,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         if ($this->inlineDepth >= InlineParser::MAX_INLINE_DEPTH && count($nodes) === 1 && $nodes[0] instanceof Text) {
             return $nodes[0]->getContent();
+        }
+        if ($this->inlineDepth >= InlineParser::MAX_INLINE_DEPTH - 1) {
+            foreach ($nodes as $node) {
+                if (in_array($node->getType(), ['strong', 'emphasis', 'underline', 'superscript', 'subscript', 'strike', 'highlight'], true)) {
+                    throw new SourceUnspellableException('inline', 'inline content exceeds the native parser nesting limit');
+                }
+            }
         }
         $this->inlineDepth++;
         try {
@@ -3293,6 +3301,23 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
                         $i === $count - 1 && ($out !== '' || $this->inlineDepth > 1 || ($node instanceof Code && strlen($this->codeSpanFence($node->getContent())) < 3)),
                     );
+                    $previous = $nodes[$i - 1] ?? null;
+                    if (
+                        $node instanceof CriticComment && str_contains($node->getContent(), '}') && $previous !== null
+                        && !in_array($previous->getType(), ['text', 'escaped_text', 'non_breaking_space', 'soft_break', 'hard_break', 'mention', 'tag', 'heading_ref', 'smart_punctuation', 'substitution', 'critic_comment'], true)
+                    ) {
+                        $document = (new BlockParser())->parse('/x/' . $rendered);
+                        $probe = $document->getChildren()[0]->getChildren();
+                        $keepsComment = false;
+                        foreach ($probe as $child) {
+                            if ($child instanceof CriticComment && $child->getContent() === $node->getContent()) {
+                                $keepsComment = true;
+                            }
+                        }
+                        if (!$keepsComment) {
+                            throw new SourceUnspellableException('critic_comment', 'a glued editorial comment would attach attributes to the preceding node');
+                        }
+                    }
                     // A bare caret the previous node ended on opens an inline
                     // note against a `[` this node writes, in both passes.
                     if (
@@ -3892,6 +3917,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
+
     /**
      * @return array<int, true>
      */
@@ -3910,6 +3936,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($native) {
                     array_pop($active[$kind]);
                 }
+
                 continue;
             }
             if ($native) {
@@ -3924,6 +3951,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $work[] = [$child, false];
             }
         }
+
         return $repeated;
     }
 
@@ -3939,19 +3967,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $written = '{' . $written . '}';
             }
         } else {
-        $pending = $node->getChildren();
-        for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
-            $child = $pending[$cursor];
-            if ($child::class === $node::class) {
-                throw new SourceUnspellableException(
-                    $node->getType(),
-                    'a span inside a span of the same kind has no Carve source spelling',
-                );
+            $pending = $node->getChildren();
+            for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
+                $child = $pending[$cursor];
+                if ($child::class === $node::class) {
+                    throw new SourceUnspellableException(
+                        $node->getType(),
+                        'a span inside a span of the same kind has no Carve source spelling',
+                    );
+                }
+                if (!$child instanceof Link && !$child instanceof Span && !isset($this->bracedSpans[spl_object_id($child)])) {
+                    array_push($pending, ...$child->getChildren());
+                }
             }
-            if (!$child instanceof Link && !$child instanceof Span && !isset($this->bracedSpans[spl_object_id($child)])) {
-                array_push($pending, ...$child->getChildren());
-            }
-        }
         }
         if (str_starts_with($written, '{')) {
             $this->bracedSpans[spl_object_id($node)] = true;
@@ -6031,6 +6059,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (str_contains($text, '#}')) {
             throw new SourceUnspellableException('critic_comment', 'an editorial comment holding its closing sequence has no Carve source spelling');
         }
+
         return $text;
     }
 

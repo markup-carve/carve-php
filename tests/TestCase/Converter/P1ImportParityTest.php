@@ -21,8 +21,8 @@ class P1ImportParityTest extends TestCase
                 '__bold__`code`' => '<p><strong>bold</strong><code>code</code></p>',
                 '[a](http://x)__b__' => '<p><a href="http://x">a</a><strong>b</strong></p>',
                 '***foo**' => '<p>*<strong>foo</strong></p>',
-                '*(*word*)*' => '<p><em>(word)</em></p>',
-                '__one __two__ three__' => '<p><strong>one two three</strong></p>',
+                '*(*word*)*' => '<p><em>(<em>word</em>)</em></p>',
+                '__one __two__ three__' => '<p><strong>one <strong>two</strong> three</strong></p>',
                 'alpha*beta*gamma' => '<p>alpha<em>beta</em>gamma</p>',
                 '***word** rest*' => '<p><em><strong>word</strong> rest</em></p>',
                 '**word *rest***' => '<p><strong>word <em>rest</em></strong></p>',
@@ -34,13 +34,15 @@ class P1ImportParityTest extends TestCase
             $this->assertSame($expected, rtrim((new CarveConverter())->convert($converter->convert($source)), "\n"), $source);
         }
         $report = $converter->convertWithFidelityReport('*(*word*)*');
-        $this->assertContains('structure-unspellable', array_map(static fn ($diagnostic) => $diagnostic->code, $report->diagnostics));
+        $this->assertNotContains('structure-unspellable', array_map(static fn ($diagnostic) => $diagnostic->code, $report->diagnostics));
         $this->assertNotContains('structure-unspellable', array_map(static fn ($diagnostic) => $diagnostic->code, $converter->convertWithFidelityReport('*word*')->diagnostics));
     }
 
     public function testDeepDelimiterRuns(): void
     {
-        $this->assertSame('*word*', MarkdownEmphasis::convert(str_repeat('*', 20000) . 'word' . str_repeat('*', 20000)));
+        $deep = MarkdownEmphasis::convert(str_repeat('*', 20000) . 'word' . str_repeat('*', 20000));
+        $this->assertSame('word', trim(strip_tags((new CarveConverter())->convert($deep))));
+        $this->assertLessThan(5000, strlen($deep));
         $this->assertSame(str_repeat('a_ ', 10000), MarkdownEmphasis::convert(str_repeat('a_ ', 10000)));
     }
 

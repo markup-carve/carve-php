@@ -19,18 +19,18 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
     public static function unwrapped(): array
     {
         return [
-            "strong around a break" => ["<p>a<strong><b>x<br></b></strong>b</p>", "a{*{*x\\\n*}*}b\n", []],
-            "emphasis around a break" => ["<p>a<em><i>x<br></i></em>b</p>", "a{/{/x\\\n/}/}b\n", []],
-            "strong with a sibling" => ["<p>a<strong><b>x<br></b>y</strong>b</p>", "a{*{*x\\\n*}y*}b\n", []],
-            "superscript" => ["<p><sup><sup>x</sup></sup></p>", "{^{^x^}^}\n", []],
-            "subscript" => ["<p><sub><sub>x</sub></sub></p>", "{,{,x,},}\n", []],
-            "insert" => ["<p><ins><ins>x</ins></ins></p>", "{+x+}\n", ["/p[1]/ins[1]/ins[1]"]],
-            "delete" => ["<p><del><del>x</del></del></p>", "{-x-}\n", ["/p[1]/del[1]/del[1]"]],
-            "any depth, and the neighbors respelled" => ["<p><sup><sup><em><sup>b</sup></em></sup><sup>b</sup></sup></p>", "{^{^/{^b^}/^}{^b^}^}\n", []],
-            "an unwrapped sibling is read as its text" => ["<p><sup><em>a</em><sup>b</sup></sup></p>", "{^/a/{^b^}^}\n", []],
-            "a bare inner level" => ["<p><strong><b>x</b></strong></p>", "{*{*x*}*}\n", []],
-            "a bare outer level" => ["<p>c <strong><b>x<br></b></strong> d</p>", "c {*{*x\\\n*}*} d\n", []],
-            "two inner spans" => ["<p><sup>a<sup>x</sup>b<sup>y</sup></sup></p>", "{^a{^x^}b{^y^}^}\n", []],
+            'strong around a break' => ['<p>a<strong><b>x<br></b></strong>b</p>', "a{*{*x\\\n*}*}b\n", []],
+            'emphasis around a break' => ['<p>a<em><i>x<br></i></em>b</p>', "a{/{/x\\\n/}/}b\n", []],
+            'strong with a sibling' => ['<p>a<strong><b>x<br></b>y</strong>b</p>', "a{*{*x\\\n*}y*}b\n", []],
+            'superscript' => ['<p><sup><sup>x</sup></sup></p>', "{^{^x^}^}\n", []],
+            'subscript' => ['<p><sub><sub>x</sub></sub></p>', "{,{,x,},}\n", []],
+            'insert' => ['<p><ins><ins>x</ins></ins></p>', "{+x+}\n", ['/p[1]/ins[1]/ins[1]']],
+            'delete' => ['<p><del><del>x</del></del></p>', "{-x-}\n", ['/p[1]/del[1]/del[1]']],
+            'any depth, and the neighbors respelled' => ['<p><sup><sup><em><sup>b</sup></em></sup><sup>b</sup></sup></p>', "{^{^/{^b^}/^}{^b^}^}\n", []],
+            'an unwrapped sibling is read as its text' => ['<p><sup><em>a</em><sup>b</sup></sup></p>', "{^/a/{^b^}^}\n", []],
+            'a bare inner level' => ['<p><strong><b>x</b></strong></p>', "{*{*x*}*}\n", []],
+            'a bare outer level' => ['<p>c <strong><b>x<br></b></strong> d</p>', "c {*{*x\\\n*}*} d\n", []],
+            'two inner spans' => ['<p><sup>a<sup>x</sup>b<sup>y</sup></sup></p>', "{^a{^x^}b{^y^}^}\n", []],
         ];
     }
 

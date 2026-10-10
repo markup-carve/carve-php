@@ -82,30 +82,34 @@ class HtmlBracketedSpanScopesTest extends TestCase
     }
 
     #[DataProvider('unwrappedHosts')]
-    public function testUnwrappedHostReportsItsFormattingLoss(string $tag): void
+    public function testUnwrappedHostKeepsNestedFormatting(string $tag): void
     {
         $html = '<p><' . $tag . '>a<span><' . $tag . '>b</' . $tag . '></span>c</' . $tag . '></p>';
         $result = (new HtmlToCarve())->convertWithReport($html);
-        self::assertSame('<p><' . $tag . '>abc</' . $tag . '></p>', trim((new CarveConverter())->convert($result->value)));
+        $editorial = in_array($tag, ['ins', 'del'], true);
+        $expected = $editorial ? '<p><' . $tag . '>abc</' . $tag . '></p>'
+            : '<p><' . $tag . '>a<' . $tag . '>b</' . $tag . '>c</' . $tag . '></p>';
+        self::assertSame($expected, trim((new CarveConverter())->convert($result->value)));
         $rows = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
-        self::assertCount(1, $rows);
-        self::assertSame('/p[1]/' . $tag . '[1]/span[2]/' . $tag . '[1]', $rows[0]->path);
+        self::assertCount($editorial ? 1 : 0, $rows);
+        if ($editorial) {
+            self::assertSame('/p[1]/' . $tag . '[1]/span[2]/' . $tag . '[1]', $rows[0]->path);
+        }
     }
 
     public function testReturningFromAHostRestoresTheOuterFormattingScope(): void
     {
         $html = '<p><sub>a<span class="x"><sub>b</sub></span><sub>c</sub>d</sub></p>';
         $result = (new HtmlToCarve())->convertWithReport($html);
-        self::assertSame('<p><sub>a<span class="x"><sub>b</sub></span>cd</sub></p>', trim((new CarveConverter())->convert($result->value)));
+        self::assertSame('<p><sub>a<span class="x"><sub>b</sub></span><sub>c</sub>d</sub></p>', trim((new CarveConverter())->convert($result->value)));
         $rows = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
-        self::assertCount(1, $rows);
-        self::assertSame('/p[1]/sub[1]/sub[3]', $rows[0]->path);
+        self::assertCount(0, $rows);
     }
 
     public function testReusingTheImporterClearsPriorLossDecisions(): void
     {
         $importer = new HtmlToCarve();
-        $first = $importer->convertWithReport('<p><sub>a<span><sub>b</sub></span>c</sub></p>');
+        $first = $importer->convertWithReport('<p><ins><ins>x</ins></ins></p>');
         self::assertNotEmpty($first->diagnostics);
         $second = $importer->convertWithReport('<p><sub>a<span class="x"><sub>b</sub></span>c</sub></p>');
         self::assertSame([], $second->diagnostics);

@@ -131,10 +131,6 @@ final class DjotEmphasisRenderer
                 continue;
             }
             $work[] = ['pair' => $pair, 'outer' => $outer, 'depth' => $frame['depth'], 'ready' => true];
-            $scope = false;
-            foreach ($pair->children as $child) {
-                $scope = $scope || array_intersect_key($child->kinds, $outer) !== [];
-            }
             $inner = $outer + [$pair->kind => true];
             foreach (array_reverse($pair->children) as $child) {
                 $work[] = ['pair' => $child, 'outer' => $inner, 'depth' => $frame['depth'] + 1, 'ready' => false];
@@ -209,10 +205,11 @@ final class DjotEmphasisRenderer
     /**
      * @param \MarkupCarve\Carve\Converter\DjotEmphasisSpan $pair
      * @param array<string, true> $outer
+     * @param int $depth
      */
     private function render(DjotEmphasisSpan $pair, array $outer, int $depth): string
     {
-        if ($depth >= InlineParser::MAX_INLINE_DEPTH - 1) {
+        if ($depth + $pair->hostDepth >= InlineParser::MAX_INLINE_DEPTH - 1) {
             if ($this->onFlattened !== null) {
                 ($this->onFlattened)($pair->start);
             }

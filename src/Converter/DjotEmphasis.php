@@ -354,6 +354,31 @@ final class DjotEmphasis
             }
         }
 
+        $hostChanges = [];
+        foreach ($bracketPairs as [$start, $end]) {
+            if (isset($literalBrackets[$start]) || isset($literalBrackets[$end])) {
+                continue;
+            }
+            if (!str_contains('([{', $source[$end + 1] ?? "\0") && ($source[$start - 1] ?? '') !== '^') {
+                continue;
+            }
+            $hostChanges[$start + 1] = ($hostChanges[$start + 1] ?? 0) + 1;
+            $hostChanges[$end] = ($hostChanges[$end] ?? 0) - 1;
+        }
+        if ($hostChanges !== []) {
+            $hostDepth = 0;
+            $starts = [];
+            foreach ($pairs as $pair) {
+                $starts[$pair->start] = $pair;
+            }
+            for ($at = 0; $at < strlen($source); $at++) {
+                $hostDepth += $hostChanges[$at] ?? 0;
+                if (isset($starts[$at])) {
+                    $starts[$at]->hostDepth = $hostDepth;
+                }
+            }
+        }
+
         $bracketCloses = array_fill_keys(array_column($bracketPairs, 1), true);
 
         return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, $literalDashes, Closure::fromCallable($convert), $attributes, $bracketCloses, $validBraceClosers, $validBraces, $onFlattened === null ? null : Closure::fromCallable($onFlattened)))->convert($roots);

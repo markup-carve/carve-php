@@ -6737,7 +6737,6 @@ class MarkdownToCarve
         $line = $this->restoreNumericReferenceHashes($line);
         $line = str_replace('&#', '&\\#', $line);
 
-
         $line = MarkdownEmphasis::convert($line, function (): void {
             $this->flattenedEmphasis = true;
         }, null, $protected);
@@ -6826,7 +6825,6 @@ class MarkdownToCarve
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeListsThatAttach($line);
         }
-
 
         if ($this->convertAttributes) {
             $wholeLine = trim($line);
