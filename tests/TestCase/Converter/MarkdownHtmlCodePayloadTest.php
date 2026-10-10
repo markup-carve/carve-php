@@ -25,6 +25,11 @@ class MarkdownHtmlCodePayloadTest extends TestCase
                 $this->assertSame($expected, $this->records($html)['codes'], $case['template'] . ': ' . json_encode($case['value']));
                 $fallback = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback'));
                 $this->assertCount(str_contains($result->value, '{=html}') ? 1 : 0, $fallback);
+                if ($case['value'] !== '' && strpbrk($case['value'], "\r\n") === false) {
+                    $this->assertCount(0, $fallback);
+                    $safe = SafeMode::defaults()->setRawHtmlMode(SafeMode::RAW_HTML_STRIP);
+                    $this->assertSame($expected, $this->records((new CarveConverter(safeMode: $safe))->convert($result->value))['codes']);
+                }
                 foreach ($fallback as $row) {
                     $this->assertSame('degraded', $row->fidelity);
                     $this->assertSame('exact', $row->confidence);
@@ -97,6 +102,15 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         foreach (['<span>a <code>b</code></span>' => '<p>a <code>b</code></p>', '<small>a\\*b</small>' => '<p>a*b</p>', '<span>*a* [b](u)</span>' => '<p><em>a</em> <a href="u">b</a></p>', '<span>```a```</span>' => '<p><code>a</code></p>'] as $markdown => $expected) {
             $source = (new MarkdownToCarve(convertRawHtml: true))->convert($markdown);
             $this->assertSame($expected, str_replace(['<s>', '</s>'], ['<del>', '</del>'], rtrim((new CarveConverter())->convert($source), "\n")));
+        }
+    }
+
+    public function testWholeHtmlConversionDoesNotReportDiscardedFallbacks(): void
+    {
+        foreach (['<span>a] <code class="x">b</code></span>', 'x <p><code></code></p>'] as $markdown) {
+            $result = (new MarkdownToCarve(convertRawHtml: true))->convertWithFidelityReport($markdown);
+            $this->assertStringNotContainsString('{=html}', $result->value);
+            $this->assertSame([], array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback')));
         }
     }
 

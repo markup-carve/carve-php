@@ -5352,6 +5352,8 @@ class MarkdownToCarve
         $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
         $protectedSources = [];
+        $codeFallbacks = [];
+        $liveCodeFallbacks = [];
         $protect = function (string $span, ?string $source = null) use (&$protected, &$protectedSources): string {
             $protected[] = $span;
             $protectedSources[] = $source ?? $span;
@@ -5590,7 +5592,7 @@ class MarkdownToCarve
         };
         $standaloneCodeSource = trim($line);
         $unchangedHtmlCode = null;
-        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, $htmlCodeLineAt): ?string {
+        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, &$codeFallbacks, $htmlCodeLineAt): ?string {
             $parts = [''];
             for ($at = 0, $length = strlen($match[1]); $at < $length;) {
                 if ($match[1][$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $match[1][$at + 1] ?? '') === 1) {
@@ -5668,7 +5670,7 @@ class MarkdownToCarve
             }
             if ($value === '' || str_contains($value, "\n") || str_contains($value, "\r")) {
                 $htmlCodeSourceLine = $htmlCodeLineAt($offset);
-                $this->codeFallbackDiagnostics[] = new MigrationDiagnostic(
+                $diagnostic = new MigrationDiagnostic(
                     'raw-code-fallback',
                     'Preserved an HTML code payload as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
                     'warning',
@@ -5686,7 +5688,10 @@ class MarkdownToCarve
                     return $character[0] === '@' ? $entity . '<!---->' : $entity;
                 }, str_replace(["\r\n", "\r"], "\n", $value)) ?? $value;
 
-                return $protect($this->verbatimHtmlInline('<code>' . $html . '</code>'), $match[0]);
+                $token = $protect($this->verbatimHtmlInline('<code>' . $html . '</code>'), $match[0]);
+                $codeFallbacks[$token] = $diagnostic;
+
+                return $token;
             }
             $document = new Document();
             $paragraph = new Paragraph();
@@ -5760,7 +5765,7 @@ class MarkdownToCarve
                     $htmlCodeDepth = max(0, $htmlCodeDepth + ($tag['closing'] ? -1 : 1));
                     if (!$tag['closing']) {
                         $htmlCodeSourceLine = $htmlCodeLineAt($i);
-                        $this->codeFallbackDiagnostics[] = new MigrationDiagnostic(
+                        $diagnostic = new MigrationDiagnostic(
                             'raw-code-fallback',
                             'Preserved HTML code markup as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
                             'warning',
@@ -5769,7 +5774,11 @@ class MarkdownToCarve
                             $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
                         );
                     }
-                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
+                    $token = $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
+                    if (!$tag['closing']) {
+                        $codeFallbacks[$token] = $diagnostic;
+                    }
+                    $escaped .= $token;
                 } elseif ($htmlCodeDepth > 0 && $tag['name'] === 'br') {
                     $escaped .= $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
                 } else {
@@ -6195,7 +6204,7 @@ class MarkdownToCarve
             PREG_OFFSET_CAPTURE,
         ) ?? $line;
 
-        $destination = '\((?:[ \t]*\n(?![ \t]*\n))?(?:[^()\n]|\([^()\n]*\))*\)';
+        $destination = '\((?:[ \t]*\n(?![ \t]*\n))?(?:[^()\n]|\([^()\n]*\)|\n(?=[ \t]*\)))*\)';
         $line = preg_replace_callback(
             '/(!\[(?:[^[\]]|\[[^\]]*\])*\])(' . $destination . ')/',
             fn (array $match): string => $protectDestination($imageLabel($match[1]), $match[2], $match[1] . $match[2]),
@@ -6689,7 +6698,10 @@ class MarkdownToCarve
                 return str_ends_with($left, '`') && str_starts_with($right, '`') && (str_starts_with($left, '`') || $slashes % 2 === 0)
                     ? $match[0] . '{%  %}' : $match[0];
             }, $line) ?? $line;
-            $line = preg_replace_callback('/\x00P(\d+)\x00/', function (array $match) use ($protected, $table): string {
+            $line = preg_replace_callback('/\x00P(\d+)\x00/', function (array $match) use ($protected, $table, &$codeFallbacks, &$liveCodeFallbacks): string {
+                if (isset($codeFallbacks[$match[0]])) {
+                    $liveCodeFallbacks[$match[0]] = true;
+                }
                 $span = $protected[(int)$match[1]];
                 if (!$table) {
                     return $span;
@@ -6701,6 +6713,12 @@ class MarkdownToCarve
                 return $this->escapeTableInlineText($span);
             }, $line) ?? $line;
         } while ($line !== $previous);
+
+        foreach ($codeFallbacks as $token => $diagnostic) {
+            if (isset($liveCodeFallbacks[$token])) {
+                $this->codeFallbackDiagnostics[] = $diagnostic;
+            }
+        }
 
         return str_replace("\x00FNEMPTY\x00", '{empty}', $line);
     }
