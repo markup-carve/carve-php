@@ -6041,7 +6041,7 @@ class MarkdownToCarve
         if ($this->convertRawHtml) {
             $htmlBodyIndex = 0;
             preg_match_all('/CarveHtmlBody(\d+)/', $this->decodeHtmlReferenceText($line), $htmlBodyMatches);
-            $htmlBodyReserved = array_fill_keys($htmlBodyMatches[1], true);
+            $htmlBodyReserved = array_fill_keys(array_map(static fn (string $index): string => 'CarveHtmlBody' . $index, $htmlBodyMatches[1]), true);
             $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => str_starts_with($span, '<!--')
                 ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
             $line = preg_replace_callback(
@@ -6052,7 +6052,7 @@ class MarkdownToCarve
 
                         return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
                     }
-                    while (isset($htmlBodyReserved[(string)$htmlBodyIndex])) {
+                    while (isset($htmlBodyReserved['CarveHtmlBody' . $htmlBodyIndex])) {
                         $htmlBodyIndex++;
                     }
                     $marker = 'CarveHtmlBody' . $htmlBodyIndex++;

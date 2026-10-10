@@ -297,6 +297,13 @@ final class DjotEmphasis
 
             return $source;
         }
+        foreach (array_keys($validBraces) as $start) {
+            if ($source[$start + 1] !== '=') {
+                continue;
+            }
+            $close = $braceEnds[$start];
+            $pairs[] = new DjotEmphasisSpan($start, $start + 2, $close, $close + 2, '=', true);
+        }
         usort($pairs, static fn (DjotEmphasisSpan $a, DjotEmphasisSpan $b): int => $a->start <=> $b->start ?: $b->end <=> $a->end);
         $roots = [];
         $stack = [];
@@ -355,6 +362,14 @@ final class DjotEmphasis
         }
 
         $hostChanges = [];
+        foreach (array_keys($validBraces) as $start) {
+            if (isset($starts[$start])) {
+                continue;
+            }
+            $end = $braceEnds[$start];
+            $hostChanges[$start + 2] = ($hostChanges[$start + 2] ?? 0) + 1;
+            $hostChanges[$end] = ($hostChanges[$end] ?? 0) - 1;
+        }
         foreach ($bracketPairs as [$start, $end]) {
             if (isset($literalBrackets[$start]) || isset($literalBrackets[$end])) {
                 continue;
@@ -371,7 +386,7 @@ final class DjotEmphasis
             foreach ($pairs as $pair) {
                 $starts[$pair->start] = $pair;
             }
-            for ($at = 0; $at < strlen($source); $at++) {
+            for ($at = 0, $length = strlen($source); $at < $length; $at++) {
                 $hostDepth += $hostChanges[$at] ?? 0;
                 if (isset($starts[$at])) {
                     $starts[$at]->hostDepth = $hostDepth;

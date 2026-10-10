@@ -173,6 +173,25 @@ final class MarkdownEmphasis
         foreach (array_keys(self::straddledBracketClosers($brackets, $pairs)) as $offset) {
             $literalEscapes[$offset] = true;
         }
+        $hostChanges = [];
+        foreach ($brackets as $bracket) {
+            if (!$bracket['link']) {
+                continue;
+            }
+            $start = $bracket['open'] + 1;
+            $end = $bracket['close'];
+            $hostChanges[$start] = ($hostChanges[$start] ?? 0) + 1;
+            $hostChanges[$end] = ($hostChanges[$end] ?? 0) - 1;
+        }
+        if ($hostChanges !== []) {
+            $hostDepth = 0;
+            for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+                $hostDepth += $hostChanges[$at] ?? 0;
+                if (isset($pairs[$at])) {
+                    $pairs[$at]['hostDepth'] = $hostDepth;
+                }
+            }
+        }
         $flattened = false;
         $output = [];
         $stack = [];
@@ -201,7 +220,7 @@ final class MarkdownEmphasis
                         'italic' => false,
                         'strike' => false,
                         'repeated' => $active[$pair['kind']] > 0,
-                        'keep' => count($stack) < InlineParser::MAX_INLINE_DEPTH,
+                        'keep' => count($stack) + ($pair['hostDepth'] ?? 0) < InlineParser::MAX_INLINE_DEPTH,
                     ];
                     $active[$pair['kind']] = $active[$pair['kind']] + 1;
                     $output[] = '';

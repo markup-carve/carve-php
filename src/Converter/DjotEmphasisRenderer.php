@@ -226,7 +226,7 @@ final class DjotEmphasisRenderer
         }
         $content = $this->body($pair->openEnd, $pair->close, $pair->children, $outer + [$pair->kind => true]);
         $delimiter = match ($pair->kind) {
-            '_' => '/', '~' => ',', '^' => '^', default => '*'
+            '_' => '/', '~' => ',', '^' => '^', '=' => '=', default => '*'
         };
         $forced = str_contains('~^', $pair->kind) || $pair->forced || $scope || str_starts_with($content, "\0") || str_ends_with($content, "\0")
                 || ($pair->start > 0 && preg_match('/[A-Za-z0-9_]/', $this->source[$pair->start - 1]) === 1)

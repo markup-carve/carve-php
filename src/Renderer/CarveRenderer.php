@@ -1272,7 +1272,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[array_key_last($parts)] .= "\n" . $this->listBoundary() . $rendered;
                     } elseif (
                         $parts !== []
-                        && $previousBlock->getRenderHint("\0carve-compact-definition") === '1'
+                        && $previousBlock?->getRenderHint("\0carve-compact-definition") === '1'
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
@@ -3908,17 +3908,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     ];
 
     /**
-     * Spell a span so a span of its kind inside it reads back.
-     *
-     * E3 leaves an opener of an open kind literal, bare or forced, but a braced
-     * inline starts its own scope (markup-carve/carve#2078, #2091). So a span
-     * between two spans of one kind is written braced, and a span of the same
-     * kind reachable without a braced span between has no spelling.
-     *
-     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
-     */
-
-    /**
      * @return array<int, true>
      */
     private function findRepeatedEmphasis(Node $root): array
@@ -3955,6 +3944,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $repeated;
     }
 
+    /**
+     * Preserve repeated native emphasis and enforce the editorial nesting ceiling.
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
         if (!str_starts_with($written, '{') && ((str_contains('+-', $delimiter) && ($this->separatesAnOuterKind($node) || $this->holdsOuterKindAcrossLink($node))) || isset($this->bracedForAttributes[spl_object_id($node)]))) {

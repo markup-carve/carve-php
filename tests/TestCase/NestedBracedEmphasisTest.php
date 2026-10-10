@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Inline\Strong;
 use MarkupCarve\Carve\Parser\InlineParser;
@@ -207,6 +208,43 @@ class NestedBracedEmphasisTest extends TestCase
         $result = (new DjotToCarve())->convertWithFidelityReport($source);
         $this->assertStringNotContainsString('{*', (new CarveConverter())->convert($result->value));
         $this->assertContains('structure-unspellable', array_column($result->report()['diagnostics'], 'code'));
+    }
+
+    public function testMarkdownLinkDepthHasAnExplicitLossReport(): void
+    {
+        $levels = intdiv(InlineParser::MAX_INLINE_DEPTH, 2);
+        $source = '[' . str_repeat('**a _a ', $levels) . 'x' . str_repeat(' b_ b**', $levels) . '](/u)';
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+        $html = (new CarveConverter())->convert($result->value);
+        $this->assertStringNotContainsString('{*', $html);
+        $this->assertStringNotContainsString('{/', $html);
+        $this->assertSame($levels - 1, substr_count($html, '<strong>'));
+        $this->assertContains('structure-unspellable', array_column($result->report()['diagnostics'], 'code'));
+    }
+
+    public function testDjotHighlightDepthHasAnExplicitLossReport(): void
+    {
+        $limit = InlineParser::MAX_INLINE_DEPTH;
+        foreach ([str_repeat('{=', $limit) . 'x' . str_repeat('=}', $limit), str_repeat('{=', intdiv($limit, 2)) . str_repeat('{*', intdiv($limit, 2)) . 'x' . str_repeat('*}', intdiv($limit, 2)) . str_repeat('=}', intdiv($limit, 2))] as $source) {
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            $html = (new CarveConverter())->convert($result->value);
+            $this->assertStringNotContainsString('{=', $html);
+            $this->assertStringNotContainsString('{*', $html);
+            $this->assertSame($limit - 1, substr_count($html, '<strong>') + substr_count($html, '<mark>'));
+            $this->assertContains('structure-unspellable', array_column($result->report()['diagnostics'], 'code'));
+        }
+    }
+
+    public function testDjotEditorialHostDepthHasAnExplicitLossReport(): void
+    {
+        foreach (['+', '-'] as $marker) {
+            $source = '{' . $marker . str_repeat('{*', InlineParser::MAX_INLINE_DEPTH - 1) . 'x' . str_repeat('*}', InlineParser::MAX_INLINE_DEPTH - 1) . $marker . '}';
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            $html = (new CarveConverter())->convert($result->value);
+            $this->assertStringNotContainsString('{*', $html);
+            $this->assertSame(InlineParser::MAX_INLINE_DEPTH - 2, substr_count($html, '<strong>'));
+            $this->assertContains('structure-unspellable', array_column($result->report()['diagnostics'], 'code'));
+        }
     }
 
     public function testGluedEditorialCommentCannotBecomeAnAttribute(): void
