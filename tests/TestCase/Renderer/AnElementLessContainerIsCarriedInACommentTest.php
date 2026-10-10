@@ -256,6 +256,54 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
         $this->assertStringContainsString('```=html', $result->value);
     }
 
+    /**
+     * markup-carve/carve-php#3038: a code construct's payload is verbatim
+     * content, so a marker-shaped line in one records no container and the
+     * import must leave it where it is. The page documenting the mode holds
+     * exactly such lines, and lifting one rewrote its own sample.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function verbatimMarkerProvider(): array
+    {
+        return [
+            'a fenced code block' => ["Prose.\n\n```markdown\n<!-- carve: ::: note -->\nBody.\n<!-- carve: ::: -->\n```\n\nTail.\n"],
+            'a tilde fence' => ["Prose.\n\n~~~\n<!-- carve: ::: note -->\n~~~\n\nTail.\n"],
+            'an indented code block' => ["Prose.\n\n    <!-- carve: ::: note -->\n    body\n\nTail.\n"],
+            'an inline code span' => ["A `<!-- carve: ::: note -->` span.\n"],
+            'a raw block' => ["Prose.\n\n```=html\n<!-- carve: ::: note -->\n```\n"],
+        ];
+    }
+
+    #[DataProvider('verbatimMarkerProvider')]
+    public function testAMarkerShapedLineInACodeConstructComesBackVerbatim(string $source): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+        $this->assertStringContainsString('<!-- carve: ::: note -->', $result->value, 'the payload lost its marker-shaped line');
+        $this->assertSame(0, preg_match('/^:{3,}/m', $result->value), 'a verbatim payload was read as a container');
+        $codes = array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics);
+        $this->assertNotContains('carrier-markers-damaged', $codes);
+    }
+
+    /**
+     * The control, and the diagnostic's own arithmetic: the set OUTSIDE the
+     * fence is one unclosed opener, so it is damaged; the marker-shaped line
+     * inside the fence is not its closer and must not balance it.
+     */
+    public function testADamagedSetOutsideAFenceCountsOnlyTheRealMarkers(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport(
+            "<!-- carve: ::: note -->\n\nBody.\n\n```md\n<!-- carve: ::: -->\n```\n",
+        );
+        $damaged = array_values(array_filter(
+            $result->diagnostics,
+            static fn ($diagnostic): bool => $diagnostic->code === 'carrier-markers-damaged',
+        ));
+        $this->assertCount(1, $damaged, 'the fenced line was counted as part of the set');
+        $this->assertSame(0, preg_match('/^:{3,}/m', $result->value));
+        $this->assertStringContainsString("```md\n<!-- carve: ::: -->\n```", $result->value);
+    }
+
     public function testASoundSetReportsNoDamage(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport(

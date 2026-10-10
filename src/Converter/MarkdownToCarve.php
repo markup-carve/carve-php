@@ -330,7 +330,34 @@ class MarkdownToCarve
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         $payloads = [];
         $seen = false;
+        // A MARKER INSIDE A FENCED CODE BLOCK IS NOT A MARKER. A code block's
+        // payload is verbatim content, so a page documenting the mode holds
+        // marker-shaped lines that record no container, and lifting one rewrote
+        // the sample inside the fence (markup-carve/carve-php#3038, measured on
+        // spec/docs/graceful-degradation.md). An indented code block and an
+        // inline code span need no guard of their own: a marker is read at
+        // column 0 only.
+        $fence = null;
         foreach ($lines as $at => $line) {
+            $opener = preg_match('/^([ \t]*)(`{3,}|~{3,})(.*)$/D', $line, $match) === 1
+                && $this->columnWidth($match[1]) <= 3
+                    ? $match
+                    : null;
+            if ($fence !== null) {
+                if (
+                    $opener !== null && $opener[2][0] === $fence[0]
+                    && strlen($opener[2]) >= strlen($fence) && trim($opener[3]) === ''
+                ) {
+                    $fence = null;
+                }
+
+                continue;
+            }
+            if ($opener !== null && !($opener[2][0] === '`' && str_contains($opener[3], '`'))) {
+                $fence = $opener[2];
+
+                continue;
+            }
             $payload = CarrierMarkers::payload($line);
             if ($payload !== null) {
                 $payloads[$at] = $payload;
