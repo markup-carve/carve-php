@@ -88,7 +88,7 @@ class AnImportedItemsAttributesAbutItsMarkerTest extends TestCase
         $this->assertSame("-{#t} [x] a\n", $carve);
 
         $html = $this->html($carve);
-        $this->assertStringContainsString('<li id="t">', $html);
+        $this->assertStringContainsString('<li data-task-state="x" id="t">', $html);
         $this->assertStringContainsString('type="checkbox"', $html);
     }
 

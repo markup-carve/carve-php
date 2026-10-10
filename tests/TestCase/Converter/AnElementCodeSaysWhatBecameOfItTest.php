@@ -132,8 +132,8 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
      * The same, one wrapper in.
      *
      * The `<label>` around the checkbox is unsupported and reports its own
-     * unwrap, and the list's `class` is dropped - but neither row names the
-     * `<input>`, because the marker it became is right there in the output.
+     * unwrap. The structural list class is consumed, and the checkbox becomes
+     * the task marker in the output.
      */
     public function testATaskMarkerBehindALabelStillNamesNoInput(): void
     {
@@ -142,7 +142,6 @@ class AnElementCodeSaysWhatBecameOfItTest extends TestCase
         $this->assertSame('- [ ] Done', $this->carve($html));
         $this->assertSame(
             [
-                ['attribute-dropped', 'info', 'Dropped unsupported attribute class on <ul>'],
                 ['element-unwrapped', 'info', 'Unwrapped unsupported <label> element'],
             ],
             $this->diagnostics($html),

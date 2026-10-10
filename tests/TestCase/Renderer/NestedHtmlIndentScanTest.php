@@ -116,8 +116,8 @@ class NestedHtmlIndentScanTest extends TestCase
             ],
             'task items and a mixed ordered sub-list' => [
                 "- [ ] open\n  - [x] done\n\n    more\n- plain\n  1. one\n  2. two\n",
-                "<ul>\n  <li><input type=\"checkbox\" disabled aria-label=\"open\"> open\n    <ul>\n"
-                . "      <li><input type=\"checkbox\" checked disabled aria-label=\"done\"> <p>done</p>\n        <p>more</p>\n"
+                "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"open\"> open\n    <ul class=\"task-list\">\n"
+                . "      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"done\"> <p>done</p>\n        <p>more</p>\n"
                 . "      </li>\n    </ul>\n  </li>\n</ul>\n<ul>\n  <li>plain\n    <ol>\n      <li>one</li>\n"
                 . "      <li>two</li>\n    </ol>\n  </li>\n</ul>\n",
             ],

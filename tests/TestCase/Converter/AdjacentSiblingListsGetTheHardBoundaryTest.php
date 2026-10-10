@@ -183,7 +183,7 @@ class AdjacentSiblingListsGetTheHardBoundaryTest extends TestCase
 
         $this->assertSame(
             $lists,
-            substr_count($back, '<' . $tag . '>'),
+            preg_match_all('/<' . $tag . '(?:\s[^>]*)?>/', $back),
             "the boundary must keep the lists apart; imported source was:\n" . $imported,
         );
     }

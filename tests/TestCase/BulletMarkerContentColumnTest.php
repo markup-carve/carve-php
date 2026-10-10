@@ -77,7 +77,7 @@ class BulletMarkerContentColumnTest extends TestCase
     public function testTaskItemKeepsContentColumnAtTwo(): void
     {
         $this->assertHtml(
-            "<ul>\n  <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
+            "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
             "- [ ] item\n  # H\n",
         );
     }
@@ -89,7 +89,7 @@ class BulletMarkerContentColumnTest extends TestCase
      */
     public function testTaskItemColumnIgnoresCheckboxAndExtraSpaces(): void
     {
-        $expected = "<ul>\n  <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>";
+        $expected = "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>";
         $this->assertHtml($expected, "- [ ] item\n      # H\n");
         $this->assertHtml($expected, "-   [ ] item\n    # H\n");
         $this->assertHtml($expected, "-   [ ] item\n        # H\n");
@@ -102,7 +102,7 @@ class BulletMarkerContentColumnTest extends TestCase
     public function testAttributeBlockDoesNotMoveATaskItemsContentColumn(): void
     {
         $this->assertHtml(
-            "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
+            "<ul class=\"task-list\">\n  <li data-task-state=\"x\" id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
             "-{#k} [x] a\n  # h\n",
         );
     }
@@ -114,7 +114,7 @@ class BulletMarkerContentColumnTest extends TestCase
     public function testTheFormerFullPrefixColumnIsAnAuthoredBlockBase(): void
     {
         $this->assertHtml(
-            "<ul>\n  <li id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
+            "<ul class=\"task-list\">\n  <li data-task-state=\"x\" id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
             "-{#k} [x] a\n      # h\n",
         );
     }

@@ -313,7 +313,7 @@ class CarveConverterTest extends TestCase
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringNotContainsString('task-list', $result);
+        $this->assertStringContainsString('class="task-list"', $result);
         $this->assertStringContainsString('type="checkbox"', $result);
         $this->assertStringContainsString('checked', $result);
         $this->assertStringContainsString('Unchecked', $result);
@@ -323,7 +323,7 @@ class CarveConverterTest extends TestCase
     public function testTaskListMergesExistingClasses(): void
     {
         $djot = "{.outer}\n- [ ] Task";
-        $expected = "<ul class=\"outer\">\n  <li><input type=\"checkbox\" disabled aria-label=\"Task\"> Task</li>\n</ul>\n";
+        $expected = "<ul class=\"task-list outer\">\n  <li><input type=\"checkbox\" disabled aria-label=\"Task\"> Task</li>\n</ul>\n";
 
         $this->assertSame($expected, $this->converter->convert($djot));
     }
@@ -334,7 +334,7 @@ class CarveConverterTest extends TestCase
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringNotContainsString('task-list', $result);
+        $this->assertStringContainsString('class="task-list"', $result);
         // Both underscore and space should render as unchecked checkboxes
         $this->assertSame(2, substr_count($result, '<input type="checkbox" disabled aria-label='));
         $this->assertSame(1, substr_count($result, '<input type="checkbox" checked disabled aria-label='));
@@ -1342,7 +1342,7 @@ DJOT;
 
         $result = $this->converter->convert($djot);
 
-        $this->assertStringContainsString('<li class="completed">', $result);
+        $this->assertStringContainsString('<li data-task-state="x" class="completed">', $result);
         $this->assertStringContainsString(' checked disabled aria-label="done">', $result);
     }
 
