@@ -3806,10 +3806,11 @@ class BlockParser
      */
     protected function leadBottomIsContinuationMarker(string $content): bool
     {
-        $rest = $content;
-        while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
-            $rest = substr($rest, $offset);
+        $offset = 0;
+        while (($nextOffset = $this->listParser->markerContentOffset($content, $offset)) !== null) {
+            $offset = $nextOffset;
         }
+        $rest = substr($content, $offset);
 
         return $rest === ltrim($rest, " \t") && $this->isContinuationMarker($rest);
     }
@@ -4623,6 +4624,10 @@ class BlockParser
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingState($trailingState, $seedLine);
         }
+        $bareContinuationLead = $itemLines !== []
+            && $this->leadBottomIsContinuationMarker((string)$itemLines[0]);
+        $bareLeadQuoteState = null;
+        $bareLeadQuoteMemo = [];
         $nestedFence = new NestedLeadFenceState();
         $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
             || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
@@ -4631,6 +4636,7 @@ class BlockParser
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $bareLeadQuoteState = null;
                 // Keep the run for the child parser, including a fence that
                 // reaches the end of its item. The next content line still
                 // decides whether this item continues.
@@ -4712,8 +4718,7 @@ class BlockParser
                 // column-0 line and over a column-1 line both arrive at the
                 // nested parse as ` x`, and by then they cannot be told apart.
                 if (
-                    $itemLines !== []
-                    && $this->leadBottomIsContinuationMarker((string)$itemLines[0])
+                    $bareContinuationLead
                     && !$this->continuationAttachesAtColumnZero($i)
                 ) {
                     break;
@@ -4772,6 +4777,19 @@ class BlockParser
                         ? $folded
                         : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
                 );
+                if (
+                    $bareContinuationLead
+                    && $trailingState->openParagraph
+                    && !$this->isContinuationMarker($nextTrimmed)
+                    && $this->advanceTrailingState(
+                        new TrailingBlockState(),
+                        str_starts_with($folded, self::LAZY_FRAME)
+                            ? $folded
+                            : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
+                    )->openParagraph
+                ) {
+                    $bareContinuationLead = false;
+                }
                 $i++;
 
                 continue;
@@ -4790,6 +4808,27 @@ class BlockParser
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
             $trailingState = $this->advanceTrailingState($trailingState, $stripped, true);
+            if ($bareContinuationLead) {
+                $claimLine = ltrim($stripped, " \t");
+                $claimOpen = $this->advanceTrailingState(new TrailingBlockState(), $claimLine, true)->openParagraph;
+                $quoteWidth = ContainerPrefix::quoteMarkerWidth($claimLine, 0);
+                if ($quoteWidth !== null) {
+                    $bareLeadQuoteState ??= BlockQuoteBuilder::initialBlockQuoteLazyState();
+                    $this->quotesBuilder()->trackBlockQuoteLazyState(
+                        substr($claimLine, $quoteWidth),
+                        $bareLeadQuoteState,
+                        $lines,
+                        $i,
+                        $bareLeadQuoteMemo,
+                    );
+                    $claimOpen = $bareLeadQuoteState['paragraphOpen'];
+                } else {
+                    $bareLeadQuoteState = null;
+                }
+                if ($trailingState->openParagraph && $claimOpen && !$this->leadBottomIsContinuationMarker($claimLine)) {
+                    $bareContinuationLead = false;
+                }
+            }
             $i++;
         }
 
@@ -6984,7 +7023,8 @@ class BlockParser
      */
     private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo, int $column = 0): bool
     {
-        $key = $depth . ':' . $column . ':' . $char;
+        $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
+        $key = $sourceIndent . ':' . $depth . ':' . $column . ':' . $char;
         $start = $index + 1;
         $cached = $memo[$key] ?? null;
         if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun']) {
@@ -6993,7 +7033,10 @@ class BlockParser
         $maxRun = 0;
         $count = count($lines);
         for ($i = $start; $i < $count; $i++) {
-            $content = self::quotedContentAtDepth($lines[$i], $depth);
+            if (IndentationHelper::getLeadingColumns($lines[$i]) !== $sourceIndent) {
+                break;
+            }
+            $content = self::quotedContentAtDepth(IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent), $depth);
             if ($content === null) {
                 break;
             }
@@ -7020,7 +7063,21 @@ class BlockParser
      */
     protected function hasClosingCommentFenceAheadInBlockQuote(array $lines, int $index, int $length): bool
     {
-        if ($this->state->frame->blockQuoteCommentCloserIndex === null) {
+        $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
+        $opener = IndentationHelper::stripLeadingColumns($lines[$index], $sourceIndent);
+        $depth = 0;
+        $at = 0;
+        while (($width = ContainerPrefix::quoteMarkerWidth($opener, $at)) !== null) {
+            $depth++;
+            $at += $width;
+        }
+        if ($sourceIndent !== 0 || $depth > 1) {
+            $this->state->frame->blockQuoteCommentCloserIndexes ??= $this->indexNestedQuoteCommentClosers($lines);
+
+            return ($this->state->frame->blockQuoteCommentCloserIndexes[$sourceIndent . ':' . $depth][$index] ?? -1) > $index;
+        }
+        $cache = &$this->state->frame->blockQuoteCommentCloserIndex;
+        if ($cache === null) {
             $nextByLength = [];
             $indexByLine = [];
             for ($i = count($lines) - 1; $i >= 0; $i--) {
@@ -7029,7 +7086,10 @@ class BlockParser
 
                     continue;
                 }
-                $content = $this->blockQuoteLineContent($lines[$i]);
+                $line = IndentationHelper::getLeadingColumns($lines[$i]) === $sourceIndent
+                    ? IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent)
+                    : '';
+                $content = $this->blockQuoteLineContent($line);
                 if ($content === null) {
                     // A non-quoted line ends the quoted region. A later fence
                     // cannot close an opener before this boundary.
@@ -7045,10 +7105,66 @@ class BlockParser
                 $indexByLine[$i] = $nextByLength[$fenceLength] ?? -1;
                 $nextByLength[$fenceLength] = $i;
             }
-            $this->state->frame->blockQuoteCommentCloserIndex = $indexByLine;
+            $cache = $indexByLine;
         }
 
-        return ($this->state->frame->blockQuoteCommentCloserIndex[$index] ?? -1) > $index;
+        return ($cache[$index] ?? -1) > $index;
+    }
+
+    /**
+     * @param array<string> $lines
+     *
+     * @return array<string, array<int, int>>
+     */
+    private function indexNestedQuoteCommentClosers(array $lines): array
+    {
+        $indexes = [];
+        $nextByDepth = [];
+        $activeIndent = null;
+        for ($i = count($lines) - 1; $i >= 0; $i--) {
+            $sourceIndent = IndentationHelper::getLeadingColumns($lines[$i]);
+            if ($activeIndent !== $sourceIndent || IndentationHelper::isBlankLine($lines[$i])) {
+                $nextByDepth = [];
+            }
+            $activeIndent = $sourceIndent;
+            $line = IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent);
+            $depth = 0;
+            $at = 0;
+            while (($width = ContainerPrefix::quoteMarkerWidth($line, $at)) !== null) {
+                $depth++;
+                $at += $width;
+            }
+            if ($depth === 0) {
+                $nextByDepth = [];
+
+                continue;
+            }
+            self::discardDeeperQuoteCommentClosers($nextByDepth, $depth);
+            $info = $this->fencedBlockParser->parseFencedCommentOpener(substr($line, $at));
+            if ($info === null) {
+                continue;
+            }
+            $length = $info['length'];
+            $indexes[$sourceIndent . ':' . $depth][$i] = $nextByDepth[$depth][$length] ?? -1;
+            $nextByDepth[$depth][$length] = $i;
+        }
+
+        return $indexes;
+    }
+
+    /**
+     * @param array<int, array<int, int>> $nextByDepth
+     * @param int $depth
+     *
+     * @return void
+     */
+    private static function discardDeeperQuoteCommentClosers(array &$nextByDepth, int $depth): void
+    {
+        foreach ($nextByDepth as $heldDepth => $unused) {
+            if ($heldDepth > $depth) {
+                unset($nextByDepth[$heldDepth]);
+            }
+        }
     }
 
     /**

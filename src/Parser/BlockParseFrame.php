@@ -56,6 +56,13 @@ final class BlockParseFrame
     public ?array $blockQuoteCommentCloserIndex = null;
 
     /**
+     * Next matching comment fence by source indentation, quote depth and line.
+     *
+     * @var array<string, array<int, int>>|null
+     */
+    public ?array $blockQuoteCommentCloserIndexes = null;
+
+    /**
      * Where a closer of each fence shape LAST occurs in the current line set,
      * built once by fenceCloserIndex().
      *

@@ -1916,6 +1916,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         ));
     }
 
+    protected function listTailHasParagraph(ListBlock $list): bool
+    {
+        $current = $list;
+        while ($current instanceof ListBlock) {
+            $items = $current->getChildren();
+            $item = $items[count($items) - 1] ?? null;
+            if (!$item instanceof ListItem) {
+                return false;
+            }
+            $blocks = $item->getChildren();
+            $current = $blocks[count($blocks) - 1] ?? null;
+        }
+
+        return $current instanceof Paragraph;
+    }
+
     protected function renderListItem(ListItem $node, bool $tight = false): string
     {
         $children = $node->getChildren();
@@ -2020,6 +2036,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // other child this adds nothing: the lookahead above has
                     // already latched $atMarkerColumn.
                     || ($previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child))
+                    || (
+                        !$separated
+                        && $previousEmitted instanceof ListBlock
+                        && $this->listTailHasParagraph($previousEmitted)
+                        && $this->foldsIntoAnOpenParagraph($child)
+                        && !$this->opensWithAnAttributeLine($rendered)
+                    )
                     || (
                         !$separated
                         && $previous instanceof Paragraph
