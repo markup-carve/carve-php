@@ -4623,6 +4623,8 @@ class BlockParser
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingState($trailingState, $seedLine);
         }
+        $bareContinuationLead = $itemLines !== []
+            && $this->leadBottomIsContinuationMarker((string)$itemLines[0]);
         $nestedFence = new NestedLeadFenceState();
         $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
             || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
@@ -4712,8 +4714,7 @@ class BlockParser
                 // column-0 line and over a column-1 line both arrive at the
                 // nested parse as ` x`, and by then they cannot be told apart.
                 if (
-                    $itemLines !== []
-                    && $this->leadBottomIsContinuationMarker((string)$itemLines[0])
+                    $bareContinuationLead
                     && !$this->continuationAttachesAtColumnZero($i)
                 ) {
                     break;
@@ -4790,6 +4791,9 @@ class BlockParser
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
             $trailingState = $this->advanceTrailingState($trailingState, $stripped, true);
+            if ($trailingState->openParagraph) {
+                $bareContinuationLead = $this->leadBottomIsContinuationMarker($stripped);
+            }
             $i++;
         }
 
