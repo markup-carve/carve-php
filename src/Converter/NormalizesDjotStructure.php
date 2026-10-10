@@ -41,7 +41,9 @@ trait NormalizesDjotStructure
         $maskedSource = $this->maskCodeAndDestinations($source);
         $mask = explode("\n", $maskedSource);
         $divClosers = [];
-        $this->djotInlineBoundaries($source, $maskedSource, true, $divClosers);
+        if (str_contains($source, ':::')) {
+            $this->djotInlineBoundaries($source, $maskedSource, true, $divClosers);
+        }
         $lineOffsets = [];
         $lineOffset = 0;
         foreach ($lines as $line) {
@@ -198,12 +200,17 @@ trait NormalizesDjotStructure
             }
             $div = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $visible, $divMatch) === 1;
             $topDiv = $divs === [] ? null : $divs[array_key_last($divs)];
-            $closeCount = $divClosers[$lineOffsets[$n]] ?? null;
-            if ($div && $topDiv !== null && $closeCount !== null) {
+            $closeStarts = $divClosers[$lineOffsets[$n]] ?? null;
+            if ($div && $topDiv !== null && $closeStarts !== null && $closeStarts !== []) {
                 $this->dropOrphanDjotAttributeLine($out);
-                for ($remaining = $closeCount; $remaining > 0 && $divs !== []; $remaining--) {
+                $matched = 0;
+                $outerStart = $closeStarts[array_key_last($closeStarts)];
+                while ($divs !== [] && $divs[array_key_last($divs)]['start'] >= $outerStart) {
                     $closed = array_pop($divs);
-                    $out[] = $closed['prefix'] . str_repeat(':', $closed['width']);
+                    if ($closed['start'] === $closeStarts[$matched]) {
+                        $out[] = $closed['prefix'] . str_repeat(':', $closed['width']);
+                        $matched++;
+                    }
                 }
                 $paragraph = false;
                 $headingMarker = '';
@@ -294,7 +301,7 @@ trait NormalizesDjotStructure
                 $headingMarker = $itemHeadingMatch[1] ?? '';
                 $itemDiv = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $body, $itemDivMatch) === 1;
                 if ($itemDiv) {
-                    $divs[] = ['width' => strlen($itemDivMatch[1]), 'prefix' => $quote . str_repeat(' ', $context->target + $context->content), 'invalid' => $fenceParser->parseDivFenceOpener($body)['invalidMetadata'] ?? false, 'itemColumn' => $context->column + $context->content, 'depth' => $quoteDepth];
+                    $divs[] = ['width' => strlen($itemDivMatch[1]), 'prefix' => $quote . str_repeat(' ', $context->target + $context->content), 'invalid' => $fenceParser->parseDivFenceOpener($body)['invalidMetadata'] ?? false, 'itemColumn' => $context->column + $context->content, 'depth' => $quoteDepth, 'start' => $lineOffsets[$n]];
                 }
                 $itemQuote = preg_match('/^(?:>[ \t]*)+/', $body, $itemQuoteMatch) === 1;
                 if ($itemQuote) {
@@ -308,7 +315,7 @@ trait NormalizesDjotStructure
             if ($div && !$paragraph) {
                 $parent = $lists === [] ? null : $lists[array_key_last($lists)];
                 $owned = $parent !== null && $indent >= $parent->column + $parent->content;
-                $divs[] = ['width' => strlen($divMatch[1]), 'prefix' => $quote . str_repeat(' ', $indent), 'invalid' => $fenceParser->parseDivFenceOpener($text)['invalidMetadata'] ?? false, 'depth' => $quoteDepth] + ($owned ? ['itemColumn' => $parent->column + $parent->content] : []);
+                $divs[] = ['width' => strlen($divMatch[1]), 'prefix' => $quote . str_repeat(' ', $indent), 'invalid' => $fenceParser->parseDivFenceOpener($text)['invalidMetadata'] ?? false, 'depth' => $quoteDepth, 'start' => $lineOffsets[$n]] + ($owned ? ['itemColumn' => $parent->column + $parent->content] : []);
                 $out[] = $original;
                 $paragraph = false;
                 $headingMarker = '';
