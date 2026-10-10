@@ -70,7 +70,7 @@ class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
         return [
             'outermost depth 1 (control)' => ["- ``` x\ncode\n```\n", "<ul>\n  <li>\n    <pre><code class=\"language-x\"></code></pre>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
             'body at content column (control)' => ["- - ``` x\n    code\n    ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'blank line above body (control)' => ["- - ``` x\n\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'blank line above body (control)' => ["- - ``` x\n\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
             'colon container on lead (control)' => ["- - ::: d\nbody\n:::\n", "<ul>\n  <li>\n    <ul>\n      <li>::: d\nbody</li>\n    </ul>\n  </li>\n</ul>\n<div>\n\n</div>"],
         ];
     }
