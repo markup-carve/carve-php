@@ -24,6 +24,7 @@ class ADjotSchemeAutolinkKeepsItsOwnSchemeTest extends TestCase
             'uppercase mailto scheme' => ["<MAILTO:a@b.c>\n", 'MAILTO:a@b.c'],
             'http url with userinfo' => ["<http://u@x/y>\n", 'http://u@x/y'],
             'bare email' => ["<a@b.c>\n", 'mailto:a@b.c'],
+            'bare email with a dash run' => ["<a--@b.c>\n", 'mailto:a--@b.c'],
             'plain url' => ["<https://example.com>\n", 'https://example.com'],
         ];
     }
@@ -33,6 +34,28 @@ class ADjotSchemeAutolinkKeepsItsOwnSchemeTest extends TestCase
     {
         $carve = (new DjotToCarve())->convert($djot);
         self::assertSame($djot, $carve);
+        self::assertStringContainsString('href="' . $href . '"', (new CarveConverter())->convert($carve));
+    }
+
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function unreadableAutolinks(): array
+    {
+        return [
+            'dash run' => ["<mailto:a--@b.c>\n", "[mailto\\:a\\-\\-\\@b\\.c](mailto:a--@b.c)\n", 'mailto:a--@b.c'],
+            'ellipsis' => ["<mailto:a...@b.c>\n", "[mailto\\:a\\.\\.\\.\\@b\\.c](mailto:a...@b.c)\n", 'mailto:a...@b.c'],
+        ];
+    }
+
+    /**
+     * A dash run or an ellipsis inside the address becomes punctuation when Carve reads
+     * the autolink back, so those addresses are written as an inline link instead.
+     */
+    #[DataProvider('unreadableAutolinks')]
+    public function testWritesAnInlineLinkWhereCarveReadsNoAutolinkBack(string $djot, string $carve, string $href): void
+    {
+        self::assertSame($carve, (new DjotToCarve())->convert($djot));
         self::assertStringContainsString('href="' . $href . '"', (new CarveConverter())->convert($carve));
     }
 }

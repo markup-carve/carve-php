@@ -2868,14 +2868,23 @@ class DjotToCarve
                     break;
                 }
             }
-            if (!preg_match('/[^:]@|[A-Za-z]:/', $body) || (!$image && !$angleAttributes && !strpbrk($body, '[]{}`|\\'))) {
+            // A body that already carries a scheme is a URL, not a bare address: djot.js
+            // prefixes it with a second "mailto:" (jgm/djot.js#162), which we do not copy.
+            $email = preg_match('/[^:]@/', $body) === 1 && preg_match('/^[A-Za-z][A-Za-z0-9+.-]*:/', $body) !== 1;
+            // Such an address keeps its autolink, but only where Carve reads one back: a
+            // dash run or an ellipsis inside it becomes punctuation instead.
+            $written = $angleAttributes
+                || strpbrk($body, '[]{}`|\\') !== false
+                || ($email && str_contains($body, ':'))
+                || (!$email && preg_match('/[^:]@/', $body) === 1 && preg_match('/--|\.\.\./', $body) === 1);
+            if (!preg_match('/[^:]@|[A-Za-z]:/', $body) || (!$image && !$written)) {
                 continue;
             }
             if ($rows[$line] && strpbrk($body, '|`')) {
                 continue;
             }
             $label = preg_replace('/([!-\/:-@\[-`{-~])/', '\\\\$1', $body) ?? $body;
-            $target = preg_match('/[^:]@/', $body) ? 'mailto:' . $body : $body;
+            $target = $email ? 'mailto:' . $body : $body;
             preg_match('~^[A-Za-z][A-Za-z0-9+.-]*://[^/?#\\\\]*~', $target, $authorityMatch);
             $authority = strlen($authorityMatch[0] ?? '');
             $encoding = ['`' => '%60', '|' => '%7C', '\\' => '\\\\', '(' => '%28', ')' => '%29'];
