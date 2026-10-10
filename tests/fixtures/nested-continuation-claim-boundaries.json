@@ -20,12 +20,8 @@
     "html": "<ul>\n  <li>\n    <ul>\n      <li>text\nmore</li>\n    </ul>\n  </li>\n</ul>"
   },
   {
-    "source": "- - a\n  - +\n x\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n      <li></li>\n    </ul>\n    x\n  </li>\n</ul>"
-  },
-  {
     "source": "- - +\n    # H\n x\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n    x\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   },
   {
     "source": "- - +\n    %%\n x\n",
@@ -34,5 +30,21 @@
   {
     "source": "- - - +\n      Z\n     - +\n x\n",
     "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>Z\n- +\nx</li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    ***\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <hr>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    {.x}\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    - # H\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <h1 id=\"H\">H</h1>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    | a |\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   }
 ]

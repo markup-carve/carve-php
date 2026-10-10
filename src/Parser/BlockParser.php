@@ -4795,7 +4795,12 @@ class BlockParser
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
             $trailingState = $this->advanceTrailingState($trailingState, $stripped, true);
-            if ($bareContinuationLead && $trailingState->openParagraph && !$this->leadBottomIsContinuationMarker(ltrim($stripped, " \t"))) {
+            if (
+                $bareContinuationLead
+                && $trailingState->openParagraph
+                && !$this->leadBottomIsContinuationMarker(ltrim($stripped, " \t"))
+                && $this->advanceTrailingState(new TrailingBlockState(), ltrim($stripped, " \t"), true)->openParagraph
+            ) {
                 $bareContinuationLead = false;
             }
             $i++;
