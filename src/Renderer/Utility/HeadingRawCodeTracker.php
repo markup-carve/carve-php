@@ -33,7 +33,7 @@ final class HeadingRawCodeTracker
         if ($this->rawTextTag !== null) {
             if ($this->rawTextTag !== 'plaintext' && preg_match('/^<\/' . $this->rawTextTag . '[ \t\r\n\f]*>$/iD', $content) === 1) {
                 $this->rawTextTag = null;
-            } elseif ($this->rawTextTag === 'script' && str_contains($content, '<')) {
+            } elseif (str_contains($content, '<')) {
                 $this->wholeTags = false;
             }
 
@@ -66,6 +66,11 @@ final class HeadingRawCodeTracker
         } elseif ($tag[1] === '' && in_array($name, ['script', 'style', 'title', 'textarea', 'xmp', 'iframe', 'noembed', 'noframes', 'plaintext'], true)) {
             $this->rawTextTag = $name;
         }
+    }
+
+    public function invalidate(): void
+    {
+        $this->wholeTags = false;
     }
 
     public function hasOpenCode(): bool

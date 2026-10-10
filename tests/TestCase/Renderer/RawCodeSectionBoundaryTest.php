@@ -102,7 +102,7 @@ class RawCodeSectionBoundaryTest extends TestCase
         $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
     }
 
-    public function testReentrantRenderDoesNotDiscardTheHeadingTrackerReference(): void
+    public function testReentrantRenderKeepsTheHeadingSeparator(): void
     {
         $renderer = new HtmlRenderer();
         $nested = (new CarveConverter())->parse('# Other');
@@ -115,7 +115,7 @@ class RawCodeSectionBoundaryTest extends TestCase
         });
         $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x');
         $this->assertTrue($reentered);
-        $this->assertStringContainsString('<h1><code>x</h1>', $html);
+        $this->assertStringContainsString('<h1><code>x</h1>' . "\n</section>", $html);
     }
 
     public function testNestedAndNonemptySectionsKeepTheirClosingSeparator(): void
@@ -144,5 +144,36 @@ class RawCodeSectionBoundaryTest extends TestCase
         }
         $source = '# `<code>`{=html}`<code>`{=html}`<code>`{=html}`<code>`{=html}x';
         $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+    }
+
+    public function testReentryOnAClosingTagKeepsTheHeadingSeparator(): void
+    {
+        $renderer = new HtmlRenderer();
+        $nested = (new CarveConverter())->parse('# Other');
+        $reentered = false;
+        $renderer->on('render.raw_inline', static function (RenderEvent $event) use ($renderer, $nested, &$reentered): void {
+            $node = $event->getNode();
+            if (!$reentered && $node instanceof RawInline && $node->getContent() === '</code>') {
+                $reentered = true;
+                $renderer->render($nested);
+            }
+        });
+        $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x`</code>`{=html}');
+        $this->assertTrue($reentered);
+        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
+    }
+
+    public function testInvisibleSectionContentDoesNotAddAClosingSeparator(): void
+    {
+        $source = '# `<code>`{=html}x' . "\n\n%% hidden\n";
+        $this->assertStringContainsString('<h1><code>x</h1></section>' . "\n", (new CarveConverter())->convert($source));
+    }
+
+    public function testCompoundRawTextClosersKeepTheHeadingSeparator(): void
+    {
+        foreach (['style', 'title', 'textarea', 'xmp', 'iframe', 'noembed', 'noframes'] as $tag) {
+            $source = '# `<code>`{=html}`<' . $tag . '>`{=html}`</' . $tag . '></code>`{=html}x';
+            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        }
     }
 }

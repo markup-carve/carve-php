@@ -107,6 +107,7 @@ class RenderContext
         $this->pendingFootnoteLabels = [];
         $this->footnoteCounter = 0;
         $this->admonitionCounter = 0;
+        $this->headingRawCodeTracker?->invalidate();
         $this->headingRawCodeTracker = null;
         $this->collectedFootnotes = [];
         $this->inlineFootnoteRenderers = [];

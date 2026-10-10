@@ -1004,11 +1004,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if ($this->roundTripMode && $node->hasAttribute('id')) {
                 $explicitIdAttr = ' data-djot-explicit-id="1"';
             }
-            $body = $headingHtml . $this->renderSectionRange($inner, $depth + 1);
+            $innerHtml = $this->renderSectionRange($inner, $depth + 1);
+            $body = $headingHtml . $innerHtml;
             // Without section content, this separator would reconstruct an
             // extra code element before the wrapper closes. The following
             // section newline supplies the heading's trailing HTML whitespace.
-            $closingSeparator = $depth === 0 && $inner === [] && $unclosedHeadingCode ? '' : "\n";
+            $closingSeparator = $depth === 0 && $innerHtml === '' && $unclosedHeadingCode ? '' : "\n";
             $html .= '<section id="' . $this->escapeHeadingId($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
                 . $this->indentBlock(rtrim($body, "\n"), 2) . $closingSeparator . "</section>\n";
             $i = $j;
