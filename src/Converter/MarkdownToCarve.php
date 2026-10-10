@@ -170,6 +170,11 @@ class MarkdownToCarve
     private array $boundaryDiagnostics = [];
 
     /**
+     * @var array<string, list<array{offset: int, line: int}>>
+     */
+    private array $foldedHeadingSources = [];
+
+    /**
      * The source line the inline run under conversion starts on, so a loss
      * inside it names a line of the INPUT rather than an index into the folded
      * array the importer writes from (markup-carve/carve#2792).
@@ -619,6 +624,7 @@ class MarkdownToCarve
         }
         $this->rawSpanWhitespaceDiagnostics = [];
         $this->boundaryDiagnostics = [];
+        $this->foldedHeadingSources = [];
         $this->inlineRunSourceLine = null;
         $this->markdownSourceLines = [];
         $this->markdownHtmlSourceLines = [];
@@ -1499,7 +1505,7 @@ class MarkdownToCarve
                     $texts[] = $this->setextLineText($lines[$at], $at + 1 === $setext);
                 }
                 $marker = ltrim($lines[$setext], " \t")[0] === '=' ? '#' : '##';
-                $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($marker . ' ' . implode(' ', $texts));
+                $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($this->foldedHeading($marker, $texts, $i));
                 $i = $setext;
                 if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
                     $result[] = '';
@@ -1853,7 +1859,7 @@ class MarkdownToCarve
                 if ($result !== []) {
                     $result[] = '';
                 }
-                $result[] = $this->convertInlineFormatting($definition);
+                $result[] = $this->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
             }
             if (str_ends_with($markdown, "\n")) {
                 $result[] = '';
@@ -3142,7 +3148,7 @@ class MarkdownToCarve
                 return null;
             }
             if ($over <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest, " \t")) === 1) {
-                $heading = (trim($rest, " \t")[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
+                $heading = $this->foldedHeading(trim($rest, " \t")[0] === '=' ? '#' : '##', $texts, $start);
 
                 return [$lead . $heading, $at];
             }
@@ -3356,7 +3362,7 @@ class MarkdownToCarve
             }
             $held = trim($this->stripColumns($candidate, $contentCol), " \t");
             if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', $held) === 1) {
-                $heading = ($held[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
+                $heading = $this->foldedHeading($held[0] === '=' ? '#' : '##', $texts, $index);
 
                 return ['lines' => [$lead . $this->convertInlineFormatting($heading)], 'end' => $at, 'table' => 0, 'closes' => false];
             }
@@ -4742,7 +4748,10 @@ class MarkdownToCarve
         }
         $this->recordTableRowDiagnostics(trim($header), $index);
         $width = count($this->splitPipeCells($header));
+        $previousLine = $this->inlineRunSourceLine;
+        $this->inlineRunSourceLine = $this->sourceLine($index);
         $headerRow = $this->gfmHeaderToCarve(trim($header), trim($delimiter));
+        $this->inlineRunSourceLine = $previousLine;
         $written = $this->keepTableRow($headerRow, $index) ? [$prefix . $headerRow] : [];
         $end = $index + 1;
         $count = count($lines);
@@ -4753,7 +4762,10 @@ class MarkdownToCarve
             }
             $cells = $this->splitPipeCells($body);
             $this->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
+            $previousLine = $this->inlineRunSourceLine;
+            $this->inlineRunSourceLine = $this->sourceLine($at);
             $bodyRow = $this->writeTableRow($cells, [], $width);
+            $this->inlineRunSourceLine = $previousLine;
             if ($this->keepTableRow($bodyRow, $at)) {
                 $written[] = $prefix . $bodyRow;
             }
@@ -5257,12 +5269,42 @@ class MarkdownToCarve
         return ['body' => implode("\n", $parts), 'first' => $prefix, 'next' => $continuation, 'end' => $end];
     }
 
-    protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false): string
+    /**
+     * @param string $marker
+     * @param list<string> $texts
+     * @param int $start
+     */
+    private function foldedHeading(string $marker, array $texts, int $start): string
     {
+        $heading = $marker . ' ' . implode(' ', $texts);
+        $offset = strlen($marker) + 1;
+        $segments = [];
+        foreach ($texts as $index => $text) {
+            $segments[] = ['offset' => $offset, 'line' => $this->sourceLine($start + $index)];
+            $offset += strlen($text) + 1;
+        }
+        $this->foldedHeadingSources[$heading] = $segments;
+
+        return $heading;
+    }
+
+    protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false, bool $unwrapEmptyDestinations = true): string
+    {
+        $foldedSourceLines = [];
+        foreach ($this->foldedHeadingSources as $heading => $segments) {
+            if (str_ends_with($line, $heading)) {
+                $lead = strlen($line) - strlen($heading);
+                $foldedSourceLines = array_map(static fn (array $segment): array => ['offset' => $segment['offset'] + $lead, 'line' => $segment['line']], $segments);
+
+                break;
+            }
+        }
         $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
-        $protect = function (string $span) use (&$protected): string {
+        $protectedSources = [];
+        $protect = function (string $span, ?string $source = null) use (&$protected, &$protectedSources): string {
             $protected[] = $span;
+            $protectedSources[] = $source ?? $span;
 
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
@@ -5306,7 +5348,7 @@ class MarkdownToCarve
             $paragraph->appendChild(new Code($value));
             $document->appendChild($paragraph);
 
-            return $protect(rtrim((new CarveRenderer())->render($document), "\n"));
+            return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $span);
         });
 
         $line = preg_replace_callback(
@@ -5519,16 +5561,29 @@ class MarkdownToCarve
         $boundarySubject = null;
         $boundaryLines = [];
         $imageRanges = [];
-        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protect, &$boundarySubject, &$boundaryLines, &$imageRanges): string {
+        $autolinkRanges = [];
+        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protectedSources, $protect, $foldedSourceLines, $unwrapEmptyDestinations, &$boundarySubject, &$boundaryLines, &$imageRanges, &$autolinkRanges): string {
+            if (!$unwrapEmptyDestinations) {
+                return $match[0][0];
+            }
             if ($boundarySubject !== $subject) {
                 $boundarySubject = $subject;
                 $boundaryLines = [];
                 $events = [];
                 preg_match_all('/\n|\x00P(\d+)\x00/', $subject, $events, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
                 $count = 0;
+                $delta = 0;
                 foreach ($events as $event) {
-                    $count += substr_count($this->referenceSourceText($event[0][0], $protected), "\n");
-                    $boundaryLines[] = [$event[0][1] + strlen($event[0][0]) - 1, $count];
+                    $source = $this->referenceSourceText($event[0][0], $protectedSources);
+                    $count += substr_count($source, "\n");
+                    $delta += strlen($source) - strlen($event[0][0]);
+                    $boundaryLines[] = [$event[0][1] + strlen($event[0][0]) - 1, $count, $delta];
+                }
+                $autolinkRanges = [];
+                $autolinks = [];
+                preg_match_all('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $subject, $autolinks, PREG_OFFSET_CAPTURE);
+                foreach ($autolinks[0] as [$text, $offset]) {
+                    $autolinkRanges[] = [$offset, $offset + strlen($text)];
                 }
                 $imageRanges = [];
                 $images = [];
@@ -5539,6 +5594,11 @@ class MarkdownToCarve
                     if (isset($image['destination']) && $image['destination'][1] >= 0 || isset($this->definedReferenceLabels[$key])) {
                         $imageRanges[] = [$image[0][1], $image['description'][1] + strlen($image['description'][0])];
                     }
+                }
+            }
+            foreach ($autolinkRanges as [$start, $end]) {
+                if ($match[0][1] > $start && $match[0][1] < $end) {
+                    return $match[0][0];
                 }
             }
             $low = 0;
@@ -5552,6 +5612,13 @@ class MarkdownToCarve
                 }
             }
             $sourceLine = $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + ($boundaryLines[$low - 1][1] ?? 0);
+            $sourceOffset = $match[0][1] + ($boundaryLines[$low - 1][2] ?? 0);
+            foreach ($foldedSourceLines as $segment) {
+                if ($segment['offset'] > $sourceOffset) {
+                    break;
+                }
+                $sourceLine = $segment['line'];
+            }
             $insideImage = false;
             foreach ($imageRanges as [$start, $end]) {
                 if ($match[0][1] > $start && $match[0][1] < $end) {

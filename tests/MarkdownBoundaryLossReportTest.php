@@ -65,6 +65,32 @@ class MarkdownBoundaryLossReportTest extends TestCase
         }
     }
 
+    public function testFoldedSourceLinesRemainExact(): void
+    {
+        foreach (
+            [
+                ["a\nb [l]()\n===\n", 2],
+                ["> a\n> b [l]()\n> ===\n", 2],
+                ["- a\n  b [l]()\n  ===\n", 2],
+                ["p\n\n``a\nb\nc`` z\n[l]()\n", 6],
+                ["> | a |\n> |---|\n> | b |\n> | [l]() |\n", 4],
+            ] as [$source, $line]
+        ) {
+            $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
+            self::assertCount(1, $losses, $source);
+            self::assertSame('line:' . $line, $losses[0]->path, $source);
+        }
+    }
+
+    public function testOpaqueDestinationsAndDefinitionTitlesAreNotLinks(): void
+    {
+        foreach (['<http://x/[l]()>', "[foo]: /u '[l]()'\n\n[foo]\n"] as $source) {
+            $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+            self::assertSame([], array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable')), $source);
+            self::assertStringContainsString('[l]()', $result->value);
+        }
+    }
+
     public function testValidConstructsDoNotReportBoundaryLosses(): void
     {
         foreach (['[link](url)', '![alt](image.png)', '`[link]()`', '\\[link]()', "```c++ metadata\nx\n```", "```&#99;\nx\n```", "```\nx\n```"] as $source) {
