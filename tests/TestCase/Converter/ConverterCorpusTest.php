@@ -56,58 +56,7 @@ class ConverterCorpusTest extends TestCase
     /**
      * @var array<string, string>
      */
-    private const AHEAD_OF_PIN = [
-        '39-djot-native-structure-sweep' => '<section id="Heading">
-  <h1>Heading</h1>
-  <blockquote><p>quoted <em>text</em></p></blockquote>
-  <ul class="task-list">
-    <li data-task-state="x"><input type="checkbox" checked disabled aria-label="done"> done</li>
-    <li><input type="checkbox" disabled aria-label="pending"> pending</li>
-  </ul>
-  <p><code>code</code> <a href="https://example.com">link</a> <a href="https://example.com">https://example.com</a> <img src="image.png" alt="alt"></p>
-  <p><mark>highlight</mark> <ins>insert</ins> <del>delete</del> H<sub>2</sub>O x<sup>2</sup> <span class="math inline" role="math">\\(x+y\\)</span> <span class="mark">span</span></p>
-  <p>hard<br>
-break</p>
-  <p>Before  after :smile: “smart” – … <i>raw inline</i></p>
-  <pre><code class="language-js">const value = "_literal_";
-</code></pre>
-  <b>raw</b>
-  <aside class="admonition note" aria-label="Note">
-    <p>container</p>
-  </aside>
-  <table>
-    <thead>
-      <tr><th scope="col">left</th><th scope="col">right</th></tr>
-    </thead>
-    <tbody>
-      <tr><td>a</td><td>b</td></tr>
-    </tbody>
-  </table>
-  <p><a href="/target">reference</a></p>
-</section>
-',
-        '42-markdown-native-structure-sweep' => '<section id="Heading">
-  <h1>Heading</h1>
-  <blockquote><p>quote with <strong>strong</strong> and <em>emphasis</em></p></blockquote>
-  <ul class="task-list">
-    <li data-task-state="x"><input type="checkbox" checked disabled aria-label="done"> done</li>
-    <li><input type="checkbox" disabled aria-label="pending"> pending</li>
-  </ul>
-  <ol>
-    <li>ordered</li>
-    <li>second</li>
-  </ol>
-  <hr>
-  <p><code>code</code> <a href="https://example.com">link</a> <a href="https://example.com">https://example.com</a> <img src="image.png" alt="alt"></p>
-  <pre><code class="language-js">const value = "*literal*";
-</code></pre>
-</section>
-',
-        '70-markdown-a-task-label-that-is-also-a-reference-definition' => '<ul class="task-list">
-  <li data-task-state="x"><input type="checkbox" checked disabled aria-label="done"> done</li>
-</ul>
-',
-    ];
+    private const AHEAD_OF_PIN = [];
 
     /**
      * @throws \RuntimeException
