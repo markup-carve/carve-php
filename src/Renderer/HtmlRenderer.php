@@ -76,6 +76,7 @@ use MarkupCarve\Carve\Parser\Utility\ContainerLabelParser;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\HeadingRawCodeTracker;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
@@ -986,7 +987,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
             $context = $this->getRenderContext();
             $previousHeadingRawCodeTracker = $context->headingRawCodeTracker;
-            $context->headingRawCodeTracker = new Utility\HeadingRawCodeTracker();
+            $context->headingRawCodeTracker = new HeadingRawCodeTracker();
             try {
                 $headingHtml ??= $this->renderHeadingContent($node);
                 $unclosedHeadingCode = $context->headingRawCodeTracker->hasOpenCode();
