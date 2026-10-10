@@ -522,13 +522,20 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
      */
     public static function containerInTheBodyProvider(): array
     {
-        $inItem = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <h1 id=\"H\">H</h1>\n        tail\n      </li>\n    </ul>\n  </dd>\n</dl>";
+        // THE HEADING LEAVES NO PARAGRAPH OPEN AT THE DEEPEST FRAME, so `tail`
+        // never stays in the item at any of these columns
+        // (markup-carve/carve#2884). Columns 4, 5 and 6 now give one answer
+        // where 5 and 6 used to fold, and all three agree with the executable
+        // spec on where `tail` lands. Column 3 still parts company with it over
+        // where the HEADING lands, which is the between-columns band
+        // markup-carve/carve#1918 is about and not this clause.
+        $outOfItem = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n    <p>tail</p>\n  </dd>\n</dl>";
 
         return [
-            'between the two columns' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n# H\ntail</li>\n    </ul>\n  </dd>\n</dl>"],
-            'at the item column' => [4, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n    <p>tail</p>\n  </dd>\n</dl>"],
-            'one past the item column' => [5, $inItem],
-            'two past the item column' => [6, $inItem],
+            'between the two columns' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n# H</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"],
+            'at the item column' => [4, $outOfItem],
+            'one past the item column' => [5, $outOfItem],
+            'two past the item column' => [6, $outOfItem],
         ];
     }
 

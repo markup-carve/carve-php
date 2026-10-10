@@ -86,12 +86,14 @@ class AnItemSBlocksSurviveTheMarkdownTargetTest extends TestCase
     public function testANestedListLeavingNoParagraphOpenKeepsNoSeparator(): void
     {
         // The sublist item ends on a heading, so there is no open paragraph for
-        // `lazy` to continue and the separator would only loosen this item.
+        // `lazy` to continue - and no enclosing frame adopts it either, so it
+        // leaves the list entirely (markup-carve/carve#2884). The first item
+        // then holds two blocks, not three.
         $written = $this->write("- a\n  - b\n    # N\nlazy\n");
 
-        $this->assertSame("- a\n  - b\n    # N\n  lazy\n", $written);
+        $this->assertSame("- a\n  - b\n    # N\n\nlazy\n", $written);
         $this->assertSame(
-            [Paragraph::class, ListBlock::class, Paragraph::class],
+            [Paragraph::class, ListBlock::class],
             $this->blocksInTheFirstItem($written),
         );
         $this->assertTrue($this->readsBackTight($written));
