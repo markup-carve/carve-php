@@ -207,7 +207,10 @@ trait NormalizesDjotStructure
                 $outerStart = $closeStarts[array_key_last($closeStarts)];
                 while ($divs !== [] && $divs[array_key_last($divs)]['start'] >= $outerStart) {
                     $closed = array_pop($divs);
-                    if ($closed['start'] === $closeStarts[$matched]) {
+                    while (($closeStarts[$matched] ?? -1) > $closed['start']) {
+                        $matched++;
+                    }
+                    if ($closed['start'] === ($closeStarts[$matched] ?? null)) {
                         $out[] = $closed['prefix'] . str_repeat(':', $closed['width']);
                         $matched++;
                     }
