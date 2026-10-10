@@ -230,7 +230,7 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
     }
 
     /**
-     * @return array<string, array{string}>
+     * @return array<string, array{string, string}>
      */
     public static function spellableTrees(): array
     {
