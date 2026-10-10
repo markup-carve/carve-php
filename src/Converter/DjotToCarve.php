@@ -1521,6 +1521,14 @@ class DjotToCarve
             }
             if (preg_match('/[.#% \tA-Za-z]/', $source[$i + 1] ?? '') === 1) {
                 $escapes[] = $i;
+                // Every brace inside the same rejected run is literal Djot text too, so a
+                // later pass must not read one as a forced quote and swallow it.
+                for ($inner = $i + 1; $inner < $length && $source[$inner] !== "\n" && $source[$inner] !== '}'; $inner++) {
+                    if ($source[$inner] === '{' && $masked[$inner] === '{' && $this->readDjotWordAttributes($source, $inner) === null) {
+                        $escapes[] = $inner;
+                    }
+                }
+                $i = $escapes[array_key_last($escapes)];
 
                 continue;
             }
