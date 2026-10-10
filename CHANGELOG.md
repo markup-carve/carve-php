@@ -11,6 +11,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
+- Markdown fragment links to headings with hard breaks use GitHub’s text anchor (#3043).
+
 - Markdown export preserves terminal hard breaks and hard breaks in headings with inline HTML. A break-only paragraph stays a paragraph in GFM readers.
 
 - Nested list continuation claims follow the current paragraph. Formatting preserves parent paragraphs after sublists, and quoted fence lookahead keeps source indentation and quote depth (carve-php#3036).
@@ -129,7 +131,6 @@ references and external fragment links need manual review. See the
 
 ### Fixes
 
-- Markdown fragment links to headings with hard breaks use GitHub’s text anchor (#3043).
 
 - The duplicate-merge scaling guard passes the structural indexes required by
   the current matcher, so the release check measures its work instead of
