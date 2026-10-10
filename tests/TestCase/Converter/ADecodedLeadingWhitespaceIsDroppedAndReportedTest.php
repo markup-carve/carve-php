@@ -238,10 +238,15 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
             $result->diagnostics,
             static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped' && $row->confidence === 'exact',
         )));
-        $this->assertCount(1, array_values(array_filter(
+        $preserved = array_values(array_filter(
             $result->diagnostics,
-            static fn (MigrationDiagnostic $row): bool => str_starts_with($row->message, 'Preserved whitespace-only heading'),
-        )));
+            static fn (MigrationDiagnostic $row): bool => $row->message === MarkdownToCarve::HEADING_WHITESPACE_RAW_PRESERVED,
+        ));
+        $this->assertCount(1, $preserved);
+        $this->assertSame('raw-preserved', $preserved[0]->code);
+        $this->assertSame('warning', $preserved[0]->severity);
+        $this->assertSame('degraded', $preserved[0]->fidelity);
+        $this->assertSame('exact', $preserved[0]->confidence);
     }
 
     /**
