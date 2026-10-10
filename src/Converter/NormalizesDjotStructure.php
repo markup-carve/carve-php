@@ -166,6 +166,7 @@ trait NormalizesDjotStructure
             if ($div && preg_match('/^:{3,}[ \t]*$/', $text) === 1 && $topDiv !== null && (strlen($divMatch[1]) >= $topDiv['width'] || $paragraph)) {
                 if (strlen($divMatch[1]) >= $topDiv['width']) {
                     $width = strlen($divMatch[1]);
+                    $this->dropOrphanDjotAttributeLine($out);
                     while ($divs !== [] && $width >= $divs[array_key_last($divs)]['width']) {
                         $closed = array_pop($divs);
                         $out[] = $closed['prefix'] . str_repeat(':', $closed['width']);
@@ -338,6 +339,9 @@ trait NormalizesDjotStructure
         if ($divs !== [] && $newline) {
             array_pop($out);
         }
+        if ($divs !== []) {
+            $this->dropOrphanDjotAttributeLine($out);
+        }
         while ($divs !== []) {
             $div = array_pop($divs);
             if (!str_contains($div['prefix'], '>')) {
@@ -349,6 +353,27 @@ trait NormalizesDjotStructure
         }
 
         return implode("\n", $out);
+    }
+
+    /**
+     * Djot attaches an attribute line with no block after it to nothing, so drop it.
+     *
+     * @param list<string> $out
+     */
+    private function dropOrphanDjotAttributeLine(array &$out): void
+    {
+        if ($out === []) {
+            return;
+        }
+        $last = rtrim($out[array_key_last($out)]);
+        $at = strspn($last, " \t");
+        if (($last[$at] ?? '') !== '{') {
+            return;
+        }
+        $attrs = $this->readDjotWordAttributes($last, $at);
+        if ($attrs !== null && $attrs['end'] === strlen($last)) {
+            array_pop($out);
+        }
     }
 
     /**
