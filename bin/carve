@@ -689,8 +689,8 @@ Output format (default --html; last one wins):
   --carve             canonical Carve source
 
 Rendering:
-  --smart-typography MODE  glyph (default), source, or quotes-source: emit the runs the author
-                           typed instead of the resolved glyphs (HTML/Markdown)
+  --smart-typography MODE  glyph (default), source (all source runs),
+                           quotes-source (quotes only); every presentation target
   --carry-markers          Markdown only: bracket every container Markdown
                            drops with an HTML comment holding its Carve
                            opener, so `carve migrate --from md` returns it

@@ -34,7 +34,6 @@ $html = $converter->convert('# Hello /Carve/');
 The converter also renders Markdown, plain text and ANSI. PHP integration
 options are in the [PHP guides](https://github.com/markup-carve/carve-php/blob/main/docs/README.md).
 
-
 ### Straight quotes with smart typography
 
 Set `SmartTypographyMode::QuotesSource` with `setSmartTypography()` on an
