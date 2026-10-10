@@ -2185,14 +2185,21 @@ class DjotToCarve
     /**
      * @return array<int, int>
      */
-    private function djotInlineBoundaries(string $source, string $mask): array
+    private function djotInlineBoundaries(string $source, string $mask, bool $codeScopes = false): array
     {
         $boundaries = [];
         $rows = $this->djotTableRows($source, $mask);
         $items = [];
+        $divs = [];
+        $previousBlock = true;
+        $codeFence = null;
         $offset = 0;
         $previousBlank = true;
         foreach (explode("\n", $source) as $row => $line) {
+            $lineLength = strlen($line);
+            if ($codeScopes && str_ends_with($line, "\r")) {
+                $line = substr($line, 0, -1);
+            }
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $quote);
             $prefix = $quote[0] ?? '';
             $depth = substr_count($prefix, '>');
@@ -2203,6 +2210,80 @@ class DjotToCarve
             $active = $items !== [] ? $items[array_key_last($items)] : null;
             $startsItem = $marker !== [] && ($previousBlank || ($active !== null && $depth <= $active['depth'] && $indent < $active['column']));
             $blank = $trimmed === '' || $trimmed === "\r";
+            if ($codeScopes) {
+                $blockStart = preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|[-*+] |[0-9A-Za-z]+[.)] )/', $trimmed) === 1;
+                while ($divs !== []) {
+                    $owner = $divs[array_key_last($divs)];
+                    $outsideQuote = $depth < $owner['depth'] && ($blank || $previousBlank || $startsItem || $blockStart);
+                    $outsideItem = $owner['itemColumn'] !== null && $depth === $owner['itemDepth']
+                        && $indent < $owner['itemColumn'] && !$blank && ($previousBlank || $startsItem || $blockStart);
+                    if (!$outsideQuote && !$outsideItem) {
+                        break;
+                    }
+                    array_pop($divs);
+                }
+                $markerWidth = $startsItem ? strlen($marker[0]) : 0;
+                $body = substr($trimmed, $markerWidth);
+                $column = $indent + $markerWidth;
+                $padding = strlen($body) - strlen(ltrim($body, " \t"));
+                $body = substr($body, $padding);
+                $column += $padding;
+                preg_match('/^(?:>[ \t]+)*/', $body, $nestedQuote);
+                $nestedPrefix = $nestedQuote[0] ?? '';
+                $bodyDepth = $depth + substr_count($nestedPrefix, '>');
+                $body = substr($body, strlen($nestedPrefix));
+                if ($nestedPrefix !== '') {
+                    $column = 0;
+                }
+                $canOpen = $previousBlock || $previousBlank || $startsItem;
+                if ($codeFence !== null && $depth < $codeFence['depth']) {
+                    $codeFence = null;
+                }
+                preg_match('/^(`{3,}|~{3,})(.*)$/', $body, $ticks);
+                if ($codeFence !== null) {
+                    if (
+                        $ticks !== [] && $ticks[1][0] === $codeFence['ch'] && strlen($ticks[1]) >= $codeFence['width']
+                        && trim($ticks[2]) === '' && $bodyDepth === $codeFence['depth']
+                    ) {
+                        $codeFence = null;
+                        $previousBlock = true;
+                    } else {
+                        $previousBlock = false;
+                    }
+                } elseif ($ticks !== [] && $canOpen && ($ticks[1][0] !== '`' || !str_contains($ticks[2], '`'))) {
+                    $codeFence = ['ch' => $ticks[1][0], 'width' => strlen($ticks[1]), 'depth' => $bodyDepth];
+                    $previousBlock = false;
+                } else {
+                    preg_match('/^(:{3,})[ \t]*[A-Za-z0-9_-]*[ \t]*$/', $body, $fence);
+                    $owner = $divs !== [] ? $divs[array_key_last($divs)] : null;
+                    $visible = ($mask[$offset + strlen($line) - strlen($body)] ?? '') === ':';
+                    if (
+                        $fence !== [] && $visible && $owner !== null && trim(substr($body, strlen($fence[1])), " \t") === ''
+                        && $bodyDepth === $owner['depth'] && $column <= $owner['column'] + 3 && strlen($fence[1]) >= $owner['width']
+                    ) {
+                        $boundaries[] = $offset;
+                        $closed = array_pop($divs);
+                        $fenceWidth = strlen($fence[1]);
+                        while ($divs !== [] && $fenceWidth >= $divs[array_key_last($divs)]['width'] && $bodyDepth === $divs[array_key_last($divs)]['depth']) {
+                            $closed = array_pop($divs);
+                        }
+                        $previousBlock = true;
+                    } elseif ($fence !== [] && $visible && $canOpen) {
+                        $boundaries[] = $offset;
+                        $divs[] = [
+
+                            'width' => strlen($fence[1]),
+                            'column' => $column,
+                            'depth' => $bodyDepth,
+                            'itemColumn' => $startsItem ? $indent + (str_starts_with($marker[0], '[^') ? 2 : strlen($marker[0])) : (($active !== null && $depth === $active['depth'] && $indent >= $active['column']) ? $active['column'] : null),
+                            'itemDepth' => $depth,
+                        ];
+                        $previousBlock = true;
+                    } else {
+                        $previousBlock = $blank || ($canOpen && preg_match('/^#{1,6}(?: |$)/', $body) === 1);
+                    }
+                }
+            }
             if ($previousBlank || $startsItem) {
                 $boundaries[] = $offset;
                 if (!$blank) {
@@ -2226,7 +2307,7 @@ class DjotToCarve
                 }
             }
             $previousBlank = $blank;
-            $offset += strlen($line) + 1;
+            $offset += $lineLength + 1;
         }
 
         return $boundaries;

@@ -59,6 +59,14 @@ trait MasksDjotOpaque
         };
         preg_match_all('/\n[ \t]*(?:>[ \t]*)*\n/', $source, $breaks, PREG_OFFSET_CAPTURE);
         $breaks = array_column($breaks[0], 1);
+        if (str_contains($source, '`') && str_contains($source, "\n")) {
+            foreach ($this->djotInlineBoundaries($source, $source, true) as $at) {
+                if ($at > 0 && $at < strlen($source) && $source[$at - 1] === "\n" && $source[$at] !== '|') {
+                    $breaks[] = $at - 1;
+                }
+            }
+            sort($breaks, SORT_NUMERIC);
+        }
         $boundary = 0;
         $brackets = [];
         $length = strlen($source);
@@ -175,7 +183,7 @@ trait MasksDjotOpaque
                 continue;
             }
             $rawEnd = $rawFormats[$end] ?? null;
-            $math = $at > 0 && $source[$at - 1] === '$';
+            $math = $at > 0 && $at < strlen($source) && $source[$at - 1] === '$';
             if (($options['code'] ?? true) || $rawEnd !== null || $math) {
                 $hide($at - (int)$math, $end);
             }

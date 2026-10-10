@@ -60,6 +60,9 @@ trait NormalizesDjotStructure
             $text = substr($raw, $indent);
             $visible = substr($view, $indent);
             if ($text === '') {
+                while ($divs !== [] && $quoteDepth < $divs[array_key_last($divs)]['depth']) {
+                    array_pop($divs);
+                }
                 $out[] = $original;
                 $paragraph = false;
                 $headingMarker = '';
@@ -470,26 +473,52 @@ trait NormalizesDjotStructure
         $next = $closers = [];
         for ($n = count($matches[0]) - 1; $n >= 0; $n--) {
             [$ticks, $at] = $matches[0][$n];
-            if ($this->isDjotEscaped($source, $at)) {
-                continue;
-            }
             $width = strlen($ticks);
             $closers[$at] = $next[$width] ?? null;
+            if ($width > 1) {
+                $closers[$at + 1] = $next[$width - 1] ?? null;
+            }
             $next[$width] = $at;
         }
+        preg_match_all('/\n[ \t]*(?:>[ \t]*)*\n/', $source, $boundaries, PREG_OFFSET_CAPTURE);
+        $breaks = array_column($boundaries[0], 1);
+        if (str_contains($source, "\n")) {
+            foreach ($this->djotInlineBoundaries($source, $mask, true) as $boundary) {
+                if ($boundary > 0 && $boundary < strlen($source) && $source[$boundary - 1] === "\n" && $source[$boundary] !== '|') {
+                    $breaks[] = $boundary - 1;
+                }
+            }
+            sort($breaks, SORT_NUMERIC);
+        }
+        $paragraph = 0;
+        $sourceLength = strlen($source);
         $out = '';
         $copied = 0;
         $skip = 0;
         foreach ($matches[0] as [$ticks, $at]) {
-            if ($at < $skip || !isset($closers[$at])) {
+            if ($at < $skip) {
                 continue;
             }
-            $close = $closers[$at];
             $width = strlen($ticks);
-            $body = substr($source, $at + $width, $close - $at - $width);
-            if (preg_match('/\n[ \t]*\n/', $body) === 1) {
+            if ($this->isDjotEscaped($source, $at)) {
+                $at++;
+                $width--;
+            }
+            if ($width === 0 || ($mask[$at] ?? '') !== '`') {
                 continue;
             }
+            while (($breaks[$paragraph] ?? $sourceLength) <= $at) {
+                $paragraph++;
+            }
+            $paragraphEnd = $breaks[$paragraph] ?? $sourceLength;
+            $close = $closers[$at] ?? null;
+            if ($close === null || $close + $width > $paragraphEnd) {
+                $skip = $paragraphEnd;
+
+                continue;
+            }
+            $ticks = str_repeat('`', $width);
+            $body = substr($source, $at + $width, $close - $at - $width);
             $skip = $close + $width;
             if (str_starts_with($body, ' ') && str_ends_with($body, ' ') && trim($body) !== '') {
                 $before = str_starts_with($body, ' `') ? '' : ' ';
