@@ -80,6 +80,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
+use MarkupCarve\Carve\Renderer\Utility\CarveFieldDiagnostic;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
@@ -2606,6 +2607,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderTable(Table $node): string
     {
+        if ($node->getShortCaption() !== null) {
+            $this->recordUnspellableField($node, 'shortCaption', 'Carve source cannot spell a short caption');
+        }
         $this->recordUnspellableTableSectionAttributes($node);
 
         $rows = [];
@@ -2846,12 +2850,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $prefix = ($cell->isHeader() && $markHeader ? '=' : '') . $align . $inheritHorizontal . $valign . $attrs;
 
         $inlines = $cell->hasBlockContent()
-            ? TableCellBlockFlattener::flatten($cell, keepHardBreaks: true)->getChildren()
+            ? TableCellBlockFlattener::flatten($cell, keepHardBreaks: true, collectCarveFields: $this->conversionDiagnosticMaximum !== null)->getChildren()
             : $cell->getChildren();
         $previousFlattenedCell = $this->flattenedTableCell;
         $this->flattenedTableCell = $cell->hasBlockContent() ? $cell : null;
         $this->tableCellDepth++;
-        $this->edgeCellBreaks = $this->edgeHardBreaks($inlines);
+        $this->edgeCellBreaks = $this->edgeHardBreaks(array_values(array_filter($inlines, static fn (Node $inline): bool => !$inline instanceof CarveFieldDiagnostic)));
         try {
             $content = $this->renderInlines($inlines);
         } finally {
@@ -2933,6 +2937,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function renderFigure(Figure $node): string
     {
+        if ($node->getShortCaption() !== null) {
+            $this->recordUnspellableField($node, 'shortCaption', 'Carve source cannot spell a short caption');
+        }
         $targets = [];
         foreach ($node->getTargets() as $nodeTarget) {
             $targets[] = $nodeTarget instanceof Image
@@ -3128,6 +3135,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $this->inlineDepth++;
         try {
+            $diagnosticsBefore = [];
+            if ($this->conversionDiagnosticMaximum !== null && $this->flattenedTableCell !== null) {
+                $visible = [];
+                foreach ($nodes as $node) {
+                    if ($node instanceof CarveFieldDiagnostic) {
+                        $diagnosticsBefore[count($visible)][] = $node;
+                    } else {
+                        $visible[] = $node;
+                    }
+                }
+                $nodes = $visible;
+            }
             $out = '';
             $count = count($nodes);
             $captionCanOpen = $this->paragraphStartsAfterCaptionHost && $this->inlineDepth === 1;
@@ -3137,6 +3156,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $lineEndsInComment = false;
             $previousRendered = '';
             for ($i = 0; $i < $count; $i++) {
+                foreach ($diagnosticsBefore[$i] ?? [] as $diagnostic) {
+                    $this->recordUnspellableField($diagnostic->origin, $diagnostic->field, $diagnostic->message);
+                }
                 $node = $nodes[$i];
                 if (
                     $this->inLineBlock > 0 && $node instanceof NonBreakingSpace && $node->getAttributeEntries() === []
@@ -3171,6 +3193,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 $directive = $this->matchIncludeDirective($nodes, $i);
                 if ($directive !== null) {
+                    for ($at = $i + 1; $at <= $directive['end']; $at++) {
+                        foreach ($diagnosticsBefore[$at] ?? [] as $diagnostic) {
+                            $this->recordUnspellableField($diagnostic->origin, $diagnostic->field, $diagnostic->message);
+                        }
+                    }
                     $out .= $directive['source'];
                     $i = $directive['end'];
 
@@ -3285,6 +3312,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $lineHostsCaption = false;
                     $captionCanOpen = false;
                 }
+            }
+
+            foreach ($diagnosticsBefore[$count] ?? [] as $diagnostic) {
+                $this->recordUnspellableField($diagnostic->origin, $diagnostic->field, $diagnostic->message);
             }
 
             return $out;
@@ -4228,6 +4259,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if (!$closed) {
                 $after = false;
                 foreach ($parent->getChildren() as $sibling) {
+                    if ($sibling instanceof CarveFieldDiagnostic) {
+                        continue;
+                    }
                     if ($after && (!$sibling instanceof Text || $sibling->getContent() !== '')) {
                         return false;
                     }

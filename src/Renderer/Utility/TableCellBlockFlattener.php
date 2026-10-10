@@ -9,9 +9,11 @@ use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
@@ -26,11 +28,12 @@ final class TableCellBlockFlattener
      * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param bool $keepHardBreaks Keep a hard break as itself instead of a space.
      *   The Markdown target writes it as `<br>` (PART 11 section 9a).
+     * @param bool $collectCarveFields Internal renderer diagnostics.
      */
-    public static function flatten(TableCell $cell, bool $keepHardBreaks = false): Paragraph
+    public static function flatten(TableCell $cell, bool $keepHardBreaks = false, bool $collectCarveFields = false): Paragraph
     {
         $paragraph = new Paragraph();
-        $parts = self::children($cell, $keepHardBreaks);
+        $parts = self::children($cell, $keepHardBreaks, $collectCarveFields);
         foreach ($parts as $part) {
             $paragraph->appendChild($part);
         }
@@ -41,18 +44,24 @@ final class TableCellBlockFlattener
     /**
      * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    private static function children(Node $node, bool $keepHardBreaks): array
+    private static function children(Node $node, bool $keepHardBreaks, bool $collectCarveFields): array
     {
         $parts = [];
+        $hasContent = false;
         foreach ($node->getChildren() as $child) {
-            $run = self::node($child, $keepHardBreaks);
+            $run = self::node($child, $keepHardBreaks, $collectCarveFields);
             if ($run === []) {
                 continue;
             }
-            if ($parts !== [] && ($child instanceof BlockNode || self::holdsBlocks($node))) {
+            $hasRunContent = false;
+            foreach ($run as $part) {
+                $hasRunContent = $hasRunContent || !$part instanceof CarveFieldDiagnostic;
+            }
+            if ($hasRunContent && $hasContent && ($child instanceof BlockNode || self::holdsBlocks($node))) {
                 $parts[] = new Text(' ');
             }
             array_push($parts, ...$run);
+            $hasContent = $hasContent || $hasRunContent;
         }
 
         return $parts;
@@ -77,7 +86,7 @@ final class TableCellBlockFlattener
     /**
      * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    private static function node(Node $node, bool $keepHardBreaks): array
+    private static function node(Node $node, bool $keepHardBreaks, bool $collectCarveFields): array
     {
         if ($node instanceof InlineNode) {
             return [self::inline($node, $keepHardBreaks)];
@@ -91,20 +100,29 @@ final class TableCellBlockFlattener
             return $content === '' ? [] : [new Text($content)];
         }
 
-        $children = self::children($node, $keepHardBreaks);
+        $fields = [];
+        if ($collectCarveFields) {
+            if (($node instanceof Table || $node instanceof Figure) && $node->getShortCaption() !== null) {
+                $fields[] = CarveFieldDiagnostic::create($node, 'shortCaption', 'Carve source cannot spell a short caption');
+            }
+            if ($node instanceof TableCell && $node->hasBlockContent()) {
+                $fields[] = CarveFieldDiagnostic::create($node, 'blocks', 'Carve table cells cannot hold blocks');
+            }
+        }
+        $children = self::children($node, $keepHardBreaks, $collectCarveFields);
         if ($node instanceof Div && $node->getHeaderNodes() !== []) {
             $title = [];
             foreach ($node->getHeaderNodes() as $inline) {
-                array_push($title, ...self::node($inline, $keepHardBreaks));
+                array_push($title, ...self::node($inline, $keepHardBreaks, $collectCarveFields));
             }
-            if ($title !== [] && $children !== []) {
+            if ($title !== [] && array_filter($children, static fn (Node $child): bool => !$child instanceof CarveFieldDiagnostic) !== []) {
                 $title[] = new Text(' ');
             }
 
             return [...$title, ...$children];
         }
 
-        return $children;
+        return [...$fields, ...$children];
     }
 
     private static function inline(InlineNode $node, bool $keepHardBreaks): InlineNode
