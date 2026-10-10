@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use MarkupCarve\Carve\Parser\InlineParser;
 
 final class DjotEmphasisRenderer
 {
@@ -118,25 +119,25 @@ final class DjotEmphasisRenderer
     {
         $work = [];
         foreach (array_reverse($roots) as $pair) {
-            $work[] = ['pair' => $pair, 'outer' => [], 'ready' => false];
+            $work[] = ['pair' => $pair, 'outer' => [], 'depth' => 0, 'ready' => false];
         }
         while ($work !== []) {
             $frame = array_pop($work);
             $pair = $frame['pair'];
             $outer = $frame['outer'];
             if ($frame['ready']) {
-                $this->rendered[spl_object_id($pair)] = $this->render($pair, $outer);
+                $this->rendered[spl_object_id($pair)] = $this->render($pair, $outer, $frame['depth']);
 
                 continue;
             }
-            $work[] = ['pair' => $pair, 'outer' => $outer, 'ready' => true];
+            $work[] = ['pair' => $pair, 'outer' => $outer, 'depth' => $frame['depth'], 'ready' => true];
             $scope = false;
             foreach ($pair->children as $child) {
                 $scope = $scope || array_intersect_key($child->kinds, $outer) !== [];
             }
-            $inner = isset($outer[$pair->kind]) ? $outer : ($scope ? [$pair->kind => true] : $outer + [$pair->kind => true]);
+            $inner = $outer + [$pair->kind => true];
             foreach (array_reverse($pair->children) as $child) {
-                $work[] = ['pair' => $child, 'outer' => $inner, 'ready' => false];
+                $work[] = ['pair' => $child, 'outer' => $inner, 'depth' => $frame['depth'] + 1, 'ready' => false];
             }
         }
 
@@ -209,24 +210,24 @@ final class DjotEmphasisRenderer
      * @param \MarkupCarve\Carve\Converter\DjotEmphasisSpan $pair
      * @param array<string, true> $outer
      */
-    private function render(DjotEmphasisSpan $pair, array $outer): string
+    private function render(DjotEmphasisSpan $pair, array $outer, int $depth): string
     {
-        if (isset($outer[$pair->kind])) {
+        if ($depth >= InlineParser::MAX_INLINE_DEPTH - 1) {
             if ($this->onFlattened !== null) {
                 ($this->onFlattened)($pair->start);
             }
 
             return $this->body($pair->openEnd, $pair->close, $pair->children, $outer);
         }
-        $scope = false;
+        $scope = isset($outer[$pair->kind]);
         foreach ($pair->children as $child) {
-            if (array_intersect_key($child->kinds, $outer) !== []) {
+            if (isset($child->kinds[$pair->kind])) {
                 $scope = true;
 
                 break;
             }
         }
-        $content = $this->body($pair->openEnd, $pair->close, $pair->children, $scope ? [$pair->kind => true] : $outer + [$pair->kind => true]);
+        $content = $this->body($pair->openEnd, $pair->close, $pair->children, $outer + [$pair->kind => true]);
         $delimiter = match ($pair->kind) {
             '_' => '/', '~' => ',', '^' => '^', default => '*'
         };

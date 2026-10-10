@@ -49,7 +49,10 @@ class DjotEmphasisPairingTest extends TestCase
     public function testDeepSameKindSpansDoNotUseTheCallStack(): void
     {
         $source = str_repeat('{_', 10000) . 'x' . str_repeat('_}', 10000);
-        $this->assertSame('{/x/}', (new DjotToCarve())->convert($source));
+        $carve = (new DjotToCarve())->convert($source);
+        $depth = \MarkupCarve\Carve\Parser\InlineParser::MAX_INLINE_DEPTH - 1;
+        $this->assertSame(str_repeat('{/', $depth) . 'x' . str_repeat('/}', $depth), $carve);
+        $this->assertSame('<p>' . str_repeat('<em>', $depth) . 'x' . str_repeat('</em>', $depth) . '</p>', trim((new CarveConverter())->convert($carve)));
     }
 
     public function testRawBlocksKeepLiteralDelimiters(): void

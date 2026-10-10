@@ -37,7 +37,7 @@ final class HtmlImportSession
     public SplObjectStorage $droppedEmptyElements;
 
     /**
-     * @var \SplObjectStorage<\DOMElement, null>
+     * @var \SplObjectStorage<\DOMElement, string|null>
      */
     public SplObjectStorage $unwrappedSameKindSpans;
 
@@ -168,6 +168,8 @@ final class HtmlImportSession
      * @var list<string>
      */
     public array $inlineTypeStack = [];
+
+    public int $nativeInlineDepth = 0;
 
     public int $quoteDepth = 0;
 
