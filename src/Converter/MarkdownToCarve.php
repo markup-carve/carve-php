@@ -5592,7 +5592,9 @@ class MarkdownToCarve
         };
         $standaloneCodeSource = trim($line);
         $unchangedHtmlCode = null;
-        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, &$codeFallbacks, $htmlCodeLineAt): ?string {
+        $activeCodeLinkOpeners = null;
+        $nextCodeLinkOpener = 0;
+        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, &$codeFallbacks, $htmlCodeLineAt, &$activeCodeLinkOpeners, &$nextCodeLinkOpener): ?string {
             $parts = [''];
             for ($at = 0, $length = strlen($match[1]); $at < $length;) {
                 if ($match[1][$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $match[1][$at + 1] ?? '') === 1) {
@@ -5614,6 +5616,27 @@ class MarkdownToCarve
             }
             if (str_contains($match[1], "\0")) {
                 return null;
+            }
+            if (str_contains($match[1], '[')) {
+                if ($activeCodeLinkOpeners === null) {
+                    $activeCodeLinkOpeners = [];
+                    $opaqueEnds = [];
+                    $activeCodeLinkOpeners = $this->markdownLinkScopes(
+                        $line,
+                        $protected,
+                        true,
+                        function (int $start) use ($line, &$opaqueEnds): ?int {
+                            return $this->opaqueHtmlEnd($line, $start, $opaqueEnds) ?? ($this->htmlTagAt($line, $start)['end'] ?? null);
+                        },
+                    )['active'];
+                    sort($activeCodeLinkOpeners);
+                }
+                while (isset($activeCodeLinkOpeners[$nextCodeLinkOpener]) && $activeCodeLinkOpeners[$nextCodeLinkOpener] < $offset + 6) {
+                    $nextCodeLinkOpener++;
+                }
+                if (($activeCodeLinkOpeners[$nextCodeLinkOpener] ?? PHP_INT_MAX) < $offset + strlen($match[0]) - 7) {
+                    return null;
+                }
             }
             if (strpbrk($match[1], '\\`*_~[]') !== false) {
                 if (strpbrk($match[1], '*_~') !== false) {
@@ -6513,7 +6536,7 @@ class MarkdownToCarve
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protected, $protect, $protectDestination, $closers, $table): string {
+                function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $closers, $table): string {
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
@@ -6526,11 +6549,11 @@ class MarkdownToCarve
                     if ($this->cmarkReadsTaskCheckbox($subject, $match[0][1])) {
                         return $match[0][0];
                     }
-                    $target = $this->complexReferenceTarget($label, $protected);
+                    $target = $this->complexReferenceTarget($label, $protectedSources);
                     if ($target !== null) {
                         return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')');
                     }
-                    $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
+                    $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null;
                     if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
                         return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
                     }
@@ -6738,11 +6761,46 @@ class MarkdownToCarve
         if (!str_contains($line, '](') && !str_contains($line, '][')) {
             return $line;
         }
+        $literal = $this->markdownLinkScopes($line, $protected)['literal'];
+        if ($literal === []) {
+            return $line;
+        }
+        $written = $this->writtenTexts(array_map(static fn (string $tail): string => ']' . $tail, $literal), $protected);
+        $out = '';
+        $from = 0;
+        foreach ($literal as $offset => $tail) {
+            $bytes = $written[']' . $tail];
+            $consumed = 1 + strlen($tail);
+            // A tail that holds inline markup or a reference is still Markdown to convert.
+            if (str_starts_with($tail, '[') || preg_match('/[*_`<&!\\[\x00]/', $tail) === 1) {
+                $bytes = '\\]';
+                $consumed = 1;
+            }
+            $placeholder = $protect($bytes);
+            $closers[(int)substr($placeholder, 2, -1)] = true;
+            $out .= substr($line, $from, $offset - $from) . $placeholder;
+            $from = $offset + $consumed;
+        }
+
+        return $out . substr($line, $from);
+    }
+
+    /**
+     * @param string $line
+     * @param array<int, string> $protected
+     * @param bool $scopeOnly
+     * @param \Closure(int): ?int|null $opaqueEnd
+     *
+     * @return array{active: list<int>, literal: array<int, string>}
+     */
+    private function markdownLinkScopes(string $line, array $protected, bool $scopeOnly = false, ?Closure $opaqueEnd = null): array
+    {
         $destination = '/\G\([ \t]*(?:<[^<>\n]*>|(?:[^\s()\x00]|\x00P\d+\x00|\((?:[^\s()\x00]|\x00P\d+\x00)*\))*)'
             . '(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*\)/';
         $reference = '/\G\[([^[\]\n]*)\]/';
         $defined = fn (string $label): bool => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))]);
 
+        $active = [];
         /** @var array<array{start: int, image: bool}> $openers */
         $openers = [];
         // Every non-image opener pushed before this offset is inactive.
@@ -6752,12 +6810,25 @@ class MarkdownToCarve
         $length = strlen($line);
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
+            if ($scopeOnly && $char === '\\') {
+                $i++;
+
+                continue;
+            }
             if ($char === '<' && preg_match('/\\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\s]*>/', $line, $autolink, 0, $i) === 1) {
                 // An autolink also prevents an enclosing Markdown link.
                 $deactivatedBefore = $i + strlen($autolink[0]);
                 $i = $deactivatedBefore - 1;
 
                 continue;
+            }
+            if ($char === '<' && $opaqueEnd !== null) {
+                $end = $opaqueEnd($i);
+                if ($end !== null) {
+                    $i = $end - 1;
+
+                    continue;
+                }
             }
             if ($char === '[') {
                 $image = $i > 0 && $line[$i - 1] === '!';
@@ -6792,33 +6863,14 @@ class MarkdownToCarve
             if ($end === null) {
                 continue;
             }
+            $active[] = $opener['start'];
             if (!$opener['image']) {
                 $deactivatedBefore = $i;
             }
             $i = $end;
         }
 
-        if ($literal === []) {
-            return $line;
-        }
-        $written = $this->writtenTexts(array_map(static fn (string $tail): string => ']' . $tail, $literal), $protected);
-        $out = '';
-        $from = 0;
-        foreach ($literal as $offset => $tail) {
-            $bytes = $written[']' . $tail];
-            $consumed = 1 + strlen($tail);
-            // A tail that holds inline markup or a reference is still Markdown to convert.
-            if (str_starts_with($tail, '[') || preg_match('/[*_`<&!\\[\x00]/', $tail) === 1) {
-                $bytes = '\\]';
-                $consumed = 1;
-            }
-            $placeholder = $protect($bytes);
-            $closers[(int)substr($placeholder, 2, -1)] = true;
-            $out .= substr($line, $from, $offset - $from) . $placeholder;
-            $from = $offset + $consumed;
-        }
-
-        return $out . substr($line, $from);
+        return ['active' => $active, 'literal' => $literal];
     }
 
     /**

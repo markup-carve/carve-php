@@ -179,6 +179,21 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
     }
 
+    public function testOnlyTheLastCodeStartsALinkAmongManyUnmatchedBrackets(): void
+    {
+        $count = 4000;
+        foreach (['', '](u)'] as $tail) {
+            $markdown = implode(' ', array_fill(0, $count, '<code>[x</code>')) . $tail;
+            $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+            $rows = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback'));
+            $this->assertCount($tail === '' ? 0 : 1, $rows);
+            $converter = new CarveConverter();
+            $this->assertCount($count, $this->records($converter->convert($result->value))['codes']);
+            $safe = SafeMode::defaults()->setRawHtmlMode(SafeMode::RAW_HTML_STRIP);
+            $this->assertCount($tail === '' ? $count : $count - 1, $this->records((new CarveConverter(safeMode: $safe))->convert($result->value))['codes']);
+        }
+    }
+
     private function records(string $html): array
     {
         if (!class_exists(DOMDocument::class)) {
