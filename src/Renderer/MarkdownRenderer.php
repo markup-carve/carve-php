@@ -493,19 +493,23 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * both spelled by the output already, so neither is element-less and
      * neither takes a marker.
      *
-     * @return array{prelude: list<string>, opener: string, closer: string}|null
+     * @return array{prelude: list<string>, opener: string, closer: string, postlude: list<string>}|null
      */
     protected function carrierMarkers(Node $node): ?array
     {
         if (!$this->carryMarkers) {
             return null;
         }
-        // A HOST THAT PREFIXES ITS LINES TAKES NO MARKER YET. Inside a list
-        // item, a block quote or a table cell the comment is written at the
-        // host's content column or behind its `>`, and the import reads a
-        // marker only at column 0 - so the marker would be emitted and never
-        // read back, which is worse than degrading honestly
-        // (markup-carve/carve#2810 follow-up).
+        // A HOST THAT PREFIXES ITS LINES TAKES NO MARKER. The import reads a
+        // marker only at column 0, so one written at a list item's content
+        // column or behind a block quote's `>` would be emitted and never read
+        // back - worse than degrading honestly. Reading one through the prefix
+        // needs the block structure the source pre-pass does not have: a
+        // marker at a list item's content column is indistinguishable there
+        // from verbatim text in an indented code block, which carve#2850
+        // records with the measurement. A TABLE CELL cannot carry at all,
+        // because this target flattens a cell to one line and flattens the
+        // container's body with it.
         if ($this->listDepth > 0 || $this->inBlockQuote || $this->tableCellDepth > 0) {
             return null;
         }
@@ -525,7 +529,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * Render a carried container's children one fence width in.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
-     * @param array{prelude: list<string>, opener: string, closer: string}|null $markers
+     * @param array{prelude: list<string>, opener: string, closer: string, postlude: list<string>}|null $markers
      */
     protected function renderCarriedChildren(Node $node, ?array $markers): string
     {
@@ -546,7 +550,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * The body is emitted UNCHANGED, separator and all: the mode adds lines and
      * moves none, which is what keeps the mode-off bytes the bytes of today.
      *
-     * @param array{prelude: list<string>, opener: string, closer: string}|null $markers
+     * @param array{prelude: list<string>, opener: string, closer: string, postlude: list<string>}|null $markers
      * @param string $body
      */
     protected function carried(?array $markers, string $body): string
@@ -558,8 +562,15 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         foreach ([...$markers['prelude'], $markers['opener']] as $payload) {
             $head .= CarrierMarkers::line($payload) . "\n";
         }
+        $tail = CarrierMarkers::line($markers['closer']) . "\n";
+        // A caption line sits BELOW the closer in Carve, so its marker sits
+        // below the closer's here, directly above the paragraph it replaces on
+        // import (PART 11 §10s).
+        foreach ($markers['postlude'] as $payload) {
+            $tail .= CarrierMarkers::line($payload) . "\n";
+        }
 
-        return $head . $body . CarrierMarkers::line($markers['closer']) . "\n";
+        return $head . $body . $tail;
     }
 
     /**

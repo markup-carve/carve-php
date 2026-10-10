@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -43,6 +44,16 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
         }
 
         return CarveConverter::create(new BlockParser(), $renderer)->convert($carve);
+    }
+
+    /**
+     * The HTML a Carve source renders, which is where a caption's ROLE is
+     * visible. A round trip that returns the caption's text and loses its role
+     * passes a byte comparison and fails this.
+     */
+    private function html(string $carve): string
+    {
+        return CarveConverter::create(new BlockParser(), new HtmlRenderer())->convert($carve);
     }
 
     /**
@@ -198,10 +209,27 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
     }
 
     /**
-     * A host that prefixes its lines takes no marker yet: the comment would sit
-     * at the host's content column or behind its `>`, where the import does not
+     * A host that prefixes its lines takes no marker: the comment would sit at
+     * the host's content column or behind its `>`, where the import does not
      * read it, so it would be written and never read back. The container
      * degrades there exactly as it does with the mode off.
+     *
+     * READING ONE THROUGH THE PREFIX IS NOT A PATCH, which is carve#2850's
+     * finding and why that ticket stays open. The marker lift is a pre-pass
+     * over the SOURCE LINES, and at that point a marker standing at a list
+     * item's content column is indistinguishable from verbatim text inside an
+     * indented code block. Measured: a prefix-reading pre-pass turns
+     *
+     *     Text.
+     *
+     *         <!-- carve: ::: note -->
+     *         Body.
+     *         <!-- carve: ::: -->
+     *
+     * into a real admonition, and does the same to a fenced or indented code
+     * block inside a list item. Reading the marker off the PARSED tree - where
+     * the markers already arrive as raw-HTML nodes - is the shape that can
+     * tell the two apart, and that is a restructuring of this import path.
      *
      * @return array<string, array{0: string}>
      */
@@ -210,7 +238,185 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
         return [
             'inside a list item' => ["- item\n\n  ::: note\n  Body.\n  :::\n"],
             'inside a block quote' => ["> ::: note\n> Body.\n> :::\n"],
+            'inside a block quote inside a list item' => ["- item\n\n  > ::: note\n  > Body.\n  > :::\n"],
+            'a figure group with a caption inside a list item' => [
+                "- item\n\n  ::: figure\n  :::: panel\n  ![a](x.png)\n  ::::\n  :::\n  ^ Group caption\n",
+            ],
         ];
+    }
+
+    /**
+     * A COMPOSITE FIGURE'S CAPTION LINE TAKES A MARKER OF ITS OWN, directly
+     * after the closer's, exactly as an attribute line above an opener takes
+     * one. The caption slot hangs outside the closing fence, so the pair
+     * bracketing the container cannot enclose it.
+     *
+     * THE ONE THING THE ATTRIBUTE-LINE PRECEDENT DOES NOT COVER: a caption also
+     * renders as body text, so the import REPLACES that rendered paragraph
+     * instead of appending a second copy of the caption.
+     *
+     * @return array<string, array{0: string, 1: string, 2: string}>
+     */
+    public static function captionProvider(): array
+    {
+        return [
+            'a figure group with a caption' => [
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ Group caption\n",
+                "<!-- carve: ::: figure -->\n<!-- carve: :::: panel -->\n![a](x.png)\n\n"
+                . "<!-- carve: :::: -->\n<!-- carve: ::: -->\n<!-- carve: ^ Group caption -->\n"
+                . "**Group caption**\n",
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ Group caption\n",
+            ],
+            // GAINS NOTHING is the control on the writer half: no caption, no
+            // third marker, and the bytes are the ones the clause already had.
+            'a figure group with no caption' => [
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n",
+                "<!-- carve: ::: figure -->\n<!-- carve: :::: panel -->\n![a](x.png)\n\n"
+                . "<!-- carve: :::: -->\n<!-- carve: ::: -->\n",
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n",
+            ],
+            'a caption carrying the comment terminator' => [
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ A --> B\n",
+                "<!-- carve: ::: figure -->\n<!-- carve: :::: panel -->\n![a](x.png)\n\n"
+                . "<!-- carve: :::: -->\n<!-- carve: ::: -->\n<!-- carve: ^ A --\\> B -->\n"
+                . "**A \u{2192} B**\n",
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ A --> B\n",
+            ],
+            // THE CAPTION'S TEXT ALSO APPEARING AS ORDINARY BODY TEXT must not
+            // be consumed: only the paragraph the marker stands directly above
+            // is the one the caption replaces.
+            'a caption whose text is also ordinary body text' => [
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ Group caption\n\n*Group caption*\n",
+                "<!-- carve: ::: figure -->\n<!-- carve: :::: panel -->\n![a](x.png)\n\n"
+                . "<!-- carve: :::: -->\n<!-- carve: ::: -->\n<!-- carve: ^ Group caption -->\n"
+                . "**Group caption**\n\n**Group caption**\n",
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ Group caption\n\n*Group caption*\n",
+            ],
+            'a caption carrying inline strong' => [
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ A *strong* caption\n",
+                "<!-- carve: ::: figure -->\n<!-- carve: :::: panel -->\n![a](x.png)\n\n"
+                . "<!-- carve: :::: -->\n<!-- carve: ::: -->\n<!-- carve: ^ A *strong* caption -->\n"
+                . "**A **strong** caption**\n",
+                "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ A *strong* caption\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('captionProvider')]
+    public function testTheCarrierModeWritesTheCaptionLineVerbatim(
+        string $carve,
+        string $carrier,
+        string $roundTrip,
+    ): void {
+        $this->assertSame($carrier, $this->markdown($carve, true));
+    }
+
+    #[DataProvider('captionProvider')]
+    public function testTheCarrierModeRoundTripsACaptionIntoItsOwnSlot(
+        string $carve,
+        string $carrier,
+        string $roundTrip,
+    ): void {
+        $this->assertSame($roundTrip, (new MarkdownToCarve())->convert($carrier));
+        // The ROLE is what was lost before this: a `<figcaption>` came back as
+        // emphasized body text. The HTML is where the role is visible.
+        $this->assertSame($this->html($carve), $this->html($roundTrip));
+    }
+
+    #[DataProvider('captionProvider')]
+    public function testACaptionComesBackAsACaptionNotAsBodyText(
+        string $carve,
+        string $carrier,
+        string $roundTrip,
+    ): void {
+        // THE IMPORT'S OWN OUTPUT, not the expectation: a check on $roundTrip
+        // alone would measure the HTML renderer and never the importer.
+        $html = $this->html((new MarkdownToCarve())->convert($carrier));
+        if (!str_contains($carve, "\n^ ")) {
+            $this->assertStringNotContainsString('<figcaption>', $html);
+
+            return;
+        }
+        $this->assertStringContainsString('<figcaption>', $html);
+        // And not twice: the rendered paragraph was replaced, not joined.
+        $this->assertSame(1, substr_count($html, '<figcaption>'));
+    }
+
+    #[DataProvider('captionProvider')]
+    public function testACaptionClaimsNoDamage(
+        string $carve,
+        string $carrier,
+        string $roundTrip,
+    ): void {
+        $codes = array_map(
+            static fn ($diagnostic): string => $diagnostic->code,
+            (new MarkdownToCarve())->convertWithFidelityReport($carrier)->diagnostics,
+        );
+        $this->assertNotContains('carrier-markers-damaged', $codes);
+    }
+
+    #[DataProvider('captionProvider')]
+    public function testTheCaptionGainsNoCommentWithTheModeOff(
+        string $carve,
+        string $carrier,
+        string $roundTrip,
+    ): void {
+        $this->assertStringNotContainsString('<!-- carve:', $this->markdown($carve));
+    }
+
+    /**
+     * THE CONTROL ON THE CAPTION SPELLING. A `^ ...` line INSIDE the container
+     * is not the caption slot: it is literal text, it renders as a paragraph
+     * rather than a `<figcaption>`, and the carrier mode must leave it literal.
+     */
+    public function testACaptionLineInsideTheContainerStaysLiteral(): void
+    {
+        $carve = "::: figure\n:::: panel\n![a](x.png)\n::::\n^ Group caption\n:::\n";
+        $this->assertStringContainsString('<p>^ Group caption</p>', $this->html($carve));
+        $carrier = $this->markdown($carve, true);
+        $this->assertStringNotContainsString('<!-- carve: ^', $carrier);
+        $this->assertStringContainsString("<!-- carve: :::: -->\n^ Group caption\n", $carrier);
+        $restored = (new MarkdownToCarve())->convert($carrier);
+        $this->assertStringNotContainsString('<figcaption>', $this->html($restored));
+    }
+
+    /**
+     * A caption marker whose set does not record a structure is reported, never
+     * guessed: it belongs to the container the marker before it closed, so one
+     * standing anywhere else has lost what it recorded.
+     *
+     * @return array<string, array{0: string}>
+     */
+    public static function damagedCaptionProvider(): array
+    {
+        return [
+            'a caption marker with no closer before it' => [
+                "<!-- carve: ^ Group caption -->\n**Group caption**\n",
+            ],
+            'a caption marker whose container is left open' => [
+                "<!-- carve: ::: figure -->\n![a](x.png)\n\n<!-- carve: ^ Group caption -->\n"
+                . "**Group caption**\n",
+            ],
+            'a caption marker standing above an opener' => [
+                "<!-- carve: ^ Group caption -->\n<!-- carve: ::: figure -->\n![a](x.png)\n\n"
+                . "<!-- carve: ::: -->\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('damagedCaptionProvider')]
+    public function testADamagedCaptionMarkerIsReportedNeverGuessed(string $source): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+        $damaged = array_values(array_filter(
+            $result->diagnostics,
+            static fn ($diagnostic): bool => $diagnostic->code === 'carrier-markers-damaged',
+        ));
+        $this->assertCount(1, $damaged, 'a damaged marker set owes exactly one diagnostic');
+        $this->assertSame('degraded', $damaged[0]->fidelity);
+        $this->assertSame('fallback', $damaged[0]->confidence);
+        $this->assertSame(0, preg_match('/^:{3,}/m', $result->value), 'a damaged set reconstructed a container');
+        $this->assertStringContainsString('```=html', $result->value);
     }
 
     #[DataProvider('prefixedHostProvider')]
@@ -272,6 +478,18 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
             'an indented code block' => ["Prose.\n\n    <!-- carve: ::: note -->\n    body\n\nTail.\n"],
             'an inline code span' => ["A `<!-- carve: ::: note -->` span.\n"],
             'a raw block' => ["Prose.\n\n```=html\n<!-- carve: ::: note -->\n```\n"],
+            // THE PREFIXED SHAPES, which is what carve#2850's narrowing rests
+            // on. A marker is read at column 0 only, so a marker-shaped line
+            // at a list item's content column is left where it is. Reading one
+            // through the prefix would eat both of these: at that point in the
+            // pre-pass a marker at an item's content column cannot be told
+            // apart from verbatim text in a code block inside the item.
+            'a fenced code block inside a list item' => [
+                "- item\n\n  ```\n  <!-- carve: ::: note -->\n  Body.\n  <!-- carve: ::: -->\n  ```\n",
+            ],
+            'an indented code block inside a list item' => [
+                "- item\n\n      <!-- carve: ::: note -->\n      body\n",
+            ],
         ];
     }
 
