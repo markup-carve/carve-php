@@ -35,6 +35,7 @@ class EmptyNestedFenceSeparatorTest extends TestCase
         $converter->parseWithSourceLayout($source);
         $document = $converter->parse($source);
         $expected = array_column($control['codes'], 'value');
+        $this->assertSame($control['raw'], $this->rawPayloads($document), $source);
         $this->assertSame($expected, $this->codePayloads($document, $control['empty'] ?? true), $source);
         $written = (new CarveRenderer())->render($document);
         $writtenDocument = $converter->parse($written);
@@ -52,7 +53,7 @@ class EmptyNestedFenceSeparatorTest extends TestCase
     private function rawPayloads(Node $node): array
     {
         if ($node instanceof RawBlock) {
-            return [$node->getContent()];
+            return [['format' => $node->getFormat(), 'value' => $node->getContent()]];
         }
         $result = [];
         foreach ($node->getChildren() as $child) {
