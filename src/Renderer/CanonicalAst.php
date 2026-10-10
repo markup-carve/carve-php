@@ -78,7 +78,10 @@ final class CanonicalAst
         $properties = [];
         foreach ((new ReflectionObject($value))->getProperties() as $property) {
             $name = $property->getName();
-            if ($name === 'parent' || $name === 'sourceLength' || $name === 'ingestPayloadLength') {
+            // `pos` is where a node was READ, never what it is, and the writer's
+            // own document carries spans its re-parse does not, so comparing
+            // through them answered "different" for every document.
+            if ($name === 'parent' || $name === 'pos' || $name === 'sourceLength' || $name === 'ingestPayloadLength') {
                 continue;
             }
             $properties[$name] = $property;
