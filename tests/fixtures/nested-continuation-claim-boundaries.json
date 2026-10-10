@@ -1,0 +1,22 @@
+[
+  {
+    "source": "- - a\n  +\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>a\nx</li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - - +\n    +\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    - +\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li></li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - a\n  +\ntext\n more\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>a\n        text\nmore\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\ntext\n more\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>text\nmore</li>\n    </ul>\n  </li>\n</ul>"
+  }
+]

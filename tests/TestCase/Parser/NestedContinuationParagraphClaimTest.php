@@ -21,4 +21,13 @@ class NestedContinuationParagraphClaimTest extends TestCase
             $this->assertSame($formatted, CarveConverter::toCarve($formatted), 'idempotence ' . $source);
         }
     }
+
+    public function testMarkersDoNotReplaceAnOrdinaryClaim(): void
+    {
+        $cases = json_decode(file_get_contents(__DIR__ . '/../../fixtures/nested-continuation-claim-boundaries.json'), true, 512, JSON_THROW_ON_ERROR);
+        $converter = new CarveConverter();
+        foreach ($cases as $case) {
+            $this->assertSame(trim($case['html']), trim($converter->convert($case['source'])), $case['source']);
+        }
+    }
 }

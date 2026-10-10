@@ -4773,6 +4773,9 @@ class BlockParser
                         ? $folded
                         : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
                 );
+                if ($trailingState->openParagraph && !$this->isContinuationMarker($nextTrimmed)) {
+                    $bareContinuationLead = false;
+                }
                 $i++;
 
                 continue;
@@ -4791,8 +4794,8 @@ class BlockParser
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
             $trailingState = $this->advanceTrailingState($trailingState, $stripped, true);
-            if ($trailingState->openParagraph) {
-                $bareContinuationLead = $this->leadBottomIsContinuationMarker($stripped);
+            if ($trailingState->openParagraph && !$this->isContinuationMarker(ltrim($stripped, " \t"))) {
+                $bareContinuationLead = $this->leadBottomIsContinuationMarker(ltrim($stripped, " \t"));
             }
             $i++;
         }
