@@ -38,6 +38,11 @@ class RenderContext
     public int $admonitionCounter = 0;
 
     /**
+     * Open raw code tags while rendering one heading.
+     */
+    public ?int $headingRawCodeDepth = null;
+
+    /**
      * Collected footnote nodes for rendering at end.
      *
      * @var array<string, \MarkupCarve\Carve\Node\Block\Footnote>
@@ -100,6 +105,7 @@ class RenderContext
         $this->pendingFootnoteLabels = [];
         $this->footnoteCounter = 0;
         $this->admonitionCounter = 0;
+        $this->headingRawCodeDepth = null;
         $this->collectedFootnotes = [];
         $this->inlineFootnoteRenderers = [];
         $this->documentHasNote = false;

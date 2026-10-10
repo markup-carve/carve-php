@@ -984,7 +984,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                     $headingHtml = $event->getHtml() ?? '';
                 }
             }
-            $headingHtml ??= $this->renderHeadingContent($node);
+            $context = $this->getRenderContext();
+            $previousHeadingRawCodeDepth = $context->headingRawCodeDepth;
+            $context->headingRawCodeDepth = 0;
+            try {
+                $headingHtml ??= $this->renderHeadingContent($node);
+                $unclosedHeadingCode = $context->headingRawCodeDepth > 0;
+            } finally {
+                $context->headingRawCodeDepth = $previousHeadingRawCodeDepth;
+            }
 
             $sectionId = $this->getSectionId($node);
             // In round-trip mode, flag a section whose heading carried an
@@ -995,8 +1003,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $explicitIdAttr = ' data-djot-explicit-id="1"';
             }
             $body = $headingHtml . $this->renderSectionRange($inner, $depth + 1);
+            // Without section content, this separator would reconstruct an
+            // extra code element before the wrapper closes. The final document
+            // newline already supplies the heading's trailing HTML whitespace.
+            $closingSeparator = $depth === 0 && $inner === [] && $unclosedHeadingCode ? '' : "\n";
             $html .= '<section id="' . $this->escapeHeadingId($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
-                . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</section>\n";
+                . $this->indentBlock(rtrim($body, "\n"), 2) . $closingSeparator . "</section>\n";
             $i = $j;
         }
 
@@ -4234,6 +4246,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
 
+        $context = $this->getRenderContext();
+        if ($context->headingRawCodeDepth !== null && preg_match('/^<(\/?)code(?=[ \t\r\n\/>])(?:[^\"\'<>]|\"[^\"]*\"|\'[^\']*\')*>$/iD', $content, $codeTag) === 1) {
+            $context->headingRawCodeDepth = $codeTag[1] === '' ? $context->headingRawCodeDepth + 1 : max(0, $context->headingRawCodeDepth - 1);
+        }
+
         // In round-trip mode, wrap HTML content for recovery
         if ($this->roundTripMode) {
             return '<span data-djot-raw="html">' . $this->guardVerbatimNewlines($content) . '</span>';
@@ -4660,8 +4677,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $context = $this->activeRenderContext ?? new RenderContext();
-
-        return $this->withRenderContext($context, $callback);
+        $previousHeadingRawCodeDepth = $context->headingRawCodeDepth;
+        $context->headingRawCodeDepth = null;
+        try {
+            return $this->withRenderContext($context, $callback);
+        } finally {
+            $context->headingRawCodeDepth = $previousHeadingRawCodeDepth;
+        }
     }
 
     /**
