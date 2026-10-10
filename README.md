@@ -34,6 +34,17 @@ $html = $converter->convert('# Hello /Carve/');
 The converter also renders Markdown, plain text and ANSI. PHP integration
 options are in the [PHP guides](https://github.com/markup-carve/carve-php/blob/main/docs/README.md).
 
+
+### Straight quotes with smart typography
+
+Set `SmartTypographyMode::QuotesSource` with `setSmartTypography()` on an
+HTML, Markdown, plain-text, or ANSI renderer. It emits source runs for quotes
+and apostrophes while keeping other smart substitutions enabled. The
+`CarveConverter` constructor also accepts this mode as `smartTypography`.
+`Glyph` remains the default and `Source` still emits every source run.
+Parsing and heading IDs are unchanged; typed curly quotes and escapes keep
+their existing behavior. The CLI accepts `--smart-typography quotes-source`.
+
 ## CLI
 
 ~~~ sh
