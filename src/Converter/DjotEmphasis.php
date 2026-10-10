@@ -19,21 +19,32 @@ final class DjotEmphasis
      * @param callable(string): string $convert
      * @param array<int, array{end: int, source: string}> $attributes
      * @param callable|null $onFlattened
+     * @param list<int> $cellBoundaries
      */
-    public static function convert(string $source, string $mask, callable $convert, array $attributes = [], ?callable $onFlattened = null): string
-    {
+    public static function convert(
+        string $source,
+        string $mask,
+        callable $convert,
+        array $attributes = [],
+        ?callable $onFlattened = null,
+        array $cellBoundaries = [],
+    ): string {
         $paired = null;
 
-        return self::process($source, $mask, $convert, $attributes, $paired, $onFlattened);
+        return self::process($source, $mask, $convert, $attributes, $paired, $onFlattened, $cellBoundaries);
     }
 
     /**
+     * @param string $source
+     * @param string $mask
+     * @param list<int> $cellBoundaries
+     *
      * @return array<int, int>
      */
-    public static function pairedOpeners(string $source, string $mask): array
+    public static function pairedOpeners(string $source, string $mask, array $cellBoundaries = []): array
     {
         $paired = [];
-        self::process($source, $mask, static fn (string $plain): string => $plain, [], $paired);
+        self::process($source, $mask, static fn (string $plain): string => $plain, [], $paired, cellBoundaries: $cellBoundaries);
 
         return $paired ?? [];
     }
@@ -45,6 +56,7 @@ final class DjotEmphasis
      * @param array<int, array{end: int, source: string}> $attributes
      * @param array<int, int>|null $paired
      * @param callable|null $onFlattened
+     * @param list<int> $cellBoundaries
      */
     private static function process(
         string $source,
@@ -53,7 +65,9 @@ final class DjotEmphasis
         array $attributes,
         ?array &$paired = null,
         ?callable $onFlattened = null,
+        array $cellBoundaries = [],
     ): string {
+        $cells = array_fill_keys($cellBoundaries, true);
         $validBraces = [];
         $validBraceClosers = [];
         $braceEnds = [];
@@ -62,6 +76,9 @@ final class DjotEmphasis
         $braceLineStart = 0;
         $lastEscaped = -1;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            if (isset($cells[$i])) {
+                $pendingBraces = [];
+            }
             if ($source[$i] === "\n") {
                 $line = preg_replace('/^(?:[ \t]*>)*[ \t]*/', '', substr($source, $braceLineStart, $i - $braceLineStart)) ?? '';
                 if (trim($line) === '') {
@@ -136,6 +153,10 @@ final class DjotEmphasis
         };
         $lastEscaped = -1;
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            if (isset($cells[$i])) {
+                $clear(0);
+                $brackets = $braces = [];
+            }
             if ($i === $lineStart) {
                 $end = strpos($source, "\n", $i);
                 $lineEnd = $end === false ? $length : $end;

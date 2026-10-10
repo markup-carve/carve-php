@@ -185,7 +185,7 @@ class DjotToCarve
         $source = $this->normalizeDjotFences($this->normalizeDjotAttributeLines($source));
         $source = $this->normalizeDjotReferenceUses($this->normalizeDjotStructure($source));
         $source = $this->normalizeDjotFootnotes($this->foldDjotReferences($source), $strippedDefinitions['isBoundary'], $inherited);
-        $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source, $inherited)))));
+        $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->escapeDjotNonTableRows($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source, $inherited))))));
         $source = $this->normalizeDjotInlineSpellings($source);
         $collapsedMask = $this->maskCodeAndDestinations($source);
         $collapsedMask = preg_replace_callback('/<[^<>\s]+>/', static fn (array $match): string => preg_match('/[^:]@|[A-Za-z]:/', $match[0]) === 1 ? str_repeat(' ', strlen($match[0])) : $match[0], $collapsedMask) ?? $collapsedMask;
@@ -243,7 +243,7 @@ class DjotToCarve
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
-        $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? []);
+        $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source));
 
         $carve = str_replace($emptyTerm, '%%', $carve);
         $carve = strtr($carve, $orphanSpans + $strongSpans);
@@ -810,7 +810,7 @@ class DjotToCarve
         if (!str_contains($source, '{')) {
             return $source;
         }
-        $paired = DjotEmphasis::pairedOpeners($source, $this->djotEmphasisMask($source));
+        $paired = DjotEmphasis::pairedOpeners($source, $this->djotEmphasisMask($source), $this->djotTableCellBoundaries($source));
         $readNative = $this->nativeAttributeReader($source);
         $masked = $this->maskFootnoteTokens($this->maskCodeAndDestinations($source), '/\[\^[^\]\n]*\]/', true);
         $literalBraces = [];
@@ -2136,6 +2136,21 @@ class DjotToCarve
     }
 
     /**
+     * @param string $source
+     *
+     * @return list<int>
+     */
+    private function djotTableCellBoundaries(string $source): array
+    {
+        if (!str_contains($source, '|')) {
+            return [];
+        }
+        $mask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false, 'autolinks' => false, 'attributeValues' => false]);
+
+        return array_values(array_filter($this->djotInlineBoundaries($source, $mask), static fn (int $at): bool => ($source[$at] ?? '') === '|' && ($mask[$at] ?? '') === '|'));
+    }
+
+    /**
      * @return array<int, int>
      */
     private function djotInlineBoundaries(string $source, string $mask): array
@@ -3415,6 +3430,30 @@ class DjotToCarve
         }
 
         return $at;
+    }
+
+    /**
+     * @param string $source
+     */
+    private function escapeDjotNonTableRows(string $source): string
+    {
+        if (!str_contains($source, '|')) {
+            return $source;
+        }
+        $mask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false, 'autolinks' => false, 'attributeValues' => false]);
+        $rows = $this->djotTableRows($source, $mask);
+        $lines = explode("\n", $source);
+        $offset = 0;
+        foreach ($lines as $n => $line) {
+            $start = $this->djotContentStart($line);
+            $end = strlen(rtrim($line)) - 1;
+            if (!$rows[$n] && ($line[$start] ?? '') === '|' && ($line[$end] ?? '') === '|' && ($mask[$offset + $start] ?? '') === '|' && ($mask[$offset + $end] ?? '') !== '|') {
+                $lines[$n] = substr($line, 0, $start) . '\\' . substr($line, $start);
+            }
+            $offset += strlen($line) + 1;
+        }
+
+        return implode("\n", $lines);
     }
 
     /**

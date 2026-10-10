@@ -24,7 +24,7 @@ trait ReportsDjotLosses
         };
         DjotEmphasis::convert($source, $mask, static fn (string $text): string => $text, [], static function (int $at) use ($add): void {
             $add($at, 'Nested emphasis of the same kind is flattened; its text is preserved.');
-        });
+        }, $this->djotTableCellBoundaries($source));
         $lines = explode("\n", $source);
         $lineCount = count($lines);
         $destinations = [];
