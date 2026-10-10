@@ -19,8 +19,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 - Nested list continuation claims follow the current paragraph. Formatting preserves parent paragraphs after sublists, and quoted fence lookahead keeps source indentation and quote depth (carve-php#3036).
 - Markdown code spans preserve significant edge spaces. Empty spans and payloads containing tabs or newlines use an inline HTML fallback that preserves the code text.
-- Markdown code spans preserve significant edge spaces and normalize payload newlines before paragraph and table layout. Empty spans use an inline HTML fallback.
-- Markdown migration reports dropped empty link and image destinations and unsupported code-block language tokens, with their source lines.
 
 - HTML code-block import keeps sibling text, omits active payloads and reports discarded child markup, comments and attributes (carve-php#3024).
 
