@@ -141,7 +141,7 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
      * A hard break is a BACKSLASH then a newline. The newline is in the class,
      * so moving it alone left the backslash against the closing delimiter and
      * escaped it - `x **a\\**` came back as `x *<em>a*</em>`, break gone and
-     * emphasis invented. The HTML wrapper keeps the break inside the emphasis.
+     * emphasis invented. Inline HTML keeps the break inside the emphasis.
      *
      * @return iterable<string, array{string, string}>
      */

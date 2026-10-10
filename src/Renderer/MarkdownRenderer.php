@@ -3596,7 +3596,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($content === '') {
             return '<code></code>';
         }
-        if (str_contains($content, "\n")) {
+        if (str_contains($content, "\n") || str_contains($content, "\t")) {
             return self::multilineCodeHtml($content);
         }
 
@@ -3615,7 +3615,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         static $entities = null;
         if ($entities === null) {
-            $entities = ["\n" => '&#10;'];
+            $entities = ["\n" => '<!---->&#10;<!---->', "\t" => '&#9;'];
             foreach ([[33, 47], [58, 64], [91, 96], [123, 126]] as [$first, $last]) {
                 for ($code = $first; $code <= $last; $code++) {
                     $character = chr($code);
@@ -3758,7 +3758,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function renderSoftBreak(): string
     {
-        if ($this->tableCellDepth > 0 || ($this->singleLineDepth > 0 && $this->softBreakMode === SoftBreakMode::Break)) {
+        if ($this->tableCellDepth > 0) {
             return $this->softBreakMode === SoftBreakMode::Break ? '<br>' : ' ';
         }
 
