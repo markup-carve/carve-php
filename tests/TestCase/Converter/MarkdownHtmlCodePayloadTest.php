@@ -39,7 +39,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         $cases = json_decode(file_get_contents(dirname(__DIR__, 2) . '/fixtures/markdown-html-code-controls.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ([false, true] as $convertRawHtml) {
             foreach ($cases as $case) {
-                if ($convertRawHtml && (str_starts_with($case['markdown'], '<?') || str_contains($case['markdown'], '<span title='))) {
+                if ($convertRawHtml && str_starts_with($case['markdown'], '<?')) {
                     continue;
                 }
                 $source = (new MarkdownToCarve(convertRawHtml: $convertRawHtml))->convert($case['markdown']);
@@ -74,6 +74,24 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
     }
 
+    public function testNestedBoldItalicAndUnicodeCodeStayNative(): void
+    {
+        foreach ([false, true] as $mode) {
+            $safe = SafeMode::defaults()->setRawHtmlMode(SafeMode::RAW_HTML_STRIP);
+            foreach (['<em><strong>x</strong></em>', '<i><b>x</b></i>'] as $markdown) {
+                $source = (new MarkdownToCarve(convertRawHtml: $mode))->convert($markdown);
+                $html = (new CarveConverter(safeMode: $safe))->convert($source);
+                $this->assertStringContainsString('<strong>', $html);
+                $this->assertStringContainsString('<em>', $html);
+            }
+            foreach (['café_au', '名前_id', 'größ_e'] as $value) {
+                $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport('<code>' . $value . '</code>');
+                $this->assertSame([], array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback')));
+                $this->assertSame('<p><code>' . $value . '</code></p>', rtrim((new CarveConverter(safeMode: $safe))->convert($result->value), "\n"));
+            }
+        }
+    }
+
     private function records(string $html): array
     {
         if (!class_exists(DOMDocument::class)) {
@@ -94,7 +112,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
             $next = $ancestors;
             // libxml omits the table body that HTML5 readers insert.
             if ($node instanceof DOMElement && !in_array($node->tagName, ['html', 'head', 'body', 'section', 'tbody'], true)) {
-                $next[] = $node->tagName;
+                $next[] = $node->tagName === 's' ? 'del' : $node->tagName;
             }
             if ($node instanceof DOMElement && in_array($node->tagName, ['a', 'img'], true)) {
                 $row = ['tag' => $node->tagName];
@@ -109,7 +127,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
                 $elements = [];
                 foreach ($node->childNodes as $child) {
                     if ($child instanceof DOMElement) {
-                        $elements[] = $child->tagName;
+                        $elements[] = $child->tagName === 's' ? 'del' : $child->tagName;
                     }
                 }
                 $codes[] = ['value' => $node->textContent, 'ancestors' => $next, 'elements' => $elements];

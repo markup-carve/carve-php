@@ -5465,10 +5465,30 @@ class MarkdownToCarve
             return $written;
         };
         $scalarSubject = $line;
+        $scalarOpaqueRanges = [];
+        $scalarOpaqueEnds = [];
+        for ($at = 0, $length = strlen($line); $at < $length;) {
+            $end = $line[$at] === '<'
+                ? $this->opaqueHtmlEnd($line, $at, $scalarOpaqueEnds) ?? ($this->htmlTagAt($line, $at)['end'] ?? null)
+                : null;
+            if ($end === null) {
+                $at++;
+            } else {
+                $scalarOpaqueRanges[] = [$at, $end];
+                $at = $end;
+            }
+        }
+        $scalarOpaqueCursor = 0;
         $line = preg_replace_callback(
             '/(!?\[(?:[^\[\]\n]|\[(?:[^\[\]\n])*\])*\])(\((?:[^()\n]|\([^()\n]*\))*\))/',
-            static function (array $match) use ($validateCodeScalar, $protectCodeTags, $scalarSubject): string {
+            static function (array $match) use ($validateCodeScalar, $protectCodeTags, $scalarSubject, $scalarOpaqueRanges, &$scalarOpaqueCursor): string {
                 $start = $match[0][1];
+                while (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][1] <= $start) {
+                    $scalarOpaqueCursor++;
+                }
+                if (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][0] <= $start) {
+                    return $match[0][0];
+                }
                 $match = array_map(static fn (array $capture): string => $capture[0], $match);
                 $slashes = 0;
                 for ($at = $start - 1; $at >= 0 && $scalarSubject[$at] === '\\'; $at--) {
@@ -5513,7 +5533,7 @@ class MarkdownToCarve
                 return null;
             }
             if (strpbrk($match[1], '\\`*_~[]') !== false) {
-                if (strpbrk($match[1], '*_') !== false) {
+                if (strpbrk($match[1], '*_~') !== false) {
                     $unchangedHtmlCode ??= $this->htmlCodeUnchangedByEmphasis($line, $protected);
                     if (!isset($unchangedHtmlCode[$match[0]])) {
                         return null;
@@ -5616,6 +5636,8 @@ class MarkdownToCarve
                     && $this->decodeHtmlReferenceText($following[0]) === "\n"
                 ) {
                     $i += strlen($following[0]);
+                } elseif ($this->decodeHtmlReferenceText($entity[0]) === "\r" && ($line[$i] ?? '') === "\n") {
+                    $i++;
                 }
 
                 continue;
@@ -5743,7 +5765,7 @@ class MarkdownToCarve
             $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => str_starts_with($span, '<!--')
                 ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
             $line = preg_replace_callback(
-                '/<(?!' . $nativeInline . '\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+[^<>]*?)?>[\s\S]*?<\/\1[ \t]*>/i',
+                '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+(?:"[^"]*"|\'[^\']*\'|[^<>"\'])*?)?>[\s\S]*?<\/\1[ \t]*>/i',
                 fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
                 $line,
             ) ?? $line;
@@ -6453,23 +6475,25 @@ class MarkdownToCarve
         foreach ($htmlRules as $pattern => $replacement) {
             $line = preg_replace($pattern, $replacement, $line) ?? $line;
         }
-        $htmlSource = $line;
-        $line = preg_replace_callback(
-            '/<(em|i|strong|b)>([^<]+)<\/\1>/i',
-            static function (array $match) use ($htmlSource): string {
-                $marker = in_array(strtolower($match[1][0]), ['em', 'i'], true) ? '/' : '*';
-                $body = $match[2][0];
-                $offset = $match[0][1];
-                $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
-                $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
-                $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1;
-                $written = $marker . $body . $marker;
+        foreach (['strong|b', 'em|i'] as $tagPattern) {
+            $htmlSource = $line;
+            $line = preg_replace_callback(
+                '/<(' . $tagPattern . ')>([^<]+)<\/\1>/i',
+                static function (array $match) use ($htmlSource): string {
+                    $marker = in_array(strtolower($match[1][0]), ['em', 'i'], true) ? '/' : '*';
+                    $body = $match[2][0];
+                    $offset = $match[0][1];
+                    $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
+                    $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
+                    $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1;
+                    $written = $marker . $body . $marker;
 
-                return $forced ? '{' . $written . '}' : $written;
-            },
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
+                    return $forced ? '{' . $written . '}' : $written;
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
 
         // A bare native tag still standing is unpaired - the paired ones
         // converted above. carve-js keeps an unpaired `<b>` or `</b>` as an
@@ -7780,6 +7804,14 @@ class MarkdownToCarve
         $masked = '';
         $ends = [];
         for ($at = 0, $length = strlen($source); $at < $length;) {
+            if ($source[$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $source[$at + 1] ?? '') === 1) {
+                $token = "\x00P" . count($protected) . "\x00";
+                $protected[] = $restorations[$token] = substr($source, $at, 2);
+                $masked .= $token;
+                $at += 2;
+
+                continue;
+            }
             $end = $source[$at] === '<'
                 ? $this->opaqueHtmlEnd($source, $at, $ends) ?? ($this->htmlTagAt($source, $at)['end'] ?? null)
                 : null;
@@ -7793,7 +7825,7 @@ class MarkdownToCarve
             $masked .= $token;
             $at = $end;
         }
-        $converted = strtr(MarkdownEmphasis::convert($masked, protectedSpans: $protected), $restorations);
+        $converted = strtr(preg_replace('/~~([^~]+)~~/', '$1', MarkdownEmphasis::convert($masked, protectedSpans: $protected, plainText: true)) ?? $masked, $restorations);
         preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $source, $before);
         preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $converted, $after);
         $counts = array_count_values($after[0]);
