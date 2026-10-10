@@ -5519,9 +5519,10 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
+        $htmlCodeSourceLine = str_contains($sourceInput, "\n") || $foldedSourceLines !== [] ? null : $this->inlineRunSourceLine;
         $standaloneCodeSource = trim($line);
         $unchangedHtmlCode = null;
-        $writeHtmlCode = function (array $match) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode): ?string {
+        $writeHtmlCode = function (array $match) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, $htmlCodeSourceLine): ?string {
             $slashes = 0;
             for ($at = strlen($match[1]) - 1; $at >= 0 && $match[1][$at] === '\\'; $at--) {
                 $slashes++;
@@ -5569,7 +5570,7 @@ class MarkdownToCarve
                     $read = (new CarveConverter())->parse($source)->getChildren();
                     $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
                     if (count($read) === 1 && count($children) === 1 && $children[0] instanceof Code && $children[0]->getContent() === str_replace(["\r\n", "\r"], "\n", $value)) {
-                        return $protect(rtrim($source, "\n"));
+                        return $protect(rtrim($source, "\n"), $match[0]);
                     }
                 } catch (SourceUnspellableException) {
                 }
@@ -5581,7 +5582,7 @@ class MarkdownToCarve
                     'warning',
                     'degraded',
                     'exact',
-                    $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
+                    $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
                 );
 
                 $html = preg_replace_callback('/[ !-\/:-@\[-`{-~\t\n]/', static function (array $character): string {
@@ -5593,14 +5594,14 @@ class MarkdownToCarve
                     return $character[0] === '@' ? $entity . '<!---->' : $entity;
                 }, str_replace(["\r\n", "\r"], "\n", $value)) ?? $value;
 
-                return $protect($this->verbatimHtmlInline('<code>' . $html . '</code>'));
+                return $protect($this->verbatimHtmlInline('<code>' . $html . '</code>'), $match[0]);
             }
             $document = new Document();
             $paragraph = new Paragraph();
             $paragraph->appendChild(new Code($value));
             $document->appendChild($paragraph);
 
-            return $protect(rtrim((new CarveRenderer())->render($document), "\n"));
+            return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $match[0]);
         };
         $line = preg_replace_callback(
             '/\]\(([ \t]*)</',
@@ -5670,12 +5671,12 @@ class MarkdownToCarve
                             'warning',
                             'degraded',
                             'exact',
-                            $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
+                            $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
                         );
                     }
-                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag));
+                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
                 } elseif ($htmlCodeDepth > 0 && $tag['name'] === 'br') {
-                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag));
+                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
                 } else {
                     $escaped .= $sourceTag;
                 }
