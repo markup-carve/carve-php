@@ -3354,10 +3354,11 @@ class DjotToCarve
             }
             $label = preg_replace('/([!-\/:-@\[-`{-~])/', '\\\\$1', $body) ?? $body;
             $target = $email ? 'mailto:' . $body : $body;
-            preg_match('~^[A-Za-z][A-Za-z0-9+.-]*://[^/?#\\\\]*~', $target, $authorityMatch);
-            $authority = strlen($authorityMatch[0] ?? '');
+            // carve#2854: a square bracket is not encoded. A Carve destination holds it
+            // literally, balanced or not, so encoding it would change the href against a
+            // body the angle form promises to show verbatim.
             $encoding = ['`' => '%60', '|' => '%7C', '\\' => '\\\\', '(' => '%28', ')' => '%29'];
-            $target = strtr(substr($target, 0, $authority), $encoding) . strtr(substr($target, $authority), $encoding + ['[' => '%5B', ']' => '%5D']);
+            $target = strtr($target, $encoding);
             $parts[] = substr($source, $copied, $at - $copied);
             $parts[] = $image ? $label : '[' . $label . '](' . $target . ')';
             $copied = $at + strlen($value);

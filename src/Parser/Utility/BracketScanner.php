@@ -37,12 +37,26 @@ final class BracketScanner
     public const MAX_BRACKET_NESTING = 1000;
 
     /**
+     * The text the memoized destination stops below were built for.
+     */
+    private static ?string $destinationStopsText = null;
+
+    /**
+     * @var array<int, int>|null
+     */
+    private static ?array $destinationStops = null;
+
+    /**
      * Find the balanced closing `]` for a bracketed inline run.
      *
      * An escaped bracket is opaque, and so are the two runs whose content is
      * LITERAL: a code span, an editorial comment, and a braced author comment. Neither resolves an
      * escape, so a `]` inside one is content that no backslash could have
      * spelled (markup-carve/carve#403).
+     *
+     * The destination of a link or image is literal too, so it joins that set:
+     * CARVE-P3-001 states the criterion and an open set, and a destination
+     * resolves no escapes (carve#2854, carve-php#3046).
      *
      * @param string $text The text to scan.
      * @param int $openPos Offset of the opening `[`.
@@ -78,6 +92,14 @@ final class BracketScanner
                 }
             } elseif ($text[$pos] === ']') {
                 $bracketDepth--;
+                if ($bracketDepth > 0) {
+                    $destinationEnd = self::destinationEnd($text, $pos);
+                    if ($destinationEnd !== null) {
+                        $pos = $destinationEnd + 1;
+
+                        continue;
+                    }
+                }
             }
 
             if ($bracketDepth === 0) {
@@ -140,6 +162,12 @@ final class BracketScanner
                 }
                 $parent = count($heights) - 1;
                 $heights[$parent] = max($heights[$parent], $height + 1);
+                $destinationEnd = self::destinationEnd($text, $pos);
+                if ($destinationEnd !== null) {
+                    $pos = $destinationEnd + 1;
+
+                    continue;
+                }
             }
             $pos++;
         }
@@ -177,6 +205,98 @@ final class BracketScanner
         }
 
         return $offsets;
+    }
+
+    /**
+     * Offset of the `)` ending the destination that follows the `]` at $closePos,
+     * or null when no destination does.
+     *
+     * A run whose first or last byte is whitespace is not a destination, so it is
+     * not skipped.
+     */
+    private static function destinationEnd(string $text, int $closePos): ?int
+    {
+        if (($text[$closePos + 1] ?? '') !== '(') {
+            return null;
+        }
+
+        $length = strlen($text);
+        $start = $closePos + 2;
+        $end = self::destinationStops($text)[$start];
+        if ($end >= $length) {
+            return null;
+        }
+        if ($end > $start && (str_contains(" \t\n\r\0\x0B", $text[$start]) || str_contains(" \t\n\r\0\x0B", $text[$end - 1]))) {
+            return null;
+        }
+
+        return $end;
+    }
+
+    /**
+     * For every offset, the `)` that closes a destination starting there, or the
+     * text length when none does.
+     *
+     * One backward pass, memoized per text, so a scan that walks many `](` runs
+     * stays linear. Scanning forward from each one was quadratic: a run of `[x](`
+     * with no balancing `)` made every close pay a walk to end of text. The
+     * parentheses balance and a backslash neutralizes the next byte, matching the
+     * parser's own destination scan.
+     *
+     * @return array<int, int>
+     */
+    private static function destinationStops(string $text): array
+    {
+        if (self::$destinationStopsText === $text && self::$destinationStops !== null) {
+            return self::$destinationStops;
+        }
+
+        $length = strlen($text);
+        $stops = array_fill(0, $length + 1, $length);
+        for ($i = $length - 1; $i >= 0; --$i) {
+            $char = $text[$i];
+            $title = ($char === '"' || $char === "'") && $i > 0 && $text[$i - 1] === ' '
+                ? self::closingTitleQuote($text, $i)
+                : null;
+            if ($char === '\\' && $i + 1 < $length) {
+                $stops[$i] = $stops[min($length, $i + 2)];
+            } elseif ($title !== null) {
+                $stops[$i] = $stops[$title + 1];
+            } elseif ($char === '(') {
+                $close = $stops[$i + 1];
+                $stops[$i] = $close < $length ? $stops[$close + 1] : $length;
+            } elseif ($char === ')') {
+                $stops[$i] = $i;
+            } else {
+                $stops[$i] = $stops[$i + 1];
+            }
+        }
+
+        self::$destinationStopsText = $text;
+
+        return self::$destinationStops = $stops;
+    }
+
+    /**
+     * Offset of the quote closing the title that opens at $open, or null when the
+     * run never closes. A backslash neutralizes the next byte.
+     */
+    private static function closingTitleQuote(string $text, int $open): ?int
+    {
+        $quote = $text[$open];
+        $length = strlen($text);
+        for ($i = $open + 1; $i < $length; $i++) {
+            if ($text[$i] === '\\') {
+                $i++;
+
+                continue;
+            }
+            if ($text[$i] === $quote) {
+                return $i;
+            }
+        }
+
+        return null;
     }
 
     /**
