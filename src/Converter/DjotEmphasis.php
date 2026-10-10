@@ -56,6 +56,7 @@ final class DjotEmphasis
     ): string {
         $validBraces = [];
         $validBraceClosers = [];
+        $braceEnds = [];
         $pendingBraces = [];
         $literalDashes = [];
         $braceLineStart = 0;
@@ -84,6 +85,7 @@ final class DjotEmphasis
                 if ($i > $start + 2) {
                     $validBraces[$start] = true;
                     $validBraceClosers[$i - 1] = true;
+                    $braceEnds[$start] = $i - 1;
                     if ($paired !== null && str_contains('+-=', $source[$start + 1])) {
                         $paired[$start + 1] = $i + 1;
                     }
@@ -173,6 +175,15 @@ final class DjotEmphasis
 
                 continue;
             }
+            if ($ch === '\\' && $i <= $structuralEnd && substr($source, $i, 4) === '\\~~~') {
+                $end = $i + 1;
+                while (($source[$end] ?? '') === '~') {
+                    $structural[$end++] = true;
+                }
+                $i = $end - 1;
+
+                continue;
+            }
             if ($ch === '\\' && ($source[$i + 1] ?? '') !== "\n") {
                 $lastEscaped = $i + 1;
                 $i++;
@@ -206,7 +217,16 @@ final class DjotEmphasis
 
                 continue;
             }
-            if ($ch !== '_' && $ch !== '*' && !($paired !== null && str_contains('~^', $ch))) {
+            if ($ch !== '_' && $ch !== '*' && !str_contains('~^', $ch)) {
+                continue;
+            }
+            if ($ch === '~' && $i <= $structuralEnd && substr($source, $i, 3) === '~~~') {
+                $end = $i;
+                while (($source[$end] ?? '') === '~') {
+                    $structural[$end++] = true;
+                }
+                $i = $end - 1;
+
                 continue;
             }
             if ($ch === '*' && $i <= $structuralEnd) {
@@ -232,8 +252,12 @@ final class DjotEmphasis
             $canClose = !$forcedOpen && ($forcedClose || ($i > 0 && !str_contains(" \t\r\n", $source[$i - 1])));
             $key = ($forcedClose ? '{' : '') . $ch;
             $opener = $openers[$key] === [] ? null : $openers[$key][array_key_last($openers[$key])];
-            if ($canClose && $opener !== null && $opener['end'] < $i && ($opener['start'] > ($braces !== [] ? $braces[array_key_last($braces)] : -1) || ($opener['forced'] && $braces !== [] && $opener['start'] === $braces[array_key_last($braces)]))) {
+            if ($canClose && $opener !== null && $opener['end'] < $i && (!$opener['forced'] || $opener['start'] > ($braces !== [] ? $braces[array_key_last($braces)] : -1) || ($braces !== [] && $opener['start'] === $braces[array_key_last($braces)]))) {
                 $clear($opener['start']);
+                while ($braces !== [] && $braces[array_key_last($braces)] > $opener['start']) {
+                    $start = array_pop($braces);
+                    unset($validBraces[$start], $validBraceClosers[$braceEnds[$start]], $paired[$start + 1]);
+                }
                 $pairs[] = new DjotEmphasisSpan($opener['start'], $opener['end'], $i, $i + ($forcedClose ? 2 : 1), $ch, $opener['forced']);
                 if ($forcedClose) {
                     if ($braces !== [] && $braces[array_key_last($braces)] === $opener['start']) {

@@ -1002,22 +1002,6 @@ class DjotToCarve
     }
 
     /**
-     * An escaped character belongs to the attribute's word: the boundary is whitespace, not an escape.
-     */
-    private function escapedWordCharacter(string $source, int $at, int $cursor): bool
-    {
-        if ($at - 1 < $cursor || ($source[$at - 1] ?? '') !== '\\' || preg_match('/\s/u', $source[$at] ?? ' ') === 1) {
-            return false;
-        }
-        $slashes = 0;
-        for ($s = $at - 1; $s >= $cursor && $source[$s] === '\\'; $s--) {
-            $slashes++;
-        }
-
-        return $slashes % 2 === 1;
-    }
-
-    /**
      * @return array{source: string, losses: list<int>, restore: \Closure(string): string, isBoundary: \Closure(string): bool}
      */
     private function stripFootnoteDefinitionAttributes(string $input): array
