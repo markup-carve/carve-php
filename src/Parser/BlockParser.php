@@ -3806,10 +3806,11 @@ class BlockParser
      */
     protected function leadBottomIsContinuationMarker(string $content): bool
     {
-        $rest = $content;
-        while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
-            $rest = substr($rest, $offset);
+        $offset = 0;
+        while (($nextOffset = $this->listParser->markerContentOffset($content, $offset)) !== null) {
+            $offset = $nextOffset;
         }
+        $rest = substr($content, $offset);
 
         return $rest === ltrim($rest, " \t") && $this->isContinuationMarker($rest);
     }
@@ -4794,8 +4795,8 @@ class BlockParser
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
             $trailingState = $this->advanceTrailingState($trailingState, $stripped, true);
-            if ($trailingState->openParagraph && !$this->isContinuationMarker(ltrim($stripped, " \t"))) {
-                $bareContinuationLead = $this->leadBottomIsContinuationMarker(ltrim($stripped, " \t"));
+            if ($bareContinuationLead && $trailingState->openParagraph && !$this->leadBottomIsContinuationMarker(ltrim($stripped, " \t"))) {
+                $bareContinuationLead = false;
             }
             $i++;
         }
