@@ -108,6 +108,7 @@ class MarkdownBoundaryLossReportTest extends TestCase
                 ["<span>[l]()</span>\n[l]()\n===\n", ['line:1', 'line:2']],
                 ["<a href=\"[l]()\">x</a>\n[l]()\n===\n", ['line:2']],
                 ["[![i](<u>)]()\nx\n===\n", [null]],
+                ["[![i](<u>)]()\nx\n[![i](u)]()\n===\n", [null, null]],
             ] as [$source, $paths]
         ) {
             $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));

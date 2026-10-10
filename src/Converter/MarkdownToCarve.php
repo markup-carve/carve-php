@@ -5618,9 +5618,10 @@ class MarkdownToCarve
             if ($foldedSourceLines !== []) {
                 $sourceMatch = $this->referenceSourceText($match[0][0], $protectedSources);
                 $originalOffset = strpos($sourceInput, $sourceMatch);
-                if ($originalOffset !== false && strpos($sourceInput, $sourceMatch, $originalOffset + 1) === false) {
+                $restoredSubject = $this->referenceSourceText($subject, $protectedSources);
+                if ($originalOffset !== false && substr_count($sourceInput, $sourceMatch) === 1 && substr_count($restoredSubject, $sourceMatch) === 1) {
                     $sourceOffset = $originalOffset;
-                } elseif ($this->referenceSourceText($subject, $protectedSources) !== $sourceInput) {
+                } elseif ($restoredSubject !== $sourceInput) {
                     // Earlier rewrites can make a repeated or changed label ambiguous.
                     // Keep the loss report without claiming an exact source line.
                     $sourceOffset = null;
