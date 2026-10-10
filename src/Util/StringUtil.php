@@ -271,16 +271,28 @@ final class StringUtil
     }
 
     /**
-     * Escape string for safe HTML output (attributes and text content)
+     * Escape a string for HTML TEXT CONTENT, quotes included.
      *
-     * Escapes <, >, &, and quotes. Also converts literal NBSP and the internal
-     * nbsp placeholder (U+E000) to &nbsp; entity.
+     * Escapes <, >, &, and quotes, and rewrites a no-break space to `&nbsp;`.
+     * PART 10 §2 scopes that rewrite to text content, so an ATTRIBUTE VALUE
+     * takes escapeHtmlAttribute() instead.
      */
     public static function escapeHtml(string $value): string
     {
         $escaped = htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
         return str_replace("\u{00A0}", '&nbsp;', $escaped);
+    }
+
+    /**
+     * Escape a string for an HTML ATTRIBUTE VALUE.
+     *
+     * PART 10 §2 allows `&nbsp;` as the one entity beyond the three, and only
+     * in text content, so a no-break space survives here as itself.
+     */
+    public static function escapeHtmlAttribute(string $value): string
+    {
+        return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
     }
 
     public static function visibleWidth(string $value): int

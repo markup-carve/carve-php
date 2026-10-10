@@ -84,7 +84,7 @@ final class HtmlOutput
             return;
         }
         if ($this->sink === null) {
-            $this->pending .= $attribute ? StringUtil::escapeHtml($text)
+            $this->pending .= $attribute ? StringUtil::escapeHtmlAttribute($text)
                 : str_replace("\u{00A0}", '&nbsp;', htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8'));
 
             return;
@@ -96,7 +96,7 @@ final class HtmlOutput
                 $end--;
             }
             $chunk = substr($text, $offset, $end - $offset);
-            $this->push($attribute ? StringUtil::escapeHtml($chunk)
+            $this->push($attribute ? StringUtil::escapeHtmlAttribute($chunk)
                 : str_replace("\u{00A0}", '&nbsp;', htmlspecialchars($chunk, ENT_NOQUOTES | ENT_HTML5, 'UTF-8')));
             $offset = $end;
         }
