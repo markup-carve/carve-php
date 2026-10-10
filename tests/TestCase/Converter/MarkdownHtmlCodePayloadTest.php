@@ -94,9 +94,30 @@ class MarkdownHtmlCodePayloadTest extends TestCase
 
     public function testConvertedHtmlKeepsProtectedInlineContent(): void
     {
-        foreach (['<span>a <code>b</code></span>' => '<p>a <code>b</code></p>', '<small>a\\*b</small>' => '<p>a*b</p>'] as $markdown => $expected) {
+        foreach (['<span>a <code>b</code></span>' => '<p>a <code>b</code></p>', '<small>a\\*b</small>' => '<p>a*b</p>', '<span>*a* [b](u)</span>' => '<p><em>a</em> <a href="u">b</a></p>', '<span>```a```</span>' => '<p><code>a</code></p>'] as $markdown => $expected) {
             $source = (new MarkdownToCarve(convertRawHtml: true))->convert($markdown);
             $this->assertSame($expected, rtrim((new CarveConverter())->convert($source), "\n"));
+        }
+    }
+
+    public function testCodeFallbacksKeepTheirOriginalSourceLine(): void
+    {
+        foreach ([false, true] as $mode) {
+            foreach (["Title\n<code>*a*</code>\n=====", "a\nb <code></code>"] as $markdown) {
+                $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport($markdown);
+                $rows = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback'));
+                $this->assertCount(1, $rows);
+                $this->assertSame('line:2', $rows[0]->path);
+            }
+        }
+    }
+
+    public function testFootnoteFollowingTextKeepsItsCode(): void
+    {
+        foreach ([false, true] as $mode) {
+            $source = (new MarkdownToCarve(convertRawHtml: $mode))->convert("x[^1](u<code>a</code>)\n\n[^1]: note");
+            $html = (new CarveConverter())->convert($source);
+            $this->assertStringContainsString('<code>a</code>', $html);
         }
     }
 

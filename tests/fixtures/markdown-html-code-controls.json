@@ -2102,5 +2102,100 @@
       }
     ],
     "nativeHtml": "<p><a href=\"u\" title=\"a\n&lt;code&gt;&lt;/code&gt;\">x</a></p>\n"
+  },
+  {
+    "markdown": "*x <code>a**</code> *y <code>a*</code>",
+    "codes": [
+      {
+        "value": "a",
+        "ancestors": [
+          "p",
+          "em",
+          "code"
+        ],
+        "elements": []
+      },
+      {
+        "value": "*",
+        "ancestors": [
+          "p",
+          "code"
+        ],
+        "elements": []
+      },
+      {
+        "value": "a",
+        "ancestors": [
+          "p",
+          "em",
+          "code"
+        ],
+        "elements": []
+      }
+    ],
+    "roots": [
+      {
+        "tag": "p",
+        "value": "x a* y a"
+      }
+    ],
+    "attributes": [],
+    "nativeHtml": "<p><em>x <code>a</em>*</code> <em>y <code>a</em></code></p>\n"
+  },
+  {
+    "markdown": "> <code class=\"x\">a&#13;\n> b</code>\n> | h |\n> |---|\n> | c |",
+    "codes": [
+      {
+        "value": "a\nb",
+        "ancestors": [
+          "blockquote",
+          "p",
+          "code"
+        ],
+        "elements": []
+      }
+    ],
+    "roots": [
+      {
+        "tag": "p",
+        "value": "a\nb"
+      },
+      {
+        "tag": "th",
+        "value": "h"
+      },
+      {
+        "tag": "td",
+        "value": "c"
+      }
+    ],
+    "attributes": [],
+    "nativeHtml": "<blockquote>\n<p><code class=\"x\">a\r\nb</code></p>\n<table>\n<thead>\n<tr>\n<th>h</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>c</td>\n</tr>\n</tbody>\n</table>\n</blockquote>\n"
+  },
+  {
+    "markdown": "[a [b](c) d](u<code>x</code>)",
+    "codes": [
+      {
+        "value": "x",
+        "ancestors": [
+          "p",
+          "code"
+        ],
+        "elements": []
+      }
+    ],
+    "roots": [
+      {
+        "tag": "p",
+        "value": "[a b d](ux)"
+      }
+    ],
+    "attributes": [
+      {
+        "tag": "a",
+        "href": "c"
+      }
+    ],
+    "nativeHtml": "<p>[a <a href=\"c\">b</a> d](u<code>x</code>)</p>\n"
   }
 ]
