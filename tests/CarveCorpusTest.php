@@ -1125,6 +1125,7 @@ class CarveCorpusTest extends TestCase
         // declared rather than deferred and KNOWN_GAPS stays empty.
         'a-description-body-whose-own-block-is-a-fence-keeps-no-line-below-its-column',
         'a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run',
+        'a-below-column-line-continues-a-paragraph-only-where-one-is-open',
     ];
 
     /**
@@ -1148,11 +1149,6 @@ class CarveCorpusTest extends TestCase
     protected const KNOWN_GAPS = [];
 
     /**
-     * @var string
-     */
-    private const TASK_LIST_RULING = 'markup-carve/carve#2887: a task list carries `task-list`, a done item `data-task-state="x"`.';
-
-    /**
      * Documents this engine renders per the CURRENT spec, which the PINNED
      * corpus predates.
      *
@@ -1165,76 +1161,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '05-lists-12' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"outer\"> outer\n    <ul>\n      <li>inner</li>\n    </ul>\n  </li>\n</ul>",
-        ],
-        '06-task-lists-2' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li data-task-state=\"-\"><input type=\"checkbox\" disabled aria-label=\"dropped\"> dropped</li>\n  <li data-task-state=\"_\"><input type=\"checkbox\" disabled aria-label=\"paused\"> paused</li>\n  <li data-task-state=\"&gt;\"><input type=\"checkbox\" disabled aria-label=\"deferred\"> deferred</li>\n  <li data-task-state=\"?\"><input type=\"checkbox\" disabled aria-label=\"maybe\"> maybe</li>\n</ul>",
-        ],
-        '06-task-lists' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"todo\"> todo</li>\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"done\"> done</li>\n</ul>",
-        ],
-        '144-nested-item-looseness-does-not-propagate-to-the-outer-item-3' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"a\"> a\n    <ul>\n      <li>b\n        <blockquote><p>q</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>",
-        ],
-        '363-a-task-item-s-checkbox-is-not-decided-by-its-first-block' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <blockquote><p>q</p></blockquote>\n  </li>\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> \n    <h1 id=\"h\">h</h1>\n  </li>\n  <li><input type=\"checkbox\" disabled> \n    <hr>\n  </li>\n</ul>",
-        ],
-        '393-an-engine-written-shape-says-what-it-is-called-3' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"read the docs\"> read the <em>docs</em></li>\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"done\"> done</li>\n</ul>",
-        ],
-        '393-an-engine-written-shape-says-what-it-is-called-4' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled> \n    <blockquote><p>quoted lead</p></blockquote>\n  </li>\n</ul>",
-        ],
-        '413-an-item-s-attribute-block-moves-its-content-column-its-checkbox-does-not-2' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li data-task-state=\"x\" id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"old\"> old\n    <h1 id=\"outside\">outside</h1>\n  </li>\n</ul>",
-        ],
-        '413-an-item-s-attribute-block-moves-its-content-column-its-checkbox-does-not-3' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
-        ],
-        '413-an-item-s-attribute-block-moves-its-content-column-its-checkbox-does-not-6' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul>\n  <li><p>outer</p>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\" id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"inner\"> inner</li>\n    </ul>\n    <p>after</p>\n  </li>\n</ul>",
-        ],
-        '413-an-item-s-attribute-block-moves-its-content-column-its-checkbox-does-not-9' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li data-task-state=\"x\" title=\"😀\"><input type=\"checkbox\" checked disabled aria-label=\"a\"> a\n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
-        ],
-        '413-an-item-s-attribute-block-moves-its-content-column-its-checkbox-does-not' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li data-task-state=\"x\" id=\"k\"><input type=\"checkbox\" checked disabled aria-label=\"bare\"> bare\n    <h1 id=\"inside\">inside</h1>\n  </li>\n</ul>",
-        ],
-        '415-a-floating-attribute-does-not-widen-a-list-item-s-content-column-3' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li data-task-state=\"x\" id=\"k\"><input type=\"checkbox\" checked disabled> \n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>",
-        ],
-        '415-a-floating-attribute-does-not-widen-a-list-item-s-content-column-7' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li data-task-state=\"x\" id=\"k\"><input type=\"checkbox\" checked disabled> </li>\n</ul>\n<p># h</p>",
-        ],
-        '75-list-nesting-and-looseness-9' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"item\"> item\n    <h1 id=\"H\">H</h1>\n  </li>\n</ul>",
-        ],
-        '90-list-item-attributes-4' => [
-            'reason' => self::TASK_LIST_RULING,
-            'html' => "<ul class=\"task-list\">\n  <li class=\"c\"><input type=\"checkbox\" disabled aria-label=\"A classed task item.\"> A classed task item.</li>\n</ul>",
-        ],
-        '75-list-nesting-and-looseness-4' => [
-            'reason' => 'A below-column line continues a paragraph only where one is open at the deepest frame (markup-carve/carve#2884).',
-            'html' => "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <h1 id=\"N\">N</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>lazy</p>",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
