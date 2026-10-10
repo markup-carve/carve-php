@@ -14,7 +14,6 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
-use RuntimeException;
 
 /**
  * Converts Djot markup to Carve markup.
@@ -201,11 +200,11 @@ class DjotToCarve
         }
         $source = preg_replace_callback('/(!?\[([^\[\]\n]*)\])\[\]/', static fn (array $match): string => $collapsedMask[$match[0][1]] !== ' ' && isset($definitions[$match[2][0]]) ? $match[1][0] . '[' . $match[2][0] . ']' : $match[0][0], $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
         $source = $this->convertDjotBlockMarkers($source);
-        $emptyTerm = $this->djotPlaceholderPrefix($source, "\x00DJOTEMPTYTERM\x00");
+        $emptyTerm = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYTERM\x00");
         $source = $this->convertDefinitionLists($source, $emptyTerm);
         $djotBody = $source;
         $strongSpans = [];
-        $altPrefix = $this->djotPlaceholderPrefix($source, "\x00DJOTALT\x00");
+        $altPrefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTALT\x00");
         $imageMask = $this->maskCodeAndDestinations($source);
         $source = preg_replace_callback('/!\[([^\[\]\n]*)\](?=[([])/', function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask): string {
             [$image, $at] = $match[0];
@@ -231,8 +230,7 @@ class DjotToCarve
         $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? []);
 
         $carve = str_replace($emptyTerm, '%%', $carve);
-        $carve = strtr($carve, $orphanSpans);
-        $carve = strtr($carve, $strongSpans);
+        $carve = strtr($carve, $orphanSpans + $strongSpans);
         $dropInherited = array_fill_keys(array_keys($inherited), '');
         $carve = strtr($carve, $dropInherited);
         $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
@@ -891,7 +889,7 @@ class DjotToCarve
                 }
             }
         }
-        $prefix = $this->djotPlaceholderPrefix($source, "\0DJOTWORD");
+        $prefix = DjotPlaceholderPrefix::choose($source, "\0DJOTWORD");
         $output = '';
         $cursor = 0;
         $lastClose = strrpos($source, '}');
@@ -1443,29 +1441,6 @@ class DjotToCarve
         return implode("\n", $lines);
     }
 
-    private function djotPlaceholderPrefix(string $source, string $base): string
-    {
-        if (!str_contains($source, $base)) {
-            return $base . "0\0";
-        }
-        $pattern = '/' . preg_quote($base, '/') . '([0-9]++)(?=\x00)/';
-        $reserved = [];
-        $offset = 0;
-        while (($matched = preg_match($pattern, $source, $match, PREG_OFFSET_CAPTURE, $offset)) === 1) {
-            $reserved['#' . $match[1][0]] = true;
-            $offset = $match[0][1] + strlen($match[0][0]);
-        }
-        if ($matched === false) {
-            throw new RuntimeException('Cannot reserve Djot import placeholder names.');
-        }
-        $serial = 0;
-        while (isset($reserved['#' . $serial])) {
-            $serial++;
-        }
-
-        return $base . $serial . "\0";
-    }
-
     /**
      * @return array{string, array<string, string>}
      */
@@ -1477,7 +1452,7 @@ class DjotToCarve
         $item = '(?:[.#][A-Za-z0-9_][A-Za-z0-9_-]*|[A-Za-z][A-Za-z0-9_-]*=(?:"(?:\\\\.|[^"\\\\\n])*"|[A-Za-z0-9_:-]+))';
         $pattern = '/\{[ \t]*' . $item . '(?:[ \t]+' . $item . ')*[ \t]*\}/';
         $lines = explode("\n", $source);
-        $prefix = $this->djotPlaceholderPrefix($source, "\x00DJOTORPHAN\x00");
+        $prefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTORPHAN\x00");
         $out = [];
         $spaces = [];
         foreach ($lines as $index => $line) {

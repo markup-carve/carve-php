@@ -17,7 +17,7 @@ final class DjotPlaceholderPrefixesTest extends TestCase
     public static function placeholders(): array
     {
         $rows = [];
-        foreach (["\0DJOTSTRONG", "\0DJOTWORD", "\0DJOTORPHAN\0", "\0DJOTEMPTYTERM\0", "\0DJOTALT\0"] as $base) {
+        foreach (["\0DJOTSTRONG", "\0DJOTWORD", "\0DJOTORPHAN\0", "\0DJOTEMPTYTERM\0", "\0DJOTALT\0", "\0DJOTLITERAL\0"] as $base) {
             $tokens = [
                 'overlap' => $base . "0\0" . substr($base, 1) . "1\0",
                 'leading-zero' => $base . "00\0",
@@ -35,7 +35,7 @@ final class DjotPlaceholderPrefixesTest extends TestCase
     #[DataProvider('placeholders')]
     public function testUserPlaceholdersArePreserved(string $token): void
     {
-        $source = $token . " w{x}{.c} ![*alt*](u)\n\na {.o} b\n\n{.orphan}\n\n: ```\n  payload\n  ```\n";
+        $source = $token . " w{x}{.c} ![*alt*](u)\n\na {.o} b\n\n{.orphan}\n\n: ```\n  payload\n  ```\n\n{+unclosed\n";
         $converted = (new DjotToCarve())->convert($source);
         self::assertStringContainsString($token, $converted);
         self::assertStringNotContainsString("\0DJOT", str_replace($token, '', $converted));
@@ -44,6 +44,7 @@ final class DjotPlaceholderPrefixesTest extends TestCase
         self::assertStringContainsString('alt="alt"', $html);
         self::assertStringContainsString('<dd>', $html);
         self::assertStringContainsString('a  b', $html);
+        self::assertStringContainsString('{+unclosed', $html);
     }
 
     public function testFrontmatterKeepsUserPlaceholderText(): void
@@ -53,5 +54,14 @@ final class DjotPlaceholderPrefixesTest extends TestCase
         self::assertStringStartsWith($prefix, $converted);
         self::assertStringContainsString("\0DJOTWORD0\0", $converted);
         self::assertStringContainsString('class="c"', (new CarveConverter())->convert($converted));
+    }
+
+    public function testUserMarkersFormedByOrphanRemovalArePreserved(): void
+    {
+        foreach ([0, 7] as $index) {
+            $token = "\0DJOTWORD0\0" . $index . "\0";
+            $source = "\0{.a}DJOTWORD0\0" . $index . "\0 w{.c}";
+            self::assertSame($token . ' [w]{.c}', (new DjotToCarve())->convert($source));
+        }
     }
 }

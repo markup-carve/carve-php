@@ -56,10 +56,7 @@ final class DjotEmphasisRenderer
         private readonly array $validBraces = [],
         private readonly ?Closure $onFlattened = null,
     ) {
-        $this->literalPrefix = "\0DJOTLITERAL\0";
-        while (str_contains($source, $this->literalPrefix)) {
-            $this->literalPrefix .= "\0";
-        }
+        $this->literalPrefix = DjotPlaceholderPrefix::choose($source, "\0DJOTLITERAL\0");
         $lineStart = 0;
         $lineEnd = -1;
         $previous = '';
