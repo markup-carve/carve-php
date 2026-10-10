@@ -3143,6 +3143,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return '---' . static::escapeFormatToken($format);
     }
 
+    protected bool $renderedVerbatimTail = false;
+
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      *
@@ -3178,11 +3180,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $lineHostsCaption = false;
             $lineEndsInComment = false;
             $previousRendered = '';
+            $verbatimTail = false;
             for ($i = 0; $i < $count; $i++) {
                 foreach ($diagnosticsBefore[$i] ?? [] as $diagnostic) {
                     $this->recordUnspellableField($diagnostic->origin, $diagnostic->field, $diagnostic->message);
                 }
                 $node = $nodes[$i];
+                $this->renderedVerbatimTail = false;
                 if (
                     $this->inLineBlock > 0 && $node instanceof NonBreakingSpace && $node->getAttributeEntries() === []
                     && ($i === 0 || ($nodes[$i - 1] ?? null) instanceof HardBreak
@@ -3190,6 +3194,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         || ($nodes[$i + 1] ?? null) instanceof NonBreakingSpace)
                 ) {
                     $out .= $this->verbatimSentinels[0];
+                    $verbatimTail = false;
 
                     continue;
                 }
@@ -3206,6 +3211,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $i === $count - 1 && $this->inlineDepth === 1,
                         $lineEndsInComment,
                     );
+                    $verbatimTail = false;
                     $captionCanOpen = false;
                     $isFirstInlineLine = false;
                     $lineNodeCount = 0;
@@ -3222,6 +3228,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         }
                     }
                     $out .= $directive['source'];
+                    if ($directive['source'] !== '') {
+                        $verbatimTail = false;
+                    }
                     $i = $directive['end'];
 
                     continue;
@@ -3268,10 +3277,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $this->refuseGluedMention($node, $nodes[$i - 1] ?? null, $out, $previousRendered, $rendered);
                     // Two backtick runs that touch merge into one run, so an
                     // empty delimited comment separates them (PART 11 section 10k N3).
-                    if (str_starts_with($rendered, '`') && self::endsInABareBacktickRun($out)) {
+                    if (str_starts_with($rendered, '`') && (self::endsInABareBacktickRun($out) || (str_ends_with($out, '`') && $verbatimTail))) {
                         $out .= self::VERBATIM_SEPARATOR;
                     }
                     $out .= $rendered;
+                    if ($rendered !== '') {
+                        $verbatimTail = str_ends_with($rendered, '`') && ($this->renderedVerbatimTail || $node instanceof Code || $node instanceof Math || $node instanceof LiteralInline);
+                    }
                     $previousRendered = $rendered;
                     if ($node instanceof SoftBreak) {
                         $captionCanOpen = $isFirstInlineLine && $lineNodeCount === 1 && $lineHostsCaption;
@@ -3286,6 +3298,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $captionCanOpen = false;
                     $lineEndsInComment = false;
                 } elseif ($node instanceof Comment) {
+                    $verbatimTail = false;
                     $content = $node->getContent();
                     // THE UNIT IS THE OPENER (PART 11 §2a [CARVE-P11-008]). A
                     // percent-leading content joins the marker, so `%%%` is not
@@ -3340,6 +3353,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             foreach ($diagnosticsBefore[$count] ?? [] as $diagnostic) {
                 $this->recordUnspellableField($diagnostic->origin, $diagnostic->field, $diagnostic->message);
             }
+
+            $this->renderedVerbatimTail = $verbatimTail;
 
             return $out;
         } finally {
