@@ -171,12 +171,16 @@ final class DjotEmphasisRenderer
 
                 continue;
             }
-            if ($this->mask[$i] === $ch && (str_contains('~^', $ch) || (str_contains('_*', $ch) && !isset($this->structural[$i])) || isset($this->literalBrackets[$i]))) {
+            if ($this->mask[$i] === $ch && ((str_contains('~^_*', $ch) && !isset($this->structural[$i])) || isset($this->literalBrackets[$i]))) {
                 $token = $this->literalPrefix . count($this->literals) . "\0";
                 $this->literals[$token] = '\\' . $ch;
                 $text .= $token;
             } else {
                 $text .= isset($this->literalDashes[$i]) ? '\\-' : $ch;
+                if ($ch === '^' && isset($this->structural[$i]) && ($this->source[$i + 1] ?? '') === "\t") {
+                    $text .= ' ';
+                    $i++;
+                }
             }
         }
 

@@ -144,6 +144,9 @@ final class DjotEmphasis
         $previousBlank = true;
         $container = false;
         $listColumn = null;
+        $tableColumn = null;
+        $tableQuoteDepth = null;
+        $captionLine = false;
         $clear = static function (int $from) use (&$openers): void {
             foreach ($openers as &$stack) {
                 while ($stack !== [] && $stack[array_key_last($stack)]['start'] >= $from) {
@@ -162,6 +165,14 @@ final class DjotEmphasis
                 $lineEnd = $end === false ? $length : $end;
                 $rawLine = substr($source, $i, $lineEnd - $i);
                 $structuralEnd = $i + self::structuralPrefixEnd($rawLine);
+                $prefix = substr($rawLine, 0, $structuralEnd - $i);
+                $quoteDepth = substr_count($prefix, '>');
+                $captionLine = $tableColumn !== null && strlen($prefix) >= $tableColumn && $quoteDepth === $tableQuoteDepth;
+                if (trim(substr($rawLine, strlen($prefix))) !== '') {
+                    $tableLine = ($source[$structuralEnd] ?? '') === '|' && ($mask[$structuralEnd] ?? '') === '|';
+                    $tableColumn = $tableLine ? strlen($prefix) : null;
+                    $tableQuoteDepth = $tableLine ? $quoteDepth : null;
+                }
                 $thematicLine = preg_match(self::THEMATIC_STAR_LINE, $rawLine) === 1;
                 $line = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', $rawLine) ?? '';
                 preg_match('/^[ \t]*/', $line, $indentMatch);
@@ -230,6 +241,11 @@ final class DjotEmphasis
                 continue;
             }
             if ($ch !== '_' && $ch !== '*' && !str_contains('~^', $ch)) {
+                continue;
+            }
+            if ($ch === '^' && $captionLine && $i === $structuralEnd && ($i === $lineStart || str_contains(" \t", $source[$i - 1])) && isset($source[$i + 1]) && str_contains(" \t", $source[$i + 1])) {
+                $structural[$i] = true;
+
                 continue;
             }
             if ($ch === '*' && $i <= $structuralEnd) {

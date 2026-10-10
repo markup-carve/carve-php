@@ -184,7 +184,8 @@ class DjotToCarve
         [$source, $inherited] = $this->escapeInvalidDjotAttributes($source);
         $source = $this->normalizeDjotFences($this->normalizeDjotAttributeLines($source));
         $source = $this->normalizeDjotReferenceUses($this->normalizeDjotStructure($source));
-        $source = $this->normalizeDjotFootnotes($this->foldDjotReferences($source), $strippedDefinitions['isBoundary'], $inherited);
+        $emptyNote = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYNOTE\x00");
+        $source = $this->normalizeDjotFootnotes($this->foldDjotReferences($source), $strippedDefinitions['isBoundary'], $inherited, $emptyNote);
         $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->escapeDjotNonTableRows($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source, $inherited))))));
         $source = $this->normalizeDjotInlineSpellings($source);
         $collapsedMask = $this->maskCodeAndDestinations($source);
@@ -246,6 +247,7 @@ class DjotToCarve
         $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source));
 
         $carve = str_replace($emptyTerm, '%%', $carve);
+        $carve = str_replace($emptyNote, '%%%%', $carve);
         $carve = strtr($carve, $orphanSpans + $strongSpans);
         $dropInherited = array_fill_keys(array_keys($inherited), '');
         $carve = strtr($carve, $dropInherited);
@@ -2979,8 +2981,9 @@ class DjotToCarve
      * @param string $source
      * @param \Closure|null $isDefinitionBoundary
      * @param array<string, true> $inherited
+     * @param string $emptyNote
      */
-    private function normalizeDjotFootnotes(string $source, ?Closure $isDefinitionBoundary = null, array $inherited = []): string
+    private function normalizeDjotFootnotes(string $source, ?Closure $isDefinitionBoundary = null, array $inherited = [], string $emptyNote = '%%%%'): string
     {
         if (!str_contains($source, '[^')) {
             return $source;
@@ -3221,7 +3224,7 @@ class DjotToCarve
                 $output .= $rename || $key !== substr($source, $i + 2, $end - $i - 2) ? '[^' . $name . ']' : substr($source, $i, $end + 1 - $i);
                 $i = $end + 1;
                 if ($definition !== null && isset($emptyDefinitions[$at])) {
-                    $output .= ': %%%%';
+                    $output .= ': ' . $emptyNote;
                     $i++;
                 }
                 if ($definition === null && ($source[$i] ?? '') === ':' && isset($lineHeads[$at])) {
@@ -3236,7 +3239,7 @@ class DjotToCarve
         $stubs = [];
         foreach ($used as $key => $_) {
             if (!isset($defined[$key])) {
-                $stubs[] = '[^' . $alias((string)$key) . ']: %%%%';
+                $stubs[] = '[^' . $alias((string)$key) . ']: ' . $emptyNote;
             }
         }
 
