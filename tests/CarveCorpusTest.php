@@ -1122,6 +1122,7 @@ class CarveCorpusTest extends TestCase
         // this engine, measured before this entry was added, so the category is
         // declared rather than deferred and KNOWN_GAPS stays empty.
         'a-description-body-whose-own-block-is-a-fence-keeps-no-line-below-its-column',
+        'a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run',
     ];
 
     /**

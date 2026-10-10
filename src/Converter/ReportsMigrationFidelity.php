@@ -51,7 +51,7 @@ trait ReportsMigrationFidelity
         . 'Carve spells no leading whitespace on a paragraph';
 
     /**
-     * The same character at a HEADING's head, which Carve spells no better.
+     * A decoded space at a heading's head folds into its marker separator.
      *
      * A heading's marker separator is a run of spaces and none of it is
      * content, so widening the separator keeps bytes rather than the
@@ -61,8 +61,14 @@ trait ReportsMigrationFidelity
      *
      * @var string
      */
-    public const HEADING_LEADING_WHITESPACE_UNSPELLABLE = 'Dropped whitespace a decoded reference put at the start of a heading; '
-        . "Carve spells no leading whitespace after a heading's marker";
+    public const HEADING_LEADING_WHITESPACE_UNSPELLABLE = 'Dropped spaces a decoded reference put at the start of a heading; '
+        . "Carve folds leading spaces into a heading's marker separator";
+
+    /**
+     * @var string
+     */
+    public const HEADING_WHITESPACE_RAW_PRESERVED = 'Preserved whitespace-only heading content as raw inline HTML; '
+        . 'targets and profiles that omit raw HTML lose its whitespace';
 
     protected function assessedMigrationResult(
         string $source,

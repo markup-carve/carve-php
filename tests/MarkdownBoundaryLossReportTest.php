@@ -104,7 +104,7 @@ class MarkdownBoundaryLossReportTest extends TestCase
                 ["<span class=\"critic-comment\">note</span>\n[l]()\n===\n", ['line:2']],
                 ["<del class=\"critic-delete\">abc</del>\n[l]()\n===\n", ['line:2']],
                 ["[a](<b>) [a](<b>) [a](<b>)\n[l]()\n===\n", ['line:2']],
-                ["[a](<b>) [l]()\n[l]()\n===\n", [null, null]],
+                ["[a](<b>) [l]()\n[l]()\n===\n", ['line:1', 'line:2']],
                 ["<span>[l]()</span>\n[l]()\n===\n", ['line:1', 'line:2']],
                 ["<a href=\"[l]()\">x</a>\n[l]()\n===\n", ['line:2']],
                 ["[![i](<u>)]()\nx\n===\n", [null]],

@@ -116,7 +116,6 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
             'the ticket shape' => ['# &#32;head', '# head'],
             'a level-2 heading' => ['## &#32;h2', '## h2'],
             'a level-6 heading' => ['###### &#32;h6', '###### h6'],
-            'a tab' => ['# &#9;tab', '# tab'],
             'a run of references' => ['# &#32;&#32;two', '# two'],
             // Past the marker there is no block to open, so nothing is escaped.
             'an uncovered bullet' => ['# &#32;- x', '# - x'],
@@ -185,12 +184,69 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
         )));
     }
 
-    /**
-     * The separator goes with it when the decode WAS the heading's content.
-     */
-    public function testAnEmptiedHeadingKeepsOnlyItsMarker(): void
+    public function testADecodedTabSurvivesAHeadingHead(): void
     {
-        $this->assertSame("#\n", (new MarkdownToCarve())->convert("# &#32;\n"));
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("# &#9;tab\n");
+
+        $this->assertSame("# \ttab\n", $result->value);
+        $this->assertSame([], array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped',
+        )));
+    }
+
+    public function testAnEmptiedHeadingRemainsAHeading(): void
+    {
+        $this->assertSame("# ` `{=html}\n", (new MarkdownToCarve())->convert("# &#32;\n"));
+        $this->assertSame("> # ` `{=html}\n", (new MarkdownToCarve())->convert("> # &#32;\n"));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function whitespaceOnlyHeadings(): array
+    {
+        return [
+            'space' => ["# &#32;\n", ' '],
+            'trailing authored spaces' => ["# &#32;  \n", ' '],
+            'quoted trailing spaces' => ["> # &#32;  \n", ' '],
+            'list trailing spaces' => ["- # &#32;  \n", ' '],
+            'internal authored space' => ["# &#32; &#32;\n", '   '],
+            'tab' => ["# &#9;\n", "\t"],
+            'space then tab' => ["# &#32;&#9;\n", " \t"],
+            'tab then space' => ["# &#9;&#32;\n", "\t "],
+            'quoted' => ["> # &#32;\n", ' '],
+            'list item' => ["- # &#32;\n", ' '],
+            'ordered item' => ["1. # &#32;\n", ' '],
+            'quoted item' => ["> - # &#32;\n", ' '],
+            'setext item' => ["- &#32;\n  ===\n", ' '],
+            'setext after paragraph' => ["- a\n\n  &#32;\n  ===\n", ' '],
+        ];
+    }
+
+    #[DataProvider('whitespaceOnlyHeadings')]
+    public function testWhitespaceOnlyHeadingContentSurvivesContainers(string $markdown, string $whitespace): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+        $html = (new CarveConverter())->convert($result->value);
+
+        $this->assertMatchesRegularExpression('/<h1[^>]*>' . preg_quote($whitespace, '/') . '<\/h1>/', $html);
+        if (str_contains($markdown, '- ') || str_starts_with($markdown, '1. ')) {
+            $this->assertSame(1, substr_count($html, '<li>'));
+        }
+        $this->assertSame([], array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped' && $row->confidence === 'exact',
+        )));
+        $preserved = array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->message === MarkdownToCarve::HEADING_WHITESPACE_RAW_PRESERVED,
+        ));
+        $this->assertCount(1, $preserved);
+        $this->assertSame('raw-preserved', $preserved[0]->code);
+        $this->assertSame('warning', $preserved[0]->severity);
+        $this->assertSame('degraded', $preserved[0]->fidelity);
+        $this->assertSame('exact', $preserved[0]->confidence);
     }
 
     /**

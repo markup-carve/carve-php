@@ -14,6 +14,7 @@ final class MarkdownEmphasis
      * @param \Closure|null $onStep
      * @param array<string> $protectedSpans
      * @param bool $plainText
+     * @param bool $strikethrough
      */
     public static function convert(
         string $source,
@@ -21,6 +22,7 @@ final class MarkdownEmphasis
         ?Closure $onStep = null,
         array $protectedSpans = [],
         bool $plainText = false,
+        bool $strikethrough = false,
     ): string {
         $neighbor = static function (int $offset, bool $left) use ($source, $protectedSpans): string {
             $index = $left ? $offset - 1 : $offset;
@@ -43,8 +45,11 @@ final class MarkdownEmphasis
         $pairs = [];
         $claimed = [];
         $literalEscapes = [];
-        preg_match_all('/\*+|_+/', $source, $matches, PREG_OFFSET_CAPTURE);
+        preg_match_all($strikethrough ? '/\*+|_+|~+/' : '/\*+|_+/', $source, $matches, PREG_OFFSET_CAPTURE);
         foreach ($matches[0] as [$text, $start]) {
+            if ($text[0] === '~' && strlen($text) > 2) {
+                continue;
+            }
             $end = $start + strlen($text);
             if (($source[$start - 1] ?? '') === '\\' && $start > 0) {
                 continue;
@@ -63,8 +68,8 @@ final class MarkdownEmphasis
                 $start,
                 $end,
                 $text[0],
-                $left && ($text[0] === '*' || !$right || $beforePunct),
-                $right && ($text[0] === '*' || !$left || $afterPunct),
+                $left && ($text[0] !== '_' || !$right || $beforePunct),
+                $right && ($text[0] !== '_' || !$left || $afterPunct),
             );
         }
         $brackets = self::bracketRuns($source, $protectedSpans);
@@ -105,7 +110,10 @@ final class MarkdownEmphasis
                     }
                     $a = $opener->remaining();
                     $b = $closer->remaining();
-                    if (($opener->close || $closer->open) && ($a + $b) % 3 === 0 && ($a % 3 !== 0 || $b % 3 !== 0)) {
+                    if ($closer->char === '~' && $a !== $b) {
+                        continue;
+                    }
+                    if ($closer->char !== '~' && ($opener->close || $closer->open) && ($a + $b) % 3 === 0 && ($a % 3 !== 0 || $b % 3 !== 0)) {
                         continue;
                     }
 
@@ -118,7 +126,7 @@ final class MarkdownEmphasis
                 }
                 $width = min($runs[$o]->remaining(), $closer->remaining()) >= 2 ? 2 : 1;
                 $open = $runs[$o]->end - $runs[$o]->right - $width;
-                $pairs[$open] = ['close' => $closer->start + $closer->left, 'width' => $width, 'kind' => $width === 2 ? '*' : '/', 'scope' => $closer->scope];
+                $pairs[$open] = ['close' => $closer->start + $closer->left, 'width' => $width, 'kind' => $closer->char === '~' ? '~' : ($width === 2 ? '*' : '/'), 'scope' => $closer->scope];
                 for ($k = 0; $k < $width; $k++) {
                     $claimed[$open + $k] = true;
                     $claimed[$closer->start + $closer->left + $k] = true;

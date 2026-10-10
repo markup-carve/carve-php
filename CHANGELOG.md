@@ -16,6 +16,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Markdown fragment links to headings with hard breaks use GitHub’s text anchor (#3043).
 
 - Markdown export preserves terminal hard breaks and hard breaks in headings with inline HTML. A break-only paragraph stays a paragraph in GFM readers.
+- Markdown import preserves HTML code payloads, decodes CommonMark character references, keeps adjacent spans separate and reports code that must remain raw HTML.
 
 - Nested list continuation claims follow the current paragraph. Formatting preserves parent paragraphs after sublists, and quoted fence lookahead keeps source indentation and quote depth (carve-php#3036).
 - Markdown code spans preserve significant edge spaces. Empty spans and payloads containing tabs or newlines use an inline HTML fallback that preserves the code text.

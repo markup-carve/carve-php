@@ -583,9 +583,9 @@ bar
                 '\*literal\* and \_keep\_',
                 '\*literal\* and \_keep\_',
             ],
-            'does not convert delimiters inside <code>' => [
+            'keeps native Markdown emphasis inside HTML code' => [
                 '<code>*x* _y_</code>',
-                '`*x* _y_`',
+                '`<code>`{=html}/x/ /y/`</code>`{=html}',
             ],
             'preserves a lazy blockquote continuation' => [
                 "> quote\ntext",

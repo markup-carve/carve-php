@@ -198,6 +198,7 @@ CRV;
         $paths = glob(__DIR__ . '/../../spec/tests/corpus/*.crv');
         self::assertIsArray($paths);
         $accepted = ['tier2' => 0, 'events' => 0];
+        $acceptedFiles = ['tier2' => [], 'events' => []];
         foreach ($paths as $path) {
             $source = file_get_contents($path);
             self::assertIsString($source);
@@ -211,6 +212,7 @@ CRV;
                     continue;
                 }
                 $accepted[$profile]++;
+                $acceptedFiles[$profile][] = basename($path);
                 self::assertSame(
                     $this->authoritative($extensions)->convert($source),
                     $attempt['html'],
@@ -219,8 +221,12 @@ CRV;
             }
         }
 
-        // The new 549 all-dot list (-2) is accepted on both configured routes.
-        self::assertSame(['tier2' => 60, 'events' => 60], $accepted, 'A configured fast-path routing change needs explicit review.');
+        foreach ($acceptedFiles as $profile => $files) {
+            self::assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-3.crv', $files, $profile);
+            self::assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-4.crv', $files, $profile);
+        }
+        // Corpus 550 adds two thematic-rule documents on both configured routes.
+        self::assertSame(['tier2' => 62, 'events' => 62], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

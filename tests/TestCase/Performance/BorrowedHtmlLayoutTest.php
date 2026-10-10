@@ -186,6 +186,7 @@ CRV;
         $layout = new BorrowedHtmlLayout();
         $converter = $this->authoritative();
         $accepted = 0;
+        $acceptedFiles = [];
         $paths = glob(__DIR__ . '/../../spec/tests/corpus/*.crv');
         $this->assertIsArray($paths);
         foreach ($paths as $path) {
@@ -196,11 +197,14 @@ CRV;
                 continue;
             }
             $accepted++;
+            $acceptedFiles[] = basename($path);
             $this->assertSame($converter->convert($source), $attempt['html'], basename($path));
         }
 
-        // The new 549 delimiter corpus adds one accepted source: its all-dot list (-2).
-        $this->assertSame(60, $accepted, 'A fast-path routing change needs explicit review.');
+        $this->assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-3.crv', $acceptedFiles);
+        $this->assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-4.crv', $acceptedFiles);
+        // Corpus 550 adds two accepted thematic-rule documents.
+        $this->assertSame(62, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void
