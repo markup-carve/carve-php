@@ -37,6 +37,18 @@ class CitationsExtensionTest extends TestCase
         }
     }
 
+    /**
+     * The pair sits PAST the cache step, which is one size class later on a
+     * shared runner than it is here.
+     *
+     * 16384 against 65536 straddled it: per-byte cost on the runner reads
+     * 0.0470, 0.0513, 0.0649, 0.0641, 0.0643us/B at 4096, 16384, 65536, 262144
+     * and 1048576 items, so the step lands between 16384 and 65536 and costs
+     * 1.27x before any noise. The guard measured 3.09x and 3.34x on two red runs
+     * hours apart on commits that touched nothing of this (carve-php#3051),
+     * 1.37x on a third, and 0.90-0.98x idle. From 65536 on the curve is flat,
+     * so a ratio there is growth rather than cache.
+     */
     #[Group('scaling')]
     public function testPublicCitationPositionSetterScalesLinearly(): void
     {
@@ -47,11 +59,11 @@ class CitationsExtensionTest extends TestCase
                 $length = mb_strlen($raw, 'UTF-8');
                 $group->setPos(new SourceSpan(1, 1, 1, $length + 1, 0, $length));
             },
-            '[' . implode('; ', array_fill(0, 16384, '@a')) . ']',
             '[' . implode('; ', array_fill(0, 65536, '@a')) . ']',
+            '[' . implode('; ', array_fill(0, 262144, '@a')) . ']',
             'citation item position setter',
-            16384,
             65536,
+            262144,
         );
     }
 
