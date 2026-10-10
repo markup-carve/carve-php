@@ -5322,6 +5322,16 @@ class MarkdownToCarve
         $contentPrefix = preg_match('/^[ \t]*(?:>[ \t]?|[-*+][ \t]+|(?:[0-9]{1,9}|[A-Za-z])[.)][ \t]+)*/', $line, $prefixMatch) === 1
             ? $prefixMatch[0]
             : '';
+        // A heading's marker separator is a run of spaces and none of it is
+        // content, so the head of a heading's CONTENT sits past the marker too
+        // (markup-carve/carve-rs#2449).
+        // Not in a table cell: a `#` run there is literal text, and the space
+        // after it is content Carve holds.
+        $headingHead = !$table
+            && preg_match('/^#{1,6}[ \t]/', substr($line, strlen($contentPrefix)), $headingMatch) === 1;
+        if ($headingHead) {
+            $contentPrefix .= $headingMatch[0];
+        }
         $bareContentStart = !str_contains(" \t", substr($line, strlen($contentPrefix), 1) ?: 'x');
         $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
@@ -5574,7 +5584,7 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
-        $line = $this->dropDecodedLeadingWhitespace($line, $protected, $bareContentStart, $contentPrefix);
+        $line = $this->dropDecodedLeadingWhitespace($line, $protected, $bareContentStart, $contentPrefix, $headingHead);
 
         $closers = [];
         $line = $this->protectClosersOfLinksHoldingALink($line, $protected, $protect, $closers);
@@ -7179,9 +7189,15 @@ class MarkdownToCarve
      * @param array<int, string> $protected
      * @param bool $bareContentStart
      * @param string $contentPrefix
+     * @param bool $headingHead
      */
-    private function dropDecodedLeadingWhitespace(string $line, array &$protected, bool $bareContentStart, string $contentPrefix): string
-    {
+    private function dropDecodedLeadingWhitespace(
+        string $line,
+        array &$protected,
+        bool $bareContentStart,
+        string $contentPrefix,
+        bool $headingHead = false,
+    ): string {
         if (!$bareContentStart || $this->inlineRunContinuesPrevious || !str_starts_with($line, $contentPrefix)) {
             return $line;
         }
@@ -7203,12 +7219,21 @@ class MarkdownToCarve
 
         $this->leadingWhitespaceDiagnostics[] = new MigrationDiagnostic(
             'structure-unspellable',
-            self::LEADING_WHITESPACE_UNSPELLABLE,
+            $headingHead ? self::HEADING_LEADING_WHITESPACE_UNSPELLABLE : self::LEADING_WHITESPACE_UNSPELLABLE,
             'warning',
             'dropped',
             'exact',
             $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
         );
+
+        // Past a heading marker there is no block to open, so what the drop
+        // uncovers needs no escape: `# &#32;- x` is the heading `# - x`.
+        if ($headingHead) {
+            // Nothing is left but the separator when the decode WAS the
+            // content, and a separator with no content behind it is not
+            // canonical either.
+            return $content === '' ? rtrim($contentPrefix) : $contentPrefix . $content;
+        }
 
         // The uncovered opener can itself be a DECODED character, a protected
         // span by now, so that escape goes inside the span: without it
