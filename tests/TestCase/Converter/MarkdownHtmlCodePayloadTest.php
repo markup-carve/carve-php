@@ -9,6 +9,7 @@ use DOMElement;
 use DOMNode;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\SafeMode;
 use PHPUnit\Framework\TestCase;
 
 class MarkdownHtmlCodePayloadTest extends TestCase
@@ -23,7 +24,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
                 $expected = [['value' => $case['value'], 'ancestors' => array_values(array_diff($case['ancestors'], ['tbody'])), 'elements' => []]];
                 $this->assertSame($expected, $this->records($html)['codes'], $case['template'] . ': ' . json_encode($case['value']));
                 $fallback = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback'));
-                $this->assertCount($case['value'] === '' || strpbrk($case['value'], "\r\n") !== false ? 1 : 0, $fallback);
+                $this->assertCount(str_contains($result->value, '{=html}') ? 1 : 0, $fallback);
                 foreach ($fallback as $row) {
                     $this->assertSame('degraded', $row->fidelity);
                     $this->assertSame('exact', $row->confidence);
@@ -38,7 +39,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         $cases = json_decode(file_get_contents(dirname(__DIR__, 2) . '/fixtures/markdown-html-code-controls.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ([false, true] as $convertRawHtml) {
             foreach ($cases as $case) {
-                if ($convertRawHtml && $case['codes'] === []) {
+                if ($convertRawHtml && (str_starts_with($case['markdown'], '<?') || str_contains($case['markdown'], '<span title='))) {
                     continue;
                 }
                 $source = (new MarkdownToCarve(convertRawHtml: $convertRawHtml))->convert($case['markdown']);
@@ -50,6 +51,16 @@ class MarkdownHtmlCodePayloadTest extends TestCase
                     $this->assertSame($this->records($case['nativeHtml']), $this->records($html), ($convertRawHtml ? 'converted: ' : 'verbatim: ') . $case['markdown']);
                 }
             }
+        }
+    }
+
+    public function testNativeParagraphCodeSurvivesRawHtmlStripping(): void
+    {
+        foreach ([false, true] as $mode) {
+            $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport('<code>a<!---->&#10;<!---->b</code>');
+            $this->assertSame([], array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback')));
+            $safe = SafeMode::defaults()->setRawHtmlMode(SafeMode::RAW_HTML_STRIP);
+            $this->assertSame("<p><code>a\nb</code></p>", rtrim((new CarveConverter(safeMode: $safe))->convert($result->value), "\n"));
         }
     }
 
@@ -68,11 +79,21 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
         $codes = [];
         $roots = [];
-        $visit = function (DOMNode $node, array $ancestors = []) use (&$visit, &$codes, &$roots): void {
+        $attributes = [];
+        $visit = function (DOMNode $node, array $ancestors = []) use (&$visit, &$codes, &$roots, &$attributes): void {
             $next = $ancestors;
             // libxml omits the table body that HTML5 readers insert.
             if ($node instanceof DOMElement && !in_array($node->tagName, ['html', 'head', 'body', 'section', 'tbody'], true)) {
                 $next[] = $node->tagName;
+            }
+            if ($node instanceof DOMElement && in_array($node->tagName, ['a', 'img'], true)) {
+                $row = ['tag' => $node->tagName];
+                foreach (['href', 'title', 'src', 'alt'] as $name) {
+                    if ($node->hasAttribute($name)) {
+                        $row[$name] = $node->getAttribute($name);
+                    }
+                }
+                $attributes[] = $row;
             }
             if ($node instanceof DOMElement && $node->tagName === 'code') {
                 $elements = [];
@@ -92,6 +113,6 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         };
         $visit($dom);
 
-        return ['codes' => $codes, 'roots' => $roots];
+        return ['codes' => $codes, 'roots' => $roots, 'attributes' => $attributes];
     }
 }
