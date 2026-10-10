@@ -1147,6 +1147,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
             foreach ($this->staticRenderExtensions as $extension) {
                 if ($extension->renderStaticHtml($event, $this)) {
+                    $this->getRenderContext()->headingRawCodeTracker?->invalidate();
+
                     return $event->getHtml() ?? '';
                 }
             }
@@ -1168,6 +1170,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
             // If listener provided custom HTML, use it
             if ($event->isDefaultPrevented()) {
+                $this->getRenderContext()->headingRawCodeTracker?->invalidate();
+
                 return $event->getHtml() ?? '';
             }
         }

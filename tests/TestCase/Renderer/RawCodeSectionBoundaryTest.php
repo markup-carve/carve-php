@@ -176,4 +176,26 @@ class RawCodeSectionBoundaryTest extends TestCase
             $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
         }
     }
+
+    public function testUnfinishedRawTextOrCommentKeepsTheSeparator(): void
+    {
+        foreach (['<!--', '<script>', '<style>', '<title>', '<textarea>', '<xmp>'] as $tag) {
+            $source = '# `<code>`{=html}`' . $tag . '`{=html}x';
+            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        }
+    }
+
+    public function testCustomRawCloserKeepsTheSeparator(): void
+    {
+        $renderer = new HtmlRenderer();
+        $renderer->on('render.raw_inline', static function (RenderEvent $event): void {
+            $node = $event->getNode();
+            if ($node instanceof RawInline && $node->getContent() === '</code>') {
+                $event->setHtml('</code>');
+                $event->preventDefault();
+            }
+        });
+        $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x`</code>`{=html}');
+        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
+    }
 }

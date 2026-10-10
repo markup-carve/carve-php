@@ -75,6 +75,6 @@ final class HeadingRawCodeTracker
 
     public function hasOpenCode(): bool
     {
-        return $this->wholeTags && $this->depth > 0;
+        return $this->wholeTags && !$this->comment && $this->rawTextTag === null && $this->depth > 0;
     }
 }
