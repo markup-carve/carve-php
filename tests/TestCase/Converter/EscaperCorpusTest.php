@@ -63,25 +63,11 @@ class EscaperCorpusTest extends TestCase
     }
 
     /**
-     * Cases whose corpus expectation is wrong against every engine's own reader,
-     * with the spelling derived from the reader instead.
-     *
-     * `tripled-percent-is-not-an-opener` expects `a %%%c b` unchanged. A comment
-     * opens on the first two UNESCAPED percent signs and a third sign does not
-     * stop it, so the bare run renders `<p>a</p>` in carve-php, carve-js and
-     * carve-rs alike and the rest of the line is gone. One escape on the first
-     * sign is the whole of what the run owes. The corpus is corrected in
-     * markup-carve/carve#2866 (PR #2867); until the pin carries it, the derived
-     * spelling is what this engine is held to.
-     *
-     * `testEveryOverrideStillContradictsTheCorpus` removes this entry's reason
-     * to exist the moment the pin moves.
+     * Expectations that still precede the pinned corpus.
      *
      * @var array<string, string>
      */
-    protected const DERIVED_EXPECTATIONS = [
-        'tripled-percent-is-not-an-opener' => 'a \\%%%c b',
-    ];
+    protected const DERIVED_EXPECTATIONS = [];
 
     /**
      * The profiles THIS engine can produce, by the corpus's names.
@@ -268,6 +254,8 @@ class EscaperCorpusTest extends TestCase
         foreach (self::corpus()['cases'] as $case) {
             $expectations[$case['name']] = $case['expected'];
         }
+
+        self::assertNotEmpty($expectations, 'The escape corpus must contain cases.');
 
         foreach (self::DERIVED_EXPECTATIONS as $name => $derived) {
             $this->assertArrayHasKey($name, $expectations, "the corpus no longer carries {$name}");

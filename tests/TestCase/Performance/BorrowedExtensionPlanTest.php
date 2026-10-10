@@ -224,9 +224,12 @@ CRV;
         foreach ($acceptedFiles as $profile => $files) {
             self::assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-3.crv', $files, $profile);
             self::assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-4.crv', $files, $profile);
+            self::assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan.crv', $files, $profile);
+            self::assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-2.crv', $files, $profile);
+            self::assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-3.crv', $files, $profile);
         }
-        // Corpus 550 adds two thematic-rule documents on both configured routes.
-        self::assertSame(['tier2' => 62, 'events' => 62], $accepted, 'A configured fast-path routing change needs explicit review.');
+        // Corpus 551 adds three link documents on both configured routes.
+        self::assertSame(['tier2' => 65, 'events' => 65], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]
