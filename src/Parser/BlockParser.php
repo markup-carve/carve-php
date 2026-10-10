@@ -4774,7 +4774,17 @@ class BlockParser
                         ? $folded
                         : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
                 );
-                if ($trailingState->openParagraph && !$this->isContinuationMarker($nextTrimmed)) {
+                if (
+                    $bareContinuationLead
+                    && $trailingState->openParagraph
+                    && !$this->isContinuationMarker($nextTrimmed)
+                    && $this->advanceTrailingState(
+                        new TrailingBlockState(),
+                        str_starts_with($folded, self::LAZY_FRAME)
+                            ? $folded
+                            : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
+                    )->openParagraph
+                ) {
                     $bareContinuationLead = false;
                 }
                 $i++;

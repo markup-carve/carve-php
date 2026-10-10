@@ -46,5 +46,37 @@
   {
     "source": "- - +\n    | a |\n x\n",
     "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n%% c\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    # H\n%% c\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    :: term\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <dl>\n          <dt>term\nx</dt>\n        </dl>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    ^ cap\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>^ cap\nx</li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    : def\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>: def\nx</li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    ![a](b)\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li><img src=\"b\" alt=\"a\">\nx</li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    > q\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote><p>q\nx</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "source": "- - +\n    ```\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   }
 ]
