@@ -70,6 +70,18 @@ final class CarrierMarkers
     }
 
     /**
+     * Whether a payload is a composite figure's caption line, which travels in
+     * a marker of its own directly after the closer (PART 11 §10s).
+     *
+     * The caption slot hangs BELOW the closing fence, so the pair bracketing
+     * the container cannot enclose it.
+     */
+    public static function isCaption(string $payload): bool
+    {
+        return preg_match('/^\^[ \t]/', $payload) === 1;
+    }
+
+    /**
      * Whether a colon-fence payload is a bare closer.
      */
     public static function isCloser(string $payload): bool

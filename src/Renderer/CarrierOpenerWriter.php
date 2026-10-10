@@ -18,7 +18,7 @@ use MarkupCarve\Carve\Node\Node;
 final class CarrierOpenerWriter extends CarveRenderer
 {
     /**
-     * @return array{prelude: list<string>, opener: string, closer: string}|null
+     * @return array{prelude: list<string>, opener: string, closer: string, postlude: list<string>}|null
      */
     public function spell(Node $node, int $depth): ?array
     {
@@ -39,10 +39,21 @@ final class CarrierOpenerWriter extends CarveRenderer
             return null;
         }
 
+        // A COMPOSITE FIGURE'S CAPTION LINE HANGS BELOW THE CLOSER, so the
+        // canonical spelling of the container puts it after the closing fence.
+        // It travels the way an attribute line above an opener does.
+        $postlude = [];
+        foreach (array_slice($lines, $close + 1) as $line) {
+            if ($line !== '') {
+                $postlude[] = $line;
+            }
+        }
+
         return [
             'prelude' => array_slice($lines, 0, $open),
             'opener' => $lines[$open],
             'closer' => $lines[$close],
+            'postlude' => $postlude,
         ];
     }
 

@@ -288,7 +288,7 @@ class MarkdownToCarve
      * The carrier payloads this conversion lifted out of the source, in the
      * order their marker lines appeared.
      *
-     * @var list<array{payload: string, closer: bool}>
+     * @var list<array{payload: string, closer: bool, caption: bool}>
      */
     protected array $carrierSlots = [];
 
@@ -382,6 +382,7 @@ class MarkdownToCarve
         $out = [];
         $drop = 0;
         $skipBlank = false;
+        $last = count($lines) - 1;
         foreach ($lines as $at => $line) {
             if (!isset($payloads[$at])) {
                 if ($drop > 0 && preg_match('/^\*\*.+\*\*$/D', $line) === 1) {
@@ -390,7 +391,10 @@ class MarkdownToCarve
 
                     continue;
                 }
-                if ($skipBlank && $line === '') {
+                // The LAST element is the source's trailing newline, not a
+                // separator the dropped fallback brought with it: consuming it
+                // would leave the Carve output without its own final newline.
+                if ($skipBlank && $at !== $last && $line === '') {
                     $skipBlank = false;
 
                     continue;
@@ -403,10 +407,16 @@ class MarkdownToCarve
             $payload = $payloads[$at];
             $closer = CarrierMarkers::isCloser($payload);
             $out[] = $token . count($this->carrierSlots) . 'Z';
-            $this->carrierSlots[] = ['payload' => $payload, 'closer' => $closer];
-            // The writer emitted the opener's title and label as bold lines of
-            // their own; the payload carries them now, so the fallback would be
-            // the same text twice.
+            $this->carrierSlots[] = [
+                'payload' => $payload,
+                'closer' => $closer,
+                'caption' => CarrierMarkers::isCaption($payload),
+            ];
+            // The writer emitted the opener's title and label, and a group
+            // caption, as bold lines of their own; the payload carries them
+            // now, so the fallback would be the same text twice. A CAPTION
+            // MARKER REPLACES ITS RENDERED PARAGRAPH rather than adding a
+            // second copy of it (PART 11 §10s).
             $drop = $closer ? 0 : $this->carrierFallbackLines($payload);
         }
 
@@ -419,6 +429,9 @@ class MarkdownToCarve
      */
     protected function carrierFallbackLines(string $payload): int
     {
+        if (CarrierMarkers::isCaption($payload)) {
+            return 1;
+        }
         $width = CarrierMarkers::fenceWidth($payload);
         if ($width === 0) {
             return 0;
@@ -447,11 +460,23 @@ class MarkdownToCarve
     {
         $open = [];
         $prelude = false;
+        $closed = false;
         foreach ($payloads as $payload) {
+            if (CarrierMarkers::isCaption($payload)) {
+                // A caption line belongs to the container the marker before it
+                // closed, so one standing anywhere else records nothing.
+                if ($prelude || !$closed) {
+                    return false;
+                }
+                $closed = false;
+
+                continue;
+            }
             $width = CarrierMarkers::fenceWidth($payload);
             if ($width === 0) {
                 // An attribute line belongs to the opener on the next marker.
                 $prelude = true;
+                $closed = false;
 
                 continue;
             }
@@ -459,10 +484,12 @@ class MarkdownToCarve
                 if ($prelude || $open === [] || array_pop($open) !== $width) {
                     return false;
                 }
+                $closed = true;
 
                 continue;
             }
             $prelude = false;
+            $closed = false;
             if ($open !== [] && $width <= $open[count($open) - 1]) {
                 return false;
             }
@@ -486,7 +513,8 @@ class MarkdownToCarve
         $pattern = '/^' . preg_quote($this->carrierToken, '/') . '(\d+)Z$/D';
         // Each line as its text plus which kind of marker, if any, produced it:
         // 'open' for an opener or the attribute line travelling with it,
-        // 'close' for a bare closer.
+        // 'close' for a bare closer, 'caption' for a composite figure's
+        // caption line.
         /** @var list<array{text: string, kind: string|null}> $items */
         $items = [];
         foreach (explode("\n", $carve) as $line) {
@@ -496,7 +524,8 @@ class MarkdownToCarve
                 continue;
             }
             $slot = $this->carrierSlots[(int)$match[1]];
-            $items[] = ['text' => $slot['payload'], 'kind' => $slot['closer'] ? 'close' : 'open'];
+            $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
+            $items[] = ['text' => $slot['payload'], 'kind' => $kind];
         }
 
         return implode("\n", array_column($this->separateCarrierLines($items), 'text'));
@@ -529,7 +558,12 @@ class MarkdownToCarve
             }
             $above = $before >= 0 ? $items[$before]['kind'] : null;
             $below = $end < $count ? $items[$end]['kind'] : null;
-            if ($below === 'close' || $above === 'open' || ($above === 'close' && $below === 'close')) {
+            if (
+                $below === 'close'
+                || $below === 'caption'
+                || $above === 'open'
+                || ($above === 'close' && ($below === 'close' || $below === 'caption'))
+            ) {
                 for ($drop = $at; $drop < $end; $drop++) {
                     $hugged[$drop] = true;
                 }
@@ -544,8 +578,9 @@ class MarkdownToCarve
             }
             if (
                 $out !== []
-                && end($out)['kind'] === 'close'
+                && (end($out)['kind'] === 'close' || end($out)['kind'] === 'caption')
                 && $item['kind'] !== 'close'
+                && $item['kind'] !== 'caption'
                 && $item['text'] !== ''
             ) {
                 $out[] = ['text' => '', 'kind' => null];
