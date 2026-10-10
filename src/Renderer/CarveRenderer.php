@@ -221,6 +221,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @var array<int, true>
      */
+    private array $repeatedEmphasis = [];
+
+    /**
+     * @var array<int, true>
+     */
     private array $expandedBoldItalic = [];
 
     /**
@@ -503,6 +508,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->bracedForAttributes = [];
+        $this->repeatedEmphasis = $this->findRepeatedEmphasis($document);
         $this->expandedBoldItalic = [];
         $this->treeCache = null;
         $this->writerState->structuralEscapes = [];
@@ -3886,12 +3892,53 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
+    /**
+     * @return array<int, true>
+     */
+    private function findRepeatedEmphasis(Node $root): array
+    {
+        $repeated = [];
+        $active = [];
+        $work = [[$root, false]];
+        while ($work !== []) {
+            [$node, $exit] = array_pop($work);
+            $kind = $node::class;
+            $native = $node instanceof Emphasis || $node instanceof Strong || $node instanceof Underline
+                || $node instanceof Strike || $node instanceof Superscript || $node instanceof Subscript
+                || $node instanceof Highlight;
+            if ($exit) {
+                if ($native) {
+                    array_pop($active[$kind]);
+                }
+                continue;
+            }
+            if ($native) {
+                if (!empty($active[$kind])) {
+                    $repeated[spl_object_id($node)] = true;
+                    $repeated[spl_object_id($active[$kind][array_key_last($active[$kind])])] = true;
+                }
+                $active[$kind][] = $node;
+            }
+            $work[] = [$node, true];
+            foreach (array_reverse($node->getChildren()) as $child) {
+                $work[] = [$child, false];
+            }
+        }
+        return $repeated;
+    }
+
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
-        if (!str_starts_with($written, '{') && ($this->separatesAnOuterKind($node) || $this->holdsOuterKindAcrossLink($node) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
+        if (!str_starts_with($written, '{') && ((str_contains('+-', $delimiter) && ($this->separatesAnOuterKind($node) || $this->holdsOuterKindAcrossLink($node))) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
             $written = '{' . $written . '}';
         }
 
+        if (!str_contains('+-', $delimiter)) {
+            $same = isset($this->repeatedEmphasis[spl_object_id($node)]);
+            if ($same && !str_starts_with($written, '{')) {
+                $written = '{' . $written . '}';
+            }
+        } else {
         $pending = $node->getChildren();
         for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
             $child = $pending[$cursor];
@@ -3904,6 +3951,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if (!$child instanceof Link && !$child instanceof Span && !isset($this->bracedSpans[spl_object_id($child)])) {
                 array_push($pending, ...$child->getChildren());
             }
+        }
         }
         if (str_starts_with($written, '{')) {
             $this->bracedSpans[spl_object_id($node)] = true;
@@ -5980,7 +6028,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function escapeCriticText(string $text): string
     {
-        return str_replace(['\\', '{', '}'], ['\\\\', '\\{', '\\}'], $text);
+        if (str_contains($text, '#}')) {
+            throw new SourceUnspellableException('critic_comment', 'an editorial comment holding its closing sequence has no Carve source spelling');
+        }
+        return $text;
     }
 
     protected function escapeAutolinkHref(string $text): string

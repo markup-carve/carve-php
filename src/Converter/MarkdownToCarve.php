@@ -2167,7 +2167,7 @@ class MarkdownToCarve
         if ($this->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
-                'Unwrapped nested emphasis of the same kind; its text is preserved',
+                'Flattened emphasis exceeding the native nesting budget; its text is preserved',
                 'warning',
                 'dropped',
                 'exact',
@@ -6737,6 +6737,7 @@ class MarkdownToCarve
         $line = $this->restoreNumericReferenceHashes($line);
         $line = str_replace('&#', '&\\#', $line);
 
+
         $line = MarkdownEmphasis::convert($line, function (): void {
             $this->flattenedEmphasis = true;
         }, null, $protected);
@@ -6825,6 +6826,7 @@ class MarkdownToCarve
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeListsThatAttach($line);
         }
+
 
         if ($this->convertAttributes) {
             $wholeLine = trim($line);
@@ -8272,7 +8274,7 @@ class MarkdownToCarve
     {
         $escapeUnlessDelimiterPair = function (array $match): string {
             $interior = $match[1];
-            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1) {
+            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1 || (preg_match('/^[\/*_^,~=]/', $interior) === 1 && str_contains($interior, '{'))) {
                 return $match[0];
             }
             // A TAG opener at the head of the payload needs escaping too: the

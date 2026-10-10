@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use MarkupCarve\Carve\Parser\InlineParser;
 
 final class MarkdownEmphasis
 {
@@ -175,7 +176,8 @@ final class MarkdownEmphasis
         $flattened = false;
         $output = [];
         $stack = [];
-        $frame = ['i' => 0, 'end' => strlen($source), 'kind' => '', 'parent' => '', 'slot' => -1, 'first' => '', 'last' => '', 'pair' => null, 'scope' => -1, 'force' => false, 'strong' => false, 'italic' => false];
+        $frame = ['i' => 0, 'end' => strlen($source), 'kind' => '', 'parent' => '', 'slot' => -1, 'first' => '', 'last' => '', 'pair' => null, 'scope' => -1, 'force' => false, 'strong' => false, 'italic' => false, 'strike' => false, 'repeated' => false, 'keep' => true];
+        $active = [];
         while (true) {
             if ($frame['i'] < $frame['end']) {
                 $pair = $pairs[$frame['i']] ?? null;
@@ -197,7 +199,11 @@ final class MarkdownEmphasis
                         'pair' => $pair,
                         'strong' => false,
                         'italic' => false,
+                        'strike' => false,
+                        'repeated' => ($active[$pair['kind']] ?? 0) > 0,
+                        'keep' => count($stack) < InlineParser::MAX_INLINE_DEPTH,
                     ];
+                    $active[$pair['kind']] = ($active[$pair['kind']] ?? 0) + 1;
                     $output[] = '';
                 } else {
                     $ch = $source[$frame['i']++];
@@ -218,7 +224,8 @@ final class MarkdownEmphasis
             $last = $frame['last'];
             $strong = $frame['strong'];
             $italic = $frame['italic'];
-            if ($frame['parent'] !== $frame['kind'] || $frame['force']) {
+            $strike = $frame['strike'];
+            if ($frame['keep']) {
                 $intraword = preg_match('/[\p{L}\p{N}]$/u', $neighbor($pair['open'], true))
                     || preg_match('/^[\p{L}\p{N}]/u', $neighbor($pair['close'] + $pair['width'], false));
                 $besideLiteral = false;
@@ -227,9 +234,10 @@ final class MarkdownEmphasis
                         $besideLiteral = true;
                     }
                 }
-                $braced = $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
+                $braced = $frame['repeated'] || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic) || ($frame['kind'] === '~' && $strike) || $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
                 $strong = $strong || $pair['kind'] === '*';
                 $italic = $italic || $pair['kind'] === '/';
+                $strike = $strike || $pair['kind'] === '~';
                 $output[$frame['slot']] = $braced ? '{' . $pair['kind'] : $pair['kind'];
                 $output[] = $braced ? $pair['kind'] . '}' : $pair['kind'];
                 $first = $braced ? '{' : $pair['kind'];
@@ -237,12 +245,14 @@ final class MarkdownEmphasis
             } else {
                 $flattened = true;
             }
+            $active[$pair['kind']]--;
             $frame = array_pop($stack);
             if ($frame === null) {
                 break;
             }
             $frame['strong'] = $frame['strong'] || $strong;
             $frame['italic'] = $frame['italic'] || $italic;
+            $frame['strike'] = $frame['strike'] || $strike;
             if ($frame['first'] === '') {
                 $frame['first'] = $first;
             }
