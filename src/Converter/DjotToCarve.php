@@ -867,15 +867,16 @@ class DjotToCarve
                 continue;
             }
             $start = $i;
-            if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && (!str_contains('`*_~^]}>', $source[$i - 1]) || isset($literalBraces[$i - 1]))) {
+            if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && (!str_contains('`*_~^]}>', $source[$i - 1]) || isset($literalBraces[$i - 1]) || $this->escapedWordCharacter($source, $i - 1, $cursor))) {
                 while ($start > $cursor && $masked[$start - 1] === $source[$start - 1]) {
                     $literal = $literalBraces[$start - 1] ?? null;
                     if ($literal !== null && $literal >= $cursor) {
-                        $escaped = isset($escapedBraceCloses[$start - 1]);
                         $start = $literal;
-                        if ($escaped) {
-                            break;
-                        }
+
+                        continue;
+                    }
+                    if ($this->escapedWordCharacter($source, $start - 1, $cursor)) {
+                        $start -= 2;
 
                         continue;
                     }
@@ -921,6 +922,22 @@ class DjotToCarve
         }
 
         return $output . substr($source, $cursor);
+    }
+
+    /**
+     * An escaped character belongs to the attribute's word: the boundary is whitespace, not an escape.
+     */
+    private function escapedWordCharacter(string $source, int $at, int $cursor): bool
+    {
+        if ($at - 1 < $cursor || ($source[$at - 1] ?? '') !== '\\' || preg_match('/\s/u', $source[$at] ?? ' ') === 1) {
+            return false;
+        }
+        $slashes = 0;
+        for ($s = $at - 1; $s >= $cursor && $source[$s] === '\\'; $s--) {
+            $slashes++;
+        }
+
+        return $slashes % 2 === 1;
     }
 
     /**
