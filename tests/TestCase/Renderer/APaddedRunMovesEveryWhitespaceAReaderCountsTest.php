@@ -147,9 +147,9 @@ final class APaddedRunMovesEveryWhitespaceAReaderCountsTest extends TestCase
      */
     public static function hardBreakAtTheEndOfARun(): iterable
     {
-        yield 'a strong run' => ["x {*a\\\n*} y\n", "x <strong>a\\\n</strong> y\n"];
-        yield 'an em run' => ["x {/a\\\n/} y\n", "x <em>a\\\n</em> y\n"];
-        yield 'a strike run' => ["x {~a\\\n~} y\n", "x <del>a\\\n</del> y\n"];
+        yield 'a strong run' => ["x {*a\\\n*} y\n", "x **a<br>** y\n"];
+        yield 'an em run' => ["x {/a\\\n/} y\n", "x *a<br>* y\n"];
+        yield 'a strike run' => ["x {~a\\\n~} y\n", "x ~~a<br>~~ y\n"];
     }
 
     /**

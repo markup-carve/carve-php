@@ -365,6 +365,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected int $tableCellDepth = 0;
 
+    protected int $singleLineDepth = 0;
+
     protected SmartTypographyMode $smartTypography = SmartTypographyMode::Glyph;
 
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
@@ -1636,7 +1638,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             // rather than degrade, silently, in a file nobody edited.
             // In a table cell the newline would end the GFM row (PART 11
             // section 9a).
-            $node instanceof HardBreak => $this->tableCellDepth > 0 ? '<br>' : "\\\n",
+            $node instanceof HardBreak => $this->tableCellDepth > 0 || $this->singleLineDepth > 0 ? '<br>' : "\\\n",
             $node instanceof NonBreakingSpace => "\u{00A0}",
             $node instanceof SoftBreak => $this->renderSoftBreak(),
             $node instanceof Superscript => $this->renderSuperscript($node),
@@ -1825,6 +1827,26 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $parts = [];
         foreach ($children as $child) {
             $parts[] = $this->renderNode($child);
+        }
+
+        for ($i = count($parts) - 1; $i >= 0; $i--) {
+            $part = $parts[$i];
+            if ($children[$i] instanceof HardBreak && $part === "\\\n") {
+                $precedingContent = false;
+                for ($j = 0; $j < $i; $j++) {
+                    if (trim($parts[$j], " \t\r\n") !== '') {
+                        $precedingContent = true;
+
+                        break;
+                    }
+                }
+                $parts[$i] = $precedingContent ? '<br>' : '<br><!-- -->';
+
+                break;
+            }
+            if (trim($part, " \t\r\n") !== '') {
+                break;
+            }
         }
 
         return $this->reflankRuns($children, $parts);
@@ -2598,6 +2620,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         return $slug;
     }
 
+    protected function renderSingleLineChildren(Node $node): string
+    {
+        $this->singleLineDepth++;
+        try {
+            return $this->renderChildren($node);
+        } finally {
+            $this->singleLineDepth--;
+        }
+    }
+
     protected function renderHeading(Heading $node): string
     {
         $prefix = str_repeat('#', $node->getLevel()) . ' ';
@@ -2605,7 +2637,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // (lazy continuation, `# Foo\nbar`) is flattened to one line. This also
         // keeps a trailing `{#id}` attribute on the actual heading line.
         $text = trim(
-            (string)preg_replace('/[ \t\r\n]*\n[ \t\r\n]*/', ' ', $this->renderChildren($node)),
+            (string)preg_replace('/[ \t\r\n]*\n[ \t\r\n]*/', ' ', $this->renderSingleLineChildren($node)),
             StringUtil::TRIMMABLE_WHITESPACE,
         );
 
@@ -3564,7 +3596,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($content === '') {
             return '<code></code>';
         }
-        $content = str_replace("\n", ' ', $content);
+        if (str_contains($content, "\n")) {
+            return self::multilineCodeHtml($content);
+        }
 
         $backticks = StringUtil::findSafeCodeFence($content, 1);
 
@@ -3575,6 +3609,22 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $backticks . $content . $backticks;
+    }
+
+    private static function multilineCodeHtml(string $content): string
+    {
+        static $entities = null;
+        if ($entities === null) {
+            $entities = ["\n" => '&#10;'];
+            foreach ([[33, 47], [58, 64], [91, 96], [123, 126]] as [$first, $last]) {
+                for ($code = $first; $code <= $last; $code++) {
+                    $character = chr($code);
+                    $entities[$character] = '&#' . $code . ';' . ($character === '@' ? '<!---->' : '');
+                }
+            }
+        }
+
+        return '<code>' . strtr($content, $entities) . '</code>';
     }
 
     protected function renderMention(Mention $node): string
@@ -3708,7 +3758,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function renderSoftBreak(): string
     {
-        if ($this->tableCellDepth > 0) {
+        if ($this->tableCellDepth > 0 || ($this->singleLineDepth > 0 && $this->softBreakMode === SoftBreakMode::Break)) {
             return $this->softBreakMode === SoftBreakMode::Break ? '<br>' : ' ';
         }
 

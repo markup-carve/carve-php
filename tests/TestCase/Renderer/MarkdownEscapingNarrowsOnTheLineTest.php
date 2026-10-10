@@ -47,7 +47,7 @@ class MarkdownEscapingNarrowsOnTheLineTest extends TestCase
         $this->assertSame("para\n1\\. tail\n", $converter->convert("para\n1. tail\n"));
         $this->assertSame("para\n1\\) tail\n", $converter->convert("para\n1) tail\n"));
         $this->assertSame("- real\n", $converter->convert("- real\n"));
-        $this->assertSame("para `code - literal`\n", $converter->convert("para ``code\n- literal``\n"));
+        $this->assertSame("para <code>code&#10;&#45; literal</code>\n", $converter->convert("para ``code\n- literal``\n"));
     }
 
     protected function md(string $source): string
