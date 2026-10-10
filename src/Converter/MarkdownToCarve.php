@@ -5594,7 +5594,7 @@ class MarkdownToCarve
         $unchangedHtmlCode = null;
         $activeCodeLinkOpeners = null;
         $nextCodeLinkOpener = 0;
-        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, &$codeFallbacks, $htmlCodeLineAt, &$activeCodeLinkOpeners, &$nextCodeLinkOpener): ?string {
+        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, &$codeFallbacks, $htmlCodeLineAt, &$activeCodeLinkOpeners, &$nextCodeLinkOpener, &$protectedSources): ?string {
             $parts = [''];
             for ($at = 0, $length = strlen($match[1]); $at < $length;) {
                 if ($match[1][$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $match[1][$at + 1] ?? '') === 1) {
@@ -5617,13 +5617,13 @@ class MarkdownToCarve
             if (str_contains($match[1], "\0")) {
                 return null;
             }
-            if (str_contains($match[1], '[')) {
+            if (strpbrk($match[1], '[]') !== false) {
                 if ($activeCodeLinkOpeners === null) {
                     $activeCodeLinkOpeners = [];
                     $opaqueEnds = [];
                     $activeCodeLinkOpeners = $this->markdownLinkScopes(
                         $line,
-                        $protected,
+                        $protectedSources,
                         true,
                         function (int $start) use ($line, &$opaqueEnds): ?int {
                             return $this->opaqueHtmlEnd($line, $start, $opaqueEnds) ?? ($this->htmlTagAt($line, $start)['end'] ?? null);
@@ -6536,10 +6536,10 @@ class MarkdownToCarve
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $closers, $table): string {
+                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table): string {
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
-                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
+                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]]) && $this->htmlTagAt($this->referenceSourceText($next[0], $protectedSources), 0) === null) {
                         return $match[0][0];
                     }
                     if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
@@ -6798,7 +6798,8 @@ class MarkdownToCarve
         $destination = '/\G\([ \t]*(?:<[^<>\n]*>|(?:[^\s()\x00]|\x00P\d+\x00|\((?:[^\s()\x00]|\x00P\d+\x00)*\))*)'
             . '(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*\)/';
         $reference = '/\G\[([^[\]\n]*)\]/';
-        $defined = fn (string $label): bool => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))]);
+        $defined = fn (string $label): bool => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
+            || $scopeOnly && $this->complexReferenceTarget($label, $protected) !== null;
 
         $active = [];
         /** @var array<array{start: int, image: bool}> $openers */
@@ -6808,9 +6809,11 @@ class MarkdownToCarve
         /** @var array<int, string> $literal closer offset => the tail after it */
         $literal = [];
         $length = strlen($line);
+        $escapedPosition = -1;
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
             if ($scopeOnly && $char === '\\') {
+                $escapedPosition = $i + 1;
                 $i++;
 
                 continue;
@@ -6831,7 +6834,7 @@ class MarkdownToCarve
                 }
             }
             if ($char === '[') {
-                $image = $i > 0 && $line[$i - 1] === '!';
+                $image = $i > 0 && $line[$i - 1] === '!' && (!$scopeOnly || $escapedPosition !== $i - 1);
                 $openers[] = ['start' => $i, 'image' => $image];
 
                 continue;
@@ -6840,7 +6843,10 @@ class MarkdownToCarve
                 continue;
             }
             $opener = array_pop($openers);
-            $inline = preg_match($destination, $line, $tail, 0, $i + 1) === 1 ? $tail[0] : null;
+            $inlineEnd = $scopeOnly ? $this->markdownActivationTailEnd($line, $i + 1) : null;
+            $inline = $scopeOnly
+                ? ($inlineEnd === null ? null : substr($line, $i + 1, $inlineEnd - $i))
+                : (preg_match($destination, $line, $tail, 0, $i + 1) === 1 ? $tail[0] : null);
             $full = $inline === null && preg_match($reference, $line, $ref, 0, $i + 1) === 1 ? $ref : null;
             if (!$opener['image'] && $opener['start'] < $deactivatedBefore) {
                 if ($inline !== null || $full !== null) {
@@ -6864,6 +6870,9 @@ class MarkdownToCarve
                 continue;
             }
             $active[] = $opener['start'];
+            if ($scopeOnly) {
+                $active[] = $i;
+            }
             if (!$opener['image']) {
                 $deactivatedBefore = $i;
             }
@@ -6908,6 +6917,95 @@ class MarkdownToCarve
         }
 
         return $written;
+    }
+
+    private function markdownActivationTailEnd(string $source, int $open): ?int
+    {
+        if (($source[$open] ?? '') !== '(') {
+            return null;
+        }
+        $at = $open + 1;
+        $length = strlen($source);
+        $skipSpace = static function () use ($source, &$at, $length): bool {
+            $begin = $at;
+            while ($at < $length && str_contains(" \t\n", $source[$at])) {
+                $at++;
+            }
+
+            return $at > $begin;
+        };
+        $skipSpace();
+        if (($source[$at] ?? '') === '<') {
+            for ($at++; $at < $length && $source[$at] !== '>'; $at++) {
+                if ($source[$at] === '\\') {
+                    $at++;
+                } elseif ($source[$at] === '<' || $source[$at] === "\n") {
+                    return null;
+                }
+            }
+            if (($source[$at] ?? '') !== '>') {
+                return null;
+            }
+            $at++;
+        } else {
+            $depth = 0;
+            for (; $at < $length; $at++) {
+                if ($source[$at] === "\0" && preg_match('/\\G\\x00P\\d+\\x00/', $source, $token, 0, $at) === 1) {
+                    $at += strlen($token[0]) - 1;
+
+                    continue;
+                }
+                if ($source[$at] === '\\') {
+                    $at++;
+
+                    continue;
+                }
+                if ($source[$at] === '(') {
+                    if (++$depth > 32) {
+                        return null;
+                    }
+                } elseif ($source[$at] === ')') {
+                    if ($depth === 0) {
+                        break;
+                    }
+                    $depth--;
+                } elseif (ord($source[$at]) <= 32 || ord($source[$at]) === 127) {
+                    if ($depth > 0) {
+                        return null;
+                    }
+
+                    break;
+                }
+            }
+            if ($depth > 0) {
+                return null;
+            }
+        }
+        $spaced = $skipSpace();
+        if (($source[$at] ?? '') === ')') {
+            return $at;
+        }
+        if (!$spaced || !in_array($source[$at] ?? '', ['"', "'", '('], true)) {
+            return null;
+        }
+        $close = $source[$at] === '(' ? ')' : $source[$at];
+        $at++;
+        for (; $at < $length && $source[$at] !== $close; $at++) {
+            if ($source[$at] === '\\') {
+                $at++;
+            } elseif ($close === ')' && $source[$at] === '(') {
+                return null;
+            } elseif ($source[$at] === "\n" && preg_match('/\\G[ \\t]*\\n/', $source, $blank, 0, $at + 1) === 1) {
+                return null;
+            }
+        }
+        if ($at >= $length) {
+            return null;
+        }
+        $at++;
+        $skipSpace();
+
+        return ($source[$at] ?? '') === ')' ? $at : null;
     }
 
     /**
@@ -7183,7 +7281,7 @@ class MarkdownToCarve
                         $i++;
                     }
                     // The first definition of a label wins, so a later one says nothing.
-                    if (!$repeated && str_contains($definition[1], '|')) {
+                    if (!$repeated && (str_contains($definition[1], '|') || str_contains($definition[1], '<'))) {
                         $this->complexReferenceTargets[$rawKey] = $target;
                     }
                     if (!$repeated) {
