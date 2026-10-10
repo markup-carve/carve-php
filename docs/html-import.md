@@ -136,6 +136,18 @@ no rows of their own; anything else on that input still reports the loss it is.
 Only a writer is affected, so `convertToAstWithReport()` keeps `checked` on the
 item and says nothing. Bullets are unaffected.
 
+Task lists render with `class="task-list"` on their unordered list and
+`data-task-state="x"` on checked items. Default unchecked items have no derived
+state attribute; extended states retain `-`, `_`, `>` or `?`. The hooks apply
+in static and interactive output without enabling roundtrip mode. An authored
+class keeps its attribute position, with `task-list` prepended to its tokens.
+
+HTML import consumes the structural class only when every direct item is a
+task. It consumes a checked-state hook beside a checked box and an extended
+state beside an unchecked box. Legacy checkbox-only HTML still imports, and a
+plain list's authored `task-list` class stays authored. Derived state hooks
+replace authored attributes with the same case-insensitive name.
+
 Three more importers convert other markup to Carve, in the library as
 `MarkdownToCarve`, `DjotToCarve` and `BbcodeToCarve`, and on the command line
 as `carve migrate --from markdown|djot|bbcode`:
