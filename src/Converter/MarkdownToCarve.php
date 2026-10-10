@@ -15,12 +15,14 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use RuntimeException;
@@ -5480,7 +5482,7 @@ class MarkdownToCarve
         }
         $scalarOpaqueCursor = 0;
         $line = preg_replace_callback(
-            '/(!?\[(?:[^\[\]\n]|\[(?:[^\[\]\n])*\])*\])(\((?:[^()\n]|\([^()\n]*\))*\))/',
+            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\n]|\n(?![ \t]*\n)|\([^()\n]*\))*\))/',
             static function (array $match) use ($validateCodeScalar, $protectCodeTags, $scalarSubject, $scalarOpaqueRanges, &$scalarOpaqueCursor): string {
                 $start = $match[0][1];
                 while (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][1] <= $start) {
@@ -5523,6 +5525,18 @@ class MarkdownToCarve
         $standaloneCodeSource = trim($line);
         $unchangedHtmlCode = null;
         $writeHtmlCode = function (array $match) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, $htmlCodeSourceLine): ?string {
+            $parts = [''];
+            for ($at = 0, $length = strlen($match[1]); $at < $length;) {
+                if ($match[1][$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $match[1][$at + 1] ?? '') === 1) {
+                    $parts[count($parts) - 1] .= substr($match[1], $at, 2);
+                    $at += 2;
+                } elseif (substr_compare($match[1], '<!---->', $at, 7) === 0) {
+                    $parts[] = '';
+                    $at += 7;
+                } else {
+                    $parts[count($parts) - 1] .= $match[1][$at++];
+                }
+            }
             $slashes = 0;
             for ($at = strlen($match[1]) - 1; $at >= 0 && $match[1][$at] === '\\'; $at--) {
                 $slashes++;
@@ -5540,15 +5554,26 @@ class MarkdownToCarve
                         return null;
                     }
                 }
-                $probe = (new CarveConverter())->parse('x ' . (clone $this)->convertInlineFormatting(str_replace('<!---->', '', $match[1])) . "\n");
+                $probe = (new CarveConverter())->parse('x ' . (clone $this)->convertInlineFormatting(implode('', $parts)) . "\n");
                 $paragraphs = $probe->getChildren();
                 if (count($paragraphs) !== 1 || !($paragraphs[0] instanceof Paragraph)) {
                     return null;
                 }
-                foreach ($paragraphs[0]->getChildren() as $child) {
-                    if (!in_array($child->getType(), ['text', 'escaped_text', 'smart_punctuation', 'non_breaking_space', 'soft_break'], true)) {
-                        return null;
+                $plain = function (array $children) use (&$plain): bool {
+                    foreach ($children as $child) {
+                        if (in_array($child->getType(), ['text', 'escaped_text', 'smart_punctuation', 'non_breaking_space', 'soft_break'], true)) {
+                            continue;
+                        }
+                        $label = $child instanceof Link ? $child->getReferenceLabel() : null;
+                        if ($label === null || $child->getDestination() !== null && $child->getDestination() !== '' || isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($label)]) || !$plain($child->getChildren())) {
+                            return false;
+                        }
                     }
+
+                    return true;
+                };
+                if (!$plain($paragraphs[0]->getChildren())) {
+                    return null;
                 }
             }
             $value = implode('', array_map(function (string $part): string {
@@ -5559,7 +5584,7 @@ class MarkdownToCarve
                 ) ?? $part;
 
                 return str_replace(["\r\n", "\r"], "\n", $decoded);
-            }, explode('<!---->', $match[1])));
+            }, $parts));
             if ($this->nativeCodeSlot && $terminal && !$table && $standaloneCodeSource === $match[0]) {
                 $document = new Document();
                 $paragraph = new Paragraph();
@@ -5629,7 +5654,7 @@ class MarkdownToCarve
         $opaqueEnds = [];
         for ($i = 0, $length = strlen($line); $i < $length;) {
             if ($htmlCodeDepth > 0 && $line[$i] === '&' && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $entity, 0, $i) === 1 && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false) {
-                $escaped .= $protect($this->verbatimHtmlInline('<!---->&#10;<!---->'));
+                $start = $i;
                 $i += strlen($entity[0]);
                 if (
                     $this->decodeHtmlReferenceText($entity[0]) === "\r"
@@ -5640,6 +5665,7 @@ class MarkdownToCarve
                 } elseif ($this->decodeHtmlReferenceText($entity[0]) === "\r" && ($line[$i] ?? '') === "\n") {
                     $i++;
                 }
+                $escaped .= $protect($this->verbatimHtmlInline('<!---->&#10;<!---->'), substr($line, $start, $i - $start));
 
                 continue;
             }
@@ -5767,7 +5793,16 @@ class MarkdownToCarve
                 ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
             $line = preg_replace_callback(
                 '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+(?:"[^"]*"|\'[^\']*\'|[^<>"\'])*?)?>[\s\S]*?<\/\1[ \t]*>/i',
-                fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
+                function (array $match) use ($protect, &$protected): string {
+                    $html = preg_replace_callback('/\x00P(\d+)\x00/', static function (array $token) use ($protected): string {
+                        $document = (new CarveConverter())->parse($protected[(int)$token[1]]);
+                        $paragraph = $document->getChildren()[0] ?? null;
+
+                        return $paragraph instanceof Paragraph ? (new HtmlRenderer())->renderInlineNodesFragment($paragraph->getChildren()) : '';
+                    }, $match[0]) ?? $match[0];
+
+                    return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $match[0]);
+                },
                 $line,
             ) ?? $line;
             $line = preg_replace_callback(
@@ -7826,7 +7861,7 @@ class MarkdownToCarve
             $masked .= $token;
             $at = $end;
         }
-        $converted = strtr(preg_replace('/~~([^~]+)~~/', '$1', MarkdownEmphasis::convert($masked, protectedSpans: $protected, plainText: true)) ?? $masked, $restorations);
+        $converted = strtr(MarkdownEmphasis::convert(MarkdownEmphasis::convert($masked, protectedSpans: $protected, plainText: true), protectedSpans: $protected, plainText: true, strikethrough: true), $restorations);
         preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $source, $before);
         preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $converted, $after);
         $counts = array_count_values($after[0]);

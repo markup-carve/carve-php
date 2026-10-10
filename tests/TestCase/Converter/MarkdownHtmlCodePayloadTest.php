@@ -84,11 +84,29 @@ class MarkdownHtmlCodePayloadTest extends TestCase
                 $this->assertStringContainsString('<strong>', $html);
                 $this->assertStringContainsString('<em>', $html);
             }
-            foreach (['café_au', '名前_id', 'größ_e'] as $value) {
+            foreach (['café_au', '名前_id', 'größ_e', 'int[][]', 'm[i][j]', 'a ~~ b ~~ c'] as $value) {
                 $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport('<code>' . $value . '</code>');
                 $this->assertSame([], array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback')));
                 $this->assertSame('<p><code>' . $value . '</code></p>', rtrim((new CarveConverter(safeMode: $safe))->convert($result->value), "\n"));
             }
+        }
+    }
+
+    public function testConvertedHtmlKeepsProtectedInlineContent(): void
+    {
+        foreach (['<span>a <code>b</code></span>' => '<p>a <code>b</code></p>', '<small>a\\*b</small>' => '<p>a*b</p>'] as $markdown => $expected) {
+            $source = (new MarkdownToCarve(convertRawHtml: true))->convert($markdown);
+            $this->assertSame($expected, rtrim((new CarveConverter())->convert($source), "\n"));
+        }
+    }
+
+    public function testCodeNewlineEntitiesKeepLossSourceLines(): void
+    {
+        foreach ([false, true] as $mode) {
+            $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport("<code class=\"x\">a&#13;\nb</code> [t]()");
+            $rows = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
+            $this->assertCount(1, $rows);
+            $this->assertSame('line:2', $rows[0]->path);
         }
     }
 
