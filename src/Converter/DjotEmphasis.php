@@ -232,6 +232,11 @@ final class DjotEmphasis
             if ($ch !== '_' && $ch !== '*' && !str_contains('~^', $ch)) {
                 continue;
             }
+            if ($ch === '^' && $i === $structuralEnd && isset($source[$i + 1]) && str_contains(" \t", $source[$i + 1])) {
+                $structural[$i] = true;
+
+                continue;
+            }
             if ($ch === '*' && $i <= $structuralEnd) {
                 if ($thematicLine) {
                     for ($at = $i; $at < $lineEnd; $at++) {
