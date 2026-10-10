@@ -91,6 +91,20 @@ class MarkdownBoundaryLossReportTest extends TestCase
         }
     }
 
+    public function testHeadingSourceMapsAreConsumedAndKeepProtectedSourceLengths(): void
+    {
+        foreach (
+            [
+                ["a\n[l]()\n===\n\nx\n\n# a [l]()\n", ['line:2', 'line:7']],
+                ["a &lt;&lt;&lt;\n[l]()\n---\n", ['line:2']],
+                ["<code>a</code>\n[l]()\n===\n", ['line:2']],
+            ] as [$source, $paths]
+        ) {
+            $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
+            self::assertSame($paths, array_map(static fn ($row): ?string => $row->path, $losses), $source);
+        }
+    }
+
     public function testValidConstructsDoNotReportBoundaryLosses(): void
     {
         foreach (['[link](url)', '![alt](image.png)', '`[link]()`', '\\[link]()', "```c++ metadata\nx\n```", "```&#99;\nx\n```", "```\nx\n```"] as $source) {

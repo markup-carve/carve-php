@@ -5295,6 +5295,7 @@ class MarkdownToCarve
             if (str_ends_with($line, $heading)) {
                 $lead = strlen($line) - strlen($heading);
                 $foldedSourceLines = array_map(static fn (array $segment): array => ['offset' => $segment['offset'] + $lead, 'line' => $segment['line']], $segments);
+                unset($this->foldedHeadingSources[$heading]);
 
                 break;
             }
@@ -5391,7 +5392,7 @@ class MarkdownToCarve
         // `<code>x</code>` becomes a Carve code span in BOTH modes - carve-js
         // does this unconditionally, ahead of any raw-HTML handling, so verbatim
         // mode must not emit it as `<code>...</code>`{=html}.
-        $line = preg_replace_callback('/<code>([^<]+)<\/code>/i', fn (array $match): string => $protect('`' . $match[1] . '`'), $line) ?? $line;
+        $line = preg_replace_callback('/<code>([^<]+)<\/code>/i', fn (array $match): string => $protect('`' . $match[1] . '`', $match[0]), $line) ?? $line;
         // PART 11 §8c writes two constructs with no Markdown delimiter spelling
         // as an ATTRIBUTE-BEARING inline tag: an abbreviation as
         // `<abbr title="...">` and an editorial comment as
@@ -5546,7 +5547,7 @@ class MarkdownToCarve
                     $decoded = ' ';
                 }
 
-                return $protect($this->escapeDecodedCharacterReference($decoded));
+                return $protect($this->escapeDecodedCharacterReference($decoded), $match[0]);
             },
             $line,
         ) ?? $line;
