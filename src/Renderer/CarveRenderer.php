@@ -3268,7 +3268,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $this->refuseGluedMention($node, $nodes[$i - 1] ?? null, $out, $previousRendered, $rendered);
                     // Two backtick runs that touch merge into one run, so an
                     // empty delimited comment separates them (PART 11 section 10k N3).
-                    if (str_starts_with($rendered, '`') && self::endsInABareBacktickRun($out)) {
+                    if (str_starts_with($rendered, '`') && (self::endsInABareBacktickRun($out) || (str_ends_with($out, '`') && ($nodes[$i - 1] ?? null) instanceof Code) || (str_ends_with($out, '`') && ($nodes[$i - 1] ?? null) instanceof LiteralInline))) {
                         $out .= self::VERBATIM_SEPARATOR;
                     }
                     $out .= $rendered;
@@ -4399,6 +4399,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         if ($this->inLineBlock > 0) {
             return $written;
+        }
+
+        if (str_contains($written, "\n\n")) {
+            throw new SourceUnspellableException('code', 'a blank line ends the code span paragraph');
         }
 
         return (string)preg_replace($marker, "\n" . $this->verbatimSentinels[7], $written);
