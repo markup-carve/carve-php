@@ -1841,7 +1841,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             if ($children[$i] instanceof HardBreak && $part === "\\\n") {
                 $precedingContent = false;
                 for ($j = 0; $j < $i; $j++) {
-                    if (trim($parts[$j], " \t\r\n") !== '') {
+                    if (strspn($parts[$j], " \t\r\n") !== strlen($parts[$j])) {
                         $precedingContent = true;
 
                         break;
@@ -1851,7 +1851,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
                 break;
             }
-            if (trim($part, " \t\r\n") !== '') {
+            if (strspn($part, " \t\r\n") !== strlen($part)) {
                 break;
             }
         }

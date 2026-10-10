@@ -129,6 +129,8 @@ references and external fragment links need manual review. See the
 
 ### Fixes
 
+- Markdown fragment links to headings with hard breaks use GitHub’s text anchor (#3043).
+
 - The duplicate-merge scaling guard passes the structural indexes required by
   the current matcher, so the release check measures its work instead of
   failing on an outdated private-method call (#2923).
