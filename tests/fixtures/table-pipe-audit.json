@@ -2387,7 +2387,7 @@
     "name": "opaque-url-a|b-False",
     "source": "<http://u/[^a|b]>\n\n[^a|b]: Note.\n",
     "contains": [
-      "href=\"http://u/%5B^a%7Cb%5D\"",
+      "href=\"http://u/[^a%7Cb]\"",
       ">http://u/[^a|b]</a>"
     ],
     "excludes": [
@@ -2400,7 +2400,7 @@
     "name": "opaque-url-a|b-True",
     "source": "| x \\| y |\n\n<http://u/[^a|b]>\n\n[^a|b]: Note.\n",
     "contains": [
-      "href=\"http://u/%5B^a%7Cb%5D\"",
+      "href=\"http://u/[^a%7Cb]\"",
       ">http://u/[^a|b]</a>"
     ],
     "excludes": [
@@ -2413,7 +2413,7 @@
     "name": "opaque-email-a|b-False",
     "source": "<x[^a|b]@y.io>\n\n[^a|b]: Note.\n",
     "contains": [
-      "href=\"mailto:x%5B^a%7Cb%5D@y.io\"",
+      "href=\"mailto:x[^a%7Cb]@y.io\"",
       ">x[^a|b]@y.io</a>"
     ],
     "excludes": [
@@ -2426,7 +2426,7 @@
     "name": "opaque-email-a|b-True",
     "source": "| x \\| y |\n\n<x[^a|b]@y.io>\n\n[^a|b]: Note.\n",
     "contains": [
-      "href=\"mailto:x%5B^a%7Cb%5D@y.io\"",
+      "href=\"mailto:x[^a%7Cb]@y.io\"",
       ">x[^a|b]@y.io</a>"
     ],
     "excludes": [
@@ -2439,7 +2439,7 @@
     "name": "opaque-url-a\\|b-False",
     "source": "<http://u/[^a\\|b]>\n\n[^a\\|b]: Note.\n",
     "contains": [
-      "href=\"http://u/%5B^a\\%7Cb%5D\"",
+      "href=\"http://u/[^a\\%7Cb]\"",
       ">http://u/[^a\\|b]</a>"
     ],
     "excludes": [
@@ -2452,7 +2452,7 @@
     "name": "opaque-url-a\\|b-True",
     "source": "| x \\| y |\n\n<http://u/[^a\\|b]>\n\n[^a\\|b]: Note.\n",
     "contains": [
-      "href=\"http://u/%5B^a\\%7Cb%5D\"",
+      "href=\"http://u/[^a\\%7Cb]\"",
       ">http://u/[^a\\|b]</a>"
     ],
     "excludes": [
@@ -2465,7 +2465,7 @@
     "name": "opaque-email-a\\|b-False",
     "source": "<x[^a\\|b]@y.io>\n\n[^a\\|b]: Note.\n",
     "contains": [
-      "href=\"mailto:x%5B^a\\%7Cb%5D@y.io\"",
+      "href=\"mailto:x[^a\\%7Cb]@y.io\"",
       ">x[^a\\|b]@y.io</a>"
     ],
     "excludes": [
@@ -2478,7 +2478,7 @@
     "name": "opaque-email-a\\|b-True",
     "source": "| x \\| y |\n\n<x[^a\\|b]@y.io>\n\n[^a\\|b]: Note.\n",
     "contains": [
-      "href=\"mailto:x%5B^a\\%7Cb%5D@y.io\"",
+      "href=\"mailto:x[^a\\%7Cb]@y.io\"",
       ">x[^a\\|b]@y.io</a>"
     ],
     "excludes": [
@@ -2491,7 +2491,7 @@
     "name": "opaque-url-a\\\\|b-False",
     "source": "<http://u/[^a\\\\|b]>\n\n[^a\\\\|b]: Note.\n",
     "contains": [
-      "href=\"http://u/%5B^a\\\\%7Cb%5D\"",
+      "href=\"http://u/[^a\\\\%7Cb]\"",
       ">http://u/[^a\\\\|b]</a>"
     ],
     "excludes": [
@@ -2504,7 +2504,7 @@
     "name": "opaque-url-a\\\\|b-True",
     "source": "| x \\| y |\n\n<http://u/[^a\\\\|b]>\n\n[^a\\\\|b]: Note.\n",
     "contains": [
-      "href=\"http://u/%5B^a\\\\%7Cb%5D\"",
+      "href=\"http://u/[^a\\\\%7Cb]\"",
       ">http://u/[^a\\\\|b]</a>"
     ],
     "excludes": [
@@ -2517,7 +2517,7 @@
     "name": "opaque-email-a\\\\|b-False",
     "source": "<x[^a\\\\|b]@y.io>\n\n[^a\\\\|b]: Note.\n",
     "contains": [
-      "href=\"mailto:x%5B^a\\\\%7Cb%5D@y.io\"",
+      "href=\"mailto:x[^a\\\\%7Cb]@y.io\"",
       ">x[^a\\\\|b]@y.io</a>"
     ],
     "excludes": [
@@ -2530,7 +2530,7 @@
     "name": "opaque-email-a\\\\|b-True",
     "source": "| x \\| y |\n\n<x[^a\\\\|b]@y.io>\n\n[^a\\\\|b]: Note.\n",
     "contains": [
-      "href=\"mailto:x%5B^a\\\\%7Cb%5D@y.io\"",
+      "href=\"mailto:x[^a\\\\%7Cb]@y.io\"",
       ">x[^a\\\\|b]@y.io</a>"
     ],
     "excludes": [
@@ -2754,7 +2754,7 @@
     "name": "autolink-context-x:y[^a|b]@z.io paragraph",
     "source": "<x:y[^a|b]@z.io>\n",
     "contains": [
-      "href=\"x:y%5B^a%7Cb%5D@z.io\""
+      "href=\"x:y[^a%7Cb]@z.io\""
     ],
     "excludes": [
       "doc-noteref",
@@ -2995,7 +2995,7 @@
     "name": "review-autolink-bracket-prefix",
     "source": "a [<http://u/]>\n",
     "contains": [
-      "a [<a href=\"http://u/%5D\">http://u/]</a>"
+      "a [<a href=\"http://u/]\">http://u/]</a>"
     ]
   },
   {
@@ -3003,7 +3003,7 @@
     "name": "review-autolink-outer-brackets",
     "source": "[x <http://u/a]b> y]\n",
     "contains": [
-      "[x <a href=\"http://u/a%5Db\">http://u/a]b</a> y]"
+      "[x <a href=\"http://u/a]b\">http://u/a]b</a> y]"
     ]
   },
   {
@@ -3011,7 +3011,7 @@
     "name": "review-autolink-ipv6-path",
     "source": "<http://[::1]/[x]>\n",
     "contains": [
-      "href=\"http://[::1]/%5Bx%5D\"",
+      "href=\"http://[::1]/[x]\"",
       ">http://[::1]/[x]</a>"
     ]
   },
