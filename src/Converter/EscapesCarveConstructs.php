@@ -241,7 +241,12 @@ trait EscapesCarveConstructs
         $bareHandled = $handledDelimiters['bare'] ?? '';
         $bracedHandled = $handledDelimiters['braced'] ?? '';
 
-        $line = preg_replace_callback('/(^|[ \t])%%(?!%)/', fn (array $match): string => $match[1] . '\%%', $line) ?? $line;
+        // A comment opens on the first two UNESCAPED percent signs, so a run of
+        // any length needs exactly ONE escape and a third sign does not make the
+        // run harmless (carve-php#3049, markup-carve/carve#2866). `/m`, because
+        // a caller passes a folded run of lines in one string and an opener at
+        // the head of the second line opens a comment just as the first does.
+        $line = preg_replace_callback('/(^|[ \t])%%/m', fn (array $match): string => $match[1] . '\%%', $line) ?? $line;
 
         $bracedDelimiters = $this->bracedDelimiterClass($bracedHandled);
         if ($bracedDelimiters !== '') {

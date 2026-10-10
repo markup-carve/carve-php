@@ -63,6 +63,27 @@ class EscaperCorpusTest extends TestCase
     }
 
     /**
+     * Cases whose corpus expectation is wrong against every engine's own reader,
+     * with the spelling derived from the reader instead.
+     *
+     * `tripled-percent-is-not-an-opener` expects `a %%%c b` unchanged. A comment
+     * opens on the first two UNESCAPED percent signs and a third sign does not
+     * stop it, so the bare run renders `<p>a</p>` in carve-php, carve-js and
+     * carve-rs alike and the rest of the line is gone. One escape on the first
+     * sign is the whole of what the run owes. The corpus is corrected in
+     * markup-carve/carve#2866 (PR #2867); until the pin carries it, the derived
+     * spelling is what this engine is held to.
+     *
+     * `testEveryOverrideStillContradictsTheCorpus` removes this entry's reason
+     * to exist the moment the pin moves.
+     *
+     * @var array<string, string>
+     */
+    protected const DERIVED_EXPECTATIONS = [
+        'tripled-percent-is-not-an-opener' => 'a \\%%%c b',
+    ];
+
+    /**
      * The profiles THIS engine can produce, by the corpus's names.
      *
      * All three have a real call site here, which is why all three run.
@@ -147,7 +168,11 @@ class EscaperCorpusTest extends TestCase
                     continue;
                 }
 
-                $sets[$case['name'] . ' [' . $profile . ']'] = [$case['input'], $profiles[$profile], $expected];
+                $sets[$case['name'] . ' [' . $profile . ']'] = [
+                    $case['input'],
+                    $profiles[$profile],
+                    self::DERIVED_EXPECTATIONS[$case['name']] ?? $expected,
+                ];
             }
         }
 
@@ -225,6 +250,32 @@ class EscaperCorpusTest extends TestCase
                     0,
                     preg_match_all('/self::' . $constant . '\b/', $source),
                     "{$file} passes no {$constant}",
+                );
+            }
+        }
+    }
+
+    /**
+     * An override outlives its reason silently, so this is what retires it.
+     *
+     * Each entry claims the corpus pins a spelling the reader contradicts. Once
+     * the pin carries the correction the claim is false, the override is dead
+     * weight, and this fails naming the entry to delete.
+     */
+    public function testEveryOverrideStillContradictsTheCorpus(): void
+    {
+        $expectations = [];
+        foreach (self::corpus()['cases'] as $case) {
+            $expectations[$case['name']] = $case['expected'];
+        }
+
+        foreach (self::DERIVED_EXPECTATIONS as $name => $derived) {
+            $this->assertArrayHasKey($name, $expectations, "the corpus no longer carries {$name}");
+            foreach ($expectations[$name] as $profile => $expected) {
+                $this->assertNotSame(
+                    $derived,
+                    $expected,
+                    "the corpus now expects the derived spelling for {$name} [{$profile}]: drop the override",
                 );
             }
         }
