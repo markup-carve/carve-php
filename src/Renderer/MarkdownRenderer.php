@@ -335,8 +335,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected int $authoredHashes = 0;
 
-    protected bool $inBlockQuote = false;
-
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
 
     protected HeadingIdTracker $headingIdTracker;
@@ -502,17 +500,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if (!$this->carryMarkers) {
             return null;
         }
-        // A HOST THAT PREFIXES ITS LINES TAKES NO MARKER. The import reads a
-        // marker only at column 0, so one written at a list item's content
-        // column or behind a block quote's `>` would be emitted and never read
-        // back - worse than degrading honestly. Reading one through the prefix
-        // needs the block structure the source pre-pass does not have: a
-        // marker at a list item's content column is indistinguishable there
-        // from verbatim text in an indented code block, which carve#2850
-        // records with the measurement. A TABLE CELL cannot carry at all,
-        // because this target flattens a cell to one line and flattens the
-        // container's body with it.
-        if ($this->listDepth > 0 || $this->inBlockQuote || $this->tableCellDepth > 0) {
+        // A TABLE CELL CANNOT CARRY AT ALL: this target flattens a cell to one
+        // line and flattens the container's body with it, so there is no line
+        // left for a marker to stand on (markup-carve/carve#2856). A list item
+        // and a block quote prefix their lines and do carry, because the
+        // import now reads a marker off the block structure rather than off a
+        // flat scan of the source lines (markup-carve/carve#2850).
+        if ($this->tableCellDepth > 0) {
             return null;
         }
         if ($node instanceof Div) {
@@ -2742,11 +2736,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderBlockQuote(BlockQuote $node): string
     {
         $body = $this->containerContent(function () use ($node): string {
-            $this->inBlockQuote = true;
-            $content = $this->renderChildren($node);
-            $this->inBlockQuote = false;
-
-            return $content;
+            return $this->renderChildren($node);
         });
 
         // Prefix each line with >, and a blank line with a bare marker.

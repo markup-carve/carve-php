@@ -209,40 +209,185 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
     }
 
     /**
-     * A host that prefixes its lines takes no marker: the comment would sit at
-     * the host's content column or behind its `>`, where the import does not
-     * read it, so it would be written and never read back. The container
-     * degrades there exactly as it does with the mode off.
+     * A HOST THAT PREFIXES ITS LINES CARRIES, and byte-exactly.
      *
-     * READING ONE THROUGH THE PREFIX IS NOT A PATCH, which is carve#2850's
-     * finding and why that ticket stays open. The marker lift is a pre-pass
-     * over the SOURCE LINES, and at that point a marker standing at a list
-     * item's content column is indistinguishable from verbatim text inside an
-     * indented code block. Measured: a prefix-reading pre-pass turns
+     * The marker stands at the host's content column or behind its `>`, and the
+     * import finds it there because WHICH LINES ARE MARKERS NOW COMES FROM THE
+     * BLOCK STRUCTURE this importer derives rather than from a flat scan of the
+     * source lines. A flat scan cannot tell a marker at a list item's content
+     * column from code text inside that item - the verbatim cases below are
+     * exactly what it would have eaten - while the structure pass already
+     * carries fence state, a quote's `>` prefix and an item's content column
+     * (markup-carve/carve#2850).
      *
-     *     Text.
+     * The two-level and quote-in-item sources are spelled TIGHT on purpose: a
+     * blank line between an outer item and its nested list is lost by this
+     * target whether a container is involved or not, so a loose spelling would
+     * measure that instead of this.
      *
-     *         <!-- carve: ::: note -->
-     *         Body.
-     *         <!-- carve: ::: -->
-     *
-     * into a real admonition, and does the same to a fenced or indented code
-     * block inside a list item. Reading the marker off the PARSED tree - where
-     * the markers already arrive as raw-HTML nodes - is the shape that can
-     * tell the two apart, and that is a restructuring of this import path.
-     *
-     * @return array<string, array{0: string}>
+     * @return array<string, array{0: string, 1: string}>
      */
     public static function prefixedHostProvider(): array
     {
         return [
-            'inside a list item' => ["- item\n\n  ::: note\n  Body.\n  :::\n"],
-            'inside a block quote' => ["> ::: note\n> Body.\n> :::\n"],
-            'inside a block quote inside a list item' => ["- item\n\n  > ::: note\n  > Body.\n  > :::\n"],
+            'inside a list item' => [
+                "- Item.\n\n  ::: note\n  Body.\n  :::\n",
+                "- Item.\n\n  <!-- carve: ::: note -->\n  Body.\n\n  <!-- carve: ::: -->\n",
+            ],
+            'two list levels in' => [
+                "- Outer.\n  - Inner.\n\n    ::: note\n    Body.\n    :::\n",
+                "- Outer.\n  - Inner.\n\n    <!-- carve: ::: note -->\n    Body.\n\n    <!-- carve: ::: -->\n",
+            ],
+            'inside a block quote' => [
+                "> ::: note\n> Body.\n> :::\n",
+                "> <!-- carve: ::: note -->\n> Body.\n>\n> <!-- carve: ::: -->\n",
+            ],
+            'inside a block quote inside a list item' => [
+                "- Item.\n  > ::: note\n  > Body.\n  > :::\n",
+                "- Item.\n  > <!-- carve: ::: note -->\n  > Body.\n  >\n  > <!-- carve: ::: -->\n",
+            ],
+            // THE OPENER SHARES THE ITEM'S MARKER LINE here, so the placeholder
+            // the import lifts the marker to stands behind a `-`. Leaving the
+            // token in the output would be corruption rather than a missed
+            // restore, which is why the prefix is read as whatever precedes the
+            // token and not as a character class.
+            'opening a list item' => [
+                "- ::: note\n  Body.\n  :::\n",
+                "- <!-- carve: ::: note -->\n  Body.\n\n  <!-- carve: ::: -->\n",
+            ],
+            // AND ITS BODY BEGINS WITH A LIST, so the closer's placeholder is a
+            // lazy continuation of that inner item's paragraph and the written
+            // Carve puts it at the inner content column. A closer stands at its
+            // OPENER's column, which is what brings it back.
+            'opening a list item, holding a list' => [
+                "- ::: note\n  - one\n  - two\n  :::\n",
+                "- <!-- carve: ::: note -->\n  - one\n  - two\n  <!-- carve: ::: -->\n",
+            ],
+            'empty, opening a list item' => [
+                "- ::: note\n  :::\n",
+                "- <!-- carve: ::: note -->\n  <!-- carve: ::: -->\n",
+            ],
             'a figure group with a caption inside a list item' => [
                 "- item\n\n  ::: figure\n  :::: panel\n  ![a](x.png)\n  ::::\n  :::\n  ^ Group caption\n",
+                "- item\n\n  <!-- carve: ::: figure -->\n  <!-- carve: :::: panel -->\n  ![a](x.png)\n\n"
+                    . "  <!-- carve: :::: -->\n  <!-- carve: ::: -->\n  <!-- carve: ^ Group caption -->\n  **Group caption**\n",
+            ],
+            // A SIBLING ITEM AFTER THE CLOSER MUST NOT GO LOOSE. A closer and
+            // what follows take a blank line between them where they are
+            // siblings; the item below belongs to the host above the container,
+            // and a blank there would wrap `next` in a `<p>`.
+            'opening a list item, with a sibling item after it' => [
+                "- ::: note\n  - one\n  - two\n  :::\n- next\n",
+                "- <!-- carve: ::: note -->\n  - one\n  - two\n  <!-- carve: ::: -->\n- next\n",
+            ],
+            // A TASK BOX IS INLINE CONTENT, so an HTML block cannot begin after
+            // it: the structure pass admits this one as a task-marker line
+            // rather than as an HTML block. The box is also not part of the
+            // column, so the closer stands at the ITEM's content column and not
+            // past the box.
+            'opening a task item' => [
+                "- [ ] ::: note\n  Body.\n  :::\n",
+                "- [ ] <!-- carve: ::: note -->\n  Body.\n\n  <!-- carve: ::: -->\n",
+            ],
+            // A BLOCK QUOTE OPENING A LIST ITEM carries both prefixes on one
+            // line, and the item's marker came off without the quote regex
+            // running again - so the block readings take the nested `>` off.
+            'a block quote opening a list item' => [
+                "- > ::: note\n  > Body.\n  > :::\n",
+                "- > <!-- carve: ::: note -->\n  > Body.\n  >\n  > <!-- carve: ::: -->\n",
+            ],
+            // TWO ITEMS OPEN ON ONE LINE here, so the block reading has to take
+            // EVERY container prefix off and not only the first.
+            'opening two list items at once' => [
+                "- - ::: note\n    Body.\n    :::\n",
+                "- - <!-- carve: ::: note -->\n    Body.\n\n    <!-- carve: ::: -->\n",
+            ],
+            // AND THREE, where the body stands six columns in. The content
+            // column is the one EVERY prefix put the body at, not the one the
+            // first marker did, or the closer would read as code.
+            'opening three list items at once' => [
+                "- - - ::: note\n      Body.\n      :::\n",
+                "- - - <!-- carve: ::: note -->\n      Body.\n\n      <!-- carve: ::: -->\n",
+            ],
+            // A CAPTION HANGS ON THE CLOSING FENCE, so it stands at that
+            // closer's column. With a list body its placeholder is a lazy
+            // continuation of the inner item just as the closer's is, and a
+            // caption at the wrong column attaches to nothing.
+            'a figure caption, with a list body, in a list item' => [
+                "- ::: figure\n  - one\n  - two\n  :::\n  ^ Caption\n",
+                "- <!-- carve: ::: figure -->\n  - one\n  - two\n  <!-- carve: ::: -->\n"
+                    . "  <!-- carve: ^ Caption -->\n  **Caption**\n",
             ],
         ];
+    }
+
+    #[DataProvider('prefixedHostProvider')]
+    public function testAContainerInAPrefixedHostTakesAMarkerAtItsHostsColumn(string $carve, string $carrier): void
+    {
+        $this->assertSame($carrier, $this->markdown($carve, true));
+    }
+
+    #[DataProvider('prefixedHostProvider')]
+    public function testAContainerInAPrefixedHostComesBack(string $carve, string $carrier): void
+    {
+        $restored = (new MarkdownToCarve())->convert($carrier);
+        $this->assertStringNotContainsString('CARVECARRIER', $restored, 'the placeholder reached the output');
+        $this->assertSame($carve, $restored);
+    }
+
+    /**
+     * The bytes are the point, but so is the MEANING: a round trip that returns
+     * the same text under a different element passes a byte comparison.
+     */
+    #[DataProvider('prefixedHostProvider')]
+    public function testAPrefixedHostsRoundTripRendersTheSameHtml(string $carve, string $carrier): void
+    {
+        $this->assertSame($this->html($carve), $this->html((new MarkdownToCarve())->convert($carrier)));
+    }
+
+    /**
+     * @return array<string, array{0: string}>
+     */
+    public static function damagedInAPrefixedHostProvider(): array
+    {
+        return [
+            'one marker deleted in a list item' => ["- Item.\n\n  Body.\n\n  <!-- carve: ::: -->\n"],
+            'two reordered in a list item' => ["- Item.\n\n  <!-- carve: ::: -->\n  Body.\n\n  <!-- carve: ::: note -->\n"],
+            'unbalanced in a block quote' => ["> <!-- carve: ::: note -->\n> <!-- carve: ::: wrapper -->\n> Body.\n>\n> <!-- carve: ::: -->\n"],
+        ];
+    }
+
+    /**
+     * A damaged set inside a prefixed host is still never guessed at.
+     */
+    #[DataProvider('damagedInAPrefixedHostProvider')]
+    public function testADamagedSetInsideAPrefixedHostReportsAndReconstructsNothing(string $source): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+        $damaged = array_values(array_filter(
+            $result->diagnostics,
+            static fn ($diagnostic): bool => $diagnostic->code === 'carrier-markers-damaged',
+        ));
+        $this->assertCount(1, $damaged, 'a damaged marker set owes exactly one diagnostic');
+        $this->assertSame('degraded', $damaged[0]->fidelity);
+        $this->assertSame('fallback', $damaged[0]->confidence);
+        $this->assertSame(0, preg_match('/^[ \t>]*:{3,}/m', $result->value), 'a damaged set reconstructed a container');
+        $this->assertStringContainsString('```=html', $result->value);
+    }
+
+    /**
+     * A TABLE CELL STILL CARRIES NOTHING: this target flattens a cell to one
+     * line and the container's body with it, so there is no line for a marker
+     * to stand on (markup-carve/carve#2856).
+     */
+    public function testAContainerInATableCellTakesNoMarkerEitherWay(): void
+    {
+        $source = "{header-rows=1}\n::: list-table\n- - A\n  - B\n"
+            . "- - cell one\n  - ::: note\n    Body.\n    :::\n:::\n";
+        $on = $this->markdown($source, true);
+        $this->assertStringNotContainsString('<!-- carve:', $on);
+        $this->assertSame($this->markdown($source), $on);
+        $this->assertStringContainsString('| cell one | Body. |', $on);
     }
 
     /**
@@ -419,20 +564,6 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
         $this->assertStringContainsString('```=html', $result->value);
     }
 
-    #[DataProvider('prefixedHostProvider')]
-    public function testAContainerInAPrefixedHostTakesNoMarker(string $carve): void
-    {
-        $carrier = $this->markdown($carve, true);
-        $this->assertStringNotContainsString('<!-- carve:', $carrier);
-        $this->assertSame($this->markdown($carve), $carrier);
-        // And no marker written means no damage claimed on the way back.
-        $codes = array_map(
-            static fn ($diagnostic): string => $diagnostic->code,
-            (new MarkdownToCarve())->convertWithFidelityReport($carrier)->diagnostics,
-        );
-        $this->assertNotContains('carrier-markers-damaged', $codes);
-    }
-
     /**
      * @return array<string, array{0: string}>
      */
@@ -489,6 +620,25 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
             ],
             'an indented code block inside a list item' => [
                 "- item\n\n      <!-- carve: ::: note -->\n      body\n",
+            ],
+            // A FENCE INDENTED PAST THREE COLUMNS is code text, not a fence,
+            // so its own content is verbatim too.
+            'a fence indented past three columns' => [
+                "Prose.\n\n     ```md\n     <!-- carve: ::: note -->\n     ```\n",
+            ],
+            // AND A FENCE IN A QUOTE IN A LIST ITEM, which carries both host
+            // prefixes. This is the shape that made the structure pass's own
+            // reading have to take the nested `>` off the content: without
+            // that, the fence is invisible and its payload is lifted.
+            'a fence in a block quote in a list item' => [
+                "- Item.\n  > ```md\n  > <!-- carve: ::: note -->\n  > Body.\n  > <!-- carve: ::: -->\n  > ```\n",
+            ],
+            // A LIST MARKER INSIDE AN OPEN FENCE IS VERBATIM CONTENT. Reading
+            // the nested prefixes off a line inside the fence would let this
+            // `- ```` read as its closer, and the comments below it would then
+            // be lifted out of the payload.
+            'a fence whose payload holds a marker-shaped fence line' => [
+                "- ```\n  - ```\n  <!-- carve: ::: note -->\n  Body\n  <!-- carve: ::: -->\n  ```\n",
             ],
         ];
     }
