@@ -102,5 +102,17 @@
   {
     "source": "- - +\n    ```=html\n    code\n    ```\n x\n",
     "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        code\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    > ```\n    > code\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <pre><code>code\n</code></pre>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    > ```\n    > code\n    > ```\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <pre><code>code\n</code></pre>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
+  },
+  {
+    "source": "- - +\n    > > ~~~\n    > > code\n x\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <blockquote>\n          <blockquote>\n            <pre><code>code\n</code></pre>\n          </blockquote>\n        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>x</p>"
   }
 ]

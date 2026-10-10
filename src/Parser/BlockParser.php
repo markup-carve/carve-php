@@ -4626,6 +4626,8 @@ class BlockParser
         }
         $bareContinuationLead = $itemLines !== []
             && $this->leadBottomIsContinuationMarker((string)$itemLines[0]);
+        $bareLeadQuoteState = null;
+        $bareLeadQuoteMemo = [];
         $nestedFence = new NestedLeadFenceState();
         $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
             || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
@@ -4805,13 +4807,26 @@ class BlockParser
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
             $trailingState = $this->advanceTrailingState($trailingState, $stripped, true);
-            if (
-                $bareContinuationLead
-                && $trailingState->openParagraph
-                && !$this->leadBottomIsContinuationMarker(ltrim($stripped, " \t"))
-                && $this->advanceTrailingState(new TrailingBlockState(), ltrim($stripped, " \t"), true)->openParagraph
-            ) {
-                $bareContinuationLead = false;
+            if ($bareContinuationLead) {
+                $claimLine = ltrim($stripped, " \t");
+                $claimOpen = $this->advanceTrailingState(new TrailingBlockState(), $claimLine, true)->openParagraph;
+                $quoteWidth = ContainerPrefix::quoteMarkerWidth($claimLine, 0);
+                if ($quoteWidth !== null) {
+                    $bareLeadQuoteState ??= BlockQuoteBuilder::initialBlockQuoteLazyState();
+                    $this->quotesBuilder()->trackBlockQuoteLazyState(
+                        substr($claimLine, $quoteWidth),
+                        $bareLeadQuoteState,
+                        $lines,
+                        $i,
+                        $bareLeadQuoteMemo,
+                    );
+                    $claimOpen = $bareLeadQuoteState['paragraphOpen'];
+                } else {
+                    $bareLeadQuoteState = null;
+                }
+                if ($trailingState->openParagraph && $claimOpen && !$this->leadBottomIsContinuationMarker($claimLine)) {
+                    $bareContinuationLead = false;
+                }
             }
             $i++;
         }
