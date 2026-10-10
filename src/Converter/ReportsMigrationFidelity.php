@@ -34,6 +34,22 @@ trait ReportsMigrationFidelity
     public const RAW_SPAN_WHITESPACE_TRIMMED = 'A raw span ends a content line in whitespace, which Carve drops; '
         . 'the whitespace did not reach the converted source';
 
+    /**
+     * Whitespace a decoded character reference put at the start of a line,
+     * which Carve has no spelling for there.
+     *
+     * Dropped rather than substituted: `\ ` reads back as U+00A0, and a
+     * non-breaking space is not the tab or space the author wrote - it changes
+     * line breaking and copies out of a browser as a different byte, so the
+     * substitution travels further than the document (markup-carve/carve#2595).
+     * The drop is deliberate and still a loss, so it gets a row of its own
+     * rather than only the blanket `fidelity-unverified` (carve-php#3050).
+     *
+     * @var string
+     */
+    public const LEADING_WHITESPACE_UNSPELLABLE = 'Dropped whitespace a decoded reference put at the start of a line; '
+        . 'Carve spells no leading whitespace on a paragraph';
+
     protected function assessedMigrationResult(
         string $source,
         string $value,

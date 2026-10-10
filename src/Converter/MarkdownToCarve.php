@@ -175,11 +175,22 @@ class MarkdownToCarve
     private array $foldedHeadingSources = [];
 
     /**
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private array $leadingWhitespaceDiagnostics = [];
+
+    /**
      * The source line the inline run under conversion starts on, so a loss
      * inside it names a line of the INPUT rather than an index into the folded
      * array the importer writes from (markup-carve/carve#2792).
      */
     private ?int $inlineRunSourceLine = null;
+
+    /**
+     * Whether the line under conversion CONTINUES the paragraph the line before
+     * it opened, so a decode at its head is not at the head of a block.
+     */
+    private bool $inlineRunContinuesPrevious = false;
 
     /**
      * @var array<int, int>
@@ -625,7 +636,9 @@ class MarkdownToCarve
         $this->rawSpanWhitespaceDiagnostics = [];
         $this->boundaryDiagnostics = [];
         $this->foldedHeadingSources = [];
+        $this->leadingWhitespaceDiagnostics = [];
         $this->inlineRunSourceLine = null;
+        $this->inlineRunContinuesPrevious = false;
         $this->markdownSourceLines = [];
         $this->markdownHtmlSourceLines = [];
         $this->frontmatterSynthesized = false;
@@ -746,6 +759,9 @@ class MarkdownToCarve
         for ($i = 0; $i < $lineCount; $i++) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
             $this->inlineRunSourceLine = $this->sourceLine($i);
+            $this->inlineRunContinuesPrevious = $i > 0
+                && trim($lines[$i - 1]) !== ''
+                && $this->nextLineContinuesThisParagraph($lines[$i - 1], $lines[$i], false);
             if (!$inCodeBlock && $emptyMarkerColumn !== null && trim($lines[$i]) !== '') {
                 if ($prevBlank && $this->indentWidth($lines[$i]) > $emptyMarkerColumn) {
                     while ($listCols !== [] && end($listCols) > $emptyMarkerColumn) {
@@ -1972,17 +1988,17 @@ class MarkdownToCarve
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
-            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && $losses <= $assessedLosses) {
+            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && $this->leadingWhitespaceDiagnostics === [] && $losses <= $assessedLosses) {
                 return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && !$this->frontmatterSynthesized) {
+        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && $this->leadingWhitespaceDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
-        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics, $this->boundaryDiagnostics);
+        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics, $this->boundaryDiagnostics, $this->leadingWhitespaceDiagnostics);
         if ($this->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
@@ -5301,6 +5317,12 @@ class MarkdownToCarve
                 break;
             }
         }
+        // Past any container markers: a decode at the head of the CONTENT is at
+        // the head of a block just as one at column 0 is.
+        $contentPrefix = preg_match('/^[ \t]*(?:>[ \t]?|[-*+][ \t]+|(?:[0-9]{1,9}|[A-Za-z])[.)][ \t]+)*/', $line, $prefixMatch) === 1
+            ? $prefixMatch[0]
+            : '';
+        $bareContentStart = !str_contains(" \t", substr($line, strlen($contentPrefix), 1) ?: 'x');
         $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
         $protectedSources = [];
@@ -5552,6 +5574,7 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
+        $line = $this->dropDecodedLeadingWhitespace($line, $protected, $bareContentStart, $contentPrefix);
 
         $closers = [];
         $line = $this->protectClosersOfLinksHoldingALink($line, $protected, $protect, $closers);
@@ -7135,6 +7158,75 @@ class MarkdownToCarve
                 $line === null ? null : 'line:' . $line,
             );
         }
+    }
+
+    /**
+     * Drop whitespace a decoded character reference put at the start of a line,
+     * and report it.
+     *
+     * To every block rule that runs after the decode that whitespace is
+     * indentation, and Carve spells none at a paragraph's start, so it reaches
+     * the document either way as nothing: written, it is read back as nothing.
+     * Dropped rather than substituted - see
+     * `self::LEADING_WHITESPACE_UNSPELLABLE`.
+     *
+     * A marker the drop uncovers at column 0 is escaped, so the line stays the
+     * paragraph it was: `&#32;- item` is text, not a list. A reference
+     * definition needs its own escape, since it reaches no output at all rather
+     * than merely becoming a different block.
+     *
+     * @param string $line
+     * @param array<int, string> $protected
+     * @param bool $bareContentStart
+     * @param string $contentPrefix
+     */
+    private function dropDecodedLeadingWhitespace(string $line, array &$protected, bool $bareContentStart, string $contentPrefix): string
+    {
+        if (!$bareContentStart || $this->inlineRunContinuesPrevious || !str_starts_with($line, $contentPrefix)) {
+            return $line;
+        }
+
+        $content = substr($line, strlen($contentPrefix));
+        $dropped = false;
+        while (preg_match('/^\x00P(\d+)\x00/', $content, $match) === 1) {
+            $index = (int)$match[1];
+            if (preg_match('/^[ \t]+$/', $protected[$index] ?? '') !== 1) {
+                break;
+            }
+            $protected[$index] = '';
+            $content = substr($content, strlen($match[0]));
+            $dropped = true;
+        }
+        if (!$dropped) {
+            return $line;
+        }
+
+        $this->leadingWhitespaceDiagnostics[] = new MigrationDiagnostic(
+            'structure-unspellable',
+            self::LEADING_WHITESPACE_UNSPELLABLE,
+            'warning',
+            'dropped',
+            'exact',
+            $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
+        );
+
+        // The uncovered opener can itself be a DECODED character, a protected
+        // span by now, so that escape goes inside the span: without it
+        // `&#32;&gt; quote` left a `>` at column 0 and opened a quote. A span
+        // the decode escaper already froze needs nothing.
+        if (preg_match('/^\x00P(\d+)\x00/', $content, $head) === 1) {
+            $index = (int)$head[1];
+            $span = $protected[$index] ?? '';
+            if (!str_starts_with($span, '\\') && str_starts_with($this->escapeLineInitialBlockSyntax($span . substr($content, strlen($head[0]))), '\\')) {
+                $protected[$index] = '\\' . $span;
+            }
+
+            return $contentPrefix . $content;
+        }
+
+        $content = $this->escapeLineInitialBlockSyntax($content);
+
+        return $contentPrefix . (preg_replace('/^\*?(?=\[[^\]\n]*\]:)/', '\\\\$0', $content) ?? $content);
     }
 
     /**
