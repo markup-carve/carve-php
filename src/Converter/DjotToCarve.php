@@ -1464,6 +1464,34 @@ class DjotToCarve
         $item = '(?:[.#][A-Za-z0-9_][A-Za-z0-9_-]*|[A-Za-z][A-Za-z0-9_-]*=(?:"(?:\\\\.|[^"\\\\\n])*"|[A-Za-z0-9_:-]+))';
         $pattern = '/\{[ \t]*' . $item . '(?:[ \t]+' . $item . ')*[ \t]*\}/';
         $lines = explode("\n", $source);
+        $dangling = [];
+        $wholeAttribute = '/^(?:' . substr($pattern, 1, -1) . ')$/';
+        $followsBlank = true;
+        $nextDepth = null;
+        for ($index = count($lines) - 1; $index >= 0; $index--) {
+            $line = $lines[$index];
+            preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?[ \t]*/', $line, $container);
+            $first = strlen($container[0] ?? '');
+            $depth = substr_count(substr($line, 0, $first), '>');
+            if (trim(substr($line, $first)) === '') {
+                $followsBlank = true;
+                $nextDepth = $depth === 0 ? null : $depth;
+
+                continue;
+            }
+            if (($masked[$index][$first] ?? '') === '{' && preg_match($wholeAttribute, rtrim(substr($line, $first))) === 1) {
+                if ($nextDepth !== null && $depth !== $nextDepth) {
+                    $followsBlank = false;
+                }
+                if ($followsBlank) {
+                    $dangling[$index] = true;
+                }
+                $nextDepth = $depth;
+            } else {
+                $followsBlank = false;
+                $nextDepth = null;
+            }
+        }
         $prefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTORPHAN\x00");
         $out = [];
         $spaces = [];
@@ -1495,7 +1523,7 @@ class DjotToCarve
                 $previous = trim(preg_replace('/^(?:(?:[ \t]*>)+[ \t]*)?/', '', $lines[$index - 1] ?? '') ?? '');
                 $block = ($index === 0 || $previous === '' || preg_match('/^\{.*\}$/', $previous) === 1 || preg_match('/^(?:`{3,}|~{3,}|:{3,}|#{1,6} |[-*+] |[0-9]+[.)] |> |:{1,2} |(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|\|.*\||\[[^\]]+\]:)/', $previous) === 1);
                 if ($alone && $block) {
-                    if (trim($lines[$index + 1] ?? '') !== '') {
+                    if (!isset($dangling[$index])) {
                         continue;
                     }
                     $dropLine = true;
@@ -1504,6 +1532,10 @@ class DjotToCarve
                 $cursor = $at + strlen($attrs);
             }
             if ($dropLine) {
+                if (str_contains(substr($line, 0, $first), '>')) {
+                    $out[] = rtrim(substr($line, 0, $first));
+                }
+
                 continue;
             }
             $written .= substr($line, $cursor);
