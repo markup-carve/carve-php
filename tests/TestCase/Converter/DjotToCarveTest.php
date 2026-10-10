@@ -363,9 +363,16 @@ class DjotToCarveTest extends TestCase
         $this->assertSame("- one\n- two", $this->converter->convert("+ one\n+ two"));
     }
 
-    public function testIndentedPlusBulletBecomesDash(): void
+    public function testIndentedPlusBulletContinuesTheParagraph(): void
     {
-        $this->assertSame("- a\n  - b", $this->converter->convert("+ a\n  + b"));
+        $this->assertSame("- a\n  \\+ b", $this->converter->convert("+ a\n  + b"));
+    }
+
+    public function testIndentedTopLevelListKeepsItsContentAndFollowingParagraphSeparate(): void
+    {
+        $this->assertSame("- a\n- b\n", $this->converter->convert(" - a\n - b\n"));
+        $this->assertSame("- a\n\n  body\n", $this->converter->convert("   - a\n\n     body\n"));
+        $this->assertSame("- a\n\npara\n", $this->converter->convert("   - a\n\n  para\n"));
     }
 
     public function testLonePlusContinuationMarkerIsUntouched(): void
@@ -509,7 +516,7 @@ class DjotToCarveTest extends TestCase
 
         $expected = <<<'CARVE'
         - a
-          - x
+          \- x
 
           - y
         CARVE;

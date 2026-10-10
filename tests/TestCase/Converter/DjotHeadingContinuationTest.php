@@ -30,8 +30,9 @@ class DjotHeadingContinuationTest extends TestCase
             $source = "# A\n$next\n";
             $this->assertSame("# A\n" . (new DjotToCarve())->convert("$next\n"), (new DjotToCarve())->convert($source));
         }
+        $this->assertSame("para\n\\# A\nB\n", (new DjotToCarve())->convert("para\n# A\nB\n"));
         $this->assertSame("# A\n", (new DjotToCarve())->convert("# A\n{.class}\n"));
-        foreach (["```\n# A\n# B\n```\n", "`x\n# A\n# B\ny`\n", "para\n# A\nB\n", "# A\\\nB\n"] as $source) {
+        foreach (["```\n# A\n# B\n```\n", "`x\n# A\n# B\ny`\n", "# A\\\nB\n"] as $source) {
             $this->assertSame($source, (new DjotToCarve())->convert($source));
         }
     }

@@ -35,22 +35,26 @@ final class DjotEmphasisRenderer
      * @param string $mask
      * @param array<int, true> $structural
      * @param array<int, true> $literalBrackets
+     * @param array<int, true> $literalDashes
      * @param \Closure(string): string $convert
      * @param array<int, array{end: int, source: string, single?: bool}> $attributes
      * @param array<int, true> $validBraces
      * @param array<int, true> $validBraceClosers
      * @param array<int, true> $bracketCloses
+     * @param \Closure(int): void|null $onFlattened
      */
     public function __construct(
         private readonly string $source,
         private readonly string $mask,
         private readonly array $structural,
         private readonly array $literalBrackets,
+        private readonly array $literalDashes,
         private readonly Closure $convert,
         private readonly array $attributes = [],
         private readonly array $bracketCloses = [],
         private readonly array $validBraceClosers = [],
         private readonly array $validBraces = [],
+        private readonly ?Closure $onFlattened = null,
     ) {
         $this->literalPrefix = "\0DJOTLITERAL\0";
         while (str_contains($source, $this->literalPrefix)) {
@@ -144,7 +148,7 @@ final class DjotEmphasisRenderer
 
     private function plain(int $start, int $end): string
     {
-            $text = '';
+        $text = '';
         for ($i = $start; $i < $end; $i++) {
             $attributes = $this->attributes[$i] ?? null;
             if ($attributes !== null && $attributes['end'] <= $end) {
@@ -175,7 +179,7 @@ final class DjotEmphasisRenderer
                 $this->literals[$token] = '\\' . $ch;
                 $text .= $token;
             } else {
-                $text .= $ch;
+                $text .= isset($this->literalDashes[$i]) ? '\\-' : $ch;
             }
         }
 
@@ -190,7 +194,7 @@ final class DjotEmphasisRenderer
      */
     private function body(int $start, int $end, array $children, array $outer): string
     {
-            $text = '';
+        $text = '';
         $cursor = $start;
         foreach ($children as $child) {
             $text .= $this->plain($cursor, $child->start) . $this->rendered[spl_object_id($child)];
@@ -207,6 +211,10 @@ final class DjotEmphasisRenderer
     private function render(DjotEmphasisSpan $pair, array $outer): string
     {
         if (isset($outer[$pair->kind])) {
+            if ($this->onFlattened !== null) {
+                ($this->onFlattened)($pair->start);
+            }
+
             return $this->body($pair->openEnd, $pair->close, $pair->children, $outer);
         }
         $scope = false;
