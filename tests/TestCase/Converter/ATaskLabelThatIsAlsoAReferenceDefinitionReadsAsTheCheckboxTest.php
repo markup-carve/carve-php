@@ -43,31 +43,31 @@ final class ATaskLabelThatIsAlsoAReferenceDefinitionReadsAsTheCheckboxTest exten
         return [
             'the bare form' => [
                 "- [x] done\n\n[x]: /u\n",
-                '<ul><li><input type="checkbox" checked disabled> done</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> done</li></ul>',
             ],
             'the titled form' => [
                 "- [x] done\n\n[x]: /u \"T\"\n",
-                '<ul><li><input type="checkbox" checked disabled> done</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> done</li></ul>',
             ],
             // The label match folds case, so an upper-case state finds the
             // lower-case definition - and is still the checkbox.
             'an upper-case label against a lower-case definition' => [
                 "- [X] done\n\n[x]: /u\n",
-                '<ul><li><input type="checkbox" checked disabled> done</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> done</li></ul>',
             ],
             // A tab separates the marker from its content for cmark-gfm, which
             // strips the run as the paragraph's own.
             'the tab-separated form' => [
                 "- [x]\tdone\n\n[x]: /u\n",
-                '<ul><li><input type="checkbox" checked disabled> done</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> done</li></ul>',
             ],
             'a star bullet' => [
                 "* [x] done\n\n[x]: /u\n",
-                '<ul><li><input type="checkbox" checked disabled> done</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> done</li></ul>',
             ],
             'a sublist opened on its own line' => [
                 "- a\n  - [x] done\n\n[x]: /u\n",
-                '<ul><li>a <ul><li><input type="checkbox" checked disabled> done</li></ul></li></ul>',
+                '<ul><li>a <ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> done</li></ul></li></ul>',
             ],
         ];
     }

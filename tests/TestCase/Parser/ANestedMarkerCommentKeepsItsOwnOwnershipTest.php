@@ -81,22 +81,22 @@ class ANestedMarkerCommentKeepsItsOwnOwnershipTest extends TestCase
   [
     "task closer 0",
     "- a\n  - [x] %%%\n    hidden\n%%%\ntail\n",
-    "<ul>\n  <li>a\n    <ul>\n      <li><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
+    "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
   ],
   [
     "task closer 1",
     "- a\n  - [x] %%%\n    hidden\n %%%\ntail\n",
-    "<ul>\n  <li>a\n    <ul>\n      <li><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
+    "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
   ],
   [
     "task closer 4",
     "- a\n  - [x] %%%\n    hidden\n    %%%\ntail\n",
-    "<ul>\n  <li>a\n    <ul>\n      <li><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
+    "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
   ],
   [
     "task closer 6",
     "- a\n  - [x] %%%\n    hidden\n      %%%\ntail\n",
-    "<ul>\n  <li>a\n    <ul>\n      <li><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
+    "<ul>\n  <li>a\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n"
   ],
   [
     "code payload",

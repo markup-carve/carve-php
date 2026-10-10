@@ -58,21 +58,21 @@ final class ATaskLineOnAnItemsContinuationTakesTheSameReadingsTest extends TestC
             // whose extension takes a checkbox off a PARAGRAPH.
             'a quote marker after the box' => [
                 "- a\n  - [ ] > foo\n",
-                '<ul><li>a <ul><li><input type="checkbox" disabled> &gt; foo</li></ul></li></ul>',
+                '<ul><li>a <ul class="task-list"><li><input type="checkbox" disabled> &gt; foo</li></ul></li></ul>',
             ],
             'a heading marker after the box' => [
                 "- a\n  - [ ] # foo\n",
-                '<ul><li>a <ul><li><input type="checkbox" disabled> # foo</li></ul></li></ul>',
+                '<ul><li>a <ul class="task-list"><li><input type="checkbox" disabled> # foo</li></ul></li></ul>',
             ],
             'a tilde fence after the box' => [
                 "- a\n  - [ ] ~~~\n",
-                '<ul><li>a <ul><li><input type="checkbox" disabled> ~~~</li></ul></li></ul>',
+                '<ul><li>a <ul class="task-list"><li><input type="checkbox" disabled> ~~~</li></ul></li></ul>',
             ],
             // A tab between the marker and the content leaves Carve no box, so
             // the importer writes the space it reads.
             'a tab after the box on a continuation line' => [
                 "- a\n  - [x]\tdone\n",
-                '<ul><li>a <ul><li><input type="checkbox" checked disabled> done</li></ul></li></ul>',
+                '<ul><li>a <ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> done</li></ul></li></ul>',
             ],
         ];
     }

@@ -1653,8 +1653,8 @@ final class HtmlAstBuilder
                 || strtolower($child->getAttribute('data-checked')) === 'true'
             );
             $consumesTaskState = $task !== null
-                && in_array($taskState, ['', '-', 'x', 'X', ' '], true)
-                && (!in_array($taskState, ['x', 'X'], true) || $checkboxChecked);
+                && in_array($taskState, ['', ' ', '-', '_', '>', '?', 'x', 'X'], true)
+                && ($taskState === '' || ($checkboxChecked === in_array($taskState, ['x', 'X'], true)));
             // An ORDERED task item has no Carve spelling: `task_marker` hangs off
             // `unordered_item` alone (PART 3). The writer keeps the characters
             // the box was read from and loses the task-item semantics, which the
@@ -1746,7 +1746,7 @@ final class HtmlAstBuilder
             $skipListAttrs[] = 'type';
         }
         $this->attachAttrs($list, $node, $skipListAttrs);
-        if ($this->hasClass($node, 'task-list')) {
+        if (!$ordered && $items !== [] && count(array_filter($items, static fn (array $item): bool => isset($item['checked']))) === count($items) && $this->hasClass($node, 'task-list')) {
             $this->removeStructuralClass($list, 'task-list');
         }
 

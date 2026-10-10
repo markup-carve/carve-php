@@ -52,7 +52,8 @@ class ATaskItemSCheckboxIsNotPartOfItsMarkerOnImportTest extends TestCase
 
         $imported = $this->importer->convert($html);
         $this->assertSame("- [x] {#h}\n  # h\n", $imported);
-        $this->assertSame($html, trim($this->converter->convert($imported)));
+        $expected = "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled> \n    <h1 id=\"h\">h</h1>\n  </li>\n</ul>";
+        $this->assertSame($expected, trim($this->converter->convert($imported)));
     }
 
     /**

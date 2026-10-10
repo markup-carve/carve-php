@@ -316,7 +316,9 @@ final class MarkdownAssessment
             if (preg_match('/^ {0,3}>/', $line)) {
                 $body = [];
                 $start = $i;
-                while ($i < $count && preg_match('/^ {0,3}>/', $lines[$i])) {
+                while (
+                    $i < $count && preg_match('/^ {0,3}>/', $lines[$i])
+                ) {
                     $body[] = preg_replace('/^ {0,3}> ?/', '', $lines[$i++]) ?? '';
                 }
                 $this->emit('block-quote', $n);
@@ -328,8 +330,12 @@ final class MarkdownAssessment
                 $ordered = ctype_digit($m[1][0]);
                 $tag = $ordered ? 'ol' : 'ul';
                 $this->emit($ordered ? 'ordered-list' : 'bullet-list', $n);
-                $html .= '<' . $tag . ($ordered && (int)$m[1] !== 1 ? ' start="' . (int)$m[1] . '"' : '') . ">\n";
-                while ($i < $count && preg_match('/^ {0,3}([-+*]|\d{1,9}[.)])[ \t]+(.*)$/', $lines[$i], $m) && ctype_digit($m[1][0]) === $ordered) {
+                $taskList = !$ordered && preg_match('/^\[([ xX])\][ \t]+/', $m[2]) === 1;
+                $html .= '<' . $tag . ($taskList ? ' class="task-list"' : '') . ($ordered && (int)$m[1] !== 1 ? ' start="' . (int)$m[1] . '"' : '') . ">\n";
+                while (
+                    $i < $count && preg_match('/^ {0,3}([-+*]|\d{1,9}[.)])[ \t]+(.*)$/', $lines[$i], $m) && ctype_digit($m[1][0]) === $ordered
+                    && ($ordered || (preg_match('/^\[([ xX])\][ \t]+/', $m[2]) === 1) === $taskList)
+                ) {
                     $this->emit('list-item', $first + $i);
                     $body = $m[2];
                     if (preg_match('/^\[([ xX])\][ \t]+(.*)$/', $body, $task)) {
@@ -340,12 +346,15 @@ final class MarkdownAssessment
                             $html .= '<li>' . self::escape(substr($body, 0, 3)) . ' ' . $this->inline($task[2], $first + $i) . "</li>\n";
                         } else {
                             $this->emit('bullet-task', $first + $i);
-                            $html .= '<li><input type="checkbox"' . ($task[1] === ' ' ? '' : ' checked') . ' disabled aria-label="' . self::escape($task[2]) . '"> ' . $this->inline($task[2], $first + $i) . "</li>\n";
+                            $html .= '<li' . ($task[1] === ' ' ? '' : ' data-task-state="x"') . '><input type="checkbox"' . ($task[1] === ' ' ? '' : ' checked') . ' disabled aria-label="' . self::escape($task[2]) . '"> ' . $this->inline($task[2], $first + $i) . "</li>\n";
                         }
                     } else {
                         $html .= '<li>' . $this->inline($body, $first + $i) . "</li>\n";
                     }
                     $i++;
+                }
+                if (!$ordered && $i < $count && preg_match('/^ {0,3}([-+*])[ \t]+(.*)$/', $lines[$i], $next) && (preg_match('/^\[([ xX])\][ \t]+/', $next[2]) === 1) !== $taskList) {
+                    $this->complete = false;
                 }
                 $html .= '</' . $tag . ">\n";
 

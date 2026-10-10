@@ -82,23 +82,23 @@ final class TheFourCarveOnlyTaskStatesAreTextOnImportTest extends TestCase
         return [
             'an unchecked box' => [
                 "- [ ] foo\n",
-                '<ul><li><input type="checkbox" disabled> foo</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> foo</li></ul>',
             ],
             'a checked box' => [
                 "- [x] foo\n",
-                '<ul><li><input type="checkbox" checked disabled> foo</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> foo</li></ul>',
             ],
             'a capital state' => [
                 "* [X] foo\n",
-                '<ul><li><input type="checkbox" checked disabled> foo</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> foo</li></ul>',
             ],
             'an indented bullet' => [
                 "   - [ ] foo\n",
-                '<ul><li><input type="checkbox" disabled> foo</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> foo</li></ul>',
             ],
             'a sublist on its own line' => [
                 "- a\n  - [x] foo\n",
-                '<ul><li>a <ul><li><input type="checkbox" checked disabled> foo</li></ul></li></ul>',
+                '<ul><li>a <ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> foo</li></ul></li></ul>',
             ],
         ];
     }

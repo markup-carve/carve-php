@@ -1806,9 +1806,8 @@ class HtmlToCarve
      * Is the element under inspection an ordered task item whose
      * `data-task-state` the writer spelled into the item's bracket text?
      *
-     * The same set `HtmlAstBuilder` consumes, on the same condition: a state of
-     * `x` on an UNCHECKED box is not consumed there, stays an item attribute and
-     * keeps the row it owes.
+     * Ordered items keep the state in bracket text. A checked-state hook on
+     * an unchecked box remains an authored attribute instead.
      */
     private function orderedTaskStateReachedTheBrackets(): bool
     {
@@ -1817,7 +1816,7 @@ class HtmlToCarve
             return false;
         }
         $state = $item->getAttribute('data-task-state');
-        if (!in_array($state, ['-', 'x', 'X', ' '], true)) {
+        if (!in_array($state, ['-', '_', '>', '?', 'x', 'X', ' '], true)) {
             return false;
         }
         foreach ($item->getElementsByTagName('input') as $input) {

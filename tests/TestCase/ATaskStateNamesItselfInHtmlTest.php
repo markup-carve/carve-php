@@ -45,10 +45,10 @@ class ATaskStateNamesItselfInHtmlTest extends TestCase
         $this->assertStringContainsString('<li data-task-state="&gt;">', $this->converter->convert("- [>] a\n"));
     }
 
-    public function testTheTwoStatesTheBoxTellsApartCarryNothing(): void
+    public function testCheckedItemsHaveAHookAndDefaultUncheckedItemsStayBare(): void
     {
         $this->assertStringNotContainsString('data-task-state', $this->converter->convert("- [ ] a\n"));
-        $this->assertStringNotContainsString('data-task-state', $this->converter->convert("- [x] a\n"));
+        $this->assertStringContainsString('data-task-state="x"', $this->converter->convert("- [x] a\n"));
         $this->assertStringNotContainsString('data-task-state', $this->converter->convert("- a\n"));
     }
 

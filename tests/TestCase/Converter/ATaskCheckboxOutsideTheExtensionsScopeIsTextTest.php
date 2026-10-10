@@ -121,32 +121,32 @@ final class ATaskCheckboxOutsideTheExtensionsScopeIsTextTest extends TestCase
         return [
             'a top-level bullet' => [
                 "- [ ] foo\n",
-                '<ul><li><input type="checkbox" disabled> foo</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> foo</li></ul>',
             ],
             'a top-level bullet, checked' => [
                 "- [x] foo\n",
-                '<ul><li><input type="checkbox" checked disabled> foo</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> foo</li></ul>',
             ],
             'a star bullet' => [
                 "* [X] foo\n",
-                '<ul><li><input type="checkbox" checked disabled> foo</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> foo</li></ul>',
             ],
             // Whitespace before the marker is not a second marker, so an
             // indented top-level list keeps its box.
             'three columns of indentation' => [
                 "   - [ ] foo\n",
-                '<ul><li><input type="checkbox" disabled> foo</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> foo</li></ul>',
             ],
             // A sublist that opens on its OWN line carries one marker on that
             // line, so the extension reaches it where `- - [ ] foo` puts it out
             // of reach. This is the pair the marker count tells apart.
             'a sublist opened on its own line' => [
                 "- a\n  - [ ] foo\n",
-                '<ul><li>a <ul><li><input type="checkbox" disabled> foo</li></ul></li></ul>',
+                '<ul><li>a <ul class="task-list"><li><input type="checkbox" disabled> foo</li></ul></li></ul>',
             ],
             'a bullet after a paragraph' => [
                 "x\n\n- [ ] foo\n",
-                '<p>x</p><ul><li><input type="checkbox" disabled> foo</li></ul>',
+                '<p>x</p><ul class="task-list"><li><input type="checkbox" disabled> foo</li></ul>',
             ],
         ];
     }

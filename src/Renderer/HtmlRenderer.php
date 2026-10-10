@@ -1978,19 +1978,77 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return ['<ol' . $olAttrs . $this->renderAttributeArray($attrs) . '>', '', '</ol>'];
         }
 
+        $taskList = $this->isTaskList($node);
+        if ($taskList) {
+            $attrs = self::withTaskListClass($attrs);
+        }
         $marker = $node->getMarker();
         $markerAttr = '';
         if ($this->roundTripMode && $marker !== null && $marker !== '-') {
             $markerAttr = ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 
+        if ($taskList && $markerAttr !== '' && array_key_first($attrs) === 'class') {
+            $classAttr = $this->renderAttributeArray(['class' => $attrs['class']]);
+            unset($attrs['class']);
+
+            return ['<ul' . $classAttr . $markerAttr . $this->renderAttributeArray($attrs) . '>', '', '</ul>'];
+        }
+
         return ['<ul' . $markerAttr . $this->renderAttributeArray($attrs) . '>', '', '</ul>'];
+    }
+
+    private function isTaskList(ListBlock $node): bool
+    {
+        $items = $node->getChildren();
+        if ($items === []) {
+            return false;
+        }
+        foreach ($items as $child) {
+            if (!$child instanceof ListItem || !$child->isTask()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Preserve the authored class slot while prepending the structural class.
+     *
+     * @param array<string, string> $attrs
+     *
+     * @return array<string, string>
+     */
+    private static function withTaskListClass(array $attrs): array
+    {
+        $result = [];
+        $hasClass = false;
+        foreach ($attrs as $name => $value) {
+            if (strtolower($name) === 'class') {
+                $classes = preg_split('/\s+/', trim($value)) ?: [];
+                $result[$name] = implode(' ', array_unique(['task-list', ...$classes]));
+                $hasClass = true;
+            } else {
+                $result[$name] = $value;
+            }
+        }
+
+        return $hasClass ? $result : ['class' => 'task-list'] + $result;
     }
 
     private function planListItem(ListItem $node, bool $tight, bool $planChildren = true): ContainerLayout
     {
-        $attrs = $this->renderAttributes($node);
-        $state = $node->getAuthoredTaskState();
+        $itemAttrs = $this->getRenderableAttributes($node);
+        $state = $node->getAuthoredTaskState() ?? ($node->isCompleted() ? 'x' : null);
+        if ($state !== null) {
+            foreach (array_keys($itemAttrs) as $name) {
+                if (strtolower($name) === 'data-task-state') {
+                    unset($itemAttrs[$name]);
+                }
+            }
+        }
+        $attrs = $this->renderAttributeArray($itemAttrs);
         if ($state !== null) {
             $attrs = ' data-task-state="' . $this->escapeAttribute($state) . '"' . $attrs;
         }

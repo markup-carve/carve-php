@@ -32,7 +32,7 @@ class AMarkdownCarveOnlyMarkerIsTextTest extends TestCase
             'after a heading' => ["# H\nb. c\n", "# H\n\nb\\. c\n", "<section id=\"H\">\n  <h1>H</h1>\n  <p>b. c</p>\n</section>\n"],
             'under an item paragraph' => ["- a\n  . b\n", "- a\n  \\. b\n", "<ul>\n  <li>a\n. b</li>\n</ul>\n"],
             'as an item\'s text' => ["- b. c\n", "- b\\. c\n", "<ul>\n  <li>b. c</li>\n</ul>\n"],
-            'after a task box' => ["- [ ] b. c\n", "- [ ] b\\. c\n", "<ul>\n  <li><input type=\"checkbox\" disabled aria-label=\"b. c\"> b. c</li>\n</ul>\n"],
+            'after a task box' => ["- [ ] b. c\n", "- [ ] b\\. c\n", "<ul class=\"task-list\">\n  <li><input type=\"checkbox\" disabled aria-label=\"b. c\"> b. c</li>\n</ul>\n"],
             'in a quote' => ["> . b\n", "> \\. b\n", "<blockquote><p>. b</p></blockquote>\n"],
             'in a quoted item' => ["> - a\n>   i. c\n", "> - a\n>   i\\. c\n", "<blockquote>\n  <ul>\n    <li>a\ni. c</li>\n  </ul>\n</blockquote>\n"],
         ];

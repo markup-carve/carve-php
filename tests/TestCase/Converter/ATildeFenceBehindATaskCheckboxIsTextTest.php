@@ -47,33 +47,33 @@ final class ATildeFenceBehindATaskCheckboxIsTextTest extends TestCase
             // empty fence of its own, which both readers agree on.
             'a fence and its closer' => [
                 "- [ ] ~~~\nx\n~~~\n",
-                '<ul><li><input type="checkbox" disabled> ~~~ x</li></ul><pre><code></code></pre>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ~~~ x</li></ul><pre><code></code></pre>',
             ],
             'a fence alone on the line' => [
                 "- [ ] ~~~\n",
-                '<ul><li><input type="checkbox" disabled> ~~~</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ~~~</li></ul>',
             ],
             'a four-tilde run' => [
                 "- [ ] ~~~~\n",
-                '<ul><li><input type="checkbox" disabled> ~~~~</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ~~~~</li></ul>',
             ],
             // An info string is text of the paragraph too, so the language never
             // reaches a code block.
             'a fence carrying an info string' => [
                 "- [ ] ~~~ php\nx\n~~~\n",
-                '<ul><li><input type="checkbox" disabled> ~~~ php x</li></ul><pre><code></code></pre>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ~~~ php x</li></ul><pre><code></code></pre>',
             ],
             'a run abutting its info string' => [
                 "- [ ] ~~~foo\n",
-                '<ul><li><input type="checkbox" disabled> ~~~foo</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ~~~foo</li></ul>',
             ],
             'behind a checked box' => [
                 "- [x] ~~~\nx\n",
-                '<ul><li><input type="checkbox" checked disabled> ~~~ x</li></ul>',
+                '<ul class="task-list"><li data-task-state="x"><input type="checkbox" checked disabled> ~~~ x</li></ul>',
             ],
             'behind a star bullet' => [
                 "* [ ] ~~~\nx\n",
-                '<ul><li><input type="checkbox" disabled> ~~~ x</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ~~~ x</li></ul>',
             ],
         ];
     }
@@ -98,15 +98,15 @@ final class ATildeFenceBehindATaskCheckboxIsTextTest extends TestCase
             // Two tildes are no fence, so nothing needs escaping.
             'a two-tilde run behind a checkbox' => [
                 "- [ ] ~~\n",
-                '<ul><li><input type="checkbox" disabled> ~~</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ~~</li></ul>',
             ],
             'a tilde run inside the text behind a checkbox' => [
                 "- [ ] a ~~~ b\n",
-                '<ul><li><input type="checkbox" disabled> a ~~~ b</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> a ~~~ b</li></ul>',
             ],
             'the backtick spelling was already text' => [
                 "- [ ] ```\nx\n```\n",
-                '<ul><li><input type="checkbox" disabled> ``` x</li></ul><pre><code></code></pre>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ``` x</li></ul><pre><code></code></pre>',
             ],
             // A fence on a plain item's own line still opens its code block,
             // there being no checkbox to lift it out of a paragraph.
@@ -125,11 +125,11 @@ final class ATildeFenceBehindATaskCheckboxIsTextTest extends TestCase
             // carve-php#2343, is untouched.
             'a quote marker behind a checkbox stays escaped' => [
                 "- [ ] > foo\n",
-                '<ul><li><input type="checkbox" disabled> &gt; foo</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> &gt; foo</li></ul>',
             ],
             'a thematic break behind a checkbox stays escaped' => [
                 "- [ ] ---\n",
-                '<ul><li><input type="checkbox" disabled> ---</li></ul>',
+                '<ul class="task-list"><li><input type="checkbox" disabled> ---</li></ul>',
             ],
         ];
     }
