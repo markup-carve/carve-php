@@ -5526,7 +5526,8 @@ class MarkdownToCarve
                     return $match[0];
                 }
                 if ($validateCodeScalar($match[2]) === null) {
-                    return $match[1] . $protect('\\(', '(') . substr($match[2], 1);
+                    return preg_match('/<\/?code\b/i', $match[2]) === 1
+                        ? $match[1] . $protect('\\(', '(') . substr($match[2], 1) : $match[0];
                 }
                 if (!str_starts_with($match[1], '!') && preg_match_all('/\[[^\[\]\n]*\](\([^()\n]*\))/', $match[1], $nestedDestinations) !== false) {
                     foreach ($nestedDestinations[1] as $destination) {
@@ -6194,7 +6195,7 @@ class MarkdownToCarve
             PREG_OFFSET_CAPTURE,
         ) ?? $line;
 
-        $destination = '\([ \t]*(?:\n(?![ \t]*\n)[ \t]*)?(?:[^()\n]|\([^()\n]*\))*\)';
+        $destination = '\((?:[ \t]*\n(?![ \t]*\n))?(?:[^()\n]|\([^()\n]*\))*\)';
         $line = preg_replace_callback(
             '/(!\[(?:[^[\]]|\[[^\]]*\])*\])(' . $destination . ')/',
             fn (array $match): string => $protectDestination($imageLabel($match[1]), $match[2], $match[1] . $match[2]),
@@ -6617,7 +6618,8 @@ class MarkdownToCarve
                     $offset = $match[0][1];
                     $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
                     $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
-                    $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1;
+                    $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
+                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1;
                     $written = $marker . $body . $marker;
 
                     return $forced ? '{' . $written . '}' : $written;
@@ -6633,7 +6635,7 @@ class MarkdownToCarve
         // text that renders escaped.
         $line = preg_replace_callback(
             '/<\/?(?:' . $nativeInline . ')>/i',
-            fn (array $match): string => $protect($this->verbatimHtmlInline($match[0])),
+            fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]), $match[0]),
             $line,
         ) ?? $line;
 

@@ -96,7 +96,24 @@ class MarkdownHtmlCodePayloadTest extends TestCase
     {
         foreach (['<span>a <code>b</code></span>' => '<p>a <code>b</code></p>', '<small>a\\*b</small>' => '<p>a*b</p>', '<span>*a* [b](u)</span>' => '<p><em>a</em> <a href="u">b</a></p>', '<span>```a```</span>' => '<p><code>a</code></p>'] as $markdown => $expected) {
             $source = (new MarkdownToCarve(convertRawHtml: true))->convert($markdown);
-            $this->assertSame($expected, rtrim((new CarveConverter())->convert($source), "\n"));
+            $this->assertSame($expected, str_replace(['<s>', '</s>'], ['<del>', '</del>'], rtrim((new CarveConverter())->convert($source), "\n")));
+        }
+    }
+
+    public function testFormattingOutsideCodeKeepsItsStructure(): void
+    {
+        foreach ([false, true] as $mode) {
+            foreach (
+                [
+                    '<em><strong>x</strong></em>' => '<p><em><strong>x</strong></em></p>',
+                    '<b>x<sup>2</sup></b>' => '<p><strong>x<sup>2</sup></strong></p>',
+                    '<em>H<sub>2</sub>O</em>' => '<p><em>H<sub>2</sub>O</em></p>',
+                    '<strong><del>x</del></strong>' => '<p><strong><del>x</del></strong></p>',
+                ] as $markdown => $expected
+            ) {
+                $source = (new MarkdownToCarve(convertRawHtml: $mode))->convert($markdown);
+                $this->assertSame($expected, str_replace(['<s>', '</s>'], ['<del>', '</del>'], rtrim((new CarveConverter())->convert($source), "\n")));
+            }
         }
     }
 
