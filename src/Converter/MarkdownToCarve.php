@@ -165,6 +165,16 @@ class MarkdownToCarve
     private array $rawSpanWhitespaceDiagnostics = [];
 
     /**
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private array $boundaryDiagnostics = [];
+
+    /**
+     * @var array<string, list<array{offset: int, line: int}>>
+     */
+    private array $foldedHeadingSources = [];
+
+    /**
      * The source line the inline run under conversion starts on, so a loss
      * inside it names a line of the INPUT rather than an index into the folded
      * array the importer writes from (markup-carve/carve#2792).
@@ -224,6 +234,11 @@ class MarkdownToCarve
      * @var array<array<string>>
      */
     protected array $movedFootnotes = [];
+
+    /**
+     * @var list<int>
+     */
+    private array $movedFootnoteSourceLines = [];
 
     /**
      * When true, carry `::: note` fences across as Carve containers (Pandoc /
@@ -608,6 +623,8 @@ class MarkdownToCarve
             $this->omittedTableComment .= '_';
         }
         $this->rawSpanWhitespaceDiagnostics = [];
+        $this->boundaryDiagnostics = [];
+        $this->foldedHeadingSources = [];
         $this->inlineRunSourceLine = null;
         $this->markdownSourceLines = [];
         $this->markdownHtmlSourceLines = [];
@@ -954,7 +971,7 @@ class MarkdownToCarve
                 $inCodeBlock = true;
                 $fenceChar = $matches[2][0];
                 $fenceLength = strlen($matches[2]);
-                $info = $this->fenceLanguage($matches[3]);
+                $info = $this->fenceLanguage($matches[3], $this->sourceLine($i));
                 // Re-base the fence to its container's content column: strip
                 // only the indentation ABOVE that column. At document level the
                 // column is 0, so a 1-3 space Markdown fence dedents fully; a
@@ -1488,7 +1505,7 @@ class MarkdownToCarve
                     $texts[] = $this->setextLineText($lines[$at], $at + 1 === $setext);
                 }
                 $marker = ltrim($lines[$setext], " \t")[0] === '=' ? '#' : '##';
-                $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($marker . ' ' . implode(' ', $texts));
+                $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($this->foldedHeading($marker, $texts, $i));
                 $i = $setext;
                 if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
                     $result[] = '';
@@ -1711,7 +1728,7 @@ class MarkdownToCarve
             if ($itemFence !== null) {
                 $fenceOut = count($result);
                 $fenceRun = strlen($itemFence[2]);
-                $fenceInfo = $this->fenceLanguage($itemFence[3]);
+                $fenceInfo = $this->fenceLanguage($itemFence[3], $this->sourceLine($i));
                 $result[] = $itemFence[1] . $itemFence[2] . $fenceInfo;
                 $inCodeBlock = true;
                 $fenceChar = $itemFence[2][0];
@@ -1830,17 +1847,19 @@ class MarkdownToCarve
             while ($result !== [] && trim((string)end($result)) === '') {
                 array_pop($result);
             }
-            foreach ($this->movedFootnotes as $footnote) {
+            foreach ($this->movedFootnotes as $index => $footnote) {
+                $this->inlineRunSourceLine = $this->movedFootnoteSourceLines[$index] ?? null;
                 if ($result !== []) {
                     $result[] = '';
                 }
                 array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
             }
             foreach ($this->movedDefinitions as $definition) {
+                $this->inlineRunSourceLine = null;
                 if ($result !== []) {
                     $result[] = '';
                 }
-                $result[] = $this->convertInlineFormatting($definition);
+                $result[] = $this->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
             }
             if (str_ends_with($markdown, "\n")) {
                 $result[] = '';
@@ -1941,7 +1960,7 @@ class MarkdownToCarve
         $value = $this->convert($markdown);
         $supportedDialect = !$this->convertMath && !$this->convertHighlight && !$this->convertInlineFootnotes
             && !$this->convertAbbreviations && !$this->convertFencedDivs && !$this->convertAttributes && !$this->convertRawHtml;
-        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis, $supportedDialect);
+        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis || $this->boundaryDiagnostics !== [], $supportedDialect);
         if (($result->diagnostics[0]->code ?? null) === 'literal-text-verified') {
             $row = $result->diagnostics[0];
 
@@ -1953,17 +1972,17 @@ class MarkdownToCarve
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
-            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $losses <= $assessedLosses) {
+            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && $losses <= $assessedLosses) {
                 return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && !$this->frontmatterSynthesized) {
+        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
-        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics);
+        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics, $this->boundaryDiagnostics);
         if ($this->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
@@ -3129,7 +3148,7 @@ class MarkdownToCarve
                 return null;
             }
             if ($over <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest, " \t")) === 1) {
-                $heading = (trim($rest, " \t")[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
+                $heading = $this->foldedHeading(trim($rest, " \t")[0] === '=' ? '#' : '##', $texts, $start);
 
                 return [$lead . $heading, $at];
             }
@@ -3343,7 +3362,7 @@ class MarkdownToCarve
             }
             $held = trim($this->stripColumns($candidate, $contentCol), " \t");
             if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', $held) === 1) {
-                $heading = ($held[0] === '=' ? '#' : '##') . ' ' . implode(' ', $texts);
+                $heading = $this->foldedHeading($held[0] === '=' ? '#' : '##', $texts, $index);
 
                 return ['lines' => [$lead . $this->convertInlineFormatting($heading)], 'end' => $at, 'table' => 0, 'closes' => false];
             }
@@ -3476,12 +3495,24 @@ class MarkdownToCarve
      * reduce to `js` to stay a code block. The charset has no `=`, so untrusted
      * Markdown cannot mint a Carve `=html` raw block.
      */
-    protected function fenceLanguage(string $info): string
+    protected function fenceLanguage(string $info, ?int $sourceLine = null): string
     {
         $decoded = $this->decodeLinkTitle($info);
         $word = preg_split('/[ \t]/', trim($decoded, " \t"), 2)[0] ?? '';
 
-        return preg_match('~^[A-Za-z0-9_+#/.-]+$~', $word) === 1 ? $word : '';
+        if ($word === '' || preg_match('~^[A-Za-z0-9_+#/.-]+$~', $word) === 1) {
+            return $word;
+        }
+        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+            'structure-unspellable',
+            'Dropped code-block language ' . json_encode($word, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) . '; Carve cannot spell this language token.',
+            'warning',
+            'dropped',
+            'exact',
+            $sourceLine === null ? null : 'line:' . $sourceLine,
+        );
+
+        return '';
     }
 
     /**
@@ -3819,10 +3850,11 @@ class MarkdownToCarve
      * @param array<int, string> $lines
      * @param int $start
      * @param string $opener The opening line with its markers normalized.
+     * @param int|null $sourceLine
      *
      * @return array{lines: array<int, string>, end: int, prefix: string}|null
      */
-    protected function collectQuotedFence(array $lines, int $start, string $opener): ?array
+    protected function collectQuotedFence(array $lines, int $start, string $opener, ?int $sourceLine = null): ?array
     {
         if (preg_match('/^((?:> )+)( {0,3})(`{3,}|~{3,})(.*)$/', $opener, $open) !== 1) {
             return null;
@@ -3831,7 +3863,7 @@ class MarkdownToCarve
         if ($fence[0] === '`' && str_contains($info, '`')) {
             return null;
         }
-        $info = $this->fenceLanguage($info);
+        $info = $this->fenceLanguage($info, $sourceLine ?? $this->sourceLine($start));
         $depth = substr_count($prefix, '>');
         $output = [''];
         $body = [];
@@ -3941,7 +3973,7 @@ class MarkdownToCarve
             }
         }
         $opener = $this->normalizeBlockquoteMarkers($virtual[0]);
-        $block = $this->collectQuotedFence($virtual, 0, $opener)
+        $block = $this->collectQuotedFence($virtual, 0, $opener, $this->sourceLine($start))
             ?? ($paragraphOpen ? null : $this->collectQuotedIndentedCode($virtual, 0, []));
         if ($block === null) {
             return null;
@@ -4716,7 +4748,10 @@ class MarkdownToCarve
         }
         $this->recordTableRowDiagnostics(trim($header), $index);
         $width = count($this->splitPipeCells($header));
+        $previousLine = $this->inlineRunSourceLine;
+        $this->inlineRunSourceLine = $this->sourceLine($index);
         $headerRow = $this->gfmHeaderToCarve(trim($header), trim($delimiter));
+        $this->inlineRunSourceLine = $previousLine;
         $written = $this->keepTableRow($headerRow, $index) ? [$prefix . $headerRow] : [];
         $end = $index + 1;
         $count = count($lines);
@@ -4727,7 +4762,10 @@ class MarkdownToCarve
             }
             $cells = $this->splitPipeCells($body);
             $this->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
+            $previousLine = $this->inlineRunSourceLine;
+            $this->inlineRunSourceLine = $this->sourceLine($at);
             $bodyRow = $this->writeTableRow($cells, [], $width);
+            $this->inlineRunSourceLine = $previousLine;
             if ($this->keepTableRow($bodyRow, $at)) {
                 $written[] = $prefix . $bodyRow;
             }
@@ -5231,12 +5269,44 @@ class MarkdownToCarve
         return ['body' => implode("\n", $parts), 'first' => $prefix, 'next' => $continuation, 'end' => $end];
     }
 
-    protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false): string
+    /**
+     * @param string $marker
+     * @param list<string> $texts
+     * @param int $start
+     */
+    private function foldedHeading(string $marker, array $texts, int $start): string
     {
+        $heading = $marker . ' ' . implode(' ', $texts);
+        $offset = strlen($marker) + 1;
+        $segments = [];
+        foreach ($texts as $index => $text) {
+            $segments[] = ['offset' => $offset, 'line' => $this->sourceLine($start + $index)];
+            $offset += strlen($text) + 1;
+        }
+        $this->foldedHeadingSources[$heading] = $segments;
+
+        return $heading;
+    }
+
+    protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false, bool $unwrapEmptyDestinations = true): string
+    {
+        $sourceInput = $line;
+        $foldedSourceLines = [];
+        foreach ($this->foldedHeadingSources as $heading => $segments) {
+            if (str_ends_with($line, $heading)) {
+                $lead = strlen($line) - strlen($heading);
+                $foldedSourceLines = array_map(static fn (array $segment): array => ['offset' => $segment['offset'] + $lead, 'line' => $segment['line']], $segments);
+                unset($this->foldedHeadingSources[$heading]);
+
+                break;
+            }
+        }
         $line = $this->escapeCarveOnlyMarker($line);
         $protected = [];
-        $protect = function (string $span) use (&$protected): string {
+        $protectedSources = [];
+        $protect = function (string $span, ?string $source = null) use (&$protected, &$protectedSources): string {
             $protected[] = $span;
+            $protectedSources[] = $source ?? $span;
 
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
@@ -5280,7 +5350,7 @@ class MarkdownToCarve
             $paragraph->appendChild(new Code($value));
             $document->appendChild($paragraph);
 
-            return $protect(rtrim((new CarveRenderer())->render($document), "\n"));
+            return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $span);
         });
 
         $line = preg_replace_callback(
@@ -5315,7 +5385,7 @@ class MarkdownToCarve
                 $escaped .= $pair === '\\>' ? $protect('\\') . '>' : $protect($pair);
                 $i += 2;
             } else {
-                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\') : $line[$i];
+                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\', $line[$i]) : $line[$i];
                 $i++;
             }
         }
@@ -5323,7 +5393,7 @@ class MarkdownToCarve
         // `<code>x</code>` becomes a Carve code span in BOTH modes - carve-js
         // does this unconditionally, ahead of any raw-HTML handling, so verbatim
         // mode must not emit it as `<code>...</code>`{=html}.
-        $line = preg_replace_callback('/<code>([^<]+)<\/code>/i', fn (array $match): string => $protect('`' . $match[1] . '`'), $line) ?? $line;
+        $line = preg_replace_callback('/<code>([^<]+)<\/code>/i', fn (array $match): string => $protect('`' . $match[1] . '`', $match[0]), $line) ?? $line;
         // PART 11 §8c writes two constructs with no Markdown delimiter spelling
         // as an ATTRIBUTE-BEARING inline tag: an abbreviation as
         // `<abbr title="...">` and an editorial comment as
@@ -5341,7 +5411,7 @@ class MarkdownToCarve
                     // whole construct is protected from every later inline pass.
                     $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-                    return preg_match('/[#{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}');
+                    return preg_match('/[#{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}', $match[0]);
                 },
                 $line,
             ) ?? $line;
@@ -5428,7 +5498,7 @@ class MarkdownToCarve
                     }
                 }
 
-                return $protect($this->verbatimHtmlInline($match[0]));
+                return $protect($this->verbatimHtmlInline($match[0]), $match[0]);
             };
             $line = preg_replace_callback(
                 '/(?:<!--(?:>|->|[\s\S]*?-->)|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
@@ -5478,7 +5548,7 @@ class MarkdownToCarve
                     $decoded = ' ';
                 }
 
-                return $protect($this->escapeDecodedCharacterReference($decoded));
+                return $protect($this->escapeDecodedCharacterReference($decoded), $match[0]);
             },
             $line,
         ) ?? $line;
@@ -5490,7 +5560,103 @@ class MarkdownToCarve
         // text, so a link is written as its text and an image as its alt text
         // (markup-carve/carve#2069).
         $label = '(?<label>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)';
-        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protect): string {
+        $boundarySubject = null;
+        $boundaryLines = [];
+        $imageRanges = [];
+        $autolinkRanges = [];
+        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protectedSources, $protect, $sourceInput, $foldedSourceLines, $unwrapEmptyDestinations, &$boundarySubject, &$boundaryLines, &$imageRanges, &$autolinkRanges): string {
+            if (!$unwrapEmptyDestinations) {
+                return $match[0][0];
+            }
+            if ($boundarySubject !== $subject) {
+                $boundarySubject = $subject;
+                $boundaryLines = [];
+                $events = [];
+                preg_match_all('/\n|\x00P(\d+)\x00/', $subject, $events, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+                $count = 0;
+                $delta = 0;
+                foreach ($events as $event) {
+                    $source = $this->referenceSourceText($event[0][0], $protectedSources);
+                    $count += substr_count($source, "\n");
+                    $delta += strlen($source) - strlen($event[0][0]);
+                    $boundaryLines[] = [$event[0][1] + strlen($event[0][0]) - 1, $count, $delta];
+                }
+                $autolinkRanges = [];
+                $autolinks = [];
+                preg_match_all('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $subject, $autolinks, PREG_OFFSET_CAPTURE);
+                foreach ($autolinks[0] as [$text, $offset]) {
+                    $autolinkRanges[] = [$offset, $offset + strlen($text)];
+                }
+                $imageRanges = [];
+                $images = [];
+                preg_match_all('/!\[(?<description>(?:[^\[\]\n]|(?<nested>\[(?:[^\[\]\n]|(?&nested))*\]))*)\](?:(?<destination>\((?:[^()\n]|\([^()\n]*\))*\))|\[(?<reference>[^\[\]\n]*)\])?/', $subject, $images, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+                foreach ($images as $image) {
+                    $reference = isset($image['reference']) && $image['reference'][1] >= 0 && $image['reference'][0] !== '' ? $image['reference'][0] : $image['description'][0];
+                    $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
+                    if (isset($image['destination']) && $image['destination'][1] >= 0 || isset($this->definedReferenceLabels[$key])) {
+                        $imageRanges[] = [$image[0][1], $image['description'][1] + strlen($image['description'][0])];
+                    }
+                }
+            }
+            foreach ($autolinkRanges as [$start, $end]) {
+                if ($match[0][1] > $start && $match[0][1] < $end) {
+                    return $match[0][0];
+                }
+            }
+            $low = 0;
+            $high = count($boundaryLines);
+            while ($low < $high) {
+                $mid = ($low + $high) >> 1;
+                if ($boundaryLines[$mid][0] < $match[0][1]) {
+                    $low = $mid + 1;
+                } else {
+                    $high = $mid;
+                }
+            }
+            $sourceLine = $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + ($boundaryLines[$low - 1][1] ?? 0);
+            $sourceOffset = $match[0][1] + ($boundaryLines[$low - 1][2] ?? 0);
+            if ($foldedSourceLines !== []) {
+                $sourceMatch = $this->referenceSourceText($match[0][0], $protectedSources);
+                $originalOffset = strpos($sourceInput, $sourceMatch);
+                $restoredSubject = $this->referenceSourceText($subject, $protectedSources);
+                if ($originalOffset !== false && substr_count($sourceInput, $sourceMatch) === 1 && substr_count($restoredSubject, $sourceMatch) === 1) {
+                    $sourceOffset = $originalOffset;
+                } elseif ($restoredSubject !== $sourceInput) {
+                    // Earlier rewrites can make a repeated or changed label ambiguous.
+                    // Keep the loss report without claiming an exact source line.
+                    $sourceOffset = null;
+                    $sourceLine = null;
+                }
+                if ($sourceOffset !== null) {
+                    foreach ($foldedSourceLines as $segment) {
+                        if ($segment['offset'] > $sourceOffset) {
+                            break;
+                        }
+                        $sourceLine = $segment['line'];
+                    }
+                }
+            }
+            $insideImage = false;
+            foreach ($imageRanges as [$start, $end]) {
+                if ($match[0][1] > $start && $match[0][1] < $end) {
+                    $insideImage = true;
+
+                    break;
+                }
+            }
+            if (!$insideImage) {
+                $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                    'structure-unspellable',
+                    $match[0][0][0] === '!'
+                    ? 'Dropped an image with an empty destination; retained its alt text and title.'
+                    : 'Dropped a link with an empty destination; retained its label and title.',
+                    'warning',
+                    'dropped',
+                    'exact',
+                    $sourceLine === null ? null : 'line:' . $sourceLine,
+                );
+            }
+
             return $this->unwrapEmptyDestination(
                 $match['label'][0],
                 $match[0][0][0] === '!',
@@ -6008,7 +6174,7 @@ class MarkdownToCarve
             // text that renders escaped.
             $line = preg_replace_callback(
                 '/<\/?(?:' . $nativeInline . ')>/i',
-                fn (array $match): string => $protect($this->verbatimHtmlInline($match[0])),
+                fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]), $match[0]),
                 $line,
             ) ?? $line;
         }
@@ -6223,6 +6389,7 @@ class MarkdownToCarve
         $referenceChunk = null;
         $this->movedDefinitions = [];
         $this->movedFootnotes = [];
+        $this->movedFootnoteSourceLines = [];
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
         $quote = '/^((?: {0,3}>[ \t]?)*)/';
         $defined = [];
@@ -6598,6 +6765,7 @@ class MarkdownToCarve
         for ($at = $index + 1; $at <= $end; $at++) {
             $block[] = '  ' . ltrim($this->expandLeadingTabs($lines[$at], 8), ' ');
         }
+        $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
         $this->movedFootnotes[] = $block;
         $index = $end;
 
