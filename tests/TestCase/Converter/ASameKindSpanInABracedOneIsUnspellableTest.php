@@ -7,16 +7,10 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
-use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * A braced span inside a braced span of the same kind has no spelling, at any
- * depth, since PART 9 §9 E3 leaves the inner opener literal (PART 11 §1c,
- * markup-carve/carve#2066).
- */
 class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
 {
     /**
@@ -25,24 +19,18 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
     public static function unwrapped(): array
     {
         return [
-            'strong around a break' => ['<p>a<strong><b>x<br></b></strong>b</p>', "a{*x\\\n*}b\n", ['/p[1]/strong[2]/b[1]']],
-            'emphasis around a break' => ['<p>a<em><i>x<br></i></em>b</p>', "a{/x\\\n/}b\n", ['/p[1]/em[2]/i[1]']],
-            'strong with a sibling' => ['<p>a<strong><b>x<br></b>y</strong>b</p>', "a{*x\\\ny*}b\n", ['/p[1]/strong[2]/b[1]']],
-            'superscript' => ['<p><sup><sup>x</sup></sup></p>', "{^x^}\n", ['/p[1]/sup[1]/sup[1]']],
-            'subscript' => ['<p><sub><sub>x</sub></sub></p>', "{,x,}\n", ['/p[1]/sub[1]/sub[1]']],
-            'insert' => ['<p><ins><ins>x</ins></ins></p>', "{+x+}\n", ['/p[1]/ins[1]/ins[1]']],
-            'delete' => ['<p><del><del>x</del></del></p>', "{-x-}\n", ['/p[1]/del[1]/del[1]']],
-            // A braced span of another kind starts a scope, so the deepest sup survives (markup-carve/carve#2091).
-            'any depth, and the neighbors respelled' => [
-                '<p><sup><sup><em><sup>b</sup></em></sup><sup>b</sup></sup></p>',
-                "{^{/{^b^}/}b^}\n",
-                ['/p[1]/sup[1]/sup[1]', '/p[1]/sup[1]/sup[2]'],
-            ],
-            'an unwrapped sibling is read as its text' => ['<p><sup><em>a</em><sup>b</sup></sup></p>', "{^{/a/}b^}\n", ['/p[1]/sup[1]/sup[2]']],
-            // E3 refuses a same-kind opener whether either level is bare or braced (markup-carve/carve#2078).
-            'a bare inner level' => ['<p><strong><b>x</b></strong></p>', "*x*\n", ['/p[1]/strong[1]/b[1]']],
-            'a bare outer level' => ['<p>c <strong><b>x<br></b></strong> d</p>', "c {*x\\\n*} d\n", ['/p[1]/strong[2]/b[1]']],
-            'two inner spans' => ['<p><sup>a<sup>x</sup>b<sup>y</sup></sup></p>', "{^axby^}\n", ['/p[1]/sup[1]/sup[2]', '/p[1]/sup[1]/sup[4]']],
+            "strong around a break" => ["<p>a<strong><b>x<br></b></strong>b</p>", "a{*{*x\\\n*}*}b\n", []],
+            "emphasis around a break" => ["<p>a<em><i>x<br></i></em>b</p>", "a{/{/x\\\n/}/}b\n", []],
+            "strong with a sibling" => ["<p>a<strong><b>x<br></b>y</strong>b</p>", "a{*{*x\\\n*}y*}b\n", []],
+            "superscript" => ["<p><sup><sup>x</sup></sup></p>", "{^{^x^}^}\n", []],
+            "subscript" => ["<p><sub><sub>x</sub></sub></p>", "{,{,x,},}\n", []],
+            "insert" => ["<p><ins><ins>x</ins></ins></p>", "{+x+}\n", ["/p[1]/ins[1]/ins[1]"]],
+            "delete" => ["<p><del><del>x</del></del></p>", "{-x-}\n", ["/p[1]/del[1]/del[1]"]],
+            "any depth, and the neighbors respelled" => ["<p><sup><sup><em><sup>b</sup></em></sup><sup>b</sup></sup></p>", "{^{^/{^b^}/^}{^b^}^}\n", []],
+            "an unwrapped sibling is read as its text" => ["<p><sup><em>a</em><sup>b</sup></sup></p>", "{^/a/{^b^}^}\n", []],
+            "a bare inner level" => ["<p><strong><b>x</b></strong></p>", "{*{*x*}*}\n", []],
+            "a bare outer level" => ["<p>c <strong><b>x<br></b></strong> d</p>", "c {*{*x\\\n*}*} d\n", []],
+            "two inner spans" => ["<p><sup>a<sup>x</sup>b<sup>y</sup></sup></p>", "{^a{^x^}b{^y^}^}\n", []],
         ];
     }
 
@@ -52,7 +40,7 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
      * @param array<string> $paths
      */
     #[DataProvider('unwrapped')]
-    public function testTheImporterUnwrapsTheInnerLevel(string $html, string $carve, array $paths): void
+    public function testTheImporterPreservesNativeAndUnwrapsEditorialNesting(string $html, string $carve, array $paths): void
     {
         $this->assertSame($carve, (new HtmlToCarve())->convert($html));
     }
@@ -63,7 +51,7 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
      * @param array<string> $paths
      */
     #[DataProvider('unwrapped')]
-    public function testTheImporterReportsTheInnerLevel(string $html, string $carve, array $paths): void
+    public function testTheImporterReportsOnlyEditorialNestingLoss(string $html, string $carve, array $paths): void
     {
         $rows = array_filter(
             (new HtmlToCarve())->convertWithReport($html)->diagnostics,
@@ -82,7 +70,7 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
     public static function spellable(): array
     {
         return [
-            'a different kind between' => ['<p><strong><em><strong>x</strong></em></strong></p>', "*{/*x*/}*\n"],
+            'a different kind between' => ['<p><strong><em><strong>x</strong></em></strong></p>', "{*/{*x*}/*}\n"],
             'a different kind between, both braced' => ['<p>a<strong><em>x<br></em></strong>b</p>', "a{*{/x\\\n/}*}b\n"],
         ];
     }
@@ -167,7 +155,7 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
         $this->assertSame("q{*/x/*}q\n", $importer->convert('<p>q<strong><em>x</em></strong>q</p>'));
     }
 
-    public function testTheWriterRefusesTheTree(): void
+    public function testTheWriterPreservesTheTree(): void
     {
         $document = (new AstCodec())->decode([
             'type' => 'document',
@@ -189,11 +177,10 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
             ],
         ]);
 
-        $this->expectException(SourceUnspellableException::class);
-        (new CarveRenderer())->render($document);
+        $this->assertSame("a{*{*x\\\n*}*}b\n", (new CarveRenderer())->render($document));
     }
 
-    public function testTheWriterRefusesAtAnyDepth(): void
+    public function testTheWriterPreservesAtAnyDepth(): void
     {
         $document = (new AstCodec())->decode([
             'type' => 'document',
@@ -216,11 +203,10 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
             ],
         ]);
 
-        $this->expectException(SourceUnspellableException::class);
-        (new CarveRenderer())->render($document);
+        $this->assertSame("a{*y{*x\\\n*}*}b\n", (new CarveRenderer())->render($document));
     }
 
-    public function testTheWriterRefusesABracedOnlyKind(): void
+    public function testTheWriterPreservesABracedOnlyKind(): void
     {
         $document = (new AstCodec())->decode([
             'type' => 'document',
@@ -240,28 +226,27 @@ class ASameKindSpanInABracedOneIsUnspellableTest extends TestCase
             ],
         ]);
 
-        $this->expectException(SourceUnspellableException::class);
-        (new CarveRenderer())->render($document);
+        $this->assertSame("{^{^x^}^}\n", (new CarveRenderer())->render($document));
     }
 
     /**
-     * @return array<string, array{string}>
+     * @return array<string, array{string, string}>
      */
     public static function spellableTrees(): array
     {
         return [
-            'a bare inner level' => ['{**x**}'],
-            'a different kind between' => ['*{/*x*/}*'],
-            'braced siblings' => ['{^a^}{^b^}'],
-            'a braced different kind inside' => ['a{*c{/x/}d*}b'],
+            'a bare inner level' => ['{**x**}', '{**x**}'],
+            'a different kind between' => ['*{/*x*/}*', '{*/{*x*}/*}'],
+            'braced siblings' => ['{^a^}{^b^}', '{^a^}{^b^}'],
+            'a braced different kind inside' => ['a{*c{/x/}d*}b', 'a{*c{/x/}d*}b'],
         ];
     }
 
     #[DataProvider('spellableTrees')]
-    public function testTheWriterKeepsASpellableNesting(string $source): void
+    public function testTheWriterKeepsASpellableNesting(string $source, string $canonical): void
     {
         $document = CarveConverter::create()->parse($source);
 
-        $this->assertSame($source . "\n", (new CarveRenderer())->render($document));
+        $this->assertSame($canonical . "\n", (new CarveRenderer())->render($document));
     }
 }

@@ -85,9 +85,9 @@ class TheRepairPassOutputIsUnmovedTest extends TestCase
 
         $converted = (new BbcodeToCarve())->convert($post);
 
-        $this->assertSame(67600, strlen($converted));
+        $this->assertSame(67400, strlen($converted));
         $this->assertSame(
-            '2ce9fefca42477ab91963f4be155105a5338265b94d2e246e5274b45eb8e2d53',
+            'bc61aaa535ff72a7c23ee9e7baa5bb096631a6f020f085d9feb402c686c91def',
             hash('sha256', $converted),
         );
     }

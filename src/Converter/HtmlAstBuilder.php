@@ -15,6 +15,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -3843,14 +3844,23 @@ final class HtmlAstBuilder
                 ? null
                 : $this->session->inlineTypeStack[count($this->session->inlineTypeStack) - 1];
             $nestedSameKind = $lastType === $type;
+            $editorialUnwrapped = $this->sourceSafe && $nestedSameKind && in_array($type, ['insert', 'delete'], true);
+            $overBudget = $this->sourceSafe && $this->session->nativeInlineDepth >= InlineParser::MAX_INLINE_DEPTH - 1;
+            $kept = !$editorialUnwrapped && !$overBudget;
+            if ($kept) {
+                $this->session->nativeInlineDepth++;
+            }
             $this->session->inlineTypeStack[] = $type;
             try {
                 $children = $this->inlines($this->children($node));
             } finally {
                 array_pop($this->session->inlineTypeStack);
+                if ($kept) {
+                    $this->session->nativeInlineDepth--;
+                }
             }
-            if ($this->sourceSafe && $nestedSameKind) {
-                $this->session->unwrappedSameKindSpans[$node] = null;
+            if (!$kept) {
+                $this->session->unwrappedSameKindSpans[$node] = $overBudget ? 'native-depth' : null;
 
                 return $children;
             }
@@ -4038,10 +4048,12 @@ final class HtmlAstBuilder
     {
         $outerKinds = $this->session->inlineTypeStack;
         $this->session->inlineTypeStack = [];
+        $this->session->nativeInlineDepth++;
         try {
             return $this->inlines($this->children($node));
         } finally {
             $this->session->inlineTypeStack = $outerKinds;
+            $this->session->nativeInlineDepth--;
         }
     }
 

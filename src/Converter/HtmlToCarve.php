@@ -1153,12 +1153,14 @@ class HtmlToCarve
         $kind = $parent instanceof DOMElement ? $this->formattingKind($node) : null;
         $unwrappedSameKind = $this->inspectedAst === null && $this->unwrappedSameKindImportSpans !== null
             ? isset($this->unwrappedSameKindImportSpans[$node])
-            : ($parent instanceof DOMElement && $kind !== null && $kind === $this->formattingKind($parent));
+            : ($parent instanceof DOMElement && in_array($kind, ['{+', '{-'], true) && $kind === $this->formattingKind($parent));
         if ($unwrappedSameKind) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
-                'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
+                $this->unwrappedSameKindImportSpans !== null && isset($this->unwrappedSameKindImportSpans[$node]) && $this->unwrappedSameKindImportSpans[$node] === 'native-depth'
+                    ? 'Flattened emphasis exceeding the native nesting budget; its text is preserved'
+                    : 'Unwrapped a span inside a span of the same kind, which has no Carve spelling',
                 'warning',
                 $path,
             );
@@ -5035,7 +5037,7 @@ class HtmlToCarve
     private ?SplObjectStorage $droppedEmptyImportElements = null;
 
     /**
-     * @var \SplObjectStorage<\DOMElement, null>|null
+     * @var \SplObjectStorage<\DOMElement, string|null>|null
      */
     private ?SplObjectStorage $unwrappedSameKindImportSpans = null;
 

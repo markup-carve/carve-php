@@ -590,6 +590,15 @@ class BbcodeToCarve
                 || str_starts_with($body, $delim)
                 || str_ends_with($body, $delim)
                 || ($delim === '/' && str_starts_with($body, '*') && str_ends_with($body, '*'));
+            if (str_ends_with($body, '{')) {
+                $backslashes = 0;
+                for ($at = strlen($body) - 2; $at >= 0 && $body[$at] === '\\'; $at--) {
+                    $backslashes++;
+                }
+                if ($backslashes % 2 === 0) {
+                    $body = substr($body, 0, -1) . '\\{';
+                }
+            }
             $open = $braced ? '{' . $delim : $delim;
             $close = $braced ? $delim . '}' : $delim;
             $chunk = $open . $body . $close;
