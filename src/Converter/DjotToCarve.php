@@ -816,7 +816,7 @@ class DjotToCarve
         $literalBraces = [];
         $pairedCloses = array_fill_keys(array_values($paired), true);
         $escapedBraceCloses = [];
-        $escapedWordCharacters = [];
+        $wordAtoms = [];
         preg_match_all('/\[\^[^\]\n]*\]/', $source, $literalNotes, PREG_OFFSET_CAPTURE);
         foreach ($literalNotes[0] as [$note, $at]) {
             $begin = $at;
@@ -849,7 +849,7 @@ class DjotToCarve
             }
             if ($source[$at] === '\\') {
                 if (isset($source[$at + 1]) && !$this->djotWordWhitespaceAt($source, $at + 1)) {
-                    $escapedWordCharacters[substr($source, $at + 1, 3) === "\0U\0" ? $at + 4 : $at + 2] = $at;
+                    $wordAtoms[substr($source, $at + 1, 3) === "\0U\0" ? $at + 4 : $at + 2] = $at;
                 }
                 if ($masked[$at] !== $source[$at] || ($masked[$at + 1] ?? '') !== ($source[$at + 1] ?? '')) {
                     $lastInlineEnd = $at + 2;
@@ -887,6 +887,12 @@ class DjotToCarve
 
                 continue;
             }
+            if (substr($source, $at, 3) === "\0U\0") {
+                $wordAtoms[$at + 3] = $at;
+                $at += 2;
+
+                continue;
+            }
             if ($source[$at] === '{' && $at >= $attributeEnd) {
                 $attributeEnd = $readBraceAttributes($at)['end'] ?? $at;
             }
@@ -900,7 +906,7 @@ class DjotToCarve
                 $braceStack[] = ['begin' => $at, 'literal' => $at >= $attributeEnd && preg_match('/[.#% \tA-Za-z]/', $source[$at + 1] ?? '') === 1, 'space' => $lastSpace];
             } elseif ($source[$at] === '}') {
                 $open = array_pop($braceStack);
-                if (($open['literal'] ?? false) && !isset($escapedBraceCloses[$at])) {
+                if (($open['literal'] ?? false) && !isset($escapedBraceCloses[$at]) && !isset($pairedCloses[$at + 1])) {
                     $from = max($lastAtomEscape, $lastInlineEnd);
                     if ($from >= $open['begin'] && $from > $lastSpace) {
                         $literalBraces[$at] = $from;
@@ -944,7 +950,7 @@ class DjotToCarve
                 continue;
             }
             $start = $i;
-            if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && (!str_contains('`*_~^]}>', $source[$i - 1]) || isset($literalBraces[$i - 1]) || isset($escapedWordCharacters[$i]))) {
+            if ($i > 0 && $masked[$i - 1] === $source[$i - 1] && (!str_contains('`*_~^]}>', $source[$i - 1]) || isset($literalBraces[$i - 1]) || isset($wordAtoms[$i]))) {
                 while ($start > $cursor && $masked[$start - 1] === $source[$start - 1]) {
                     $literal = $literalBraces[$start - 1] ?? null;
                     if ($literal !== null && $literal >= $cursor) {
@@ -952,8 +958,8 @@ class DjotToCarve
 
                         continue;
                     }
-                    if (isset($escapedWordCharacters[$start]) && $escapedWordCharacters[$start] >= $cursor) {
-                        $start = $escapedWordCharacters[$start];
+                    if (isset($wordAtoms[$start]) && $wordAtoms[$start] >= $cursor) {
+                        $start = $wordAtoms[$start];
 
                         continue;
                     }
@@ -1833,7 +1839,7 @@ class DjotToCarve
      * @param array<int, bool> $rowBoundaries
      * @param bool $strict
      */
-    private function maskDjotFences(string $source, ?callable $onFenceLine = null, array $rowBoundaries = [], bool $strict = false): string
+    private function maskDjotFences(string $source, ?callable $onFenceLine = null, array $rowBoundaries = [], bool $strict = true): string
     {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
@@ -2429,8 +2435,8 @@ class DjotToCarve
         for ($i = 0; $i < $length; $i++) {
             if (isset($boundaries[$i])) {
                 if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
-                    $at = $stack[$destinationOwner]['at'];
-                    $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+                    $at = $stack[$destinationOwner]['target'] - 1;
+                    $edits[$at] = ['end' => $at + 1, 'text' => '\\('];
                 }
                 $stack = [];
                 $destinationOwner = null;
@@ -2440,8 +2446,8 @@ class DjotToCarve
                 $line++;
                 if (preg_match('/\G\n[ \t]*(?:>[ \t]*)*\n/', $source, offset: $i)) {
                     if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
-                        $at = $stack[$destinationOwner]['at'];
-                        $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+                        $at = $stack[$destinationOwner]['target'] - 1;
+                        $edits[$at] = ['end' => $at + 1, 'text' => '\\('];
                     }
                     $stack = [];
                     $destinationOwner = null;
@@ -2472,8 +2478,8 @@ class DjotToCarve
             }
             if (($rows[$line] ?? false) && $source[$i] === '|' && ($source[$i - 1] ?? '') !== '\\') {
                 if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
-                    $at = $stack[$destinationOwner]['at'];
-                    $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+                    $at = $stack[$destinationOwner]['target'] - 1;
+                    $edits[$at] = ['end' => $at + 1, 'text' => '\\('];
                 }
                 $stack = [];
                 $destinationOwner = null;
@@ -2506,8 +2512,8 @@ class DjotToCarve
                 }
                 if (($source[$i + 1] ?? '') === '(') {
                     if ($destinationOwner !== null && $destinationOwner !== $tip) {
-                        $at = $stack[$destinationOwner]['at'];
-                        $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+                        $at = $stack[$destinationOwner]['target'] - 1;
+                        $edits[$at] = ['end' => $at + 1, 'text' => '\\('];
                     }
                     $stack[$tip]['labelEnd'] = $i;
                     $stack[$tip]['target'] = $i + 2;
@@ -2519,12 +2525,12 @@ class DjotToCarve
                 }
                 if (($source[$i + 1] ?? '') === '[') {
                     $end = $i + 2;
-                    while ($end < $length && $source[$end] !== ']') {
+                    while ($end < $length && $source[$end] !== ']' && $source[$end] !== '[') {
                         if ($source[$end] === '\\') {
                             $end++;
                         } $end++;
                     }
-                    if (($source[$end] ?? '') === ']') {
+                    if (($source[$end] ?? '') === ']' && ($mask[$end] ?? '') === ']') {
                         if (isset($stack[$tip]['target'])) {
                             $at = $stack[$tip]['at'];
                             $edits[$at] = ['end' => $i + 1, 'text' => '[' . $this->djotLinkLabel($source, $mask, $angles, $edits, $at + 1, $i) . ']'];
@@ -2568,7 +2574,7 @@ class DjotToCarve
                 continue;
             }
             if ($tip !== $destinationOwner) {
-                $edits[$owner['at']] = ['end' => $owner['at'] + 1, 'text' => '\\['];
+                $edits[$owner['target'] - 1] = ['end' => $owner['target'], 'text' => '\\('];
                 $stack = [];
                 $destinationOwner = null;
                 $pendingNotes = [];
@@ -2613,8 +2619,8 @@ class DjotToCarve
             } $pendingNotes = [];
         }
         if ($destinationOwner !== null && isset($stack[$destinationOwner])) {
-            $at = $stack[$destinationOwner]['at'];
-            $edits[$at] = ['end' => $at + 1, 'text' => '\\['];
+            $at = $stack[$destinationOwner]['target'] - 1;
+            $edits[$at] = ['end' => $at + 1, 'text' => '\\('];
         }
         $stack = [];
         $destinationOwner = null;
@@ -2740,7 +2746,7 @@ class DjotToCarve
     {
         $rows = $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false));
         $mask = $this->maskDjotFences($source, null, $rows, true);
-        if (!str_contains($mask, '```') && !str_contains($mask, '~~~')) {
+        if (!str_contains($mask, '```')) {
             return $source;
         }
         preg_match_all('/`+/', $mask, $matches, PREG_OFFSET_CAPTURE);
@@ -2811,13 +2817,6 @@ class DjotToCarve
                     $copied = $end + ($closed ? $width : 0);
                 }
                 $i = $end + ($closed ? $width : 0);
-
-                continue;
-            }
-            if ($source[$i] === '~' && isset($heads[$i]) && preg_match('/\G~{3,}[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*(?=\n|$)/', $source, $fence, offset: $i)) {
-                $output .= substr($source, $copied, $i - $copied) . '\\' . $fence[0];
-                $copied = $i + strlen($fence[0]);
-                $i = $copied;
 
                 continue;
             }

@@ -166,8 +166,8 @@ final class DjotEmphasisRenderer
 
                 continue;
             }
-            if (($ch === '~' && isset($this->structural[$i])) || ($ch === '=' && (isset($this->validBraceClosers[$i]) || isset($this->validBraces[$i - 1])))) {
-                $text .= $this->protect($ch === '~' ? '\\~' : $ch);
+            if ($ch === '=' && (isset($this->validBraceClosers[$i]) || isset($this->validBraces[$i - 1]))) {
+                $text .= $this->protect($ch);
 
                 continue;
             }

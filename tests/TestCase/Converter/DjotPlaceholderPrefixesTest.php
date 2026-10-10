@@ -59,10 +59,10 @@ final class DjotPlaceholderPrefixesTest extends TestCase
         self::assertStringContainsString('class="c"', (new CarveConverter())->convert($converted));
     }
 
-    public function testUserMarkersFormedByOrphanRemovalArePreserved(): void
+    public function testAttributedNulsBeforeForeignMarkersArePreserved(): void
     {
         foreach ([0, 7] as $index) {
-            $token = "\0DJOTWORD0\0" . $index . "\0";
+            $token = "[\0]{.a}DJOTWORD0\0" . $index . "\0";
             $source = "\0{.a}DJOTWORD0\0" . $index . "\0 w{.c}";
             self::assertSame($token . ' [w]{.c}', (new DjotToCarve())->convert($source));
         }
@@ -122,7 +122,7 @@ final class DjotPlaceholderPrefixesTest extends TestCase
             $token = "\0" . $base . "\0";
             foreach (["\0{.a}" . $base . "\0 {x y}", "{*a \0{*" . $base . "\0*} b*} {x y}"] as $source) {
                 $converted = (new DjotToCarve())->convert($source . "\n\n[^n]: note\n\n  {.c}\n\n[^n]");
-                self::assertStringContainsString($token, $converted);
+                self::assertStringContainsString(str_starts_with($source, "\0{.a}") ? "[\0]{.a}" . $base . "\0" : $token, $converted);
                 self::assertStringNotContainsString("\0DJOT", str_replace($token, '', $converted));
             }
         }
@@ -145,5 +145,12 @@ final class DjotPlaceholderPrefixesTest extends TestCase
         self::assertSame($source, $ids->seen);
         self::assertStringContainsString('{#published}', $converted);
         self::assertStringNotContainsString("\0U\0", $converted);
+    }
+
+    public function testTheWholeAttributedWordWithNulsIsPreserved(): void
+    {
+        foreach (["\0", "a\0", "x\0y", "\0U\0", "\0\0"] as $word) {
+            self::assertSame('[' . $word . ']{.a}', (new DjotToCarve())->convert($word . '{.a}'));
+        }
     }
 }

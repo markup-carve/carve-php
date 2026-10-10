@@ -175,15 +175,6 @@ final class DjotEmphasis
 
                 continue;
             }
-            if ($ch === '\\' && $i <= $structuralEnd && substr($source, $i, 4) === '\\~~~') {
-                $end = $i + 1;
-                while (($source[$end] ?? '') === '~') {
-                    $structural[$end++] = true;
-                }
-                $i = $end - 1;
-
-                continue;
-            }
             if ($ch === '\\' && ($source[$i + 1] ?? '') !== "\n") {
                 $lastEscaped = $i + 1;
                 $i++;
@@ -218,15 +209,6 @@ final class DjotEmphasis
                 continue;
             }
             if ($ch !== '_' && $ch !== '*' && !str_contains('~^', $ch)) {
-                continue;
-            }
-            if ($ch === '~' && $i <= $structuralEnd && substr($source, $i, 3) === '~~~') {
-                $end = $i;
-                while (($source[$end] ?? '') === '~') {
-                    $structural[$end++] = true;
-                }
-                $i = $end - 1;
-
                 continue;
             }
             if ($ch === '*' && $i <= $structuralEnd) {

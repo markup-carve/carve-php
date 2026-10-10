@@ -77,4 +77,16 @@ class DjotDestinationBoundariesTest extends TestCase
             }
         }
     }
+
+    public function testOuterDestinationsAfterNestedLinks(): void
+    {
+        foreach (
+            [
+                ['[[a](u)](v w)', '[[a](u)](v%20w)'],
+                ['[x [a](u) y](v"w)', '[x [a](u) y](v%22w)'],
+            ] as [$source, $expected]
+        ) {
+            self::assertSame($expected, (new DjotToCarve())->convert($source));
+        }
+    }
 }
