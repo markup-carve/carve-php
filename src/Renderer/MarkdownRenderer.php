@@ -3550,11 +3550,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderCode(Code $node): string
     {
         $content = $this->stripControls($node->getContent());
+        if ($content === '') {
+            return '<code></code>';
+        }
+        $content = str_replace("\n", ' ', $content);
 
         $backticks = StringUtil::findSafeCodeFence($content, 1);
 
-        // Add spaces if content starts/ends with backtick
-        if (str_starts_with($content, '`') || str_ends_with($content, '`')) {
+        $needsPadding = str_starts_with($content, '`') || str_ends_with($content, '`')
+            || (str_starts_with($content, ' ') && str_ends_with($content, ' ') && trim($content, ' ') !== '');
+        if ($needsPadding) {
             return $backticks . ' ' . $content . ' ' . $backticks;
         }
 
