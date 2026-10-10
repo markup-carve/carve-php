@@ -27,6 +27,11 @@ class DjotTableCaptionTest extends TestCase
         yield 'code marker' => ["| a | b |\n\n```\n^ code\n```\n", '<table>' . $row . '</table><pre><code>^ code </code></pre>'];
         yield 'caret paragraph' => ["^ Plain _caret_\n", '<p>^ Plain <em>caret</em></p>'];
         yield 'superscript paragraph' => ["^two^\n", '<p><sup>two</sup></p>'];
+        yield 'caption without blank line' => ["| a | b |\n^ Caption\n", '<table><caption>Caption</caption>' . $row . '</table>'];
+        yield 'image continuation stays literal' => ["![img](x.png)\n^ text\n", '<p><img src="x.png" alt="img"> ^ text</p>'];
+        yield 'code successor stays literal' => ["```\ncode\n```\n\n^ text\n", '<pre><code>code </code></pre><p>^ text</p>'];
+        yield 'quote successor stays literal' => ["> quote\n\n^ text\n", '<blockquote><p>quote</p></blockquote><p>^ text</p>'];
+        yield 'lazy quote superscript closer' => ["> ^a\n>^ b\n", '<blockquote><p><sup>a &gt;</sup> b</p></blockquote>'];
     }
 
     #[DataProvider('captionProvider')]
