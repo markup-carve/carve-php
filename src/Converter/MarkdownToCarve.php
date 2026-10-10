@@ -165,6 +165,11 @@ class MarkdownToCarve
     private array $rawSpanWhitespaceDiagnostics = [];
 
     /**
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private array $boundaryDiagnostics = [];
+
+    /**
      * The source line the inline run under conversion starts on, so a loss
      * inside it names a line of the INPUT rather than an index into the folded
      * array the importer writes from (markup-carve/carve#2792).
@@ -608,6 +613,7 @@ class MarkdownToCarve
             $this->omittedTableComment .= '_';
         }
         $this->rawSpanWhitespaceDiagnostics = [];
+        $this->boundaryDiagnostics = [];
         $this->inlineRunSourceLine = null;
         $this->markdownSourceLines = [];
         $this->markdownHtmlSourceLines = [];
@@ -954,7 +960,7 @@ class MarkdownToCarve
                 $inCodeBlock = true;
                 $fenceChar = $matches[2][0];
                 $fenceLength = strlen($matches[2]);
-                $info = $this->fenceLanguage($matches[3]);
+                $info = $this->fenceLanguage($matches[3], $this->sourceLine($i));
                 // Re-base the fence to its container's content column: strip
                 // only the indentation ABOVE that column. At document level the
                 // column is 0, so a 1-3 space Markdown fence dedents fully; a
@@ -1711,7 +1717,7 @@ class MarkdownToCarve
             if ($itemFence !== null) {
                 $fenceOut = count($result);
                 $fenceRun = strlen($itemFence[2]);
-                $fenceInfo = $this->fenceLanguage($itemFence[3]);
+                $fenceInfo = $this->fenceLanguage($itemFence[3], $this->sourceLine($i));
                 $result[] = $itemFence[1] . $itemFence[2] . $fenceInfo;
                 $inCodeBlock = true;
                 $fenceChar = $itemFence[2][0];
@@ -1941,7 +1947,7 @@ class MarkdownToCarve
         $value = $this->convert($markdown);
         $supportedDialect = !$this->convertMath && !$this->convertHighlight && !$this->convertInlineFootnotes
             && !$this->convertAbbreviations && !$this->convertFencedDivs && !$this->convertAttributes && !$this->convertRawHtml;
-        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis, $supportedDialect);
+        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis || $this->boundaryDiagnostics !== [], $supportedDialect);
         if (($result->diagnostics[0]->code ?? null) === 'literal-text-verified') {
             $row = $result->diagnostics[0];
 
@@ -1953,17 +1959,17 @@ class MarkdownToCarve
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
-            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $losses <= $assessedLosses) {
+            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && $losses <= $assessedLosses) {
                 return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && !$this->frontmatterSynthesized) {
+        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
-        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics);
+        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics, $this->boundaryDiagnostics);
         if ($this->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
@@ -3476,12 +3482,24 @@ class MarkdownToCarve
      * reduce to `js` to stay a code block. The charset has no `=`, so untrusted
      * Markdown cannot mint a Carve `=html` raw block.
      */
-    protected function fenceLanguage(string $info): string
+    protected function fenceLanguage(string $info, ?int $sourceLine = null): string
     {
         $decoded = $this->decodeLinkTitle($info);
         $word = preg_split('/[ \t]/', trim($decoded, " \t"), 2)[0] ?? '';
 
-        return preg_match('~^[A-Za-z0-9_+#/.-]+$~', $word) === 1 ? $word : '';
+        if ($word === '' || preg_match('~^[A-Za-z0-9_+#/.-]+$~', $word) === 1) {
+            return $word;
+        }
+        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+            'structure-unspellable',
+            'Dropped code-block language ' . json_encode($word, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . '; Carve cannot spell this language token.',
+            'warning',
+            'dropped',
+            'exact',
+            $sourceLine === null ? null : 'line:' . $sourceLine,
+        );
+
+        return '';
     }
 
     /**
@@ -3831,7 +3849,7 @@ class MarkdownToCarve
         if ($fence[0] === '`' && str_contains($info, '`')) {
             return null;
         }
-        $info = $this->fenceLanguage($info);
+        $info = $this->fenceLanguage($info, $this->sourceLine($start));
         $depth = substr_count($prefix, '>');
         $output = [''];
         $body = [];
@@ -5491,6 +5509,19 @@ class MarkdownToCarve
         // (markup-carve/carve#2069).
         $label = '(?<label>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)';
         $unwrap = function (array $match, string $title, string $subject) use ($protected, $protect): string {
+            $before = $this->referenceSourceText(substr($subject, 0, $match[0][1]), $protected);
+            $sourceLine = $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + substr_count($before, "\n");
+            $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                'structure-unspellable',
+                $match[0][0][0] === '!'
+                    ? 'Dropped an image with an empty destination; retained its alt text and title.'
+                    : 'Dropped a link with an empty destination; retained its label and title.',
+                'warning',
+                'dropped',
+                'exact',
+                $sourceLine === null ? null : 'line:' . $sourceLine,
+            );
+
             return $this->unwrapEmptyDestination(
                 $match['label'][0],
                 $match[0][0][0] === '!',
