@@ -515,6 +515,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($minimal === $conservative) {
             return $minimal;
         }
+        // The minimal form that re-parses to THIS document is the document's
+        // canonical spelling, whatever the conservative form does. Without this
+        // the check below reads the conservative form as the reference, so an
+        // escape that CHANGES the re-parse keeps itself: a backslash before the
+        // punctuation that decides a smart quote's direction flipped the quote
+        // and `fmt` changed what the document renders (carve-php#3064).
+        //
+        // ONE-WAY, which is what keeps the reasoning in escapingIsRedundant()
+        // below intact: a match emits the minimal form, a miss decides nothing
+        // and falls through. carve-js takes the same shortcut in the same place.
+        $minimalTree = $this->canonicalTree($minimal);
+        $documentTree = $this->sourceTree($document);
+        if ($minimalTree !== null && $documentTree !== null && $minimalTree == $documentTree) {
+            return $minimal;
+        }
         if ($this->escapingIsRedundant($minimal, $conservative)) {
             return $minimal;
         }
@@ -743,6 +758,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function renderSelectively(Document $document): string
     {
         return $this->searchService()->renderSelectively($document);
+    }
+
+    /**
+     * The canonical tree of the document being written, or null when it cannot
+     * be taken.
+     *
+     * Guarded like canonicalTree(): a document built in code or decoded from
+     * the wire can hold an UNINITIALIZED typed property, which the reflecting
+     * walk throws on, and this comparison is an optional shortcut that must
+     * never decide whether the renderer returns at all.
+     *
+     * @return array{tree: mixed}|null
+     */
+    protected function sourceTree(Document $document): ?array
+    {
+        try {
+            return ['tree' => $this->canonicalizeAst($document)];
+        } catch (Throwable) {
+            return null;
+        }
     }
 
     /**
@@ -1073,6 +1108,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * PART 11 section 4: compare the parsed minimal and conservative renders,
      * not either render against the source AST. If parsing fails, keep the old
      * conservative behavior.
+     *
+     * The writer does not satisfy `parse(fmt(x)) == parse(x)` for every
+     * construct, so comparing against the source AST here would inherit those
+     * defects and flip the escaping between passes. render() checks the minimal
+     * form against the document FIRST, but only ever to accept it.
      *
      * Both trees come from canonicalTree(), which is where the docblock there
      * already says they must: the narrowing compares through that same
