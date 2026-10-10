@@ -198,4 +198,33 @@ class RawCodeSectionBoundaryTest extends TestCase
         $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x`</code>`{=html}');
         $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
     }
+
+    public function testRawCodeIsOmittedFromAnAutomaticCrossReferenceLabel(): void
+    {
+        $source = "# Target `</code>`{=html}\n\n# `<code>`{=html}x</#Target>";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString('<code>x<a href="#Target">Target </a></h1></section>' . "\n", $html);
+    }
+
+    public function testRawCloserInASymbolMapKeepsTheSeparator(): void
+    {
+        $converter = new CarveConverter(symbols: ['close' => '</code>']);
+        $html = $converter->convert('# `<code>`{=html}x :close:');
+        $this->assertStringContainsString('</code></h1>' . "\n</section>\n", $html);
+    }
+
+    public function testHtmlFromANestedFragmentKeepsTheSeparator(): void
+    {
+        $renderer = new HtmlRenderer();
+        $fragmentRendered = false;
+        $renderer->on('render.raw_inline', static function (RenderEvent $event) use ($renderer, &$fragmentRendered): void {
+            if (!$fragmentRendered) {
+                $fragmentRendered = true;
+                $renderer->renderInlineNodesFragment([new RawInline('</code>', 'html')]);
+            }
+        });
+        $html = (new CarveConverter(renderer: $renderer))->convert('# `<code>`{=html}x');
+        $this->assertTrue($fragmentRendered);
+        $this->assertStringContainsString('</h1>' . "\n</section>\n", $html);
+    }
 }

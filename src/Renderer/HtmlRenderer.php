@@ -4656,6 +4656,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             ? $this->symbols[$name]
             : ':' . $this->escape($name) . ':';
 
+        if (str_contains($body, '<')) {
+            $this->getRenderContext()->headingRawCodeTracker?->invalidate();
+        }
+
         if ($node->getAttributes() === []) {
             return $body;
         }
@@ -4685,7 +4689,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $previousHeadingRawCodeTracker = $context->headingRawCodeTracker;
         $context->headingRawCodeTracker = null;
         try {
-            return $this->withRenderContext($context, $callback);
+            $html = $this->withRenderContext($context, $callback);
+            if (str_contains($html, '<')) {
+                $previousHeadingRawCodeTracker?->invalidate();
+            }
+
+            return $html;
         } finally {
             $context->headingRawCodeTracker = $previousHeadingRawCodeTracker;
         }
