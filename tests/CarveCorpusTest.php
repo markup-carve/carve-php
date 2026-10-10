@@ -1157,7 +1157,16 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '19-smart-typography-dashes-and-quotes-11' => [
+            'reason' => 'R2 makes listed elisions apostrophes.',
+            'html' => '<p>’tis the season to be ‘jolly’</p>',
+        ],
+        '29-non-breaking-space-2' => [
+            'reason' => 'R2 applies after non-breaking whitespace.',
+            'html' => '<p>say&nbsp;’twas a fine&nbsp;“day”</p>',
+        ],
+    ];
 
     protected CarveConverter $converter;
 

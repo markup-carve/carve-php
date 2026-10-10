@@ -8,12 +8,6 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Single-quote opener/closer behavior. A `'` in opener position (preceded by
- * whitespace / start, followed by a non-space, non-digit) is an OPENING quote
- * per the §8 flanking rule -- no matching closer is required -- matching
- * carve-js / carve-rs.
- */
 class SmartQuoteScanTest extends TestCase
 {
     private CarveConverter $converter;
@@ -31,16 +25,14 @@ class SmartQuoteScanTest extends TestCase
         );
     }
 
-    public function testFlankingOpenerIsACurlyQuoteEvenWithNoCloser(): void
+    public function testUnmatchedOpenerAndListedElisionBecomeApostrophes(): void
     {
-        // A lone opener (space before, letter after) is an OPENING curly quote,
-        // matching carve-js / carve-rs -- it does not require a matching closer.
         $this->assertSame(
-            "<p>it \u{2018}is here</p>",
+            "<p>it \u{2019}is here</p>",
             trim($this->converter->convert("it 'is here")),
         );
         $this->assertSame(
-            "<p>\u{2018}twas the night</p>",
+            "<p>\u{2019}twas the night</p>",
             trim($this->converter->convert("'twas the night")),
         );
     }
@@ -50,11 +42,11 @@ class SmartQuoteScanTest extends TestCase
         // A non-breaking space is whitespace for quote flanking, so a quote
         // after one opens -- both the escaped `\ ` form and a literal U+00A0.
         $this->assertSame(
-            "<p>say&nbsp;\u{2018}twas a fine&nbsp;\u{201C}day\u{201D}</p>",
+            "<p>say&nbsp;\u{2019}twas a fine&nbsp;\u{201C}day\u{201D}</p>",
             trim($this->converter->convert("say\\ 'twas a fine\\ \"day\"")),
         );
         $this->assertSame(
-            "<p>a&nbsp;\u{2018}tis</p>",
+            "<p>a&nbsp;\u{2019}tis</p>",
             trim($this->converter->convert("a\u{00A0}'tis")),
         );
     }

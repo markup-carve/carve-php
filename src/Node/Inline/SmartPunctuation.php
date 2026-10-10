@@ -60,6 +60,12 @@ class SmartPunctuation extends InlineNode implements ContentNodeInterface
     ) {
     }
 
+    public function resolveQuote(string $kind, string $glyph): void
+    {
+        $this->kind = $kind;
+        $this->glyph = $glyph;
+    }
+
     /**
      * The resolved glyph, when the parser fixed it rather than leaving it to
      * the kind lookup.

@@ -55,10 +55,10 @@ final class MatcherContext
     /**
      * @return array<\MarkupCarve\Carve\Node\Node>
      */
-    public function parseInlines(string $text): array
+    public function parseInlines(string $text, bool $separateQuoteScope = false): array
     {
         $holder = new Paragraph();
-        $this->inlineParser->parse($holder, $text);
+        $this->inlineParser->parse($holder, $text, separateQuoteScope: $separateQuoteScope);
 
         return $holder->getChildren();
     }
