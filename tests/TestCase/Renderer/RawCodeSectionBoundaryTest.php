@@ -81,4 +81,24 @@ class RawCodeSectionBoundaryTest extends TestCase
         $html = (new CarveConverter())->convert('| `<code>`{=html} |' . "\n\n# Plain\n");
         $this->assertStringContainsString('<h1>Plain</h1>' . "\n</section>\n", $html);
     }
+
+    public function testCodeInsideSplitRawTextTagsDoesNotChangeTheSeparator(): void
+    {
+        foreach (['script', 'style', 'title', 'textarea', 'xmp'] as $tag) {
+            $source = '# `<' . $tag . '>`{=html}`<code>`{=html}`</' . $tag . '>`{=html}x';
+            $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+        }
+    }
+
+    public function testCodeInsideASplitCommentDoesNotChangeTheSeparator(): void
+    {
+        $source = '# `<!--`{=html}`<code>`{=html}`-->`{=html}x';
+        $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+    }
+
+    public function testCodeInsideASplitAttributeDoesNotChangeTheSeparator(): void
+    {
+        $source = '# `<span title="`{=html}`<code>`{=html}`">`{=html}x';
+        $this->assertStringContainsString('</h1>' . "\n</section>\n", (new CarveConverter())->convert($source));
+    }
 }

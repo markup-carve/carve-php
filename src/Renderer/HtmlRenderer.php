@@ -985,13 +985,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 }
             }
             $context = $this->getRenderContext();
-            $previousHeadingRawCodeDepth = $context->headingRawCodeDepth;
-            $context->headingRawCodeDepth = 0;
+            $previousHeadingRawCodeTracker = $context->headingRawCodeTracker;
+            $context->headingRawCodeTracker = new Utility\HeadingRawCodeTracker();
             try {
                 $headingHtml ??= $this->renderHeadingContent($node);
-                $unclosedHeadingCode = $context->headingRawCodeDepth > 0;
+                $unclosedHeadingCode = $context->headingRawCodeTracker->hasOpenCode();
             } finally {
-                $context->headingRawCodeDepth = $previousHeadingRawCodeDepth;
+                $context->headingRawCodeTracker = $previousHeadingRawCodeTracker;
             }
 
             $sectionId = $this->getSectionId($node);
@@ -1004,8 +1004,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
             $body = $headingHtml . $this->renderSectionRange($inner, $depth + 1);
             // Without section content, this separator would reconstruct an
-            // extra code element before the wrapper closes. The final document
-            // newline already supplies the heading's trailing HTML whitespace.
+            // extra code element before the wrapper closes. The following
+            // section newline supplies the heading's trailing HTML whitespace.
             $closingSeparator = $depth === 0 && $inner === [] && $unclosedHeadingCode ? '' : "\n";
             $html .= '<section id="' . $this->escapeHeadingId($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
                 . $this->indentBlock(rtrim($body, "\n"), 2) . $closingSeparator . "</section>\n";
@@ -4247,9 +4247,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $context = $this->getRenderContext();
-        if ($context->headingRawCodeDepth !== null && preg_match('/^<(\/?)code(?=[ \t\r\n\/>])(?:[^\"\'<>]|\"[^\"]*\"|\'[^\']*\')*>$/iD', $content, $codeTag) === 1) {
-            $context->headingRawCodeDepth = $codeTag[1] === '' ? $context->headingRawCodeDepth + 1 : max(0, $context->headingRawCodeDepth - 1);
-        }
+        $context->headingRawCodeTracker?->observe($content);
 
         // In round-trip mode, wrap HTML content for recovery
         if ($this->roundTripMode) {
@@ -4677,12 +4675,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $context = $this->activeRenderContext ?? new RenderContext();
-        $previousHeadingRawCodeDepth = $context->headingRawCodeDepth;
-        $context->headingRawCodeDepth = null;
+        $previousHeadingRawCodeTracker = $context->headingRawCodeTracker;
+        $context->headingRawCodeTracker = null;
         try {
             return $this->withRenderContext($context, $callback);
         } finally {
-            $context->headingRawCodeDepth = $previousHeadingRawCodeDepth;
+            $context->headingRawCodeTracker = $previousHeadingRawCodeTracker;
         }
     }
 
