@@ -64,6 +64,16 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
     }
 
+    public function testNativeCodeProbeDoesNotReportADiscardedLoss(): void
+    {
+        foreach ([false, true] as $mode) {
+            $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport('<code>&#32;a_b</code>');
+            $this->assertSame([], array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable')));
+            $safe = SafeMode::defaults()->setRawHtmlMode(SafeMode::RAW_HTML_STRIP);
+            $this->assertSame('<p><code> a_b</code></p>', rtrim((new CarveConverter(safeMode: $safe))->convert($result->value), "\n"));
+        }
+    }
+
     private function records(string $html): array
     {
         if (!class_exists(DOMDocument::class)) {

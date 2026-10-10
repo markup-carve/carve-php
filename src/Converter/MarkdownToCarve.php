@@ -5447,17 +5447,25 @@ class MarkdownToCarve
                 $value,
             ) ?? $value;
         };
+        $scalarSubject = $line;
         $line = preg_replace_callback(
             '/(!?\[(?:[^\[\]\n]|\[(?:[^\[\]\n])*\])*\])(\((?:[^()\n]|\([^()\n]*\))*\))/',
-            static function (array $match) use ($validateCodeScalar, $protectCodeTags): string {
+            static function (array $match) use ($validateCodeScalar, $protectCodeTags, $scalarSubject): string {
+                $start = $match[0][1];
+                $match = array_map(static fn (array $capture): string => $capture[0], $match);
+                $slashes = 0;
+                for ($at = $start - 1; $at >= 0 && $scalarSubject[$at] === '\\'; $at--) {
+                    $slashes++;
+                }
                 if ($validateCodeScalar($match[2]) === null) {
                     return $match[0];
                 }
-                $label = str_starts_with($match[1], '!') ? $protectCodeTags($match[1]) : $match[1];
+                $label = str_starts_with($match[1], '!') && $slashes % 2 === 0 ? $protectCodeTags($match[1]) : $match[1];
 
                 return $label . $protectCodeTags($match[2]);
             },
             $line,
+            flags: PREG_OFFSET_CAPTURE,
         ) ?? $line;
         $line = preg_replace_callback(
             '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
@@ -5467,12 +5475,20 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
-        $writeHtmlCode = function (array $match) use ($protect, $line, $terminal, $table): ?string {
+        $standaloneCodeSource = trim($line);
+        $writeHtmlCode = function (array $match) use ($protect, $standaloneCodeSource, $terminal, $table): ?string {
+            $slashes = 0;
+            for ($at = strlen($match[1]) - 1; $at >= 0 && $match[1][$at] === '\\'; $at--) {
+                $slashes++;
+            }
+            if ($slashes % 2 !== 0) {
+                return null;
+            }
             if (str_contains($match[1], "\0") || preg_match('/\\\\[!-\/:-@\[-`{-~]/', $match[1]) === 1) {
                 return null;
             }
             if (strpbrk($match[1], '\\`*_~[]') !== false) {
-                $probe = (new CarveConverter())->parse('x ' . $this->convertInlineFormatting(str_replace('<!---->', '', $match[1])) . "\n");
+                $probe = (new CarveConverter())->parse('x ' . (clone $this)->convertInlineFormatting(str_replace('<!---->', '', $match[1])) . "\n");
                 $paragraphs = $probe->getChildren();
                 if (count($paragraphs) !== 1 || !($paragraphs[0] instanceof Paragraph)) {
                     return null;
@@ -5484,7 +5500,7 @@ class MarkdownToCarve
                 }
             }
             $value = $this->decodeHtmlReferenceText(str_replace('<!---->', '', $match[1]));
-            if ($this->nativeCodeSlot && $terminal && !$table && trim($line) === $match[0]) {
+            if ($this->nativeCodeSlot && $terminal && !$table && $standaloneCodeSource === $match[0]) {
                 $document = new Document();
                 $paragraph = new Paragraph();
                 $paragraph->appendChild(new Code($value));
@@ -5554,6 +5570,13 @@ class MarkdownToCarve
             if ($htmlCodeDepth > 0 && $line[$i] === '&' && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $entity, 0, $i) === 1 && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false) {
                 $escaped .= $protect($this->verbatimHtmlInline('<!---->&#10;<!---->'));
                 $i += strlen($entity[0]);
+                if (
+                    $this->decodeHtmlReferenceText($entity[0]) === "\r"
+                    && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7});/', $line, $following, 0, $i) === 1
+                    && $this->decodeHtmlReferenceText($following[0]) === "\n"
+                ) {
+                    $i += strlen($following[0]);
+                }
 
                 continue;
             }
@@ -6444,9 +6467,12 @@ class MarkdownToCarve
             $line = preg_replace_callback('/(\x00P(\d+)\x00)(?=\x00P(\d+)\x00)/', static function (array $match) use ($protected): string {
                 $left = $protected[(int)$match[2]] ?? '';
                 $right = $protected[(int)$match[3]] ?? '';
-                preg_match('/(\\\\*)`$/', $left, $slashes);
+                $slashes = 0;
+                for ($at = strlen($left) - 2; $at >= 0 && $left[$at] === '\\'; $at--) {
+                    $slashes++;
+                }
 
-                return str_ends_with($left, '`') && str_starts_with($right, '`') && (str_starts_with($left, '`') || strlen($slashes[1] ?? '') % 2 === 0)
+                return str_ends_with($left, '`') && str_starts_with($right, '`') && (str_starts_with($left, '`') || $slashes % 2 === 0)
                     ? $match[0] . '{%  %}' : $match[0];
             }, $line) ?? $line;
             $line = preg_replace_callback('/\x00P(\d+)\x00/', function (array $match) use ($protected, $table): string {
