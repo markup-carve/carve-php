@@ -114,7 +114,23 @@ class OptionalCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, expected: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '66-smart-typography-quotes-off-html' => [
+            'reason' => 'Task-list class, markup-carve/carve#2887',
+            'expected' => '<p>He said "hello" and \'yes\'; it\'s fine… a–b, c—d.</p>
+<p>Arrows → ← ↔ ⇒ and comparisons ≠ ≤ ≥ and © ® ™ ±.</p>
+<p>Typed “curly” ‘quotes’ and escaped "plain" stay literal.</p>
+<p>Code: <code>a--b "q" (c)</code>.</p>
+<ul class="task-list">
+  <li><input type="checkbox" disabled aria-label="Don&apos;t &quot;guess&quot;… a–b"> Don\'t "guess"… a–b</li>
+</ul>
+<section id="Don-t-guess-a-b">
+  <h1>Don\'t "guess"… a–b</h1>
+  <p><a href="#Don-t-guess-a-b">Don\'t "guess"… a–b</a></p>
+</section>
+',
+        ],
+    ];
 
     /**
      * How each feature the manifest states is configured on this engine.
