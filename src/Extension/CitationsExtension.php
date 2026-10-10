@@ -496,7 +496,7 @@ class CitationsExtension implements ExtensionInterface, ParsedDocumentExtensionI
                 $item['locatorValue'] = $parsed['value'];
             }
             if (isset($parsed['suffixText']) && $parsed['suffixText'] !== '') {
-                $item['suffix'] = $this->onlyInlineNodes($ctx->parseInlines($parsed['suffixText']));
+                $item['suffix'] = $this->onlyInlineNodes($ctx->parseInlines($parsed['suffixText'], separateQuoteScope: true));
             }
         }
 

@@ -62,11 +62,12 @@ CRV;
                         bool $captionContext = false,
                         ?SourceMap $sourceMap = null,
                         bool $lineBlock = false,
+                        bool $separateQuoteScope = false,
                     ): void {
                         if ($this->scratch->active) {
                             $this->scratch->inlines[] = $text;
                         }
-                        parent::parse($parent, $text, $sourceLine, $captionContext, $sourceMap, $lineBlock);
+                        parent::parse($parent, $text, $sourceLine, $captionContext, $sourceMap, $lineBlock, $separateQuoteScope);
                     }
                 };
             }

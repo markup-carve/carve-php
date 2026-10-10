@@ -57,6 +57,14 @@ class InlineParser
      */
     protected array $delimiterStack = [];
 
+    protected ?SmartPunctuation $singleQuoteOpener = null;
+
+    protected bool $singleQuoteSpanOpen = false;
+
+    protected bool $singleQuoteDemote = false;
+
+    protected int $quoteScopeDepth = 0;
+
     /**
      * Current source line number for error reporting (0-indexed)
      */
@@ -597,6 +605,7 @@ class InlineParser
         bool $captionContext = false,
         ?SourceMap $sourceMap = null,
         bool $lineBlock = false,
+        bool $separateQuoteScope = false,
     ): void {
         $this->sourceMap = $sourceMap;
         // A line break is content in a line block (markup-carve/carve#2089).
@@ -628,7 +637,7 @@ class InlineParser
         }
 
         try {
-            $this->parseInlines($parent, $text);
+            $this->parseInlines($parent, $text, separateQuoteScope: $separateQuoteScope);
         } finally {
             $this->captionContextEnabled = $previousCaptionContext;
             $this->captionNumberEmitted = $previousCaptionNumberEmitted;
@@ -678,6 +687,7 @@ class InlineParser
         string $text,
         int $offsetInParent,
         ?bool $footnoteRecognitionEnabled = null,
+        bool $separateQuoteScope = false,
     ): void {
         $outer = $this->sourceMap;
         $outerStart = $this->textBufferStart;
@@ -694,7 +704,7 @@ class InlineParser
         $this->textOrigin = $outerOrigin + $offsetInParent;
 
         try {
-            $this->parseInlines($parent, $text, $footnoteRecognitionEnabled);
+            $this->parseInlines($parent, $text, $footnoteRecognitionEnabled, $separateQuoteScope);
         } finally {
             $this->sourceMap = $outer;
             $this->textBufferStart = $outerStart;
@@ -703,8 +713,12 @@ class InlineParser
         }
     }
 
-    protected function parseInlines(Node $parent, string $text, ?bool $footnoteRecognitionEnabled = null): void
-    {
+    protected function parseInlines(
+        Node $parent,
+        string $text,
+        ?bool $footnoteRecognitionEnabled = null,
+        bool $separateQuoteScope = false,
+    ): void {
         if ($this->inlineDepth >= self::MAX_INLINE_DEPTH) {
             // Too deeply nested (DoS guard): stop recursing and keep the
             // remaining text as a literal text node rather than re-parsing it.
@@ -741,10 +755,24 @@ class InlineParser
         $outerCrossrefRange = $this->crossrefInvalidRange;
         $outerLinkTriggerText = $this->linkTriggerText;
         $outerLinkTriggerPresent = $this->linkTriggerPresent;
+        $outerQuoteState = [$this->singleQuoteOpener, $this->singleQuoteSpanOpen, $this->singleQuoteDemote, $this->quoteScopeDepth];
+        $quoteRoot = $this->inlineDepth === 0 || $separateQuoteScope;
+        if ($quoteRoot) {
+            $this->quoteScopeDepth = $this->inlineDepth + 1;
+            $this->singleQuoteOpener = null;
+            $this->singleQuoteSpanOpen = false;
+            $this->singleQuoteDemote = false;
+        }
         $this->inlineDepth++;
         try {
             $this->parseInlinesImpl($parent, $text, $footnoteRecognitionEnabled);
         } finally {
+            if ($quoteRoot) {
+                if ($this->singleQuoteSpanOpen && $this->singleQuoteDemote && $this->singleQuoteOpener !== null) {
+                    $this->singleQuoteOpener->resolveQuote('right_single_quote', $this->apostrophe);
+                }
+                [$this->singleQuoteOpener, $this->singleQuoteSpanOpen, $this->singleQuoteDemote, $this->quoteScopeDepth] = $outerQuoteState;
+            }
             $this->inlineDepth--;
             $this->emphNoCloseText = $outerNoCloseText;
             $this->emphNoCloseFrom = $outerNoCloseFrom;
@@ -936,6 +964,20 @@ class InlineParser
         $length = strlen($text);
         $pos = 0;
         $textBuffer = '';
+        $children = $parent->getChildren();
+        $quoteContextIndex = count($children);
+        $quoteContext = '';
+        $index = $quoteContextIndex;
+        while ($index > 0) {
+            $previous = $children[--$index];
+            if ($previous instanceof Comment || ($previous instanceof Span && $previous->getChildren() === [])) {
+                continue;
+            }
+            $quoteContext = $this->lastEmittedGlyph($previous);
+
+            break;
+        }
+        unset($children);
 
         // Bytes that can start an inline construct; everything else is plain
         // text and skips the whole per-position handler cascade below.
@@ -1366,7 +1408,7 @@ class InlineParser
                 }
             }
 
-            if ($this->parseSmartTypographyAt($parent, $text, $pos, $textBuffer)) {
+            if ($this->parseSmartTypographyAt($parent, $text, $pos, $textBuffer, $quoteContextIndex, $quoteContext)) {
                 continue;
             }
 
@@ -1490,18 +1532,27 @@ class InlineParser
         $parent->appendChild($hardBreak);
     }
 
-    protected function parseSmartTypographyAt(Node $parent, string $text, int &$pos, string &$textBuffer): bool
-    {
+    protected function parseSmartTypographyAt(
+        Node $parent,
+        string $text,
+        int &$pos,
+        string &$textBuffer,
+        int &$quoteContextIndex,
+        string &$quoteContext,
+    ): bool {
         $char = $text[$pos];
         $nextChar = $text[$pos + 1] ?? '';
 
         if ($char === '"' || $char === "'") {
-            $prevConverted = $this->previousConvertedChar($parent, $textBuffer);
+            $prevConverted = $this->previousConvertedChar($parent, $textBuffer, $quoteContextIndex, $quoteContext);
             $smartQuote = $this->parseSmartQuote($prevConverted, $text, $pos, $char);
 
             $this->flushText($parent, $textBuffer);
             $textBuffer = '';
             $quote = new SmartPunctuation($this->smartQuoteKind($smartQuote), $char, $smartQuote);
+            if ($char === "'" && $this->singleQuoteSpanOpen && $this->singleQuoteOpener === null && $smartQuote === $this->openSingleQuote) {
+                $this->singleQuoteOpener = $quote;
+            }
             $this->placeAt($quote, $pos, $pos + 1);
             $parent->appendChild($quote);
             $pos++;
@@ -2592,7 +2643,7 @@ class InlineParser
                 $urlEnd = $destination['end'];
 
                 $link = new Link($url, $title);
-                $this->parseInlinesAt($link, $linkText, $pos + 1);
+                $this->parseInlinesAt($link, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                 // Track anchor links for validation
                 if (preg_match('/^#(.+)$/', $url, $anchorMatch)) {
@@ -2635,7 +2686,7 @@ class InlineParser
                 // needs the plain text those nodes render to - deriving either
                 // one twice is how the label acquires two spellings.
                 $label = new Span();
-                $this->parseInlinesAt($label, $linkText, $pos + 1);
+                $this->parseInlinesAt($label, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                 // Set only where the heading retry below resolves the
                 // reference, which is the one path where the label the author
@@ -2788,7 +2839,7 @@ class InlineParser
                     // leaving it literal -- e.g. `[x]{.a}{???}`).
                     $this->applyAttributesToNode($span, $attrStr);
                     $endPos = $this->applyConsecutiveAttributes($span, $text, $attrEnd + 1);
-                    $this->parseInlinesAt($span, $linkText, $pos + 1);
+                    $this->parseInlinesAt($span, $linkText, $pos + 1, separateQuoteScope: isset($this->imageReferenceAt[$pos]));
 
                     return [
                         'node' => $span,
@@ -3722,16 +3773,26 @@ class InlineParser
      * of the few characters that puts the NEXT quote in opening context, so
      * losing it flips `""` from opening to closing.
      */
-    protected function previousConvertedChar(Node $parent, string $textBuffer): string
+    protected function previousConvertedChar(Node $parent, string $textBuffer, int &$index, string &$context): string
     {
-        $last = $this->lastCharOf($textBuffer);
-        if ($last !== '') {
-            return $last;
+        $children = $parent->getChildren();
+        // Comments emit no character; visit each appended node once for quote context.
+        $childCount = count($children);
+        while ($index < $childCount) {
+            $previous = $children[$index++];
+            if ($previous instanceof Comment || ($previous instanceof Span && $previous->getChildren() === [])) {
+                continue;
+            }
+            $context = $this->lastEmittedGlyph($previous);
         }
 
-        $children = $parent->getChildren();
-        $previous = $children === [] ? null : $children[array_key_last($children)];
+        $last = $this->lastCharOf($textBuffer);
 
+        return $last !== '' ? $last : $context;
+    }
+
+    protected function lastEmittedGlyph(Node $previous): string
+    {
         if ($previous instanceof SmartPunctuation) {
             $glyph = $previous->getGlyph() ?? (SmartPunctuation::GLYPHS[$previous->getKind()] ?? '');
             if ($glyph !== '') {
@@ -3775,7 +3836,7 @@ class InlineParser
         // Any other flushed state with prior output is word-adjacent, i.e.
         // closing context: a link, a code span or an emphasis run ends on a
         // construct, not on a character a quote can flank against.
-        return $previous === null ? '' : 'x';
+        return 'x';
     }
 
     /**
@@ -3810,42 +3871,69 @@ class InlineParser
 
     protected function parseSmartQuote(string $prevConverted, string $text, int $pos, string $quote): string
     {
-        $nextChar = $text[$pos + 1] ?? ' ';
-
-        // A straight quote curls OPENING when the preceding (already-rendered)
-        // character is start-of-content, whitespace (incl. NBSP), an opening
-        // curly quote (nested-quote context), or one of the operator /
-        // opening-punctuation characters `( [ { = : - /` (plus the en/em
-        // dashes). Sentence punctuation (`. , ; ! ?`), letters, digits and
-        // closing brackets (`] )`) stay CLOSING. Mirrors the canonical oracle
-        // carve-js `isQuoteOpenContext` (decision SQ). See carve/MAINTAINING.md.
+        $nextChar = $this->quoteCharacterAt($text, $pos + 1);
         $openContext = $this->isQuoteOpenContext($prevConverted);
-
+        if (
+            in_array($prevConverted, ['-', '–', '—'], true)
+            && ($nextChar === '' || $this->isQuoteSpace($nextChar) || str_contains('"\'.,;:!?)]', $nextChar))
+        ) {
+            $openContext = false;
+        }
         if ($quote === '"') {
             return $openContext ? $this->openDoubleQuote : $this->closeDoubleQuote;
         }
-
-        // A single quote directly before a digit is always a literal
-        // apostrophe (always U+2019, locale-independent): decade elision
-        // `'70s` -> `’70s`, even in an opening context.
-        if (ctype_digit($nextChar)) {
+        $alnum = $this->isQuoteAlnum($nextChar);
+        if (ctype_digit($nextChar) || (!$openContext && $alnum)) {
             return $this->apostrophe;
         }
+        if (!$openContext) {
+            if (!$this->isQuoteSpace($prevConverted)) {
+                $this->singleQuoteSpanOpen = false;
+                $this->singleQuoteOpener = null;
+            }
 
-        // Single quote in an opening context is an OPENING quote
-        // (`'word'`, `rock 'n' roll` -> the first `'`).
-        if ($openContext) {
-            return $this->openSingleQuote;
+            return $this->closeSingleQuote;
+        }
+        if ($alnum) {
+            $end = $pos + 1;
+            while (($letter = $this->quoteCharacterAt($text, $end)) !== '' && preg_match('/^\p{L}$/u', $letter) === 1) {
+                $end += strlen($letter);
+            }
+            $word = substr($text, $pos + 1, $end - $pos - 1);
+            $quoted = ($text[$end] ?? '') === "'" && !$this->isQuoteAlnum($this->quoteCharacterAt($text, $end + 1));
+            $elision = in_array(strtolower($word), ['tis', 'tisn', 'twas', 'twasn', 'twere', 'twill', 'twould', 'em', 'cause', 'til', 'n', 'bout'], true);
+            if (($elision && !$quoted) || $this->singleQuoteSpanOpen) {
+                return $this->apostrophe;
+            }
+        }
+        if (!$this->singleQuoteSpanOpen) {
+            $this->singleQuoteSpanOpen = true;
+            $this->singleQuoteOpener = null;
+            $this->singleQuoteDemote = $alnum && !($pos === 0 && $this->inlineDepth === $this->quoteScopeDepth) && $prevConverted !== '“';
         }
 
-        // Outside an opening context: a literal apostrophe (always U+2019,
-        // locale-independent) mid-word (`don't`, `it's`); otherwise a
-        // locale-dependent CLOSING single quote (`'Hello'` -> the second `'`).
-        if (preg_match('/\w/u', $nextChar)) {
-            return $this->apostrophe;
-        }
+        return $this->openSingleQuote;
+    }
 
-        return $this->closeSingleQuote;
+    protected function quoteCharacterAt(string $text, int $pos): string
+    {
+        if (!isset($text[$pos])) {
+            return '';
+        }
+        $byte = ord($text[$pos]);
+        $length = $byte < 0x80 ? 1 : ($byte < 0xE0 ? 2 : ($byte < 0xF0 ? 3 : 4));
+
+        return substr($text, $pos, $length);
+    }
+
+    protected function isQuoteAlnum(string $char): bool
+    {
+        return $char !== '' && preg_match('/[\p{L}\p{N}]/u', $char) === 1;
+    }
+
+    protected function isQuoteSpace(string $char): bool
+    {
+        return $char !== '' && str_contains(" \t\n\r\u{00A0}", $char);
     }
 
     /**
@@ -5205,7 +5293,7 @@ class InlineParser
         }
 
         $node = new InlineFootnote();
-        $this->parseInlinesAt($node, $content, $pos + 2, false);
+        $this->parseInlinesAt($node, $content, $pos + 2, false, separateQuoteScope: true);
 
         $endPos = $close + 1;
         if ($endPos < $length && $text[$endPos] === '{') {

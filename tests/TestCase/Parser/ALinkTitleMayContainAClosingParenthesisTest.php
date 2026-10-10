@@ -87,7 +87,7 @@ class ALinkTitleMayContainAClosingParenthesisTest extends TestCase
             // it is the tail's, and the tail then has no destination.
             'a quote with no partner' => [
                 "[t](/u 'x)",
-                "<p>[t](/u \u{2018}x)</p>\n",
+                "<p>[t](/u \u{2019}x)</p>\n",
             ],
             // The run is skipped wherever a space precedes it, inside an open
             // pair included: `balanced_parens` admits no whitespace, so the
