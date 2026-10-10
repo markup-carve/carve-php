@@ -314,7 +314,8 @@ trait NormalizesDjotStructure
             }
             if ($heading && $lists === []) {
                 $body = substr($text, strlen($headingMatch[1]));
-                $out[] = $quote . $headingMatch[1] . (trim($body) !== '' ? ' ' . ltrim($body) : '');
+                // Carve whitespace is space and tab only, so a vertical tab is heading content.
+                $out[] = $quote . $headingMatch[1] . (trim($body, " \t") !== '' ? ' ' . ltrim($body, " \t") : '');
             } elseif ($rule && $lists === [] && !$paragraph) {
                 $out[] = $quote . '***';
             } else {
