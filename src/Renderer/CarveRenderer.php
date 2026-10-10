@@ -4259,6 +4259,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if (!$closed) {
                 $after = false;
                 foreach ($parent->getChildren() as $sibling) {
+                    if ($sibling instanceof CarveFieldDiagnostic) {
+                        continue;
+                    }
                     if ($after && (!$sibling instanceof Text || $sibling->getContent() !== '')) {
                         return false;
                     }

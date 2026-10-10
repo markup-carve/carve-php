@@ -807,5 +807,56 @@
         "field": "shortCaption"
       }
     ]
+  },
+  {
+    "name": "empty code before hidden metadata",
+    "ast": {
+      "type": "document",
+      "srcByteLength": 0,
+      "children": [
+        {
+          "type": "table",
+          "rows": [
+            {
+              "type": "table_row",
+              "cells": [
+                {
+                  "type": "table_cell",
+                  "header": false,
+                  "blocks": [
+                    {
+                      "type": "paragraph",
+                      "children": [
+                        {
+                          "type": "code",
+                          "value": ""
+                        }
+                      ]
+                    },
+                    {
+                      "type": "table",
+                      "rows": [],
+                      "shortCaption": []
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "diagnostics": [
+      {
+        "code": "field-unspellable",
+        "node": "table_cell",
+        "field": "blocks"
+      },
+      {
+        "code": "field-unspellable",
+        "node": "table",
+        "field": "shortCaption"
+      }
+    ]
   }
 ]

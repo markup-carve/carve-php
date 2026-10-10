@@ -28,7 +28,7 @@ final class TableCellBlockFlattener
      * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param bool $keepHardBreaks Keep a hard break as itself instead of a space.
      *   The Markdown target writes it as `<br>` (PART 11 section 9a).
-     * @param bool $collectCarveFields
+     * @param bool $collectCarveFields Internal renderer diagnostics.
      */
     public static function flatten(TableCell $cell, bool $keepHardBreaks = false, bool $collectCarveFields = false): Paragraph
     {
