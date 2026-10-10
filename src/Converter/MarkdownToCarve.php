@@ -231,6 +231,11 @@ class MarkdownToCarve
     protected array $movedFootnotes = [];
 
     /**
+     * @var list<int>
+     */
+    private array $movedFootnoteSourceLines = [];
+
+    /**
      * When true, carry `::: note` fences across as Carve containers (Pandoc /
      * Quarto fenced divs). Default false: in CommonMark both fence lines are
      * paragraph text, and left bare they disappeared from the render and
@@ -1836,13 +1841,15 @@ class MarkdownToCarve
             while ($result !== [] && trim((string)end($result)) === '') {
                 array_pop($result);
             }
-            foreach ($this->movedFootnotes as $footnote) {
+            foreach ($this->movedFootnotes as $index => $footnote) {
+                $this->inlineRunSourceLine = $this->movedFootnoteSourceLines[$index] ?? null;
                 if ($result !== []) {
                     $result[] = '';
                 }
                 array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
             }
             foreach ($this->movedDefinitions as $definition) {
+                $this->inlineRunSourceLine = null;
                 if ($result !== []) {
                     $result[] = '';
                 }
@@ -3492,7 +3499,7 @@ class MarkdownToCarve
         }
         $this->boundaryDiagnostics[] = new MigrationDiagnostic(
             'structure-unspellable',
-            'Dropped code-block language ' . json_encode($word, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR) . '; Carve cannot spell this language token.',
+            'Dropped code-block language ' . json_encode($word, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) . '; Carve cannot spell this language token.',
             'warning',
             'dropped',
             'exact',
@@ -3837,10 +3844,11 @@ class MarkdownToCarve
      * @param array<int, string> $lines
      * @param int $start
      * @param string $opener The opening line with its markers normalized.
+     * @param int|null $sourceLine
      *
      * @return array{lines: array<int, string>, end: int, prefix: string}|null
      */
-    protected function collectQuotedFence(array $lines, int $start, string $opener): ?array
+    protected function collectQuotedFence(array $lines, int $start, string $opener, ?int $sourceLine = null): ?array
     {
         if (preg_match('/^((?:> )+)( {0,3})(`{3,}|~{3,})(.*)$/', $opener, $open) !== 1) {
             return null;
@@ -3849,7 +3857,7 @@ class MarkdownToCarve
         if ($fence[0] === '`' && str_contains($info, '`')) {
             return null;
         }
-        $info = $this->fenceLanguage($info, $this->sourceLine($start));
+        $info = $this->fenceLanguage($info, $sourceLine ?? $this->sourceLine($start));
         $depth = substr_count($prefix, '>');
         $output = [''];
         $body = [];
@@ -3959,7 +3967,7 @@ class MarkdownToCarve
             }
         }
         $opener = $this->normalizeBlockquoteMarkers($virtual[0]);
-        $block = $this->collectQuotedFence($virtual, 0, $opener)
+        $block = $this->collectQuotedFence($virtual, 0, $opener, $this->sourceLine($start))
             ?? ($paragraphOpen ? null : $this->collectQuotedIndentedCode($virtual, 0, []));
         if ($block === null) {
             return null;
@@ -5508,19 +5516,62 @@ class MarkdownToCarve
         // text, so a link is written as its text and an image as its alt text
         // (markup-carve/carve#2069).
         $label = '(?<label>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)';
-        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protect): string {
-            $before = $this->referenceSourceText(substr($subject, 0, $match[0][1]), $protected);
-            $sourceLine = $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + substr_count($before, "\n");
-            $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                'structure-unspellable',
-                $match[0][0][0] === '!'
+        $boundarySubject = null;
+        $boundaryLines = [];
+        $imageRanges = [];
+        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protect, &$boundarySubject, &$boundaryLines, &$imageRanges): string {
+            if ($boundarySubject !== $subject) {
+                $boundarySubject = $subject;
+                $boundaryLines = [];
+                $events = [];
+                preg_match_all('/\n|\x00P(\d+)\x00/', $subject, $events, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+                $count = 0;
+                foreach ($events as $event) {
+                    $count += substr_count($this->referenceSourceText($event[0][0], $protected), "\n");
+                    $boundaryLines[] = [$event[0][1] + strlen($event[0][0]) - 1, $count];
+                }
+                $imageRanges = [];
+                $images = [];
+                preg_match_all('/!\[(?<description>(?:[^\[\]\n]|(?<nested>\[(?:[^\[\]\n]|(?&nested))*\]))*)\](?:(?<destination>\((?:[^()\n]|\([^()\n]*\))*\))|\[(?<reference>[^\[\]\n]*)\])?/', $subject, $images, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+                foreach ($images as $image) {
+                    $reference = isset($image['reference']) && $image['reference'][1] >= 0 && $image['reference'][0] !== '' ? $image['reference'][0] : $image['description'][0];
+                    $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
+                    if (isset($image['destination']) && $image['destination'][1] >= 0 || isset($this->definedReferenceLabels[$key])) {
+                        $imageRanges[] = [$image[0][1], $image['description'][1] + strlen($image['description'][0])];
+                    }
+                }
+            }
+            $low = 0;
+            $high = count($boundaryLines);
+            while ($low < $high) {
+                $mid = ($low + $high) >> 1;
+                if ($boundaryLines[$mid][0] < $match[0][1]) {
+                    $low = $mid + 1;
+                } else {
+                    $high = $mid;
+                }
+            }
+            $sourceLine = $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + ($boundaryLines[$low - 1][1] ?? 0);
+            $insideImage = false;
+            foreach ($imageRanges as [$start, $end]) {
+                if ($match[0][1] > $start && $match[0][1] < $end) {
+                    $insideImage = true;
+
+                    break;
+                }
+            }
+            if (!$insideImage) {
+                $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                    'structure-unspellable',
+                    $match[0][0][0] === '!'
                     ? 'Dropped an image with an empty destination; retained its alt text and title.'
                     : 'Dropped a link with an empty destination; retained its label and title.',
-                'warning',
-                'dropped',
-                'exact',
-                $sourceLine === null ? null : 'line:' . $sourceLine,
-            );
+                    'warning',
+                    'dropped',
+                    'exact',
+                    $sourceLine === null ? null : 'line:' . $sourceLine,
+                );
+            }
 
             return $this->unwrapEmptyDestination(
                 $match['label'][0],
@@ -6254,6 +6305,7 @@ class MarkdownToCarve
         $referenceChunk = null;
         $this->movedDefinitions = [];
         $this->movedFootnotes = [];
+        $this->movedFootnoteSourceLines = [];
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
         $quote = '/^((?: {0,3}>[ \t]?)*)/';
         $defined = [];
@@ -6629,6 +6681,7 @@ class MarkdownToCarve
         for ($at = $index + 1; $at <= $end; $at++) {
             $block[] = '  ' . ltrim($this->expandLeadingTabs($lines[$at], 8), ' ');
         }
+        $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
         $this->movedFootnotes[] = $block;
         $index = $end;
 

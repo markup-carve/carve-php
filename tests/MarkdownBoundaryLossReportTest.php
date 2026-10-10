@@ -37,6 +37,34 @@ class MarkdownBoundaryLossReportTest extends TestCase
         }
     }
 
+    public function testSourceLinesSurviveMovedAndRebasedBlocks(): void
+    {
+        foreach (
+            [
+                ["p\n\nq\n\n- a\n- b\n\n  > ```föö\n  > x\n  > ```\n", 8],
+                ["x[^1]\n\n[^1]: [link]()\n\na\n\nb\n\nc", 3],
+                ["---toml\na = 1\n---\nx[^1]\n\n[^1]: [link]()\n\nend", 6],
+            ] as [$source, $line]
+        ) {
+            $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
+            self::assertCount(1, $losses, $source);
+            self::assertSame('line:' . $line, $losses[0]->path);
+        }
+    }
+
+    public function testInvalidUtf8LanguageDoesNotThrow(): void
+    {
+        self::assertSame("```\nx\n```\n", (new MarkdownToCarve())->convert("```\xff\nx\n```\n"));
+    }
+
+    public function testImageDescriptionsDoNotReportEmptyLinks(): void
+    {
+        foreach (['![a [b]() c](img.png)', "[foo]: <>\n\n![x [foo] y](i.png)"] as $source) {
+            $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
+            self::assertSame([], $losses, $source);
+        }
+    }
+
     public function testValidConstructsDoNotReportBoundaryLosses(): void
     {
         foreach (['[link](url)', '![alt](image.png)', '`[link]()`', '\\[link]()', "```c++ metadata\nx\n```", "```&#99;\nx\n```", "```\nx\n```"] as $source) {
