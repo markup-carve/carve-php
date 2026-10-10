@@ -11,10 +11,17 @@ trait MasksDjotOpaque
      *
      * @param string $source
      * @param bool $unclosedCode
-     * @param array{code?: bool, destinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void} $options
+     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void} $options
      */
     private function maskDjotOpaque(string $source, bool $unclosedCode = true, array $options = []): string
     {
+        $destinations = [];
+        if (($options['destinations'] ?? true) && ($options['inlineDestinations'] ?? true)) {
+            $destinations = $this->djotSimpleDestinationRanges($source);
+            if ($destinations === null) {
+                $destinations = $this->djotDestinationRanges($source, $this->maskDjotOpaque($source, $unclosedCode, ['destinations' => false, 'autolinks' => false, 'attributeValues' => false, 'comments' => false]));
+            }
+        }
         $out = $source;
         $hide = static function (int $start, int $end) use (&$out): void {
             for ($at = $start; $at < $end; $at++) {
@@ -43,6 +50,12 @@ trait MasksDjotOpaque
             while (($breaks[$boundary] ?? $length) <= $at) {
                 $boundary++;
                 $brackets = [];
+            }
+            if (isset($destinations[$at])) {
+                $hide($at, $destinations[$at]);
+                $at = $destinations[$at] - 1;
+
+                continue;
             }
             if ($source[$at] === '\\') {
                 $at++;
@@ -100,33 +113,6 @@ trait MasksDjotOpaque
             }
             if ($source[$at] === ']' && $brackets !== []) {
                 array_pop($brackets);
-                if (($source[$at + 1] ?? '') === '(') {
-                    $end = $at + 2;
-                    $depth = 1;
-                    $lineStart = strrpos(substr($source, 0, $at), "\n");
-                    $lineStart = $lineStart === false ? 0 : $lineStart + 1;
-                    $table = preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\|/', substr($source, $lineStart, $at - $lineStart)) === 1;
-                    for (; $end < ($breaks[$boundary] ?? $length); $end++) {
-                        if (($table && ($source[$end] === '|' || $source[$end] === '`')) || (($source[$at + 2] ?? '') === '<' && $source[$end] === '`')) {
-                            break;
-                        }
-                        if ($source[$end] === '\\') {
-                            $end++;
-                        } elseif ($source[$end] === '(') {
-                            $depth++;
-                        } elseif ($source[$end] === ')' && --$depth === 0) {
-                            break;
-                        }
-                    }
-                    if ($depth === 0) {
-                        if ($options['destinations'] ?? true) {
-                            $hide($at + 1, $end + 1);
-                        }
-                        $at = $end;
-
-                        continue;
-                    }
-                }
                 $lineStart = strrpos(substr($source, 0, $at), "\n");
                 $lineStart = $lineStart === false ? 0 : $lineStart + 1;
                 if (($source[$at + 1] ?? '') === ':' && preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\[(?!\^)[^\]\n]+$/', substr($source, $lineStart, $at - $lineStart)) === 1) {

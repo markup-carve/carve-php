@@ -1955,7 +1955,7 @@ class DjotToCarve
      * @param bool $inlineForms
      * @param callable|null $onFenceLine
      * @param array<int, bool> $rowBoundaries
-     * @param array{code?: bool, destinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void} $opaqueOptions
+     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void} $opaqueOptions
      * @param bool $unclosedCode
      */
     protected function maskCodeAndDestinations(
@@ -1968,21 +1968,7 @@ class DjotToCarve
     ): string {
         $masked = $this->maskDjotFences($source, $onFenceLine, $rowBoundaries);
 
-        $masked = $this->maskDjotOpaque($masked, $unclosedCode, ['destinations' => false] + $opaqueOptions);
-        if ($inlineForms && ($opaqueOptions['destinations'] ?? true)) {
-            $destinations = $this->djotSimpleDestinationRanges($source);
-            if ($destinations === null) {
-                $codeMask = $this->maskCodeAndDestinations($source, false, null, $rowBoundaries, opaqueOptions: ['destinations' => false]);
-                $destinations = $this->djotDestinationRanges($source, $codeMask);
-            }
-            foreach ($destinations as $start => $end) {
-                for ($at = $start; $at < $end; $at++) {
-                    if ($masked[$at] !== "\n") {
-                        $masked[$at] = ' ';
-                    }
-                }
-            }
-        }
+        $masked = $this->maskDjotOpaque($masked, $unclosedCode, $opaqueOptions + (!$inlineForms ? ['inlineDestinations' => ($opaqueOptions['destinations'] ?? false) === true] : []));
         if (!$inlineForms) {
             return $masked;
         }
@@ -2254,6 +2240,17 @@ class DjotToCarve
                 $angles[$at] = $at + strlen($value);
             }
         }
+        $tableCode = [];
+        $lineOffset = 0;
+        foreach (explode("\n", $source) as $line) {
+            if (preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\|/', $line) === 1) {
+                preg_match_all('/`+/', $line, $runs, PREG_OFFSET_CAPTURE);
+                foreach ($runs[0] as [$run, $at]) {
+                    $tableCode[$lineOffset + $at] = true;
+                }
+            }
+            $lineOffset += strlen($line) + 1;
+        }
         $labels = [];
         $owner = null;
         $boundary = 0;
@@ -2262,6 +2259,9 @@ class DjotToCarve
                 $labels = [];
                 $owner = null;
                 $boundary++;
+            }
+            if (isset($tableCode[$at])) {
+                $owner = null;
             }
             if ($mask[$at] !== $source[$at]) {
                 continue;

@@ -29,7 +29,7 @@ trait ReportsDjotLosses
         });
         $lines = explode("\n", $source);
         $lineCount = count($lines);
-        $linkMask = $this->maskCodeAndDestinations($source, false);
+        $linkMask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => true]);
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
             if ($linkMask[$at] !== '{' || $this->isDjotEscaped($source, $at)) {
                 continue;
