@@ -1979,7 +1979,24 @@ final class BlockContinuationScanner
             return $state;
         }
 
-        if (($this->getTableParser)()->isTableRowHead($line, $at) && ($this->getTableParser)()->isTableRow(BlockGrammar::subjectFrom($line, $at, $end))) {
+        // THE DEEPEST FRAME ANSWERS Q1, NOT THIS CONTAINER'S COLUMN -- CARVE-P0-009
+        // (markup-carve/carve#2884). A below-column line continues a paragraph if
+        // and only if one is open at the deepest frame, so a one-line block
+        // written INSIDE a descendant leaves none there however many columns in
+        // it sits. The arms below were column-exact, and that is the whole of
+        // this engine's divergence: `advanceTrailingStateCore()` hands a code
+        // fence and a `:::` opener an $at already past the indentation, so those
+        // two closed where the heading, the thematic break and the table folded.
+        // One offset, not two code paths.
+        //
+        // A COMMENT KEEPS ITS COLUMN RULE and is answered above this line: it is
+        // invisible at every column and closes nothing below the content column,
+        // which is a different clause (section 24 C3).
+        $deepestAt = $atContentColumn
+            ? IndentationHelper::pastLeadingWhitespace($line, $at)
+            : $at;
+
+        if (($this->getTableParser)()->isTableRowHead($line, $deepestAt) && ($this->getTableParser)()->isTableRow(BlockGrammar::subjectFrom($line, $deepestAt, $end))) {
             // A table has no open paragraph for a dedented line to continue.
             $state->openParagraph = false;
             $state->inTable = true;
@@ -1999,8 +2016,8 @@ final class BlockContinuationScanner
         // so the paragraph stays open and a dedented line still folds into it.
         if (
             $wasInTable
-            && ($this->getTableParser)()->isContinuationRowHead($line, $at)
-            && ($this->getTableParser)()->isContinuationRow(BlockGrammar::subjectFrom($line, $at, $end))
+            && ($this->getTableParser)()->isContinuationRowHead($line, $deepestAt)
+            && ($this->getTableParser)()->isContinuationRow(BlockGrammar::subjectFrom($line, $deepestAt, $end))
         ) {
             $state->openParagraph = false;
             $state->inTable = true;
@@ -2008,7 +2025,11 @@ final class BlockContinuationScanner
             return $state;
         }
 
-        $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $at, $trimmedEnd);
+        // A QUOTE INSIDE A DESCENDANT IS THE DEEPEST FRAME TOO, so it is read at
+        // $deepestAt like the one-line blocks above: `- a` / `  - b` / `    > # H`
+        // ends on a quote whose own last block is a heading, and the recursion
+        // below is already written to follow that to its leaf (carve#2884).
+        $quoteWidth = ContainerPrefix::quoteMarkerWidth($line, $deepestAt, $trimmedEnd);
         if ($quoteWidth !== null) {
             // The recursive step starts from the INITIAL state on every line,
             // so a quote's table would forget itself between its own rows: the
@@ -2022,7 +2043,7 @@ final class BlockContinuationScanner
             $inner = $this->advanceTrailingBlockStateAt(
                 $seed,
                 $line,
-                $at + $quoteWidth,
+                $deepestAt + $quoteWidth,
                 $trimmedEnd,
                 $trimmedEnd,
                 $lastInteriorNewline,
@@ -2031,7 +2052,9 @@ final class BlockContinuationScanner
             $state->openParagraph = $inner->openParagraph;
             $state->quoteParagraph = $inner->openParagraph;
             $state->quotedTable = $inner->inTable;
-            $state->nestedColumn = $quoteWidth;
+            // The column is measured from THIS container's $at, so an indented
+            // quote carries its own indentation into it.
+            $state->nestedColumn = $deepestAt - $at + $quoteWidth;
             $state->nestedIsQuote = true;
 
             return $state;
@@ -2101,7 +2124,7 @@ final class BlockContinuationScanner
         // A heading at the item's content column is its own bounded block. It
         // leaves no paragraph open for a flush-left line to continue (PART 1
         // S4, markup-carve/carve#1377), regardless of earlier item prose.
-        if (preg_match('/#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/A', $line, $ignored, 0, $at) === 1) {
+        if (preg_match('/#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/A', $line, $ignored, 0, $deepestAt) === 1) {
             $state->openParagraph = false;
 
             return $state;
@@ -2121,8 +2144,7 @@ final class BlockContinuationScanner
         // erased that column's worth of indentation to get here - so what is
         // left is the body's own indentation, and a definition written there is
         // still a definition (carve-php#1868). The other kinds in this branch
-        // stay column-exact: the three engines give three answers for them and
-        // no clause covers that yet.
+        // stay column-exact where no clause has moved them.
         $definitionAt = $at;
         if ($atContentColumn) {
             $past = IndentationHelper::pastLeadingWhitespace($line, $at);
@@ -2138,7 +2160,7 @@ final class BlockContinuationScanner
         // answer a heading gets one branch up, which is the shape a rule should
         // match. The definition and the attribute line stay where they are: each
         // has a tightness half that has to move with it, and that is a ruling.
-        if (preg_match('/([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $at) === 1) {
+        if (preg_match('/([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $deepestAt) === 1) {
             $state->openParagraph = false;
 
             return $state;

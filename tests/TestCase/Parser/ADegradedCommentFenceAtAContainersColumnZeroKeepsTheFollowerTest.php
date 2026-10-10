@@ -210,8 +210,14 @@ class ADegradedCommentFenceAtAContainersColumnZeroKeepsTheFollowerTest extends T
         foreach ([3, 4] as $column) {
             $html = $this->converter->convert("- x\n  %%%\n" . str_repeat(' ', $column) . $opener . "\ntail\n");
 
+            // THE OVER-INDENTED BLOCK LEAVES NO PARAGRAPH OPEN, so `tail`
+            // leaves the item (markup-carve/carve#2884, and the answer the
+            // executable spec and carve-js both give). The run below the fence
+            // is still UNREBASED - the opener keeps its authored column in the
+            // item, which is what this test is about - and only where `tail`
+            // lands has moved.
             $this->assertSame(
-                "<ul>\n  <li>x\n    " . $opener . "\ntail\n  </li>\n</ul>",
+                "<ul>\n  <li>x\n    " . $opener . "\n  </li>\n</ul>\n<p>tail</p>",
                 trim($html),
                 'column ' . $column,
             );

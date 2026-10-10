@@ -1230,6 +1230,10 @@ class CarveCorpusTest extends TestCase
             'reason' => self::TASK_LIST_RULING,
             'html' => "<ul class=\"task-list\">\n  <li class=\"c\"><input type=\"checkbox\" disabled aria-label=\"A classed task item.\"> A classed task item.</li>\n</ul>",
         ],
+        '75-list-nesting-and-looseness-4' => [
+            'reason' => 'A below-column line continues a paragraph only where one is open at the deepest frame (markup-carve/carve#2884).',
+            'html' => "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <h1 id=\"N\">N</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>lazy</p>",
+        ],
     ];
 
     protected CarveConverter $converter;

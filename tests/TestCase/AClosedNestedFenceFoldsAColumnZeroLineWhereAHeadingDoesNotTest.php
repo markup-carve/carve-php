@@ -10,16 +10,24 @@ use PHPUnit\Framework\TestCase;
 /**
  * Which finished block at a nested item's bottom folds a flush-left line.
  *
- * Ruled on markup-carve/carve#2734: a flush-left line below a nested item whose
- * lead ends in a closed fence or raw block folds into the OUTER item, and one
- * below a lead ending in a heading, a table or a comment leaves the list. The
- * split is the rule, not a uniform column-0 fold: a uniform fold matches every
- * fence row of the family and then disagrees with the spec on the other kinds,
- * so each arm is the other's control and both are asserted here.
+ * markup-carve/carve#2734 ruled a SPLIT here: a closed fence or raw block folds
+ * the line into the OUTER item, a heading, a table or a comment leaves the list.
+ * markup-carve/carve#2884 RETIRES that split. The rule is one sentence - a
+ * below-column line continues a paragraph if and only if one is open at the
+ * deepest frame - and a closed fence holds no more paragraph than a heading
+ * does, so every row of this family closes. The table row below was #2734's
+ * and has moved with the ruling.
+ *
+ * TWO ROWS STILL FOLD IN THIS ENGINE, knowingly. Its marker-walk arm reports
+ * nothing when the recursion ends on a fence, because an UNFINISHED opener must
+ * stay prose, so the item never learns the fence closed. The oracle and carve-js
+ * close them. Tracked at markup-carve/carve#2895, with the body-line spelling
+ * (a fence opened on a BODY line rather than on the marker) already correct here.
  *
  * Every expectation is measured against the executable spec at the revision
  * `tests/spec` is pinned to (`scripts/spec/layout.mjs` into
- * `scripts/spec/html.mjs`), never read back from this engine.
+ * `scripts/spec/html.mjs`), never read back from this engine - except the rows
+ * named above, which record this engine's divergence on purpose.
  */
 class AClosedNestedFenceFoldsAColumnZeroLineWhereAHeadingDoesNotTest extends TestCase
 {
@@ -28,6 +36,12 @@ class AClosedNestedFenceFoldsAColumnZeroLineWhereAHeadingDoesNotTest extends Tes
         return trim(preg_replace('/\s+/', ' ', (new CarveConverter())->convert($source)) ?? '');
     }
 
+    /**
+     * STILL A FOLD IN THIS ENGINE ONLY (markup-carve/carve#2895). The oracle and
+     * carve-js close here under #2884's rule; this engine's marker-walk arm
+     * cannot see that the fence closed. The four rows below it are the same
+     * shape and the same divergence.
+     */
     public function testAClosedBacktickFenceFoldsTheLineIntoTheOuterItem(): void
     {
         $this->assertSame(
@@ -117,15 +131,15 @@ class AClosedNestedFenceFoldsAColumnZeroLineWhereAHeadingDoesNotTest extends Tes
     }
 
     /**
-     * The table row is NOT asserted as the ruling's prose states it. At the
-     * pinned spec, and at the revision the ruling was measured on, a table of
-     * more than one row FOLDS here; the engine already agrees, and both are
-     * pinned so a later change to either side is visible.
+     * #2734 pinned this as a FOLD, on the ground that the spec folded it then.
+     * markup-carve/carve#2884 reverses that: a table leaves no paragraph open at
+     * the deepest frame, so the line closes the list exactly as it does after a
+     * heading. The method name carried the old reading and has moved with it.
      */
-    public function testATableFoldsAtThePinnedSpec(): void
+    public function testATableLeavesTheList(): void
     {
         $this->assertSame(
-            '<ul> <li> <ul> <li> <table> <thead> <tr><th scope="col">a</th></tr> </thead> </table> </li> </ul> x </li> </ul>',
+            '<ul> <li> <ul> <li> <table> <thead> <tr><th scope="col">a</th></tr> </thead> </table> </li> </ul> </li> </ul> <p>x</p>',
             $this->html("- - | a |\n    | - |\nx\n"),
         );
     }
