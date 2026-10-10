@@ -76,6 +76,7 @@ use MarkupCarve\Carve\Parser\Utility\ContainerLabelParser;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\HeadingRawCodeTracker;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
@@ -984,7 +985,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                     $headingHtml = $event->getHtml() ?? '';
                 }
             }
-            $headingHtml ??= $this->renderHeadingContent($node);
+            $context = $this->getRenderContext();
+            $previousHeadingRawCodeTracker = $context->headingRawCodeTracker;
+            $tracker = new HeadingRawCodeTracker();
+            $context->headingRawCodeTracker = $tracker;
+            try {
+                $headingHtml ??= $this->renderHeadingContent($node);
+                $unclosedHeadingCode = $tracker->hasOpenCode();
+            } finally {
+                $context->headingRawCodeTracker = $previousHeadingRawCodeTracker;
+            }
 
             $sectionId = $this->getSectionId($node);
             // In round-trip mode, flag a section whose heading carried an
@@ -994,9 +1004,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if ($this->roundTripMode && $node->hasAttribute('id')) {
                 $explicitIdAttr = ' data-djot-explicit-id="1"';
             }
-            $body = $headingHtml . $this->renderSectionRange($inner, $depth + 1);
+            $innerHtml = $this->renderSectionRange($inner, $depth + 1);
+            $body = $headingHtml . $innerHtml;
+            // Without section content, this separator would reconstruct an
+            // extra code element before the wrapper closes. The following
+            // section newline supplies the heading's trailing HTML whitespace.
+            $closingSeparator = $depth === 0 && $innerHtml === '' && $unclosedHeadingCode ? '' : "\n";
             $html .= '<section id="' . $this->escapeHeadingId($sectionId) . '"' . $explicitIdAttr . '>' . "\n"
-                . $this->indentBlock(rtrim($body, "\n"), 2) . "\n</section>\n";
+                . $this->indentBlock(rtrim($body, "\n"), 2) . $closingSeparator . "</section>\n";
             $i = $j;
         }
 
@@ -1132,6 +1147,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
             foreach ($this->staticRenderExtensions as $extension) {
                 if ($extension->renderStaticHtml($event, $this)) {
+                    $this->getRenderContext()->headingRawCodeTracker?->invalidate();
+
                     return $event->getHtml() ?? '';
                 }
             }
@@ -1153,6 +1170,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
             // If listener provided custom HTML, use it
             if ($event->isDefaultPrevented()) {
+                $this->getRenderContext()->headingRawCodeTracker?->invalidate();
+
                 return $event->getHtml() ?? '';
             }
         }
@@ -4234,6 +4253,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
 
+        $context = $this->getRenderContext();
+        $context->headingRawCodeTracker?->observe($content);
+
         // In round-trip mode, wrap HTML content for recovery
         if ($this->roundTripMode) {
             return '<span data-djot-raw="html">' . $this->guardVerbatimNewlines($content) . '</span>';
@@ -4634,6 +4656,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             ? $this->symbols[$name]
             : ':' . $this->escape($name) . ':';
 
+        if (str_contains($body, '<')) {
+            $this->getRenderContext()->headingRawCodeTracker?->invalidate();
+        }
+
         if ($node->getAttributes() === []) {
             return $body;
         }
@@ -4660,8 +4686,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $context = $this->activeRenderContext ?? new RenderContext();
+        $previousHeadingRawCodeTracker = $context->headingRawCodeTracker;
+        $context->headingRawCodeTracker = null;
+        try {
+            $html = $this->withRenderContext($context, $callback);
+            if (str_contains($html, '<')) {
+                $previousHeadingRawCodeTracker?->invalidate();
+            }
 
-        return $this->withRenderContext($context, $callback);
+            return $html;
+        } finally {
+            $context->headingRawCodeTracker = $previousHeadingRawCodeTracker;
+        }
     }
 
     /**

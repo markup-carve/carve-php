@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use MarkupCarve\Carve\Renderer\Utility\HeadingRawCodeTracker;
+
 /**
  * Per-render mutable state for HtmlRenderer.
  */
@@ -36,6 +38,11 @@ class RenderContext
     public int $footnoteCounter = 0;
 
     public int $admonitionCounter = 0;
+
+    /**
+     * Open raw code tags while rendering one heading.
+     */
+    public ?HeadingRawCodeTracker $headingRawCodeTracker = null;
 
     /**
      * Collected footnote nodes for rendering at end.
@@ -100,6 +107,8 @@ class RenderContext
         $this->pendingFootnoteLabels = [];
         $this->footnoteCounter = 0;
         $this->admonitionCounter = 0;
+        $this->headingRawCodeTracker?->invalidate();
+        $this->headingRawCodeTracker = null;
         $this->collectedFootnotes = [];
         $this->inlineFootnoteRenderers = [];
         $this->documentHasNote = false;
