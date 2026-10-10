@@ -116,7 +116,6 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
             'the ticket shape' => ['# &#32;head', '# head'],
             'a level-2 heading' => ['## &#32;h2', '## h2'],
             'a level-6 heading' => ['###### &#32;h6', '###### h6'],
-            'a tab' => ['# &#9;tab', '# tab'],
             'a run of references' => ['# &#32;&#32;two', '# two'],
             // Past the marker there is no block to open, so nothing is escaped.
             'an uncovered bullet' => ['# &#32;- x', '# - x'],
@@ -185,12 +184,21 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
         )));
     }
 
-    /**
-     * The separator goes with it when the decode WAS the heading's content.
-     */
-    public function testAnEmptiedHeadingKeepsOnlyItsMarker(): void
+    public function testADecodedTabSurvivesAHeadingHead(): void
     {
-        $this->assertSame("#\n", (new MarkdownToCarve())->convert("# &#32;\n"));
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("# &#9;tab\n");
+
+        $this->assertSame("# \ttab\n", $result->value);
+        $this->assertSame([], array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped',
+        )));
+    }
+
+    public function testAnEmptiedHeadingRemainsAHeading(): void
+    {
+        $this->assertSame("```=html\n<h1></h1>\n```\n", (new MarkdownToCarve())->convert("# &#32;\n"));
+        $this->assertSame("> ```=html\n> <h1></h1>\n> ```\n", (new MarkdownToCarve())->convert("> # &#32;\n"));
     }
 
     /**

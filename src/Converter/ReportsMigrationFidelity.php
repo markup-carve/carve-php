@@ -61,8 +61,8 @@ trait ReportsMigrationFidelity
      *
      * @var string
      */
-    public const HEADING_LEADING_WHITESPACE_UNSPELLABLE = 'Dropped whitespace a decoded reference put at the start of a heading; '
-        . "Carve spells no leading whitespace after a heading's marker";
+    public const HEADING_LEADING_WHITESPACE_UNSPELLABLE = 'Dropped spaces a decoded reference put at the start of a heading; '
+        . "Carve folds leading spaces into a heading's marker separator";
 
     protected function assessedMigrationResult(
         string $source,

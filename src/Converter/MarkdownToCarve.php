@@ -7734,7 +7734,7 @@ class MarkdownToCarve
         $dropped = false;
         while (preg_match('/^\x00P(\d+)\x00/', $content, $match) === 1) {
             $index = (int)$match[1];
-            if (preg_match('/^[ \t]+$/', $protected[$index] ?? '') !== 1) {
+            if (preg_match($headingHead ? '/^ +$/' : '/^[ \t]+$/', $protected[$index] ?? '') !== 1) {
                 break;
             }
             $protected[$index] = '';
@@ -7757,10 +7757,15 @@ class MarkdownToCarve
         // Past a heading marker there is no block to open, so what the drop
         // uncovers needs no escape: `# &#32;- x` is the heading `# - x`.
         if ($headingHead) {
-            // Nothing is left but the separator when the decode WAS the
-            // content, and a separator with no content behind it is not
-            // canonical either.
-            return $content === '' ? rtrim($contentPrefix) : $contentPrefix . $content;
+            if ($content === '' && preg_match('/^(.*?)(#{1,6})[ \t]$/', $contentPrefix, $heading) === 1) {
+                $prefix = $heading[1];
+                $level = strlen($heading[2]);
+                $protected[] = "```=html\n{$prefix}<h{$level}></h{$level}>\n{$prefix}```";
+
+                return $prefix . "\x00P" . (count($protected) - 1) . "\x00";
+            }
+
+            return $contentPrefix . $content;
         }
 
         // The uncovered opener can itself be a DECODED character, a protected
