@@ -5982,7 +5982,7 @@ class MarkdownToCarve
             },
             $line,
         ) ?? $line;
-        $line = $this->dropDecodedLeadingWhitespace($line, $protected, $bareContentStart, $contentPrefix, $headingHead);
+        $line = $this->dropDecodedLeadingWhitespace($line, $protected, $bareContentStart, $contentPrefix, $protect, $headingHead);
         $line = $this->escapeMarkerRunADecodedSeparatorPromotes($line, $protected, $contentPrefix, $headingHead, $table);
 
         $closers = [];
@@ -7717,6 +7717,7 @@ class MarkdownToCarve
      * @param array<int, string> $protected
      * @param bool $bareContentStart
      * @param string $contentPrefix
+     * @param \Closure $protect
      * @param bool $headingHead
      */
     private function dropDecodedLeadingWhitespace(
@@ -7724,6 +7725,7 @@ class MarkdownToCarve
         array &$protected,
         bool $bareContentStart,
         string $contentPrefix,
+        Closure $protect,
         bool $headingHead = false,
     ): string {
         if (!$bareContentStart || $this->inlineRunContinuesPrevious || !str_starts_with($line, $contentPrefix)) {
@@ -7731,6 +7733,21 @@ class MarkdownToCarve
         }
 
         $content = substr($line, strlen($contentPrefix));
+        if ($headingHead) {
+            $decodedContent = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protected[(int)$match[1]] ?? $match[0], $content) ?? $content;
+            if ($decodedContent !== '' && preg_match('/^[ \t]+$/', $decodedContent) === 1) {
+                $this->leadingWhitespaceDiagnostics[] = new MigrationDiagnostic(
+                    'structure-unspellable',
+                    'Preserved whitespace-only heading content as raw inline HTML; targets and profiles that omit raw HTML lose its whitespace',
+                    'warning',
+                    'degraded',
+                    'exact',
+                    $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
+                );
+
+                return $contentPrefix . $protect($this->verbatimHtmlInline($decodedContent), $content);
+            }
+        }
         $dropped = false;
         while (preg_match('/^\x00P(\d+)\x00/', $content, $match) === 1) {
             $index = (int)$match[1];
@@ -7757,14 +7774,6 @@ class MarkdownToCarve
         // Past a heading marker there is no block to open, so what the drop
         // uncovers needs no escape: `# &#32;- x` is the heading `# - x`.
         if ($headingHead) {
-            if ($content === '' && preg_match('/^(.*?)(#{1,6})[ \t]$/', $contentPrefix, $heading) === 1) {
-                $prefix = $heading[1];
-                $level = strlen($heading[2]);
-                $protected[] = "```=html\n{$prefix}<h{$level}></h{$level}>\n{$prefix}```";
-
-                return $prefix . "\x00P" . (count($protected) - 1) . "\x00";
-            }
-
             return $contentPrefix . $content;
         }
 

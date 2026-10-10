@@ -197,8 +197,47 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
 
     public function testAnEmptiedHeadingRemainsAHeading(): void
     {
-        $this->assertSame("```=html\n<h1></h1>\n```\n", (new MarkdownToCarve())->convert("# &#32;\n"));
-        $this->assertSame("> ```=html\n> <h1></h1>\n> ```\n", (new MarkdownToCarve())->convert("> # &#32;\n"));
+        $this->assertSame("# ` `{=html}\n", (new MarkdownToCarve())->convert("# &#32;\n"));
+        $this->assertSame("> # ` `{=html}\n", (new MarkdownToCarve())->convert("> # &#32;\n"));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function whitespaceOnlyHeadings(): array
+    {
+        return [
+            'space' => ["# &#32;\n", ' '],
+            'tab' => ["# &#9;\n", "\t"],
+            'space then tab' => ["# &#32;&#9;\n", " \t"],
+            'tab then space' => ["# &#9;&#32;\n", "\t "],
+            'quoted' => ["> # &#32;\n", ' '],
+            'list item' => ["- # &#32;\n", ' '],
+            'ordered item' => ["1. # &#32;\n", ' '],
+            'quoted item' => ["> - # &#32;\n", ' '],
+            'setext item' => ["- &#32;\n  ===\n", ' '],
+            'setext after paragraph' => ["- a\n\n  &#32;\n  ===\n", ' '],
+        ];
+    }
+
+    #[DataProvider('whitespaceOnlyHeadings')]
+    public function testWhitespaceOnlyHeadingContentSurvivesContainers(string $markdown, string $whitespace): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+        $html = (new CarveConverter())->convert($result->value);
+
+        $this->assertMatchesRegularExpression('/<h1[^>]*>' . preg_quote($whitespace, '/') . '<\/h1>/', $html);
+        if (str_contains($markdown, '- ') || str_starts_with($markdown, '1. ')) {
+            $this->assertSame(1, substr_count($html, '<li>'));
+        }
+        $this->assertSame([], array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->fidelity === 'dropped' && $row->confidence === 'exact',
+        )));
+        $this->assertCount(1, array_values(array_filter(
+            $result->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => str_starts_with($row->message, 'Preserved whitespace-only heading'),
+        )));
     }
 
     /**
