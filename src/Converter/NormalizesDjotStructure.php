@@ -38,7 +38,16 @@ trait NormalizesDjotStructure
     private function normalizeDjotStructure(string $source): string
     {
         $lines = explode("\n", $source);
-        $mask = explode("\n", $this->maskCodeAndDestinations($source));
+        $maskedSource = $this->maskCodeAndDestinations($source);
+        $mask = explode("\n", $maskedSource);
+        $divClosers = [];
+        $this->djotInlineBoundaries($source, $maskedSource, true, $divClosers);
+        $lineOffsets = [];
+        $lineOffset = 0;
+        foreach ($lines as $line) {
+            $lineOffsets[] = $lineOffset;
+            $lineOffset += strlen($line) + 1;
+        }
         $fences = explode("\n", $this->maskDjotFences($source));
         $rows = $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false));
         $divs = $lists = $out = [];
@@ -189,6 +198,19 @@ trait NormalizesDjotStructure
             }
             $div = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $visible, $divMatch) === 1;
             $topDiv = $divs === [] ? null : $divs[array_key_last($divs)];
+            $closeCount = $divClosers[$lineOffsets[$n]] ?? null;
+            if ($div && $topDiv !== null && $closeCount !== null) {
+                $this->dropOrphanDjotAttributeLine($out);
+                for ($remaining = $closeCount; $remaining > 0 && $divs !== []; $remaining--) {
+                    $closed = array_pop($divs);
+                    $out[] = $closed['prefix'] . str_repeat(':', $closed['width']);
+                }
+                $paragraph = false;
+                $headingMarker = '';
+                $blank = true;
+
+                continue;
+            }
             if ($div && preg_match('/^:{3,}[ \t]*$/', $text) === 1 && $topDiv !== null && (strlen($divMatch[1]) >= $topDiv['width'] || $paragraph)) {
                 if (strlen($divMatch[1]) >= $topDiv['width']) {
                     $width = strlen($divMatch[1]);
