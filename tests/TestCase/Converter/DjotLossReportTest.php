@@ -25,11 +25,20 @@ class DjotLossReportTest extends TestCase
             'unresolved multiline label' => ["[link][a and\nb]\n", 1, 'unresolved Djot reference'],
             'multiline definition is text' => ["[link][a and\nb]\n\n[a and\nb]: url\n", 1, 'unresolved Djot reference'],
             'reference inside escaped bracket suffix' => ['\\[a]([b][c])', 1, 'unresolved Djot reference'],
+            'adjacent reference after footnote' => ['text[^1][see][ref]', 1, 'unresolved Djot reference'],
+            'adjacent reference after escaped bracket' => ['\\[a][b][c]', 1, 'unresolved Djot reference'],
+            'footnote in unresolved link label' => ['[see [^1]][undefined]', 1, 'unresolved Djot reference'],
+            'bracket in unresolved link label' => ['[a [b]][undefined]', 1, 'unresolved Djot reference'],
+            'escaped closer in unresolved link label' => ['[a\\]b][undefined]', 1, 'unresolved Djot reference'],
             'reference after footnote' => ['text[^1]([see][ref])', 1, 'unresolved Djot reference'],
             'nested bracket empty destination' => ['[a [b]]()', 1, 'empty destination'],
             'empty image destination' => ['![a]()', 1, 'image with an empty destination'],
             'unresolved image reference' => ['![a][missing]', 1, 'unresolved Djot image reference'],
             'empty image reference' => ["![a][]\n\n[a]:", 1, 'image with an empty destination'],
+            'quote empty destination' => ["> [a](\n> )", 1, 'empty destination'],
+            'list empty destination' => ["- [a](\n  )", 1, 'empty destination'],
+            'indented empty destination' => ["[a](\n  )", 1, 'empty destination'],
+            'newline-only destination' => ["[a](\n)", 1, 'empty destination'],
             'empty inline destination' => ['[literal]()', 1, 'empty destination'],
             'escaped bang unresolved reference' => ['\\![x][undefined]', 1, 'unresolved Djot reference'],
             'case-sensitive reference' => ["[Link][]\n\n[link]: /url\n", 1, 'unresolved Djot reference'],
@@ -180,7 +189,7 @@ class DjotLossReportTest extends TestCase
 
     public function testNestedLinkReportsRespectParagraphAndCellBoundaries(): void
     {
-        foreach (["[a [b](u)\\\n\nc](v)", "> [x [a](u)\n>\n> b](v)", '| [a [b](u) | c](v) |'] as $source) {
+        foreach (["[a][b][c]\n\n[b]: /u", "[a][b]()\n\n[b]: /u", '[a][[b]', '[a][b `c] [x][y]` z', "[a [b](u)\\\n\nc](v)", "> [x [a](u)\n>\n> b](v)", '| [a [b](u) | c](v) |'] as $source) {
             self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'));
         }
     }

@@ -2592,15 +2592,7 @@ class DjotToCarve
                     $rawDestination .= $source[$at++];
                 }
             }
-            $rawDestination = preg_replace_callback('/\\\\(?:\r?\n|[^\r\n])/', static fn (array $match): string => str_ends_with($match[0], "\n") ? "\n" : $match[0], $rawDestination) ?? $rawDestination;
-            $destination = preg_replace_callback('/\n([ \t]*[^\n]*)/', static function (array $match) use ($owner): string {
-                $rest = ltrim($match[1], " \t");
-                for ($n = 0; $n < $owner['depth'] && preg_match('/^>(?:[ \t]|$)/', $rest); $n++) {
-                    $rest = ltrim(substr($rest, 1), " \t");
-                }
-
-                return $rest;
-            }, $rawDestination) ?? $rawDestination;
+            $destination = $this->djotDestinationLines($rawDestination, $owner['depth']);
             if ($rows[$line] ?? false) {
                 $destination = preg_replace_callback('/\\\\+\|/', static fn (array $match): string => str_repeat('%5C', intdiv(strlen($match[0]) - 1, 2)) . '%7C', $destination) ?? $destination;
             }

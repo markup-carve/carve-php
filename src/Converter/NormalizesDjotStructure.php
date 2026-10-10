@@ -12,6 +12,29 @@ use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
 trait NormalizesDjotStructure
 {
+    /**
+     * @param string $source
+     * @param int $depth
+     */
+    private function djotDestinationLines(string $source, int $depth): string
+    {
+        if (!str_contains($source, "\n")) {
+            return $source;
+        }
+        $rawDestination = $source;
+        $rawDestination = preg_replace_callback('/\\\\(?:\r?\n|[^\r\n])/', static fn (array $match): string => str_ends_with($match[0], "\n") ? "\n" : $match[0], $rawDestination) ?? $rawDestination;
+        $destination = preg_replace_callback('/\n([ \t]*[^\n]*)/', static function (array $match) use ($depth): string {
+            $rest = ltrim($match[1], " \t");
+            for ($n = 0; $n < $depth && preg_match('/^>(?:[ \t]|$)/', $rest); $n++) {
+                $rest = ltrim(substr($rest, 1), " \t");
+            }
+
+            return $rest;
+        }, $rawDestination) ?? $rawDestination;
+
+        return $destination;
+    }
+
     private function normalizeDjotStructure(string $source): string
     {
         $lines = explode("\n", $source);

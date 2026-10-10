@@ -55,9 +55,12 @@ trait ReportsDjotLosses
         $tableRows = $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false));
         $plain = new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer());
         $offsets = [];
+        $quoteDepths = [];
         $offset = 0;
         foreach ($lines as $n => $line) {
             $offsets[$n] = $offset;
+            preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $prefix);
+            $quoteDepths[$n] = substr_count($prefix[0] ?? '', '>');
             $offset += strlen($line) + 1;
         }
         foreach ($lines as $n => $line) {
@@ -167,25 +170,6 @@ trait ReportsDjotLosses
         }
         $this->reportDjotTableLosses($rows, $add);
         $mask = $linkMask;
-        preg_match_all('/\[([^\[\]]*)\]\[([^\[\]]*)\]/', $source, $links, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
-        foreach ($links as $link) {
-            [$text, $at] = $link[0];
-            if (($mask[$at] ?? '') !== '[' || $this->isDjotEscaped($source, $at) || str_starts_with($link[1][0], '^')) {
-                continue;
-            }
-            $image = $at > 0 && $source[$at - 1] === '!' && !$this->isDjotEscaped($source, $at - 1);
-            $reference = $link[2][0];
-            $label = $reference === '' ? $link[1][0] : $reference;
-            if ($reference === '') {
-                $label = rtrim($plain->convert($this->convert($label)), "\n");
-            }
-            $label = $this->djotReferenceKey($label);
-            if (!array_key_exists($label, $definitions)) {
-                $add($at, $image ? 'An unresolved Djot image reference has no src; Carve cannot spell that image.' : 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
-            } elseif ($definitions[$label] === '') {
-                $add($at, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
-            }
-        }
         $boundaryOffsets = $this->djotInlineBoundaries($source, $mask);
         $boundaries = array_fill_keys($boundaryOffsets, true);
         $referenceEnds = [];
@@ -195,16 +179,22 @@ trait ReportsDjotLosses
                 $next = -1;
             } elseif ($mask[$at] === ']' && !$this->isDjotEscaped($source, $at)) {
                 $next = $at;
+            } elseif ($mask[$at] === '[' && !$this->isDjotEscaped($source, $at)) {
+                $next = -1;
             }
             if ($at >= 2 && $source[$at - 1] === '[' && $source[$at - 2] === ']') {
                 $referenceEnds[$at] = $next;
             }
         }
-        $starts = $images = $innerLinks = [];
+        $starts = $images = $innerLinks = $depths = [];
         $boundary = 0;
+        $sourceLine = 0;
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+            while (($offsets[$sourceLine + 1] ?? $length) <= $at) {
+                $sourceLine++;
+            }
             while (($boundaryOffsets[$boundary] ?? $length) <= $at) {
-                $starts = $images = $innerLinks = [];
+                $starts = $images = $innerLinks = $depths = [];
                 $boundary++;
             }
             if ($mask[$at] === '\\') {
@@ -214,15 +204,31 @@ trait ReportsDjotLosses
             }
             if ($mask[$at] === '[') {
                 $starts[] = $at;
+                $depths[$at] = $quoteDepths[$sourceLine];
                 $images[] = $at > 0 && $source[$at - 1] === '!' && !$this->isDjotEscaped($source, $at - 1);
                 $innerLinks[] = false;
             } elseif ($mask[$at] === ']' && $starts !== []) {
                 $start = array_pop($starts);
+                $depth = $depths[$start];
+                unset($depths[$start]);
                 $image = array_pop($images);
                 $innerLink = array_pop($innerLinks);
                 $validForm = isset($destinations[$at + 1]) || ($source[$at + 1] ?? '') === '[' && ($referenceEnds[$at + 2] ?? -1) >= 0;
                 $isLink = !$image && ($source[$start + 1] ?? '') !== '^' && $validForm;
-                if (($source[$start + 1] ?? '') !== '^' && isset($destinations[$at + 1]) && $destinations[$at + 1] === $at + 3) {
+                $referenceEnd = $referenceEnds[$at + 2] ?? -1;
+                if (($source[$start + 1] ?? '') !== '^' && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
+                    $label = substr($source, $at + 2, $referenceEnd - $at - 2);
+                    if ($label === '' && $definitions !== []) {
+                        $label = rtrim($plain->convert($this->convert(substr($source, $start + 1, $at - $start - 1))), "\n");
+                    }
+                    $label = $this->djotReferenceKey($label);
+                    if (!array_key_exists($label, $definitions)) {
+                        $add($start, $image ? 'An unresolved Djot image reference has no src; Carve cannot spell that image.' : 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
+                    } elseif ($definitions[$label] === '') {
+                        $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
+                    }
+                }
+                if (($source[$start + 1] ?? '') !== '^' && isset($destinations[$at + 1]) && $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth) === '') {
                     $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                 }
                 if ($isLink && $innerLink) {
@@ -230,6 +236,9 @@ trait ReportsDjotLosses
                 }
                 if ($starts !== [] && ($isLink || $innerLink && !($image && $validForm))) {
                     $innerLinks[count($starts) - 1] = true;
+                }
+                if (($source[$start + 1] ?? '') !== '^' && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
+                    $at = $referenceEnd;
                 }
             }
         }
