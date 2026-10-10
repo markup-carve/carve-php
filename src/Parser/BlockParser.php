@@ -4835,6 +4835,27 @@ class BlockParser
             $i++;
         }
 
+        if (count($itemLines) > 1) {
+            $lead = $itemLines[0];
+            $offset = $this->listParser->innermostMarkerContentOffset($lead) ?? 0;
+            $bottom = substr($lead, $offset);
+            $emptyFence = $this->fencedBlockParser->parseCodeFenceOpener($bottom) !== null
+                || $this->fencedBlockParser->parseRawBlockOpener($bottom) !== null;
+            if ($emptyFence) {
+                foreach ($itemLines as $index => $line) {
+                    if ($index > 0 && !IndentationHelper::isBlankLine($line)) {
+                        $emptyFence = false;
+
+                        break;
+                    }
+                }
+            }
+            if ($emptyFence) {
+                $itemLines = [$lead];
+                $itemLineMap = [$itemLineMap[0]];
+            }
+        }
+
         return $i;
     }
 
