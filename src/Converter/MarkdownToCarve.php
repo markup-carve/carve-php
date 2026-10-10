@@ -5585,6 +5585,7 @@ class MarkdownToCarve
             $line,
         ) ?? $line;
         $line = $this->dropDecodedLeadingWhitespace($line, $protected, $bareContentStart, $contentPrefix, $headingHead);
+        $line = $this->escapeMarkerRunADecodedSeparatorPromotes($line, $protected, $contentPrefix, $headingHead, $table);
 
         $closers = [];
         $line = $this->protectClosersOfLinksHoldingALink($line, $protected, $protect, $closers);
@@ -7168,6 +7169,60 @@ class MarkdownToCarve
                 $line === null ? null : 'line:' . $line,
             );
         }
+    }
+
+    /**
+     * Escape a marker run that only a DECODED separator turns into a heading.
+     *
+     * CommonMark decides the block before any reference is decoded, and an ATX
+     * heading needs a literal space or tab after its marker run, so
+     * `#&#32;nosep` is a PARAGRAPH whose text begins with `#`. Written bare the
+     * line reads back as a level-1 heading: it gains an id and enters the
+     * outline, and nothing marks the change. Escaping the run keeps the block
+     * the source had, which is what carve-rs writes
+     * (markup-carve/carve-php#3058).
+     *
+     * Only a SPACE opens a Carve heading, so a decoded tab is left bare, as is
+     * a run of seven. `$headingHead` is the control: there the SOURCE supplies
+     * the separator, the line IS a heading, and carve-php#3057 rules it. In a
+     * table cell a `#` run is literal text, so nothing is owed there.
+     *
+     * @param string $line
+     * @param array<int, string> $protected
+     * @param string $contentPrefix
+     * @param bool $headingHead
+     * @param bool $table
+     *
+     * @return string
+     */
+    private function escapeMarkerRunADecodedSeparatorPromotes(
+        string $line,
+        array $protected,
+        string $contentPrefix,
+        bool $headingHead,
+        bool $table,
+    ): string {
+        if ($table || $headingHead || !str_starts_with($line, $contentPrefix)) {
+            return $line;
+        }
+
+        $content = substr($line, strlen($contentPrefix));
+        if (preg_match('/^(#{1,6})\x00P(\d+)\x00/', $content, $match) !== 1) {
+            return $line;
+        }
+        if (($protected[(int)$match[2]] ?? '') !== ' ') {
+            return $line;
+        }
+
+        $rest = substr($content, strlen($match[0]));
+        // The decode WAS the whole content. A marker run alone on its line is
+        // already a paragraph in Carve, so the separator goes and the run stays
+        // bare: `#&#32;` writes `#`.
+        if (preg_match('/^[ \t]*$/', $rest) === 1) {
+            return $contentPrefix . $match[1];
+        }
+
+        return $contentPrefix . str_replace('#', '\\#', $match[1]) . substr($content, strlen($match[1]));
     }
 
     /**
