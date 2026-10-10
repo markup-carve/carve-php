@@ -208,6 +208,10 @@ class ADecodedLeadingWhitespaceIsDroppedAndReportedTest extends TestCase
     {
         return [
             'space' => ["# &#32;\n", ' '],
+            'trailing authored spaces' => ["# &#32;  \n", ' '],
+            'quoted trailing spaces' => ["> # &#32;  \n", ' '],
+            'list trailing spaces' => ["- # &#32;  \n", ' '],
+            'internal authored space' => ["# &#32; &#32;\n", '   '],
             'tab' => ["# &#9;\n", "\t"],
             'space then tab' => ["# &#32;&#9;\n", " \t"],
             'tab then space' => ["# &#9;&#32;\n", "\t "],

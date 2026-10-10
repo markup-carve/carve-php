@@ -7734,18 +7734,19 @@ class MarkdownToCarve
 
         $content = substr($line, strlen($contentPrefix));
         if ($headingHead) {
-            $decodedContent = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protected[(int)$match[1]] ?? $match[0], $content) ?? $content;
+            $headingContent = rtrim($content, " \t");
+            $decodedContent = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protected[(int)$match[1]] ?? $match[0], $headingContent) ?? $headingContent;
             if ($decodedContent !== '' && preg_match('/^[ \t]+$/', $decodedContent) === 1) {
                 $this->leadingWhitespaceDiagnostics[] = new MigrationDiagnostic(
-                    'structure-unspellable',
-                    'Preserved whitespace-only heading content as raw inline HTML; targets and profiles that omit raw HTML lose its whitespace',
+                    'raw-preserved',
+                    self::HEADING_WHITESPACE_RAW_PRESERVED,
                     'warning',
                     'degraded',
                     'exact',
                     $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
                 );
 
-                return $contentPrefix . $protect($this->verbatimHtmlInline($decodedContent), $content);
+                return $contentPrefix . $protect($this->verbatimHtmlInline($decodedContent), $headingContent);
             }
         }
         $dropped = false;
