@@ -11,10 +11,44 @@ trait MasksDjotOpaque
      *
      * @param string $source
      * @param bool $unclosedCode
-     * @param array{code?: bool, destinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void} $options
+     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void} $options
      */
     private function maskDjotOpaque(string $source, bool $unclosedCode = true, array $options = []): string
     {
+        $destinations = [];
+        if (($options['destinations'] ?? true) && ($options['inlineDestinations'] ?? true)) {
+            $destinations = $this->djotSimpleDestinationRanges($source);
+            if ($destinations === null) {
+                $destinations = $this->djotDestinationRanges($source, $this->maskDjotOpaque($source, $unclosedCode, ['destinations' => false, 'autolinks' => false, 'attributeValues' => false, 'comments' => false]));
+            }
+        }
+        $definitionLines = [];
+        $lineOffset = 0;
+        $previousLine = '';
+        if (str_contains($source, ']:')) {
+            foreach (explode("\n", $source) as $line) {
+                if (preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\[(?!\^)[^\]\n]+\](?=:)/', $line, $definition) === 1) {
+                    $definitionLines[$lineOffset + strlen($definition[0]) - 1] = [$lineOffset, trim($previousLine)];
+                }
+                $lineOffset += strlen($line) + 1;
+                $previousLine = $line;
+            }
+        }
+        $rawFormats = [];
+        if (str_contains($source, '{=')) {
+            $rawEnd = -1;
+            for ($at = strlen($source) - 1; $at >= 0; $at--) {
+                if ($source[$at] === '}') {
+                    $rawEnd = $at + 1;
+                } elseif ($source[$at] === "\n") {
+                    $rawEnd = -1;
+                }
+                if ($source[$at] === '{' && ($source[$at + 1] ?? '') === '=' && $rawEnd >= 0) {
+                    $rawFormats[$at] = $rawEnd;
+                }
+            }
+        }
+        $lastBrace = strrpos($source, '}');
         $out = $source;
         $hide = static function (int $start, int $end) use (&$out): void {
             for ($at = $start; $at < $end; $at++) {
@@ -44,6 +78,15 @@ trait MasksDjotOpaque
                 $boundary++;
                 $brackets = [];
             }
+            if (isset($destinations[$at])) {
+                if (isset($options['onDestination'])) {
+                    $options['onDestination']($at, $destinations[$at]);
+                }
+                $hide($at, $destinations[$at]);
+                $at = $destinations[$at] - 1;
+
+                continue;
+            }
             if ($source[$at] === '\\') {
                 $at++;
 
@@ -59,7 +102,7 @@ trait MasksDjotOpaque
                 continue;
             }
             if ($source[$at] === '{') {
-                if (($source[$at + 1] ?? '') === '%') {
+                if (($source[$at + 1] ?? '') === '%' && $lastBrace !== false && $at < $lastBrace) {
                     $end = $at + 2;
                     while ($end < $length && $source[$end] !== '}' && !($source[$end] === '%' && ($source[$end + 1] ?? '') === '}')) {
                         $end++;
@@ -100,39 +143,8 @@ trait MasksDjotOpaque
             }
             if ($source[$at] === ']' && $brackets !== []) {
                 array_pop($brackets);
-                if (($source[$at + 1] ?? '') === '(') {
-                    $end = $at + 2;
-                    $depth = 1;
-                    $lineStart = strrpos(substr($source, 0, $at), "\n");
-                    $lineStart = $lineStart === false ? 0 : $lineStart + 1;
-                    $table = preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\|/', substr($source, $lineStart, $at - $lineStart)) === 1;
-                    for (; $end < ($breaks[$boundary] ?? $length); $end++) {
-                        if (($table && ($source[$end] === '|' || $source[$end] === '`')) || (($source[$at + 2] ?? '') === '<' && $source[$end] === '`')) {
-                            break;
-                        }
-                        if ($source[$end] === '\\') {
-                            $end++;
-                        } elseif ($source[$end] === '(') {
-                            $depth++;
-                        } elseif ($source[$end] === ')' && --$depth === 0) {
-                            break;
-                        }
-                    }
-                    if ($depth === 0) {
-                        if ($options['destinations'] ?? true) {
-                            $hide($at + 1, $end + 1);
-                        }
-                        $at = $end;
-
-                        continue;
-                    }
-                }
-                $lineStart = strrpos(substr($source, 0, $at), "\n");
-                $lineStart = $lineStart === false ? 0 : $lineStart + 1;
-                if (($source[$at + 1] ?? '') === ':' && preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\[(?!\^)[^\]\n]+$/', substr($source, $lineStart, $at - $lineStart)) === 1) {
-                    $previousStart = $lineStart > 1 ? strrpos(substr($source, 0, $lineStart - 1), "\n") : false;
-                    $previousStart = $previousStart === false ? 0 : $previousStart + 1;
-                    $previous = trim(substr($source, $previousStart, max(0, $lineStart - 1 - $previousStart)));
+                if (isset($definitionLines[$at])) {
+                    [$lineStart, $previous] = $definitionLines[$at];
                     if ($lineStart > 0 && $previous !== '' && preg_match('/^(?:#{1,6} |:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previous) !== 1) {
                         continue;
                     }
@@ -162,12 +174,12 @@ trait MasksDjotOpaque
 
                 continue;
             }
-            $raw = preg_match('/\G\{=[^}\n]*\}/', $source, $rawMatch, offset: $end) === 1;
+            $rawEnd = $rawFormats[$end] ?? null;
             $math = $at > 0 && $source[$at - 1] === '$';
-            if (($options['code'] ?? true) || $raw || $math) {
+            if (($options['code'] ?? true) || $rawEnd !== null || $math) {
                 $hide($at - (int)$math, $end);
             }
-            $at = $end + ($raw ? strlen($rawMatch[0]) : 0) - 1;
+            $at = ($rawEnd ?? $end) - 1;
         }
 
         return $out;

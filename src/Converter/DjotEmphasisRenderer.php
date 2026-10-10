@@ -56,10 +56,7 @@ final class DjotEmphasisRenderer
         private readonly array $validBraces = [],
         private readonly ?Closure $onFlattened = null,
     ) {
-        $this->literalPrefix = "\0DJOTLITERAL\0";
-        while (str_contains($source, $this->literalPrefix)) {
-            $this->literalPrefix .= "\0";
-        }
+        $this->literalPrefix = DjotPlaceholderPrefix::choose($source, "\0DJOTLITERAL\0");
         $lineStart = 0;
         $lineEnd = -1;
         $previous = '';
@@ -174,7 +171,7 @@ final class DjotEmphasisRenderer
 
                 continue;
             }
-            if ($this->mask[$i] === $ch && ((str_contains('~^', $ch) && ($this->source[$i + 1] ?? '') === '}' && !isset($this->validBraceClosers[$i])) || (str_contains('_*', $ch) && !isset($this->structural[$i])) || isset($this->literalBrackets[$i]))) {
+            if ($this->mask[$i] === $ch && (str_contains('~^', $ch) || (str_contains('_*', $ch) && !isset($this->structural[$i])) || isset($this->literalBrackets[$i]))) {
                 $token = $this->literalPrefix . count($this->literals) . "\0";
                 $this->literals[$token] = '\\' . $ch;
                 $text .= $token;
@@ -226,8 +223,10 @@ final class DjotEmphasisRenderer
             }
         }
         $content = $this->body($pair->openEnd, $pair->close, $pair->children, $scope ? [$pair->kind => true] : $outer + [$pair->kind => true]);
-        $delimiter = $pair->kind === '_' ? '/' : '*';
-        $forced = $pair->forced || $scope || str_starts_with($content, "\0") || str_ends_with($content, "\0")
+        $delimiter = match ($pair->kind) {
+            '_' => '/', '~' => ',', '^' => '^', default => '*'
+        };
+        $forced = str_contains('~^', $pair->kind) || $pair->forced || $scope || str_starts_with($content, "\0") || str_ends_with($content, "\0")
                 || ($pair->start > 0 && preg_match('/[A-Za-z0-9_]/', $this->source[$pair->start - 1]) === 1)
                 || preg_match('/[A-Za-z0-9_]/', $this->source[$pair->end] ?? '') === 1
                 || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
