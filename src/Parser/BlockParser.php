@@ -4680,8 +4680,10 @@ class BlockParser
                 if ($nextIndent === 0 && !$legacyNestedFence) {
                     $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 }
+                $lastItemLine = array_key_last($itemLines);
                 $foldsOnClosedNestedFence = $nextIndent === 0
-                    && !IndentationHelper::isBlankLine((string)($itemLines[array_key_last($itemLines)] ?? ''))
+                    && $lastItemLine !== null
+                    && !IndentationHelper::isBlankLine($itemLines[$lastItemLine])
                     && ($legacyNestedFence
                         ? $this->nestedLeadEndsInAClosedFence($itemLines)
                         : $nestedFence->closed && $nestedFence->onlyBlankBelow);
