@@ -98,6 +98,16 @@ class MarkdownBoundaryLossReportTest extends TestCase
                 ["a\n[l]()\n===\n\nx\n\n# a [l]()\n", ['line:2', 'line:7']],
                 ["a &lt;&lt;&lt;\n[l]()\n---\n", ['line:2']],
                 ["<code>a</code>\n[l]()\n===\n", ['line:2']],
+                ["a\\ b\\ c\\ d\\ e\\ f\\ g\\ [l]()\nx\n===\n", ['line:1']],
+                ["<span class=\"x\">a</span> [l]()\nx\n===\n", ['line:1']],
+                ["<abbr title=\"t\">a</abbr>\n[l]()\n===\n", ['line:2']],
+                ["<span class=\"critic-comment\">note</span>\n[l]()\n===\n", ['line:2']],
+                ["<del class=\"critic-delete\">abc</del>\n[l]()\n===\n", ['line:2']],
+                ["[a](<b>) [a](<b>) [a](<b>)\n[l]()\n===\n", ['line:2']],
+                ["[a](<b>) [l]()\n[l]()\n===\n", [null, null]],
+                ["<span>[l]()</span>\n[l]()\n===\n", ['line:1', 'line:2']],
+                ["<a href=\"[l]()\">x</a>\n[l]()\n===\n", ['line:2']],
+                ["[![i](<u>)]()\nx\n===\n", [null]],
             ] as [$source, $paths]
         ) {
             $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));

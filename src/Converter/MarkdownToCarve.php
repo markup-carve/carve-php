@@ -5290,6 +5290,7 @@ class MarkdownToCarve
 
     protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false, bool $unwrapEmptyDestinations = true): string
     {
+        $sourceInput = $line;
         $foldedSourceLines = [];
         foreach ($this->foldedHeadingSources as $heading => $segments) {
             if (str_ends_with($line, $heading)) {
@@ -5384,7 +5385,7 @@ class MarkdownToCarve
                 $escaped .= $pair === '\\>' ? $protect('\\') . '>' : $protect($pair);
                 $i += 2;
             } else {
-                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\') : $line[$i];
+                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\', $line[$i]) : $line[$i];
                 $i++;
             }
         }
@@ -5410,7 +5411,7 @@ class MarkdownToCarve
                     // whole construct is protected from every later inline pass.
                     $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
 
-                    return preg_match('/[#{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}');
+                    return preg_match('/[#{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}', $match[0]);
                 },
                 $line,
             ) ?? $line;
@@ -5497,7 +5498,7 @@ class MarkdownToCarve
                     }
                 }
 
-                return $protect($this->verbatimHtmlInline($match[0]));
+                return $protect($this->verbatimHtmlInline($match[0]), $match[0]);
             };
             $line = preg_replace_callback(
                 '/(?:<!--(?:>|->|[\s\S]*?-->)|<\?[\s\S]*?\?>|<!\[CDATA\[[\s\S]*?\]\]>|<![A-Za-z][^>]*>)/',
@@ -5563,7 +5564,7 @@ class MarkdownToCarve
         $boundaryLines = [];
         $imageRanges = [];
         $autolinkRanges = [];
-        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protectedSources, $protect, $foldedSourceLines, $unwrapEmptyDestinations, &$boundarySubject, &$boundaryLines, &$imageRanges, &$autolinkRanges): string {
+        $unwrap = function (array $match, string $title, string $subject) use ($protected, $protectedSources, $protect, $sourceInput, $foldedSourceLines, $unwrapEmptyDestinations, &$boundarySubject, &$boundaryLines, &$imageRanges, &$autolinkRanges): string {
             if (!$unwrapEmptyDestinations) {
                 return $match[0][0];
             }
@@ -5614,11 +5615,25 @@ class MarkdownToCarve
             }
             $sourceLine = $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + ($boundaryLines[$low - 1][1] ?? 0);
             $sourceOffset = $match[0][1] + ($boundaryLines[$low - 1][2] ?? 0);
-            foreach ($foldedSourceLines as $segment) {
-                if ($segment['offset'] > $sourceOffset) {
-                    break;
+            if ($foldedSourceLines !== []) {
+                $sourceMatch = $this->referenceSourceText($match[0][0], $protectedSources);
+                $originalOffset = strpos($sourceInput, $sourceMatch);
+                if ($originalOffset !== false && strpos($sourceInput, $sourceMatch, $originalOffset + 1) === false) {
+                    $sourceOffset = $originalOffset;
+                } elseif ($this->referenceSourceText($subject, $protectedSources) !== $sourceInput) {
+                    // Earlier rewrites can make a repeated or changed label ambiguous.
+                    // Keep the loss report without claiming an exact source line.
+                    $sourceOffset = null;
+                    $sourceLine = null;
                 }
-                $sourceLine = $segment['line'];
+                if ($sourceOffset !== null) {
+                    foreach ($foldedSourceLines as $segment) {
+                        if ($segment['offset'] > $sourceOffset) {
+                            break;
+                        }
+                        $sourceLine = $segment['line'];
+                    }
+                }
             }
             $insideImage = false;
             foreach ($imageRanges as [$start, $end]) {
@@ -6158,7 +6173,7 @@ class MarkdownToCarve
             // text that renders escaped.
             $line = preg_replace_callback(
                 '/<\/?(?:' . $nativeInline . ')>/i',
-                fn (array $match): string => $protect($this->verbatimHtmlInline($match[0])),
+                fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]), $match[0]),
                 $line,
             ) ?? $line;
         }
