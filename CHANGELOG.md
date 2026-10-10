@@ -11,7 +11,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Fixed
 
-- Keep adjacent code spans separate when a payload ends in a backslash. Refuse blank-line code payloads outside line blocks instead of writing a different document.
+- Keep adjacent verbatim spans separate when a payload ends in a backslash, including empty siblings and transparent wrappers.
 
 - Markdown fragment links to headings with hard breaks use GitHub’s text anchor (#3043).
 
