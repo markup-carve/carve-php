@@ -203,8 +203,11 @@ CRV;
 
         $this->assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-3.crv', $acceptedFiles);
         $this->assertContains('550-a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run-4.crv', $acceptedFiles);
-        // Corpus 550 adds two accepted thematic-rule documents.
-        $this->assertSame(62, $accepted, 'A fast-path routing change needs explicit review.');
+        $this->assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan.crv', $acceptedFiles);
+        $this->assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-2.crv', $acceptedFiles);
+        $this->assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-3.crv', $acceptedFiles);
+        // Corpus 551 adds three accepted link documents.
+        $this->assertSame(65, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void

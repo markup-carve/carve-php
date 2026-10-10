@@ -248,6 +248,8 @@ class CarveCorpusTest extends TestCase
         'link-and-image-title-slots-must-be-a-space',
         'table-cell-padding-must-be-a-space',
         'a-backslash-in-a-link-destination-is-a-literal-character',
+        'a-link-destination-is-opaque-to-the-bracket-scan',
+        'a-braced-comment-does-not-decide-a-quote',
         'a-bare-attribute-block-on-its-own-line-is-literal',
         'a-continuation-row-needs-a-body-row',
         'a-marker-separator-is-a-space-never-a-tab',
@@ -1158,16 +1160,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '19-smart-typography-dashes-and-quotes-11' => [
-            'reason' => 'R2 makes listed elisions apostrophes.',
-            'html' => '<p>’tis the season to be ‘jolly’</p>',
-        ],
-        '29-non-breaking-space-2' => [
-            'reason' => 'R2 applies after non-breaking whitespace.',
-            'html' => '<p>say&nbsp;’twas a fine&nbsp;“day”</p>',
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
