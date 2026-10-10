@@ -7071,11 +7071,12 @@ class BlockParser
             $depth++;
             $at += $width;
         }
-        if ($sourceIndent === 0 && $depth <= 1) {
-            $cache = &$this->state->frame->blockQuoteCommentCloserIndex;
-        } else {
-            $cache = &$this->state->frame->blockQuoteCommentCloserIndexes[$sourceIndent . ':' . $depth];
+        if ($sourceIndent !== 0 || $depth > 1) {
+            $this->state->frame->blockQuoteCommentCloserIndexes ??= $this->indexNestedQuoteCommentClosers($lines);
+
+            return ($this->state->frame->blockQuoteCommentCloserIndexes[$sourceIndent . ':' . $depth][$index] ?? -1) > $index;
         }
+        $cache = &$this->state->frame->blockQuoteCommentCloserIndex;
         if ($cache === null) {
             $nextByLength = [];
             $indexByLine = [];
@@ -7088,7 +7089,7 @@ class BlockParser
                 $line = IndentationHelper::getLeadingColumns($lines[$i]) === $sourceIndent
                     ? IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent)
                     : '';
-                $content = $depth <= 1 ? $this->blockQuoteLineContent($line) : self::quotedContentAtDepth($line, $depth);
+                $content = $this->blockQuoteLineContent($line);
                 if ($content === null) {
                     // A non-quoted line ends the quoted region. A later fence
                     // cannot close an opener before this boundary.
@@ -7108,6 +7109,62 @@ class BlockParser
         }
 
         return ($cache[$index] ?? -1) > $index;
+    }
+
+    /**
+     * @param array<string> $lines
+     *
+     * @return array<string, array<int, int>>
+     */
+    private function indexNestedQuoteCommentClosers(array $lines): array
+    {
+        $indexes = [];
+        $nextByDepth = [];
+        $activeIndent = null;
+        for ($i = count($lines) - 1; $i >= 0; $i--) {
+            $sourceIndent = IndentationHelper::getLeadingColumns($lines[$i]);
+            if ($activeIndent !== $sourceIndent || IndentationHelper::isBlankLine($lines[$i])) {
+                $nextByDepth = [];
+            }
+            $activeIndent = $sourceIndent;
+            $line = IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent);
+            $depth = 0;
+            $at = 0;
+            while (($width = ContainerPrefix::quoteMarkerWidth($line, $at)) !== null) {
+                $depth++;
+                $at += $width;
+            }
+            if ($depth === 0) {
+                $nextByDepth = [];
+
+                continue;
+            }
+            self::discardDeeperQuoteCommentClosers($nextByDepth, $depth);
+            $info = $this->fencedBlockParser->parseFencedCommentOpener(substr($line, $at));
+            if ($info === null) {
+                continue;
+            }
+            $length = $info['length'];
+            $indexes[$sourceIndent . ':' . $depth][$i] = $nextByDepth[$depth][$length] ?? -1;
+            $nextByDepth[$depth][$length] = $i;
+        }
+
+        return $indexes;
+    }
+
+    /**
+     * @param array<int, array<int, int>> $nextByDepth
+     * @param int $depth
+     *
+     * @return void
+     */
+    private static function discardDeeperQuoteCommentClosers(array &$nextByDepth, int $depth): void
+    {
+        foreach ($nextByDepth as $heldDepth => $unused) {
+            if ($heldDepth > $depth) {
+                unset($nextByDepth[$heldDepth]);
+            }
+        }
     }
 
     /**
