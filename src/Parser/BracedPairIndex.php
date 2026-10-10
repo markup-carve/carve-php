@@ -55,7 +55,7 @@ final class BracedPairIndex
         $this->attributeTails = $attributeTails;
         $bareTables = [];
         foreach ($attributeTails as $start => $end) {
-            $marker = $text[$start - 1] ?? '';
+            $marker = $start > 0 ? $text[$start - 1] : '';
             if ($marker !== '' && str_contains('/*_~=', $marker)) {
                 $bareTables[$marker] ??= new SplFixedArray($length + 2);
             }
@@ -80,7 +80,7 @@ final class BracedPairIndex
                 }
             }
             foreach ($bareTables as $marker => $table) {
-                $before = $text[$at - 1] ?? '';
+                $before = $at > 0 ? $text[$at - 1] : '';
                 if ($char === '\\') {
                     $stop = $table[$at + 2] ?? -1;
                 } elseif (isset($bracketBounds[$at])) {
@@ -105,7 +105,7 @@ final class BracedPairIndex
                 }
                 $table[$at] = $stop;
             }
-            $before = $text[$at - 1] ?? '';
+            $before = $at > 0 ? $text[$at - 1] : '';
             $canOpenBare = isset($bareTables[$char]) && $next !== '' && !StringUtil::isWhitespaceChar($next)
                 && $next !== $char && $before !== $char && ($before === '' || preg_match('/[A-Za-z0-9_]/', $before) !== 1)
                 && ($char !== '=' || $next !== '>') && (($char !== '/' && $char !== '_') || $before !== '/');

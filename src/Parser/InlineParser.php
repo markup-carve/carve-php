@@ -4824,6 +4824,7 @@ class InlineParser
             $lineComments = [];
             $attributeTails = [];
             $labels = [];
+            $potentialCommentEnd = -1;
             $length = strlen($text);
             for ($at = 0; $at < $length; $at++) {
                 while ($labels !== [] && $labels[array_key_last($labels)] <= $at) {
@@ -4853,8 +4854,10 @@ class InlineParser
                 } elseif ($char === '[') {
                     $end = $this->bracketRunSkip($text, $at);
                     if ($end !== null) {
-                        $bounds[$end - 1] = true;
-                        $labels[] = $end - 1;
+                        if ($at >= $potentialCommentEnd || $end <= $potentialCommentEnd) {
+                            $bounds[$end - 1] = true;
+                            $labels[] = $end - 1;
+                        }
                         $destination = $this->linkDestinationSkip($text, $at);
                         $end = $destination[1] ?? $end;
                     }
@@ -4886,8 +4889,15 @@ class InlineParser
                 }
                 if ($end !== null) {
                     $opaque[$at] = $end;
+                    if ($char === '{' && ($text[$at + 1] ?? '') === '#' && $attributeEnd !== null) {
+                        $potentialCommentEnd = $end;
+                    }
                     if ($char !== '[') {
-                        $at = ($attributeEnd ?? $end) - 1;
+                        $skip = $attributeEnd ?? $end;
+                        if ($at < $potentialCommentEnd) {
+                            $skip = min($skip, $potentialCommentEnd);
+                        }
+                        $at = $skip - 1;
                     }
                 }
             }

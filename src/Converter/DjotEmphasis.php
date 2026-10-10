@@ -374,7 +374,7 @@ final class DjotEmphasis
             if (isset($literalBrackets[$start]) || isset($literalBrackets[$end])) {
                 continue;
             }
-            if (!str_contains('([{', $source[$end + 1] ?? "\0") && ($source[$start - 1] ?? '') !== '^') {
+            if (!str_contains('([{', $source[$end + 1] ?? "\0") && ($start === 0 || $source[$start - 1] !== '^')) {
                 continue;
             }
             $hostChanges[$start + 1] = ($hostChanges[$start + 1] ?? 0) + 1;
