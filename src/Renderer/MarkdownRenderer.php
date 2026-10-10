@@ -1823,7 +1823,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderChildren(Node $node): string
     {
-        $children = array_values($node->getChildren());
+        return $this->renderInlineNodes(array_values($node->getChildren()));
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Node\Node> $children
+     */
+    protected function renderInlineNodes(array $children): string
+    {
         $parts = [];
         foreach ($children as $child) {
             $parts[] = $this->renderNode($child);
@@ -1840,7 +1847,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                         break;
                     }
                 }
-                $parts[$i] = $precedingContent ? '<br>' : '<br><!-- -->';
+                $parts[$i] = $precedingContent ? '<br>' : '<br><!---->';
 
                 break;
             }
@@ -2579,8 +2586,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
         if ($node instanceof Heading) {
             $id = $this->headingIdTracker->getIdForHeading($node);
-            $text = $this->headingIdTracker->getTextForId($id, $this->smartTypography)
-                ?? $this->headingIdTracker->getPlainText($node);
+            $text = $this->headingIdTracker->getMarkdownHeadingText($node, $this->smartTypography);
             $slug = $this->gfmSlug($text, $counts);
             if (!isset($this->gfmSlugs[$id])) {
                 $this->gfmSlugs[$id] = $slug;
@@ -3102,13 +3108,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function renderTitleInlineNodes(array $nodes): string
     {
-        $flat = $this->unwrapTitleStrong($nodes);
-        $parts = [];
-        foreach ($flat as $node) {
-            $parts[] = $this->renderNode($node);
-        }
-
-        return $this->reflankRuns($flat, $parts);
+        return $this->renderInlineNodes($this->unwrapTitleStrong($nodes));
     }
 
     /**
@@ -3615,7 +3615,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         static $entities = null;
         if ($entities === null) {
-            $entities = ["\n" => '<!---->&#10;<!---->', "\t" => '&#9;'];
+            $entities = ["\n" => '<!---->&#10;<!---->', "\t" => '&#9;', ' ' => '&#32;'];
             foreach ([[33, 47], [58, 64], [91, 96], [123, 126]] as [$first, $last]) {
                 for ($code = $first; $code <= $last; $code++) {
                     $character = chr($code);
