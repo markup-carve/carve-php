@@ -37,7 +37,9 @@ class EmptyNestedFenceSeparatorTest extends TestCase
         $expected = array_column($control['codes'], 'value');
         $this->assertSame($expected, $this->codePayloads($document, $control['empty'] ?? true), $source);
         $written = (new CarveRenderer())->render($document);
-        $this->assertSame($expected, $this->codePayloads($converter->parse($written)), $source);
+        $writtenDocument = $converter->parse($written);
+        $this->assertSame($expected, $this->codePayloads($writtenDocument), $source);
+        $this->assertSame($this->rawPayloads($document), $this->rawPayloads($writtenDocument), $source);
         foreach ([$converter->convert($source), $converter->render($document), $converter->convert($written)] as $html) {
             $this->assertSame($this->htmlTree($control['html']), $this->htmlTree($html), $source);
             $this->assertSame(count($expected), substr_count($html, '</code>'), $source);
@@ -45,6 +47,19 @@ class EmptyNestedFenceSeparatorTest extends TestCase
                 $this->assertStringNotContainsString('<code>' . "\n" . '</code>', $html, $source);
             }
         }
+    }
+
+    private function rawPayloads(Node $node): array
+    {
+        if ($node instanceof RawBlock) {
+            return [$node->getContent()];
+        }
+        $result = [];
+        foreach ($node->getChildren() as $child) {
+            array_push($result, ...$this->rawPayloads($child));
+        }
+
+        return $result;
     }
 
     private function htmlTree(string $html): array
