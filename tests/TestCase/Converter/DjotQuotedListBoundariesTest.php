@@ -36,4 +36,16 @@ final class DjotQuotedListBoundariesTest extends TestCase
             self::assertNotContains('structure-unspellable', array_column($diagnostics, 'code'), $source);
         }
     }
+
+    public function testOutputGrowthIsLinearForWideNumericListMarkers(): void
+    {
+        $importer = new DjotToCarve();
+        $renderer = new CarveConverter();
+        foreach ([64, 128, 256] as $size) {
+            $source = str_repeat('0', $size) . "1. > a\n" . str_repeat(" > b\n", $size);
+            $result = $importer->convert($source);
+            self::assertLessThanOrEqual(strlen($source) * 2, strlen($result));
+            self::assertSame($renderer->convert("1. > a\n" . str_repeat("   > b\n", $size)), $renderer->convert($result));
+        }
+    }
 }

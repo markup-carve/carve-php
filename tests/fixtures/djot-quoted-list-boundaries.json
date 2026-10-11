@@ -634,5 +634,49 @@
   {
     "source": "> a `b\n> c\n> ` d\n",
     "carve": "> a `b\nc\n` d\n"
+  },
+  {
+    "source": "00001. > a\n > b\n",
+    "carve": "1. > a\n   > b\n"
+  },
+  {
+    "source": "00002. > a\n > b\n",
+    "carve": "2. > a\n   > b\n"
+  },
+  {
+    "source": "(00002) > a\n > b\n",
+    "carve": "2. > a\n   > b\n"
+  },
+  {
+    "source": "> 00002. > a\n>  > b\n",
+    "carve": "> 2. > a\n>    > b\n"
+  },
+  {
+    "source": "- > 00002. > a\n  >  > b\n",
+    "carve": "- > 2. > a\n  >    > b\n"
+  },
+  {
+    "source": "00002. a\n        b\n",
+    "carve": "2. a\n        b\n"
+  },
+  {
+    "source": "p\n00002. a\n",
+    "carve": "p\n00002. a\n"
+  },
+  {
+    "source": "~~~\n00002. > a\n~~~\n",
+    "carve": "~~~\n00002. > a\n~~~\n"
+  },
+  {
+    "source": "- `00002. > a`\n",
+    "carve": "- `00002. > a`\n"
+  },
+  {
+    "source": "- text 00002. a\n",
+    "carve": "- text 00002. a\n"
+  },
+  {
+    "source": "- [^00002.a]: b\n",
+    "carve": "- [^00002.a]: b\n"
   }
 ]
