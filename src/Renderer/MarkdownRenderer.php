@@ -690,6 +690,23 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function collapseBlankRunsOutsideFences(string $markdown): string
     {
+        if (strlen($this->fenceSentinel) > 3) {
+            $output = '';
+            $read = 0;
+            $width = strlen($this->fenceSentinel);
+            while (($opener = strpos($markdown, $this->fenceSentinel, $read)) !== false) {
+                $output .= preg_replace('/\n{3,}/', "\n\n", substr($markdown, $read, $opener - $read));
+                $body = $opener + $width;
+                $closer = strpos($markdown, $this->fenceSentinel, $body);
+                if ($closer === false) {
+                    return $output . substr($markdown, $body);
+                }
+                $output .= substr($markdown, $body, $closer - $body);
+                $read = $closer + $width;
+            }
+
+            return $output . preg_replace('/\n{3,}/', "\n\n", substr($markdown, $read));
+        }
         $sentinel = preg_quote($this->fenceSentinel, '/');
 
         // A PAYLOAD IS CONSUMED WHOLE, so a run inside one is never reached. The
@@ -787,7 +804,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $narrowed = count(self::NARROWED_CHARACTERS);
         $positional = count(self::AUTHORED_POSITIONAL);
-        $run = DocumentSentinels::pick(
+        $run = DocumentSentinels::pickTokens(
             DocumentSentinels::collectStrings($document),
             $narrowed + $positional + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
             self::NARROWED_SENTINEL_FIRST,
@@ -798,9 +815,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $this->fenceSentinel = $run[count($run) - 1];
         $run = array_slice($run, 0, -1);
 
-        // ONE RUN, TWO FAMILIES. Picked together so the collision search runs
-        // once and the two families are guaranteed contiguous, which is what
-        // lets a single character class find every candidate in one pass.
+        // Pick every family together so their markers remain distinct.
         $this->narrowedSentinels = array_combine(
             self::NARROWED_CHARACTERS,
             array_slice($run, 0, $narrowed),
@@ -819,7 +834,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             array_slice($run, $narrowed + $positional + $decided),
         );
         $this->authoredHashes = 0;
-        $this->narrowedSentinelClass = '[' . $run[0] . '-' . $run[count($run) - 1] . ']';
+        $this->narrowedSentinelClass = '(?:' . implode('|', array_map(static fn (string $marker): string => preg_quote($marker, '/'), $run)) . ')';
     }
 
     /**
@@ -851,24 +866,21 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $markdown,
         );
 
-        // OFFSETS DO NOT CARRY ACROSS, which is the trap in spelling this on
-        // bytes. Each sentinel is a U+E00x code point, three bytes in UTF-8,
-        // and it stands for a one-byte character - so every sentinel before a
-        // candidate shifts its position in `$line` two bytes left. carve-js can
-        // reuse the offset directly because its sentinel is one UTF-16 unit
-        // exactly like the character it replaces; here it cannot.
+        // Translate byte offsets by the length each preceding marker loses
+        // when replaced with its character.
         $pairs = str_contains($line, '_') ? $this->pairableUnderscoresPerBlock($line) : [];
 
-        $index = 0;
+        $removed = 0;
 
         return preg_replace_callback(
             $pattern,
-            function (array $match) use ($character, $authored, $kept, $lookahead, $line, $pairs, $markdown, &$index): string {
+            function (array $match) use ($character, $authored, $kept, $lookahead, $line, $pairs, $markdown, &$removed): string {
                 $sentinel = $match[0][0];
                 $offset = (int)$match[0][1];
                 $char = $character[$sentinel];
 
-                $at = $offset - 2 * $index++;
+                $at = $offset - $removed;
+                $removed += strlen($sentinel) - strlen($char);
                 // TWO FAMILIES, TWO TESTS, AND A THIRD CASE ALREADY SETTLED. M1b
                 // asks whether a delimiter of the same character stands beside the
                 // candidate. M2b asks WHERE ON THE LINE the candidate stands, and
@@ -1055,21 +1067,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $text,
         );
 
-        // OFFSETS DO NOT CARRY ACROSS, the same trap resolveNarrowedEscapes
-        // spells out: every sentinel is a three-byte code point standing for a
-        // one-byte character, so each one before a candidate shifts it two
-        // bytes left in `$line`. The index counts EVERY sentinel, decided or
-        // not, because every one of them is three bytes wide.
+        // Every matched marker contributes to the byte-offset translation,
+        // including candidates already decided by an enclosing container.
         $out = '';
         $read = 0;
-        foreach ($matches[0] as $index => [$sentinel, $offset]) {
+        $removed = 0;
+        foreach ($matches[0] as [$sentinel, $offset]) {
+            $at = (int)$offset - $removed;
+            $removed += strlen($sentinel) - strlen($character[$sentinel]);
             if (!isset($undecided[$sentinel])) {
                 continue;
             }
 
             $offset = (int)$offset;
             $char = $undecided[$sentinel];
-            $at = $offset - 2 * $index;
 
             $out .= substr($text, $read, $offset - $read);
             $out .= $this->opensAnAtxHeading($line, $at)
