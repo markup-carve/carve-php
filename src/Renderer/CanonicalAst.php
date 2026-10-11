@@ -81,7 +81,7 @@ final class CanonicalAst
             // `pos` is where a node was READ, never what it is, and the writer's
             // own document carries spans its re-parse does not, so comparing
             // through them answered "different" for every document.
-            if ($name === 'parent' || $name === 'pos' || $name === 'sourceLength' || $name === 'ingestPayloadLength') {
+            if ($name === 'parent' || $name === 'pos' || $name === 'sourceLength' || $name === 'ingestPayloadLength' || $name === 'admittedIncludeLength') {
                 continue;
             }
             $properties[$name] = $property;

@@ -148,9 +148,9 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
         (new CarveRenderer())->render($document);
     }
 
-    public function testIncludedAuthoredWidthsUseAdmittedSourceBytes(): void
+    #[DataProvider('includedSources')]
+    public function testIncludedSourceUsesAdmittedBytesWithoutChangingItsTree(string $source): void
     {
-        $source = "| a |\n|" . str_repeat('-', 1030000) . "|\n| x |\n";
         $resolver = new class ($source) implements IncludeResolverInterface {
             public function __construct(private string $source)
             {
@@ -165,7 +165,17 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
         $expanded = (new IncludeExpander($resolver))->transform($root);
         self::assertSame($root->getSourceLength(), $expanded->getSourceLength());
         self::assertSame($source, (new CarveRenderer())->render($expanded));
+        self::assertSame((new HtmlRenderer())->render($expanded), (new HtmlRenderer())->render((new BlockParser())->parse($source)));
         self::assertArrayNotHasKey('admittedIncludeLength', (new AstCodec())->encode($expanded));
+    }
+
+    /**
+     * @return iterable<array{string}>
+     */
+    public static function includedSources(): iterable
+    {
+        yield ["| a |\n|" . str_repeat('-', 1030000) . "|\n| x |\n"];
+        yield ["end-\".\n"];
     }
 
     public function testEncodingCannotPublishInvalidHandSetWidths(): void
