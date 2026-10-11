@@ -110,6 +110,16 @@ final class TrailingBlockState
         return $this->inDiv || $this->nestedDiv !== null;
     }
 
+    public function hasLiteralDiv(): bool
+    {
+        $state = $this;
+        while ($state->nestedDiv !== null) {
+            $state = $state->nestedDiv;
+        }
+
+        return $state->inDiv && $state->literalDiv;
+    }
+
     public function openFence(string $char, int $length, int $column, int $hostColumn = 0): void
     {
         $this->fence = new TrailingCodeFence($char, $length, $column, $hostColumn);
