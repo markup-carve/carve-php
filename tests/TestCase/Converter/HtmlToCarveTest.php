@@ -1887,9 +1887,9 @@ DJOT;
         $this->assertStringNotContainsString('data-carve-col-widths', $html);
     }
 
-    public function testCodeBlockRoundTripUsesDjotSrc(): void
+    public function testCodeBlockRoundTripUsesLabelCarrier(): void
     {
-        $djot = "{#snippet .demo selected}\n``` php [Example]\necho 123;\n```\n";
+        $djot = "{#snippet .demo selected}\n```php [Example]\necho 123;\n```\n";
 
         $html = (new CarveConverter(roundTripMode: true))->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
@@ -1977,11 +1977,11 @@ DJOT;
 {label=Demo}
 :::: tab
 ::: code-group
-``` php [One]
+```php [One]
 echo 1;
 ```
 
-``` bash [Two]
+```bash [Two]
 echo 2;
 ```
 :::
@@ -2029,7 +2029,7 @@ DJOT;
 {label=Code}
 ::: tab
 {#cb .demo linenos}
-``` php
+```php
 $x = 1;
 ```
 :::
@@ -2614,19 +2614,11 @@ DJOT;
         $this->assertStringContainsString('safe', $result);
     }
 
-    /**
-     * The opt-in trusted converter DOES honor `data-carve-src` (round-trip use
-     * with carve-produced HTML). This is the trade-off the default protects
-     * against: only enable it for trusted input.
-     */
-    public function testTrustedConverterHonorsDataDjotSrc(): void
+    public function testTrustedConverterIgnoresStoredSourceOnCoreCodeBlock(): void
     {
         $html = "<pre data-carve-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
-
-        $result = $this->roundTripConverter->convert($html);
-
-        $this->assertStringContainsString('=html', $result);
-        $this->assertStringContainsString('<script>alert(1)</script>', $result);
+        $this->assertSame("```\nsafe\n```\n", $this->roundTripConverter->convert($html));
+        $this->assertSame("before\n\n```\nsafe\n```\n", $this->roundTripConverter->convert('<p>before</p>' . $html));
     }
 
     public function testTrustedStoredSourceReplacesAllOfItsRenderedChildren(): void

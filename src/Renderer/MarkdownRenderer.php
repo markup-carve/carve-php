@@ -1762,7 +1762,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // writer (PART 12 §3a, carve-php#1417).
         $rawReference = UnresolvedReference::renderedSourceOf($node);
 
-        return match (true) {
+        $output = match (true) {
             $node instanceof Document => $this->renderChildren($node),
             // A BLOCK-position image needs the separator a paragraph would
             // have added. Decided by position, not by class: this match
@@ -1872,6 +1872,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof SmartPunctuation => $this->renderSmartPunctuation($node),
             default => $this->renderChildren($node),
         };
+        if (
+            $this->roundTripMode && $this->tableCellDepth === 0
+            && ($node instanceof Heading || $node instanceof Paragraph || $node instanceof BlockQuote
+                || $node instanceof ListBlock || $node instanceof Table
+                || $node instanceof CodeBlock || $node instanceof ThematicBreak || $node instanceof Figure
+                || ($node instanceof DefinitionList && $this->carriesDefinitionList($node)))
+        ) {
+            $attributes = (new CarrierOpenerWriter())->attributes($node);
+            if ($attributes !== '') {
+                $output = CarrierMarkers::line($attributes) . "\n" . $output;
+            }
+        }
+
+        return $output;
     }
 
     /**
@@ -3357,6 +3371,21 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         return $lines === [] ? '' : $lines[count($lines) - 1];
     }
 
+    protected function carriesDefinitionList(Node $node): bool
+    {
+        if (!$this->roundTripMode || $this->tableCellDepth > 0) {
+            return false;
+        }
+        $lists = $node instanceof DefinitionList ? 1 : 0;
+        for ($parent = $node->getParent(); $parent !== null; $parent = $parent->getParent()) {
+            if ($parent instanceof DefinitionList && ++$lists > 1) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     protected function renderDefinitionList(DefinitionList $node): string
     {
         // GFM has no definition list and reads a `: ` marker as text, so each
@@ -3369,19 +3398,25 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         // Each term and description already ends in a blank line, so a tight
         // item can drop that one separator before an interrupting block.
-        return $output;
+        return $this->carriesDefinitionList($node)
+            ? $output . CarrierMarkers::line('') . "\n\n" : $output;
     }
 
     protected function renderDefinitionTerm(DefinitionTerm $node): string
     {
-        return $this->renderWrappedChildren($node, '**', '<strong>', '</strong>') . "\n\n";
+        $marker = $this->carriesDefinitionList($node)
+            ? CarrierMarkers::line((new CarrierOpenerWriter())->inlinePayload($node, ':: ')) . "\n" : '';
+
+        return $marker . $this->renderWrappedChildren($node, '**', '<strong>', '</strong>') . "\n\n";
     }
 
     protected function renderDefinitionDescription(DefinitionDescription $node): string
     {
         $content = $this->containerContent(fn (): string => $this->renderChildren($node));
 
-        return $content === '' ? '' : $content . "\n\n";
+        $marker = $this->carriesDefinitionList($node) ? CarrierMarkers::line(':') . "\n" : '';
+
+        return $content === '' ? '' : $marker . $content . "\n\n";
     }
 
     protected function renderDiv(Div $node): string
@@ -3781,7 +3816,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($caption !== null) {
             $text = trim($this->renderChildren($caption), StringUtil::TRIMMABLE_WHITESPACE);
             if ($text !== '') {
-                $output .= "\n" . $text . "\n";
+                $marker = $this->roundTripMode && $this->tableCellDepth === 0
+                    ? CarrierMarkers::line((new CarrierOpenerWriter())->inlinePayload($caption, '^ ')) . "\n" : '';
+                $output .= "\n" . $marker . $text . "\n";
             }
         }
 
@@ -3800,7 +3837,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         //   after    Stanza one,[2 spaces]\nstill one.\n\n...
         //
         // carve-js and carve-rs both emit the second form (carve#352).
-        return trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+        return $this->carried($this->carrierMarkers($node), trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n");
     }
 
     protected function renderFootnote(Footnote $node): string
@@ -4394,7 +4431,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderCaption(Caption $node): string
     {
         try {
-            return rtrim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+            $marker = $this->roundTripMode && $this->tableCellDepth === 0
+                ? CarrierMarkers::line((new CarrierOpenerWriter())->inlinePayload($node, '^ ')) . "\n" : '';
+
+            return $marker . rtrim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
         } finally {
             unset($this->renderedChildren[$node]);
         }
@@ -4420,6 +4460,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 $host = implode('', array_map($this->renderNode(...), $child->getTargets()));
                 $output .= rtrim($host, StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
                 foreach ($child->getCaptions() as $panelCaption) {
+                    if ($this->roundTripMode && $this->tableCellDepth === 0) {
+                        $output .= CarrierMarkers::line((new CarrierOpenerWriter())->inlinePayload($panelCaption, '^ ')) . "\n";
+                    }
                     $output .= $this->renderWrappedChildren(
                         $panelCaption,
                         '*',

@@ -29,7 +29,7 @@ final class CarrierMarkers
      */
     public static function line(string $payload): string
     {
-        return self::PREFIX . self::escape($payload) . self::SUFFIX;
+        return $payload === '' ? '<!-- carve: -->' : self::PREFIX . self::escape($payload) . self::SUFFIX;
     }
 
     /**
@@ -37,6 +37,9 @@ final class CarrierMarkers
      */
     public static function payload(string $line): ?string
     {
+        if ($line === '<!-- carve: -->') {
+            return '';
+        }
         if (!str_starts_with($line, self::PREFIX) || !str_ends_with($line, self::SUFFIX)) {
             return null;
         }

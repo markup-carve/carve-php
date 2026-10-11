@@ -1692,6 +1692,11 @@ final class HtmlAstBuilder
         return $this->session->codeLanguageWrappers[$parent] === $child;
     }
 
+    public static function isValidCodeLabel(string $value): bool
+    {
+        return $value !== '' && strpbrk($value, "]\r\n") === false;
+    }
+
     /**
      * @return CodeBlockNode
      */
@@ -1716,6 +1721,9 @@ final class HtmlAstBuilder
         // every all-blank payload, this engine's own output included
         // (carve-php#2726).
         $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
+        if ($code !== null && self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+            $block['label'] = $node->getAttribute('data-carve-label');
+        }
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
         $this->session->nativeCodeBlocks[$node] = ['code' => $code, 'lang' => $language];
@@ -4625,6 +4633,7 @@ final class HtmlAstBuilder
             || $this->importMode !== 'roundtrip'
             || $this->session->inCaption
             || !$node->hasAttribute('data-carve-src')
+            || HtmlDomLoader::isCoreCodeBlock($node)
         ) {
             return null;
         }
