@@ -527,6 +527,7 @@ class CarveCorpusTest extends TestCase
         'a-fence-opened-on-a-list-marker-line-body-below-the-content-column',
         'a-below-column-marker-after-a-comment-where-no-paragraph-is-open',
         'a-below-column-line-continues-a-paragraph-only-where-one-is-open',
+        'a-caption-scope-resets-at-a-structural-only-line',
         'a-list-marker-at-the-content-column-inside-an-open-fence',
         'a-boundary-line-inside-an-open-fence-does-not-end-the-container',
         'a-fence-keeps-the-blank-line-at-the-end-of-its-content',
@@ -1127,6 +1128,7 @@ class CarveCorpusTest extends TestCase
         'a-description-body-whose-own-block-is-a-fence-keeps-no-line-below-its-column',
         'a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run',
         'a-below-column-line-continues-a-paragraph-only-where-one-is-open',
+        'a-caption-scope-resets-at-a-structural-only-line',
     ];
 
     /**
@@ -1162,16 +1164,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '547-an-info-string-does-not-change-how-a-flush-left-fence-folds-into-a-description-body' => [
-            'reason' => 'markup-carve/carve#2895 applies the deepest-frame ruling from carve#2884',
-            'html' => "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<pre><code class=\"language-rust\"></code></pre>\n",
-        ],
-        '547-an-info-string-does-not-change-how-a-flush-left-fence-folds-into-a-description-body-2' => [
-            'reason' => 'markup-carve/carve#2895 applies the deepest-frame ruling from carve#2884',
-            'html' => "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<pre><code></code></pre>\n",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 

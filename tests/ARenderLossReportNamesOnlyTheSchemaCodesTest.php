@@ -9,22 +9,15 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * `CARVE-P2-024`'s `code` enum holds `raw-format-dropped`, `ruby-flattened`,
- * `destination-denied` (PART 11 §1d, markup-carve/carve#2679) and
- * `editorial-comment-flattened` (markup-carve/carve#2793), each naming a whole
- * node or destination one selected renderer dropped, flattened or blanked. A dropped FIELD goes to the conversion-diagnostics channel as
- * `field-unspellable`, which is the only one of the two reports that can name a
- * field.
- *
- * THE BAR IS THE PUBLISHED SCHEMA, NOT THIS FILE'S LIST. The permitted codes are
- * read out of the vendored `render-loss-report.schema.json`, so a new code
- * added to either side fails here without anyone editing an assertion.
+ * The emitted render-loss codes must equal the published schema enum.
+ * Field diagnostics stay separate from losses reported by renderers.
  */
 class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
 {
@@ -82,10 +75,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheFourCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheFiveCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped'],
             self::schemaCodes(),
         );
     }
@@ -100,11 +93,8 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
     }
 
     /**
-     * A document carrying all five: a dropped raw block, a flattened ruby, a
-     * link whose scheme the PART 9 section 25 denylist denies, an editorial
-     * comment, and the three section-attribute fields. The union over the four writers must be exactly
-     * the schema's codes - an empty union would pass a subset assertion while
-     * proving nothing.
+     * The text renderers exercise four codes. A roundtrip HTML carrier
+     * collision supplies the fifth, so the union checks every schema code.
      */
     public function testEveryEmittedCodeIsOneTheSchemaPermits(): void
     {
@@ -139,6 +129,16 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
                 $seen[$loss['code']] = true;
             }
             self::assertSame(count($report->losses), $report->totalLosses, $target);
+        }
+
+        $html = new HtmlRenderer();
+        $html->setRoundTripMode(true);
+        $carrierReport = (new CarveConverter(renderer: $html))->convertWithReport("{data-char=x}\n***\n");
+        self::assertSame(1, $carrierReport->totalLosses);
+        self::assertSame('data-char', $carrierReport->losses[0]['attribute']);
+        foreach ($carrierReport->losses as $loss) {
+            self::assertContains($loss['code'], self::schemaCodes());
+            $seen[$loss['code']] = true;
         }
 
         $codes = array_keys($seen);
