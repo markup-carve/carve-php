@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use WeakMap;
 
 /**
  * Maps block and inline source spans.
@@ -34,6 +35,11 @@ use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
  */
 final class BlockSourceMapper
 {
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, int>
+     */
+    private WeakMap $ownedFenceEnds;
+
     /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
@@ -44,6 +50,7 @@ final class BlockSourceMapper
         private Closure $getTableParser,
         private Closure $positionSourceCallback,
     ) {
+        $this->ownedFenceEnds = new WeakMap();
     }
 
     /**
@@ -1273,6 +1280,7 @@ final class BlockSourceMapper
      */
     public function stampBlockSpan(Node $node, int $startLine, int $endLine, ?int $endBytesOnEndLine = null): void
     {
+        $ownedEnd = $this->ownedFenceEnd($node);
         if ($node->getPos() !== null) {
             return;
         }
@@ -1282,7 +1290,7 @@ final class BlockSourceMapper
         // own content: a fence that ends with the container rather than with a
         // closer holds that line, and trimming it reported the SAME extent for
         // two documents whose content differs (carve-php#1183).
-        if (!$this->endsWithVerbatimBlankLine($node)) {
+        if ($ownedEnd !== $endLine && !$this->endsWithVerbatimBlankLine($node)) {
             while ($endLine > $startLine && $this->isBlankAtContentColumn($endLine)) {
                 $endLine--;
             }
@@ -1307,6 +1315,57 @@ final class BlockSourceMapper
             $start,
             $end,
         ));
+    }
+
+    /**
+     * The collector owns this final blank line even when it contributes no LF.
+     * Keep that geometry internal; the literal payload cannot encode its prefix.
+     */
+    public function recordOwnedFenceEnd(Node $node, int $endLine): void
+    {
+        if ($this->state->source->trackPositions) {
+            $this->ownedFenceEnds[$node] = $endLine;
+        }
+    }
+
+    private function ownedFenceEnd(Node $node): ?int
+    {
+        $endLine = $this->ownedFenceEnds[$node] ?? null;
+        if ($endLine === null) {
+            $children = $node->getChildren();
+            $last = $children === [] ? null : $children[array_key_last($children)];
+            $endLine = $last instanceof Node ? $this->ownedFenceEnd($last) : null;
+        }
+        if ($endLine === null) {
+            return null;
+        }
+
+        $this->ownedFenceEnds[$node] = $endLine;
+        $pos = $node->getPos();
+        $end = $this->state->source->lineStartOffsets[$endLine] ?? null;
+        if ($pos !== null && $end !== null && $pos->endLine < $endLine + 1) {
+            $ending = $this->state->source->positionIndex?->span(
+                $end,
+                $end + strlen($this->state->source->sourceLines[$endLine] ?? ''),
+                $endLine + 1,
+                $endLine + 1,
+                $end,
+                $end,
+            );
+            if ($ending !== null) {
+                $node->setPos(new SourceSpan(
+                    $pos->startLine,
+                    $ending->endLine,
+                    $pos->startColumn,
+                    $ending->endColumn,
+                    $pos->startOffset,
+                    $ending->endOffset,
+                    $pos->file,
+                ));
+            }
+        }
+
+        return $endLine;
     }
 
     /**
