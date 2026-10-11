@@ -1107,7 +1107,7 @@ final class BlockContinuationScanner
                 && ($noteColumns === [] || $base < end($noteColumns))
             ) {
                 $trimmed = ltrim($opener, " \t");
-                $nested = $state->nestedColumn;
+                $nested = $state->nestedDiv !== null ? 0 : $state->nestedColumn;
                 if (
                     ReferenceDefinitionExtractor::isDefinitionHead($trimmed)
                     && $this->isReferenceDefinitionLine($trimmed)
@@ -1717,6 +1717,7 @@ final class BlockContinuationScanner
                 $state->nestedDivBody = $state->nestedDivBody || $text !== '';
                 if (!$child->inDiv && $child->divDepth === 0) {
                     $state->nestedDiv = null;
+                    $state->nestedDivHosts = [];
                     $state->nestedColumn = 0;
                     $state->nestedIsQuote = false;
                 }
@@ -1735,6 +1736,7 @@ final class BlockContinuationScanner
                 return $state;
             }
             $state->nestedDiv = null;
+            $state->nestedDivHosts = [];
             $state->fence = null;
         }
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
@@ -2013,9 +2015,9 @@ final class BlockContinuationScanner
                 $child->nestedColumn = 0;
                 $child->nestedDiv = null;
                 $state->nestedDiv = $child;
+                $state->nestedDivHosts = [];
                 $state->nestedDivColumn = $state->divColumn;
                 $state->nestedDivBody = false;
-                $state->openParagraph = !$bareFence;
                 $state->inDiv = false;
                 $state->divDepth = $parentDivDepth;
             }

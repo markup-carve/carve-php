@@ -142,11 +142,10 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $this->assertStringContainsString('lazy', $html);
     }
 
-    public function testAnUnestablishedContinuationOpenerKeepsItsLazyFollower(): void
+    public function testAnEmptyContinuationDivLeavesNoClaim(): void
     {
         $html = (new CarveConverter())->convert("- a\n  - b\n    ::: box\nlazy\n");
-        $this->assertStringContainsString("    lazy\n  </li>", $html);
-        $this->assertStringNotContainsString('<p>lazy</p>', $html);
+        $this->assertStringEndsWith("</ul>\n<p>lazy</p>\n", $html);
     }
 
     public function testNestedCodePayloadKeepsWhitespaceOnlyLines(): void
@@ -161,5 +160,20 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $html = (new CarveConverter())->convert($source);
         $this->assertStringContainsString('[r]: /url', $html);
         $this->assertStringContainsString("<code>\n[r]: /url\n</code>", $html);
+    }
+
+    public function testEmptyOrTableEndingContinuationDivsLeaveNoClaim(): void
+    {
+        foreach ([":::\nlazy", "::: box\n    | x | y |\nlazy"] as $body) {
+            $html = (new CarveConverter())->convert("- a\n  - b\n    " . $body . "\n");
+            $this->assertStringEndsWith("</ul>\n<p>lazy</p>\n", $html);
+        }
+    }
+
+    public function testMarkerLineDivDoesNotShieldANoteDefinition(): void
+    {
+        $html = (new CarveConverter())->convert("[^n]: note\n  - ::: box\n    [r]: /url\n    :::\n\nref[^n]\n");
+        $this->assertStringNotContainsString('[r]: /url', $html);
+        $this->assertStringContainsString("<p>note\n- ::: box</p>", $html);
     }
 }
