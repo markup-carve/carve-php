@@ -22,16 +22,16 @@ class RawBlockFenceConformanceTest extends TestCase
     public static function trailingPayloadLines(): array
     {
         return [
-            'no trailing blank payload line' => ["```=html\nb\n```\n", 'b'],
-            'one trailing blank payload line' => ["```=html\nb\n\n```\n", "b\n"],
-            'two trailing blank payload lines' => ["```=html\nb\n\n\n```\n", "b\n\n"],
+            'no trailing blank payload line' => ["```=html\nb\n```\n", "b\n"],
+            'one trailing blank payload line' => ["```=html\nb\n\n```\n", "b\n\n"],
+            'two trailing blank payload lines' => ["```=html\nb\n\n\n```\n", "b\n\n\n"],
             'an all-blank payload still has its line' => ["```=html\n\n```\n", "\n"],
             'two all-blank payload lines still have both lines' => ["```=html\n\n\n```\n", "\n\n"],
         ];
     }
 
     #[DataProvider('trailingPayloadLines')]
-    public function testRawPayloadDropsOnlyTheSeparatorBeforeTheCloser(string $source, string $expected): void
+    public function testRawPayloadKeepsEveryPayloadLineBreak(string $source, string $expected): void
     {
         $document = $this->parse($source);
         $node = $document->getChildren()[0] ?? null;
