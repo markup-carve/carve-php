@@ -114,6 +114,26 @@ class RenderersPreserveExhaustedPrivateUsePoolTest extends TestCase
         self::assertSame(0, $result->totalLosses);
     }
 
+    public function testConfiguredOrderedPrefixesAreNotDefinitionMarkers(): void
+    {
+        $prefix = "\u{E100}0\u{E100}";
+        $renderer = new PlainTextRenderer();
+        $renderer->setOrderedListItemPrefix($prefix);
+        $result = (new CarveConverter(renderer: $renderer))->convertWithReport("*[AB]: alpha\n\nAB\n\n1. item\n", strictLosses: true);
+        self::assertStringContainsString($prefix . 'item', $result->value);
+        self::assertSame(0, $result->totalLosses);
+    }
+
+    public function testConfiguredTableSeparatorsCannotAssembleDefinitionMarkers(): void
+    {
+        $separator = "\u{E100}";
+        $renderer = new PlainTextRenderer();
+        $renderer->setTableCellSeparator($separator);
+        $result = (new CarveConverter(renderer: $renderer))->convertWithReport("*[AB]: alpha\n\nAB\n\n| a | 0 | c |\n", strictLosses: true);
+        self::assertStringContainsString($separator . '0' . $separator, $result->value);
+        self::assertSame(0, $result->totalLosses);
+    }
+
     public function testConfiguredFullPoolBesideRealBreaksAndFragments(): void
     {
         $text = self::privateUseText();
