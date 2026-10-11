@@ -7,8 +7,6 @@ namespace MarkupCarve\Carve\Renderer;
 use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
-use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
-use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
@@ -78,8 +76,10 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\Utility\CarveFieldDiagnostic;
@@ -3257,7 +3257,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             }
             $continuation = $match[2];
             $referenceLine = ltrim($continuation, " \t");
-            if (str_starts_with($continuation, '>')
+            if (
+                str_starts_with($continuation, '>')
                 || $definitions->matchDefinitionLine($referenceLine) !== null
                 || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $referenceLine) === 1
             ) {
@@ -4665,6 +4666,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]))/';
+
         return (string)preg_replace($marker, "\n" . $this->verbatimSentinels[7] . 'g' . $nodeType . $this->verbatimSentinels[7], $written);
     }
 
