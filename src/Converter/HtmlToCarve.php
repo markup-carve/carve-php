@@ -437,6 +437,7 @@ class HtmlToCarve
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
+        $this->droppedReferenceCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -460,6 +461,7 @@ class HtmlToCarve
     private function captureBuiltImport(HtmlImportSession $session): void
     {
         $this->droppedFootnoteLabelCarriers = $session->droppedFootnoteLabelCarriers;
+        $this->droppedReferenceCarriers = $session->droppedReferenceCarriers;
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
         $this->retainedListTypes = $session->retainedListTypes;
@@ -2122,6 +2124,10 @@ class HtmlToCarve
     {
         if (HtmlAstBuilder::hasConflictingEndnoteCarriers($node)) {
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting footnote label and inline footnote carriers on <' . $tag . '>', 'warning', $path);
+        }
+
+        if (isset($this->droppedReferenceCarriers[$node])) {
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting or unspellable reference carrier on <' . $tag . '>', 'info', $path);
         }
 
         if (isset($this->droppedFootnoteLabelCarriers[$node])) {
@@ -3793,6 +3799,7 @@ class HtmlToCarve
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
+        $this->droppedReferenceCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -5061,6 +5068,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, true>|null
      */
     private ?SplObjectStorage $droppedFootnoteLabelCarriers = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $droppedReferenceCarriers = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, string|null>|null

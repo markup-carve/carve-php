@@ -34,11 +34,13 @@ final class HtmlAstBuildResult
      * @param array $tree
      * @param \MarkupCarve\Carve\Converter\HtmlImportSession $session
      * @param bool $sourceSafe
+     * @param bool $retainCarrierEscapes
      */
     public function __construct(
         public readonly array $tree,
         public readonly HtmlImportSession $session,
         private readonly bool $sourceSafe,
+        private readonly bool $retainCarrierEscapes = false,
     ) {
     }
 
@@ -54,7 +56,7 @@ final class HtmlAstBuildResult
         }
         $tree = $this->tree;
         foreach ($tree as $key => $value) {
-            $tree[$key] = self::asPublished($value);
+            $tree[$key] = self::asPublished($value, $this->retainCarrierEscapes);
         }
 
         return $tree;
@@ -70,10 +72,11 @@ final class HtmlAstBuildResult
      * same lines that reach a paragraph.
      *
      * @param mixed $value
+     * @param bool $retainCarrierEscapes
      *
      * @return mixed
      */
-    private static function asPublished(mixed $value): mixed
+    private static function asPublished(mixed $value, bool $retainCarrierEscapes): mixed
     {
         if (!is_array($value)) {
             return $value;
@@ -83,8 +86,8 @@ final class HtmlAstBuildResult
             $textNode = null;
             $textParts = [];
             foreach ($value as $entry) {
-                $entry = self::asPublished($entry);
-                if (is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
+                $entry = self::asPublished($entry, $retainCarrierEscapes);
+                if (!$retainCarrierEscapes && is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
                     $escaped = $entry['value'] ?? '';
                     $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
                 }
@@ -109,7 +112,7 @@ final class HtmlAstBuildResult
             return $out;
         }
         foreach ($value as $key => $inner) {
-            $value[$key] = self::asPublished($inner);
+            $value[$key] = self::asPublished($inner, $retainCarrierEscapes);
         }
 
         return $value;
