@@ -692,7 +692,7 @@ class DjotToCarve
                             return false;
                         }
                         $column = strlen($leading[0]);
-                        if ($lines !== [] && strlen($prefix) <= $column && DjotEmphasis::structuralPrefixEnd($lines[array_key_last($lines)]['raw']) > $column) {
+                        if (strlen($prefix) <= $column && DjotEmphasis::structuralPrefixEnd($lines[array_key_last($lines)]['raw']) > $column) {
                             return false;
                         }
 
@@ -1868,31 +1868,34 @@ class DjotToCarve
             preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))[.)]|\((?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))\))[ \t]+(?=>)/', $linePrefix, $enclosing);
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))+/', substr($linePrefix, strlen($enclosing[0] ?? '')), $openingQuote);
             while ($line !== false) {
-                $hasQuote = preg_match('/\G(?:[ \t]*>(?:[ \t]|$))+/', $source, $quote, offset: $line + 1) === 1;
-                if ($hasQuote && $enclosing !== [] && strlen($quote[0]) - strlen(ltrim($quote[0])) < strlen($enclosing[0])) {
+                preg_match('/\G(?:[ \t]*>(?:[ \t]|$))+/', $source, $quote, offset: $line + 1);
+                $quoteText = $quote[0] ?? null;
+                if ($quoteText === null) {
                     break;
                 }
-                if ($hasQuote && substr_count($quote[0], '>') < $context['depth']) {
-                    $edits[$line + 1] = rtrim($quote[0]) . "\n";
+                if ($enclosing !== [] && strlen($quoteText) - strlen(ltrim($quoteText)) < strlen($enclosing[0])) {
+                    break;
+                }
+                if (substr_count($quoteText, '>') < $context['depth']) {
+                    $edits[$line + 1] = rtrim($quoteText) . "\n";
 
                     break;
                 }
-                if (!$hasQuote || ltrim($quote[0]) !== ltrim($openingQuote[0] ?? '') || substr_count($quote[0], '>') !== $context['depth']) {
+                if (ltrim($quoteText) !== ltrim($openingQuote[0] ?? '') || substr_count($quoteText, '>') !== $context['depth']) {
                     break;
                 }
                 $end = strpos($source, "\n", $line + 1);
-                $bodyStart = $line + 1 + strlen($quote[0]);
+                $bodyStart = $line + 1 + strlen($quoteText);
                 $body = substr($source, $bodyStart, ($end === false ? strlen($source) : $end) - $bodyStart);
                 if (trim($body) === '') {
                     break;
                 }
-                preg_match('/^[ \t]*/', $body, $leading);
-                $indent = strlen($leading[0]);
+                $indent = strspn($body, " \t");
                 if ($indent < $context['minimum']) {
                     break;
                 }
                 if ($indent <= $context['indent']) {
-                    $edits[$bodyStart] = str_replace('>', '\\>', trim($quote[0])) . ' ';
+                    $edits[$bodyStart] = str_replace('>', '\\>', trim($quoteText)) . ' ';
 
                     break;
                 }
@@ -1948,7 +1951,7 @@ class DjotToCarve
                         $escapes[] = $inner;
                     }
                 }
-                if (($source[$i + 1] ?? '') === '%' && $this->djotCommentContinuesParagraph($source, $i)) {
+                if ($source[$i + 1] === '%' && $this->djotCommentContinuesParagraph($source, $i)) {
                     for ($inner = max($i + 2, $escapes[array_key_last($escapes)] + 1); $inner < $length && $source[$inner] !== '%' && $source[$inner] !== '}'; $inner++) {
                         if ($source[$inner] === "\n") {
                             $nextEnd = strpos($source, "\n", $inner + 1);
