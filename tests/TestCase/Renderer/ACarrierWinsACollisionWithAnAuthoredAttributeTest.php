@@ -28,7 +28,6 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
         return [
             'a thematic break character' => ["{data-char=x}\n***\n", 'data-char', '*'],
             'a bullet list marker' => ["{data-marker=x}\n* a\n", 'data-marker', '*'],
-            'an ordered list marker' => ["{data-marker=x}\n1) a\n", 'data-marker', ')'],
             'a table separator width' => [
                 "{data-carve-col-widths=x}\n| a | b |\n|---|-----|\n| c | d |\n",
                 'data-carve-col-widths',
@@ -128,6 +127,23 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
         $report = (new CarveConverter(renderer: $renderer))->convertWithReport("[a](/u){data-carve-ref=x}\n");
 
         $this->assertStringContainsString('data-carve-ref="x"', $report->value);
+        $this->assertSame(0, $report->totalLosses);
+    }
+
+    /**
+     * PART 10 section 13a: an ordered list's marker IS section 12's
+     * `data-delim`, so `<ol>` writes no `data-marker` and an authored one of
+     * that name collides with nothing.
+     */
+    public function testAnOrderedListWritesNoMarkerCarrier(): void
+    {
+        $renderer = new HtmlRenderer();
+        $renderer->setRoundTripMode(true);
+        $report = (new CarveConverter(renderer: $renderer))->convertWithReport("{data-marker=x}\n1) a\n");
+
+        $this->assertStringContainsString('data-delim=")"', $report->value);
+        $this->assertStringContainsString('data-marker="x"', $report->value);
+        $this->assertSame(1, substr_count($report->value, 'data-marker='));
         $this->assertSame(0, $report->totalLosses);
     }
 
