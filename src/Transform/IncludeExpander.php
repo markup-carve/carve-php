@@ -160,6 +160,8 @@ class IncludeExpander implements TransformerInterface
 
     protected int $bytesUsed = 0;
 
+    protected int $admittedBytes = 0;
+
     protected int $resolverCalls = 0;
 
     protected int $suppressedWarnings = 0;
@@ -294,6 +296,7 @@ class IncludeExpander implements TransformerInterface
     {
         $this->warnings = [];
         $this->bytesUsed = 0;
+        $this->admittedBytes = 0;
         $this->resolverCalls = 0;
         $this->resourcesSpent = null;
         $this->suppressedWarnings = 0;
@@ -324,6 +327,7 @@ class IncludeExpander implements TransformerInterface
         $rootStack = $this->currentPath !== null ? [$this->currentPath] : [];
         $this->expandChildren($transformed, $this->currentPath, $rootStack, 0, $budget);
         $this->resolveCollisions($transformed);
+        $transformed->addAdmittedIncludeLength($this->admittedBytes);
 
         return $transformed;
     }
@@ -753,6 +757,7 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
 
+        $this->admittedBytes += $bytes;
         $sliceLineBase = 0;
         $completeSource = $source;
         if ($directive['lines'] !== null) {

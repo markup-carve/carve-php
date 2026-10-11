@@ -70,6 +70,8 @@ class Document extends Node
      */
     protected int $ingestPayloadLength = 0;
 
+    protected int $admittedIncludeLength = 0;
+
     public function getType(): string
     {
         return 'document';
@@ -120,11 +122,21 @@ class Document extends Node
      */
     public function getExpansionBudgetLength(): int
     {
-        if ($this->ingestPayloadLength <= 0) {
-            return $this->sourceLength;
-        }
+        $rootLength = $this->ingestPayloadLength <= 0
+            ? $this->sourceLength : min($this->sourceLength, $this->ingestPayloadLength);
 
-        return min($this->sourceLength, $this->ingestPayloadLength);
+        return $rootLength > PHP_INT_MAX - $this->admittedIncludeLength
+            ? PHP_INT_MAX : $rootLength + $this->admittedIncludeLength;
+    }
+
+    /**
+     * Account for measured source admitted by the include transform.
+     */
+    public function addAdmittedIncludeLength(int $length): void
+    {
+        $length = max(0, $length);
+        $this->admittedIncludeLength = $length > PHP_INT_MAX - $this->admittedIncludeLength
+            ? PHP_INT_MAX : $this->admittedIncludeLength + $length;
     }
 
     /**

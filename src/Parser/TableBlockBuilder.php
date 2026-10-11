@@ -210,7 +210,7 @@ final class TableBlockBuilder
                         $cellIndex = 0;
                         foreach ($lastRow->getChildren() as $cell) {
                             if ($cell instanceof TableCell) {
-                                $alignment = $alignments[$cellIndex] ?? TableCell::ALIGN_DEFAULT;
+                                $alignment = $alignments[$cellIndex] ?? $cell->getAlignment();
                                 // The delimiter row is where a GFM table
                                 // DECLARES its column alignment, so a header
                                 // cell promoted here carries alignment of its
@@ -223,7 +223,7 @@ final class TableBlockBuilder
                                     $cell->getRowspan(),
                                     $cell->getColspan(),
                                     $cell->getSpanMarker(),
-                                    isset($alignments[$cellIndex]),
+                                    isset($alignments[$cellIndex]) || $cell->hasExplicitAlignment(),
                                 );
                                 // Preserve cell attributes from original cell
                                 $headerCell->setAttributes($cell->getAttributeEntries());

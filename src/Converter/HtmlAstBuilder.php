@@ -607,6 +607,12 @@ final class HtmlAstBuilder
             if (!is_array($value)) {
                 continue;
             }
+            // A LIST-VALUED FIELD IS NOT ALWAYS A CHILD LIST. `separatorWidths`
+            // holds integers, so the walk has to ask what is in the list rather
+            // than assume a node (carve#2894).
+            if (array_is_list($value) && $value !== [] && !is_array($value[0])) {
+                continue;
+            }
             if (array_is_list($value)) {
                 $children = self::recordList($value);
                 foreach ($children as &$child) {
@@ -2345,19 +2351,70 @@ final class HtmlAstBuilder
             }
         }
         $this->attachAttrs($table, $node, ['data-carve-col-widths']);
+        // NOT gated on `sourceSafe`: the widths are a PUBLISHED field now, so
+        // the public AST carries them as well as the writer's tree.
         if (
-            $this->sourceSafe
-            && $headerRows > 0
+            $headerRows > 0
             && $node->hasAttribute('data-carve-col-widths')
             && !$node->hasAttribute('data-carve-src')
         ) {
-            $this->setPrivateAttribute($table, "\0carve-col-widths", $node->getAttribute('data-carve-col-widths'));
+            $widths = self::separatorWidths($node->getAttribute('data-carve-col-widths'));
+            if ($widths !== []) {
+                $table['separatorWidths'] = $widths;
+            }
         }
         if ($this->sourceSafe && $headerRows > 0 && HtmlTableStructure::importedTableNeedsDelimiter($rows)) {
             $this->addHint($table, "\0carve-delimiter-row");
         }
 
         return self::importedNode($table);
+    }
+
+    /**
+     * The widest separator cell the CARRIER may state (PART 10 §13a).
+     *
+     * The bound is the carrier's alone. A parse records what the author typed
+     * and nothing amplifies there, so neither the field nor the schema caps a
+     * width; the carrier is a number an importer reads off HTML it does not
+     * control, and the writer spells one dash per unit, so six characters of
+     * attribute would otherwise buy a megabyte of separator row.
+     *
+     * @var int
+     */
+    private const MAX_CARRIER_WIDTH = 1000;
+
+    public static function isValidSeparatorWidthCarrier(string $carrier): bool
+    {
+        return self::separatorWidths($carrier) !== [];
+    }
+
+    /**
+     * The `data-carve-col-widths` carrier read back as the published field.
+     *
+     * PART 10 §13a: a reader REFUSES THE WHOLE CARRIER, writing no field at all
+     * and so leaving the `|=` form, where any entry is not a run of decimal
+     * digits, is not positive, or exceeds 1000. Not a clamp: clamping keeps a
+     * separator row whose widths nobody wrote, which is the same objection that
+     * makes whole-carrier refusal right for a non-numeric entry. A carrier one
+     * reader cannot take is not evidence about the entries it could.
+     *
+     * @return array<int, int>
+     */
+    private static function separatorWidths(string $carrier): array
+    {
+        $widths = [];
+        foreach (explode(',', $carrier) as $raw) {
+            if (preg_match('/\A[0-9]+\z/', $raw) !== 1) {
+                return [];
+            }
+            $width = (int)$raw;
+            if ($width < 1 || $width > self::MAX_CARRIER_WIDTH) {
+                return [];
+            }
+            $widths[] = $width;
+        }
+
+        return $widths;
     }
 
     /**

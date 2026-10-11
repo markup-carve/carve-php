@@ -104,6 +104,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     use RenderLossCollectorTrait;
     use ConversionDiagnosticCollectorTrait;
 
+    private int $separatorExpansionLimit = 1000000;
+
+    private int $separatorExpansionRemaining = 1000000;
+
     private CarveWriterState $writerState;
 
     private ?CanonicalAst $canonicalImplementation = null;
@@ -501,6 +505,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     public function render(Document $document): string
     {
         $this->ensureWriterState();
+        $budgetLength = $document->getExpansionBudgetLength();
+        $this->separatorExpansionLimit = max(1000000, $budgetLength > intdiv(PHP_INT_MAX, 8) ? PHP_INT_MAX : $budgetLength * 8);
         $document = $this->withTextAsOneRun($document);
         // Choose the sentinels before anything is rendered, so both escape passes
         // below agree on them.
@@ -991,6 +997,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function renderOnePass(Document $document, string $escapeMode): string
     {
         $this->ensureWriterState();
+        $this->separatorExpansionRemaining = $this->separatorExpansionLimit;
         $previousEscapeMode = $this->escapeMode;
         $previousColonFenceDepth = $this->colonFenceDepth;
         $this->escapeMode = $escapeMode;
@@ -2687,13 +2694,36 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $rows = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
-        $columnWidths = $node->getRenderHint("\0carve-col-widths") !== null
-            ? array_map(
-                static fn (string $width): int => (int)$width > 0 ? min(1000, (int)$width) : 3,
-                explode(',', (string)$node->getRenderHint("\0carve-col-widths")),
-            )
-            : [];
-        $forceDelimiter = $node->getRenderHint("\0carve-delimiter-row") === '1' || $columnWidths !== [];
+        // `separatorWidths` is an AUTHOR-CHOICE field (PART 12 §3): its PRESENCE
+        // says the author wrote a separator row rather than `|=` header cells,
+        // and its entries say how wide each cell was spelled. Both halves are
+        // reproduced here, the way `list.bulletChar` and `thematic_break.marker`
+        // are.
+        $columnWidths = $node->getSeparatorWidths() ?? [];
+        foreach ($columnWidths as $width) {
+            if ($width < 1) {
+                throw new SourceUnspellableException('table', 'separator widths must be positive integers');
+            }
+        }
+        $firstRowCells = isset($tableRows[0]) ? array_values(array_filter(
+            $tableRows[0]->getChildren(),
+            static fn (Node $child): bool => $child instanceof TableCell,
+        )) : [];
+        $allHeader = $firstRowCells !== [] && count(array_filter($firstRowCells, static fn (TableCell $cell): bool => !$cell->isHeader())) === 0;
+        $unspellableSeparator = $columnWidths !== [] && !$allHeader;
+        if ($unspellableSeparator) {
+            $this->recordUnspellableField($node, 'separatorWidths', 'a separator row would promote non-header cells');
+            $columnWidths = [];
+        }
+        // AN EMPTY ARRAY IS NOT A RECORDED SEPARATOR ROW. The cell count is the
+        // entry count, so zero entries ask for a row with no cells, which the
+        // delimiter production cannot spell - `minItems: 1` on the field says so
+        // (PART 12 §3). Reachable only by hand: the parser cannot produce it and
+        // the decoder refuses it. Inventing a row from the header instead would
+        // be the padding `CARVE-P11-066` forbids, wearing a presence claim
+        // nobody wrote.
+        $forceDelimiter = (!$unspellableSeparator && $node->getRenderHint("\0carve-delimiter-row") === '1')
+            || $columnWidths !== [];
         $headerRow = isset($tableRows[0]) && ($tableRows[0]->isHeader() || $forceDelimiter);
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
@@ -2762,7 +2792,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // In the delimiter form the promoted row is written as ordinary
                 // data cells - the row after it is what makes them headers.
                 $markHeader = !($needsDelimiter && $rowIndex === 0);
-                $inherited = ($needsDelimiter && $rowIndex === 0)
+                $inherited = ($needsDelimiter && $rowIndex === 0 && ($columnWidths === [] || $column < count($columnWidths)))
                     || ($headerRow
                         && $rowIndex > 0
                         && !$cell->hasExplicitAlignment()
@@ -2785,10 +2815,27 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $tableRows[0]->getChildren(),
                 static fn (Node $child): bool => $child instanceof TableCell,
             ));
+            // ONE SEPARATOR CELL PER ENTRY THE FIELD HOLDS, not per header cell
+            // (PART 11 §6h `CARVE-P11-066`: the field decides the cell count and
+            // the writer never pads to the header's width).
+            // A ragged table is authored with a separator row shorter than its
+            // header (`| |x |` over `|---|`), and padding it out to the header's
+            // width added a cell the author never wrote - which re-parsed to a
+            // different `separatorWidths` and broke `parse(fmt(x)) == parse(x)`.
+            // With no field at all the single default cell stands in, which is
+            // the pre-existing shape for an importer-forced delimiter row.
             $separators = [];
-            foreach ($headerCells as $index => $cell) {
+            $cellCount = $columnWidths !== [] ? count($columnWidths) : count($headerCells);
+            for ($index = 0; $index < $cellCount; $index++) {
                 $width = $columnWidths[$index] ?? 3;
-                $separators[] = $this->renderTableSeparator($width, $cell->getAlignment());
+                $alignment = isset($headerCells[$index])
+                    ? $headerCells[$index]->getAlignment()
+                    : TableCell::ALIGN_DEFAULT;
+                if ($width > $this->separatorExpansionRemaining) {
+                    throw new SourceUnspellableException('table', 'separator widths exceed the document expansion budget');
+                }
+                $this->separatorExpansionRemaining -= $width;
+                $separators[] = $this->renderTableSeparator($width, $alignment);
             }
             array_splice($rows, 1, 0, '|' . implode('|', $separators !== [] ? $separators : ['---']) . '|');
         }
@@ -2837,13 +2884,24 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $prefix === '' ? $body : $prefix . "\n" . $body;
     }
 
+    /**
+     * One separator cell: the authored dash run, with the colon this CELL's own
+     * alignment asks for.
+     *
+     * The width EXCLUDES the colons, which is how `separatorWidths` counts, so
+     * `|:-----|` is width 5 either way round. One dash is the floor - a cell
+     * spelling none is not a separator - and the parser reads `|-|` back, so
+     * nothing has to be padded up to two.
+     */
     protected function renderTableSeparator(int $width, string $alignment): string
     {
+        $dashes = str_repeat('-', max(1, $width));
+
         return match ($alignment) {
-            TableCell::ALIGN_LEFT => ':' . str_repeat('-', max(2, $width)),
-            TableCell::ALIGN_RIGHT => str_repeat('-', max(2, $width)) . ':',
-            TableCell::ALIGN_CENTER => ':' . str_repeat('-', max(1, $width)) . ':',
-            default => str_repeat('-', max(2, $width)),
+            TableCell::ALIGN_LEFT => ':' . $dashes,
+            TableCell::ALIGN_RIGHT => $dashes . ':',
+            TableCell::ALIGN_CENTER => ':' . $dashes . ':',
+            default => $dashes,
         };
     }
 
@@ -4827,7 +4885,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 || !array_key_exists($slot, $attrs)
                 || $slot === 'id'
                 || $slot === 'class'
-                || $slot === "\0carve-col-widths"
                 || $slot === "\0carve-delimiter-row"
                 || $slot === "\0carve-compact-items"
                 || $slot === "\0carve-leading-blank"
@@ -5018,16 +5075,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // ONE TAG PER LINE, always: every site that writes one puts it directly
         // after a newline, so the lazy prefix cannot run past a line it does not
         // own.
-        $text = (string)preg_replace_callback(
-            '/^(.*?)' . preg_quote($this->listBoundary(), '/') . '/mu',
-            static function (array $m): string {
-                $prefix = $m[1];
-                $blank = (string)preg_replace('/[ \t]+$/', '', $prefix);
+        $text = implode("\n", array_map(function (string $line): string {
+            $boundary = strpos($line, $this->listBoundary());
+            if ($boundary === false) {
+                return $line;
+            }
+            $prefix = substr($line, 0, $boundary);
+            $blank = rtrim($prefix, " \t");
 
-                return $blank . "\n" . $blank . "\n" . $blank . "\n" . $prefix;
-            },
-            $text,
-        );
+            return $blank . "\n" . $blank . "\n" . $blank . "\n" . $prefix . substr($line, $boundary + strlen($this->listBoundary()));
+        }, explode("\n", $text)));
 
         $out = $this->restoreVerbatim($this->trimNonNbsp($text));
 

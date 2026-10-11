@@ -203,7 +203,6 @@ final class ReferenceShape
         // wire carries `block`, which is the question a consumer asks (derived
         // in AstCodec).
         'comment' => ['fenceLength'],
-        'table' => ['separatorWidths'],
         // `document` lists nothing. `abbreviations` and the flag recording
         // whether they preceded the body are authored content - dropping them
         // loses every `*[HTML]: ...` line, or moves it to the end. The reference
@@ -222,7 +221,7 @@ final class ReferenceShape
         // cost, which is a fact about the ARRIVAL rather than about the
         // document, and re-publishing it would put a reader's own measurement
         // back on the wire where the next reader would read it as a claim.
-        'document' => ['abbreviationSpans', 'ingestPayloadLength'],
+        'document' => ['abbreviationSpans', 'ingestPayloadLength', 'admittedIncludeLength'],
     ];
 
     /**

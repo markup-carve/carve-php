@@ -7,7 +7,7 @@ namespace MarkupCarve\Carve\Exception;
 use MarkupCarve\Carve\Ast\AstEnvelope;
 
 /**
- * The payload announces a higher MAJOR contract version.
+ * The payload announces a HIGHER contract version, in either part.
  *
  * §34(a) asks for a typed error naming both versions, and says why it is not a
  * schema failure: the payload may be perfectly well-formed under a contract
@@ -22,8 +22,9 @@ final class AstEnvelopeVersionException extends AstEnvelopeException
     ) {
         parent::__construct(sprintf(
             'AST envelope announces contract version %s; this build implements %s. A higher '
-                . 'major removes, renames or reinterprets, so the payload is refused rather '
-                . 'than half-read (PART 12 §34(a)).',
+                . 'major removes, renames or reinterprets, and a higher minor adds a field '
+                . 'the closed node schema rejects, so the payload is refused rather than '
+                . 'half-read (PART 12 §34(a)).',
             $found,
             $implemented,
         ));

@@ -30,8 +30,16 @@ class TableCellWriterParityTest extends TestCase
      */
     public static function prefixedCellProvider(): iterable
     {
-        yield 'attribute and promoted header marker' => [
+        // The authored separator row is kept (markup-carve/carve#2894); the
+        // padding this class measures is the same in either header form, so both
+        // spellings are listed rather than one standing in for the other.
+        yield 'attribute and authored separator row' => [
             "|{.highlight} Total | 99 |\n| --- | --- |\n",
+            "|{.highlight} Total | 99 |\n|---|---|\n",
+        ];
+
+        yield 'attribute and promoted header marker' => [
+            "|={.highlight} Total |= 99 |\n",
             "|={.highlight} Total |= 99 |\n",
         ];
 

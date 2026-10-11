@@ -1585,6 +1585,11 @@ class ProseMirrorToCarve
                 $node instanceof ListBlock && in_array($key, ['carveOlType', 'carveListStyle'], true) => $this->setState($node, 'style', self::asString($value)),
                 $node instanceof ListBlock && in_array($key, ['carveDelim', 'carveListMarker'], true) => $this->setState($node, 'marker', self::asString($value)),
                 $node instanceof ThematicBreak && $key === 'carveMarker' => true,
+                $node instanceof Table && $key === 'carveSeparatorWidths' => $this->setState(
+                    $node,
+                    'separatorWidths',
+                    self::separatorWidths($value),
+                ),
                 $node instanceof BlockQuote && $key === 'carveFenced' => $this->setState(
                     $node,
                     'fenced',
@@ -2354,6 +2359,31 @@ class ProseMirrorToCarve
         }
 
         return $text;
+    }
+
+    /**
+     * Positive integer widths remain unbounded in the AST. Source rendering
+     * checks its document expansion budget before allocating separator rows.
+     *
+     * @return array<int, int>|null
+     */
+    private static function separatorWidths(mixed $value): ?array
+    {
+        if (!is_array($value) || $value === []) {
+            return null;
+        }
+        $widths = [];
+        foreach ($value as $entry) {
+            if (is_string($entry) && preg_match('/\A[0-9]+\z/', $entry) === 1) {
+                $entry = (int)$entry;
+            }
+            if (!is_int($entry) || $entry < 1) {
+                return null;
+            }
+            $widths[] = $entry;
+        }
+
+        return $widths;
     }
 
     protected function setState(Node $node, string $property, mixed $value): bool

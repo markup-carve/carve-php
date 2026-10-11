@@ -35,7 +35,7 @@ final class AstEnvelope
      *
      * @var string
      */
-    public const CONTRACT_VERSION = '1.0';
+    public const CONTRACT_VERSION = '1.1';
 
     /**
      * @var string
@@ -141,11 +141,14 @@ final class AstEnvelope
             throw new AstEnvelopeShapeException('"document" is missing');
         }
 
-        // A higher major only. A LOWER one cannot arrive while this build
-        // implements major 1, which the schema's pattern makes the lowest there
-        // is, so there is nothing to decide and no rule invented for it.
-        $major = (int)explode('.', $astVersion)[0];
-        if ($major > (int)explode('.', self::CONTRACT_VERSION)[0]) {
+        // A reader accepts its own version or LOWER. A higher MINOR is refused
+        // with the same typed error as a higher major: the node schema is
+        // closed (`additionalProperties: false`), so the field a minor adds is
+        // one this build's validator rejects outright rather than ignores. The
+        // older rule accepted a higher minor, which no payload could reach.
+        [$major, $minor] = array_map('intval', explode('.', $astVersion));
+        [$ownMajor, $ownMinor] = array_map('intval', explode('.', self::CONTRACT_VERSION));
+        if ($major > $ownMajor || ($major === $ownMajor && $minor > $ownMinor)) {
             throw new AstEnvelopeVersionException($astVersion);
         }
 
@@ -175,10 +178,6 @@ final class AstEnvelope
 
         $document = $this->readDocument($envelope['document']);
 
-        // A higher MINOR needs no gate of its own: §34(b) makes it acceptable
-        // exactly where every required extension is implemented, and the loop
-        // above is that condition. A minor adds, so the tree is readable except
-        // for what the additions carry.
         return $this->codec->decode($document);
     }
 

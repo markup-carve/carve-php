@@ -49,7 +49,7 @@ class AstEnvelopeTest extends TestCase
         $parsed = CarveConverter::create()->parse("a\n");
         $envelope = $this->envelope->encode($parsed);
 
-        $this->assertSame('1.0', $envelope['astVersion']);
+        $this->assertSame('1.1', $envelope['astVersion']);
         $this->assertSame((new AstCodec())->encode($parsed), $envelope['document']);
         $this->assertSame(['astVersion', 'document'], array_keys($envelope));
     }
@@ -88,22 +88,60 @@ class AstEnvelopeTest extends TestCase
             $this->fail('expected a version refusal');
         } catch (AstEnvelopeVersionException $e) {
             $this->assertSame('2.0', $e->found);
-            $this->assertSame('1.0', $e->implemented);
+            $this->assertSame('1.1', $e->implemented);
         }
     }
 
-    public function testAHigherMinorIsAccepted(): void
+    /**
+     * A HIGHER MINOR IS REFUSED, with the same typed error as a higher major.
+     *
+     * This test asserted the opposite until markup-carve/carve#2894. The old
+     * rule read "a minor only adds, so the tree is readable except for what the
+     * additions carry", which no payload could reach: every node schema is
+     * closed with `additionalProperties: false`, so the field a minor adds is
+     * one the validator rejects outright. The reader accepted the envelope and
+     * then failed on the tree, reporting a corrupt document where the real
+     * answer was a contract this build predates.
+     */
+    public function testAHigherMinorIsRefusedByVersionNotByTheSchema(): void
     {
-        $document = $this->envelope->decode($this->wrap(['astVersion' => '1.7']));
-
-        $this->assertNotEmpty($document->getChildren());
+        try {
+            $this->envelope->decode($this->wrap(['astVersion' => '1.7']));
+            $this->fail('expected a version refusal');
+        } catch (AstEnvelopeVersionException $e) {
+            $this->assertSame('1.7', $e->found);
+            $this->assertSame('1.1', $e->implemented);
+        }
     }
 
-    public function testAHigherMinorIsStillRefusedWhenItRequiresAnUnknownExtension(): void
+    /**
+     * THE VERSION CHECK RUNS FIRST. §34 orders the checks (a) version, (b)
+     * vocabulary, (c) extensions, and the widest one answers: a `1.7` payload
+     * is unreadable whatever its extension list says, so naming the extension
+     * would send the caller to install something that still would not help.
+     *
+     * The expectation moved with the rule above. While a higher minor was
+     * accepted, the extension refusal was the only one this payload could
+     * raise, so the test could not tell the ordering apart from the outcome.
+     */
+    public function testAHigherMinorIsRefusedOnVersionBeforeItsExtensionsAreRead(): void
+    {
+        $this->expectException(AstEnvelopeVersionException::class);
+        $this->envelope->decode($this->wrap([
+            'astVersion' => '1.7',
+            'extensions' => [['id' => 'https://example.test/ext/unknown']],
+        ]));
+    }
+
+    /**
+     * CONTROL on the ordering above: at a version this build CAN read, the
+     * unknown extension is still what refuses the payload.
+     */
+    public function testAnUnknownExtensionStillRefusesAReadableVersion(): void
     {
         $this->expectException(AstEnvelopeExtensionException::class);
         $this->envelope->decode($this->wrap([
-            'astVersion' => '1.7',
+            'astVersion' => '1.1',
             'extensions' => [['id' => 'https://example.test/ext/unknown']],
         ]));
     }
