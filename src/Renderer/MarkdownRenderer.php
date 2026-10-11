@@ -391,6 +391,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
 
+    /**
+     * An explicit Drop also suppresses the default attribute-preserving mark tags.
+     */
     protected bool $attributeFallbackSelected = false;
 
     /**
@@ -3813,7 +3816,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderEmphasis(Emphasis $node): string
     {
         $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
-            ? $this->htmlAttributes($node)
+            ? $this->htmlAttributes($node, preserveTabs: true)
             : '';
         if ($attrs !== '') {
             return '<em' . $attrs . '>' . $this->renderChildren($node) . '</em>';
@@ -3830,7 +3833,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderStrong(Strong $node): string
     {
         $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
-            ? $this->htmlAttributes($node)
+            ? $this->htmlAttributes($node, preserveTabs: true)
             : '';
         if ($attrs !== '') {
             return '<strong' . $attrs . '>' . $this->renderChildren($node) . '</strong>';
@@ -4218,7 +4221,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderStrike(Strike $node): string
     {
         $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
-            ? $this->htmlAttributes($node)
+            ? $this->htmlAttributes($node, preserveTabs: true)
             : '';
         if ($attrs !== '') {
             return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
@@ -4596,8 +4599,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $exclude Attribute names the caller spells itself.
+     * @param bool $preserveTabs
      */
-    protected function htmlAttributes(Node $node, array $exclude = []): string
+    protected function htmlAttributes(Node $node, array $exclude = [], bool $preserveTabs = false): string
     {
         $attrs = $this->attributeSerializer()->renderAttributesExcluding($node, $exclude);
 
@@ -4605,7 +4609,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // ending the raw HTML block early and leaving the closing tag dangling as
         // literal text. Fold newlines and retain tabs without changing their
         // attribute value; every other control character is already gone.
-        return (string)preg_replace('/\n+/', ' ', $this->stripControls($attrs));
+        return (string)preg_replace($preserveTabs ? '/\n+/' : '/[\t\n]+/', ' ', $this->stripControls($attrs));
     }
 
     /**

@@ -31,10 +31,11 @@ $markdown = CarveConverter::create(null, $renderer)->convert($carveSource);
   headings they point at do not disagree.
 - `setAttributeFallback()`: Markdown has no block container and no attribute
   syntax on an image, so a `::: class` div and an `![alt](src){.class}` lose
-  their `{#id .class data-*}` by default (`AttributeFallback::Drop`), which is
-  right for human-facing export. `AttributeFallback::Html` keeps them as raw
-  HTML instead. It also preserves attributes on strong, emphasis and strike
-  with `<strong ...>`, `<em ...>` and `<del ...>` tags. Containers use a
+  their `{#id .class data-*}` by default. `AttributeFallback::Html` keeps them as raw
+  HTML instead. Strong, emphasis and strike preserve their attributes by
+  default with `<strong ...>`, `<em ...>` and `<del ...>` tags. Explicit
+  `AttributeFallback::Drop` discards those attributes too. Marks without
+  attributes use Markdown delimiters. Containers use a
   `<div ...>` wrapper with blank lines around its
   Markdown-rendered body, and an `<img ...>` tag - the way an inline `{=mark=}`
   already degrades to `<mark>`. Use it when the Markdown is an interchange
