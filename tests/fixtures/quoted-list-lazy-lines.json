@@ -1,0 +1,1886 @@
+[
+  {
+    "source": "> - ::: box\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>::: box\ntail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ::: box\n\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ::: box\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>::: box\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ::: box\n\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ::: box\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>::: box\n: body</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - ::: box\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>::: box\n: body\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - ::: box\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>::: box\ntail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n        <p>tail</p>\n      </div>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - ::: box\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n        <ul>\n          <li>tail</li>\n        </ul>\n      </div>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>::: box\n: body</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n        <p>: body</p>\n      </div>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - - a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - a\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - a\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - a\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n: body</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n: body\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - a\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - - a\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - - a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n: body</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - - a\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n: body</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - :: term\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term\ntail</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - :: term\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term\ntail</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - :: term\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - :: term\n\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - :: term\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n        <dd>body</dd>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - :: term\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - :: term\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term\ntail</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - :: term\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term\ntail</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - :: term\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n      <ul>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n        <dd>body</dd>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - :: term\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n        <dd>body</dd>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - :: term\n\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> 1. - a\ntail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\ntail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> 1. - a\n  tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n  tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> 1. - a\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> 1. - a\n  - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n  - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> 1. - a\n: body\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n: body</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n: body\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> 1. - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n: body\n- tail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> 1. - a\n> tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n> tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> 1. - a\n>   tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n>   tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> 1. - a\n> - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n>   - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n> : body\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n: body</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n> : body\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> 1. - a\n>   : body\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n: body</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n>   : body\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - > a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\ntail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - > a\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\ntail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - > a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\n- tail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - > a\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\n- tail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - > a\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\n: body</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - > a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\n: body\n- tail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - > a\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\ntail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - > a\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\ntail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - > a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\n- tail</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\n: body</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - > a\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a\n: body</p></blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > a\n\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote><p>a</p></blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\ntail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - a\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\ntail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - a\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - a\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n: body</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n: body\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - a\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\ntail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - a\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\ntail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <ul>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n: body</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - a\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n: body</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - a\n\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>: body</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>: body\n- tail</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n      tail\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n      <ul>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>: body</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n      : body\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ::: box\n>   :::\n\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n  tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ```\n>   ```\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n  - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - ```\n>   ```\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n: body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - ```\n>   ```\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n> tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n      tail\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n>   tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>tail</p></blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n      <ul>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n  <p>: body</p>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n> : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n      : body\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - ```\n>   ```\n\n>   : body\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<blockquote><p>: body</p></blockquote>"
+  },
+  {
+    "source": "> - - a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n* tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n1. tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n<code></code></li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - a\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - a\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - a\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n* tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n* tail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n* tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> 1. - a\n1. tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n1. tail</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> 1. - a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n%% hidden\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n```\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a\n<code></code></li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n```\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> 1. - a\n:::\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> 1. - a\n\n:::\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> 1. - a\n> > tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> 1. - a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ol>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a\ntail</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - 1. a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a\n- tail</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - 1. a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a\n* tail</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - 1. a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a\n1. tail</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - 1. a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a\n: body\n- tail</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - 1. a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a\n<code></code></li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - 1. a\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - 1. a\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - 1. a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n      <ul>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - 1. a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a\ntail</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - - a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a\n- tail</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - - a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a\n* tail</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - - a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a\n1. tail</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a\n: body\n- tail</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - - a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a\n<code></code></li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - - a\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - - a\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - - a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - - a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <ul>\n            <li>a</li>\n          </ul>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\ntail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a\ntail</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\ntail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> 1. 1. a\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a\n- tail</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> 1. 1. a\n* tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a\n* tail</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n* tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> 1. 1. a\n1. tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a\n1. tail</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> 1. 1. a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a\n: body\n- tail</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> 1. 1. a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n%% hidden\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n```\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a\n<code></code></li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n```\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> 1. 1. a\n:::\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> 1. 1. a\n\n:::\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> 1. 1. a\n> - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n>   - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a\n- tail</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n> > tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> 1. 1. a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>\n      <ol>\n        <li>a</li>\n      </ol>\n    </li>\n  </ol>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - * a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - * a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n* tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - * a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n1. tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - * a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n: body\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - * a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n<code></code></li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - * a\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - * a\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - * a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n      <ul>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - * a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> * - a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> * - a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n* tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> * - a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n1. tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> * - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n: body\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> * - a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a\n<code></code></li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> * - a\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> * - a\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> * - a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> * - a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>a</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a\ntail</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - > - a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a\n- tail</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - > - a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a\n* tail</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - > - a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a\n1. tail</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - > - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a\n: body\n- tail</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - > - a\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a\n<code></code></li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - > - a\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - > - a\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - > - a\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a\n- tail</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - > - a\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <blockquote>\n        <ul>\n          <li>a</li>\n        </ul>\n      </blockquote>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\ntail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\ntail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\ntail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> > - - a\n- tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n- tail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n- tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> > - - a\n* tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n* tail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n* tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> > - - a\n1. tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n1. tail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n1. tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> > - - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n: body\n- tail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> > - - a\n[r]: /url\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n%% hidden\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n%% hidden\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n```\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n<code></code></li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n```\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> > - - a\n:::\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> > - - a\n\n:::\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> > - - a\n> - tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n- tail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n> - tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n>   - tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\n- tail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n>   - tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n> > tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a\ntail</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> > - - a\n\n> > tail\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <ul>\n          <li>a</li>\n        </ul>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - ```\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - ```\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - ```\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - ```\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - ```\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - ```\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - ```\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - ```\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ```\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ```\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ```\n>     ```\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - ::: box\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ::: box\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n* tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ::: box\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n1. tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - ::: box\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n: body\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - ::: box\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n<code></code></li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - ::: box\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ::: box\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ::: box\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n[r]: /url\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n%% hidden\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n:::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<div>\n\n</div>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n> - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n        <li>tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n>   - tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": "> - - ::: box\n>     :::\n\n> > tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  }
+]
