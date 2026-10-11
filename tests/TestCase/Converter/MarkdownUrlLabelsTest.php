@@ -57,6 +57,15 @@ class MarkdownUrlLabelsTest extends TestCase
         }
     }
 
+    public function testPreservedBareUrlSpellingDoesNotClaimExactFidelity(): void
+    {
+        foreach (["https://x.test/[r]\n\n[r]: /u\n", "https://x.test/a\\_b/[r]\n\n[r]: /u\n"] as $source) {
+            $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
+            $unverified = array_filter($rows, static fn ($row): bool => $row->code === 'fidelity-unverified' && $row->confidence === 'fallback' && $row->fidelity === 'dropped');
+            $this->assertNotEmpty($unverified);
+        }
+    }
+
     public function testSupportedUrlLabelsAreVerifiedExactly(): void
     {
         foreach (["[https://e.test](x)\n", "[*https://e.test*](x)\n", "[https://x.test/_a_](x)\n", "[a/b](x)\n", "[src/index.ts](x)\n", "[*https://example.test/a/_v1_/x*](u)\n"] as $source) {
