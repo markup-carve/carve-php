@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -17,6 +18,58 @@ use PHPUnit\Framework\TestCase;
 
 class SourceUnicodeMarkerExhaustionTest extends TestCase
 {
+    public function testFootnoteGuardsStaySeparateWhenOnlyEightCharactersAreFree(): void
+    {
+        foreach ([0xE001, 0xE003, 0xE004, 0xE005, 0xE006] as $freeStart) {
+            $pool = '';
+            for ($code = 0xE000; $code <= 0xF8FF; $code++) {
+                if ($code < $freeStart || $code >= $freeStart + 8) {
+                    $pool .= mb_chr($code, 'UTF-8');
+                }
+            }
+            $writer = CarveConverter::carve();
+            $source = "```\n{$pool}\n```\n\nbody[^n]\n\n[^n]: > `x`\n";
+            $document = $writer->parse($source);
+            $stack = $document->getChildren();
+            while ($stack !== []) {
+                $node = array_pop($stack);
+                if ($node instanceof Code) {
+                    $node->setContent("x`\n[r]: /url\ntail");
+                } elseif (method_exists($node, 'getChildren')) {
+                    array_push($stack, ...$node->getChildren());
+                }
+            }
+            $legacy = new class extends CarveRenderer {
+                protected function pickVerbatimSentinels(string $text): array
+                {
+                    /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
+                    $picked = DocumentSentinels::pickTokens($text, 8, 0xE001);
+
+                    return $picked;
+                }
+            };
+            $legacyWritten = $legacy->render($document);
+            $this->assertSame(self::semanticTree((new AstCodec())->encode($document)), self::semanticTree((new AstCodec())->encode($writer->parse($legacyWritten))));
+            $this->assertSame($legacyWritten, $legacy->render($writer->parse($legacyWritten)));
+            $baseline = $writer->renderWithReport($document);
+            $this->assertSame([], $baseline->losses);
+            $this->assertSame(self::semanticTree((new AstCodec())->encode($document)), self::semanticTree((new AstCodec())->encode($writer->parse($baseline->value))));
+            $paragraph = new Paragraph();
+            $paragraph->setChildren([new Text("\u{E009}m0"), new RawText("x0\u{E00A}")]);
+            $document->setChildren([$paragraph, ...$document->getChildren()]);
+            $legacyWritten = $legacy->render($document);
+            $this->assertStringContainsString("\u{E009}m0x0\u{E00A}", $legacyWritten);
+            $this->assertStringContainsString($pool, $legacyWritten);
+            $this->assertSame($legacyWritten, $legacy->render($writer->parse($legacyWritten)));
+            $result = $writer->renderWithReport($document);
+            $this->assertSame([], $result->losses);
+            $this->assertStringContainsString($pool, $result->value);
+            $this->assertStringContainsString("\u{E009}m0x0\u{E00A}", $result->value);
+            $this->assertStringContainsString('[r]: /url', $result->value);
+            $this->assertSame($result->value, $writer->convert($result->value));
+        }
+    }
+
     public function testProbeKeepsAttributeBracingIndependentOfTheOccupiedPool(): void
     {
         $pool = implode('', array_map(static fn (int $code): string => mb_chr($code, 'UTF-8'), range(0xE000, 0xF8FF)));
@@ -105,6 +158,9 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
             'verse' => ["| a{$payload}\n| b\n", $payload],
             'quote' => ["> a{$payload}\n> b\n", $payload],
             'list' => ["- a{$payload}\n  b\n", $payload],
+            'footnote code guard' => ["body[^n]\n\n[^n]: `a{$payload}\n  [r]: /target\n  tail`\n", $payload],
+            'footnote literal guard' => ["body[^n]\n\n[^n]: !`a{$payload}\n  [r]: /target\n  tail`\n", $payload],
+            'footnote math guard' => ["body[^n]\n\n[^n]: $`a{$payload}\n  [r]: /target\n  tail`\n", $payload],
             'footnote label' => ["a{$pool}b\n\n[^\u{E009}\u{E008}\u{E008}\u{E010}\u{E00A}]: definition\n", $pool],
         ];
     }
