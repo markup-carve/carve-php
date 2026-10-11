@@ -22,7 +22,7 @@ trait ReportsDjotLosses
         $add = static function (int $at, string $message) use (&$findings): void {
             $findings[] = [$at, $message];
         };
-        if ($this->djotCodeQuoteMarkers($source) !== []) {
+        if ($this->hasDjotCodeLayoutCandidates($source)) {
             $this->closeDjotTableCode($source, static function (int $at) use ($add): void {
                 $add($at, 'Multiline inline code uses raw HTML; plain-text export omits it.');
             });

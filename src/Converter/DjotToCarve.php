@@ -3558,7 +3558,7 @@ class DjotToCarve
 
     private function normalizeDjotFences(string $source): string
     {
-        $quoteCode = $this->djotCodeQuoteMarkers($source) !== [];
+        $quoteCode = $this->hasDjotCodeLayoutCandidates($source);
         if (!str_contains($source, '```') && !str_contains($source, '~~~')) {
             return str_contains($source, '\\|') || $quoteCode ? $this->closeDjotTableCode($source) : $source;
         }
@@ -3570,17 +3570,7 @@ class DjotToCarve
 
         $normalized = $this->normalizeDjotParagraphFences(implode("\n", $lines));
 
-        $inlineFence = false;
-        foreach (explode("\n", $source) as $line) {
-            [, $content] = $this->quoted($line);
-            if (preg_match('/^[ \t]+`{3,}/', $content)) {
-                $inlineFence = true;
-
-                break;
-            }
-        }
-
-        return $quoteCode || str_contains($source, '\\|') || $inlineFence ? $this->closeDjotTableCode($normalized) : $normalized;
+        return $quoteCode ? $this->closeDjotTableCode($normalized) : $normalized;
     }
 
     private function normalizeDjotAutolinks(string $source): string
@@ -4125,10 +4115,8 @@ class DjotToCarve
         if (!str_contains($source, '`')) {
             return $source;
         }
-        $mask = $this->maskDjotOpaque($source, false, ['code' => false]);
+        $mask = $this->maskDjotOpaque($this->maskDjotFences($source), false, ['code' => false]);
         $length = strlen($source);
-        preg_match_all('/\n[ \t]*(?:>[ \t]*)*\n/', $source, $breaks, PREG_OFFSET_CAPTURE);
-        $paragraphEnds = array_column($breaks[0], 1);
         preg_match_all('/`+/', $source, $tickMatches, PREG_OFFSET_CAPTURE);
         $runs = [];
         foreach ($tickMatches[0] as [$run, $position]) {
@@ -4234,10 +4222,11 @@ class DjotToCarve
                 $labels[array_pop($bracketStack)] = $at;
             }
         }
-        $block = '/^(?:[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}|>|\||\^ |\[[^\]]+\]:)/';
+        $block = '/^(?:[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}|>(?:[ \t]|$)|\||\^ |\[[^\]]+\]:)/';
         $marker = '/^(?:\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+)/';
+        $prefixMarker = '/\G' . substr($marker, 2);
         $itemKindOf = static fn (string $item): string => trim(preg_replace(['/^[0-9]+/', '/^[A-Za-z]+/'], ['1', 'a'], $item) ?? $item);
-        $paragraph = 0;
+        $codeHostDepth = 0;
         $offset = 0;
         $cursor = 0;
         $consumed = 0;
@@ -4251,20 +4240,39 @@ class DjotToCarve
         $output = [];
         foreach (explode("\n", $source) as $line) {
             $at = $this->djotContentStart($line);
-            $lineEnd = $offset + strlen($line);
+            $lineLength = strlen($line);
+            $lineEnd = $offset + $lineLength;
             $codeDepth = 0;
-            for ($p = 0; $p < $at; ++$p) {
-                if ($line[$p] === '>' && ($p + 1 === strlen($line) || $line[$p + 1] === ' ' || $line[$p + 1] === "\t")) {
+            $prefixAt = 0;
+            while ($prefixAt < $lineLength) {
+                $prefixAt += strspn($line, " \t", $prefixAt);
+                if (preg_match('/\G>(?:[ \t]|$)/', $line, $quotePrefix, 0, $prefixAt) === 1) {
                     ++$codeDepth;
+                    $prefixAt += strlen($quotePrefix[0]);
+
+                    continue;
+                }
+                if (preg_match($prefixMarker, $line, $itemPrefix, 0, $prefixAt) !== 1) {
+                    break;
+                }
+                $prefixAt += strlen($itemPrefix[0]);
+                if (!str_starts_with($itemPrefix[0], '[^') && preg_match('/\G\[[ xX]\][ \t]+/', $line, $taskPrefix, 0, $prefixAt) === 1) {
+                    $prefixAt += strlen($taskPrefix[0]);
                 }
             }
-            [$depth, $content] = $this->quoted($line);
+            [$parsedDepth, $content] = $this->quoted($line);
             $trimmed = ltrim($content, " \t");
             $indent = strlen($content) - strlen($trimmed);
             $item = preg_match($marker, $trimmed, $itemMatch) === 1;
             $oldColumn = $itemColumn;
             $oldQuote = $itemQuote;
             $beganInside = $offset < $consumed;
+            $depth = $beganInside ? $codeHostDepth : $parsedDepth;
+            if ($beganInside) {
+                $codeDepth = $codeHostDepth;
+            } elseif (!$previousBlock && $parsedDepth < $previousQuote && $trimmed !== '' && preg_match($block, $trimmed) !== 1) {
+                $codeDepth = max($codeDepth, $previousQuote);
+            }
             if (!$beganInside) {
                 if ($fenced !== null && $trimmed !== '' && ($depth < $fenced['depth'] || ($depth === $fenced['depth'] && $indent < $fenced['item']))) {
                     $fenced = null;
@@ -4309,7 +4317,7 @@ class DjotToCarve
                     $output[] = "\n";
                     $cursor = $offset;
                 }
-                $previousQuote = $depth;
+                $previousQuote = max($depth, $codeDepth);
             }
             $i = max($offset + $at, $consumed);
             $pending = [];
@@ -4372,6 +4380,7 @@ class DjotToCarve
                     continue;
                 }
                 $width = $this->backtickRun($source, $i);
+                $codeHostDepth = $codeDepth;
                 $candidate = $closeRun($i, $width);
                 if ($candidate + $width <= $lineEnd) {
                     $i = $candidate + $width;
@@ -4379,25 +4388,39 @@ class DjotToCarve
 
                     continue;
                 }
-                while (isset($paragraphEnds[$paragraph]) && $paragraphEnds[$paragraph] <= $i) {
-                    $paragraph++;
-                }
-                $limit = min($candidate, $paragraphEnds[$paragraph] ?? $length);
+                $limit = min($candidate, $length);
                 $separate = false;
+                $separateDepth = 0;
                 for ($next = $lineEnd + 1; $next < $limit;) {
                     $newline = strpos($source, "\n", $next);
                     $end = $newline === false ? $length : $newline;
-                    [$nextDepth, $nextContent] = $this->quoted(substr($source, $next, $end - $next));
-                    $nextTrimmed = ltrim($nextContent);
+                    $following = substr($source, $next, $end - $next);
+                    [$nextDepth, $nextContent] = $this->quoted($following);
+                    $nextTrimmed = ltrim($nextContent, " \t");
+                    $ownerAt = 0;
+                    for ($q = 0; $q < $itemQuote; ++$q) {
+                        if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $following, $ownerPrefix, 0, $ownerAt) !== 1) {
+                            break;
+                        }
+                        $ownerAt += strlen($ownerPrefix[0]);
+                    }
+                    $ownerContent = substr($following, $ownerAt);
+                    $ownerIndent = strspn($following, " \t", $ownerAt);
+                    $outside = ($codeDepth > 0 && $nextDepth < $codeDepth) || ($itemColumn > 0 && $ownerIndent < $itemColumn);
+                    if (($nextDepth <= $codeDepth || $outside) && trim($nextContent, " \t") === '') {
+                        $limit = $next - 1;
+
+                        break;
+                    }
                     $nextIndent = strlen($nextContent) - strlen($nextTrimmed);
                     $owner = $divs !== [] ? end($divs) : null;
                     $closesDiv = $owner !== null && $nextDepth === $owner['depth'] && $nextIndent <= $owner['column'] + 3 && preg_match('/^:{3,}[ \t]*$/', $nextTrimmed) === 1 && strlen(trim($nextTrimmed)) >= $owner['width'];
-                    $outside = ($depth > 0 && $nextDepth < $depth) || ($itemColumn > 0 && $nextDepth <= $itemQuote && $nextIndent < $itemColumn);
                     $attributes = str_starts_with($nextTrimmed, '{') && $this->readDjotWordAttributes($nextTrimmed, 0) !== null;
-                    if ($closesDiv || ($outside && (preg_match($block, $nextTrimmed) === 1 || $attributes))) {
+                    if ($closesDiv || ($outside && (preg_match($block, $nextTrimmed) === 1 || ($itemColumn > 0 && $ownerIndent < $itemColumn && preg_match($block, ltrim($ownerContent, " \t")) === 1) || $attributes))) {
                         $limit = $next - 1;
                         $nextItem = preg_match($marker, $nextTrimmed, $nextItemMatch) === 1 ? $itemKindOf($nextItemMatch[0]) : null;
                         $separate = $outside && ($nextDepth < $depth || $nextItem !== $itemKind);
+                        $separateDepth = min($depth, $nextDepth);
 
                         break;
                     }
@@ -4417,18 +4440,18 @@ class DjotToCarve
                 $normalized = [];
                 foreach (explode("\n", $payload) as $n => $value) {
                     if ($n === 0) {
-                        $normalized[] = rtrim($value, " \t");
+                        $normalized[] = $value;
 
                         continue;
                     }
                     $valueOffset = 0;
                     for ($q = 0; $q < $codeDepth; $q++) {
-                        if (preg_match('/\G[ \t]*>[ ]?/', $value, $prefixMatch, 0, $valueOffset) !== 1) {
+                        if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $value, $prefixMatch, 0, $valueOffset) !== 1) {
                             break;
                         }
                         $valueOffset += strlen($prefixMatch[0]);
                     }
-                    $normalized[] = trim(substr($value, $valueOffset), " \t");
+                    $normalized[] = ltrim(substr($value, $valueOffset), " \t");
                 }
                 $rawCode = str_starts_with($itemKind, '[^') && count($normalized) > 1;
                 foreach (array_slice($normalized, 1) as $value) {
@@ -4443,6 +4466,9 @@ class DjotToCarve
                     $consumed = $i;
 
                     continue;
+                }
+                if ($codeDepth > 0 && !$rawCode) {
+                    $payload = implode("\n", $normalized);
                 }
                 if ($rawCode) {
                     if ($onRawCode !== null) {
@@ -4469,7 +4495,7 @@ class DjotToCarve
                 $cursor = $closed ? $end + $width : $end;
                 $consumed = $cursor;
                 if ($separate && !$closed) {
-                    $output[] = "\n";
+                    $output[] = "\n" . rtrim(str_repeat('> ', $separateDepth));
                 }
                 $i = $consumed;
             }

@@ -12,25 +12,10 @@ use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
 trait NormalizesDjotStructure
 {
-    /**
-     * @return list<int>
-     */
-    private function djotCodeQuoteMarkers(string $source): array
+    private function hasDjotCodeLayoutCandidates(string $source): bool
     {
-        if (!str_contains($source, '`') || preg_match_all('/\n[ \t]*>/', $source, $matches, PREG_OFFSET_CAPTURE) === 0) {
-            return [];
-        }
-        $masked = $this->maskCodeAndDestinations($source, false);
-        $exposed = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['code' => false]);
-        $markers = [];
-        foreach ($matches[0] as [$prefix, $offset]) {
-            $at = $offset + strlen($prefix) - 1;
-            if ($masked[$at] !== '>' && $exposed[$at] === '>') {
-                $markers[] = $at;
-            }
-        }
-
-        return $markers;
+        return str_contains($source, '\\|') || (str_contains($source, '`') && preg_match('/\n[ \t]*>/', $source) === 1)
+            || (str_contains($source, '```') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]+`{3,}/', $source) === 1);
     }
 
     /**
@@ -263,13 +248,6 @@ trait NormalizesDjotStructure
 
                 continue;
             }
-            if (trim($view) === '') {
-                $out[] = $original;
-                $paragraph = $headingMarker === '' && preg_match('/^(?:(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)?\[[^\]\n]+\]:/', $text) !== 1;
-                $blank = false;
-
-                continue;
-            }
             if ($paragraph && $quoteDepth > $depth) {
                 $markerAt = strlen($this->djotClosedQuoteBoundary($quote, $depth)) - 1;
                 $out[] = substr($original, 0, $markerAt) . '\\' . substr($original, $markerAt);
@@ -291,6 +269,13 @@ trait NormalizesDjotStructure
                 }
                 $depth = $quoteDepth;
                 $quoteBoundary = rtrim($quote);
+            }
+            if (trim($view) === '') {
+                $out[] = $original;
+                $paragraph = $headingMarker === '' && preg_match('/^(?:(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)?\[[^\]\n]+\]:/', $text) !== 1;
+                $blank = false;
+
+                continue;
             }
             $div = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $visible, $divMatch) === 1;
             $topDiv = $divs === [] ? null : $divs[array_key_last($divs)];

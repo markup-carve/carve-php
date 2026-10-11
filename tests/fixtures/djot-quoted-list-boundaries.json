@@ -422,5 +422,105 @@
   {
     "source": "> >x a `b\n> > c` d\n",
     "carve": "> >x a `<code>b&#10;&#62; c</code>`{=html} d\n"
+  },
+  {
+    "source": "`a\n>\nb`\n",
+    "carve": "`<code>a&#10;&#62;&#10;b</code>`{=html}\n"
+  },
+  {
+    "source": "> `a\n> >\n> b`\n",
+    "carve": "> `<code>a&#10;&#62;&#10;b</code>`{=html}\n"
+  },
+  {
+    "source": "> `a\n>\n> b`\n",
+    "carve": "> `a`\n>\n> b``"
+  },
+  {
+    "source": "> a `b\n>x c` d\n",
+    "carve": "> a `b\n>x c` d\n"
+  },
+  {
+    "source": "a `b\n>x c` d\n",
+    "carve": "a `b\n>x c` d\n"
+  },
+  {
+    "source": "a `b\n> c` d `e\n> f` g\n",
+    "carve": "a `<code>b&#10;&#62; c</code>`{=html} d `<code>e&#10;&#62; f</code>`{=html} g\n"
+  },
+  {
+    "source": "| a \\| b |\n\nx `b\n- c` d\n",
+    "carve": "| a \\| b |\n\nx `<code>b&#10;&#45; c</code>`{=html} d\n"
+  },
+  {
+    "source": "- a `b\n　- c` d\n",
+    "carve": "- a `b\n　- c` d\n"
+  },
+  {
+    "source": "- a `b\n>\nc` d\n",
+    "carve": "- a `b`\n>\nc` d`"
+  },
+  {
+    "source": "> - a `b\n> >\n> c` d\n",
+    "carve": "> - a `b`\n> >\n> c` d`"
+  },
+  {
+    "source": "- [ ] > a `b\n  >\nc` d\n",
+    "carve": "- [ ] > a `b`\n  >\n\nc` d`"
+  },
+  {
+    "source": "> - [ ] > a `b\n>   >\n> c` d\n",
+    "carve": "> - [ ] > a `b`\n>   >\n>\n> c` d`"
+  },
+  {
+    "source": "> a\ntext `b\n>\nc` d\n",
+    "carve": "> a\ntext `b`\n>\nc` d`"
+  },
+  {
+    "source": "- > a\n  text `b\n  >\nc` d\n",
+    "carve": "- > a\n  text `b`\n  >\n\nc` d`"
+  },
+  {
+    "source": "> > - > a `b\n> - c` d\n",
+    "carve": "> > - > a `b`\n>\n> - c` d`"
+  },
+  {
+    "source": "[^n> x]: a `b\n  >\n> c` d\n",
+    "carve": "[^carve-djot-note-0]: a `<code>b&#10;&#62;</code>`{=html}\n\n> c` d`"
+  },
+  {
+    "source": "a `b\n> \nc` d\n",
+    "carve": "a `<code>b&#10;&#62; &#10;c</code>`{=html} d\n"
+  },
+  {
+    "source": "> a `b\n> > \n> c` d\n",
+    "carve": "> a `<code>b&#10;&#62; &#10;c</code>`{=html} d\n"
+  },
+  {
+    "source": "> a `b\n  > c` d\n",
+    "carve": "> a `b\nc` d\n"
+  },
+  {
+    "source": "> > a `b\n>   > c` d\n",
+    "carve": "> > a `b\nc` d\n"
+  },
+  {
+    "source": "- a\n\n  - c\n  ```\n  x\n  ```\n\n- d\n",
+    "carve": "- a\n\n  - c\n  ```\n  x\n  ```\n\n- d\n"
+  },
+  {
+    "source": "- a `b\n> c` d `e\n> f` g\n",
+    "carve": "- a `b`\n\n> c`  d  `e\n> f` g`"
+  },
+  {
+    "source": "> - a `b\n> > c` d `e\n> > f` g\n",
+    "carve": "> - a `b`\n>\n> > c`  d  `e\n> > f` g`"
+  },
+  {
+    "source": "- > a `b\n  >\nc` d\n",
+    "carve": "- > a `b`\n  >\n\nc` d`"
+  },
+  {
+    "source": "> - > a `b\n>   >\n> c` d\n",
+    "carve": "> - > a `b`\n>   >\n>\n> c` d`"
   }
 ]
