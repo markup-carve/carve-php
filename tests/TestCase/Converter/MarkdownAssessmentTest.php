@@ -83,4 +83,31 @@ final class MarkdownAssessmentTest extends TestCase
         self::assertFalse((new MarkdownAssessment())->assess('**strong**', 'wrong')['complete']);
         self::assertFalse((new MarkdownAssessment())->assess('a  b', 'a b')['complete']);
     }
+
+    public function testUnsupportedGfmProtocolLinksRemainUnassessed(): void
+    {
+        foreach (['ftp://example.test', 'FTP://example.test', 'Ftp://example.test', 'HTTP://example.test', 'HTTPS://example.test', 'see ftp://example.test/a', 'ftp://x'] as $source) {
+            $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
+            $fallback = array_values(array_filter($rows, static fn ($row): bool => $row->code === 'fidelity-unverified'));
+            self::assertNotEmpty($fallback, $source);
+            self::assertSame('dropped', $fallback[0]->fidelity);
+            self::assertSame('fallback', $fallback[0]->confidence);
+        }
+    }
+
+    public function testGfmProtocolTextInsideCodeRemainsPreserved(): void
+    {
+        foreach (['`ftp://example.test`', "```\nftp://example.test\n```"] as $source) {
+            $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
+            self::assertNotContains('fidelity-unverified', array_column($rows, 'code'), $source);
+        }
+    }
+
+    public function testNonGfmProtocolsAndExistingLinkLabelsRemainPreserved(): void
+    {
+        foreach (['sftp://example.test', 'tftp://example.test', 'fooftp://example.test', '[ftp://example.test](https://target.test)', '[https://example.test](https://target.test)'] as $source) {
+            $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
+            self::assertNotContains('fidelity-unverified', array_column($rows, 'code'), $source);
+        }
+    }
 }
