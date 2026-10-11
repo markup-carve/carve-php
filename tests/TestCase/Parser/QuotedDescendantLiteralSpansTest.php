@@ -17,7 +17,7 @@ class QuotedDescendantLiteralSpansTest extends TestCase
             true,
             flags: JSON_THROW_ON_ERROR,
         );
-        $this->assertCount(44, $rows);
+        $this->assertCount(48, $rows);
         $converter = new CarveConverter();
         foreach ($rows as $row) {
             $actual = preg_replace('/>\s+</', '><', $converter->convert($row['source']));

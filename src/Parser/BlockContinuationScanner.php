@@ -1430,7 +1430,7 @@ final class BlockContinuationScanner
         if (($this->getFencedBlockParser)()::class !== FencedBlockParser::class) {
             for ($i = $index + 1; $i < $end; $i++) {
                 $at = IndentationHelper::getLeadingColumns($lines[$i], max($column, $base) + 1);
-                if (($at === $column || $at === $base) && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
+                if ($at === $column && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
                     return true;
                 }
             }
@@ -1438,8 +1438,7 @@ final class BlockContinuationScanner
             return false;
         }
 
-        return $frame->literalSourceFenceView->contains($index + 1, $end, $column, $char, $opener['length'])
-            || $frame->literalSourceFenceView->contains($index + 1, $end, $base, $char, $opener['length']);
+        return $frame->literalSourceFenceView->contains($index + 1, $end, $column, $char, $opener['length']);
     }
 
     /**
@@ -1983,8 +1982,7 @@ final class BlockContinuationScanner
             // the matching closer is seen. The closer itself is still part of
             // the code block, so the trailing block remains code.
             if (
-                (IndentationHelper::getLeadingColumns($line) === $state->fence->column
-                    || ($state->literalDiv && IndentationHelper::getLeadingColumns($line) === $state->fence->hostColumn))
+                IndentationHelper::getLeadingColumns($line) === $state->fence->column
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->fence->char, $state->fence->length)
             ) {
                 $state->fence = null;
