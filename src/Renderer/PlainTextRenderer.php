@@ -303,7 +303,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         $this->emittedAbbreviationExpansions = [];
         $this->deferredAbbreviationDefinitions = [];
         $this->abbreviationDefinitionSentinel = ConsumedAbbreviationDefinitions::hasDefinitionNodes($document)
-            ? DocumentSentinels::pick(
+            ? DocumentSentinels::pickTokens(
                 DocumentSentinels::collectStrings($document),
                 1,
                 self::ABBREVIATION_SENTINEL_FIRST,
