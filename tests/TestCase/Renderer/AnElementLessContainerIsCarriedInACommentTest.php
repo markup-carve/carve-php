@@ -441,7 +441,7 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
                 "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ A *strong* caption\n",
                 "<!-- carve: ::: figure -->\n<!-- carve: :::: panel -->\n![a](x.png)\n\n"
                 . "<!-- carve: :::: -->\n<!-- carve: ::: -->\n<!-- carve: ^ A *strong* caption -->\n"
-                . "**A **strong** caption**\n",
+                . "**A <strong>strong</strong> caption**\n",
                 "::: figure\n:::: panel\n![a](x.png)\n::::\n:::\n^ A *strong* caption\n",
             ],
         ];
