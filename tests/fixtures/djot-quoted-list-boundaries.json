@@ -1,0 +1,202 @@
+[
+  {
+    "source": "- > a\n  - x\n",
+    "carve": "- > a\n  >\n  - x\n"
+  },
+  {
+    "source": "> - > a\n>   - x\n",
+    "carve": "> - > a\n>   >\n>   - x\n"
+  },
+  {
+    "source": "> > - > a\n> >   - x\n",
+    "carve": "> > - > a\n> >   >\n> >   - x\n"
+  },
+  {
+    "source": "- > a\n- x\n",
+    "carve": "- > a\n  >\n- x\n"
+  },
+  {
+    "source": "> - > a\n> - x\n",
+    "carve": "> - > a\n>   >\n> - x\n"
+  },
+  {
+    "source": "> > - > a\n> > - x\n",
+    "carve": "> > - > a\n> >   >\n> > - x\n"
+  },
+  {
+    "source": "- > > a\n  - x\n",
+    "carve": "- > > a\n  > >\n  - x\n"
+  },
+  {
+    "source": "> - > > a\n>   - x\n",
+    "carve": "> - > > a\n>   > >\n>   - x\n"
+  },
+  {
+    "source": "> > - > > a\n> >   - x\n",
+    "carve": "> > - > > a\n> >   > >\n> >   - x\n"
+  },
+  {
+    "source": "- > a\n  lazy\n  - x\n",
+    "carve": "- > a\n  lazy\n  >\n  - x\n"
+  },
+  {
+    "source": "> - > a\n>   lazy\n>   - x\n",
+    "carve": "> - > a\n>   lazy\n>   >\n>   - x\n"
+  },
+  {
+    "source": "> > - > a\n> >   lazy\n> >   - x\n",
+    "carve": "> > - > a\n> >   lazy\n> >   >\n> >   - x\n"
+  },
+  {
+    "source": "- > a\n  >\n  - x\n",
+    "carve": "- > a\n  >\n  - x\n"
+  },
+  {
+    "source": "> - > a\n>   >\n>   - x\n",
+    "carve": "> - > a\n>   >\n>   - x\n"
+  },
+  {
+    "source": "> > - > a\n> >   >\n> >   - x\n",
+    "carve": "> > - > a\n> >   >\n> >   - x\n"
+  },
+  {
+    "source": "- > a\n\n  - x\n",
+    "carve": "- > a\n\n  - x\n"
+  },
+  {
+    "source": "> - > a\n> \n>   - x\n",
+    "carve": "> - > a\n> \n>   - x\n"
+  },
+  {
+    "source": "> > - > a\n> > \n> >   - x\n",
+    "carve": "> > - > a\n> > \n> >   - x\n"
+  },
+  {
+    "source": "- a\n\n  > q\n  - x\n",
+    "carve": "- a\n\n  > q\n  >\n  - x\n"
+  },
+  {
+    "source": "> - a\n> \n>   > q\n>   - x\n",
+    "carve": "> - a\n> \n>   > q\n>   >\n>   - x\n"
+  },
+  {
+    "source": "> > - a\n> > \n> >   > q\n> >   - x\n",
+    "carve": "> > - a\n> > \n> >   > q\n> >   >\n> >   - x\n"
+  },
+  {
+    "source": "- > a\n  - x\n  - y\n- z\n",
+    "carve": "- > a\n  >\n  - x\n  - y\n- z\n"
+  },
+  {
+    "source": "> - > a\n>   - x\n>   - y\n> - z\n",
+    "carve": "> - > a\n>   >\n>   - x\n>   - y\n> - z\n"
+  },
+  {
+    "source": "> > - > a\n> >   - x\n> >   - y\n> > - z\n",
+    "carve": "> > - > a\n> >   >\n> >   - x\n> >   - y\n> > - z\n"
+  },
+  {
+    "source": "- > a\n  1. x\n",
+    "carve": "- > a\n  >\n  1. x\n"
+  },
+  {
+    "source": "> - > a\n>   1. x\n",
+    "carve": "> - > a\n>   >\n>   1. x\n"
+  },
+  {
+    "source": "> > - > a\n> >   1. x\n",
+    "carve": "> > - > a\n> >   >\n> >   1. x\n"
+  },
+  {
+    "source": "1. > a\n   - x\n",
+    "carve": "1. > a\n   >\n   - x\n"
+  },
+  {
+    "source": "> 1. > a\n>    - x\n",
+    "carve": "> 1. > a\n>    >\n>    - x\n"
+  },
+  {
+    "source": "> > 1. > a\n> >    - x\n",
+    "carve": "> > 1. > a\n> >    >\n> >    - x\n"
+  },
+  {
+    "source": "> a\n- x\n",
+    "carve": "> a\n>\n- x\n"
+  },
+  {
+    "source": "> > a\n> - x\n",
+    "carve": "> > a\n> >\n> - x\n"
+  },
+  {
+    "source": "> > > a\n> > - x\n",
+    "carve": "> > > a\n> > >\n> > - x\n"
+  },
+  {
+    "source": "> - a\n- x\n",
+    "carve": "> - a\n>\n- x\n"
+  },
+  {
+    "source": "> > - a\n> - x\n",
+    "carve": "> > - a\n> >\n> - x\n"
+  },
+  {
+    "source": "> > > - a\n> > - x\n",
+    "carve": "> > > - a\n> > >\n> > - x\n"
+  },
+  {
+    "source": "- > - a\n  - x\n",
+    "carve": "- > - a\n  >\n  - x\n"
+  },
+  {
+    "source": "> - > - a\n>   - x\n",
+    "carve": "> - > - a\n>   >\n>   - x\n"
+  },
+  {
+    "source": "> > - > - a\n> >   - x\n",
+    "carve": "> > - > - a\n> >   >\n> >   - x\n"
+  },
+  {
+    "source": "- > a\n  > - y\n  - x\n",
+    "carve": "- > a\n  > - y\n  >\n  - x\n"
+  },
+  {
+    "source": "> - > a\n>   > - y\n>   - x\n",
+    "carve": "> - > a\n>   > - y\n>   >\n>   - x\n"
+  },
+  {
+    "source": "> > - > a\n> >   > - y\n> >   - x\n",
+    "carve": "> > - > a\n> >   > - y\n> >   >\n> >   - x\n"
+  },
+  {
+    "source": "a\n> q\n- x\n",
+    "carve": "a\n\\> q\n\\- x\n"
+  },
+  {
+    "source": "- a\n  > q\n  - x\n",
+    "carve": "- a\n  \\> q\n  \\- x\n"
+  },
+  {
+    "source": "```\n> q\n```\n- x\n",
+    "carve": "```\n> q\n```\n- x\n"
+  },
+  {
+    "source": "```\n- > a\n  - x\n```\n",
+    "carve": "```\n- > a\n  - x\n```\n"
+  },
+  {
+    "source": "- > a\n  - \u00e9l\u00e8ve\n",
+    "carve": "- > a\n  >\n  - \u00e9l\u00e8ve\n"
+  },
+  {
+    "source": "- > a\n  - [x] done\n",
+    "carve": "- > a\n  >\n  - [x] done\n"
+  },
+  {
+    "source": "- > a\n\ntext\n- x\n",
+    "carve": "- > a\n\ntext\n\\- x\n"
+  },
+  {
+    "source": "- > a\n\n  text\n  - x\n",
+    "carve": "- > a\n\n  text\n  \\- x\n"
+  }
+]

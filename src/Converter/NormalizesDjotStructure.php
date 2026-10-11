@@ -101,20 +101,33 @@ trait NormalizesDjotStructure
 
                 continue;
             }
-            $blockIndent = $quoteDepth > $depth ? strspn($original, " \t") : $indent;
+            $blockAt = 0;
+            if ($quoteDepth > $depth) {
+                for ($level = 0; $level < $depth; $level++) {
+                    $blockAt += strspn($original, " \t", $blockAt) + 1;
+                    if (($original[$blockAt] ?? '') === ' ') {
+                        $blockAt++;
+                    }
+                }
+            }
+            $blockIndent = $quoteDepth > $depth ? strspn($original, " \t", $blockAt) : $indent;
             $blockStart = $quoteDepth > $depth || $rows[$n] || $fences[$n] !== $original
                 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\|)/', $visible) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
             if ($quoteDepth < $depth && ($blockStart || $item || $this->rejectedDjotCommentStartsBlock($visible))) {
+                while ($lists !== [] && $lists[array_key_last($lists)]->depth > $quoteDepth) {
+                    array_pop($lists);
+                }
                 if ($item && !$blank) {
-                    $out[] = rtrim($quote);
+                    $owner = $lists === [] ? null : $lists[array_key_last($lists)];
+                    $column = $owner !== null ? $owner->target + $owner->content : 0;
+                    $out[] = rtrim($quote . str_repeat(' ', $column) . str_repeat('> ', $depth - $quoteDepth));
                 } elseif ($this->rejectedDjotCommentStartsBlock($visible) && !$blank) {
                     $out[] = rtrim($quote);
                 }
                 $paragraph = false;
                 $headingMarker = '';
-                $lists = [];
                 $depth = $quoteDepth;
             }
             while ($divs !== [] && isset($divs[array_key_last($divs)]['itemColumn'])) {
@@ -152,6 +165,7 @@ trait NormalizesDjotStructure
             }
             $top = $lists === [] ? null : $lists[array_key_last($lists)];
             if ($quoteDepth > $depth && $top !== null && $blockIndent >= $top->column + $top->content && !$paragraph) {
+                $depth = $quoteDepth;
                 $out[] = $original;
                 $blank = false;
 
@@ -205,8 +219,13 @@ trait NormalizesDjotStructure
 
                 continue;
             }
-            if ($quoteDepth !== $depth && !$paragraph) {
+            if ($quoteDepth > $depth && !$paragraph) {
                 $lists = [];
+                $depth = $quoteDepth;
+            } elseif ($quoteDepth < $depth && !$paragraph && $blank) {
+                while ($lists !== [] && $lists[array_key_last($lists)]->depth > $quoteDepth) {
+                    array_pop($lists);
+                }
                 $depth = $quoteDepth;
             }
             $div = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $visible, $divMatch) === 1;
@@ -293,6 +312,7 @@ trait NormalizesDjotStructure
                         $kind,
                         $itemMatch[1] === '*' ? '*' : '-',
                         count($out),
+                        $quoteDepth,
                     );
                 } elseif ($kind !== $parent->kind) {
                     if (trim($out !== [] ? $out[array_key_last($out)] : '') !== '') {
