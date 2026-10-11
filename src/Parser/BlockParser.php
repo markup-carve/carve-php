@@ -1402,6 +1402,7 @@ class BlockParser
      */
     protected function resetParseState(): void
     {
+        $this->sourceService?->resetOwnedFenceEnds();
         $this->bindNewSession();
     }
 

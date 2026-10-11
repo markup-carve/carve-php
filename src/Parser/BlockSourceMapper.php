@@ -1281,6 +1281,7 @@ final class BlockSourceMapper
     public function stampBlockSpan(Node $node, int $startLine, int $endLine, ?int $endBytesOnEndLine = null): void
     {
         $ownedEnd = $this->ownedFenceEnd($node);
+        $endLine = max($endLine, $ownedEnd ?? $endLine);
         if ($node->getPos() !== null) {
             return;
         }
@@ -1317,6 +1318,11 @@ final class BlockSourceMapper
         ));
     }
 
+    public function resetOwnedFenceEnds(): void
+    {
+        $this->ownedFenceEnds = new WeakMap();
+    }
+
     /**
      * The collector owns this final blank line even when it contributes no LF.
      * Keep that geometry internal; the literal payload cannot encode its prefix.
@@ -1330,6 +1336,10 @@ final class BlockSourceMapper
 
     private function ownedFenceEnd(Node $node): ?int
     {
+        if (count($this->ownedFenceEnds) === 0) {
+            return null;
+        }
+
         $endLine = $this->ownedFenceEnds[$node] ?? null;
         if ($endLine === null) {
             $children = $node->getChildren();
@@ -1343,7 +1353,7 @@ final class BlockSourceMapper
         $this->ownedFenceEnds[$node] = $endLine;
         $pos = $node->getPos();
         $end = $this->state->source->lineStartOffsets[$endLine] ?? null;
-        if ($pos !== null && $end !== null && $pos->endLine < $endLine + 1) {
+        if ($pos !== null && $end !== null) {
             $ending = $this->state->source->positionIndex?->span(
                 $end,
                 $end + strlen($this->state->source->sourceLines[$endLine] ?? ''),
@@ -1352,7 +1362,7 @@ final class BlockSourceMapper
                 $end,
                 $end,
             );
-            if ($ending !== null) {
+            if ($ending !== null && $pos->endOffset < $ending->endOffset) {
                 $node->setPos(new SourceSpan(
                     $pos->startLine,
                     $ending->endLine,
