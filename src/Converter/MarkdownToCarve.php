@@ -6691,7 +6691,7 @@ class MarkdownToCarve
         // Carve has no shortcut reference, so a defined `[r]` is written in the
         // full form, collapsed only where Carve's exact label match still holds.
         if ($this->referenceDefinitionLabels !== [] || $this->complexReferenceTargets !== []) {
-            $referenceUrls = $this->plainMarkdownUrlRanges($line, $protected);
+            $referenceUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
             $referenceUrlAt = 0;
             $subject = $line;
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
@@ -6710,7 +6710,7 @@ class MarkdownToCarve
                     $end = $match[0][1] + strlen($match[0][0]);
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
                         $tail = $protectedSources[(int)$next[1]] ?? '';
-                        if (str_starts_with($tail, '(') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
+                        if (str_starts_with($tail, '(') || str_starts_with($tail, '{title=') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
                             return $match[0][0];
                         }
                     }
@@ -6769,7 +6769,7 @@ class MarkdownToCarve
                     if ($line[$end] === "\0") {
                         if (
                             preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
-                            || preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[(int)$token[1]] ?? '') !== 1
+                            || !$this->isPlainMarkdownUrlToken((int)$token[1], $protected, $protectedSources)
                         ) {
                             break;
                         }
@@ -6872,7 +6872,12 @@ class MarkdownToCarve
                             $start--;
                         }
                         if ($start >= 0 && preg_match('/^\x00P(\d+)\x00$/', substr($htmlSource, $start, $offset - $start), $token)) {
-                            $value = $protected[(int)$token[1]] ?? '';
+                            $index = (int)$token[1];
+                            $value = $protected[$index] ?? '';
+                            while (preg_match('/\x00P(\d+)\x00$/', $value, $nested) === 1 && (int)$nested[1] < $index) {
+                                $index = (int)$nested[1];
+                                $value = $protected[$index] ?? '';
+                            }
                             $before = $value !== '' ? substr($value, -1) : $before;
                         }
                     }
@@ -7903,12 +7908,24 @@ class MarkdownToCarve
     }
 
     /**
+     * @param int $index
+     * @param array<string> $protected
+     * @param array<string> $sources
+     */
+    private function isPlainMarkdownUrlToken(int $index, array $protected, array $sources): bool
+    {
+        return preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[$index] ?? '') === 1
+            || preg_match('/^&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});$/', $sources[$index] ?? '') === 1;
+    }
+
+    /**
      * @param string $line
      * @param array<string> $protected
+     * @param array<string> $protectedSources
      *
      * @return list<array{start: int, end: int}>
      */
-    private function plainMarkdownUrlRanges(string $line, array $protected): array
+    private function plainMarkdownUrlRanges(string $line, array $protected, array $protectedSources): array
     {
         $urlSearch = 0;
         $ranges = [];
@@ -7920,7 +7937,7 @@ class MarkdownToCarve
                 if ($line[$end] === "\0") {
                     if (
                         preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
-                        || preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[(int)$token[1]] ?? '') !== 1
+                        || !$this->isPlainMarkdownUrlToken((int)$token[1], $protected, $protectedSources)
                     ) {
                         break;
                     }

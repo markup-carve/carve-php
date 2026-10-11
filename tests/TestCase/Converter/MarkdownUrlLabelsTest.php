@@ -78,6 +78,42 @@ class MarkdownUrlLabelsTest extends TestCase
         }
     }
 
+    public function testTitledEmptyDestinationsDoNotResolveAnotherReference(): void
+    {
+        foreach (
+            [
+                ["[r](<> \"t\")\n\n[r]: /u\n", "[r]{title=t}\n\n[r]: /u\n"],
+                ["[https://x.test](<> \"t\")\n\n[https://x.test]: /u\n", "[https://x.test]{title=t}\n\n[https://x.test]: /u\n"],
+            ] as [$source, $expected]
+        ) {
+            $migration = (new MarkdownToCarve())->convertWithFidelityReport($source);
+            $this->assertSame($expected, $migration->value);
+            $this->assertNotEmpty(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable' && $row->fidelity === 'dropped'));
+        }
+    }
+
+    public function testEscapedUrlSlashKeepsEmphasisAndReportsTheUrlFidelityGap(): void
+    {
+        $migration = (new MarkdownToCarve())->convertWithFidelityReport("https://x.test/a\\/<em>b</em>\n");
+        $this->assertSame("https://x.test/a\\/{/b/}\n", $migration->value);
+        $this->assertNotEmpty(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'fidelity-unverified' && $row->confidence === 'fallback'));
+    }
+
+    public function testUrlEntitiesPreserveLiteralContentAndReportUnverifiedFidelity(): void
+    {
+        foreach (
+            [
+                ["https://x.test/?a=1&amp;b=_c_\n", "https://x.test/?a=1&b=_c_\n"],
+                ["https://x.test/?a=1&amp;b=*c*\n", "https://x.test/?a=1&b=*c*\n"],
+                ["https://x.test/?a=1&amp;[r]\n\n[r]: /u\n", "https://x.test/?a=1&[r]\n\n[r]: /u\n"],
+            ] as [$source, $expected]
+        ) {
+            $migration = (new MarkdownToCarve())->convertWithFidelityReport($source);
+            $this->assertSame($expected, $migration->value);
+            $this->assertNotEmpty(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'fidelity-unverified' && $row->confidence === 'fallback'));
+        }
+    }
+
     private function htmlTree(string $html): array
     {
         $dom = new DOMDocument();
@@ -95,7 +131,10 @@ class MarkdownUrlLabelsTest extends TestCase
     private function domTree(?DOMNode $node, bool $literal = false): array
     {
         if ($node instanceof DOMText) {
-            return !$literal && trim($node->data) === '' ? [] : ['text' => $literal ? $node->data : preg_replace('/[\t\n\r\f ]+/', ' ', $node->data)];
+            $parent = $node->parentNode;
+            $container = $parent instanceof DOMElement && in_array($parent->tagName, ['body', 'blockquote', 'ul', 'ol', 'dl', 'table', 'thead', 'tbody', 'tfoot', 'tr'], true);
+
+            return !$literal && $container && trim($node->data) === '' ? [] : ['text' => $literal ? $node->data : preg_replace('/[\t\n\r\f ]+/', ' ', $node->data)];
         }
         if (!$node instanceof DOMElement) {
             return [];
