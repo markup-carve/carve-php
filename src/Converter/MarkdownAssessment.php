@@ -92,7 +92,7 @@ final class MarkdownAssessment
         return preg_match($anchored, $text, $matches, 0, $offset) === 1;
     }
 
-    private function inline(string $text, int $line): string
+    private function inline(string $text, int $line, bool $linkLabel = false): string
     {
         $result = '';
         $m = [];
@@ -124,12 +124,12 @@ final class MarkdownAssessment
                 }
                 $this->emit($m[1] === '!' ? 'image' : 'link', $line);
                 $title = isset($m[4]) ? ' title="' . self::escape($m[4]) . '"' : '';
-                $result .= $m[1] === '!' ? '<img src="' . self::escape($m[3]) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($m[3]) . '"' . $title . '>' . $this->inline($m[2], $line) . '</a>';
+                $result .= $m[1] === '!' ? '<img src="' . self::escape($m[3]) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($m[3]) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
             } elseif (self::match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $text, $i, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
                 $definition = $this->definitions[self::label(($m[3] ?? '') ?: $m[2])];
                 $this->emit('reference-link', $line, 'normalized');
                 $title = $definition['title'] === null ? '' : ' title="' . self::escape($definition['title']) . '"';
-                $result .= $m[1] === '!' ? '<img src="' . self::escape($definition['destination']) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($definition['destination']) . '"' . $title . '>' . $this->inline($m[2], $line) . '</a>';
+                $result .= $m[1] === '!' ? '<img src="' . self::escape($definition['destination']) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($definition['destination']) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
             } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
@@ -141,7 +141,7 @@ final class MarkdownAssessment
                 $kind = $m[1] === '~~' ? 'strikethrough' : (strlen($m[1]) === 2 ? 'strong' : 'emphasis');
                 $this->emit($kind, $line);
                 $tag = $kind === 'strong' ? 'strong' : ($kind === 'emphasis' ? 'em' : 's');
-                $result .= '<' . $tag . '>' . $this->inline($m[2], $line) . '</' . $tag . '>';
+                $result .= '<' . $tag . '>' . $this->inline($m[2], $line, $linkLabel) . '</' . $tag . '>';
             } elseif (self::match('/^(?: {2,}|\\\\)\n/', $text, $i, $m)) {
                 $this->emit('hard-break', $line, 'normalized');
                 $result .= "<br>\n";
@@ -156,7 +156,7 @@ final class MarkdownAssessment
                 $this->emit('raw-html', $line, 'degraded', 'raw-preserved');
                 $result .= $m[0];
             } else {
-                if (str_contains('*_`[\\<', $text[$i]) || self::match('~^(?:\~\~|(?i:https?|ftp)://|www\.)~', $text, $i, $m) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
+                if (str_contains('*_`[\\<', $text[$i]) || self::match('~^(?:\~\~|www\.)~', $text, $i, $m) || (!$linkLabel && ($i === 0 || !preg_match('/[A-Za-z]/', $text[$i - 1])) && self::match('~^(?i:https?|ftp)://~', $text, $i, $m)) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
                     $this->complete = false;
 
                     return $result . self::escape(substr($text, $i));
@@ -169,7 +169,7 @@ final class MarkdownAssessment
                     if ($next === "\n") {
                         $m[0] = preg_replace('/ {2,}$/', '', $m[0]) ?? $m[0];
                     }
-                    if ($m[0] === '' || preg_match('~(?i:https?|ftp)://|www\.|[\w.+-]+@[\w.-]+\.[A-Za-z]~', $m[0])) {
+                    if ($m[0] === '' || preg_match('~www\.|[\w.+-]+@[\w.-]+\.[A-Za-z]~', $m[0]) || (!$linkLabel && preg_match('~(?<![A-Za-z])(?i:https?|ftp)://~', $m[0]))) {
                         $this->complete = false;
 
                         return $result . self::escape(substr($text, $i));

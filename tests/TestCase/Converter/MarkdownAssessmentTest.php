@@ -102,4 +102,12 @@ final class MarkdownAssessmentTest extends TestCase
             self::assertNotContains('fidelity-unverified', array_column($rows, 'code'), $source);
         }
     }
+
+    public function testNonGfmProtocolsAndExistingLinkLabelsRemainPreserved(): void
+    {
+        foreach (['sftp://example.test', 'tftp://example.test', 'fooftp://example.test', '[ftp://example.test](https://target.test)', '[https://example.test](https://target.test)'] as $source) {
+            $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
+            self::assertNotContains('fidelity-unverified', array_column($rows, 'code'), $source);
+        }
+    }
 }
