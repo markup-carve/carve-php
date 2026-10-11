@@ -1695,6 +1695,28 @@ final class BlockContinuationScanner
         bool $atContentColumn,
     ): TrailingBlockState {
         $state = clone $state;
+        if ($state->nestedDiv !== null) {
+            $column = IndentationHelper::getLeadingColumns($line);
+            $text = ltrim($line, " \t");
+            if ($column >= $state->nestedDivColumn || $text === '') {
+                $local = IndentationHelper::stripLeadingColumns($line, $state->nestedDivColumn);
+                $state->nestedDiv = $this->advanceTrailingState($state->nestedDiv, $local, true);
+                $state->openParagraph = $state->nestedDiv->openParagraph;
+                $state->nestedDivBody = $state->nestedDivBody || $text !== '';
+                if (!$state->nestedDiv->inDiv && $state->nestedDiv->divDepth === 0) {
+                    $state->nestedDiv = null;
+                }
+
+                return $state;
+            }
+            if (
+                $state->nestedDivBody && $state->openParagraph
+                && (($this->getListParser)()->parseListItemMarker($text) !== null || !$this->startsNewBlock($text))
+            ) {
+                return $state;
+            }
+            $state->nestedDiv = null;
+        }
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Clearing it here and re-arming it only
         // in the two branches that continue the same paragraph is what keeps a
@@ -2246,7 +2268,15 @@ final class BlockContinuationScanner
             // and moved `b` out of the item. carve-js and carve-rs both leave
             // an unfinished opener as prose here, and so does the fallback
             // below, so this falls through to it.
-            if ($inner->fence === null && !$inner->inDiv && !$inner->absorbingFence) {
+            if ($inner->inDiv && $inner->fence === null) {
+                $state->nestedDiv = $inner;
+                $state->nestedDivColumn = $contentOffset - $at;
+                $state->nestedDivBody = false;
+                $state->openParagraph = true;
+
+                return $state;
+            }
+            if ($inner->fence === null && !$inner->absorbingFence) {
                 $state->openParagraph = $inner->openParagraph;
                 // THE FIRST MARKER'S COLUMN, not the walk's innermost. `- - a`
                 // opens two containers, and the shallower one is already deeper

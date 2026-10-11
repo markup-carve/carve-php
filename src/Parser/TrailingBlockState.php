@@ -36,6 +36,9 @@ final class TrailingBlockState
         public bool $quotedTable = false,
         public bool $quoteParagraph = false,
         public int $nestedColumn = 0,
+        public ?self $nestedDiv = null,
+        public int $nestedDivColumn = 0,
+        public bool $nestedDivBody = false,
         // Is the container `nestedColumn` names a QUOTE rather than a list? The
         // two are not interchangeable to a dedented line: a description body
         // keeps the line for an open nested LIST and ends on an open nested

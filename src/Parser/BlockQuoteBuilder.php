@@ -375,14 +375,14 @@ final class BlockQuoteBuilder
             return false;
         }
         $paragraph = $state['paragraphOpen'];
+        $leftOfOutermost = $host['markers'] !== [] && $column < min($host['markers']);
         $lazyMarker = false;
-        if (
-            $paragraph && $host['markers'] !== [] && $column > min($host['markers'])
-            && ($this->getListParser)()->parseListItemMarker($text) !== null && !in_array($column, $host['markers'], true)
-        ) {
-            foreach (array_slice($host['columns'], 0, -1) as $ancestorColumn) {
-                $lazyMarker = $lazyMarker || $column < $ancestorColumn;
+        if ($paragraph && !$leftOfOutermost && ($this->getListParser)()->parseListItemMarker($text) !== null) {
+            $structuralMarker = false;
+            foreach ($host['markers'] as $i => $markerColumn) {
+                $structuralMarker = $structuralMarker || ($column <= $markerColumn && $column >= $host['columns'][$i]);
             }
+            $lazyMarker = !$structuralMarker && $column < $host['columns'][array_key_last($host['columns'])];
         }
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
@@ -435,7 +435,7 @@ final class BlockQuoteBuilder
         while (true) {
             $marker = $lazyMarker ? null : ($this->getListParser)()->parseListItemMarker($inner);
             if ($marker !== null) {
-                if ($paragraph && !$insideItem && !$sibling) {
+                if ($paragraph && !$insideItem && !$sibling && !$leftOfOutermost) {
                     break;
                 }
                 $host['markers'][] = $at;
