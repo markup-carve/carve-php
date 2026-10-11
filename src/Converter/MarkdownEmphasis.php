@@ -289,10 +289,11 @@ final class MarkdownEmphasis
     }
 
     /**
+     * @internal
+     *
      * @param string $source
      * @param array<string> $protectedSpans
      *
-     * @internal
      * @return list<array{start: int, end: int}>
      */
     public static function linkLabelRanges(string $source, array $protectedSpans): array

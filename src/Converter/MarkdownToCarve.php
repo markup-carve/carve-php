@@ -6691,11 +6691,21 @@ class MarkdownToCarve
         // Carve has no shortcut reference, so a defined `[r]` is written in the
         // full form, collapsed only where Carve's exact label match still holds.
         if ($this->referenceDefinitionLabels !== [] || $this->complexReferenceTargets !== []) {
+            $referenceUrls = $this->plainMarkdownUrlRanges($line, $protected);
+            $referenceUrlAt = 0;
             $subject = $line;
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table): string {
+                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table, $referenceUrls, &$referenceUrlAt): string {
+                    $offset = $match[0][1];
+                    while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
+                        $referenceUrlAt++;
+                    }
+                    $url = $referenceUrls[$referenceUrlAt] ?? null;
+                    if ($url !== null && $offset >= $url['start'] && $offset < $url['end']) {
+                        return $match[0][0];
+                    }
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]]) && $this->htmlTagAt($this->referenceSourceText($next[0], $protectedSources), 0) === null) {
@@ -7873,17 +7883,60 @@ class MarkdownToCarve
     }
 
     /**
+     * @param string $line
+     * @param array<string> $protected
+     *
+     * @return list<array{start: int, end: int}>
+     */
+    private function plainMarkdownUrlRanges(string $line, array $protected): array
+    {
+        $urlSearch = 0;
+        $ranges = [];
+        while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
+            $offset = $start[0][1];
+            $end = $offset + strlen($start[0][0]);
+            $length = strlen($line);
+            while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
+                if ($line[$end] === "\0") {
+                    if (
+                        preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
+                        || preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[(int)$token[1]] ?? '') !== 1
+                    ) {
+                        break;
+                    }
+                    $end += strlen($token[0]);
+                } else {
+                    $end++;
+                }
+            }
+            $ranges[] = ['start' => $offset, 'end' => $end];
+            $urlSearch = $end;
+        }
+
+        return $ranges;
+    }
+
+    /**
      * @param string $source
      * @param array<string> $protected
      */
     private function escapeLinkLabelSlashes(string $source, array $protected): string
     {
         $ranges = MarkdownEmphasis::linkLabelRanges($source, $protected);
-        $ranges = array_values(array_filter($ranges, static function (array $range) use ($source, $protected): bool {
+        $outermost = [];
+        $previousEnd = 0;
+        foreach ($ranges as $range) {
+            if ($range['start'] < $previousEnd) {
+                continue;
+            }
+            $outermost[] = $range;
+            $previousEnd = $range['end'];
+        }
+        $ranges = array_values(array_filter($outermost, static function (array $range) use ($source, $protected): bool {
             $label = substr($source, $range['start'], $range['end'] - $range['start']);
             $converted = MarkdownEmphasis::convert($label, protectedSpans: $protected);
 
-            return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(?:em|i)(?:\s|>)/i', $label) === 1;
+            return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(em|i)>[^<]+<\/\1>/i', $label) === 1;
         }));
         $rangeAt = 0;
         $out = '';

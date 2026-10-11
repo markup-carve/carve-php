@@ -31,6 +31,10 @@ class MarkdownUrlLabelsTest extends TestCase
         $source = (new MarkdownToCarve())->convert($control['source']);
         $migration = (new MarkdownToCarve())->convertWithFidelityReport($control['source']);
         $this->assertSame($source, $migration->value);
+        $this->assertNotSame([], $migration->diagnostics);
+        if (array_filter($migration->diagnostics, static fn ($row): bool => $row->confidence !== 'exact') !== []) {
+            $this->assertContains('fidelity-unverified', array_map(static fn ($row): string => $row->code, $migration->diagnostics));
+        }
         foreach ($migration->diagnostics as $diagnostic) {
             $this->assertFalse($diagnostic->confidence === 'exact' && $diagnostic->fidelity === 'dropped');
             if ($diagnostic->code === 'fidelity-unverified') {
@@ -48,7 +52,7 @@ class MarkdownUrlLabelsTest extends TestCase
 
     public function testLiteralPathSpellingIsUnchanged(): void
     {
-        foreach (["[a/b](x)\n", "[src/index.ts](x)\n", "[https://e.test](https://e.test)\n", "see https://x.test/a\\_b/_c_\n"] as $source) {
+        foreach (["https://x.test/[r]\n\n[r]: /u\n", "https://x.test/a\\_b/[r]\n\n[r]: /u\n", "[a/b](x)\n", "[src/index.ts](x)\n", "[https://e.test](https://e.test)\n", "see https://x.test/a\\_b/_c_\n"] as $source) {
             $this->assertSame($source, (new MarkdownToCarve())->convert($source));
         }
     }
