@@ -15,7 +15,7 @@ trait NormalizesDjotStructure
 {
     private function hasDjotCodeLayoutCandidates(string $source): bool
     {
-        return str_contains($source, '\\|') || (str_contains($source, '`') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]*\[\^[^\]\n]+\]:/', $source) === 1) || (str_contains($source, '`') && preg_match('/(?:^|\n)[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+(?:\[[ xX]\][ \t]+)?|\[\^[^\]\n]+\]:[ \t]*)*>/', $source) === 1)
+        return str_contains($source, '\\|') || (str_contains($source, '`') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]*\[\^[^\]\n]+\]:/', $source) === 1) || (str_contains($source, '`') && preg_match('/(?:^|\n)[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]+)[.)]|\((?:[0-9]+|[A-Za-z]+)\))[ \t]+(?:\[[ xX]\][ \t]+)?|\[\^[^\]\n]+\]:[ \t]*)*>/', $source) === 1)
             || (str_contains($source, '```') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]+`{3,}/', $source) === 1);
     }
 
@@ -44,9 +44,9 @@ trait NormalizesDjotStructure
 
     private function normalizeDjotStructure(string $source, ?Closure $isBoundary = null): string
     {
-        $hasDefinitionSyntax = preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]*:[ \t]/', $source) === 1;
         $lines = explode("\n", $source);
         $maskedSource = $this->maskCodeAndDestinations($source);
+        $hasDefinitionSyntax = preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]*:[ \t]/', $maskedSource) === 1;
         $mask = explode("\n", $maskedSource);
         $divClosers = [];
         if (str_contains($source, ':::')) {
@@ -491,6 +491,9 @@ trait NormalizesDjotStructure
                 $depth = $quoteDepth;
                 $quoteBoundary = rtrim($quoteForCarve());
             } elseif ($quoteDepth < $depth && !$paragraph) {
+                if ($blank) {
+                    $out[] = rtrim($quoteForCarve());
+                }
                 while ($lists !== [] && $lists[array_key_last($lists)]->depth > $quoteDepth) {
                     array_pop($lists);
                 }

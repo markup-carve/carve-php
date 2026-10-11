@@ -580,43 +580,81 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $masked = explode("\n", $this->maskCodeAndDestinations($source));
         $block = '/^(?:[#>|{]|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|:[ \t]|:{2,}|\([0-9a-zA-Z]+\)[ \t]|[`~]{3,}|\^[ \t]|\[[^\]\n]*\]:|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$)/';
+        $container = '/\G([ \t]*)(>(?:[ \t]|$)|\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]+|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]+)/';
         $result = [];
         $count = count($lines);
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
-            if (preg_match('/^([ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)?)(#{1,6})(?: +\S|[ \t]*$)/', $line, $heading) !== 1 || ($masked[$i][strlen($heading[1])] ?? '') !== '#') {
+            if (!str_contains($line, '#')) {
                 $result[] = $line;
 
                 continue;
             }
-            $marker = '/^' . $heading[2] . ' +/';
-            $column = strlen($heading[1]);
+            $at = 0;
+            $depth = 0;
+            $column = 0;
+            while (preg_match($container, $line, $token, 0, $at) === 1) {
+                $at += strlen($token[0]);
+                if (str_starts_with($token[2], '>')) {
+                    $depth++;
+                    $column = 0;
+                } elseif (str_starts_with($token[2], '[^')) {
+                    $column = strlen($token[1]) + 2;
+                } else {
+                    $column += strlen($token[0]);
+                    if (str_contains('-*+', $token[2][0]) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $task, 0, $at) === 1) {
+                        $at += strlen($task[0]);
+                    }
+                }
+            }
+            if (preg_match('/\G([ \t]*)(#{1,6})(?:[ \t]+\S|[ \t]*$)/', $line, $heading, 0, $at) !== 1 || ($masked[$i][$at + strlen($heading[1])] ?? '') !== '#') {
+                $result[] = $line;
+
+                continue;
+            }
+            $quoteHeading = $depth > 0 && $column === 0;
+            $firstLine = $quoteHeading ? substr($line, 0, $at) . substr($line, $at + strlen($heading[1])) : $line;
+            if (!$quoteHeading) {
+                $column += strlen($heading[1]);
+            }
+            $marker = '/^' . $heading[2] . '[ \t]+/';
+            $parts = [rtrim($firstLine, " \t")];
+            $tail = $line;
             while ($i + 1 < $count) {
-                if ((strlen($line) - strlen(rtrim($line, '\\'))) % 2 === 1) {
+                if ((strlen($tail) - strlen(rtrim($tail, '\\'))) % 2 === 1) {
                     break;
                 }
-                if ($column > 0 && strspn($lines[$i + 1], " \t") < $column) {
+                if (preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $lines[$i + 1], $quote) !== 1) {
                     break;
                 }
-                $next = ltrim($lines[$i + 1], " \t");
+                if (substr_count($quote[0], '>') !== $depth) {
+                    break;
+                }
+                $remainder = substr($lines[$i + 1], strlen($quote[0]));
+                $indent = strspn($remainder, " \t");
+                if ($indent < $column) {
+                    break;
+                }
+                $next = substr($remainder, $indent);
                 if ($this->rejectedDjotCommentStartsBlock($next)) {
                     break;
                 }
                 if (preg_match($marker, $next) === 1) {
                     $part = preg_replace($marker, '', $next) ?? $next;
-                    if (trim($part) === '') {
+                    if (trim($part, " \t\r\n") === '') {
                         break;
                     }
                 } else {
-                    if (trim($next) === '' || preg_match($block, $next) === 1) {
+                    if (trim($next, " \t\r\n") === '' || preg_match($block, $next) === 1) {
                         break;
                     }
                     $part = $next;
                 }
-                $line = rtrim($line) . ' ' . $part;
+                $parts[] = rtrim($part, " \t");
+                $tail = $part;
                 $i++;
             }
-            $result[] = $line;
+            $result[] = count($parts) === 1 ? $firstLine : implode(' ', $parts);
         }
 
         return implode("\n", $result);
@@ -4530,7 +4568,7 @@ class DjotToCarve
                     $fenceWidth = max($fenceWidth, strlen($run) + 1);
                 }
                 $fence = str_repeat('`', $fenceWidth);
-                $pad = str_starts_with($payload, '`') || str_ends_with($payload, '`') || (str_starts_with($payload, ' ') && str_ends_with($payload, ' ') && trim($payload) !== '') ? ' ' : '';
+                $pad = str_starts_with($payload, '`') || str_ends_with($payload, '`') ? ' ' : '';
                 $escapes = array_merge(array_filter($pending, static fn (int $k): bool => $k > 0 && $source[$k - 1] === ']'), $footnotes);
                 sort($escapes);
                 foreach ($escapes as $escape) {
