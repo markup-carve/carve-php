@@ -3834,11 +3834,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Image => $this->renderImage($node),
             $node instanceof CriticComment => '{#' . $this->escapeCriticText($node->getContent()) . '#}',
             $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
-            $node instanceof Math => $withAttrs($this->renderMath($node)),
+            $node instanceof Math => $withAttrs($this->guardCodeLines($this->renderMath($node), 'math')),
             $node instanceof RawInline => $node->getContent() === ''
                 ? throw new SourceUnspellableException('raw_inline', 'an empty raw inline has no Carve source spelling')
-                : $this->renderCode($node->getContent()) . '{=' . $this->escapeFormat($node->getFormat()) . '}',
-            $node instanceof LiteralInline => $this->renderLiteralInline($node),
+                : $this->guardCodeLines($this->renderCode($node->getContent()), 'raw_inline') . '{=' . $this->escapeFormat($node->getFormat()) . '}',
+            $node instanceof LiteralInline => $this->guardCodeLines($this->renderLiteralInline($node), 'literal_inline'),
             $node instanceof RawText => $node->getContent(),
             $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
             $node instanceof InlineExtension => $withAttrs(':' . $this->escapeIdentifier($node->getExtensionType()) . '[' . $this->renderInlines($node->getChildren()) . ']'),
@@ -4618,11 +4618,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $this->renderCodeWithUnclosed($content, false);
     }
 
-    private function guardCodeLines(string $written): string
+    private function guardCodeLines(string $written, string $nodeType = 'code'): string
     {
         $marker = '/\n(?=>(?: |\n|$)|\[[^\]\n]+\]:[ \t])/';
         if ($this->inTerm && preg_match($marker, $written)) {
-            throw new SourceUnspellableException('code', 'a block marker on a continuation line ends the definition term');
+            throw new SourceUnspellableException($nodeType, 'a block marker on a continuation line ends the definition term');
         }
         if ($this->inLineBlock > 0) {
             return $written;

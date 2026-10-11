@@ -8,7 +8,9 @@ use DOMDocument;
 use DOMElement;
 use DOMNode;
 use DOMText;
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Assert;
@@ -101,6 +103,29 @@ class MultilineInlineCodeTest extends TestCase
         $written = $renderer->render($converter->parse($source));
         $this->assertSame($this->htmlTree($converter->convert($source)), $this->htmlTree($converter->convert($written)));
         $this->assertSame($written, $renderer->render($converter->parse($written)));
+    }
+
+    public function testTermRefusalsIdentifyTheVerbatimNode(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        foreach (['raw_inline', 'literal_inline', 'math'] as $type) {
+            $wire = $codec->encode($converter->parse(":: term\n: body\n"));
+            $node = ['type' => $type, 'content' => "x\n[r]: /url"];
+            if ($type === 'raw_inline') {
+                $node['format'] = 'html';
+            } elseif ($type === 'math') {
+                $node['display'] = false;
+            }
+            $wire['children'][0]['items'][0]['children'] = [$node];
+            try {
+                (new CarveRenderer())->render($codec->decode($wire));
+                $this->fail('Expected a source refusal');
+            } catch (SourceUnspellableException $exception) {
+                $this->assertSame($type, $exception->nodeType);
+                $this->assertSame('a block marker on a continuation line ends the definition term', $exception->reason);
+            }
+        }
     }
 
     public function testConstructedCodeNormalizesLineEndingsAndPreservesItsValue(): void
