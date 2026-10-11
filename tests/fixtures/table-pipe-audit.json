@@ -1340,7 +1340,7 @@
     "name": "pipe-reference-raw-destination-backslash",
     "source": "| [a][q\\|r] |\n|---|\n\n[q|r]: /x\\|y\n",
     "contains": [
-      "href=\"/x%5C%7Cy\">a</a>"
+      "href=\"/x\\|y\">a</a>"
     ],
     "cells": 1,
     "excludes": [

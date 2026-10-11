@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
-use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 
 trait ReportsDjotLosses
 {
@@ -58,7 +61,6 @@ trait ReportsDjotLosses
         $definitions = [];
         $definitionLines = $headingLines = [];
         $tableRows = $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false));
-        $plain = new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer());
         $offsets = [];
         $quoteDepths = [];
         $offset = 0;
@@ -80,13 +82,13 @@ trait ReportsDjotLosses
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:)/', $previousContent) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $previousContent) === 1
                 || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousAt)) === 1);
-            if (preg_match('/^\[([^\[\]\n^]+)\]:[ \t]*(\S*)[ \t]*$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
+            if (preg_match('/^\[(?!\^)([^\[\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
                 $destination = $definition[2];
                 for ($next = $n + 1; $next < $lineCount && $this->djotContentStart($lines[$next]) > $at && preg_match('/^\S+$/', substr($lines[$next], $this->djotContentStart($lines[$next]))) === 1; $next++) {
                     $destination .= substr($lines[$next], $this->djotContentStart($lines[$next]));
                     $definitionLines[$next] = true;
                 }
-                $definitions[$this->djotReferenceKey($definition[1])] = $destination;
+                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = $destination;
                 $definitionLines[$n] = true;
                 $lineEnd = $offsets[$n] + strlen($line);
                 for ($k = $offsets[$n]; $k < $lineEnd; $k++) {
@@ -120,7 +122,7 @@ trait ReportsDjotLosses
                     }
                     $headingLines[$next] = true;
                 }
-                $key = $this->djotReferenceKey(rtrim($plain->convert($this->convert($text)), "\n"));
+                $key = $this->djotReferenceDefinitionKey($this->djotReferenceRenderedLabel($text));
                 $definitions[$key] ??= '#' . $key;
             }
             if (preg_match('/^#{1,6}[ \t]*$/', $contentMask) === 1 && $boundary && !isset($headingLines[$n])) {
@@ -224,9 +226,10 @@ trait ReportsDjotLosses
                 if (($source[$start + 1] ?? '') !== '^' && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
                     $label = substr($source, $at + 2, $referenceEnd - $at - 2);
                     if ($label === '' && $definitions !== []) {
-                        $label = rtrim($plain->convert($this->convert(substr($source, $start + 1, $at - $start - 1))), "\n");
+                        $label = $this->djotReferenceDefinitionKey($this->djotReferenceRenderedLabel(substr($source, $start + 1, $at - $start - 1)));
+                    } else {
+                        $label = $this->djotReferenceKey($label);
                     }
-                    $label = $this->djotReferenceKey($label);
                     if (!array_key_exists($label, $definitions)) {
                         $add($start, $image ? 'An unresolved Djot image reference has no src; Carve cannot spell that image.' : 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
                     } elseif ($definitions[$label] === '') {
@@ -277,7 +280,20 @@ trait ReportsDjotLosses
     {
         $label = preg_replace('/\\\\([ \t!-\/:-@\[-`{-~])/', '$1', $label) ?? $label;
 
-        return trim(preg_replace('/\s+/', ' ', $label) ?? $label);
+        return $this->djotReferenceDefinitionKey($label);
+    }
+
+    private function djotReferenceRenderedLabel(string $label): string
+    {
+        $paragraph = new Paragraph();
+        (new InlineParser(new BlockParser()))->parse($paragraph, $this->convert($label));
+
+        return (new HeadingIdTracker())->getPlainText($paragraph, SmartTypographyMode::Source);
+    }
+
+    private function djotReferenceDefinitionKey(string $label): string
+    {
+        return trim(preg_replace('/[ \t\r\n]+/', ' ', $label) ?? $label);
     }
 
     /**

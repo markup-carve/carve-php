@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
-use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
 trait NormalizesDjotStructure
@@ -1170,16 +1168,29 @@ trait NormalizesDjotStructure
     {
         $mask = $this->maskCodeAndDestinations($source);
         $definitions = [];
+        $definitionLines = [];
+        $sourceRows = str_contains($source, '|') ? $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false)) : [];
         $removed = [];
         $lines = explode("\n", $source);
         $offset = 0;
         foreach ($lines as $n => $line) {
-            if (preg_match('/^\[([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', $line, $definition) === 1 && ($mask[$offset] ?? '') === '[' && ($n === 0 || trim($lines[$n - 1]) === '' || str_starts_with($lines[$n - 1], '{') || preg_match('/^\[[^\]]*\]:/', $lines[$n - 1]) === 1)) {
+            $start = $this->djotContentStart($line);
+            $previous = $lines[$n - 1] ?? '';
+            $previousStart = $this->djotContentStart($previous);
+            $previousContent = trim(substr($previous, $previousStart));
+            $boundary = $previousContent === '' || ($sourceRows[$n - 1] ?? false)
+                || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', substr($line, 0, $start)) === 1
+                || isset($definitionLines[$n - 1])
+                || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previousContent) === 1
+                || ($previousStart > $start && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousStart)) === 1);
+            if (preg_match('/^\[(?!\^)([^\[\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
                 $attrs = [];
                 $attributeParts = [];
                 for ($k = $n - 1; $k >= 0; $k--) {
-                    $parsed = $this->readDjotWordAttributes($lines[$k], 0);
-                    if ($parsed === null || $parsed['end'] !== strlen($lines[$k])) {
+                    $attributeStart = $this->djotContentStart($lines[$k]);
+                    $attributeContent = substr($lines[$k], $attributeStart);
+                    $parsed = $this->readDjotWordAttributes($attributeContent, 0);
+                    if ($parsed === null || $parsed['end'] !== strlen($attributeContent)) {
                         break;
                     }
                     $attributeParts[] = $parsed['parts'];
@@ -1193,7 +1204,8 @@ trait NormalizesDjotStructure
                     }
                 }
                 $attrs = $this->djotReferenceAttributes($attrs);
-                $definitions[$definition[1]] = ['url' => $definition[2], 'attrs' => $attrs];
+                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $definition[2], 'attrs' => $attrs];
+                $definitionLines[$n] = ['key' => $this->djotReferenceDefinitionKey($definition[1]), 'start' => $start, 'labelLength' => strlen($definition[1])];
             }
             $offset += strlen($line) + 1;
         }
@@ -1201,22 +1213,32 @@ trait NormalizesDjotStructure
             return $source;
         }
         foreach ($removed as $n => $unused) {
-            $lines[$n] = '';
+            $start = $this->djotContentStart($lines[$n]);
+            $lines[$n] = $start > 0 ? substr($lines[$n], 0, $start) . '{%%}' : '';
         }
         $source = implode("\n", $lines);
         $mask = $this->maskCodeAndDestinations($source);
-        $inlined = [];
-        $retained = [];
         $matches = [];
         $length = strlen($source);
         $escaped = str_repeat("\0", $length);
         $closers = [];
         $brackets = [];
         $labelClosers = [];
+        $labelBarriers = [];
+        $tablePipes = [];
+        $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false)) : [];
+        $rowIndex = 0;
         $slashes = 0;
         for ($at = 0; $at < $length; $at++) {
             $escaped[$at] = $slashes % 2 === 0 ? "\0" : "\1";
             $slashes = $source[$at] === '\\' ? $slashes + 1 : 0;
+            if (($tableRows[$rowIndex] ?? false) && $source[$at] === '|' && $escaped[$at] === "\0") {
+                $tablePipes[$at] = true;
+                $brackets = [];
+            }
+            if ($source[$at] === "\n") {
+                $rowIndex++;
+            }
             if ($mask[$at] !== $source[$at] || $escaped[$at] !== "\0") {
                 continue;
             }
@@ -1230,12 +1252,17 @@ trait NormalizesDjotStructure
             }
         }
         $next = -1;
+        $nextPipe = -1;
         for ($at = $length - 1; $at >= 0; $at--) {
             if ($source[$at] === ']' && $escaped[$at] === "\0") {
                 $next = $at;
             }
+            if (isset($tablePipes[$at])) {
+                $nextPipe = $at;
+            }
             if (isset($labelClosers[$at])) {
                 $labelClosers[$at] = $next;
+                $labelBarriers[$at] = $nextPipe;
             }
         }
         for ($open = 0; $open < $length; $open++) {
@@ -1244,7 +1271,8 @@ trait NormalizesDjotStructure
                 continue;
             }
             $labelEnd = $labelClosers[$close + 2] ?? -1;
-            if ($labelEnd < 0) {
+            $barrier = $labelBarriers[$close + 2] ?? -1;
+            if ($labelEnd < 0 || ($barrier >= 0 && $barrier < $labelEnd)) {
                 continue;
             }
             $at = $open > 0 && $source[$open - 1] === '!' && $escaped[$open - 1] === "\0" ? $open - 1 : $open;
@@ -1267,6 +1295,38 @@ trait NormalizesDjotStructure
             ];
             $open = $end - 1;
         }
+        $aliases = [];
+        $needsAliases = false;
+        foreach ($definitions as $key => $definition) {
+            if ((str_contains((string)$key, '\\') || str_contains((string)$key, '|'))) {
+                $needsAliases = true;
+
+                break;
+            }
+        }
+        if ($needsAliases) {
+            $occupied = array_fill_keys(array_keys($definitions), true);
+            foreach ($matches as $match) {
+                $label = $match[3][0] === '' ? $match[2][0] : $match[3][0];
+                if ($match[3][0] === '' && (preg_match('/[_*`{~^]/', $label) === 1 || str_contains($label, '\\'))) {
+                    $label = $this->djotReferenceRenderedLabel($label);
+                    $occupied[$this->djotReferenceDefinitionKey($label)] = true;
+                } else {
+                    $occupied[$this->djotReferenceKey($label)] = true;
+                }
+            }
+            $serial = 0;
+            foreach ($definitions as $key => $definition) {
+                if (!(str_contains((string)$key, '\\') || str_contains((string)$key, '|'))) {
+                    continue;
+                }
+                do {
+                    $alias = 'carve-djot-reference-' . ++$serial;
+                } while (isset($occupied[$alias]));
+                $occupied[$alias] = true;
+                $aliases[$key] = $alias;
+            }
+        }
         $tableAt = [];
         $lineOffset = 0;
         $matchIndex = 0;
@@ -1278,7 +1338,7 @@ trait NormalizesDjotStructure
             }
             $lineOffset = $lineEnd + 1;
         }
-        $rewrite = function (array $match) use ($definitions, $mask, $source, $tableAt, &$inlined, &$retained): string {
+        $rewrite = function (array $match) use ($definitions, $aliases, $mask, $source, $tableAt): string {
             [$text, $at] = $match[0];
             if (($mask[$at] ?? '') === ' ' || $this->isDjotEscaped($source, $at)) {
                 return $text;
@@ -1286,16 +1346,17 @@ trait NormalizesDjotStructure
             $label = $match[3][0] === '' ? $match[2][0] : $match[3][0];
             $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
             $formatted = $match[3][0] === '' && preg_match('/[_*`{~^]/', $label) === 1;
-            if ($formatted) {
-                $label = rtrim((new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert($this->convert($label)), "\n");
+            $parsedLabel = $formatted || ($match[3][0] === '' && str_contains($label, '\\'));
+            if ($parsedLabel) {
+                $label = $this->djotReferenceRenderedLabel($label);
             }
-            $key = preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $label) ?? $label;
+            $key = $parsedLabel ? $this->djotReferenceDefinitionKey($label) : $this->djotReferenceKey($label);
             $definition = $definitions[$key] ?? null;
             if ($definition === null) {
                 return $text;
             }
-            if ($definition['url'] !== '' && ($formatted || $definition['attrs'] !== [])) {
-                $inlined[$key] = true;
+            if ($definition['url'] !== '' && $definition['attrs'] !== []) {
+                $referenceName = $aliases[$key] ?? $key;
                 $attrs = '';
                 $ownSource = $match[4][0] ?? '';
                 $ownParts = [];
@@ -1310,54 +1371,71 @@ trait NormalizesDjotStructure
                     $start = $parsed['end'];
                 }
                 $own = $this->djotReferenceAttributes($ownParts);
-                foreach (array_replace($definition['attrs'], $own) as $key => $value) {
+                foreach (array_replace($definition['attrs'], $own) as $attributeKey => $value) {
                     $quoted = preg_match('/^[A-Za-z0-9_-]+$/', $value) !== 1;
                     $value = QuotedSlotEscaper::escape($value);
                     if ($tableAt[$at] ?? false) {
                         $value = str_replace('|', '\\|', $value);
                     }
-                    $attrs .= ($attrs === '' ? '' : ' ') . $key . '=' . ($quoted ? '"' . $value . '"' : $value);
+                    $attrs .= ($attrs === '' ? '' : ' ') . $attributeKey . '=' . ($quoted ? '"' . $value . '"' : $value);
                 }
 
-                return $match[1][0] . '(' . $definition['url'] . ')' . ($attrs === '' ? '' : '{' . $attrs . '}');
+                return $match[1][0] . '[' . $referenceName . ']{' . $attrs . '}';
             }
 
-            $retained[$key] = true;
-
-            return $match[1][0] . '[' . ($match[3][0] === '' ? '' : $label) . ']' . ($match[4][0] ?? '');
+            return $match[1][0] . '[' . ($aliases[$key] ?? ($match[3][0] === '' && !$parsedLabel ? '' : $key)) . ']' . ($match[4][0] ?? '');
         };
+        $definitionEdits = [];
+        $movedDefinitions = [];
+        $offset = 0;
+        foreach ($lines as $n => $line) {
+            if (isset($definitionLines[$n])) {
+                $record = $definitionLines[$n];
+                $key = $record['key'];
+                $start = $record['start'];
+                $prefix = substr($line, 0, $start);
+                $alias = $aliases[$key] ?? null;
+                if ($start > 0 && trim($prefix) === '') {
+                    $definitionEdits[] = [$offset, strlen($line), $prefix . '{%%}'];
+                    $name = $alias ?? substr($line, $start + 1, $record['labelLength']);
+                    $movedDefinitions[] = [$key, '[' . $name . substr($line, $start + $record['labelLength'] + 1)];
+                } elseif ($alias !== null) {
+                    $definitionEdits[] = [$offset + $start + 1, $record['labelLength'], $alias];
+                }
+            }
+            $offset += strlen($line) + 1;
+        }
         $output = '';
         $copied = 0;
+        $definitionIndex = 0;
         foreach ($matches as $match) {
+            while (isset($definitionEdits[$definitionIndex]) && $definitionEdits[$definitionIndex][0] < $match[0][1]) {
+                [$at, $width, $replacement] = $definitionEdits[$definitionIndex++];
+                $output .= substr($source, $copied, $at - $copied) . $replacement;
+                $copied = $at + $width;
+            }
+            if ($match[0][1] < $copied) {
+                continue;
+            }
             $output .= substr($source, $copied, $match[0][1] - $copied) . $rewrite($match);
             $copied = $match[0][1] + strlen($match[0][0]);
         }
+        while (isset($definitionEdits[$definitionIndex])) {
+            [$at, $width, $replacement] = $definitionEdits[$definitionIndex++];
+            if ($at < $copied) {
+                continue;
+            }
+            $output .= substr($source, $copied, $at - $copied) . $replacement;
+            $copied = $at + $width;
+        }
         $source = $output . substr($source, $copied);
 
-        if ($inlined !== []) {
-            $lines = explode("\n", $source);
-            $mask = $this->maskCodeAndDestinations($source);
-            $offset = 0;
-            $removed = [];
-            $firstKept = 0;
-            foreach ($lines as $n => $line) {
-                $visible = $mask[$offset] ?? '';
-                $offset += strlen($line) + 1;
-                if ($visible !== '[' || preg_match('/^\[([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', $line, $definition) !== 1 || !isset($inlined[$definition[1]]) || isset($retained[$definition[1]])) {
-                    continue;
-                }
-                $removed[$n] = true;
-                for ($k = $n - 1; $k >= 0 && $lines[$k] === ''; $k--) {
-                    $removed[$k] = true;
-                }
-                while (isset($removed[$firstKept])) {
-                    $firstKept++;
-                }
-                if ($firstKept > $n && ($lines[$n + 1] ?? null) === '' && isset($lines[$n + 2])) {
-                    $removed[$n + 1] = true;
-                }
-            }
-            $source = implode("\n", array_filter($lines, static fn (int $n): bool => !isset($removed[$n]), ARRAY_FILTER_USE_KEY));
+        $extra = [];
+        foreach ($movedDefinitions as [$key, $definition]) {
+            $extra[] = $definition;
+        }
+        if ($extra !== []) {
+            $source = implode("\n", $extra) . "\n\n" . $source;
         }
 
         return $source;

@@ -7066,5 +7066,185 @@
   {
     "source": "[^a]: - [^b]: ```\n         code\n         ```\n        para\n\nr[^a] r[^b]\n",
     "carve": "[^b]: ```\n  code\n  ```\n\n[^a]: - %%%%\n    para\n\nr[^a] r[^b]\n"
+  },
+  {
+    "source": "{.target}\n[a^b]: /x\n\n[link][a^b]\n",
+    "carve": "[link](/x){.target}\n"
+  },
+  {
+    "source": "{.target}\n[a^^b]: /x\n\n[link][a^^b]\n",
+    "carve": "[link](/x){.target}\n"
+  },
+  {
+    "source": "{.target}\n[a ^b]: /x\n\n[link][a ^b]\n",
+    "carve": "[link](/x){.target}\n"
+  },
+  {
+    "source": "{.target}\n[a^ b]: /x\n\n[link][a^ b]\n",
+    "carve": "[link](/x){.target}\n"
+  },
+  {
+    "source": "[a\\*b]: /x\n\n[link][a\\\\*b]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "[a\\^b]: /x\n\n[link][a\\\\^b]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "[\\^a]: /x\n\n[link][\\\\^a]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "[a\\*b]: /x\n\n[link][a\\\\*b] [missing][carve-djot-reference-1]\n",
+    "carve": "[carve-djot-reference-2]: /x\n\n[link][carve-djot-reference-2] [missing][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "[a\\*b]: /x\n\n[link][a\\\\*b]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "[a\\^b]: /x\n\n[link][a\\\\^b]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "[a|b\\*]: /x\n\n[link][a|b\\\\*]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "  [a\\*b]: /x\n\n[link][a\\\\*b]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "  [a\\^b]: /x\n\n[link][a\\\\^b]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "  [a|b\\*]: /x\n\n[link][a|b\\\\*]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "> [a\\*b]: /x\n\n[link][a\\\\*b]\n",
+    "carve": "> [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "> [a\\^b]: /x\n\n[link][a\\\\^b]\n",
+    "carve": "> [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "> [a|b\\*]: /x\n\n[link][a|b\\\\*]\n",
+    "carve": "> [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "- [a\\*b]: /x\n\n[link][a\\\\*b]\n",
+    "carve": "- [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "- [a\\^b]: /x\n\n[link][a\\\\^b]\n",
+    "carve": "- [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "- [a|b\\*]: /x\n\n[link][a|b\\\\*]\n",
+    "carve": "- [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "- > [a\\*b]: /x\n\n[link][a\\\\*b]\n",
+    "carve": "- > [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "- > [a\\^b]: /x\n\n[link][a\\\\^b]\n",
+    "carve": "- > [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "- > [a|b\\*]: /x\n\n[link][a|b\\\\*]\n",
+    "carve": "- > [carve-djot-reference-1]: /x\n\n[link][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "[a*b]: /x\n\n[link][a\\*b]\n",
+    "carve": "[a*b]: /x\n\n[link][a*b]\n"
+  },
+  {
+    "source": "[a^b]: /x\n\n[link][a\\^b]\n",
+    "carve": "[a^b]: /x\n\n[link][a^b]\n"
+  },
+  {
+    "source": "[a b]: /x\n\n[link][a\\ b]\n",
+    "carve": "[a b]: /x\n\n[link][a b]\n"
+  },
+  {
+    "source": "[^a\\*b]: note\n\nr[^a\\*b]\n",
+    "carve": "[^n]: note\n\nr[^n]\n"
+  },
+  {
+    "source": "[a|b\\*]: /x\n\n| [link][a|b\\\\*] | z |\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n| [link][a|b\\\\*] | z |\n"
+  },
+  {
+    "source": "[a|b\\*]: /x\n\n| [link][a\\|b\\\\*] | z |\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n| [link][carve-djot-reference-1] | z |\n"
+  },
+  {
+    "source": "- item\n\n  [a]: /x\n\n  more\n\n[l][a]\n",
+    "carve": "[a]: /x\n\n- item\n\n  %%\n\n  more\n\n[l][a]\n"
+  },
+  {
+    "source": "- one\n\n  [a]: /x\n  two\n\n[l][a]\n",
+    "carve": "[a]: /x\n\n- one\n\n  %%\n  two\n\n[l][a]\n"
+  },
+  {
+    "source": "1. item\n\n   [a]: /x\n\n   more\n\n2. next\n\n[l][a]\n",
+    "carve": "[a]: /x\n\n1. item\n\n   %%\n\n   more\n\n2. next\n\n[l][a]\n"
+  },
+  {
+    "source": "apple\n: item\n\n  [a]: /x\n\n  more\n\n[l][a]\n",
+    "carve": "[a]: /x\n\napple\n: item\n\n  %%\n\n  more\n\n[l][a]\n"
+  },
+  {
+    "source": "[a\\*b]: /x\n\npara [l][a\\\\*b]\n[a\\*b]: /y\n",
+    "carve": "[carve-djot-reference-1]: /x\n\npara [l][carve-djot-reference-1]\n[a\\*b]\\: /y\n"
+  },
+  {
+    "source": "[a-b]: /x\n\n[a\\-b][]\n",
+    "carve": "[carve-djot-reference-1]: /x\n\n[a\\-b][carve-djot-reference-1]\n"
+  },
+  {
+    "source": "  {.t}\n  [a]: /x\n\n[l][a]\n",
+    "carve": "[a]: /x\n\n  %%\n  %%\n\n[l][a]{.t}\n"
+  },
+  {
+    "source": "{.t}\n  [a]: /x\n\n[l][a]\n",
+    "carve": "[a]: /x\n\n  %%\n\n[l][a]{.t}\n"
+  },
+  {
+    "source": "> {.t}\n> [a]: /x\n\n[l][a]\n",
+    "carve": "> %%\n> [a]: /x\n\n\n[l][a]{.t}\n"
+  },
+  {
+    "source": "[link]: /x\n\n[_link_][]\n",
+    "carve": "[link]: /x\n\n[/link/][link]\n"
+  },
+  {
+    "source": "{.target}\n[link]: /x\n\n[_link_][]\n",
+    "carve": "[link]: /x\n\n[/link/][link]{.target}\n"
+  },
+  {
+    "source": "{.target x=one}\n[link]: /x\n\n[_link_][]{.own x=two}\n",
+    "carve": "[link]: /x\n\n[/link/][link]{.own x=\"two\"}\n"
+  },
+  {
+    "source": "  [a]: /x\n    /tail\n\n[l][a]\n",
+    "carve": "[a]: /x/tail\n\n  %%\n\n[l][a]\n"
+  },
+  {
+    "source": "[a|b]: /x\n\n| h |\n|---|\n| [l][a\\|b] |\n",
+    "carve": "[r]: /x\n\n| h |\n|---|\n| [l][r] |\n"
+  },
+  {
+    "source": "[a-b]: /x\n\np [a\\-b][] q\n",
+    "carve": "[a-b]: /x\n\np [a\\-b][a-b] q\n"
+  },
+  {
+    "source": "[a.b]: /x\n\np ![a\\.b][] q\n",
+    "carve": "[a.b]: /x\n\np ![a\\.b][a.b] q\n"
   }
 ]
