@@ -379,6 +379,17 @@ final class BlockQuoteBuilder
         if ($text === '') {
             return false;
         }
+        $heldColon = $state['colonClaims'][array_key_last($state['colonClaims']) ?? 0] ?? null;
+        if (
+            str_starts_with($text, '%%')
+            && ($this->getFencedBlockParser)()->parseFencedCommentOpener($text) === null
+            && $heldColon !== null
+            && (!$heldColon['literal'] || $column < ($heldColon['base'] ?? $heldColon['column']))
+        ) {
+            $state['paragraphOpen'] = false;
+
+            return true;
+        }
         $paragraph = $state['paragraphOpen'];
         $leftOfOutermost = $host['markers'] !== [] && $column < min($host['markers']);
         $lazyMarker = false;
