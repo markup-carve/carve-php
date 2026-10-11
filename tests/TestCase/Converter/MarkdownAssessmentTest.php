@@ -76,7 +76,7 @@ final class MarkdownAssessmentTest extends TestCase
 
     public function testIncompleteAssessmentAndChangedOutputFailClosed(): void
     {
-        foreach (['https://example.org', "[^note]\n\n[^note]: note", "\0", "| a |\n| --- |\n| x | extra |"] as $source) {
+        foreach (['<code>http://example.org</code>', "[^note]\n\n[^note]: note", "\0", "| a |\n| --- |\n| x | extra |"] as $source) {
             $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
             self::assertContains('fidelity-unverified', array_column($rows, 'code'));
         }
@@ -84,14 +84,15 @@ final class MarkdownAssessmentTest extends TestCase
         self::assertFalse((new MarkdownAssessment())->assess('a  b', 'a b')['complete']);
     }
 
-    public function testUnsupportedGfmProtocolLinksRemainUnassessed(): void
+    public function testGfmProtocolLinksAreVerifiedExactly(): void
     {
         foreach (['ftp://example.test', 'FTP://example.test', 'Ftp://example.test', 'HTTP://example.test', 'HTTPS://example.test', 'see ftp://example.test/a', 'ftp://x'] as $source) {
             $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
-            $fallback = array_values(array_filter($rows, static fn ($row): bool => $row->code === 'fidelity-unverified'));
-            self::assertNotEmpty($fallback, $source);
-            self::assertSame('dropped', $fallback[0]->fidelity);
-            self::assertSame('fallback', $fallback[0]->confidence);
+            self::assertNotContains('fidelity-unverified', array_column($rows, 'code'), $source);
+            $links = array_values(array_filter($rows, static fn ($row): bool => $row->code === 'markdown-bare-autolink'));
+            self::assertNotEmpty($links, $source);
+            self::assertSame('normalized', $links[0]->fidelity);
+            self::assertSame('exact', $links[0]->confidence);
         }
     }
 

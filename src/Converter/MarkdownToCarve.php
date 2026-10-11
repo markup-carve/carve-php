@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
@@ -19,6 +20,7 @@ use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\LabelKey;
@@ -950,6 +952,8 @@ class MarkdownToCarve
 
     /**
      * Convert Markdown text to Carve text.
+     *
+     * @throws \LogicException
      */
     public function convert(string $markdown): string
     {
@@ -2307,6 +2311,22 @@ class MarkdownToCarve
             $this->carrierDamaged = true;
 
             return $carve;
+        }
+        if (str_contains($carve, '@')) {
+            $converter = new CarveConverter(renderer: new CarveRenderer());
+            $document = $converter->parse($carve);
+            if (MarkdownEmailText::link($document)) {
+                $trailingNewline = str_ends_with($carve, "\n");
+                $rendered = $converter->renderWithReport($document, maxRenderLosses: PHP_INT_MAX);
+                $carve = $trailingNewline ? $rendered->value : rtrim($rendered->value, "\n");
+                foreach ($rendered->losses as $loss) {
+                    $message = $loss['message'] ?? null;
+                    if (!is_string($message)) {
+                        throw new LogicException('Render loss requires a message.');
+                    }
+                    $this->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', $message, 'warning', 'dropped', 'exact');
+                }
+            }
         }
 
         if ($frontmatter === []) {
@@ -6220,6 +6240,41 @@ class MarkdownToCarve
             }
         }
         $line = $escaped;
+        if (str_contains($line, '/') && preg_match('/[*_]|<(?:em|i)\\b/i', $line) === 1) {
+            $authored = $line;
+            $guarded = '';
+            $opaqueEnds = [];
+            $bracketDepth = 0;
+            for ($at = 0, $length = strlen($authored); $at < $length;) {
+                if ($authored[$at] === "\0" && preg_match('/\\G\\x00P\\d+\\x00/', $authored, $token, 0, $at) === 1) {
+                    $guarded .= $token[0];
+                    $at += strlen($token[0]);
+
+                    continue;
+                }
+                if ($authored[$at] === '\\') {
+                    $guarded .= substr($authored, $at, 2);
+                    $at += 2;
+
+                    continue;
+                }
+                $end = $authored[$at] === '<' ? $this->opaqueHtmlEnd($authored, $at, $opaqueEnds) ?? ($this->htmlTagAt($authored, $at)['end'] ?? null) : null;
+                if ($end !== null) {
+                    $guarded .= substr($authored, $at, $end - $at);
+                    $at = $end;
+
+                    continue;
+                }
+                if ($authored[$at] === '[') {
+                    $bracketDepth++;
+                } elseif ($authored[$at] === ']' && $bracketDepth > 0) {
+                    $bracketDepth--;
+                }
+                $guarded .= $authored[$at] === '/' && $bracketDepth === 0 ? $protect('\\/', '/') : $authored[$at];
+                $at++;
+            }
+            $line = $guarded;
+        }
         // PART 11 §8c writes two constructs with no Markdown delimiter spelling
         // as an ATTRIBUTE-BEARING inline tag: an abbreviation as
         // `<abbr title="...">` and an editorial comment as
@@ -6988,41 +7043,39 @@ class MarkdownToCarve
             ) ?? $line;
         }
 
-        if (str_contains($line, 'http://') || str_contains($line, 'https://')) {
+        if (str_contains($line, ':') || str_contains($line, 'www.')) {
             $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
-            $labelAt = 0;
-            $urlCursor = 0;
-            $urlSearch = 0;
+            $labelAt = $urlCursor = 0;
             $protectedUrls = '';
-            while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
-                $offset = $start[0][1];
+            foreach (
+                MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): ?string {
+                    $index = (int)substr($token, 2, -1);
+
+                    return $this->isPlainMarkdownUrlToken($index, $protected, $protectedSources) ? $protectedSources[$index] : null;
+                }, 'url') as $candidate
+            ) {
+                $offset = $candidate['start'];
                 while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
                     $labelAt++;
                 }
                 $label = $labelRanges[$labelAt] ?? null;
                 if ($label !== null && $offset >= $label['start'] && $offset < $label['end']) {
-                    $urlSearch = $label['end'];
-
                     continue;
                 }
-                $end = $offset + strlen($start[0][0]);
-                $length = strlen($line);
-                while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
-                    if ($line[$end] === "\0") {
-                        if (
-                            preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
-                            || !$this->isPlainMarkdownUrlToken((int)$token[1], $protected, $protectedSources)
-                        ) {
-                            break;
-                        }
-                        $end += strlen($token[0]);
-                    } else {
-                        $end++;
-                    }
+                $body = $candidate['body'] ?? substr($line, $offset, $candidate['end'] - $offset);
+                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $candidate['prefix'] . $body) ?? $candidate['prefix'] . $body;
+                $document = new Document();
+                $paragraph = new Paragraph();
+                $link = new Link($href);
+                $link->appendChild(new Text($body));
+                $paragraph->appendChild($link);
+                $document->appendChild($paragraph);
+                $written = rtrim((new CarveRenderer())->render($document), "\n");
+                if ($table) {
+                    $written = $this->escapeTablePipes($written);
                 }
-                $protectedUrls .= substr($line, $urlCursor, $offset - $urlCursor) . $protect(substr($line, $offset, $end - $offset));
-                $urlCursor = $end;
-                $urlSearch = $end;
+                $protectedUrls .= substr($line, $urlCursor, $offset - $urlCursor) . $protect($written) . ($candidate['tail'] ?? '');
+                $urlCursor = $candidate['end'];
             }
             $line = $protectedUrls . substr($line, $urlCursor);
         }
@@ -8188,30 +8241,11 @@ class MarkdownToCarve
      */
     private function plainMarkdownUrlRanges(string $line, array $protected, array $protectedSources): array
     {
-        $urlSearch = 0;
-        $ranges = [];
-        while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
-            $offset = $start[0][1];
-            $end = $offset + strlen($start[0][0]);
-            $length = strlen($line);
-            while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
-                if ($line[$end] === "\0") {
-                    if (
-                        preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
-                        || !$this->isPlainMarkdownUrlToken((int)$token[1], $protected, $protectedSources)
-                    ) {
-                        break;
-                    }
-                    $end += strlen($token[0]);
-                } else {
-                    $end++;
-                }
-            }
-            $ranges[] = ['start' => $offset, 'end' => $end];
-            $urlSearch = $end;
-        }
+        return MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): ?string {
+            $index = (int)substr($token, 2, -1);
 
-        return $ranges;
+            return $this->isPlainMarkdownUrlToken($index, $protected, $protectedSources) ? $protectedSources[$index] : null;
+        }, 'url');
     }
 
     /**
