@@ -467,7 +467,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         "\u{E008}",
     ];
 
-    private string $footnoteCodeGuard = "\u{E009}";
+    private ?string $footnoteCodeGuard = null;
+
+    private string $footnoteGuardSource = '';
 
     /**
      * @var list<string>|null
@@ -520,7 +522,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $sentinelSource = $this->collectStrings($document);
         $this->boundedSentinelChoice = null;
         $this->verbatimSentinels = $this->pickVerbatimSentinels($sentinelSource);
-        $this->footnoteCodeGuard = DocumentSentinels::pick($sentinelSource . implode('', $this->verbatimSentinels), 1, 0xE001)[0];
+        $this->footnoteCodeGuard = null;
+        $this->footnoteGuardSource = $sentinelSource . implode('', $this->verbatimSentinels);
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->bracedForAttributes = [];
@@ -3227,6 +3230,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderFootnote(Footnote $node): string
     {
+        $this->footnoteCodeGuard ??= DocumentSentinels::pick($this->footnoteGuardSource, 1, 0xE001)[0];
         $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
         $rawBody = str_replace($this->verbatimSentinels[7] . '[', $this->footnoteCodeGuard . '[', $rawBody);
         foreach (explode("\n", $rawBody) as $line) {
@@ -5126,7 +5130,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $blank . "\n" . $blank . "\n" . $blank . "\n" . $prefix . substr($line, $boundary + strlen($this->listBoundary()));
         }, explode("\n", $text)));
 
-        $out = $this->restoreVerbatim($this->trimNonNbsp($text));
+        $out = $this->restoreVerbatim($this->restoreFootnoteCodeGuard($this->trimNonNbsp($text)));
 
         // A DOCUMENT MAY NOT BEGIN WITH U+FEFF, because the parser reads a BOM
         // at byte 0 as the file's encoding mark and removes it (PART 12). A
@@ -5181,14 +5185,24 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return implode("\n", $lines);
     }
 
-    protected function restoreVerbatim(string $text): string
+    private function restoreFootnoteCodeGuard(string $text): string
     {
+        if ($this->footnoteCodeGuard === null) {
+            return $text;
+        }
+
         $text = (string)preg_replace_callback(
             '/^([ \t>]*)' . preg_quote($this->footnoteCodeGuard, '/') . '(?=\[)/m',
             static fn (array $m): string => $m[1] . ' ',
             $text,
         );
-        $text = str_replace($this->footnoteCodeGuard, '', $text);
+
+        return str_replace($this->footnoteCodeGuard, '', $text);
+    }
+
+    protected function restoreVerbatim(string $text): string
+    {
+        $text = $this->restoreFootnoteCodeGuard($text);
         $text = (string)preg_replace_callback(
             '/^([ \t>]*)' . preg_quote($this->verbatimSentinels[7], '/') . '([>\[])/m',
             static fn (array $m): string => (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ') . $m[2],

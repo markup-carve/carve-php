@@ -62,6 +62,47 @@ class MultilineInlineCodeTest extends TestCase
         }
     }
 
+    public function testPrivateFootnoteGuardIsRestoredBeforeAnOverriddenHook(): void
+    {
+        $renderer = new class extends CarveRenderer {
+            protected function restoreVerbatim(string $text): string
+            {
+                return $text;
+            }
+        };
+        $source = "x[^n]\n\n[^n]: p `a\n  [r]: /url` q\n";
+        $written = $renderer->render((new CarveConverter())->parse($source));
+        $this->assertStringNotContainsString("\u{E009}", $written);
+        $this->assertStringContainsString("\n   [r]: /url", $written);
+    }
+
+    public function testDocumentsWithoutFootnotesNeedOnlyTheExistingSentinelSlots(): void
+    {
+        $value = '';
+        for ($point = 0xE009; $point <= 0xF8FF; $point++) {
+            $value .= mb_chr($point, 'UTF-8');
+        }
+        $converter = new CarveConverter();
+        $source = '`' . $value . "`\n";
+        $written = (new CarveRenderer())->render($converter->parse($source));
+        $this->assertSame($this->htmlTree($converter->convert($source)), $this->htmlTree($converter->convert($written)));
+    }
+
+    public function testLegacyPickerCanUseTheDefaultPrivateFootnoteMarker(): void
+    {
+        $renderer = new class extends CarveRenderer {
+            protected function pickVerbatimSentinels(string $text): array
+            {
+                return array_map(static fn (int $point): string => mb_chr($point, 'UTF-8'), range(0xE002, 0xE009));
+            }
+        };
+        $converter = new CarveConverter();
+        $source = "x[^n]\n\n[^n]: p `a\n  [r]: /url` q\n";
+        $written = $renderer->render($converter->parse($source));
+        $this->assertSame($this->htmlTree($converter->convert($source)), $this->htmlTree($converter->convert($written)));
+        $this->assertSame($written, $renderer->render($converter->parse($written)));
+    }
+
     public function testConstructedCodeNormalizesLineEndingsAndPreservesItsValue(): void
     {
         $converter = new CarveConverter();
