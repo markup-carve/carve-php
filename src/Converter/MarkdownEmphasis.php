@@ -288,6 +288,24 @@ final class MarkdownEmphasis
     }
 
     /**
+     * @param string $source
+     * @param array<string> $protectedSpans
+     *
+     * @return list<array{start: int, end: int}>
+     */
+    public static function linkLabelRanges(string $source, array $protectedSpans): array
+    {
+        $ranges = [];
+        foreach (self::bracketRuns($source, $protectedSpans) as $bracket) {
+            if ($bracket['link']) {
+                $ranges[] = ['start' => $bracket['open'] + 1, 'end' => $bracket['close']];
+            }
+        }
+
+        return $ranges;
+    }
+
+    /**
      * Every balanced bracket run in the line, innermost last, each flagged with
      * whether the READER resolves it as a link.
      *

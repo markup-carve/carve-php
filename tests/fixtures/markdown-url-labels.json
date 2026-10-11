@@ -1,0 +1,3134 @@
+[
+  {
+    "source": "[ftp://example.test](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">ftp://example.test</a></p>\n"
+  },
+  {
+    "source": "- [ftp://example.test](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">ftp://example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [ftp://example.test](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">ftp://example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[ftp://example.test][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">ftp://example.test</a></p>\n"
+  },
+  {
+    "source": "- [ftp://example.test][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">ftp://example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [ftp://example.test][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">ftp://example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[ftp://example.test](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">ftp://example.test</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[ftp://example.test](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">ftp://example.test</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[ftp://example.test](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">ftp://example.test</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*ftp://example.test*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>ftp://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*ftp://example.test*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>ftp://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*ftp://example.test*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>ftp://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*ftp://example.test*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>ftp://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*ftp://example.test*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>ftp://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*ftp://example.test*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>ftp://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*ftp://example.test*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*ftp://example.test*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*ftp://example.test*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_ftp://example.test_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>ftp://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_ftp://example.test_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>ftp://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_ftp://example.test_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>ftp://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_ftp://example.test_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>ftp://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_ftp://example.test_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>ftp://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_ftp://example.test_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>ftp://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_ftp://example.test_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_ftp://example.test_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_ftp://example.test_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**ftp://example.test**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>ftp://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**ftp://example.test**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>ftp://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**ftp://example.test**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>ftp://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**ftp://example.test**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>ftp://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**ftp://example.test**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>ftp://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**ftp://example.test**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>ftp://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**ftp://example.test**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>ftp://example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**ftp://example.test**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>ftp://example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**ftp://example.test**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>ftp://example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__ftp://example.test__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>ftp://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__ftp://example.test__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>ftp://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__ftp://example.test__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>ftp://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__ftp://example.test__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>ftp://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__ftp://example.test__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>ftp://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__ftp://example.test__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>ftp://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__ftp://example.test__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>ftp://example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__ftp://example.test__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>ftp://example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__ftp://example.test__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>ftp://example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *ftp://example.test* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>ftp://example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *ftp://example.test* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>ftp://example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *ftp://example.test* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>ftp://example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *ftp://example.test* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>ftp://example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *ftp://example.test* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>ftp://example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *ftp://example.test* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>ftp://example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *ftp://example.test* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>ftp://example.test</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *ftp://example.test* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>ftp://example.test</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *ftp://example.test* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>ftp://example.test</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[FTP://example.test/a](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">FTP://example.test/a</a></p>\n"
+  },
+  {
+    "source": "- [FTP://example.test/a](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">FTP://example.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [FTP://example.test/a](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">FTP://example.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[FTP://example.test/a][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">FTP://example.test/a</a></p>\n"
+  },
+  {
+    "source": "- [FTP://example.test/a][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">FTP://example.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [FTP://example.test/a][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">FTP://example.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[FTP://example.test/a](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">FTP://example.test/a</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[FTP://example.test/a](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">FTP://example.test/a</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[FTP://example.test/a](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">FTP://example.test/a</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*FTP://example.test/a*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>FTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [*FTP://example.test/a*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>FTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*FTP://example.test/a*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>FTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*FTP://example.test/a*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>FTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [*FTP://example.test/a*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>FTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*FTP://example.test/a*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>FTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*FTP://example.test/a*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>FTP://example.test/a</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*FTP://example.test/a*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>FTP://example.test/a</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*FTP://example.test/a*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>FTP://example.test/a</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_FTP://example.test/a_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>FTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [_FTP://example.test/a_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>FTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_FTP://example.test/a_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>FTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_FTP://example.test/a_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>FTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [_FTP://example.test/a_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>FTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_FTP://example.test/a_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>FTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_FTP://example.test/a_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>FTP://example.test/a</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_FTP://example.test/a_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>FTP://example.test/a</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_FTP://example.test/a_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>FTP://example.test/a</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**FTP://example.test/a**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>FTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [**FTP://example.test/a**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>FTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**FTP://example.test/a**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>FTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**FTP://example.test/a**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>FTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [**FTP://example.test/a**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>FTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**FTP://example.test/a**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>FTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**FTP://example.test/a**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>FTP://example.test/a</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**FTP://example.test/a**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>FTP://example.test/a</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**FTP://example.test/a**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>FTP://example.test/a</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__FTP://example.test/a__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>FTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [__FTP://example.test/a__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>FTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__FTP://example.test/a__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>FTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__FTP://example.test/a__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>FTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [__FTP://example.test/a__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>FTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__FTP://example.test/a__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>FTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__FTP://example.test/a__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>FTP://example.test/a</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__FTP://example.test/a__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>FTP://example.test/a</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__FTP://example.test/a__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>FTP://example.test/a</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *FTP://example.test/a* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>FTP://example.test/a</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *FTP://example.test/a* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>FTP://example.test/a</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *FTP://example.test/a* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>FTP://example.test/a</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *FTP://example.test/a* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>FTP://example.test/a</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *FTP://example.test/a* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>FTP://example.test/a</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *FTP://example.test/a* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>FTP://example.test/a</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *FTP://example.test/a* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>FTP://example.test/a</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *FTP://example.test/a* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>FTP://example.test/a</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *FTP://example.test/a* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>FTP://example.test/a</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[http://example.test](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">http://example.test</a></p>\n"
+  },
+  {
+    "source": "- [http://example.test](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">http://example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [http://example.test](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">http://example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[http://example.test][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">http://example.test</a></p>\n"
+  },
+  {
+    "source": "- [http://example.test][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">http://example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [http://example.test][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">http://example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[http://example.test](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">http://example.test</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[http://example.test](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">http://example.test</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[http://example.test](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">http://example.test</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*http://example.test*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>http://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*http://example.test*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>http://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*http://example.test*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>http://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*http://example.test*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>http://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*http://example.test*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>http://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*http://example.test*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>http://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*http://example.test*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>http://example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*http://example.test*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>http://example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*http://example.test*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>http://example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_http://example.test_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>http://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_http://example.test_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>http://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_http://example.test_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>http://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_http://example.test_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>http://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_http://example.test_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>http://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_http://example.test_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>http://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_http://example.test_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>http://example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_http://example.test_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>http://example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_http://example.test_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>http://example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**http://example.test**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>http://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**http://example.test**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>http://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**http://example.test**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>http://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**http://example.test**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>http://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**http://example.test**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>http://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**http://example.test**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>http://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**http://example.test**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>http://example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**http://example.test**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>http://example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**http://example.test**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>http://example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__http://example.test__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>http://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__http://example.test__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>http://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__http://example.test__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>http://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__http://example.test__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>http://example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__http://example.test__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>http://example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__http://example.test__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>http://example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__http://example.test__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>http://example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__http://example.test__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>http://example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__http://example.test__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>http://example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *http://example.test* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>http://example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *http://example.test* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>http://example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *http://example.test* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>http://example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *http://example.test* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>http://example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *http://example.test* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>http://example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *http://example.test* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>http://example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *http://example.test* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>http://example.test</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *http://example.test* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>http://example.test</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *http://example.test* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>http://example.test</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://example.test/a](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">https://example.test/a</a></p>\n"
+  },
+  {
+    "source": "- [https://example.test/a](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">https://example.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://example.test/a](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">https://example.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://example.test/a][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">https://example.test/a</a></p>\n"
+  },
+  {
+    "source": "- [https://example.test/a][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">https://example.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://example.test/a][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">https://example.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[https://example.test/a](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">https://example.test/a</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[https://example.test/a](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">https://example.test/a</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[https://example.test/a](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">https://example.test/a</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://example.test/a*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>https://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://example.test/a*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>https://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://example.test/a*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>https://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://example.test/a*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>https://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://example.test/a*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>https://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://example.test/a*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>https://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*https://example.test/a*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>https://example.test/a</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*https://example.test/a*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>https://example.test/a</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*https://example.test/a*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>https://example.test/a</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_https://example.test/a_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>https://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [_https://example.test/a_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>https://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_https://example.test/a_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>https://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_https://example.test/a_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>https://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [_https://example.test/a_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>https://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_https://example.test/a_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>https://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_https://example.test/a_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>https://example.test/a</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_https://example.test/a_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>https://example.test/a</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_https://example.test/a_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>https://example.test/a</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**https://example.test/a**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>https://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [**https://example.test/a**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>https://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**https://example.test/a**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>https://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**https://example.test/a**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>https://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [**https://example.test/a**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>https://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**https://example.test/a**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>https://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**https://example.test/a**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>https://example.test/a</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**https://example.test/a**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>https://example.test/a</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**https://example.test/a**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>https://example.test/a</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__https://example.test/a__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>https://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [__https://example.test/a__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>https://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__https://example.test/a__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>https://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__https://example.test/a__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>https://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [__https://example.test/a__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>https://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__https://example.test/a__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>https://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__https://example.test/a__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>https://example.test/a</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__https://example.test/a__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>https://example.test/a</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__https://example.test/a__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>https://example.test/a</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *https://example.test/a* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>https://example.test/a</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *https://example.test/a* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>https://example.test/a</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *https://example.test/a* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>https://example.test/a</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *https://example.test/a* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>https://example.test/a</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *https://example.test/a* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>https://example.test/a</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *https://example.test/a* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>https://example.test/a</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *https://example.test/a* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>https://example.test/a</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *https://example.test/a* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>https://example.test/a</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *https://example.test/a* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>https://example.test/a</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[HTTP://example.test/a](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">HTTP://example.test/a</a></p>\n"
+  },
+  {
+    "source": "- [HTTP://example.test/a](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">HTTP://example.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [HTTP://example.test/a](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">HTTP://example.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[HTTP://example.test/a][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">HTTP://example.test/a</a></p>\n"
+  },
+  {
+    "source": "- [HTTP://example.test/a][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">HTTP://example.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [HTTP://example.test/a][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">HTTP://example.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[HTTP://example.test/a](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">HTTP://example.test/a</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[HTTP://example.test/a](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">HTTP://example.test/a</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[HTTP://example.test/a](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">HTTP://example.test/a</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*HTTP://example.test/a*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>HTTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [*HTTP://example.test/a*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>HTTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*HTTP://example.test/a*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>HTTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*HTTP://example.test/a*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>HTTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [*HTTP://example.test/a*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>HTTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*HTTP://example.test/a*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>HTTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*HTTP://example.test/a*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>HTTP://example.test/a</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*HTTP://example.test/a*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>HTTP://example.test/a</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*HTTP://example.test/a*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>HTTP://example.test/a</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_HTTP://example.test/a_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>HTTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [_HTTP://example.test/a_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>HTTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_HTTP://example.test/a_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>HTTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_HTTP://example.test/a_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>HTTP://example.test/a</em></a></p>\n"
+  },
+  {
+    "source": "- [_HTTP://example.test/a_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>HTTP://example.test/a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_HTTP://example.test/a_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>HTTP://example.test/a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_HTTP://example.test/a_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>HTTP://example.test/a</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_HTTP://example.test/a_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>HTTP://example.test/a</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_HTTP://example.test/a_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>HTTP://example.test/a</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**HTTP://example.test/a**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>HTTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [**HTTP://example.test/a**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>HTTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**HTTP://example.test/a**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>HTTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**HTTP://example.test/a**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>HTTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [**HTTP://example.test/a**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>HTTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**HTTP://example.test/a**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>HTTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**HTTP://example.test/a**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>HTTP://example.test/a</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**HTTP://example.test/a**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>HTTP://example.test/a</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**HTTP://example.test/a**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>HTTP://example.test/a</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__HTTP://example.test/a__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>HTTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [__HTTP://example.test/a__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>HTTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__HTTP://example.test/a__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>HTTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__HTTP://example.test/a__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>HTTP://example.test/a</strong></a></p>\n"
+  },
+  {
+    "source": "- [__HTTP://example.test/a__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>HTTP://example.test/a</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__HTTP://example.test/a__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>HTTP://example.test/a</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__HTTP://example.test/a__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>HTTP://example.test/a</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__HTTP://example.test/a__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>HTTP://example.test/a</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__HTTP://example.test/a__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>HTTP://example.test/a</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *HTTP://example.test/a* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>HTTP://example.test/a</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *HTTP://example.test/a* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>HTTP://example.test/a</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *HTTP://example.test/a* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>HTTP://example.test/a</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *HTTP://example.test/a* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>HTTP://example.test/a</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *HTTP://example.test/a* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>HTTP://example.test/a</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *HTTP://example.test/a* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>HTTP://example.test/a</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *HTTP://example.test/a* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>HTTP://example.test/a</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *HTTP://example.test/a* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>HTTP://example.test/a</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *HTTP://example.test/a* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>HTTP://example.test/a</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[www.example.test](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">www.example.test</a></p>\n"
+  },
+  {
+    "source": "- [www.example.test](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">www.example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [www.example.test](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">www.example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[www.example.test][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">www.example.test</a></p>\n"
+  },
+  {
+    "source": "- [www.example.test][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">www.example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [www.example.test][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">www.example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[www.example.test](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">www.example.test</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[www.example.test](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">www.example.test</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[www.example.test](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">www.example.test</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*www.example.test*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>www.example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*www.example.test*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>www.example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*www.example.test*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>www.example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*www.example.test*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>www.example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*www.example.test*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>www.example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*www.example.test*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>www.example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*www.example.test*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>www.example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*www.example.test*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>www.example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*www.example.test*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>www.example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_www.example.test_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>www.example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_www.example.test_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>www.example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_www.example.test_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>www.example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_www.example.test_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>www.example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_www.example.test_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>www.example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_www.example.test_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>www.example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_www.example.test_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>www.example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_www.example.test_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>www.example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_www.example.test_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>www.example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**www.example.test**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>www.example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**www.example.test**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>www.example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**www.example.test**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>www.example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**www.example.test**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>www.example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**www.example.test**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>www.example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**www.example.test**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>www.example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**www.example.test**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>www.example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**www.example.test**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>www.example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**www.example.test**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>www.example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__www.example.test__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>www.example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__www.example.test__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>www.example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__www.example.test__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>www.example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__www.example.test__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>www.example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__www.example.test__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>www.example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__www.example.test__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>www.example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__www.example.test__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>www.example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__www.example.test__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>www.example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__www.example.test__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>www.example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *www.example.test* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>www.example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *www.example.test* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>www.example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *www.example.test* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>www.example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *www.example.test* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>www.example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *www.example.test* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>www.example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *www.example.test* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>www.example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *www.example.test* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>www.example.test</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *www.example.test* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>www.example.test</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *www.example.test* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>www.example.test</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a@example.test](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">a@example.test</a></p>\n"
+  },
+  {
+    "source": "- [a@example.test](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">a@example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a@example.test](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">a@example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a@example.test][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">a@example.test</a></p>\n"
+  },
+  {
+    "source": "- [a@example.test][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">a@example.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a@example.test][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">a@example.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[a@example.test](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">a@example.test</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[a@example.test](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">a@example.test</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[a@example.test](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">a@example.test</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a@example.test*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a@example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*a@example.test*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a@example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a@example.test*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a@example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a@example.test*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a@example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [*a@example.test*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a@example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a@example.test*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a@example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*a@example.test*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a@example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*a@example.test*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a@example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*a@example.test*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a@example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a@example.test_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a@example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_a@example.test_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a@example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a@example.test_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a@example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a@example.test_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a@example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [_a@example.test_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a@example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a@example.test_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a@example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_a@example.test_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a@example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_a@example.test_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a@example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_a@example.test_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a@example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a@example.test**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a@example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a@example.test**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a@example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a@example.test**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a@example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a@example.test**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a@example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a@example.test**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a@example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a@example.test**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a@example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**a@example.test**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a@example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**a@example.test**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a@example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**a@example.test**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a@example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a@example.test__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a@example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a@example.test__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a@example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a@example.test__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a@example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a@example.test__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a@example.test</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a@example.test__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a@example.test</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a@example.test__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a@example.test</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__a@example.test__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a@example.test</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__a@example.test__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a@example.test</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__a@example.test__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a@example.test</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a@example.test* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>a@example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a@example.test* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>a@example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a@example.test* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>a@example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a@example.test* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>a@example.test</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a@example.test* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>a@example.test</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a@example.test* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>a@example.test</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *a@example.test* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>a@example.test</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *a@example.test* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>a@example.test</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *a@example.test* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>a@example.test</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://example.test/a/_v1_/x*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://example.test/a/_v1_/x*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>https://example.test/a/<em>v1</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://example.test/a/_v1_/x*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://example.test/a/_v1_/x*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://example.test/a/_v1_/x*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://example.test/a/_v1_/x*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*https://example.test/a/_v1_/x*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>https://example.test/a/<em>v1</em>/x</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*https://example.test/a/_v1_/x*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>https://example.test/a/<em>v1</em>/x</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*https://example.test/a/_v1_/x*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>https://example.test/a/<em>v1</em>/x</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_https://example.test/a/_v1_/x_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [_https://example.test/a/_v1_/x_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>https://example.test/a/<em>v1</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_https://example.test/a/_v1_/x_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_https://example.test/a/_v1_/x_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [_https://example.test/a/_v1_/x_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_https://example.test/a/_v1_/x_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_https://example.test/a/_v1_/x_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>https://example.test/a/<em>v1</em>/x</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_https://example.test/a/_v1_/x_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>https://example.test/a/<em>v1</em>/x</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_https://example.test/a/_v1_/x_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>https://example.test/a/<em>v1</em>/x</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *https://example.test/a/_v1_/x* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *https://example.test/a/_v1_/x* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *https://example.test/a/_v1_/x* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *https://example.test/a/_v1_/x* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *https://example.test/a/_v1_/x* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *https://example.test/a/_v1_/x* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *https://example.test/a/_v1_/x* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *https://example.test/a/_v1_/x* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *https://example.test/a/_v1_/x* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>https://example.test/a/<em>v1</em>/x</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://example.test/a/*em*/x*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://example.test/a/*em*/x*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>https://example.test/a/<em>em</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://example.test/a/*em*/x*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://example.test/a/*em*/x*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://example.test/a/*em*/x*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>https://example.test/a/<em>em</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://example.test/a/*em*/x*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*https://example.test/a/*em*/x*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>https://example.test/a/<em>em</em>/x</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*https://example.test/a/*em*/x*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>https://example.test/a/<em>em</em>/x</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*https://example.test/a/*em*/x*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>https://example.test/a/<em>em</em>/x</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_https://example.test/a/*em*/x_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [_https://example.test/a/*em*/x_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>https://example.test/a/<em>em</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_https://example.test/a/*em*/x_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_https://example.test/a/*em*/x_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [_https://example.test/a/*em*/x_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>https://example.test/a/<em>em</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_https://example.test/a/*em*/x_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>https://example.test/a/<em>em</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_https://example.test/a/*em*/x_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>https://example.test/a/<em>em</em>/x</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_https://example.test/a/*em*/x_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>https://example.test/a/<em>em</em>/x</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_https://example.test/a/*em*/x_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>https://example.test/a/<em>em</em>/x</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *https://example.test/a/*em*/x* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>https://example.test/a/<em>em</em>/x</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *https://example.test/a/*em*/x* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>https://example.test/a/<em>em</em>/x</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *https://example.test/a/*em*/x* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>https://example.test/a/<em>em</em>/x</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *https://example.test/a/*em*/x* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>https://example.test/a/<em>em</em>/x</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *https://example.test/a/*em*/x* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>https://example.test/a/<em>em</em>/x</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *https://example.test/a/*em*/x* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>https://example.test/a/<em>em</em>/x</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *https://example.test/a/*em*/x* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>https://example.test/a/<em>em</em>/x</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *https://example.test/a/*em*/x* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>https://example.test/a/<em>em</em>/x</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *https://example.test/a/*em*/x* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>https://example.test/a/<em>em</em>/x</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a/b](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">a/b</a></p>\n"
+  },
+  {
+    "source": "- [a/b](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">a/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a/b](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">a/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a/b][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">a/b</a></p>\n"
+  },
+  {
+    "source": "- [a/b][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">a/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a/b][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">a/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[a/b](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">a/b</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[a/b](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">a/b</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[a/b](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">a/b</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a/b*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [*a/b*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a/b*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a/b*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [*a/b*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a/b*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*a/b*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*a/b*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*a/b*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a/b_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [_a/b_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a/b_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a/b_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [_a/b_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a/b_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_a/b_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_a/b_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_a/b_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a/b**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a/b**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a/b**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a/b**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a/b**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a/b**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**a/b**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**a/b**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**a/b**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a/b__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a/b__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a/b__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a/b__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a/b__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a/b__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__a/b__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__a/b__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__a/b__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a/b* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>a/b</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a/b* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>a/b</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a/b* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>a/b</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a/b* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>a/b</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a/b* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>a/b</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a/b* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>a/b</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *a/b* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>a/b</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *a/b* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>a/b</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *a/b* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>a/b</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[/literal/](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">/literal/</a></p>\n"
+  },
+  {
+    "source": "- [/literal/](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">/literal/</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [/literal/](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">/literal/</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[/literal/][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">/literal/</a></p>\n"
+  },
+  {
+    "source": "- [/literal/][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">/literal/</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [/literal/][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">/literal/</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[/literal/](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">/literal/</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[/literal/](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">/literal/</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[/literal/](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">/literal/</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*/literal/*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>/literal/</em></a></p>\n"
+  },
+  {
+    "source": "- [*/literal/*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>/literal/</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*/literal/*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>/literal/</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*/literal/*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>/literal/</em></a></p>\n"
+  },
+  {
+    "source": "- [*/literal/*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>/literal/</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*/literal/*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>/literal/</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*/literal/*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>/literal/</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*/literal/*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>/literal/</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*/literal/*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>/literal/</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_/literal/_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>/literal/</em></a></p>\n"
+  },
+  {
+    "source": "- [_/literal/_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>/literal/</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_/literal/_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>/literal/</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_/literal/_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>/literal/</em></a></p>\n"
+  },
+  {
+    "source": "- [_/literal/_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>/literal/</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_/literal/_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>/literal/</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_/literal/_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>/literal/</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_/literal/_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>/literal/</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_/literal/_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>/literal/</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**/literal/**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>/literal/</strong></a></p>\n"
+  },
+  {
+    "source": "- [**/literal/**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>/literal/</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**/literal/**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>/literal/</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**/literal/**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>/literal/</strong></a></p>\n"
+  },
+  {
+    "source": "- [**/literal/**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>/literal/</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**/literal/**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>/literal/</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**/literal/**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>/literal/</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**/literal/**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>/literal/</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**/literal/**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>/literal/</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__/literal/__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>/literal/</strong></a></p>\n"
+  },
+  {
+    "source": "- [__/literal/__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>/literal/</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__/literal/__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>/literal/</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__/literal/__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>/literal/</strong></a></p>\n"
+  },
+  {
+    "source": "- [__/literal/__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>/literal/</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__/literal/__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>/literal/</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__/literal/__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>/literal/</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__/literal/__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>/literal/</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__/literal/__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>/literal/</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before */literal/* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>/literal/</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before */literal/* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>/literal/</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before */literal/* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>/literal/</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before */literal/* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>/literal/</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before */literal/* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>/literal/</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before */literal/* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>/literal/</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before */literal/* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>/literal/</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before */literal/* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>/literal/</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before */literal/* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>/literal/</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a\\/b](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">a/b</a></p>\n"
+  },
+  {
+    "source": "- [a\\/b](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">a/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a\\/b](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">a/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a\\/b][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">a/b</a></p>\n"
+  },
+  {
+    "source": "- [a\\/b][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">a/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a\\/b][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">a/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[a\\/b](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">a/b</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[a\\/b](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">a/b</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[a\\/b](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">a/b</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a\\/b*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [*a\\/b*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a\\/b*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a\\/b*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [*a\\/b*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a\\/b*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*a\\/b*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*a\\/b*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*a\\/b*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a\\/b_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [_a\\/b_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a\\/b_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a\\/b_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [_a\\/b_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a\\/b_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_a\\/b_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_a\\/b_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_a\\/b_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a/b</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a\\/b**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a\\/b**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a\\/b**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a\\/b**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a\\/b**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a\\/b**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**a\\/b**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**a\\/b**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**a\\/b**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a\\/b__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a\\/b__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a\\/b__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a\\/b__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a\\/b__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a\\/b__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__a\\/b__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__a\\/b__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__a\\/b__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a/b</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a\\/b* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>a/b</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a\\/b* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>a/b</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a\\/b* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>a/b</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a\\/b* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>a/b</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a\\/b* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>a/b</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a\\/b* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>a/b</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *a\\/b* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>a/b</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *a\\/b* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>a/b</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *a\\/b* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>a/b</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a<em>x</em>b](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">a<em>x</em>b</a></p>\n"
+  },
+  {
+    "source": "- [a<em>x</em>b](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">a<em>x</em>b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a<em>x</em>b](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">a<em>x</em>b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a<em>x</em>b][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">a<em>x</em>b</a></p>\n"
+  },
+  {
+    "source": "- [a<em>x</em>b][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">a<em>x</em>b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a<em>x</em>b][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">a<em>x</em>b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[a<em>x</em>b](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">a<em>x</em>b</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[a<em>x</em>b](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">a<em>x</em>b</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[a<em>x</em>b](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">a<em>x</em>b</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a<em>x</em>b*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a<em>x</em>b</em></a></p>\n"
+  },
+  {
+    "source": "- [*a<em>x</em>b*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a<em>x</em>b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a<em>x</em>b*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a<em>x</em>b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a<em>x</em>b*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a<em>x</em>b</em></a></p>\n"
+  },
+  {
+    "source": "- [*a<em>x</em>b*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a<em>x</em>b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a<em>x</em>b*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a<em>x</em>b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*a<em>x</em>b*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a<em>x</em>b</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*a<em>x</em>b*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a<em>x</em>b</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*a<em>x</em>b*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a<em>x</em>b</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a<em>x</em>b_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>a<em>x</em>b</em></a></p>\n"
+  },
+  {
+    "source": "- [_a<em>x</em>b_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>a<em>x</em>b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a<em>x</em>b_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>a<em>x</em>b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a<em>x</em>b_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>a<em>x</em>b</em></a></p>\n"
+  },
+  {
+    "source": "- [_a<em>x</em>b_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>a<em>x</em>b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a<em>x</em>b_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>a<em>x</em>b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_a<em>x</em>b_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>a<em>x</em>b</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_a<em>x</em>b_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>a<em>x</em>b</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_a<em>x</em>b_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>a<em>x</em>b</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a<em>x</em>b**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a<em>x</em>b</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a<em>x</em>b**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a<em>x</em>b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a<em>x</em>b**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a<em>x</em>b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a<em>x</em>b**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a<em>x</em>b</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a<em>x</em>b**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a<em>x</em>b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a<em>x</em>b**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a<em>x</em>b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**a<em>x</em>b**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a<em>x</em>b</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**a<em>x</em>b**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a<em>x</em>b</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**a<em>x</em>b**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a<em>x</em>b</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a<em>x</em>b__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong>a<em>x</em>b</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a<em>x</em>b__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong>a<em>x</em>b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a<em>x</em>b__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong>a<em>x</em>b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__a<em>x</em>b__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong>a<em>x</em>b</strong></a></p>\n"
+  },
+  {
+    "source": "- [__a<em>x</em>b__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong>a<em>x</em>b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__a<em>x</em>b__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong>a<em>x</em>b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__a<em>x</em>b__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong>a<em>x</em>b</strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__a<em>x</em>b__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong>a<em>x</em>b</strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__a<em>x</em>b__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong>a<em>x</em>b</strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a<em>x</em>b* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em>a<em>x</em>b</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a<em>x</em>b* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em>a<em>x</em>b</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a<em>x</em>b* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em>a<em>x</em>b</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *a<em>x</em>b* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em>a<em>x</em>b</em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *a<em>x</em>b* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em>a<em>x</em>b</em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *a<em>x</em>b* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em>a<em>x</em>b</em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *a<em>x</em>b* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em>a<em>x</em>b</em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *a<em>x</em>b* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em>a<em>x</em>b</em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *a<em>x</em>b* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em>a<em>x</em>b</em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[<em>ftp://example.test</em>](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em>ftp://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [<em>ftp://example.test</em>](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em>ftp://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [<em>ftp://example.test</em>](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em>ftp://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[<em>ftp://example.test</em>][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em>ftp://example.test</em></a></p>\n"
+  },
+  {
+    "source": "- [<em>ftp://example.test</em>][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em>ftp://example.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [<em>ftp://example.test</em>][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>ftp://example.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[<em>ftp://example.test</em>](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[<em>ftp://example.test</em>](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[<em>ftp://example.test</em>](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em>ftp://example.test</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**<em>ftp://example.test</em>**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong><em>ftp://example.test</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [**<em>ftp://example.test</em>**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong><em>ftp://example.test</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**<em>ftp://example.test</em>**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong><em>ftp://example.test</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**<em>ftp://example.test</em>**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong><em>ftp://example.test</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [**<em>ftp://example.test</em>**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong><em>ftp://example.test</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**<em>ftp://example.test</em>**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong><em>ftp://example.test</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**<em>ftp://example.test</em>**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong><em>ftp://example.test</em></strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**<em>ftp://example.test</em>**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong><em>ftp://example.test</em></strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**<em>ftp://example.test</em>**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong><em>ftp://example.test</em></strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__<em>ftp://example.test</em>__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong><em>ftp://example.test</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [__<em>ftp://example.test</em>__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong><em>ftp://example.test</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__<em>ftp://example.test</em>__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong><em>ftp://example.test</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__<em>ftp://example.test</em>__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong><em>ftp://example.test</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [__<em>ftp://example.test</em>__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong><em>ftp://example.test</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__<em>ftp://example.test</em>__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong><em>ftp://example.test</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__<em>ftp://example.test</em>__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong><em>ftp://example.test</em></strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__<em>ftp://example.test</em>__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong><em>ftp://example.test</em></strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__<em>ftp://example.test</em>__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong><em>ftp://example.test</em></strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[<em href=\"a/b\">x</em>](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em href=\"a/b\">x</em></a></p>\n"
+  },
+  {
+    "source": "- [<em href=\"a/b\">x</em>](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em href=\"a/b\">x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [<em href=\"a/b\">x</em>](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em href=\"a/b\">x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[<em href=\"a/b\">x</em>][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em href=\"a/b\">x</em></a></p>\n"
+  },
+  {
+    "source": "- [<em href=\"a/b\">x</em>][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em href=\"a/b\">x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [<em href=\"a/b\">x</em>][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em href=\"a/b\">x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[<em href=\"a/b\">x</em>](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em href=\"a/b\">x</em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[<em href=\"a/b\">x</em>](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em href=\"a/b\">x</em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[<em href=\"a/b\">x</em>](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em href=\"a/b\">x</em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*<em href=\"a/b\">x</em>*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em><em href=\"a/b\">x</em></em></a></p>\n"
+  },
+  {
+    "source": "- [*<em href=\"a/b\">x</em>*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em><em href=\"a/b\">x</em></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*<em href=\"a/b\">x</em>*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em><em href=\"a/b\">x</em></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*<em href=\"a/b\">x</em>*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em><em href=\"a/b\">x</em></em></a></p>\n"
+  },
+  {
+    "source": "- [*<em href=\"a/b\">x</em>*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em><em href=\"a/b\">x</em></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*<em href=\"a/b\">x</em>*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em><em href=\"a/b\">x</em></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*<em href=\"a/b\">x</em>*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em><em href=\"a/b\">x</em></em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*<em href=\"a/b\">x</em>*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em><em href=\"a/b\">x</em></em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*<em href=\"a/b\">x</em>*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em><em href=\"a/b\">x</em></em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_<em href=\"a/b\">x</em>_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em><em href=\"a/b\">x</em></em></a></p>\n"
+  },
+  {
+    "source": "- [_<em href=\"a/b\">x</em>_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em><em href=\"a/b\">x</em></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_<em href=\"a/b\">x</em>_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em><em href=\"a/b\">x</em></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_<em href=\"a/b\">x</em>_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em><em href=\"a/b\">x</em></em></a></p>\n"
+  },
+  {
+    "source": "- [_<em href=\"a/b\">x</em>_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em><em href=\"a/b\">x</em></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_<em href=\"a/b\">x</em>_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em><em href=\"a/b\">x</em></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_<em href=\"a/b\">x</em>_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em><em href=\"a/b\">x</em></em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_<em href=\"a/b\">x</em>_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em><em href=\"a/b\">x</em></em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_<em href=\"a/b\">x</em>_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em><em href=\"a/b\">x</em></em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**<em href=\"a/b\">x</em>**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong><em href=\"a/b\">x</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [**<em href=\"a/b\">x</em>**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong><em href=\"a/b\">x</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**<em href=\"a/b\">x</em>**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong><em href=\"a/b\">x</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**<em href=\"a/b\">x</em>**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong><em href=\"a/b\">x</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [**<em href=\"a/b\">x</em>**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong><em href=\"a/b\">x</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**<em href=\"a/b\">x</em>**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong><em href=\"a/b\">x</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**<em href=\"a/b\">x</em>**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong><em href=\"a/b\">x</em></strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**<em href=\"a/b\">x</em>**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong><em href=\"a/b\">x</em></strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**<em href=\"a/b\">x</em>**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong><em href=\"a/b\">x</em></strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__<em href=\"a/b\">x</em>__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong><em href=\"a/b\">x</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [__<em href=\"a/b\">x</em>__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong><em href=\"a/b\">x</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__<em href=\"a/b\">x</em>__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong><em href=\"a/b\">x</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__<em href=\"a/b\">x</em>__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong><em href=\"a/b\">x</em></strong></a></p>\n"
+  },
+  {
+    "source": "- [__<em href=\"a/b\">x</em>__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong><em href=\"a/b\">x</em></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__<em href=\"a/b\">x</em>__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong><em href=\"a/b\">x</em></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__<em href=\"a/b\">x</em>__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong><em href=\"a/b\">x</em></strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__<em href=\"a/b\">x</em>__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong><em href=\"a/b\">x</em></strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__<em href=\"a/b\">x</em>__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong><em href=\"a/b\">x</em></strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *<em href=\"a/b\">x</em>* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em><em href=\"a/b\">x</em></em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *<em href=\"a/b\">x</em>* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em><em href=\"a/b\">x</em></em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *<em href=\"a/b\">x</em>* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em><em href=\"a/b\">x</em></em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *<em href=\"a/b\">x</em>* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em><em href=\"a/b\">x</em></em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *<em href=\"a/b\">x</em>* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em><em href=\"a/b\">x</em></em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *<em href=\"a/b\">x</em>* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em><em href=\"a/b\">x</em></em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *<em href=\"a/b\">x</em>* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em><em href=\"a/b\">x</em></em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *<em href=\"a/b\">x</em>* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em><em href=\"a/b\">x</em></em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *<em href=\"a/b\">x</em>* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em><em href=\"a/b\">x</em></em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[`a/b`](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><code>a/b</code></a></p>\n"
+  },
+  {
+    "source": "- [`a/b`](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><code>a/b</code></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [`a/b`](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><code>a/b</code></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[`a/b`][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><code>a/b</code></a></p>\n"
+  },
+  {
+    "source": "- [`a/b`][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><code>a/b</code></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [`a/b`][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><code>a/b</code></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[`a/b`](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><code>a/b</code></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[`a/b`](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><code>a/b</code></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[`a/b`](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><code>a/b</code></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*`a/b`*](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em><code>a/b</code></em></a></p>\n"
+  },
+  {
+    "source": "- [*`a/b`*](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em><code>a/b</code></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*`a/b`*](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em><code>a/b</code></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*`a/b`*][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em><code>a/b</code></em></a></p>\n"
+  },
+  {
+    "source": "- [*`a/b`*][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em><code>a/b</code></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*`a/b`*][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em><code>a/b</code></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[*`a/b`*](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em><code>a/b</code></em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[*`a/b`*](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em><code>a/b</code></em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[*`a/b`*](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em><code>a/b</code></em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_`a/b`_](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><em><code>a/b</code></em></a></p>\n"
+  },
+  {
+    "source": "- [_`a/b`_](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><em><code>a/b</code></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_`a/b`_](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><em><code>a/b</code></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_`a/b`_][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><em><code>a/b</code></em></a></p>\n"
+  },
+  {
+    "source": "- [_`a/b`_][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><em><code>a/b</code></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_`a/b`_][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em><code>a/b</code></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[_`a/b`_](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><em><code>a/b</code></em></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[_`a/b`_](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><em><code>a/b</code></em></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[_`a/b`_](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><em><code>a/b</code></em></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**`a/b`**](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong><code>a/b</code></strong></a></p>\n"
+  },
+  {
+    "source": "- [**`a/b`**](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong><code>a/b</code></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**`a/b`**](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong><code>a/b</code></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**`a/b`**][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong><code>a/b</code></strong></a></p>\n"
+  },
+  {
+    "source": "- [**`a/b`**][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong><code>a/b</code></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**`a/b`**][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong><code>a/b</code></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[**`a/b`**](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong><code>a/b</code></strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[**`a/b`**](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong><code>a/b</code></strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[**`a/b`**](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong><code>a/b</code></strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__`a/b`__](https://target.test)",
+    "html": "<p><a href=\"https://target.test\"><strong><code>a/b</code></strong></a></p>\n"
+  },
+  {
+    "source": "- [__`a/b`__](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\"><strong><code>a/b</code></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__`a/b`__](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\"><strong><code>a/b</code></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[__`a/b`__][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\"><strong><code>a/b</code></strong></a></p>\n"
+  },
+  {
+    "source": "- [__`a/b`__][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\"><strong><code>a/b</code></strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [__`a/b`__][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\"><strong><code>a/b</code></strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[__`a/b`__](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\"><strong><code>a/b</code></strong></a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[__`a/b`__](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\"><strong><code>a/b</code></strong></a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[__`a/b`__](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\"><strong><code>a/b</code></strong></a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *`a/b`* after](https://target.test)",
+    "html": "<p><a href=\"https://target.test\">before <em><code>a/b</code></em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *`a/b`* after](https://target.test)",
+    "html": "<ul>\n<li><a href=\"https://target.test\">before <em><code>a/b</code></em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *`a/b`* after](https://target.test)",
+    "html": "<blockquote>\n<p><a href=\"https://target.test\">before <em><code>a/b</code></em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[before *`a/b`* after][r]\n\n[r]: /url",
+    "html": "<p><a href=\"/url\">before <em><code>a/b</code></em> after</a></p>\n"
+  },
+  {
+    "source": "- [before *`a/b`* after][r]\n  \n  [r]: /url",
+    "html": "<ul>\n<li><a href=\"/url\">before <em><code>a/b</code></em> after</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [before *`a/b`* after][r]\n> \n> [r]: /url",
+    "html": "<blockquote>\n<p><a href=\"/url\">before <em><code>a/b</code></em> after</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[[before *`a/b`* after](/inner)](/outer)",
+    "html": "<p>[<a href=\"/inner\">before <em><code>a/b</code></em> after</a>](/outer)</p>\n"
+  },
+  {
+    "source": "- [[before *`a/b`* after](/inner)](/outer)",
+    "html": "<ul>\n<li>[<a href=\"/inner\">before <em><code>a/b</code></em> after</a>](/outer)</li>\n</ul>\n"
+  },
+  {
+    "source": "> [[before *`a/b`* after](/inner)](/outer)",
+    "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em><code>a/b</code></em> after</a>](/outer)</p>\n</blockquote>\n"
+  }
+]

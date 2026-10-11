@@ -6557,7 +6557,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if (($line[$at] === '<' || $line[$at] === 'h') && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`]+)~', $line, $url, 0, $at) === 1) {
+            if (($line[$at] === '<' || ($line[$at] === 'h' && $openLabels === [])) && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`\x00]+)~', $line, $url, 0, $at) === 1) {
                 $at += strlen($url[0]) - 1;
 
                 continue;
@@ -6665,7 +6665,23 @@ class MarkdownToCarve
 
             return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
         }, $line) ?? $line;
-        $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
+        $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
+        $labelAt = 0;
+        $line = preg_replace_callback(
+            '/\bhttps?:\/\/[^\s<>`\x00]+/',
+            static function (array $match) use ($protect, $labelRanges, &$labelAt): string {
+                $offset = $match[0][1];
+                while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
+                    $labelAt++;
+                }
+                $label = $labelRanges[$labelAt] ?? null;
+
+                return $label !== null && $offset >= $label['start'] && $offset < $label['end']
+                    ? $match[0][0] : $protect($match[0][0]);
+            },
+            $line,
+            flags: PREG_OFFSET_CAPTURE,
+        ) ?? $line;
         // A definition kept where it stands is a definition, not link text -
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
@@ -6748,6 +6764,7 @@ class MarkdownToCarve
         $line = $this->restoreNumericReferenceHashes($line);
         $line = str_replace('&#', '&\\#', $line);
 
+        $line = $this->escapeLinkLabelSlashes($line, $protected);
         $line = MarkdownEmphasis::convert($line, function (): void {
             $this->flattenedEmphasis = true;
         }, null, $protected);
@@ -7833,6 +7850,54 @@ class MarkdownToCarve
         }
 
         return '[' . $label . ']' . $protect('{title=' . $this->quoteAttributeValue($title) . '}');
+    }
+
+    /**
+     * @param string $source
+     * @param array<string> $protected
+     */
+    private function escapeLinkLabelSlashes(string $source, array $protected): string
+    {
+        $ranges = MarkdownEmphasis::linkLabelRanges($source, $protected);
+        $rangeAt = 0;
+        $out = '';
+        $opaqueEnds = [];
+        for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+            if ($source[$at] === '\\' && $at + 1 < $length) {
+                $out .= substr($source, $at, 2);
+                $at++;
+
+                continue;
+            }
+            if ($source[$at] === "\0") {
+                $end = strpos($source, "\0", $at + 1);
+                if ($end !== false) {
+                    $out .= substr($source, $at, $end - $at + 1);
+                    $at = $end;
+
+                    continue;
+                }
+            }
+            $tagEnd = $source[$at] === '<'
+                ? $this->opaqueHtmlEnd($source, $at, $opaqueEnds) ?? ($this->htmlTagAt($source, $at)['end'] ?? null)
+                : null;
+            if ($tagEnd !== null) {
+                $out .= substr($source, $at, $tagEnd - $at);
+                $at = $tagEnd - 1;
+
+                continue;
+            }
+            while (isset($ranges[$rangeAt]) && $ranges[$rangeAt]['end'] <= $at) {
+                $rangeAt++;
+            }
+            $range = $ranges[$rangeAt] ?? null;
+            if ($source[$at] === '/' && $range !== null && $at >= $range['start'] && $at < $range['end']) {
+                $out .= '\\';
+            }
+            $out .= $source[$at];
+        }
+
+        return $out;
     }
 
     /**
