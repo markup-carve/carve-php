@@ -1346,7 +1346,7 @@ final class BlockContinuationScanner
             : null;
         $paired = $opener !== null && $this->literalSourceFenceHasCloser($lines, $index, $opener, $stripColumns + $column, $stripColumns + $offset);
         $state = $this->advanceTrailingState($state, $line, true);
-        if (!$paired || $opener === null) {
+        if (!$paired) {
             return $state;
         }
         $parents = [];
