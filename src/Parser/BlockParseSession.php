@@ -203,6 +203,11 @@ final class BlockParseSession
     public array $blockQuoteLazySourceLines = [];
 
     /**
+     * @var array<int, true> Code-shaped lines owned by a quoted inline body.
+     */
+    public array $blockQuoteInlineFenceSourceLines = [];
+
+    /**
      * True when a reference failed to resolve during the parse, in either the
      * collapsed `[text][]` or the explicit `[text][Label]` form. Both can
      * still land on a heading, and the heading index is built from the parsed
