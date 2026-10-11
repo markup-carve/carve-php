@@ -1296,7 +1296,18 @@ final class BlockContinuationScanner
         int $stripColumns = 0,
         bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        if ($state->openParagraph && $state->fence === null && !$closerKnownAhead) {
+        $literalState = $state;
+        $literalColumn = 0;
+        $literalParents = [];
+        while ($literalState->nestedDiv !== null) {
+            $literalParents[] = $literalState;
+            $literalColumn += $literalState->nestedDivColumn;
+            $literalState = $literalState->nestedDiv;
+        }
+        $literalColumn += $literalState->divColumn;
+        $inLiteral = $literalState->inDiv && $literalState->literalDiv
+            && IndentationHelper::getLeadingColumns($line, $literalColumn + 1) === $literalColumn;
+        if (($state->openParagraph || $inLiteral) && $state->fence === null && !$closerKnownAhead) {
             $fenceAt = IndentationHelper::pastLeadingWhitespace($line);
             $subject = $line;
             if (($this->getFencedBlockParser)()->isCodeFenceHead($line, $fenceAt)) {
@@ -1305,13 +1316,32 @@ final class BlockContinuationScanner
             }
             $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
+            if ($inLiteral && $opener !== null && $this->hasFenceCloserInView($lines, $index, $opener, $stripColumns)) {
+                $literalState->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literalState->divColumn);
+                $literalState->openParagraph = false;
+                foreach (array_reverse($literalParents) as $parent) {
+                    $fence = $literalState->fence;
+                    if ($fence !== null) {
+                        $parent->openFence($fence->char, $fence->length, $fence->column + $parent->nestedDivColumn, $fence->hostColumn + $parent->nestedDivColumn);
+                    }
+                    $parent->openParagraph = false;
+                    $parent->nestedDivBody = true;
+                    $literalState = $parent;
+                }
+
+                return $state;
+            }
             if (
                 $opener !== null
                 && !$this->hasFenceCloserInView($lines, $index, $opener, $stripColumns)
             ) {
                 // A neutral prose line advances every non-fence flag exactly as
                 // this failed opener must; only its literal bytes differ.
-                return $this->advanceTrailingState($state, 'text', $atContentColumn);
+                $neutral = $inLiteral
+                    ? substr($line, 0, $fenceAt) . 'text'
+                    : 'text';
+
+                return $this->advanceTrailingState($state, $neutral, $atContentColumn);
             }
         }
 

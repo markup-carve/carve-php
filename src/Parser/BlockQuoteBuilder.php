@@ -423,6 +423,20 @@ final class BlockQuoteBuilder
             return true;
         }
         if ($colon !== null && $colon['literal']) {
+            $open = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
+                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
+            if ($open !== null && $column === $colon['column']) {
+                $char = $open['char'] ?? $open['fence'][0];
+                if (
+                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, $column)
+                    || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, $colon['base'] ?? $colon['column'])
+                ) {
+                    $host['fence'] = ['char' => $char, 'length' => $open['length'], 'column' => $column, 'base' => $colon['base'] ?? $colon['column']];
+                    $state['paragraphOpen'] = false;
+
+                    return true;
+                }
+            }
             $colon['body'] = true;
             array_pop($state['colonClaims']);
             $state['colonClaims'][] = $colon;
@@ -510,7 +524,10 @@ final class BlockQuoteBuilder
             return true;
         }
 
-        if ($div !== null && $floor > 0 && $state['mode'] !== BlockQuoteLazyMode::Div) {
+        if (
+            $div !== null && $floor > 0 && $state['mode'] !== BlockQuoteLazyMode::Div
+            && ($colon === null || $floor !== ($colon['base'] ?? $colon['column']) || $at <= $colon['column'])
+        ) {
             $state['colonClaims'][] = ['length' => $div['length'], 'column' => $at, 'body' => false, 'literal' => $div['className'] === '|', 'base' => $floor];
             if (!$blockStart) {
                 $state['paragraphOpen'] = false;

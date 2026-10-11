@@ -1,0 +1,132 @@
+[
+  {
+    "id": "shifted-1-```-None",
+    "source": "> - b\n>\n>   :::\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
+    "html": "<blockquote><ul><li>b\n      <div><p>::: |\n<code></code></p></div>\n      para\n<code>\nlazy</code></li></ul></blockquote>"
+  },
+  {
+    "id": "shifted-1-```-box",
+    "source": "> - b\n>\n>   ::: box\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
+    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><p>::: |\n<code></code></p></div>\n      para\n<code>\nlazy</code></li></ul></blockquote>"
+  },
+  {
+    "id": "desc-code-1-```",
+    "source": "> - ::: box\n>   - ```\n>     x\n>     ```\n>   :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><pre><code>x\n</code></pre></li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "desc-span-1-```",
+    "source": "> - ::: box\n>   - ::: |\n>     ```\n>     :::\n>     ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n            :::bad\n:::\n- tail\n          </li></ul></div></li></ul></blockquote>"
+  },
+  {
+    "id": "shifted-1-~~~-None",
+    "source": "> - b\n>\n>   :::\n>     ::: |\n>     ~~~\n>   :::\n>   para\n>   ~~~\nlazy\n",
+    "html": "<blockquote><ul><li>b\n      <div><p>::: |\n~~~</p></div>\n      para\n~~~\nlazy\n    </li></ul></blockquote>"
+  },
+  {
+    "id": "shifted-1-~~~-box",
+    "source": "> - b\n>\n>   ::: box\n>     ::: |\n>     ~~~\n>   :::\n>   para\n>   ~~~\nlazy\n",
+    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><p>::: |\n~~~</p></div>\n      para\n~~~\nlazy\n    </li></ul></blockquote>"
+  },
+  {
+    "id": "desc-code-1-~~~",
+    "source": "> - ::: box\n>   - ~~~\n>     x\n>     ~~~\n>   :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><pre><code>x\n</code></pre></li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "desc-span-1-~~~",
+    "source": "> - ::: box\n>   - ::: |\n>     ~~~\n>     :::\n>     ~~~\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n            :::bad\n:::\n- tail\n          </li></ul></div></li></ul></blockquote>"
+  },
+  {
+    "id": "no-blank-1",
+    "source": "> - b\n>   ::: box\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
+    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><p>::: |\n<code></code></p></div>\n      para\n<code>\nlazy</code></li></ul></blockquote>"
+  },
+  {
+    "id": "shifted-2-```-None",
+    "source": "> > - b\n> >\n> >   :::\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li>b\n        <div><p>::: |\n<code></code></p></div>\n        para\n<code>\nlazy</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "shifted-2-```-box",
+    "source": "> > - b\n> >\n> >   ::: box\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><p>::: |\n<code></code></p></div>\n        para\n<code>\nlazy</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "desc-code-2-```",
+    "source": "> > - ::: box\n> >   - ```\n> >     x\n> >     ```\n> >   :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><pre><code>x\n</code></pre></li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "desc-span-2-```",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >     :::\n> >     ```\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n              :::bad\n:::\n- tail\n            </li></ul></div></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "shifted-2-~~~-None",
+    "source": "> > - b\n> >\n> >   :::\n> >     ::: |\n> >     ~~~\n> >   :::\n> >   para\n> >   ~~~\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li>b\n        <div><p>::: |\n~~~</p></div>\n        para\n~~~\nlazy\n      </li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "shifted-2-~~~-box",
+    "source": "> > - b\n> >\n> >   ::: box\n> >     ::: |\n> >     ~~~\n> >   :::\n> >   para\n> >   ~~~\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><p>::: |\n~~~</p></div>\n        para\n~~~\nlazy\n      </li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "desc-code-2-~~~",
+    "source": "> > - ::: box\n> >   - ~~~\n> >     x\n> >     ~~~\n> >   :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><pre><code>x\n</code></pre></li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "desc-span-2-~~~",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     ~~~\n> >     :::\n> >     ~~~\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n              :::bad\n:::\n- tail\n            </li></ul></div></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "no-blank-2",
+    "source": "> > - b\n> >   ::: box\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><p>::: |\n<code></code></p></div>\n        para\n<code>\nlazy</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "unchanged-unmatched-1-```",
+    "source": "> - ::: box\n>   - ::: |\n>     ```\n>     :::\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote>"
+  },
+  {
+    "id": "unchanged-overindented-1-```",
+    "source": "> - ::: box\n>   - ::: |\n>       ```\n>     :::\n>       ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "unchanged-unmatched-1-~~~",
+    "source": "> - ::: box\n>   - ::: |\n>     ~~~\n>     :::\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote>"
+  },
+  {
+    "id": "unchanged-overindented-1-~~~",
+    "source": "> - ::: box\n>   - ::: |\n>       ~~~\n>     :::\n>       ~~~\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "unchanged-unmatched-2-```",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >     :::\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "unchanged-overindented-2-```",
+    "source": "> > - ::: box\n> >   - ::: |\n> >       ```\n> >     :::\n> >       ```\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "unchanged-unmatched-2-~~~",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     ~~~\n> >     :::\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "unchanged-overindented-2-~~~",
+    "source": "> > - ::: box\n> >   - ::: |\n> >       ~~~\n> >     :::\n> >       ~~~\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  }
+]

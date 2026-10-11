@@ -4822,7 +4822,9 @@ class BlockParser
             // AT OR PAST the content column, the same reading the plain-lead
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
-            $trailingState = $this->advanceTrailingState($trailingState, $stripped, true);
+            $trailingState = $trailingState->literalDiv || $trailingState->nestedDiv !== null
+                ? $this->advanceTrailingStateWithFenceLookahead($trailingState, $stripped, $lines, $i, true, $contentIndent)
+                : $this->advanceTrailingState($trailingState, $stripped, true);
             if ($bareContinuationLead) {
                 $claimLine = ltrim($stripped, " \t");
                 $claimOpen = $this->advanceTrailingState(new TrailingBlockState(), $claimLine, true)->openParagraph;
