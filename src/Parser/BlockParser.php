@@ -7072,11 +7072,20 @@ class BlockParser
      * @param int $depth
      * @param string $char
      * @param int $length
-     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool}> $memo
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $memo
      * @param int $column
+     * @param bool $withInlineBoundary
      */
-    private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo, int $column = 0): bool
-    {
+    private function quotedCodeFenceHasCloser(
+        array $lines,
+        int $index,
+        int $depth,
+        string $char,
+        int $length,
+        array &$memo,
+        int $column = 0,
+        bool $withInlineBoundary = false,
+    ): bool {
         $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
         $key = $sourceIndent . ':' . $depth . ':' . $column . ':' . $char;
         if ($char === '%') {
@@ -7084,7 +7093,7 @@ class BlockParser
         }
         $start = $index + 1;
         $cached = $memo[$key] ?? null;
-        if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun']) {
+        if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun'] && (!$withInlineBoundary || $cached['inlineChecked'])) {
             return false;
         }
         $maxRun = 0;
@@ -7098,16 +7107,19 @@ class BlockParser
             }
             $content = self::quotedContentAtDepth(IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent), $depth);
             if ($content === null) {
-                $marker = $this->listParser->parseListItemMarker(ltrim($lines[$i], " \t"));
-                $inlineBoundary = $inlineBoundary || ($marker !== null && !str_starts_with(ltrim($lines[$i], " \t"), '- '));
+                if ($withInlineBoundary) {
+                    $marker = $this->listParser->parseListItemMarker(ltrim($lines[$i], " \t"));
+                    $inlineBoundary = $inlineBoundary || ($marker !== null && !str_starts_with(ltrim($lines[$i], " \t"), '- '));
+                }
 
                 break;
             }
-            $text = ltrim($content, " \t");
-            $inlineBoundary = $inlineBoundary
-                || IndentationHelper::isBlankLine($content)
-                || IndentationHelper::getLeadingColumns($content) < $column
-                || (!str_starts_with($text, ':') && $this->lineOpensBlockForLooseness($text));
+            if ($withInlineBoundary && !$inlineBoundary) {
+                $text = ltrim($content, " \t");
+                $inlineBoundary = IndentationHelper::isBlankLine($content)
+                    || IndentationHelper::getLeadingColumns($content) < $column
+                    || (!str_starts_with($text, ':') && $this->lineOpensBlockForLooseness($text));
+            }
             if (IndentationHelper::getLeadingColumns($content) !== $column) {
                 continue;
             }
@@ -7123,7 +7135,7 @@ class BlockParser
                 $maxRun = max($maxRun, strlen($match[1]));
             }
         }
-        $memo[$key] = ['from' => $start, 'end' => $i, 'maxRun' => $maxRun, 'inlineBoundary' => $inlineBoundary];
+        $memo[$key] = ['from' => $start, 'end' => $i, 'maxRun' => $maxRun, 'inlineBoundary' => $inlineBoundary, 'inlineChecked' => $withInlineBoundary];
 
         return false;
     }

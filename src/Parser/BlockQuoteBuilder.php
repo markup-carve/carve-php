@@ -38,7 +38,7 @@ final class BlockQuoteBuilder
      * @param \Closure(string, array{type: string, content: string, attributesWidth?: int}): (int) $listMarkerWidthCallback
      * @param \Closure(int, int): (bool) $markerSitsAtColumnCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
-     * @param \Closure(array<string>, int, int, string, int, array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool}>, int): (bool) $quotedCodeFenceHasCloserCallback
+     * @param \Closure(array<string>, int, int, string, int, array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}>, int, bool): (bool) $quotedCodeFenceHasCloserCallback
      * @param \Closure(array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}}, string): (bool) $trackWrappedAttributeRunCallback
      * @param (\Closure(array<string>, int): (int))|null $blockQuoteLazyExtentEndCallback
      */
@@ -350,7 +350,7 @@ final class BlockQuoteBuilder
      * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state
      * @param array<string> $lines
      * @param int $index
-     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool}> $memo
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $memo
      */
     public function trackQuotedHostFence(string $content, array &$state, array $lines, int $index, array &$memo): bool
     {
@@ -363,6 +363,15 @@ final class BlockQuoteBuilder
         unset($host['inlineFenceLines']);
         $column = IndentationHelper::getLeadingColumns($content);
         $text = ltrim($content, " \t");
+        if ($text === '') {
+            // Blanks inside opaque spans or before the colon owner also make
+            // this quoted body ineligible for the narrow inline handoff.
+            $host['paragraphBoundary'] = true;
+            foreach ($state['colonClaims'] as &$claim) {
+                $claim['paragraphBoundary'] = true;
+            }
+            unset($claim);
+        }
         if ($host['fence'] !== null) {
             $fence = $host['fence'];
             if ($text !== '' && $column < $fence['base']) {
@@ -382,12 +391,6 @@ final class BlockQuoteBuilder
             }
         }
         if ($text === '') {
-            // A loose owner cannot use the immediate descendant handoff.
-            foreach ($state['colonClaims'] as &$claim) {
-                $claim['paragraphBoundary'] = true;
-            }
-            unset($claim);
-
             return false;
         }
         $heldColon = $state['colonClaims'][array_key_last($state['colonClaims']) ?? 0] ?? null;
@@ -577,9 +580,9 @@ final class BlockQuoteBuilder
         // colon owner can restore that owner's paragraph claim.
         if (
             $afterLiteral && !$blockStart && $colon !== null && $colon['body']
-            && !($colon['paragraphBoundary'] ?? false)
+            && !($colon['paragraphBoundary'] ?? false) && !($host['paragraphBoundary'] ?? false)
             && $floor === ($colon['base'] ?? $colon['column']) && $at > $floor && $at < $closedLiteralColumn
-            && !$this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at)
+            && !$this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at, true)
             && !($memo[IndentationHelper::getLeadingColumns($lines[$index]) . ':' . ($state['innerDepth'] + 1) . ':' . $at . ':' . $char]['inlineBoundary'] ?? true)
         ) {
             $sourceLine = $this->sourceLineFor($index);
@@ -641,7 +644,7 @@ final class BlockQuoteBuilder
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
-     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool}> $codeCloserMemo
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $codeCloserMemo
      * @param bool $nested
      */
     public function trackBlockQuoteLazyState(
@@ -1174,12 +1177,21 @@ final class BlockQuoteBuilder
      * @param int $depth
      * @param string $char
      * @param int $length
-     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool}> $memo
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $memo
      * @param int $column
+     * @param bool $withInlineBoundary
      */
-    private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo, int $column = 0): bool
-    {
-        return ($this->quotedCodeFenceHasCloserCallback)($lines, $index, $depth, $char, $length, $memo, $column);
+    private function quotedCodeFenceHasCloser(
+        array $lines,
+        int $index,
+        int $depth,
+        string $char,
+        int $length,
+        array &$memo,
+        int $column = 0,
+        bool $withInlineBoundary = false,
+    ): bool {
+        return ($this->quotedCodeFenceHasCloserCallback)($lines, $index, $depth, $char, $length, $memo, $column, $withInlineBoundary);
     }
 
     private function sourceLineFor(int $index): int

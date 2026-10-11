@@ -218,5 +218,175 @@
     "id": "boundary-E2",
     "source": "> - ::: box\n>   - ::: |\n>     :::\n>    ```\n>\n>    z\nlazy\n",
     "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code>\nz\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p1-preA.lazy",
+    "source": "> - ::: box\n>   ```\n>\n>   ```\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p1-preAn.lazy",
+    "source": "> > - ::: box\n> >   ```\n> >\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p1-preA.minus",
+    "source": "> - ::: box\n>   ```\n>\n>   ```\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p1-preAn.minus",
+    "source": "> > - ::: box\n> >   ```\n> >\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p1-preC.lazy",
+    "source": "> - ::: box\n>   %%%\n>\n>   %%%\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p1-preCn.lazy",
+    "source": "> > - ::: box\n> >   %%%\n> >\n> >   %%%\n> >   - ::: |\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p1-preC.minus",
+    "source": "> - ::: box\n>   %%%\n>\n>   %%%\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p1-preCn.minus",
+    "source": "> > - ::: box\n> >   %%%\n> >\n> >   %%%\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p1-preD.minus",
+    "source": "> - a\n>\n>   ::: box\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li>a\n      <div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p><code></code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p1-preDn.minus",
+    "source": "> > - a\n> >\n> >   ::: box\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p><code></code></p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p1-preJ.lazy",
+    "source": "> - ::: box\n>   - ::: |\n>     ```\n>\n>     ```\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p><p><code></code></p></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p1-preJn.lazy",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >\n> >     ```\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p><p><code></code></p></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p1-preJ.minus",
+    "source": "> - ::: box\n>   - ::: |\n>     ```\n>\n>     ```\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p><p><code></code></p></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p1-preJn.minus",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >\n> >     ```\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p><p><code></code></p></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f1.lazy",
+    "source": "> - ::: box\n>   - ```\n>\n>     ```\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><pre><code></code></pre></li><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f1n.lazy",
+    "source": "> > - ::: box\n> >   - ```\n> >\n> >     ```\n> >   - ::: |\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><pre><code></code></pre></li><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f1.minus",
+    "source": "> - ::: box\n>   - ```\n>\n>     ```\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><pre><code></code></pre></li><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f1n.minus",
+    "source": "> > - ::: box\n> >   - ```\n> >\n> >     ```\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><pre><code></code></pre></li><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f2.lazy",
+    "source": "> - ::: box\n>   ~~~\n>   a\n>\n>   ~~~\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><pre><code>a\n\n</code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f2n.lazy",
+    "source": "> > - ::: box\n> >   ~~~\n> >   a\n> >\n> >   ~~~\n> >   - ::: |\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><pre><code>a\n\n</code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f2.minus",
+    "source": "> - ::: box\n>   ~~~\n>   a\n>\n>   ~~~\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><pre><code>a\n\n</code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f2n.minus",
+    "source": "> > - ::: box\n> >   ~~~\n> >   a\n> >\n> >   ~~~\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><pre><code>a\n\n</code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f4.lazy",
+    "source": "> - ::: box\n>   ```\n>   \t\n>   ```\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f4n.lazy",
+    "source": "> > - ::: box\n> >   ```\n> >   \t\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f4.minus",
+    "source": "> - ::: box\n>   ```\n>   \t\n>   ```\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f4n.minus",
+    "source": "> > - ::: box\n> >   ```\n> >   \t\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f6.lazy",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>   ```\n>\n>   ```\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f6n.lazy",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     :::\n> >   ```\n> >\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-f6.minus",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>   ```\n>\n>   ```\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-f6n.minus",
+    "source": "> > - ::: box\n> >   - ::: |\n> >     :::\n> >   ```\n> >\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-g1.lazy",
+    "source": "> - ::: box\n>   a\n>   ```\n>\n>   ```\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-g1n.lazy",
+    "source": "> > - ::: box\n> >   a\n> >   ```\n> >\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\nlazy\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "opaque-boundary-p2-g1.minus",
+    "source": "> - ::: box\n>   a\n>   ```\n>\n>   ```\n>   - ::: |\n>     :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><p>a</p><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "opaque-boundary-p2-g1n.minus",
+    "source": "> > - ::: box\n> >   a\n> >   ```\n> >\n> >   ```\n> >   - ::: |\n> >     :::\n> >    ```\n- tail\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><p>a</p><pre><code></code></pre><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   }
 ]
