@@ -160,6 +160,54 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     }
 
     /**
+     * AN ENTRY PAST THE HEADER'S LAST CELL TAKES NO ALIGNMENT, having no cell to
+     * take one from: `[3, 3]` over a one-cell CENTERED header writes
+     * `|:---:|---|`, the colon on the cell that has one and nothing on the cell
+     * that does not.
+     *
+     * Pinned as its own case because it is the one shape the three engines would
+     * not derive the same way, so agreement here has to be measured rather than
+     * assumed (`CARVE-P11-066`). The written row re-parses to `[3, 3]` with the
+     * header still centered.
+     */
+    public function testAnEntryPastTheHeaderTakesNoAlignment(): void
+    {
+        $document = $this->parse("| a |\n|:-:|\n| 1 |\n");
+        $table = $document->getChildren()[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $table->setSeparatorWidths([3, 3]);
+
+        $written = (new CarveRenderer())->render($document);
+        $this->assertSame("| a |\n|:---:|---|\n| 1 |\n", $written);
+
+        $reparsed = $this->codec->encode($this->parse($written))['children'][0];
+        $this->assertSame([3, 3], $reparsed['separatorWidths']);
+        $this->assertSame('center', $reparsed['rows'][0]['cells'][0]['align']);
+    }
+
+    /**
+     * NEITHER PAD NOR TRUNCATE. A count ABOVE the header's is written out in
+     * full, which is the mirror of the padding defect: carve-js counted over the
+     * header and truncated, and in both engines the shapes that passed were the
+     * ones where the separator row is shorter than its header, where padding and
+     * truncating agree. That was the only side either engine tested.
+     */
+    public function testAnEntryCountAboveTheHeaderIsNotTruncated(): void
+    {
+        $document = $this->parse("| a |\n|---|\n| 1 |\n");
+        $table = $document->getChildren()[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $table->setSeparatorWidths([2, 4, 6]);
+
+        $written = (new CarveRenderer())->render($document);
+        $this->assertSame("| a |\n|--|----|------|\n| 1 |\n", $written);
+        $this->assertSame(
+            [2, 4, 6],
+            $this->codec->encode($this->parse($written))['children'][0]['separatorWidths'],
+        );
+    }
+
+    /**
      * A SHORTER separator row than the header is kept short, which is what the
      * ragged-table corpus documents author and the case the padding broke. The
      * widths are compared rather than only the bytes, since re-parsing to the
