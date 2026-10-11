@@ -128,5 +128,65 @@
     "id": "unchanged-overindented-2-~~~",
     "source": "> > - ::: box\n> >   - ::: |\n> >       ~~~\n> >     :::\n> >       ~~~\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
     "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "M1 far closer after blank, same col",
+    "source": "- ::: |\n  ```\n  :::\n  p\nlazy\n\n  ```\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\n  </li></ul><p>lazy</p><p><code></code></p>"
+  },
+  {
+    "id": "M2 far closer in later item",
+    "source": "- ::: |\n  ```\n  :::\n  p\nlazy\n\n- x\n  ```\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div><p>p\nlazy</p></li><li><p>x\n<code></code></p></li></ul>"
+  },
+  {
+    "id": "M3 far closer in later paragraph text",
+    "source": "- ::: |\n  ```\n  :::\n  p\nlazy\n\npara\n  ```\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\nlazy\n  </li></ul><p>para\n<code></code></p>"
+  },
+  {
+    "id": "M4 no far closer (control)",
+    "source": "- ::: |\n  ```\n  :::\n  p\nlazy\n\npara\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\nlazy\n  </li></ul><p>para</p>"
+  },
+  {
+    "id": "M5 quoted far closer",
+    "source": "> - ::: |\n>   ```\n>   :::\n>   p\nlazy\n\n>   ```\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code></code></p></div>\n      p\nlazy\n    </li></ul></blockquote><blockquote><p><code></code></p></blockquote>"
+  },
+  {
+    "id": "M6 tilde far closer",
+    "source": "- ::: |\n  ~~~\n  :::\n  p\nlazy\n\n  ~~~\n",
+    "html": "<ul><li><div class=\"line-block\"><p>~~~</p></div>\n    p\n  </li></ul><p>lazy</p><p>~~~</p>"
+  },
+  {
+    "id": "M7 nested desc far closer",
+    "source": "- ::: box\n  - ::: |\n    ```\n    :::\n    p\n  :::\nlazy\n\n    ```\n",
+    "html": "<ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div>\n          p\n        </li></ul></div></li></ul><p>lazy</p><p><code></code></p>"
+  },
+  {
+    "id": "M8 far closer, tail item",
+    "source": "- ::: |\n  ```\n  :::\n  p\n- tail\n\n  ```\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\n  </li><li>tail\n    <pre><code></code></pre></li></ul>"
+  },
+  {
+    "id": "M9 far closer, no tail",
+    "source": "- ::: |\n  ```\n  :::\n  p\n\n  ```\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code>\n:::\np</code></p><p><code></code></p></div></li></ul>"
+  },
+  {
+    "id": "M10 far closer in later code block",
+    "source": "- ::: |\n  ```\n  :::\n  p\nlazy\n\n- ```\n  code\n  ```\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div><p>p\nlazy</p></li><li><pre><code>code\n</code></pre></li></ul>"
+  },
+  {
+    "id": "info-longer-closer",
+    "source": "> - ::: box\n>   - ::: |\n>     ```php\n>     :::\n>     ````\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>php\n:::\n````</code></p></div>\n            :::bad\n:::\n- tail\n          </li></ul></div></li></ul></blockquote>"
+  },
+  {
+    "id": "authored-paired-column",
+    "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>       ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div></li></ul><p>:::\n:::bad\n:::\n- tail</p></div></li></ul></blockquote>"
   }
 ]

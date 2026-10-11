@@ -1296,18 +1296,7 @@ final class BlockContinuationScanner
         int $stripColumns = 0,
         bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        $literalState = $state;
-        $literalColumn = 0;
-        $literalParents = [];
-        while ($literalState->nestedDiv !== null) {
-            $literalParents[] = $literalState;
-            $literalColumn += $literalState->nestedDivColumn;
-            $literalState = $literalState->nestedDiv;
-        }
-        $literalColumn += $literalState->divColumn;
-        $inLiteral = $literalState->inDiv && $literalState->literalDiv
-            && IndentationHelper::getLeadingColumns($line, $literalColumn + 1) === $literalColumn;
-        if (($state->openParagraph || $inLiteral) && $state->fence === null && !$closerKnownAhead) {
+        if ($state->openParagraph && $state->fence === null && !$closerKnownAhead) {
             $fenceAt = IndentationHelper::pastLeadingWhitespace($line);
             $subject = $line;
             if (($this->getFencedBlockParser)()->isCodeFenceHead($line, $fenceAt)) {
@@ -1316,39 +1305,138 @@ final class BlockContinuationScanner
             }
             $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
-            $hasCloser = $opener !== null && ($inLiteral
-                ? $this->sourceFenceCloserInView($lines, $index, $opener, $stripColumns)
-                : $this->hasFenceCloserInView($lines, $index, $opener, $stripColumns));
-            if ($inLiteral && $opener !== null && $hasCloser) {
-                $literalState->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literalState->divColumn);
-                $literalState->openParagraph = false;
-                foreach (array_reverse($literalParents) as $parent) {
-                    $fence = $literalState->fence;
-                    if ($fence !== null) {
-                        $parent->openFence($fence->char, $fence->length, $fence->column + $parent->nestedDivColumn, $fence->hostColumn + $parent->nestedDivColumn);
-                    }
-                    $parent->openParagraph = false;
-                    $parent->nestedDivBody = true;
-                    $literalState = $parent;
-                }
-
-                return $state;
-            }
             if (
                 $opener !== null
-                && !$hasCloser
+                && !$this->hasFenceCloserInView($lines, $index, $opener, $stripColumns)
             ) {
                 // A neutral prose line advances every non-fence flag exactly as
                 // this failed opener must; only its literal bytes differ.
-                $neutral = $inLiteral
-                    ? substr($line, 0, $fenceAt) . 'text'
-                    : 'text';
-
-                return $this->advanceTrailingState($state, $neutral, $atContentColumn);
+                return $this->advanceTrailingState($state, 'text', $atContentColumn);
             }
         }
 
         return $this->advanceTrailingState($state, $line, $atContentColumn);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
+     * @param string $line
+     * @param array<string> $lines Immutable source lines in the current frame.
+     * @param int $stripColumns
+     * @param int $index
+     */
+    public function advanceLiteralStateWithSourceFenceLookahead(
+        TrailingBlockState $state,
+        string $line,
+        array $lines,
+        int $index,
+        int $stripColumns,
+    ): TrailingBlockState {
+        $literal = $state;
+        $offset = 0;
+        while ($literal->nestedDiv !== null) {
+            $offset += $literal->nestedDivColumn;
+            $literal = $literal->nestedDiv;
+        }
+        $column = $offset + $literal->divColumn;
+        $opener = $literal->fence === null
+            && IndentationHelper::getLeadingColumns($line, $column + 1) === $column
+            ? (($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($line, " \t"))
+                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")))
+            : null;
+        $paired = $opener !== null && $this->literalSourceFenceHasCloser($lines, $index, $opener, $stripColumns + $column, $stripColumns + $offset);
+        $state = $this->advanceTrailingState($state, $line, true);
+        if (!$paired || $opener === null) {
+            return $state;
+        }
+        $parents = [];
+        $literal = $state;
+        while ($literal->nestedDiv !== null) {
+            $parents[] = $literal;
+            $literal = $literal->nestedDiv;
+        }
+        $literal->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literal->divColumn);
+        $literal->openParagraph = false;
+        foreach (array_reverse($parents) as $parent) {
+            $fence = $literal->fence;
+            if ($fence !== null) {
+                $parent->openFence($fence->char, $fence->length, $fence->column + $parent->nestedDivColumn, $fence->hostColumn + $parent->nestedDivColumn);
+            }
+            $parent->openParagraph = false;
+            $parent->nestedDivBody = true;
+            $literal = $parent;
+        }
+
+        return $state;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param array{fence:string,length:int,char?:string} $opener
+     * @param int $base
+     * @param int $column
+     */
+    private function literalSourceFenceHasCloser(array $lines, int $index, array $opener, int $column, int $base): bool
+    {
+        $frame = $this->state->frame;
+        if ($frame->literalSourceFenceView === null || $frame->literalSourceBoundaryColumns === null) {
+            $frame->literalSourceFenceView = new IndexedFenceView();
+            $frame->literalSourceFenceView->advance($lines);
+            $frame->literalSourceBoundaryColumns = new RangeMaximum();
+            foreach ($lines as $i => $source) {
+                $threshold = 0;
+                if (($this->getListParser)()->parseListItemMarker(ltrim($source, " \t")) !== null) {
+                    $threshold = PHP_INT_MAX - IndentationHelper::getLeadingColumns($source);
+                } elseif (IndentationHelper::isBlankLine($source)) {
+                    $after = $lines[$i + 1] ?? null;
+                    $threshold = $after === null || IndentationHelper::isBlankLine($after)
+                        ? PHP_INT_MAX
+                        : PHP_INT_MAX - IndentationHelper::getLeadingColumns($after);
+                }
+                if ($threshold > 0) {
+                    $slot = count($frame->literalSourceBoundaryPositions);
+                    $frame->literalSourceBoundaryPositions[] = $i;
+                    $frame->literalSourceBoundaryColumns->set($slot, $threshold);
+                }
+            }
+        }
+        $positions = $frame->literalSourceBoundaryPositions;
+        $low = 0;
+        $high = count($positions);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($positions[$mid] <= $index) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+        $start = $low;
+        $high = count($positions);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($frame->literalSourceBoundaryColumns->maximum($start, $mid + 1) > PHP_INT_MAX - $base) {
+                $high = $mid;
+            } else {
+                $low = $mid + 1;
+            }
+        }
+        $end = $positions[$low] ?? count($lines);
+        $char = $opener['char'] ?? $opener['fence'][0];
+        if (($this->getFencedBlockParser)()::class !== FencedBlockParser::class) {
+            for ($i = $index + 1; $i < $end; $i++) {
+                $at = IndentationHelper::getLeadingColumns($lines[$i], max($column, $base) + 1);
+                if (($at === $column || $at === $base) && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return $frame->literalSourceFenceView->contains($index + 1, $end, $column, $char, $opener['length'])
+            || $frame->literalSourceFenceView->contains($index + 1, $end, $base, $char, $opener['length']);
     }
 
     /**
@@ -1892,7 +1980,8 @@ final class BlockContinuationScanner
             // the matching closer is seen. The closer itself is still part of
             // the code block, so the trailing block remains code.
             if (
-                IndentationHelper::getLeadingColumns($line) === $state->fence->column
+                (IndentationHelper::getLeadingColumns($line) === $state->fence->column
+                    || ($state->literalDiv && IndentationHelper::getLeadingColumns($line) === $state->fence->hostColumn))
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->fence->char, $state->fence->length)
             ) {
                 $state->fence = null;

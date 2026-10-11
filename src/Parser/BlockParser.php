@@ -4823,7 +4823,7 @@ class BlockParser
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
             $trailingState = $trailingState->hasLiteralDiv()
-                ? $this->advanceTrailingStateWithFenceLookahead($trailingState, $stripped, $lines, $i, true, $contentIndent)
+                ? $this->continuationsMapper()->advanceLiteralStateWithSourceFenceLookahead($trailingState, $stripped, $lines, $i, $contentIndent)
                 : $this->advanceTrailingState($trailingState, $stripped, true);
             if ($bareContinuationLead) {
                 $claimLine = ltrim($stripped, " \t");
