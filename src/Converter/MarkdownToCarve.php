@@ -7731,13 +7731,16 @@ class MarkdownToCarve
     {
         $count = count($lines);
         $end = $index;
+        preg_match('/^ {0,3}\[\^(?:[^\]\\\\]|\\\\.)+\]:[ \t]*(.*)$/', $lines[$index], $opening);
+        $paragraphOpen = isset($opening[1]) && trim($opening[1]) !== '' && !$this->opensMarkdownBlock($opening[1]);
         for ($at = $index + 1; $at < $count; $at++) {
             $line = $this->expandLeadingTabs($lines[$at], 8);
             if (
-                trim($line) === ''
+                !$paragraphOpen
+                || trim($line) === ''
                 || strspn($line, ' ') >= 8
                 || $this->opensMarkdownBlock(ltrim($line, ' '))
-                || preg_match('/^ *\[(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
+                || preg_match('/^ *\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
             ) {
                 break;
             }
@@ -7779,7 +7782,8 @@ class MarkdownToCarve
             $block[0] .= " \x00FNEMPTY\x00";
         }
         for ($at = $index + 1; $at <= $end; $at++) {
-            $block[] = '  ' . ltrim($this->expandLeadingTabs($lines[$at], 8), ' ');
+            // Reference definitions cannot interrupt the Markdown paragraph, but can in Carve.
+            $block[] = '  ' . $this->escapeBlockOpener(ltrim($this->expandLeadingTabs($lines[$at], 8), ' '));
         }
         $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
         $this->movedFootnotes[] = $block;
