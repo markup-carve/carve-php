@@ -1911,7 +1911,14 @@ class DjotToCarve
                 if ($quoteText === null) {
                     break;
                 }
+                $end = strpos($source, "\n", $line + 1);
+                $bodyStart = $line + 1 + strlen($quoteText);
+                $body = substr($source, $bodyStart, ($end === false ? strlen($source) : $end) - $bodyStart);
                 if ($enclosing !== [] && strlen($quoteText) - strlen(ltrim($quoteText)) < strlen($enclosing[0])) {
+                    if (strlen($quoteText) - strlen(ltrim($quoteText)) > strlen($enclosing[0]) - strlen(ltrim($enclosing[0])) && ltrim($quoteText) === ltrim($openingQuote[0] ?? '') && substr_count($quoteText, '>') === $context['depth']) {
+                        $edits[$line + 1 + strlen($quoteText)] = str_replace('>', '\\>', trim($quoteText)) . ' ';
+                    }
+
                     break;
                 }
                 if (substr_count($quoteText, '>') < $context['depth']) {
@@ -1922,14 +1929,15 @@ class DjotToCarve
                 if (ltrim($quoteText) !== ltrim($openingQuote[0] ?? '') || substr_count($quoteText, '>') !== $context['depth']) {
                     break;
                 }
-                $end = strpos($source, "\n", $line + 1);
-                $bodyStart = $line + 1 + strlen($quoteText);
-                $body = substr($source, $bodyStart, ($end === false ? strlen($source) : $end) - $bodyStart);
                 if (trim($body) === '') {
                     break;
                 }
                 $indent = strspn($body, " \t");
                 if ($indent < $context['minimum']) {
+                    if (strlen($quoteText) - strlen(ltrim($quoteText)) >= strlen($openingQuote[0] ?? '') - strlen(ltrim($openingQuote[0] ?? '')) + $context['minimum']) {
+                        $edits[$bodyStart] = str_replace('>', '\\>', trim($quoteText)) . ' ';
+                    }
+
                     break;
                 }
                 if ($indent <= $context['indent']) {

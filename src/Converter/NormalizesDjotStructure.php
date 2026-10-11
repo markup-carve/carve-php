@@ -99,16 +99,10 @@ trait NormalizesDjotStructure
         };
         $table = false;
         $fenceParser = new FencedBlockParser();
-        $rejectedCommentOpen = false;
         foreach ($lines as $n => $original) {
             $masked = $mask[$n];
-            $commentContinuation = $rejectedCommentOpen && $paragraph && !$blank;
-            $opensRejectedComment = preg_match('/^\\\\\\{\x00DJOTINVALIDATTR\x00[0-9]+\x00%[^%}]*$/', substr($original, $this->djotContentStart($original))) === 1;
-            $rejectedCommentOpen = $opensRejectedComment
-                || ($commentContinuation && trim(preg_replace('/^(?:[ \t]*>(?:[ \t]|$))*/', '', $original) ?? '', " \t") !== '' && strpbrk($original, '}%') === false);
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $original, $quoteMatch);
             $physicalQuote = $quoteMatch[0] ?? '';
-            $commentContinuation = $commentContinuation && !str_starts_with(ltrim(substr($original, strlen($physicalQuote))), '\\>');
             $physicalQuoteDepth = substr_count($physicalQuote, '>');
             $quotedNoteItem = null;
             $physicalList = $lists !== [] ? $lists[array_key_last($lists)] : null;
@@ -182,7 +176,7 @@ trait NormalizesDjotStructure
             if ($opaqueQuoteOwner !== null && $text !== '' && ($quoteDepth < $opaqueQuoteOwner['depth'] || ($quoteDepth === $opaqueQuoteOwner['depth'] ? $indent : ($quoteColumns[$opaqueQuoteOwner['depth']] ?? 0)) < $opaqueQuoteOwner['column'] + 1)) {
                 $opaqueQuoteOwner = null;
             }
-            $quoteForCarve = function () use ($quoteDepth, &$noteOwner, &$definitionIndent, $hasDefinitionSyntax, &$lists, &$opaqueQuoteOwner, $quoteColumns, $quoteBases, $embeddedOwners, $fences, $n, $original, $masked, $quote, $commentContinuation): string {
+            $quoteForCarve = function () use ($quoteDepth, &$noteOwner, &$definitionIndent, $hasDefinitionSyntax, &$lists, &$opaqueQuoteOwner, $quoteColumns, $quoteBases, $embeddedOwners, $fences, $n, $original, $masked, $quote): string {
                 $baseDepth = $noteOwner->depth ?? 0;
                 $retainedQuote = $baseDepth > 0 ? (preg_replace('/^[ \t]/', '', substr($quote, strlen($this->djotClosedQuoteBoundary($quote, $baseDepth - 1)))) ?? '') : $quote;
                 if ($quoteDepth === 0 || $definitionIndent >= 0 || $hasDefinitionSyntax || $fences[$n] !== $original || ($masked[strpos($quote, '>') ?: 0] ?? '') !== '>') {
@@ -221,9 +215,7 @@ trait NormalizesDjotStructure
                 $parts = [];
                 for ($level = $baseDepth; $level < $quoteDepth; ++$level) {
                     $held = $byDepth[$level] ?? null;
-                    $column = $held !== null
-                        ? ($commentContinuation ? min($quoteColumns[$level] ?? 0, $held['target'] + $held['content'] - 1) : $held['target'] + $held['content'])
-                        : ($commentContinuation || $level > $firstOwned && $level < $lastOwned ? ($quoteColumns[$level] ?? 0) : 0);
+                    $column = $held !== null ? $held['target'] + $held['content'] : ($level > $firstOwned && $level < $lastOwned ? ($quoteColumns[$level] ?? 0) : 0);
                     $parts[] = str_repeat(' ', $column) . '>';
                     if ($level + 1 < $quoteDepth || !str_ends_with($quote, '>')) {
                         $parts[] = ' ';
@@ -634,7 +626,6 @@ trait NormalizesDjotStructure
             }
             $rule = preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
             if ($item && !$rule) {
-                $rejectedCommentOpen = $opensRejectedComment;
                 $previousList = $lists === [] ? null : $lists[array_key_last($lists)];
                 $endsNestedList = $previousList !== null && $indent < $previousList->column;
                 while ($lists !== [] && $indent < $lists[array_key_last($lists)]->column) {

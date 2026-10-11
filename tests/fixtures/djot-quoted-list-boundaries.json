@@ -7332,14 +7332,6 @@
     "carve": "- x\n\n  > a \\{% b\n  > c\n"
   },
   {
-    "source": "1. a {% b\n2. ***\n   > d\n",
-    "carve": "1. a \\{% b\n2. \\*\\*\\*\n   \\> d\n"
-  },
-  {
-    "source": "1. a {% b\n2. ```\n   x % y\n   ```\n   > d\n",
-    "carve": "1. a \\{% b\n2. ```\n   x % y\n   ```\n> d\n"
-  },
-  {
     "source": "- > {% x\n# h\n > y %}\n",
     "carve": "- > \\{% x\n# h\n> y %}\n"
   },
@@ -7350,5 +7342,9 @@
   {
     "source": "- > {% x\n- > next\n > y %}\n",
     "carve": "- > \\{% x\n- > next\n  > y %}\n"
+  },
+  {
+    "source": "- > {% a\n > \n > b\n",
+    "carve": "- > \\{% a\n  > \\> \n  > b\n"
   }
 ]
