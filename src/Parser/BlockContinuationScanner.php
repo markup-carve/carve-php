@@ -522,7 +522,7 @@ final class BlockContinuationScanner
             // AN OPEN FENCE OR DIV IS STILL THE SAME BLOCK. Its body holds no
             // paragraph, so without this the arm below would end the run on the
             // attached block's own first body line.
-            if (($trailingState->fence !== null) || $trailingState->inDiv) {
+            if (($trailingState->fence !== null) || $trailingState->hasOpenDiv()) {
                 return false;
             }
             // PAST IT WHEN IT LEFT NOTHING OPEN. A completed table, a heading
@@ -634,7 +634,7 @@ final class BlockContinuationScanner
             if (IndentationHelper::isBlankLine($nextLine)) {
                 if (
                     ($trailingState->fence !== null)
-                    || $trailingState->inDiv
+                    || $trailingState->hasOpenDiv()
                     || (
                         $trailingState->inFootnoteBody
                         && $this->footnoteBodyResumesAfter(
@@ -704,7 +704,7 @@ final class BlockContinuationScanner
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
                 if (
                     $trailingState->fence === null
-                    && !$trailingState->inDiv
+                    && !$trailingState->hasOpenDiv()
                     && $trailingState->divDepth === 0
                     && $openCommentLength === null
                     && !$trailingState->quoteParagraph
@@ -1107,7 +1107,7 @@ final class BlockContinuationScanner
                 && ($noteColumns === [] || $base < end($noteColumns))
             ) {
                 $trimmed = ltrim($opener, " \t");
-                $nested = $state->nestedColumn;
+                $nested = $state->nestedDiv !== null ? 0 : $state->nestedColumn;
                 if (
                     ReferenceDefinitionExtractor::isDefinitionHead($trimmed)
                     && $this->isReferenceDefinitionLine($trimmed)
@@ -1215,7 +1215,7 @@ final class BlockContinuationScanner
         ?int &$openerBase = null,
     ): string {
         $line = explode("\n", $body[$index], 2)[0];
-        if (($state->fence !== null) || $state->inDiv || $state->divDepth > 0) {
+        if (($state->fence !== null) || $state->hasOpenDiv() || $state->divDepth > 0) {
             // THE CLOSER IS READ AT THE OPENER'S BASE. An opener written past
             // the body's column is rebased below, so the block the tracker
             // opened sits at column 0 in its view - but its CLOSER is not an
@@ -1695,6 +1695,50 @@ final class BlockContinuationScanner
         bool $atContentColumn,
     ): TrailingBlockState {
         $state = clone $state;
+        if ($state->nestedDiv !== null) {
+            $column = IndentationHelper::getLeadingColumns($line);
+            $text = ltrim($line, " \t");
+            if ($column >= $state->nestedDivColumn || $text === '') {
+                $local = IndentationHelper::stripLeadingColumns($line, $state->nestedDivColumn);
+                $child = $this->advanceTrailingStateCore($state->nestedDiv, $local, true);
+                $state->nestedDiv = $child;
+                $state->openParagraph = $child->openParagraph;
+                $fence = $child->fence;
+                if ($fence === null) {
+                    $state->fence = null;
+                } else {
+                    $state->openFence(
+                        $fence->char,
+                        $fence->length,
+                        $fence->column + $state->nestedDivColumn,
+                        $fence->hostColumn + $state->nestedDivColumn,
+                    );
+                }
+                $state->nestedDivBody = $state->nestedDivBody || $text !== '';
+                if (!$child->inDiv && $child->divDepth === 0) {
+                    $state->nestedDiv = null;
+                    $state->nestedDivHosts = [];
+                    $state->nestedColumn = 0;
+                    $state->nestedIsQuote = false;
+                }
+
+                return $state;
+            }
+            $marker = ($this->getListParser)()->parseListItemMarker($text);
+            $structuralMarker = false;
+            foreach ($state->nestedDivHosts as $host) {
+                $structuralMarker = $structuralMarker || ($column <= $host['marker'] && $column >= $host['parent']);
+            }
+            if (
+                $state->nestedDivBody && $state->openParagraph
+                && ($marker !== null ? !$structuralMarker : !$this->startsNewBlock($text))
+            ) {
+                return $state;
+            }
+            $state->nestedDiv = null;
+            $state->nestedDivHosts = [];
+            $state->fence = null;
+        }
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Clearing it here and re-arming it only
         // in the two branches that continue the same paragraph is what keeps a
@@ -1739,6 +1783,7 @@ final class BlockContinuationScanner
         $wasAfterComment = $state->afterComment;
         $state->afterComment = false;
         // Re-armed only by the two branches that set `nestedColumn`.
+        $nestedIsQuoteOnEntry = $state->nestedIsQuote;
         $state->nestedIsQuote = false;
         // A FOOTNOTE DEFINITION IS THE ONE INVISIBLE BLOCK WITH A BODY, so it
         // is the only one whose further-indented line continues it rather than
@@ -1960,8 +2005,22 @@ final class BlockContinuationScanner
             $state->inDiv = true;
             $state->divFenceLength = $divFenceLength;
             $state->divColumn = IndentationHelper::getLeadingColumns($line);
+            $parentDivDepth = $state->divDepth;
             $state->divDepth++;
             $state->openParagraph = false;
+            if (!$nestedIsQuoteOnEntry && $nestedColumnOnEntry > 0 && $state->divColumn >= $nestedColumnOnEntry) {
+                $child = clone $state;
+                $child->divColumn = 0;
+                $child->divDepth = 1;
+                $child->nestedColumn = 0;
+                $child->nestedDiv = null;
+                $state->nestedDiv = $child;
+                $state->nestedDivHosts = [];
+                $state->nestedDivColumn = $state->divColumn;
+                $state->nestedDivBody = false;
+                $state->inDiv = false;
+                $state->divDepth = $parentDivDepth;
+            }
 
             return $state;
         }
@@ -1972,7 +2031,8 @@ final class BlockContinuationScanner
         // separated from the fence by a space. Inside an open container it is
         // body text and arms nothing: the bare run below it is still that
         // container's closer.
-        if (preg_match('/:{3,}/A', $line, $ignored, 0, $at) === 1) {
+        $colonAt = $atContentColumn ? IndentationHelper::pastLeadingWhitespace($line, $at) : $at;
+        if (preg_match('/:{3,}/A', $line, $ignored, 0, $colonAt) === 1) {
             $state->absorbingFence = $state->divDepth === 0;
             $state->openParagraph = true;
 
@@ -2235,18 +2295,32 @@ final class BlockContinuationScanner
                 $lastInteriorNewline,
                 false,
             );
-            // ONLY A BLOCK THAT FINISHES ON THE LEAD LINE ANSWERS HERE. A code
-            // fence or a `:::` opener CONTINUES onto lines this step never
-            // sees - they arrive at this tracker, one container out, where they
-            // are not the nested item's content - so the recursion has not read
-            // the block it would be reporting on. Reporting anyway ended the
-            // outer item on the fence's first body line, which changed what the
-            // item CONTAINS and not just where the lazy line went: `- - ::: note`
-            // / `b` / `:::` turned a literal `::: note` into a real admonition
-            // and moved `b` out of the item. carve-js and carve-rs both leave
-            // an unfinished opener as prose here, and so does the fallback
-            // below, so this falls through to it.
-            if ($inner->fence === null && !$inner->inDiv && !$inner->absorbingFence) {
+            // A marker-line div remains a candidate until its body reaches
+            // the item's content column. Below-column prose still demotes an
+            // unestablished opener; an established body keeps its real closer.
+            if ($inner->inDiv && $inner->fence === null) {
+                $state->nestedDiv = $inner;
+                $state->nestedDivHosts = [];
+                $column = 0;
+                $walk = $at;
+                while (($head = ($this->getListParser)()->markerHeadAt($line, $walk)) !== null) {
+                    $state->nestedDivHosts[] = ['marker' => $column, 'parent' => $column];
+                    $column += $this->listMarkerWidth(substr($line, $walk, $head['content'] - $walk), [
+                        'type' => $head['name'],
+                        'content' => '',
+                        'attributesWidth' => $head['attrs'],
+                    ]);
+                    $walk = $head['content'];
+                }
+                $state->nestedDivColumn = $column;
+                $firstMarker = ($this->getListParser)()->markerContentOffset($line, $at);
+                $state->nestedColumn = $firstMarker === null ? 0 : $firstMarker - $at;
+                $state->nestedDivBody = false;
+                $state->openParagraph = true;
+
+                return $state;
+            }
+            if ($inner->fence === null && !$inner->absorbingFence) {
                 $state->openParagraph = $inner->openParagraph;
                 // THE FIRST MARKER'S COLUMN, not the walk's innermost. `- - a`
                 // opens two containers, and the shallower one is already deeper
