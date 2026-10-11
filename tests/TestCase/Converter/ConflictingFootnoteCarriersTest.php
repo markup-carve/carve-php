@@ -295,6 +295,25 @@ class ConflictingFootnoteCarriersTest extends TestCase
         }
     }
 
+    public function testNumericFragmentKeysStayStrings(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            self::assertSame("[^1]\n", (new HtmlToCarve(importMode: $mode))->convert('<p><a href="#1" role="doc-noteref">1</a></p>'));
+        }
+    }
+
+    public function testAnInlineNotesMissingAliasCannotCaptureAnotherBody(): void
+    {
+        $html = '<p><a href="#footnote-1" role="doc-noteref">1</a> <a href="#y" role="doc-noteref">2</a> <a href="#fn2" role="doc-noteref">3</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1" data-carve-inline-footnote="1"><p>INL</p></li>'
+            . '<li id="y" data-carve-footnote-label="2"><p>Y</p></li><li id="fn2"><p>TWO</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $source = (new HtmlToCarve(importMode: $mode))->convert($html);
+            self::assertSame("[^1] [^2] [^3]\n\n[^2]: Y\n[^3]: TWO\n", $source);
+            self::assertStringContainsString('[^1]', (new CarveConverter())->convert($source));
+        }
+    }
+
     private static function noteHtml(string $attributes, bool $referenceLabel = false): string
     {
         return '<p><a href="#fn1" role="doc-noteref"' . ($referenceLabel ? ' data-carve-footnote-label="named"' : '') . '>1</a></p>'

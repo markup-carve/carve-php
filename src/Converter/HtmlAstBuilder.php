@@ -551,6 +551,9 @@ final class HtmlAstBuilder
         }
         $itemsByLabel = [];
         foreach ($allEndnoteItems as $item) {
+            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+                continue;
+            }
             $label = $this->session->endnoteItemLabels[$item] ?? $this->footnoteLabel($item->getAttribute('id'));
             if ($label !== '') {
                 $itemsByLabel['label:' . $label] ??= $item;
@@ -558,6 +561,7 @@ final class HtmlAstBuilder
         }
         $targetItems = [];
         foreach ($this->session->footnoteTargets as $target => $_) {
+            $target = (string)$target;
             $item = $this->session->endnoteItems[$target] ?? $itemsByLabel['label:' . $this->footnoteLabel($target)] ?? null;
             if ($item !== null) {
                 $targetItems[$target] = $item;
