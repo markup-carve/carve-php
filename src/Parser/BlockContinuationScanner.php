@@ -522,7 +522,7 @@ final class BlockContinuationScanner
             // AN OPEN FENCE OR DIV IS STILL THE SAME BLOCK. Its body holds no
             // paragraph, so without this the arm below would end the run on the
             // attached block's own first body line.
-            if (($trailingState->fence !== null) || $trailingState->inDiv) {
+            if (($trailingState->fence !== null) || $trailingState->hasOpenDiv()) {
                 return false;
             }
             // PAST IT WHEN IT LEFT NOTHING OPEN. A completed table, a heading
@@ -634,7 +634,7 @@ final class BlockContinuationScanner
             if (IndentationHelper::isBlankLine($nextLine)) {
                 if (
                     ($trailingState->fence !== null)
-                    || $trailingState->inDiv
+                    || $trailingState->hasOpenDiv()
                     || (
                         $trailingState->inFootnoteBody
                         && $this->footnoteBodyResumesAfter(
@@ -704,7 +704,7 @@ final class BlockContinuationScanner
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
                 if (
                     $trailingState->fence === null
-                    && !$trailingState->inDiv
+                    && !$trailingState->hasOpenDiv()
                     && $trailingState->divDepth === 0
                     && $openCommentLength === null
                     && !$trailingState->quoteParagraph
@@ -1215,7 +1215,7 @@ final class BlockContinuationScanner
         ?int &$openerBase = null,
     ): string {
         $line = explode("\n", $body[$index], 2)[0];
-        if (($state->fence !== null) || $state->inDiv || $state->divDepth > 0) {
+        if (($state->fence !== null) || $state->hasOpenDiv() || $state->divDepth > 0) {
             // THE CLOSER IS READ AT THE OPENER'S BASE. An opener written past
             // the body's column is rebased below, so the block the tracker
             // opened sits at column 0 in its view - but its CLOSER is not an
@@ -1705,6 +1705,8 @@ final class BlockContinuationScanner
                 $state->nestedDivBody = $state->nestedDivBody || $text !== '';
                 if (!$state->nestedDiv->inDiv && $state->nestedDiv->divDepth === 0) {
                     $state->nestedDiv = null;
+                    $state->nestedColumn = 0;
+                    $state->nestedIsQuote = false;
                 }
 
                 return $state;
@@ -1766,6 +1768,7 @@ final class BlockContinuationScanner
         $wasAfterComment = $state->afterComment;
         $state->afterComment = false;
         // Re-armed only by the two branches that set `nestedColumn`.
+        $nestedIsQuoteOnEntry = $state->nestedIsQuote;
         $state->nestedIsQuote = false;
         // A FOOTNOTE DEFINITION IS THE ONE INVISIBLE BLOCK WITH A BODY, so it
         // is the only one whose further-indented line continues it rather than
@@ -1987,18 +1990,20 @@ final class BlockContinuationScanner
             $state->inDiv = true;
             $state->divFenceLength = $divFenceLength;
             $state->divColumn = IndentationHelper::getLeadingColumns($line);
+            $parentDivDepth = $state->divDepth;
             $state->divDepth++;
             $state->openParagraph = false;
-            if ($nestedColumnOnEntry > 0 && $state->divColumn >= $nestedColumnOnEntry) {
+            if (!$nestedIsQuoteOnEntry && $nestedColumnOnEntry > 0 && $state->divColumn >= $nestedColumnOnEntry) {
                 $child = clone $state;
                 $child->divColumn = 0;
+                $child->divDepth = 1;
                 $child->nestedColumn = 0;
                 $child->nestedDiv = null;
                 $state->nestedDiv = $child;
                 $state->nestedDivColumn = $state->divColumn;
                 $state->nestedDivBody = false;
                 $state->inDiv = false;
-                $state->divDepth = 0;
+                $state->divDepth = $parentDivDepth;
             }
 
             return $state;
@@ -2010,7 +2015,8 @@ final class BlockContinuationScanner
         // separated from the fence by a space. Inside an open container it is
         // body text and arms nothing: the bare run below it is still that
         // container's closer.
-        if (preg_match('/:{3,}/A', $line, $ignored, 0, $at) === 1) {
+        $colonAt = $atContentColumn ? IndentationHelper::pastLeadingWhitespace($line, $at) : $at;
+        if (preg_match('/:{3,}/A', $line, $ignored, 0, $colonAt) === 1) {
             $state->absorbingFence = $state->divDepth === 0;
             $state->openParagraph = true;
 

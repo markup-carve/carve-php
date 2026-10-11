@@ -317,7 +317,7 @@ final class ListBlockBuilder
                             && ($this->getListParser)()->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
                         // An open fence, div or block comment still owns the line
                         // (carve-php#2507, carve-php#2519).
-                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && $subTrailingState->fence === null && !$subTrailingState->inDiv && $subOpenCommentLength === null) {
+                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv() && $subOpenCommentLength === null) {
                             // Set flags so parent loop handles this as continuation content
                             $lastItemHadBlankAfter = true;
                             $brokeForParentContent = true;
@@ -362,7 +362,7 @@ final class ListBlockBuilder
                                 && str_contains($stripped, "\t")
                                 && (
                                     preg_match('/^[ \t]*:{3,}/', $stripped) === 1
-                                    || ($subTrailingState->inDiv && preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $stripped) === 1)
+                                    || ($subTrailingState->hasOpenDiv() && preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $stripped) === 1)
                                 )
                             ) {
                                 $stripped = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($subLine) - $subIndent))
@@ -375,7 +375,7 @@ final class ListBlockBuilder
                                 && $subTrailingState->openParagraph
                                 && !$subTrailingState->quoteParagraph
                                 && $subTrailingState->fence === null
-                                && !$subTrailingState->inDiv
+                                && !$subTrailingState->hasOpenDiv()
                             ) {
                                 $subLines[] = '';
                                 $subLineMap[] = -1;

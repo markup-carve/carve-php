@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 
 class AClosedDescendantDivLeavesNoClaimTest extends TestCase
@@ -84,6 +86,51 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n  - | x | y |\ntail\n");
         $this->assertStringContainsString('<table>', $html);
+        $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+    }
+
+    public function testADeepMalformedFenceKeepsItsParagraphClaim(): void
+    {
+        $html = (new CarveConverter())->convert("- a\n  - b\n    - c\n      :::note\n      :::\ntail\n");
+        $this->assertStringContainsString("<li>c\n:::note\n:::\ntail</li>", $html);
+        $this->assertStringNotContainsString('<div>', $html);
+        $this->assertStringEndsWith("</ul>\n", $html);
+    }
+
+    public function testALegacyTrailingHookKeepsTheDescendantClaimState(): void
+    {
+        $parser = new class extends BlockParser {
+            protected function advanceTrailingBlockState(array $state, string $line, bool $atContentColumn = false): array
+            {
+                return parent::advanceTrailingBlockState($state, $line, $atContentColumn);
+            }
+        };
+        $html = (new HtmlRenderer())->render($parser->parse("- a\n  - ::: box\n    body\n - next\n    :::\ntail\n"));
+        $this->assertStringContainsString("<p>body\n- next</p>", $html);
+        $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+    }
+
+    public function testAnAttachedListKeepsItsDescendantDivBody(): void
+    {
+        $html = (new CarveConverter())->convert("> q\n+\n- b\n  ::: note\n  x\n  :::\n");
+        $this->assertStringContainsString('<p>x</p>', $html);
+        $this->assertStringContainsString('<aside class="admonition note"', $html);
+        $this->assertStringEndsWith("</blockquote>\n", $html);
+    }
+
+    public function testAQuoteBeforeTheDivKeepsTheBlankInTheItemBody(): void
+    {
+        $source = "- a\n  > # H\n    ::: note\n    x\n\n    y\n    :::\ntail\n";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString("<p>x</p>\n      <p>y</p>", $html);
+        $this->assertStringNotContainsString('<li><p>a</p>', $html);
+        $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+    }
+
+    public function testABlankInsideTheRealDescendantDivKeepsBothParagraphs(): void
+    {
+        $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n\n    more\n    :::\ntail\n");
+        $this->assertStringContainsString("<p>body</p>\n          <p>more</p>", $html);
         $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
     }
 
