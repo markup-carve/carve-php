@@ -52,7 +52,7 @@ class AttributeNoBreakSpaceTest extends TestCase
         $html = $converter->convert(":::: tabs\n::: tab\n# A" . self::NBSP . "B\nbody\n:::\n::::");
 
         $this->assertStringContainsString('# A' . self::NBSP . 'B', $html);
-        $this->assertDoesNotMatchRegularExpression('/data-djot-src="[^"]*&nbsp;/', $html);
+        $this->assertDoesNotMatchRegularExpression('/data-carve-src="[^"]*&nbsp;/', $html);
     }
 
     public function testCodeGroupRoundTripCarrierKeepsTheRawCharacter(): void
@@ -62,7 +62,7 @@ class AttributeNoBreakSpaceTest extends TestCase
 
         $html = $converter->convert('{k="A' . self::NBSP . 'B"}' . "\n::: code-group\n``` php\nx\n```\n:::");
 
-        $this->assertDoesNotMatchRegularExpression('/data-djot-src="[^"]*&nbsp;/', $html);
+        $this->assertDoesNotMatchRegularExpression('/data-carve-src="[^"]*&nbsp;/', $html);
     }
 
     public function testAdmonitionTitleCarrierKeepsTheRawCharacterWhileTheTitleTextTakesTheEntity(): void
@@ -72,7 +72,7 @@ class AttributeNoBreakSpaceTest extends TestCase
 
         $html = $converter->convert('::: note "A' . self::NBSP . 'B"' . "\nContent.\n:::");
 
-        $this->assertStringContainsString('data-djot-admonition-title="A' . self::NBSP . 'B"', $html);
+        $this->assertStringContainsString('data-carve-admonition-title="A' . self::NBSP . 'B"', $html);
         $this->assertStringContainsString('<p class="admonition-title">A&nbsp;B</p>', $html);
     }
 

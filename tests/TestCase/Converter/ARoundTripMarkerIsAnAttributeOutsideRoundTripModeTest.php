@@ -25,11 +25,11 @@ class ARoundTripMarkerIsAnAttributeOutsideRoundTripModeTest extends TestCase
     #[DataProvider('modes')]
     public function testBreakAndLinkMarkers(string $mode): void
     {
-        $html = "<hr data-char=\"*\">\n<p><a href=\"/x\" data-djot-ref=\"r\">a</a></p>\n";
+        $html = "<hr data-char=\"*\">\n<p><a href=\"/x\" data-carve-ref=\"r\">a</a></p>\n";
         $importer = new HtmlToCarve(false, [], false, $mode);
         $expected = $mode === 'roundtrip'
             ? "***\n\n[a][r]\n\n[r]: /x\n"
-            : "{data-char=*}\n---\n\n[a](/x){data-djot-ref=r}\n";
+            : "{data-char=*}\n---\n\n[a](/x){data-carve-ref=r}\n";
 
         self::assertSame($expected, $importer->convert($html));
         $ast = $importer->convertToAstWithReport($html)->value;
@@ -39,10 +39,10 @@ class ARoundTripMarkerIsAnAttributeOutsideRoundTripModeTest extends TestCase
             self::assertSame('*', $break['marker']);
             self::assertSame('r', $link['ref']);
             self::assertArrayNotHasKey('data-char', $break['attrs']['keyValues'] ?? []);
-            self::assertArrayNotHasKey('data-djot-ref', $link['attrs']['keyValues'] ?? []);
+            self::assertArrayNotHasKey('data-carve-ref', $link['attrs']['keyValues'] ?? []);
         } else {
             self::assertSame('*', $break['attrs']['keyValues']['data-char']);
-            self::assertSame('r', $link['attrs']['keyValues']['data-djot-ref']);
+            self::assertSame('r', $link['attrs']['keyValues']['data-carve-ref']);
             self::assertArrayNotHasKey('marker', $break);
             self::assertArrayNotHasKey('ref', $link);
         }
@@ -51,19 +51,19 @@ class ARoundTripMarkerIsAnAttributeOutsideRoundTripModeTest extends TestCase
     #[DataProvider('modes')]
     public function testImageMarker(string $mode): void
     {
-        $html = '<img src="/i.png" alt="a" data-djot-ref="r">';
+        $html = '<img src="/i.png" alt="a" data-carve-ref="r">';
         $importer = new HtmlToCarve(false, [], false, $mode);
         $expected = $mode === 'roundtrip'
             ? "![a][r]\n\n[r]: /i.png\n"
-            : "![a](/i.png){data-djot-ref=r}\n";
+            : "![a](/i.png){data-carve-ref=r}\n";
 
         self::assertSame($expected, $importer->convert($html));
         $ast = $importer->convertToAstWithReport($html)->value;
         $image = $ast['children'][0];
         if ($mode === 'roundtrip') {
-            self::assertArrayNotHasKey('data-djot-ref', $image['attrs']['keyValues'] ?? []);
+            self::assertArrayNotHasKey('data-carve-ref', $image['attrs']['keyValues'] ?? []);
         } else {
-            self::assertSame('r', $image['attrs']['keyValues']['data-djot-ref']);
+            self::assertSame('r', $image['attrs']['keyValues']['data-carve-ref']);
             self::assertArrayNotHasKey('ref', $image);
         }
     }

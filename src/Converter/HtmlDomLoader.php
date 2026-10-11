@@ -39,6 +39,26 @@ final class HtmlDomLoader
 
     public static function load(string $html): DOMDocument
     {
+        $document = self::loadDocument($html);
+        HtmlCarrierNames::canonicalize($document);
+
+        return $document;
+    }
+
+    /**
+     * Canonicalize the deprecated carrier spelling once, at the one chokepoint
+     * every importer loads its input through (PART 10 section 13c).
+     */
+    public static function fragment(string $html, string $rootName = 'carve-import-root'): DOMDocument
+    {
+        $document = self::fragmentDocument($html, $rootName);
+        HtmlCarrierNames::canonicalize($document);
+
+        return $document;
+    }
+
+    private static function loadDocument(string $html): DOMDocument
+    {
         if (!class_exists(DOMDocument::class)) {
             throw new RuntimeException('HTML import requires the PHP DOM extension (ext-dom).');
         }
@@ -222,7 +242,7 @@ final class HtmlDomLoader
         return preg_match('/\A(?:\s|<!--.*?-->)*(?:<!doctype(?=[\s>])|<(?:html|body)(?=[\s\/>]))/is', $html) === 1;
     }
 
-    public static function fragment(string $html, string $rootName = 'carve-import-root'): DOMDocument
+    private static function fragmentDocument(string $html, string $rootName = 'carve-import-root'): DOMDocument
     {
         if (!class_exists(DOMDocument::class)) {
             throw new RuntimeException('HTML import requires the PHP DOM extension (ext-dom).');

@@ -47,8 +47,25 @@ nested list. The Markdown target writes a list table as a pipe table either way.
 $carve = (new HtmlToCarve(listTableForBlockCells: true))->convert($html);
 ~~~
 
-When trusted `data-djot-src` returns stored Carve source verbatim, the report has
+When trusted `data-carve-src` returns stored Carve source verbatim, the report has
 no diagnostics. The HTML descendants are not imported in that path.
+
+## Roundtrip carrier names
+
+The attributes a roundtrip export writes so an import can recover a distinction
+the HTML has no spelling for are the `data-carve-*` names PART 10 section 13a
+reserves. The renderer writes that spelling only.
+
+Documents exported by earlier versions carry the same names under a
+`data-djot-*` prefix. The importer accepts that spelling as a **deprecated
+alias**: it is canonicalized on load, the `data-carve-` name wins where an
+element carries both, and the alias is consumed either way, so a document that
+arrives with it leaves without it.
+
+The reserved set is an enumeration, not a prefix. A `data-carve-` or
+`data-djot-` name the enumeration does not list is an ordinary authored
+attribute and is imported as one. `MarkupCarve\Carve\Converter\HtmlCarrierNames`
+holds the list.
 
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows

@@ -147,12 +147,12 @@ class CodeCalloutsExtension implements ExtensionInterface
 
         $attrs = $renderer->renderAttributesExcluding($node, []);
         // Preserve round-trip source exactly like core renderCodeBlock: the
-        // data-djot-src carries the ORIGINAL fence + literal `<n>` markers so a
+        // data-carve-src carries the ORIGINAL fence + literal `<n>` markers so a
         // marked block round-trips identically to an unmarked one.
         $djotSrcAttr = '';
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $renderer->reconstructCodeBlockSource($node);
-            $djotSrcAttr = ' data-djot-src="' . $renderer->escapeAttribute($djotSrc) . '"';
+            $djotSrcAttr = ' data-carve-src="' . $renderer->escapeAttribute($djotSrc) . '"';
         }
         $language = $node->getLanguage();
         if ($language !== null) {

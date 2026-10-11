@@ -165,10 +165,10 @@ class CodeCalloutsExtensionTest extends TestCase
 
         // The marked block still carries round-trip source, encoding the
         // ORIGINAL literal marker + fence (not the <b> bubble).
-        $this->assertStringContainsString('data-djot-src="', $out);
+        $this->assertStringContainsString('data-carve-src="', $out);
         $this->assertStringContainsString('foo()  &lt;1&gt;', $out);
-        // Default mode (no round-trip) emits no data-djot-src.
-        $this->assertStringNotContainsString('data-djot-src', $this->html("```\nfoo()  <1>\n```\n\n<1> note."));
+        // Default mode (no round-trip) emits no data-carve-src.
+        $this->assertStringNotContainsString('data-carve-src', $this->html("```\nfoo()  <1>\n```\n\n<1> note."));
     }
 
     public function testStripsBidiControlsInCalloutText(): void

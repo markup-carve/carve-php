@@ -129,7 +129,7 @@ class AuthoredClassEntriesTest extends TestCase
             $converter->addExtension(new TabsExtension());
             $converter->addExtension(new CodeGroupExtension());
             $html = $converter->convert($source);
-            self::assertSame(1, preg_match('/data-djot-src="([^"]*)"/', $html, $match));
+            self::assertSame(1, preg_match('/data-carve-src="([^"]*)"/', $html, $match));
             $restored = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
             self::assertStringContainsString($attributes, $restored);
         }

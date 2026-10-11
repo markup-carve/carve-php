@@ -1002,7 +1002,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // the `{#id}` (it only emits one when this marker is present).
             $explicitIdAttr = '';
             if ($this->roundTripMode && $node->hasAttribute('id')) {
-                $explicitIdAttr = ' data-djot-explicit-id="1"';
+                $explicitIdAttr = ' data-carve-explicit-id="1"';
             }
             $innerHtml = $this->renderSectionRange($inner, $depth + 1);
             $body = $headingHtml . $innerHtml;
@@ -1031,7 +1031,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $content = implode("\n", $defs);
 
-        return '<template data-djot-abbreviations>' . $this->escape($content) . "</template>\n";
+        return '<template data-carve-abbreviations>' . $this->escape($content) . "</template>\n";
     }
 
     /**
@@ -1445,7 +1445,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $explicitIdAttr = '';
         if ($this->roundTripMode && $node->hasAttribute('id')) {
-            $explicitIdAttr = ' data-djot-explicit-id="1"';
+            $explicitIdAttr = ' data-carve-explicit-id="1"';
         }
 
         return '<h' . $level . $this->renderAttributeArray($attrs, 'h' . $level) . $idAttr . $annotationAttr
@@ -1463,11 +1463,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        // Add data-djot-src for round-trip support
+        // Add data-carve-src for round-trip support
         $djotSrcAttr = '';
         if ($this->roundTripMode) {
             $djotSrc = $this->reconstructCodeBlockSource($node);
-            $djotSrcAttr = ' data-djot-src="' . $this->escapeAttribute($djotSrc) . '"';
+            $djotSrcAttr = ' data-carve-src="' . $this->escapeAttribute($djotSrc) . '"';
         }
 
         return $this->renderPreCode($node, $node->getContent(), $node->getLanguage(), $djotSrcAttr);
@@ -2583,7 +2583,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Add round-trip separator widths attribute if available and in round-trip mode
         if ($this->roundTripMode && $node->getSeparatorWidths() !== null) {
             $widths = implode(',', $node->getSeparatorWidths());
-            $attrs .= ' data-djot-col-widths="' . htmlspecialchars($widths, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
+            $attrs .= ' data-carve-col-widths="' . htmlspecialchars($widths, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 
         $lines = [];
@@ -2971,12 +2971,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // In round-trip mode, store reference label for reconstruction
         if ($this->roundTripMode && $node->getReferenceLabel() !== null) {
-            $html .= ' data-djot-ref="' . $this->escapeAttribute($node->getReferenceLabel()) . '"';
+            $html .= ' data-carve-ref="' . $this->escapeAttribute($node->getReferenceLabel()) . '"';
         }
 
         // In round-trip mode, mark autolinks for reconstruction
         if ($this->roundTripMode && $node->isAutolink()) {
-            $html .= ' data-djot-autolink="1"';
+            $html .= ' data-carve-autolink="1"';
         }
 
         $html .= $attrs . '>' . $this->renderChildren($node) . '</a>';
@@ -3037,7 +3037,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // In round-trip mode, store reference label for reconstruction
         if ($this->roundTripMode && $node->getReferenceLabel() !== null) {
-            $html .= ' data-djot-ref="' . $this->escapeAttribute($node->getReferenceLabel()) . '"';
+            $html .= ' data-carve-ref="' . $this->escapeAttribute($node->getReferenceLabel()) . '"';
         }
 
         $html .= $attrs;
@@ -4228,7 +4228,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($format !== 'html') {
             // In round-trip mode, preserve non-HTML raw content for potential recovery
             if ($this->roundTripMode) {
-                return '<span data-djot-raw="' . $this->escapeAttribute($format) . '">'
+                return '<span data-carve-raw="' . $this->escapeAttribute($format) . '">'
                     . $this->guardVerbatimNewlines($this->escape($content)) . '</span>';
             }
 
@@ -4253,7 +4253,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // In round-trip mode, wrap HTML content for recovery
         if ($this->roundTripMode) {
-            return '<span data-djot-raw="html">' . $this->guardVerbatimNewlines($content) . '</span>';
+            return '<span data-carve-raw="html">' . $this->guardVerbatimNewlines($content) . '</span>';
         }
 
         return $this->guardVerbatimNewlines($content);
@@ -4265,7 +4265,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // In round-trip mode, wrap escaped text for recovery
         if ($this->roundTripMode) {
-            return '<span data-djot-escaped>' . $this->escape($content) . '</span>';
+            return '<span data-carve-escaped>' . $this->escape($content) . '</span>';
         }
 
         // Without round-trip mode, just output the escaped character
@@ -4445,10 +4445,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $label = $footnoteLabelsByNumber[$number] ?? false;
 
             if ($this->roundTripMode && isset($context->inlineFootnoteRenderers[$number])) {
-                $liAttrs = ' data-djot-inline-footnote="1"';
+                $liAttrs = ' data-carve-inline-footnote="1"';
             } elseif ($this->roundTripMode && $label !== false) {
                 // Regular footnote - store label for round-trip
-                $liAttrs = ' data-djot-footnote-label="' . $this->escapeAttribute((string)$label) . '"';
+                $liAttrs = ' data-carve-footnote-label="' . $this->escapeAttribute((string)$label) . '"';
             }
 
             // Source-line anchor on the endnote item itself (carve-js parity):
@@ -4603,7 +4603,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // In round-trip mode, store the original label for reconstruction
         if ($this->roundTripMode) {
-            $html .= ' data-djot-footnote-label="' . $this->escapeAttribute($label) . '"';
+            $html .= ' data-carve-footnote-label="' . $this->escapeAttribute($label) . '"';
         }
 
         $html .= $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '><sup>' . $number . '</sup></a>';

@@ -50,7 +50,7 @@ class RoleAttributeImportTest extends TestCase
         return [
             'core warning' => ['<aside class="admonition warning" role="alert"><p>x</p></aside>', 'alert'],
             'core note' => ['<aside class="admonition note" role="note"><p>x</p></aside>', 'note'],
-            'core sidecar' => ['<aside class="admonition warning" data-djot-admonition-type="warning" role="alert"><p>x</p></aside>', 'alert'],
+            'core sidecar' => ['<aside class="admonition warning" data-carve-admonition-type="warning" role="alert"><p>x</p></aside>', 'alert'],
             'paragraph' => ['<p role="note">x</p>', 'note'],
             'heading' => ['<h2 role="status">x</h2>', 'status'],
             'code' => ['<pre role="region"><code>x</code></pre>', 'region'],
@@ -93,7 +93,7 @@ class RoleAttributeImportTest extends TestCase
             'code panel' => ['<div class="code-group-panel" role="group"><p>x</p></div>', "::: code-group-panel\nx\n:::"],
             'extension warning' => ['<div class="admonition warning" role="alert"><p>x</p></div>', "{.warning}\n::: admonition\nx\n:::"],
             'extension custom type' => ['<div class="admonition custom" role="note"><p>x</p></div>', "{.custom}\n::: admonition\nx\n:::"],
-            'extension custom sidecar' => ['<div data-djot-admonition-type="custom" role="note"><p>x</p></div>', "::: custom\nx\n:::"],
+            'extension custom sidecar' => ['<div data-carve-admonition-type="custom" role="note"><p>x</p></div>', "::: custom\nx\n:::"],
             'named diagram' => ['<pre class="mermaid" role="img" aria-label="mermaid">x</pre>', "{.mermaid}\n```\nx\n```"],
             'math' => ['<span class="math inline" role="math">\\(x\\)</span>', '$`x`'],
         ];

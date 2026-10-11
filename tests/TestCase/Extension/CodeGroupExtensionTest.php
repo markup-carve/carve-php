@@ -559,7 +559,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         $this->assertStringContainsString('::: code-group', $html);
     }
 
@@ -578,7 +578,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringNotContainsString('data-djot-src=', $html);
+        $this->assertStringNotContainsString('data-carve-src=', $html);
     }
 
     public function testRoundTripWithCustomLabels(): void
@@ -602,7 +602,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         // Labels should be preserved in the reconstructed source
         $this->assertStringContainsString('[Composer]', $html);
         $this->assertStringContainsString('[NPM]', $html);

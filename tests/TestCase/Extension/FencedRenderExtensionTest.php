@@ -181,7 +181,7 @@ class FencedRenderExtensionTest extends TestCase
 
         $html = $converter->convert("``` d2 [Diagram]\na -> b\n```");
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         $this->assertStringContainsString('[Diagram]', $html);
     }
 

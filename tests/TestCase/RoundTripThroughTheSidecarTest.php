@@ -16,7 +16,7 @@ use PHPUnit\Framework\TestCase;
  * Carve -> HTML -> Carve, WITH the round-trip sidecar switched on.
  *
  * The converter here runs in `roundTripMode`, so the rendered HTML carries the
- * original Carve in a `data-djot-src` attribute, and the importer runs in
+ * original Carve in a `data-carve-src` attribute, and the importer runs in
  * `trustedRoundTrip`, so it reads that attribute back verbatim. For every
  * construct that emits the attribute this class therefore proves the SIDECAR
  * SURVIVES A RENDER - a real property, and a much narrower one than "the
@@ -41,7 +41,7 @@ class RoundTripThroughTheSidecarTest extends TestCase
         $this->converter->addExtension(FencedRenderExtension::mermaid());
         $this->converter->addExtension(new AdmonitionExtension());
         // Round-trip tests feed carve's OWN (trusted) HTML back through the
-        // converter, so they must honor the `data-djot-src` round-trip attribute.
+        // converter, so they must honor the `data-carve-src` round-trip attribute.
         // The default converter ignores it (untrusted-input safe default).
         $this->htmlToCarve = new HtmlToCarve(trustedRoundTrip: true);
     }
@@ -70,11 +70,11 @@ class RoundTripThroughTheSidecarTest extends TestCase
     }
 
     /**
-     * Helper to verify data-djot-src is present
+     * Helper to verify data-carve-src is present
      */
     private function assertHasDjotSrc(string $html, string $message = ''): void
     {
-        $this->assertStringContainsString('data-djot-src=', $html, $message ?: 'Missing data-djot-src');
+        $this->assertStringContainsString('data-carve-src=', $html, $message ?: 'Missing data-carve-src');
     }
 
     // =========================================================================
@@ -106,7 +106,7 @@ End of example.
 CARVE;
         $html = $this->converter->convert($carve);
         $this->assertHasDjotSrc($html);
-        $this->assertStringContainsString('````', $html, 'Should preserve 4-backtick fence in data-djot-src');
+        $this->assertStringContainsString('````', $html, 'Should preserve 4-backtick fence in data-carve-src');
         $this->assertRoundTrip($carve);
     }
 
@@ -515,35 +515,35 @@ CARVE;
     }
 
     // =========================================================================
-    // Verify data-djot-src presence
+    // Verify data-carve-src presence
     // =========================================================================
 
     public function testCodeBlockHasDjotSrc(): void
     {
         $carve = "``` php\necho 1;\n```";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Code block should have data-djot-src');
+        $this->assertHasDjotSrc($html, 'Code block should have data-carve-src');
     }
 
     public function testMermaidHasDjotSrc(): void
     {
         $carve = "``` mermaid\ngraph TD;\n```";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Mermaid should have data-djot-src');
+        $this->assertHasDjotSrc($html, 'Mermaid should have data-carve-src');
     }
 
     public function testCodeGroupHasDjotSrc(): void
     {
         $carve = "::: code-group\n``` php\ntest\n```\n:::";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Code group should have data-djot-src');
+        $this->assertHasDjotSrc($html, 'Code group should have data-carve-src');
     }
 
     public function testTabsHasDjotSrc(): void
     {
         $carve = ":::: tabs\n::: tab\n### Tab\nContent\n:::\n::::";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Tabs should have data-djot-src');
+        $this->assertHasDjotSrc($html, 'Tabs should have data-carve-src');
     }
 
     // =========================================================================
@@ -587,7 +587,7 @@ CARVE;
         $carve = '# Simple Heading';
         $html = $this->converter->convert($carve);
         $this->assertStringContainsString('id="', $html);
-        $this->assertStringNotContainsString('data-djot-explicit-id', $html);
+        $this->assertStringNotContainsString('data-carve-explicit-id', $html);
         $this->assertRoundTrip($carve);
     }
 

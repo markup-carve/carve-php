@@ -182,6 +182,6 @@ class HeadingLevelShiftExtensionTest extends TestCase
 
         $html = $roundTripConverter->convert('# Heading 1');
 
-        $this->assertStringContainsString('data-djot-source-level="1"', $html);
+        $this->assertStringContainsString('data-carve-source-level="1"', $html);
     }
 }

@@ -46,8 +46,8 @@ class HeadingLevelShiftTransform implements RenderAwareTransformerInterface
     protected function walkAndShift(Node $node, bool $preserveSourceLevels): void
     {
         if ($node instanceof Heading) {
-            if ($preserveSourceLevels && !$node->hasAttribute('data-djot-source-level')) {
-                $node->setAttribute('data-djot-source-level', (string)$node->getLevel());
+            if ($preserveSourceLevels && !$node->hasAttribute('data-carve-source-level')) {
+                $node->setAttribute('data-carve-source-level', (string)$node->getLevel());
             }
             $node->setLevel($node->getLevel() + $this->shift);
         }

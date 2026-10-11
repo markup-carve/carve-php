@@ -19,7 +19,7 @@ use PHPUnit\Framework\TestCase;
  *
  * `RoundTripThroughTheSidecarTest` runs its whole population with
  * `roundTripMode` and `trustedRoundTrip` on, so the HTML carries the original
- * Carve in `data-djot-src` and the importer reads it back verbatim. That proves
+ * Carve in `data-carve-src` and the importer reads it back verbatim. That proves
  * the attribute survives a render, which is real - but it is not the claim the
  * class name makes, and for a construct that emits the attribute the assertion
  * is a memo lookup rather than a reconstruction (markup-carve/carve-php#1603).

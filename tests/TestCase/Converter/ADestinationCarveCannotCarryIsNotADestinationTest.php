@@ -30,7 +30,7 @@ use PHPUnit\Framework\TestCase;
  * thought about hardest.
  *
  * So any route from a `title`, from the anchor's own text, or from a
- * `data-djot-*` provenance attribute in `roundtrip` mode back to a destination
+ * `data-carve-*` provenance attribute in `roundtrip` mode back to a destination
  * would reconstruct the exact value a security rule removed, making the
  * importer a way AROUND PART 9 §25 rather than a reader of its output. The
  * shared contract fixture `html-import/destination-less-link` pins the plain
@@ -92,7 +92,7 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
     /**
      * Neither is a stored round-trip source, on a converter that trusts it.
      *
-     * `roundtrip` mode is the mode that honors `data-djot-*`, so it is the one
+     * `roundtrip` mode is the mode that honors `data-carve-*`, so it is the one
      * mode with a provenance record to be tempted by. The hardened render wrote
      * none for the blanked destination - that is the point of §25 - and an
      * importer that went looking anyway would be reading a channel the renderer
@@ -105,7 +105,7 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
     public function testRoundtripModeRebuildsNoDestinationEither(): void
     {
         $carve = (new HtmlToCarve(trustedRoundTrip: true))->convert(
-            '<p><a href="" data-djot-ref="danger" title="vbscript:x">t</a></p>',
+            '<p><a href="" data-carve-ref="danger" title="vbscript:x">t</a></p>',
         );
 
         $this->assertSame('[t]{title=vbscript:x}', trim($carve));
@@ -186,7 +186,7 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
      * A round-trip attribute does not carry an anchor past the rule either.
      *
      * None of these can be reached with an empty destination from this engine's
-     * own output - every emitter writes a real `href` beside its `data-djot-*`
+     * own output - every emitter writes a real `href` beside its `data-carve-*`
      * attribute - so what this pins is hand-written input, where the attribute
      * beside a blanked destination would otherwise rebuild a link the rule says
      * is not one.
@@ -196,9 +196,9 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
     public static function provenanceCarryingAnchors(): array
     {
         return [
-            'a heading reference' => ['<p><a href="" data-djot-heading-ref="H">t</a></p>'],
-            'a footnote label' => ['<p><a href="" data-djot-footnote-label="1">t</a></p>'],
-            'an inline footnote' => ['<p><a href="" data-djot-inline-footnote-html="&lt;p&gt;n&lt;/p&gt;">t</a></p>'],
+            'a heading reference' => ['<p><a href="" data-carve-heading-ref="H">t</a></p>'],
+            'a footnote label' => ['<p><a href="" data-carve-footnote-label="1">t</a></p>'],
+            'an inline footnote' => ['<p><a href="" data-carve-inline-footnote-html="&lt;p&gt;n&lt;/p&gt;">t</a></p>'],
         ];
     }
 

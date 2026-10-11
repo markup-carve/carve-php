@@ -356,7 +356,7 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
             // the prediction watched being dropped by a pipe row comes back
             // untouched from the stored text.
             'trusted round-trip emits stored source' => [
-                '<div data-djot-src="{cite=u}&#10;&#10;&gt; q">' . $inCell . '</div>',
+                '<div data-carve-src="{cite=u}&#10;&#10;&gt; q">' . $inCell . '</div>',
                 ['trustedRoundTrip' => true],
             ],
             // These adapters MOVE footnote definitions out of their cell before

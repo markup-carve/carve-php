@@ -24,16 +24,16 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
             'a trailing space before text' => ['<p><a href="u">x </a>y</p>', "[x](u) y\n"],
             'a leading space after text' => ['<p>x<a href="u"> y</a></p>', "x [y](u)\n"],
             'a title' => ['<p><a href="u" title="t">x </a>y</p>', "[x](u \"t\") y\n"],
-            'a full reference' => ['<p><a href="u" data-djot-ref="r">x </a>y</p>', "[x](u){data-djot-ref=r} y\n"],
-            'a collapsed reference' => ['<p><a href="u" data-djot-ref="">x </a>y</p>', "[x](u){data-djot-ref} y\n"],
+            'a full reference' => ['<p><a href="u" data-carve-ref="r">x </a>y</p>', "[x](u){data-carve-ref=r} y\n"],
+            'a collapsed reference' => ['<p><a href="u" data-carve-ref="">x </a>y</p>', "[x](u){data-carve-ref} y\n"],
             'inside an emphasis' => ['<p><em><a href="u">x </a></em>y</p>', "{/[x](u) /}y\n"],
             'two links keep one space' => ['<p><a href="u">x </a><a href="v"> y</a></p>', "[x](u) [y](v)\n"],
             'the neighbor has its own space' => ['<p><a href="u">x </a> y</p>', "[x](u) y\n"],
             'the block ends' => ['<p><a href="u">x </a></p>', "[x](u)\n"],
-            'an unpadded collapsed reference' => ['<p><a href="u" data-djot-ref="">x</a> y</p>', "[x](u){data-djot-ref} y\n"],
+            'an unpadded collapsed reference' => ['<p><a href="u" data-carve-ref="">x</a> y</p>', "[x](u){data-carve-ref} y\n"],
             'a strong beside a link' => ['<p><a href="u">x </a><strong> y</strong></p>', "[x](u){* y*}\n"],
             'a strong beside an autolink' => [
-                '<p><a href="https://e.test" data-djot-autolink>https://e.test </a><strong> y</strong></p>',
+                '<p><a href="https://e.test" data-carve-autolink>https://e.test </a><strong> y</strong></p>',
                 "<https://e.test>{* y*}\n",
             ],
         ];
@@ -62,7 +62,7 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
      */
     public function testANoteReferenceLeavesTheSpaceToItsNeighbor(): void
     {
-        $html = '<p><a href="#fn1" data-djot-footnote-label="1">1 </a><strong> y</strong></p>';
+        $html = '<p><a href="#fn1" data-carve-footnote-label="1">1 </a><strong> y</strong></p>';
 
         $this->assertSame("[^1]{* y*}\n", (new HtmlToCarve())->convert($html));
     }

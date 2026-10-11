@@ -181,7 +181,7 @@ class AFigureFindsItsImageBehindAWrapperTest extends TestCase
      */
     public function testATrialWriteLeavesNoDanglingDefinitionBehind(): void
     {
-        $html = '<figure><noscript><img src="g.jpg" alt="G" data-djot-ref="r"></noscript>'
+        $html = '<figure><noscript><img src="g.jpg" alt="G" data-carve-ref="r"></noscript>'
             . '<figcaption>cap</figcaption></figure>';
 
         $this->assertSame("cap\n", $this->carve($html));

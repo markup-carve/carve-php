@@ -187,7 +187,7 @@ class AHeaderCellKeepsItsVerticalAlignmentTest extends TestCase
      */
     public function testAnImportedHeaderCellsVerticalAlignmentSurvivesTheReRender(): void
     {
-        $html = '<table data-djot-col-widths="1,1">'
+        $html = '<table data-carve-col-widths="1,1">'
             . '<thead><tr><th style="text-align: left; vertical-align: top;">L</th>'
             . '<th style="text-align: right;">R</th></tr></thead>'
             . '<tbody><tr><td style="text-align: left; vertical-align: top;">a</td>'

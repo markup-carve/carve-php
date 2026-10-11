@@ -24,8 +24,8 @@ final class HtmlAttributePolicy
         return str_starts_with($lower, 'on')
             || $lower === 'srcdoc'
             || $lower === 'formaction'
-            || (str_starts_with($lower, 'data-djot-')
-                && ($lower !== 'data-djot-ref' || $mode === 'roundtrip'))
+            || (HtmlCarrierNames::isReserved($lower)
+                && ($lower !== 'data-carve-ref' || $mode === 'roundtrip'))
             || in_array($name, $skip, true)
             || in_array($lower, $skip, true);
     }

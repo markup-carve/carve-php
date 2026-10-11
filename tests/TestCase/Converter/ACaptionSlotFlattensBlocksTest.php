@@ -257,7 +257,7 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
     /**
      * STORED ROUND-TRIP SOURCE cannot smuggle block syntax into a caption.
      *
-     * `data-djot-src` is emitted verbatim, so a caption's `<ul>` carrying one
+     * `data-carve-src` is emitted verbatim, so a caption's `<ul>` carrying one
      * put `- a` straight back into the inline slot, recreating the literal
      * marker this fix removes - and the serializer never ran, so a report built
      * from the input claimed a flattening that did not happen. Inside a caption
@@ -266,7 +266,7 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
     public function testStoredRoundTripSourceIsNotTakenInsideACaption(): void
     {
         $result = (new HtmlToCarve(trustedRoundTrip: true))->convertWithReport(
-            '<table><caption><ul data-djot-src="- a"><li>a</li></ul></caption><tr><td>x</td></tr></table>',
+            '<table><caption><ul data-carve-src="- a"><li>a</li></ul></caption><tr><td>x</td></tr></table>',
         );
         $rendered = (new CarveConverter())->convert($result->value);
 

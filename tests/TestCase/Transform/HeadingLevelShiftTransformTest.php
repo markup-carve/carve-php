@@ -52,7 +52,7 @@ class HeadingLevelShiftTransformTest extends TestCase
         $transformed = $converter->transform($document, new HeadingLevelShiftTransform(1));
         $html = $converter->render($transformed);
 
-        $this->assertStringContainsString('data-djot-source-level="1"', $html);
+        $this->assertStringContainsString('data-carve-source-level="1"', $html);
         $this->assertSame('# Heading 1', trim((new HtmlToCarve())->convert($html)));
     }
 }

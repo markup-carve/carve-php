@@ -153,7 +153,7 @@ class HeadingNumbersExtension implements BeforeRenderExtensionInterface
             }
 
             // Do NOT pin the id: setting it would make roundTripMode treat an
-            // auto-generated id as author-provided (`data-djot-explicit-id`).
+            // auto-generated id as author-provided (`data-carve-explicit-id`).
             // The renderer assigns the heading id itself, and its slug skips the
             // section-number span (HeadingIdTracker::extractPlainText), so the
             // injected span never pollutes the id - matching carve-js, which

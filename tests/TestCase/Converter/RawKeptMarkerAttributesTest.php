@@ -11,7 +11,7 @@ class RawKeptMarkerAttributesTest extends TestCase
 {
     public function testRetainedMarkersHaveRowsWithoutReportingOrdinaryAttributes(): void
     {
-        foreach (['data-carve-src', 'data-djot-src'] as $name) {
+        foreach (['data-carve-src', 'data-carve-src'] as $name) {
             $html = '<form ' . $name . '="x" data-user="y"><cite cite="u" data-user="v">text</cite></form>';
             $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
             $rows = [];

@@ -165,7 +165,7 @@ class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
             // The stamp says the id was authored, and no measurement beats a
             // statement.
             'an id the render stamped as explicit' => [
-                '<ul><li>a<h1 class="k" id="H" data-djot-explicit-id="1">H</h1></li></ul>',
+                '<ul><li>a<h1 class="k" id="H" data-carve-explicit-id="1">H</h1></li></ul>',
                 "- a\n  {.k #H}\n  # H\n",
             ],
         ];

@@ -35,7 +35,7 @@ use Throwable;
  * SECURITY: this converter is NOT a sanitizer. Its output is Carve markup
  * that may still contain content derived from the input; render untrusted input
  * with safe mode enabled on the downstream renderer. By default the converter
- * IGNORES any `data-djot-src` round-trip attribute on the input (it would
+ * IGNORES any `data-carve-src` round-trip attribute on the input (it would
  * otherwise be emitted verbatim as raw Carve, allowing a crafted attribute to
  * inject a raw-HTML block). Only enable round-trip extraction via the
  * constructor flag when the HTML is TRUSTED (e.g. produced by carve itself).
@@ -267,7 +267,7 @@ class HtmlToCarve
     protected const DERIVES_NOTHING = ['aria-label' => []];
 
     /**
-     * When true, trust and re-emit a `data-djot-src` round-trip attribute on the
+     * When true, trust and re-emit a `data-carve-src` round-trip attribute on the
      * input. Default false: untrusted HTML must not be able to smuggle raw Carve
      * (incl. a raw-HTML block) through that attribute.
      */
@@ -2203,7 +2203,7 @@ class HtmlToCarve
      */
     protected function importWouldRefuseAttribute(string $tag, string $name): bool
     {
-        if (in_array($name, ['data-carve-src', 'data-djot-src'], true)) {
+        if ($name === 'data-carve-src') {
             return true;
         }
         if (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
@@ -2271,7 +2271,7 @@ class HtmlToCarve
                 $subject = 'event-handler attribute ' . $name;
             } elseif ($sink) {
                 $subject = 'injection-sink attribute ' . $name;
-            } elseif (in_array($name, ['data-carve-src', 'data-djot-src'], true)) {
+            } elseif ($name === 'data-carve-src') {
                 $subject = 'round-trip marker attribute ' . $name;
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $subject = $name;
@@ -2441,8 +2441,8 @@ class HtmlToCarve
             } elseif ($this->importMode === 'roundtrip' && $tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
                 continue;
             } elseif (
-                in_array($name, ['data-carve-src', 'data-djot-src'], true)
-                && !($name === 'data-djot-src' && $this->trustedRoundTrip && $this->importMode === 'roundtrip')
+                $name === 'data-carve-src'
+                && !($this->trustedRoundTrip && $this->importMode === 'roundtrip')
             ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
@@ -3248,13 +3248,19 @@ class HtmlToCarve
      * looking for them in an attribute position asks something that was never
      * true, of an import that lost nothing.
      *
-     * `data-djot-*` IS THE IMPORTER'S OWN PROTOCOL, not the author's content.
-     * Eighteen names carry instructions to this converter: `data-djot-src`
-     * re-emits stored source, `data-djot-raw` restores a raw block,
-     * `data-djot-footnote-label` names a footnote. None is ever written to the
-     * output, so a rule that asked the output would report all eighteen as
-     * dropped on every round-tripped document. They were not dropped; they were
-     * obeyed.
+     * A RESERVED CARRIER IS THE IMPORTER'S OWN PROTOCOL, not the author's
+     * content. The names `HtmlCarrierNames` enumerates carry instructions to
+     * this converter: `data-carve-src` re-emits stored source,
+     * `data-carve-raw` restores a raw block, `data-carve-footnote-label` names
+     * a footnote. None is ever written to the output, so a rule that asked the
+     * output would report every one of them as dropped on every round-tripped
+     * document. They were not dropped; they were obeyed.
+     *
+     * THE SET IS THE ENUMERATION, NOT THE PREFIX. `data-carve-stored-source`
+     * and `data-carve-tree-kind` are author attributes the suite writes, and a
+     * prefix test would have swallowed both. A document carrying the
+     * deprecated `data-djot-` spelling has already been canonicalized by
+     * `HtmlDomLoader`, so only the canonical name reaches here.
      *
      * `<math>`'s THREE ATTRIBUTES ARE THE EQUATION. `alttext` is the TeX the
      * tier-2 conversion emits as the math content, `display` picks the
@@ -3270,8 +3276,8 @@ class HtmlToCarve
      */
     protected function importAttributeIsReadNotWritten(string $tag, string $name): bool
     {
-        return (str_starts_with($name, 'data-djot-')
-                && ($name !== 'data-djot-ref' || $this->importMode === 'roundtrip'))
+        return (HtmlCarrierNames::isReserved($name)
+                && ($name !== 'data-carve-ref' || $this->importMode === 'roundtrip'))
             || ($tag === 'math' && in_array($name, ['display', 'alttext', 'xmlns'], true));
     }
 
@@ -3833,9 +3839,9 @@ class HtmlToCarve
             $element = $child;
         }
 
-        return $element instanceof DOMElement && $element->hasAttribute('data-djot-src')
+        return $element instanceof DOMElement && $element->hasAttribute('data-carve-src')
             ? $this->reconstructStoredSource(html_entity_decode(
-                $element->getAttribute('data-djot-src'),
+                $element->getAttribute('data-carve-src'),
                 ENT_QUOTES | ENT_HTML5,
                 'UTF-8',
             ))
@@ -4452,7 +4458,7 @@ class HtmlToCarve
     {
         $skip = ['src', 'alt', 'title'];
         if ($this->importMode === 'roundtrip') {
-            $skip[] = 'data-djot-ref';
+            $skip[] = 'data-carve-ref';
         }
         $imageNames = $this->writtenImportAttributeNames($image, $skip);
         if ($imageNames === []) {

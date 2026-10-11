@@ -408,7 +408,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         $this->assertStringContainsString('``` mermaid', $html);
     }
 
@@ -426,6 +426,6 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringNotContainsString('data-djot-src=', $html);
+        $this->assertStringNotContainsString('data-carve-src=', $html);
     }
 }
