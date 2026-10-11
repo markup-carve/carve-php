@@ -333,6 +333,20 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
         $ast = (new HtmlToCarve(trustedRoundTrip: true))->convertToAst($html);
 
         $this->assertArrayNotHasKey('separatorWidths', $ast['children'][0]);
+        foreach (['safe', 'roundtrip'] as $mode) {
+            $report = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);
+            $this->assertStringNotContainsString('data-carve-col-widths', $report->value, $mode);
+            $this->assertContains('attribute-dropped', array_map(static fn ($row): string => $row->code, $report->diagnostics), $mode);
+        }
+    }
+
+    public function testAValidWidthCarrierNeedsNoDroppedValueDiagnostic(): void
+    {
+        $html = '<table data-carve-col-widths="1,1000"><thead><tr><th>a</th><th>b</th></tr></thead></table>';
+        foreach (['safe', 'roundtrip'] as $mode) {
+            $report = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);
+            $this->assertNotContains('attribute-dropped', array_map(static fn ($row): string => $row->code, $report->diagnostics), $mode);
+        }
     }
 
     /**
@@ -342,6 +356,10 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     {
         yield 'an empty carrier' => [''];
         yield 'whitespace only' => [' '];
+        yield 'padded first entry' => [' 3,4'];
+        yield 'padded later entry' => ['3, 4'];
+        yield 'a trailing physical line break' => ["3\n"];
+        yield 'a leading physical line break' => ["\n3"];
         yield 'a bare comma' => [','];
         yield 'not a digit run' => ['5,x'];
         yield 'no digits at all' => ['abc'];

@@ -104,6 +104,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     use RenderLossCollectorTrait;
     use ConversionDiagnosticCollectorTrait;
 
+    private int $separatorExpansionLimit = 1000000;
+
+    private int $separatorExpansionRemaining = 1000000;
+
     private CarveWriterState $writerState;
 
     private ?CanonicalAst $canonicalImplementation = null;
@@ -501,6 +505,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     public function render(Document $document): string
     {
         $this->ensureWriterState();
+        $budgetLength = $document->getExpansionBudgetLength();
+        $this->separatorExpansionLimit = max(1000000, $budgetLength > intdiv(PHP_INT_MAX, 8) ? PHP_INT_MAX : $budgetLength * 8);
         $document = $this->withTextAsOneRun($document);
         // Choose the sentinels before anything is rendered, so both escape passes
         // below agree on them.
@@ -991,6 +997,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function renderOnePass(Document $document, string $escapeMode): string
     {
         $this->ensureWriterState();
+        $this->separatorExpansionRemaining = $this->separatorExpansionLimit;
         $previousEscapeMode = $this->escapeMode;
         $previousColonFenceDepth = $this->colonFenceDepth;
         $this->escapeMode = $escapeMode;
@@ -2692,10 +2699,22 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // and its entries say how wide each cell was spelled. Both halves are
         // reproduced here, the way `list.bulletChar` and `thematic_break.marker`
         // are.
-        $columnWidths = array_map(
-            static fn (int $width): int => max(1, $width),
-            $node->getSeparatorWidths() ?? [],
-        );
+        $columnWidths = $node->getSeparatorWidths() ?? [];
+        foreach ($columnWidths as $width) {
+            if ($width < 1) {
+                throw new SourceUnspellableException('table', 'separator widths must be positive integers');
+            }
+        }
+        $firstRowCells = isset($tableRows[0]) ? array_values(array_filter(
+            $tableRows[0]->getChildren(),
+            static fn (Node $child): bool => $child instanceof TableCell,
+        )) : [];
+        $allHeader = $firstRowCells !== [] && count(array_filter($firstRowCells, static fn (TableCell $cell): bool => !$cell->isHeader())) === 0;
+        $unspellableSeparator = $columnWidths !== [] && !$allHeader;
+        if ($unspellableSeparator) {
+            $this->recordUnspellableField($node, 'separatorWidths', 'a separator row would promote non-header cells');
+            $columnWidths = [];
+        }
         // AN EMPTY ARRAY IS NOT A RECORDED SEPARATOR ROW. The cell count is the
         // entry count, so zero entries ask for a row with no cells, which the
         // delimiter production cannot spell - `minItems: 1` on the field says so
@@ -2703,7 +2722,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // the decoder refuses it. Inventing a row from the header instead would
         // be the padding `CARVE-P11-066` forbids, wearing a presence claim
         // nobody wrote.
-        $forceDelimiter = $node->getRenderHint("\0carve-delimiter-row") === '1'
+        $forceDelimiter = (!$unspellableSeparator && $node->getRenderHint("\0carve-delimiter-row") === '1')
             || $columnWidths !== [];
         $headerRow = isset($tableRows[0]) && ($tableRows[0]->isHeader() || $forceDelimiter);
         // This parser resolves a cell's alignment at parse time, so a body cell
@@ -2773,7 +2792,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // In the delimiter form the promoted row is written as ordinary
                 // data cells - the row after it is what makes them headers.
                 $markHeader = !($needsDelimiter && $rowIndex === 0);
-                $inherited = ($needsDelimiter && $rowIndex === 0)
+                $inherited = ($needsDelimiter && $rowIndex === 0 && ($columnWidths === [] || $column < count($columnWidths)))
                     || ($headerRow
                         && $rowIndex > 0
                         && !$cell->hasExplicitAlignment()
@@ -2812,6 +2831,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $alignment = isset($headerCells[$index])
                     ? $headerCells[$index]->getAlignment()
                     : TableCell::ALIGN_DEFAULT;
+                if ($width > $this->separatorExpansionRemaining) {
+                    throw new SourceUnspellableException('table', 'separator widths exceed the document expansion budget');
+                }
+                $this->separatorExpansionRemaining -= $width;
                 $separators[] = $this->renderTableSeparator($width, $alignment);
             }
             array_splice($rows, 1, 0, '|' . implode('|', $separators !== [] ? $separators : ['---']) . '|');
@@ -5052,16 +5075,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // ONE TAG PER LINE, always: every site that writes one puts it directly
         // after a newline, so the lazy prefix cannot run past a line it does not
         // own.
-        $text = (string)preg_replace_callback(
-            '/^(.*?)' . preg_quote($this->listBoundary(), '/') . '/mu',
-            static function (array $m): string {
-                $prefix = $m[1];
-                $blank = (string)preg_replace('/[ \t]+$/', '', $prefix);
+        $text = implode("\n", array_map(function (string $line): string {
+            $boundary = strpos($line, $this->listBoundary());
+            if ($boundary === false) {
+                return $line;
+            }
+            $prefix = substr($line, 0, $boundary);
+            $blank = rtrim($prefix, " \t");
 
-                return $blank . "\n" . $blank . "\n" . $blank . "\n" . $prefix;
-            },
-            $text,
-        );
+            return $blank . "\n" . $blank . "\n" . $blank . "\n" . $prefix . substr($line, $boundary + strlen($this->listBoundary()));
+        }, explode("\n", $text)));
 
         $out = $this->restoreVerbatim($this->trimNonNbsp($text));
 

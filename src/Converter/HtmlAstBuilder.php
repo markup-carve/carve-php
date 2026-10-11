@@ -2383,6 +2383,11 @@ final class HtmlAstBuilder
      */
     private const MAX_CARRIER_WIDTH = 1000;
 
+    public static function isValidSeparatorWidthCarrier(string $carrier): bool
+    {
+        return self::separatorWidths($carrier) !== [];
+    }
+
     /**
      * The `data-carve-col-widths` carrier read back as the published field.
      *
@@ -2399,8 +2404,7 @@ final class HtmlAstBuilder
     {
         $widths = [];
         foreach (explode(',', $carrier) as $raw) {
-            $raw = trim($raw);
-            if (preg_match('/^\d+$/', $raw) !== 1) {
+            if (preg_match('/\A[0-9]+\z/', $raw) !== 1) {
                 return [];
             }
             $width = (int)$raw;

@@ -2362,14 +2362,8 @@ class ProseMirrorToCarve
     }
 
     /**
-     * `carveSeparatorWidths` read back, bounded the way PART 10 §13a bounds it.
-     *
-     * The payload comes from an editor, so an entry may be anything. A list
-     * holding an entry that is not a positive integer is refused WHOLE and the
-     * field stays unset, the same answer the HTML importer gives a carrier it
-     * cannot take. No UPPER bound here: §13a bounds the HTML carrier, where six
-     * characters of attribute buy a dash per unit, and this payload states each
-     * width as a JSON integer with nothing to amplify.
+     * Positive integer widths remain unbounded in the AST. Source rendering
+     * checks its document expansion budget before allocating separator rows.
      *
      * @return array<int, int>|null
      */
@@ -2380,7 +2374,7 @@ class ProseMirrorToCarve
         }
         $widths = [];
         foreach ($value as $entry) {
-            if (is_string($entry) && preg_match('/^\d+$/', $entry) === 1) {
+            if (is_string($entry) && preg_match('/\A[0-9]+\z/', $entry) === 1) {
                 $entry = (int)$entry;
             }
             if (!is_int($entry) || $entry < 1) {
