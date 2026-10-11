@@ -9,6 +9,7 @@ use DOMNode;
 use DOMText;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlAstBuilder;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
@@ -111,6 +112,49 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         }
         $ordinary = (new HtmlToCarve())->convertToAstWithReport('<p>* ordinary</p>')->value;
         self::assertSame('text', $ordinary['children'][0]['children'][0]['type']);
+    }
+
+    public function testEscapedCarriersDoNotBreakIntermediateTreesOrAttributeReports(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+                foreach (
+                    [
+                        '<details><summary>s<span CARRIER>*</span></summary><p>x</p></details>',
+                        '<h2 id="x">a<span CARRIER>*</span></h2>',
+                        '<p class="k">a<span CARRIER>*</span></p>',
+                    ] as $template
+                ) {
+                    $html = str_replace('CARRIER', $prefix . 'escaped', $template);
+                    $result = (new HtmlToCarve(importMode: $mode))->convertToAstWithReport($html);
+                    self::assertTrue(self::matchesProjection($result->value, [['type' => 'escaped_text', 'value' => '*']]));
+                    self::assertSame([], $result->diagnostics);
+                    $built = (new HtmlAstBuilder(importMode: $mode, sourceSafe: false))->build($html);
+                    (new AstCodec())->decodeImporterTree($built->tree);
+                    self::assertStringNotContainsString('carve-escaped-carrier', json_encode($built->tree, JSON_THROW_ON_ERROR));
+                }
+            }
+        }
+    }
+
+    public function testImageReferenceRecoveryMatchesTheExistingLinkLabelChecks(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+                $converter = new HtmlToCarve(importMode: $mode);
+                $collapsed = $converter->convertToAstWithReport('<img src="/a.png" alt="alt" ' . $prefix . 'ref="">')->value;
+                self::assertTrue(self::matchesProjection($collapsed, [['type' => 'image', 'ref' => 'alt']]));
+                foreach (['a]b[c', "a\n\nb"] as $label) {
+                    $html = '<img src="/a.png" alt="alt" ' . $prefix . 'ref="' . $label . '">';
+                    $tree = $converter->convertToAstWithReport($html)->value;
+                    self::assertTrue(self::matchesProjection($tree, [['type' => 'image', 'src' => '/a.png', 'alt' => 'alt']]));
+                    self::assertAbsentFields($tree, [['type' => 'image', 'field' => 'ref'], ['type' => 'image', 'field' => 'rawRef']]);
+                    foreach (self::nodes($tree) as $node) {
+                        self::assertNotSame('link_reference_definition', $node['type']);
+                    }
+                }
+            }
+        }
     }
 
     public function testTaskHooksAreOrdinaryOutput(): void

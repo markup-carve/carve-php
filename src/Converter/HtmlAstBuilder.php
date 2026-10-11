@@ -659,7 +659,7 @@ final class HtmlAstBuilder
 
         $tree['children'] = self::nodeList($tree['children']);
 
-        return new HtmlAstBuildResult($tree, $this->session, $this->sourceSafe);
+        return new HtmlAstBuildResult($tree, $this->session, $this->sourceSafe, !$this->sourceSafe);
     }
 
     /**
@@ -2649,7 +2649,8 @@ final class HtmlAstBuilder
                 }
                 $children = $cellBlockGrid[$r][$c] ?? [];
                 if (
-                    count($children) === 1
+                    $this->sourceSafe
+                    && count($children) === 1
                     && $children[0]['type'] === 'paragraph'
                     && !isset($children[0]['attrs'])
                     && count(self::nodeList($children[0]['children'] ?? null)) === 1
@@ -3854,12 +3855,7 @@ final class HtmlAstBuilder
             // malformed and its content is text.
             $characters = preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: [];
             if (count($characters) === 1) {
-                $escaped = ['type' => 'escaped_text', 'value' => $characters[0]];
-                if (!$this->sourceSafe) {
-                    $escaped[HtmlAstBuildResult::ESCAPED_CARRIER] = true;
-                }
-
-                return [$escaped];
+                return [['type' => 'escaped_text', 'value' => $characters[0]]];
             }
         }
         $rawFormat = $node->getAttribute('data-carve-raw');
@@ -4221,11 +4217,17 @@ final class HtmlAstBuilder
             $image['title'] = $node->getAttribute('title');
         }
         if ($node->hasAttribute('data-carve-ref')) {
+            $alt = $node->getAttribute('alt');
             $ref = $node->getAttribute('data-carve-ref');
-            $image['ref'] = $ref;
-            $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
-                . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
-            $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
+            if ($ref === '') {
+                $ref = trim($alt);
+            }
+            if ($ref !== '' && !str_contains($alt, ']') && strpbrk($ref, "]\r\n") === false) {
+                $image['ref'] = $ref;
+                $image['rawRef'] = '![' . $alt . ']'
+                    . ($ref === $alt ? '[]' : '[' . $ref . ']');
+                $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
+            }
         }
         $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-carve-ref']);
 
