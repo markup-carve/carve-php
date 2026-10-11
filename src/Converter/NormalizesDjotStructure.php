@@ -101,6 +101,9 @@ trait NormalizesDjotStructure
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
             if ($quoteDepth < $depth && ($blockStart || $item)) {
+                if ($item && !$blank) {
+                    $out[] = rtrim($quote);
+                }
                 $paragraph = false;
                 $headingMarker = '';
                 $lists = [];

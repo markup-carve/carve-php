@@ -37,19 +37,19 @@ class ADelimiterAgainstACloseBraceStillOpensTest extends TestCase
 
     public function testATripleNestedBraceBuildsItsSecondRun(): void
     {
-        $this->assertSame('<p><em>{/{/x</em><em>}</em>}</p>', $this->html("{/{/{/x/}/}/}\n"));
+        $this->assertSame('<p><em><em><em>x</em></em></em></p>', $this->html("{/{/{/x/}/}/}\n"));
         $this->assertSame(
-            '<p><strong>{*{*x</strong><strong>}</strong>}</p>',
+            '<p><strong><strong><strong>x</strong></strong></strong></p>',
             $this->html("{*{*{*x*}*}*}\n"),
         );
-        $this->assertSame('<p><mark>{={=x</mark><mark>}</mark>}</p>', $this->html("{={={=x=}=}=}\n"));
+        $this->assertSame('<p><mark><mark><mark>x</mark></mark></mark></p>', $this->html("{={={=x=}=}=}\n"));
     }
 
     public function testTheMarkdownTargetKeepsTheSecondRun(): void
     {
-        $this->assertSame('*{/{/x*<em>}</em>}', $this->md("{/{/{/x/}/}/}\n"));
-        $this->assertSame('**{\\*{\\*x**<strong>}</strong>}', $this->md("{*{*{*x*}*}*}\n"));
-        $this->assertSame('<mark>{={=x</mark><mark>}</mark>}', $this->md("{={={=x=}=}=}\n"));
+        $this->assertSame('*<em>*x*</em>*', $this->md("{/{/{/x/}/}/}\n"));
+        $this->assertSame('**<strong>**x**</strong>**', $this->md("{*{*{*x*}*}*}\n"));
+        $this->assertSame('<mark><mark><mark>x</mark></mark></mark>', $this->md("{={={=x=}=}=}\n"));
     }
 
     public function testABareDelimiterOpensAgainstACloseBrace(): void

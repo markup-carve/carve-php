@@ -78,7 +78,7 @@ class ABareCloserSkipsOnlyTheConstructsE2aNamesTest extends TestCase
             'a plain brace group' => ["~a{b~}c\n", "<p><s>a{b</s>}c</p>\n"],
             'an attribute block' => ["~a{.c~} d\n", "<p><s>a{.c</s>} d</p>\n"],
             'an attribute block after a braced inline' => ["~{/a/}{.c~} d~\n", "<p><s><em>a</em>{.c</s>} d~</p>\n"],
-            'an empty brace pair' => ["~a{~~}b~\n", "<p><s>a{</s>~}b~</p>\n"],
+            'an empty brace pair' => ["~a{~~}b~\n", "<p><s>a{~~}b</s></p>\n"],
         ];
     }
 

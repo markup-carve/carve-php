@@ -218,19 +218,19 @@ class DjotToCarveTest extends TestCase
         $this->assertSame('{=important=}', $this->converter->convert('{=important=}'));
     }
 
-    public function testMarkdownStrongBecomesSingleStar(): void
+    public function testRepeatedStrongPreservesBothLevels(): void
     {
-        $this->assertSame('*bold*', $this->converter->convert('**bold**'));
+        $this->assertSame('{*{*bold*}*}', $this->converter->convert('**bold**'));
     }
 
     public function testNestedSubscriptsKeepTheirFamily(): void
     {
-        $this->assertSame('{,struck,}', $this->converter->convert('~~struck~~'));
+        $this->assertSame('{,{,struck,},}', $this->converter->convert('~~struck~~'));
     }
 
     public function testNestedDifferentFamilies(): void
     {
-        $this->assertSame('{,/x/,}', $this->converter->convert('~~_x_~~'));
+        $this->assertSame('{,{,/x/,},}', $this->converter->convert('~~_x_~~'));
     }
 
     public function testEmphasisWithSubscriptNests(): void

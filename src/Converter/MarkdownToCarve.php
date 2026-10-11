@@ -2167,7 +2167,7 @@ class MarkdownToCarve
         if ($this->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
-                'Unwrapped nested emphasis of the same kind; its text is preserved',
+                'Flattened emphasis exceeding the native nesting budget; its text is preserved',
                 'warning',
                 'dropped',
                 'exact',
@@ -6052,7 +6052,7 @@ class MarkdownToCarve
         if ($this->convertRawHtml) {
             $htmlBodyIndex = 0;
             preg_match_all('/CarveHtmlBody(\d+)/', $this->decodeHtmlReferenceText($line), $htmlBodyMatches);
-            $htmlBodyReserved = array_fill_keys($htmlBodyMatches[1], true);
+            $htmlBodyReserved = array_fill_keys(array_map(static fn (string $index): string => 'CarveHtmlBody' . $index, $htmlBodyMatches[1]), true);
             $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => str_starts_with($span, '<!--')
                 ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
             $line = preg_replace_callback(
@@ -6063,7 +6063,7 @@ class MarkdownToCarve
 
                         return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
                     }
-                    while (isset($htmlBodyReserved[(string)$htmlBodyIndex])) {
+                    while (isset($htmlBodyReserved['CarveHtmlBody' . $htmlBodyIndex])) {
                         $htmlBodyIndex++;
                     }
                     $marker = 'CarveHtmlBody' . $htmlBodyIndex++;
@@ -8283,7 +8283,7 @@ class MarkdownToCarve
     {
         $escapeUnlessDelimiterPair = function (array $match): string {
             $interior = $match[1];
-            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1) {
+            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1 || (preg_match('/^[\/*_^,~=]/', $interior) === 1 && str_contains($interior, '{'))) {
                 return $match[0];
             }
             // A TAG opener at the head of the payload needs escaping too: the

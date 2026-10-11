@@ -17,9 +17,6 @@ class DjotLossReportTest extends TestCase
     public static function losses(): array
     {
         return [
-            'nested forced emphasis' => ["_({_foo_})_\n", 1, 'Nested emphasis'],
-            'nested strong' => ["*****a*****\n", 1, 'Nested emphasis'],
-            'nested bare emphasis' => ["__emphasis inside_ emphasis_\n", 1, 'Nested emphasis'],
             'empty heading' => ["##\n", 1, 'empty heading'],
             'empty destination' => ["[link][]\n\n[link]:\n[link2]: url\n", 1, 'empty destination'],
             'unresolved multiline label' => ["[link][a and\nb]\n", 1, 'unresolved Djot reference'],
@@ -78,7 +75,7 @@ class DjotLossReportTest extends TestCase
 
     public function testCodeAndResolvedReferencesHaveNoStructuralLoss(): void
     {
-        foreach (["```\n##\n[x][]\n|--|--|\n```\n", '`_({_foo_})_`', "[x][r]\n\n[r]: /url\n", "- a\n\n  - b\n  - c\n\n- d\n", "[x][]\n\n[x]:\n url\n", "See [Introduction][].\n\n# Introduction\n", "[link _and_ link][]\n\n[link and link]: url\n", "[![image](img)](url)\n", "\n|`|\n", '| `a |`', '[see [^1][^2]](v)'] as $source) {
+        foreach (['_({_foo_})_', '*****a*****', '__emphasis inside_ emphasis_', "```\n##\n[x][]\n|--|--|\n```\n", '`_({_foo_})_`', "[x][r]\n\n[r]: /url\n", "- a\n\n  - b\n  - c\n\n- d\n", "[x][]\n\n[x]:\n url\n", "See [Introduction][].\n\n# Introduction\n", "[link _and_ link][]\n\n[link and link]: url\n", "[![image](img)](url)\n", "\n|`|\n", '| `a |`', '[see [^1][^2]](v)'] as $source) {
             self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'));
         }
     }

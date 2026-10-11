@@ -221,6 +221,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @var array<int, true>
      */
+    private array $repeatedEmphasis = [];
+
+    /**
+     * @var array<int, true>
+     */
     private array $expandedBoldItalic = [];
 
     /**
@@ -503,6 +508,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->bracedForAttributes = [];
+        $this->repeatedEmphasis = $this->findRepeatedEmphasis($document);
         $this->expandedBoldItalic = [];
         $this->treeCache = null;
         $this->writerState->structuralEscapes = [];
@@ -1238,7 +1244,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // list: +1 per list put the second at one space and the third at two,
             // where a bullet's content column NESTS the later list in the earlier.
             $previousList = null;
-            $previousBlock = null;
+            $previousCompactDefinition = false;
             $listSeparated = false;
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
@@ -1266,7 +1272,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[array_key_last($parts)] .= "\n" . $this->listBoundary() . $rendered;
                     } elseif (
                         $parts !== []
-                        && $previousBlock->getRenderHint("\0carve-compact-definition") === '1'
+                        && $previousCompactDefinition
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
@@ -1274,7 +1280,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[] = $rendered;
                     }
                 }
-                $previousBlock = $block;
+                $previousCompactDefinition = $block->getRenderHint("\0carve-compact-definition") === '1';
             }
 
             return implode(self::BLOCK_SEPARATOR, $parts);
@@ -3188,6 +3194,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $nodes
      *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
     protected function renderInlines(array $nodes): string
@@ -3197,6 +3204,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         if ($this->inlineDepth >= InlineParser::MAX_INLINE_DEPTH && count($nodes) === 1 && $nodes[0] instanceof Text) {
             return $nodes[0]->getContent();
+        }
+        if ($this->inlineDepth >= InlineParser::MAX_INLINE_DEPTH - 1) {
+            foreach ($nodes as $node) {
+                if (in_array($node->getType(), ['strong', 'emphasis', 'underline', 'superscript', 'subscript', 'strike', 'highlight'], true)) {
+                    throw new SourceUnspellableException('inline', 'inline content exceeds the native parser nesting limit');
+                }
+            }
         }
         $this->inlineDepth++;
         try {
@@ -3287,6 +3301,23 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         self::opensAVerbatimRun($nodes[$i + 1] ?? null),
                         $i === $count - 1 && ($out !== '' || $this->inlineDepth > 1 || ($node instanceof Code && strlen($this->codeSpanFence($node->getContent())) < 3)),
                     );
+                    $previous = $nodes[$i - 1] ?? null;
+                    if (
+                        $node instanceof CriticComment && str_contains($node->getContent(), '}') && $previous !== null
+                        && !in_array($previous->getType(), ['text', 'escaped_text', 'non_breaking_space', 'soft_break', 'hard_break', 'mention', 'tag', 'heading_ref', 'smart_punctuation', 'substitution', 'critic_comment'], true)
+                    ) {
+                        $document = (new BlockParser())->parse('/x/' . $rendered);
+                        $probe = $document->getChildren()[0]->getChildren();
+                        $keepsComment = false;
+                        foreach ($probe as $child) {
+                            if ($child instanceof CriticComment && $child->getContent() === $node->getContent()) {
+                                $keepsComment = true;
+                            }
+                        }
+                        if (!$keepsComment) {
+                            throw new SourceUnspellableException('critic_comment', 'a glued editorial comment would attach attributes to the preceding node');
+                        }
+                    }
                     // A bare caret the previous node ended on opens an inline
                     // note against a `[` this node writes, in both passes.
                     if (
@@ -3877,32 +3908,74 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     ];
 
     /**
-     * Spell a span so a span of its kind inside it reads back.
-     *
-     * E3 leaves an opener of an open kind literal, bare or forced, but a braced
-     * inline starts its own scope (markup-carve/carve#2078, #2091). So a span
-     * between two spans of one kind is written braced, and a span of the same
-     * kind reachable without a braced span between has no spelling.
+     * @return array<int, true>
+     */
+    private function findRepeatedEmphasis(Node $root): array
+    {
+        $repeated = [];
+        $active = [];
+        $work = [[$root, false]];
+        while ($work !== []) {
+            [$node, $exit] = array_pop($work);
+            $kind = $node::class;
+            $native = $node instanceof Emphasis || $node instanceof Strong || $node instanceof Underline
+                || $node instanceof Strike || $node instanceof Superscript || $node instanceof Subscript
+                || $node instanceof Highlight;
+            if ($exit) {
+                if ($native) {
+                    array_pop($active[$kind]);
+                }
+
+                continue;
+            }
+            if ($native) {
+                if (!empty($active[$kind])) {
+                    $repeated[spl_object_id($node)] = true;
+                    $repeated[spl_object_id($active[$kind][array_key_last($active[$kind])])] = true;
+                }
+                $active[$kind][] = $node;
+            }
+            $work[] = [$node, true];
+            foreach (array_reverse($node->getChildren()) as $child) {
+                $work[] = [$child, false];
+            }
+        }
+
+        return $repeated;
+    }
+
+    /**
+     * Preserve repeated native emphasis and enforce the editorial nesting ceiling.
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
-        if (!str_starts_with($written, '{') && ($this->separatesAnOuterKind($node) || $this->holdsOuterKindAcrossLink($node) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
+        if ($node instanceof Strong && $node->isBoldItalic() && str_starts_with($written, '/*')) {
+            return $written;
+        }
+        if (!str_starts_with($written, '{') && ((str_contains('+-', $delimiter) && ($this->separatesAnOuterKind($node) || $this->holdsOuterKindAcrossLink($node))) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
             $written = '{' . $written . '}';
         }
 
-        $pending = $node->getChildren();
-        for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
-            $child = $pending[$cursor];
-            if ($child::class === $node::class) {
-                throw new SourceUnspellableException(
-                    $node->getType(),
-                    'a span inside a span of the same kind has no Carve source spelling',
-                );
+        if (!str_contains('+-', $delimiter)) {
+            $same = isset($this->repeatedEmphasis[spl_object_id($node)]);
+            if ($same && !str_starts_with($written, '{')) {
+                $written = '{' . $written . '}';
             }
-            if (!$child instanceof Link && !$child instanceof Span && !isset($this->bracedSpans[spl_object_id($child)])) {
-                array_push($pending, ...$child->getChildren());
+        } else {
+            $pending = $node->getChildren();
+            for ($cursor = 0; isset($pending[$cursor]); ++$cursor) {
+                $child = $pending[$cursor];
+                if ($child::class === $node::class) {
+                    throw new SourceUnspellableException(
+                        $node->getType(),
+                        'a span inside a span of the same kind has no Carve source spelling',
+                    );
+                }
+                if (!$child instanceof Link && !$child instanceof Span && !isset($this->bracedSpans[spl_object_id($child)])) {
+                    array_push($pending, ...$child->getChildren());
+                }
             }
         }
         if (str_starts_with($written, '{')) {
@@ -3970,7 +4043,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $content = $this->renderInlines($inner->getChildren());
             // `/*` needs content that hugs it: `/* x*/` or `/**/` reparses as an
             // emphasis holding literal stars, so fall back to the nested spelling.
-            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) && !isset($this->bracedForAttributes[spl_object_id($node)])) {
+            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content)) {
                 return '/*' . $content . '*/';
             }
         }
@@ -5980,7 +6053,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function escapeCriticText(string $text): string
     {
-        return str_replace(['\\', '{', '}'], ['\\\\', '\\{', '\\}'], $text);
+        if (str_contains($text, '#}')) {
+            throw new SourceUnspellableException('critic_comment', 'an editorial comment holding its closing sequence has no Carve source spelling');
+        }
+
+        return $text;
     }
 
     protected function escapeAutolinkHref(string $text): string

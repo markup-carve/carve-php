@@ -74,12 +74,12 @@ final class DjotPlaceholderPrefixesTest extends TestCase
         self::assertStringContainsString($token, (new DjotToCarve())->convert('![' . $token . '](x)'));
     }
 
-    public function testUserMarkersSurviveFlattenedEmphasis(): void
+    public function testUserMarkersSurviveNestedEmphasis(): void
     {
         foreach (['DJOTWORD0', "DJOTALT\0" . '0', "DJOTLITERAL\0" . '0', 'DJOTUSERNUL'] as $base) {
             $source = "{*a \0{*" . $base . "\0" . "0\0*} b*} w{.c}";
             $converted = (new DjotToCarve())->convert($source);
-            self::assertStringContainsString("\0" . $base . "\0" . "0\0", $converted);
+            self::assertStringContainsString("\0{*" . $base . "\0" . "0\0*}", $converted);
             self::assertSame(1, substr_count((new CarveConverter())->convert($converted), 'class="c"'));
         }
     }
@@ -119,11 +119,11 @@ final class DjotPlaceholderPrefixesTest extends TestCase
     public function testSingleIndexUserMarkersSurviveSyntaxRemoval(): void
     {
         foreach (['DJOTINVALIDATTR0', "DJOTINVALIDATTR\0" . '0', 'DJOTNOTEATTR0', "DJOTNOTEATTR\0" . '0'] as $base) {
-            $token = "\0" . $base . "\0";
+            $token = "\0{*" . $base . "\0*}";
             foreach (["\0{.a}" . $base . "\0 {x y}", "{*a \0{*" . $base . "\0*} b*} {x y}"] as $source) {
                 $converted = (new DjotToCarve())->convert($source . "\n\n[^n]: note\n\n  {.c}\n\n[^n]");
                 self::assertStringContainsString(str_starts_with($source, "\0{.a}") ? "[\0]{.a}" . $base . "\0" : $token, $converted);
-                self::assertStringNotContainsString("\0DJOT", str_replace($token, '', $converted));
+                self::assertStringNotContainsString("\0DJOT", str_replace([$token, "[\0]{.a}" . $base . "\0"], '', $converted));
             }
         }
     }
