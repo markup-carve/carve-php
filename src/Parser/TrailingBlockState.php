@@ -12,6 +12,11 @@ namespace MarkupCarve\Carve\Parser;
  */
 final class TrailingBlockState
 {
+    /**
+     * @var list<array{marker:int, parent:int}>
+     */
+    public array $nestedDivHosts = [];
+
     // Legacy array hooks expose the fence metadata after its closer.
     private ?TrailingCodeFence $lastFence = null;
 

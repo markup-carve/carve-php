@@ -1709,9 +1709,14 @@ final class BlockContinuationScanner
 
                 return $state;
             }
+            $marker = ($this->getListParser)()->parseListItemMarker($text);
+            $structuralMarker = false;
+            foreach ($state->nestedDivHosts as $host) {
+                $structuralMarker = $structuralMarker || ($column <= $host['marker'] && $column >= $host['parent']);
+            }
             if (
                 $state->nestedDivBody && $state->openParagraph
-                && (($this->getListParser)()->parseListItemMarker($text) !== null || !$this->startsNewBlock($text))
+                && ($marker !== null ? !$structuralMarker : !$this->startsNewBlock($text))
             ) {
                 return $state;
             }
@@ -1984,6 +1989,17 @@ final class BlockContinuationScanner
             $state->divColumn = IndentationHelper::getLeadingColumns($line);
             $state->divDepth++;
             $state->openParagraph = false;
+            if ($nestedColumnOnEntry > 0 && $state->divColumn >= $nestedColumnOnEntry) {
+                $child = clone $state;
+                $child->divColumn = 0;
+                $child->nestedColumn = 0;
+                $child->nestedDiv = null;
+                $state->nestedDiv = $child;
+                $state->nestedDivColumn = $state->divColumn;
+                $state->nestedDivBody = false;
+                $state->inDiv = false;
+                $state->divDepth = 0;
+            }
 
             return $state;
         }
@@ -2257,20 +2273,26 @@ final class BlockContinuationScanner
                 $lastInteriorNewline,
                 false,
             );
-            // ONLY A BLOCK THAT FINISHES ON THE LEAD LINE ANSWERS HERE. A code
-            // fence or a `:::` opener CONTINUES onto lines this step never
-            // sees - they arrive at this tracker, one container out, where they
-            // are not the nested item's content - so the recursion has not read
-            // the block it would be reporting on. Reporting anyway ended the
-            // outer item on the fence's first body line, which changed what the
-            // item CONTAINS and not just where the lazy line went: `- - ::: note`
-            // / `b` / `:::` turned a literal `::: note` into a real admonition
-            // and moved `b` out of the item. carve-js and carve-rs both leave
-            // an unfinished opener as prose here, and so does the fallback
-            // below, so this falls through to it.
+            // A marker-line div remains a candidate until its body reaches
+            // the item's content column. Below-column prose still demotes an
+            // unestablished opener; an established body keeps its real closer.
             if ($inner->inDiv && $inner->fence === null) {
                 $state->nestedDiv = $inner;
-                $state->nestedDivColumn = $contentOffset - $at;
+                $state->nestedDivHosts = [];
+                $column = 0;
+                $walk = $at;
+                while (($head = ($this->getListParser)()->markerHeadAt($line, $walk)) !== null) {
+                    $state->nestedDivHosts[] = ['marker' => $column, 'parent' => $column];
+                    $column += $this->listMarkerWidth(substr($line, $walk, $head['content'] - $walk), [
+                        'type' => $head['name'],
+                        'content' => '',
+                        'attributesWidth' => $head['attrs'],
+                    ]);
+                    $walk = $head['content'];
+                }
+                $state->nestedDivColumn = $column;
+                $firstMarker = ($this->getListParser)()->markerContentOffset($line, $at);
+                $state->nestedColumn = $firstMarker === null ? 0 : $firstMarker - $at;
                 $state->nestedDivBody = false;
                 $state->openParagraph = true;
 

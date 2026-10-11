@@ -63,6 +63,30 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $this->assertStringEndsWith("</ul>\n", $html);
     }
 
+    public function testTheNewSiblingTracksItsOwnClosedOrOpenDiv(): void
+    {
+        foreach ([false, true] as $closed) {
+            $source = "- a\n  - ::: box\n    body\n  - sibling\n    :::\n    inner\n"
+                . ($closed ? "    :::\n" : '') . "tail\n";
+            $html = (new CarveConverter())->convert($source);
+            $this->assertStringContainsString('<li>sibling', $html);
+            if ($closed) {
+                $this->assertStringContainsString('<p>inner</p>', $html);
+                $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+            } else {
+                $this->assertStringContainsString("<p>inner\ntail</p>", $html);
+                $this->assertStringEndsWith("</ul>\n", $html);
+            }
+        }
+    }
+
+    public function testATableSiblingLeavesNoParagraphClaim(): void
+    {
+        $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n  - | x | y |\ntail\n");
+        $this->assertStringContainsString('<table>', $html);
+        $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+    }
+
     public function testAnUnestablishedOpenerStillDemotes(): void
     {
         $html = (new CarveConverter())->convert("- a\n  - ::: box\nlazy\n");
