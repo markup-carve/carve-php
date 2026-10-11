@@ -5,14 +5,12 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 /**
- * Controls what the Markdown target does with attributes Markdown cannot spell.
+ * Selects how the Markdown target handles attributes it cannot spell.
  *
- * Markdown has no syntax for a block container or for attributes on images,
- * strong, emphasis or strike, so
- * `{#id .class data-*}` has nowhere to go. `Drop` discards them, which is right
- * for human-facing export. `Html` keeps them as raw HTML - a `<div>` wrapper and
- * an `<img>` tag - the same degradation an inline mark already gets, which is
- * what a consumer using Markdown as an interchange format needs.
+ * `Drop` explicitly discards them. `Html` preserves them on containers,
+ * images and inline marks through HTML tags. Without an explicit selection,
+ * inline marks preserve their attributes while containers and images keep
+ * their ordinary Markdown spelling.
  */
 enum AttributeFallback: string
 {
