@@ -1418,7 +1418,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // id="Auto">`. The slot list is what distinguishes them, in this engine
         // and on the wire.
         $authoredId = in_array('#id', $node->getAttributeOrder(), true);
-        $attrs = $this->getRenderableAttributes($node, $authoredId ? [] : ['id']);
+        $carriesExplicitId = $this->roundTripMode && $node->hasAttribute('id');
+        $attrs = $this->attributesBesideCarriers(
+            $node,
+            $carriesExplicitId ? ['data-carve-explicit-id'] : [],
+            $authoredId ? [] : ['id'],
+        );
         $idAttr = $authoredId
             ? ''
             : ' id="' . $this->escapeHeadingId($this->getSectionId($node)) . '"';
@@ -1443,10 +1448,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $annotationAttr = $this->renderAttributeArray($annotations);
 
-        $explicitIdAttr = '';
-        if ($this->roundTripMode && $node->hasAttribute('id')) {
-            $explicitIdAttr = ' data-carve-explicit-id="1"';
-        }
+        $explicitIdAttr = $carriesExplicitId ? ' data-carve-explicit-id="1"' : '';
 
         return '<h' . $level . $this->renderAttributeArray($attrs, 'h' . $level) . $idAttr . $annotationAttr
             . $explicitIdAttr . '>'
@@ -1478,7 +1480,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function renderPreCode(Node $node, string $content, ?string $language, string $djotSrcAttr = ''): string
     {
-        $attrs = $this->renderAttributes($node);
+        $attrs = $this->renderAttributesBesideCarriers($node, $djotSrcAttr === '' ? [] : ['data-carve-src']);
 
         $code = $this->escape($content);
 
@@ -1971,12 +1973,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private function listLayoutFrame(ListBlock $node): array
     {
-        $attrs = $this->getRenderableAttributes($node);
+        $marker = $node->getMarker();
+        $default = $node->getListType() === ListBlock::TYPE_ORDERED ? '.' : '-';
+        $carriesMarker = $this->roundTripMode && $marker !== null && $marker !== $default;
+        $attrs = $this->attributesBesideCarriers($node, $carriesMarker ? ['data-marker'] : []);
         if ($node->getListType() === ListBlock::TYPE_ORDERED) {
             $olAttrs = '';
             $start = $node->getStart();
             $style = $node->getStyle();
-            $marker = $node->getMarker();
 
             // Corpus order: type before start (matches carve-js).
             if ($style !== null) {
@@ -1990,7 +1994,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             if ($marker === ')') {
                 $olAttrs .= ' data-delim="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
             }
-            if ($this->roundTripMode && $marker !== null && $marker !== '.') {
+            if ($carriesMarker) {
                 $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
             }
 
@@ -2001,9 +2005,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($taskList) {
             $attrs = self::withTaskListClass($attrs);
         }
-        $marker = $node->getMarker();
         $markerAttr = '';
-        if ($this->roundTripMode && $marker !== null && $marker !== '-') {
+        if ($carriesMarker) {
             $markerAttr = ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 
@@ -2141,9 +2144,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderThematicBreak(ThematicBreak $node): string
     {
-        $attrs = $this->renderAttributes($node);
         // Preserve character for round-trip (only if non-default and round-trip mode enabled)
-        if ($this->roundTripMode && $node->char !== '-') {
+        $carries = $this->roundTripMode && $node->char !== '-';
+        $attrs = $this->renderAttributesBesideCarriers($node, $carries ? ['data-char'] : []);
+        if ($carries) {
             $attrs .= ' data-char="' . htmlspecialchars($node->char, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 
@@ -2569,7 +2573,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderTable(Table $node): string
     {
-        $tableAttrs = $this->getRenderableAttributes($node);
+        $carriesWidths = $this->roundTripMode && $node->getSeparatorWidths() !== null;
+        $tableAttrs = $this->attributesBesideCarriers($node, $carriesWidths ? ['data-carve-col-widths'] : []);
         unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
         $hasBodyMetadata = isset($tableAttrs['body-rows']) || isset($tableAttrs['body-header-rows']) || isset($tableAttrs['body-header-cols']);
         if (!$hasBodyMetadata || $node->statedRowGroups() !== null) {
@@ -2581,7 +2586,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributeArray($tableAttrs);
 
         // Add round-trip separator widths attribute if available and in round-trip mode
-        if ($this->roundTripMode && $node->getSeparatorWidths() !== null) {
+        if ($carriesWidths) {
             $widths = implode(',', $node->getSeparatorWidths());
             $attrs .= ' data-carve-col-widths="' . htmlspecialchars($widths, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
@@ -2949,7 +2954,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $href = $node->getDestination();
         $title = $node->getTitle();
-        $attrs = $this->renderAttributesExcluding($node, $title === null ? ['href'] : ['href', 'title']);
+        $carriers = [];
+        if ($this->roundTripMode && $node->getReferenceLabel() !== null) {
+            $carriers[] = 'data-carve-ref';
+        }
+        if ($this->roundTripMode && $node->isAutolink()) {
+            $carriers[] = 'data-carve-autolink';
+        }
+        $attrs = $this->renderAttributeArray($this->attributesBesideCarriers(
+            $node,
+            $carriers,
+            $title === null ? ['href'] : ['href', 'title'],
+        ));
 
         // Always-on baseline: blank dangerous URL schemes (independent of safe
         // mode). Safe mode may then apply stricter (allowlist) URL policy.
@@ -2970,12 +2986,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         // In round-trip mode, store reference label for reconstruction
-        if ($this->roundTripMode && $node->getReferenceLabel() !== null) {
-            $html .= ' data-carve-ref="' . $this->escapeAttribute($node->getReferenceLabel()) . '"';
+        if (in_array('data-carve-ref', $carriers, true)) {
+            $html .= ' data-carve-ref="' . $this->escapeAttribute((string)$node->getReferenceLabel()) . '"';
         }
 
         // In round-trip mode, mark autolinks for reconstruction
-        if ($this->roundTripMode && $node->isAutolink()) {
+        if (in_array('data-carve-autolink', $carriers, true)) {
             $html .= ' data-carve-autolink="1"';
         }
 
@@ -3022,7 +3038,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $alt = $this->escapeAttribute($node->getAlt());
         $src = $node->getSource();
         $title = $node->getTitle();
-        $attrs = $this->renderAttributesExcluding($node, $title === null ? ['src'] : ['src', 'title']);
+        $carriesRef = $this->roundTripMode && $node->getReferenceLabel() !== null;
+        $attrs = $this->renderAttributeArray($this->attributesBesideCarriers(
+            $node,
+            $carriesRef ? ['data-carve-ref'] : [],
+            $title === null ? ['src'] : ['src', 'title'],
+        ));
 
         // Always-on baseline; safe mode may add stricter URL policy.
         $src = $this->sanitizeUrlBaseline($src, self::DESTINATION_SINK_IMAGE, $node);
@@ -3036,8 +3057,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         // In round-trip mode, store reference label for reconstruction
-        if ($this->roundTripMode && $node->getReferenceLabel() !== null) {
-            $html .= ' data-carve-ref="' . $this->escapeAttribute($node->getReferenceLabel()) . '"';
+        if ($carriesRef) {
+            $html .= ' data-carve-ref="' . $this->escapeAttribute((string)$node->getReferenceLabel()) . '"';
         }
 
         $html .= $attrs;
@@ -3529,6 +3550,49 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderAttributes(Node $node, ?string $tag = null): string
     {
         return $this->renderAttributeArray($this->getRenderableAttributes($node), $tag);
+    }
+
+    /**
+     * The authored attributes, minus the names a roundtrip carrier displaces.
+     *
+     * PART 10 section 13b: the carrier wins and the authored attribute is
+     * dropped with one `carrier-attribute-dropped` render-loss row naming it. Emitting
+     * both, which is what this renderer used to do, is invalid HTML, and the
+     * precedence used to vary by carrier.
+     *
+     * CALLED WITH THE CARRIERS THIS NODE WILL ACTUALLY WRITE, never with the
+     * whole inventory: an authored `data-carve-ref` on a link that resolved no
+     * reference collides with nothing and reaches the document.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param list<string> $carriers
+     * @param array<string> $exclude
+     *
+     * @return array<string, string>
+     */
+    protected function attributesBesideCarriers(Node $node, array $carriers, array $exclude = []): array
+    {
+        if ($carriers !== []) {
+            $nodeType = $node instanceof InlineNode ? 'inline' : 'block';
+            foreach (array_keys($node->getAttributeEntries()) as $key) {
+                $name = strtolower((string)$key);
+                if (in_array($name, $carriers, true)) {
+                    $this->recordCarrierAttributeDropped($node, $name, $nodeType);
+                }
+            }
+        }
+
+        return $this->getRenderableAttributes($node, array_merge($exclude, $carriers));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param list<string> $carriers
+     * @param string|null $tag
+     */
+    protected function renderAttributesBesideCarriers(Node $node, array $carriers, ?string $tag = null): string
+    {
+        return $this->renderAttributeArray($this->attributesBesideCarriers($node, $carriers), $tag);
     }
 
     /**

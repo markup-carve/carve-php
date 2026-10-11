@@ -803,7 +803,11 @@ class CliTest extends TestCase
         $this->assertSame(0, $strict['exit']);
         $this->assertSame('', $strict['err']);
         $this->assertSame(2, $refused['exit']);
-        $this->assertStringContainsString('--allow-loss expects raw-format-dropped, ruby-flattened or editorial-comment-flattened', $refused['err']);
+        $this->assertStringContainsString(
+            '--allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened'
+            . ' or carrier-attribute-dropped',
+            $refused['err'],
+        );
     }
 
     public function testATextTargetWritesTheDroppedSectionFieldToTheDiagnosticsChannel(): void

@@ -213,6 +213,37 @@ trait RenderLossCollectorTrait
         $this->renderLosses[] = $loss;
     }
 
+    /**
+     * One row per authored attribute a roundtrip carrier displaced.
+     *
+     * PART 10 section 13b: the carrier wins and the authored attribute is
+     * dropped, which emitting both never was - two attributes of one name is
+     * invalid HTML. The NAME is the finding, so it is a field; a message no
+     * clause names is presentation and is not compared across engines.
+     */
+    protected function recordCarrierAttributeDropped(Node $node, string $attribute, string $nodeType): void
+    {
+        if ($this->renderLossTarget === null) {
+            return;
+        }
+        $this->renderLossTotal++;
+        $this->renderLossCounts['carrier-attribute-dropped'] = ($this->renderLossCounts['carrier-attribute-dropped'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'carrier-attribute-dropped',
+            'target' => $this->renderLossTarget,
+            'nodeType' => $nodeType,
+            'attribute' => $attribute,
+            'message' => sprintf('Dropped authored attribute %s displaced by a roundtrip carrier', $attribute),
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
     protected function recordEditorialCommentFlattened(Node $node): void
     {
         if ($this->renderLossTarget === null || isset($this->seenEditorialCommentLosses[spl_object_id($node)])) {
