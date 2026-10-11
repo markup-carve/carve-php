@@ -2320,3 +2320,6 @@
 97-boolean-attributes-2 md:90d0f7138b376689 txt:90d0f7138b376689 ansi:90d0f7138b376689
 98-table-span-marker-in-first-column md:b42b728f4aac6b77 txt:90734bccbed9d292 ansi:6b1b64bcaa4ee013
 99-table-cell-attributes md:50c40a8e7471c9e7 txt:6efde95e78605874 ansi:5cd6a89f417ca613
+555-an-unterminated-raw-fence-keeps-literal-payload-termination-2 md:9160d4be34c8695b txt:9160d4be34c8695b ansi:f8116dd74bfb4e52
+555-an-unterminated-raw-fence-keeps-literal-payload-termination-3 md:9160d4be34c8695b txt:9160d4be34c8695b ansi:f7be50d0e5cd8224
+555-an-unterminated-raw-fence-keeps-literal-payload-termination md:3048c5e57b35415f txt:01ba4719c80b6fe9 ansi:6e08d9a1caf8a45e
