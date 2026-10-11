@@ -275,7 +275,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function collectedReferences(): array
     {
@@ -638,7 +638,7 @@ final class HtmlAstBuilder
         foreach ($this->collectedReferences() as $label => $href) {
             $definition = [
                 'type' => 'link_reference_definition',
-                'label' => $label,
+                'label' => (string)$label,
                 'href' => $href,
             ];
             if (isset($this->session->referenceTitles[$label])) {
@@ -4237,6 +4237,9 @@ final class HtmlAstBuilder
                 }
             }
         }
+        if ($node->hasAttribute('data-carve-ref') && !isset($image['ref'])) {
+            $this->session->droppedReferenceCarriers[$node] = null;
+        }
         $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-carve-ref']);
 
         return [$image];
@@ -4254,6 +4257,7 @@ final class HtmlAstBuilder
     {
         if (
             preg_match('/\A[^\]@^\r\n][^\]\r\n]*\z/u', $label) !== 1
+            || ($title !== null && strpbrk($title, "\r\n") !== false)
             || preg_match('/[\s<>]/u', $href) === 1
             || ($this->isInsideTableCell($node) && str_contains($label, '|'))
         ) {

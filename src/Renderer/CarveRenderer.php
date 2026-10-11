@@ -3225,7 +3225,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $out = '[' . $node->getLabel() . ']: ' . $this->escapeDestinationEscapes($node->getHref());
         $title = $node->getTitle();
         if ($title !== null) {
-            $out .= ' "' . str_replace('"', '\\"', $title) . '"';
+            $out .= ' "' . $this->escapeQuoted($title) . '"';
         }
         $attrs = $this->renderAttrs($node);
         if ($attrs !== '') {
@@ -4387,7 +4387,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     private function renderEscapedText(EscapedText $node): string
     {
         $value = $node->getContent();
-        if (strlen($value) === 1 && str_contains('!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~', $value)) {
+        if (strlen($value) === 1 && str_contains(AttributeParser::ESCAPABLE_PUNCTUATION, $value)) {
             return '\\' . $value;
         }
         $this->recordUnspellableField($node, 'value', 'Carve source cannot spell this character as escaped text; wrote its text value');
@@ -4406,6 +4406,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (
             preg_match('/\A[^\]@^\r\n][^\]\r\n]*\z/u', $label) !== 1
             || ($this->tableCellDepth > 0 && str_contains($label, '|'))
+            || ($node->getTitle() !== null && strpbrk($node->getTitle(), "\r\n") !== false)
             || preg_match('/[\s<>]/u', $node->getSource()) === 1
         ) {
             return false;
@@ -6123,9 +6124,34 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * that was already encoded, so a backslash gained a backslash on every
      * writer pass without bound, and the div's rendered title changed from a
      * non-breaking space to a literal backslash (carve-php#2397).
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
     protected function quotedTitleToken(Node $node, string $title): string
     {
+        if ($node instanceof Div) {
+            $pending = [];
+            foreach ($node->getHeaderNodes() as $inline) {
+                $pending[] = [$inline, 0];
+            }
+            while ($pending !== []) {
+                [$inline, $depth] = array_pop($pending);
+                if ($depth >= InlineParser::MAX_INLINE_DEPTH) {
+                    throw new SourceUnspellableException('inline', 'inline content exceeds the native parser nesting limit');
+                }
+                if ($inline instanceof Image && $inline->getReferenceLabel() !== null && $inline->getRawReferenceLabel() === null) {
+                    $this->recordUnspellableField($inline, 'ref', 'A quoted title writes the image destination inline instead of its reference');
+                } elseif ($inline instanceof EscapedText) {
+                    $value = $inline->getContent();
+                    if (strlen($value) !== 1 || !str_contains(AttributeParser::ESCAPABLE_PUNCTUATION, $value)) {
+                        $this->recordUnspellableField($inline, 'value', 'Carve source cannot spell this character as escaped text; wrote its text value');
+                    }
+                }
+                foreach ($inline->getChildren() as $child) {
+                    $pending[] = [$child, $depth + 1];
+                }
+            }
+        }
         if (str_contains($title, '"')) {
             $this->recordUnspellableField(
                 $node,

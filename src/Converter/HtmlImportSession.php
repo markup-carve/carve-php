@@ -175,12 +175,12 @@ final class HtmlImportSession
     public array $footnoteDefinitions = [];
 
     /**
-     * @var array<string, string>
+     * @var array<array-key, string>
      */
     public array $referenceDefinitions = [];
 
     /**
-     * @var array<string, string>
+     * @var array<array-key, string>
      */
     public array $referenceTitles = [];
 

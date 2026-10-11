@@ -143,11 +143,56 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         }
     }
 
+    public function testReferenceTitlesEscapeBackslashesAndFallBackForNewlines(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['T\\', 'a\\"b', "a\nb"] as $title) {
+                foreach (['a', 'img'] as $tag) {
+                    $attrs = $tag === 'a' ? 'href="/u"' : 'src="/u" alt="alt"';
+                    $html = '<p>lead <' . $tag . ' ' . $attrs . ' title="' . htmlspecialchars($title, ENT_QUOTES) . '" data-carve-ref="r">' . ($tag === 'a' ? 'a</a>' : '') . ' tail</p>';
+                    $converter = new HtmlToCarve(importMode: $mode);
+                    $tree = $converter->convertToAstWithReport($html)->value;
+                    foreach ([$converter->convertWithReport($html)->value, (new CarveRenderer())->render((new AstCodec())->decode($tree))] as $source) {
+                        $parsed = (new AstCodec())->encode((new CarveConverter())->parse($source));
+                        self::assertTrue(self::matchesProjection($parsed, [
+                            [
+                                'type' => $tag === 'a' ? 'link' : 'image',
+                                $tag === 'a' ? 'href' : 'src' => '/u',
+                                'title' => $title,
+                            ],
+                        ]), $source);
+                    }
+                }
+            }
+        }
+    }
+
+    public function testNumericReferenceLabelsRemainStringsOnTheWire(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['0', '1', '01'] as $label) {
+                $tree = (new HtmlToCarve(importMode: $mode))->convertToAstWithReport('<p>lead <img src="/a.png" alt="alt" title="T" data-carve-ref="' . $label . '"> tail</p>')->value;
+                self::assertTrue(self::matchesProjection($tree, [['type' => 'link_reference_definition', 'label' => $label, 'title' => 'T']]));
+                $codec = new AstCodec();
+                self::assertEquals($tree, $codec->encode($codec->decode($tree)));
+                $source = (new CarveRenderer())->render($codec->decode($tree));
+                self::assertTrue(self::matchesProjection($codec->encode((new CarveConverter())->parse($source)), [
+                    ['type' => 'image', 'src' => '/a.png', 'title' => 'T'],
+                ]));
+            }
+        }
+    }
+
     public function testReferenceImageInTitleUsesItsInlineDestination(): void
     {
         $html = '<details><summary><img src="/a.png" alt="alt" data-carve-ref="r"></summary><p>x</p></details>';
         $tree = (new HtmlToCarve())->convertToAstWithReport($html)->value;
-        $source = (new CarveRenderer())->render((new AstCodec())->decode($tree));
+        $writer = new CarveRenderer();
+        $writer->beginConversionDiagnosticCollection();
+        $source = $writer->render((new AstCodec())->decode($tree));
+        $report = $writer->finishConversionDiagnosticCollection();
+        self::assertSame('field-unspellable', $report['diagnostics'][0]['code']);
+        self::assertSame('ref', $report['diagnostics'][0]['field']);
         self::assertStringContainsString('![alt](/a.png)', $source);
         $images = array_values(array_filter(self::elements((new CarveConverter())->convert($source)), static fn (DOMElement $element): bool => strtolower(HtmlDomLoader::elementName($element)) === 'img'));
         self::assertCount(1, $images);
@@ -173,7 +218,9 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
             self::assertTrue(self::matchesProjection($tree, [['type' => 'escaped_text', 'value' => $value]]));
             $writer = new CarveRenderer();
             $writer->beginConversionDiagnosticCollection();
-            $writer->render((new AstCodec())->decode($tree));
+            $source = $writer->render((new AstCodec())->decode($tree));
+            $renderedRoot = HtmlDomLoader::load((new CarveConverter())->convert($source));
+            self::assertSame('a' . $value . 'b', trim($renderedRoot->textContent, "\n"));
             $report = $writer->finishConversionDiagnosticCollection();
             self::assertSame('field-unspellable', $report['diagnostics'][0]['code']);
             self::assertSame('value', $report['diagnostics'][0]['field']);
