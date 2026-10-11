@@ -96,4 +96,48 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
         $html = (new CarveConverter())->convert("> - prose\n>   :::bad\n> - next\n>   :::\n- tail\n");
         $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
     }
+
+    public function testTheCodePayloadAndFollowingBodyStayInsideTheDiv(): void
+    {
+        $source = "> - ::: box\n>   ```\n>   :::\n>   ```\n>   after\n>   :::\ntail\n";
+        $expected = <<<'HTML'
+<blockquote>
+  <ul>
+    <li>
+      <div class="box">
+        <pre><code>:::
+</code></pre>
+        <p>after</p>
+      </div>
+    </li>
+  </ul>
+</blockquote>
+<p>tail</p>
+HTML;
+        $this->assertSame($expected . "\n", (new CarveConverter())->convert($source));
+    }
+
+    public function testTheNestedDivRemainsWithinTheOuterDiv(): void
+    {
+        $source = "> - ::: box\n>   - :::: inner\n>     :::: \n>   :::\ntail\n";
+        $expected = <<<'HTML'
+<blockquote>
+  <ul>
+    <li>
+      <div class="box">
+        <ul>
+          <li>
+            <div class="inner">
+
+            </div>
+          </li>
+        </ul>
+      </div>
+    </li>
+  </ul>
+</blockquote>
+<p>tail</p>
+HTML;
+        $this->assertSame($expected . "\n", (new CarveConverter())->convert($source));
+    }
 }
