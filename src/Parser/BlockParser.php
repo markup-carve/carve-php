@@ -3324,7 +3324,7 @@ class BlockParser
 
             $currentLine = $lines[$i];
             $bare = $this->isBareColonFence($currentLine, $colonLength);
-            $column = IndentationHelper::getLeadingColumns($currentLine);
+            $column = $bare ? IndentationHelper::getLeadingColumns($currentLine, (int)end($columns) + 1) : 0;
             $atBase = !$this->state->frame->hostedColonFences || $column === 0 || $column === end($columns);
             if ($bare && $colonLength === end($stack) && $atBase) {
                 array_pop($stack);
@@ -3351,7 +3351,7 @@ class BlockParser
             if ($nestingAware && !end($literal)) {
                 $opener = $this->fencedBlockParser->parseDivFenceOpener($currentLine);
                 if ($opener !== null && (!$bare || $atBase)) {
-                    $columns[] = $column;
+                    $columns[] = IndentationHelper::getLeadingColumns($currentLine);
                     $literal[] = $opener['className'] === '|';
                     $stack[] = $opener['length'];
                     $openings[] = $i;

@@ -287,7 +287,7 @@ final class BlockContinuationScanner
         for ($j = $openIdx + 1; $j < $count; $j++) {
             $view = $transform === null ? $lines[$j] : $transform($lines[$j]);
             $top = $stack[count($stack) - 1];
-            $column = IndentationHelper::getLeadingColumns($view);
+            $column = IndentationHelper::getLeadingColumns($view, (int)end($columns) + 1);
             $atBase = $column === 0 || $column === end($columns);
             if ($atBase && ($this->getFencedBlockParser)()->isDivFenceCloser($view, $top)) {
                 array_pop($stack);
@@ -319,7 +319,7 @@ final class BlockContinuationScanner
             $bare = preg_match('/^[ \t]*:{3,}[ \t]*$/', $view) === 1;
             if ($opener !== null && (!$bare || $atBase)) {
                 $stack[] = $opener['length'];
-                $columns[] = $column;
+                $columns[] = IndentationHelper::getLeadingColumns($view);
                 $literal[] = $opener['className'] === '|';
             }
         }
