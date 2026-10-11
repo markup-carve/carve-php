@@ -2580,6 +2580,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private static function carrierStatesEveryWidth(array $widths): bool
     {
+        // An EMPTY field would spell `data-carve-col-widths=""`, a carrier this
+        // engine's own importer refuses, and `minItems: 1` makes it no field at
+        // all (PART 12 §3).
+        if ($widths === []) {
+            return false;
+        }
         foreach ($widths as $width) {
             if ($width < 1 || $width > 1000) {
                 return false;

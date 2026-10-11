@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstEnvelope;
 use MarkupCarve\Carve\Ast\AstSchema;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Exception\AstEnvelopeVersionException;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
@@ -242,6 +243,81 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     }
 
     /**
+     * `minItems: 1`: AN EMPTY ARRAY IS NOT A RECORDED SEPARATOR ROW (PART 12 §3).
+     * The cell count is the entry count, so zero entries ask for a row with no
+     * cells, which the delimiter production cannot spell.
+     *
+     * Found by a codex review reading the schema rather than by any test: 99
+     * cases passed over a field that admitted `[]`. The control matters more
+     * than the assertion here - an earlier version of this probe failed on a
+     * missing `srcByteLength` and proved nothing about `minItems`, so the
+     * payload is a REAL encoded document with exactly one field changed.
+     */
+    public function testAnEmptyWidthListIsRefused(): void
+    {
+        $valid = $this->codec->encode($this->parse("| a |\n|---|\n| 1 |\n"));
+        $this->assertSame([3], $valid['children'][0]['separatorWidths']);
+        $this->assertNull(AstSchema::firstViolation($valid), 'the control payload must be valid');
+
+        $empty = $valid;
+        $empty['children'][0]['separatorWidths'] = [];
+
+        $violation = AstSchema::firstViolation($empty);
+        $this->assertNotNull($violation);
+        $this->assertStringContainsString('separatorWidths', (string)$violation);
+
+        $this->expectException(AstDecodeException::class);
+        $this->codec->decode($empty);
+    }
+
+    /**
+     * The parser cannot produce an empty list, so the refusal above guards only
+     * a hand-built or foreign tree. Asserted rather than assumed, across the
+     * shapes that look like they might: an empty separator cell, a bare pipe
+     * pair, a colon with no dash.
+     */
+    public function testTheParserNeverProducesAnEmptyWidthList(): void
+    {
+        $shapes = [
+            "| a |\n||\n| 1 |\n",
+            "| a |\n|\n| 1 |\n",
+            "| a |\n| |\n| 1 |\n",
+            "| a |\n|  |\n| 1 |\n",
+            "| a |\n|:|\n| 1 |\n",
+            "| a |\n|::|\n| 1 |\n",
+            "| a | b |\n||||\n| 1 | 2 |\n",
+            "||\n||\n",
+        ];
+        foreach ($shapes as $source) {
+            foreach ($this->parse($source)->getChildren() as $node) {
+                if ($node instanceof Table) {
+                    $this->assertNotSame([], $node->getSeparatorWidths(), $source);
+                }
+            }
+        }
+    }
+
+    /**
+     * NEITHER WRITER INVENTS A ROW FROM AN EMPTY LIST. Writing one from the
+     * header's width would be the padding `CARVE-P11-066` forbids wearing a
+     * presence claim nobody wrote, and the HTML side would spell
+     * `data-carve-col-widths=""`, a carrier this engine's own importer refuses.
+     */
+    public function testNeitherWriterSpellsARowForAnEmptyWidthList(): void
+    {
+        $document = $this->parse("| a | b |\n|---|---|\n| 1 | 2 |\n");
+        $table = $document->getChildren()[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $table->setSeparatorWidths([]);
+
+        $this->assertSame("|= a |= b |\n| 1 | 2 |\n", (new CarveRenderer())->render($document));
+
+        $renderer = new HtmlRenderer();
+        $renderer->setRoundTripMode(true);
+        $this->assertStringNotContainsString('data-carve-col-widths', $renderer->render($document));
+    }
+
+    /**
      * PART 10 §13a: a reader REFUSES THE WHOLE CARRIER, writing no field, where
      * any entry is not a run of decimal digits, is not positive, or exceeds
      * 1000. Not a clamp: clamping to the bound keeps a separator row whose
@@ -264,6 +340,9 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
      */
     public static function refusedCarrierProvider(): iterable
     {
+        yield 'an empty carrier' => [''];
+        yield 'whitespace only' => [' '];
+        yield 'a bare comma' => [','];
         yield 'not a digit run' => ['5,x'];
         yield 'no digits at all' => ['abc'];
         yield 'an empty entry' => ['5,,3'];

@@ -2692,8 +2692,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             static fn (int $width): int => max(1, $width),
             $node->getSeparatorWidths() ?? [],
         );
+        // AN EMPTY ARRAY IS NOT A RECORDED SEPARATOR ROW. The cell count is the
+        // entry count, so zero entries ask for a row with no cells, which the
+        // delimiter production cannot spell - `minItems: 1` on the field says so
+        // (PART 12 §3). Reachable only by hand: the parser cannot produce it and
+        // the decoder refuses it. Inventing a row from the header instead would
+        // be the padding `CARVE-P11-066` forbids, wearing a presence claim
+        // nobody wrote.
         $forceDelimiter = $node->getRenderHint("\0carve-delimiter-row") === '1'
-            || $node->getSeparatorWidths() !== null;
+            || $columnWidths !== [];
         $headerRow = isset($tableRows[0]) && ($tableRows[0]->isHeader() || $forceDelimiter);
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
