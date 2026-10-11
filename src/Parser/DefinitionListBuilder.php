@@ -378,9 +378,10 @@ final class DefinitionListBuilder
                         break;
                     }
                 }
+                $folded = str_contains($lines[$i], "\n");
                 if (
-                    !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, explode("\n", $lines[$i], 2)[0])
-                    || !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN . 's', $lines[$i], $m)
+                    ($folded && !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, explode("\n", $lines[$i], 2)[0]))
+                    || !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN . ($folded ? 's' : ''), $lines[$i], $m)
                 ) {
                     break;
                 }
