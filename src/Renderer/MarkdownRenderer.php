@@ -412,8 +412,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private int $carrierDepth = 0;
 
     /**
-     * Lazily built HTML renderer used ONLY to serialize attributes under
-     * AttributeFallback::Html, so the raw HTML this target emits is validated and
+     * Lazily built HTML renderer used to serialize raw HTML attributes, including
+     * the default inline mark fallback. The emitted attributes are validated and
      * escaped by the same code as the HTML target rather than by a second copy.
      */
     private ?HtmlRenderer $attributeSerializer = null;
