@@ -97,7 +97,7 @@ final class DefinitionListBuilder
      */
     public function appendDefinitionTerms(DefinitionList $dl, array $lines, int &$i, int $count): void
     {
-        while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN, $lines[$i], $m)) {
+        while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$i], $m)) {
             $termStart = $i;
             $termText = trim($m[1], StringUtil::WHITESPACE_CHARS);
             // A comment past the container column stays a comment and does
@@ -349,7 +349,7 @@ final class DefinitionListBuilder
      */
     public function tryParseDefinitionList(Node $parent, array $lines, int $start): ?int
     {
-        if (!preg_match(BlockGrammar::DEFINITION_TERM_PATTERN, $lines[$start])) {
+        if (!preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$start])) {
             return null;
         }
 
@@ -359,7 +359,7 @@ final class DefinitionListBuilder
         $i = $start;
         $count = count($lines);
 
-        while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN, $lines[$i])) {
+        while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$i])) {
             // An entry: one or more terms, then one or more definitions.
             $this->appendDefinitionTerms($dl, $lines, $i, $count);
             while ($i < $count) {
@@ -378,7 +378,11 @@ final class DefinitionListBuilder
                         break;
                     }
                 }
-                if (!preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $lines[$i], $m)) {
+                $folded = str_contains($lines[$i], "\n");
+                if (
+                    ($folded && !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, explode("\n", $lines[$i], 2)[0]))
+                    || !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN . ($folded ? 's' : ''), $lines[$i], $m)
+                ) {
                     break;
                 }
                 $definitionStart = $i;
