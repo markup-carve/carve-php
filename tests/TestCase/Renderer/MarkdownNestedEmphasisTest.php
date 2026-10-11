@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderLossException;
+use MarkupCarve\Carve\Renderer\AttributeFallback;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -34,6 +36,19 @@ class MarkdownNestedEmphasisTest extends TestCase
             self::assertSame([], $result->losses);
             self::assertSame(0, $result->totalLosses);
             self::assertFalse($result->truncated);
+        }
+    }
+
+    public function testWrapperHostsAndAttributeFallbackPreserveNestedEmphasis(): void
+    {
+        $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/markdown-nested-emphasis-hosts.json'), true, flags: JSON_THROW_ON_ERROR);
+        $converter = CarveConverter::create(null, (new MarkdownRenderer())->setAttributeFallback(AttributeFallback::Html));
+        foreach ($rows as $row) {
+            foreach ([$converter->convertWithReport($row['source']), $converter->renderWithReport($converter->parse($row['source']))] as $report) {
+                self::assertSame($row['markdown'], $report->value);
+                self::assertSame([], $report->losses);
+                self::assertSame(0, $report->totalLosses);
+            }
         }
     }
 
