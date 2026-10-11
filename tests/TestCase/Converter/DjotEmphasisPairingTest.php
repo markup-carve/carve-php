@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Parser\InlineParser;
 use PHPUnit\Framework\TestCase;
 
 class DjotEmphasisPairingTest extends TestCase
@@ -14,6 +15,11 @@ class DjotEmphasisPairingTest extends TestCase
     {
         foreach (
             [
+                ["> a\n- *x*", "<blockquote><p>a</p></blockquote>\n<ul>\n  <li><strong>x</strong></li>\n</ul>"],
+                ["> a\n> > b", "<blockquote><p>a\n&gt; b</p></blockquote>"],
+                ["> > a\n> - *x*", "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <ul>\n    <li><strong>x</strong></li>\n  </ul>\n</blockquote>"],
+                ["> > a\n>  - *x*", "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <ul>\n    <li><strong>x</strong></li>\n  </ul>\n</blockquote>"],
+                ["> > a\n> b\n> > c", "<blockquote>\n  <blockquote><p>a\nb\nc</p></blockquote>\n</blockquote>"],
                 ['foo*bar*baz', '<p>foo<strong>bar</strong>baz</p>'],
                 ['_(_foo_)_', '<p><em>(</em>foo<em>)</em></p>'],
                 ['___', '<p>___</p>'],
@@ -49,7 +55,10 @@ class DjotEmphasisPairingTest extends TestCase
     public function testDeepSameKindSpansDoNotUseTheCallStack(): void
     {
         $source = str_repeat('{_', 10000) . 'x' . str_repeat('_}', 10000);
-        $this->assertSame('{/x/}', (new DjotToCarve())->convert($source));
+        $carve = (new DjotToCarve())->convert($source);
+        $depth = InlineParser::MAX_INLINE_DEPTH - 1;
+        $this->assertSame(str_repeat('{/', $depth) . 'x' . str_repeat('/}', $depth), $carve);
+        $this->assertSame('<p>' . str_repeat('<em>', $depth) . 'x' . str_repeat('</em>', $depth) . '</p>', trim((new CarveConverter())->convert($carve)));
     }
 
     public function testRawBlocksKeepLiteralDelimiters(): void

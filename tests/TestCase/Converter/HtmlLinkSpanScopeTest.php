@@ -24,12 +24,12 @@ class HtmlLinkSpanScopeTest extends TestCase
     {
         $source = '/foo [{/bar/}](/url) baz/';
         $document = CarveConverter::create()->parse($source);
-        $this->assertSame($source . "\n", (new CarveRenderer())->render($document));
+        $this->assertSame('{/foo [{/bar/}](/url) baz/}' . "\n", (new CarveRenderer())->render($document));
     }
 
-    public function testSameKindWithoutALinkStillLosesTheInnerLevel(): void
+    public function testSameKindWithoutALinkPreservesTheInnerLevel(): void
     {
         $carve = (new HtmlToCarve())->convert('<p><em>foo <em>bar</em></em></p>');
-        $this->assertSame('<p><em>foo bar</em></p>', trim((new CarveConverter())->convert($carve)));
+        $this->assertSame('<p><em>foo <em>bar</em></em></p>', trim((new CarveConverter())->convert($carve)));
     }
 }

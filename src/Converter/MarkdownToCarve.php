@@ -2167,7 +2167,7 @@ class MarkdownToCarve
         if ($this->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
-                'Unwrapped nested emphasis of the same kind; its text is preserved',
+                'Flattened emphasis exceeding the native nesting budget; its text is preserved',
                 'warning',
                 'dropped',
                 'exact',
@@ -3439,6 +3439,12 @@ class MarkdownToCarve
 
         $quoted = $this->normalizeBlockquoteMarkers($text);
         if (preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) === 1) {
+            $code = $this->collectItemQuotedCode($lines, $index, $contentCol, null, $quoted);
+            if ($code !== null) {
+                $code['lines'][0] = $lead . substr($code['lines'][0], $contentCol);
+
+                return ['lines' => $code['lines'], 'end' => $code['end'], 'table' => 0, 'closes' => true];
+            }
             $markers = [];
             $prev = null;
             $lazy = null;
@@ -4077,12 +4083,13 @@ class MarkdownToCarve
      * @param int $contentCol
      * @param array{prefix: string, col: int}|null $lazyQuote
      * @param int $start
+     * @param string|null $itemLead
      *
      * @return array{lines: array<int, string>, end: int}|null
      */
-    protected function collectItemQuotedCode(array $lines, int $start, int $contentCol, ?array $lazyQuote): ?array
+    protected function collectItemQuotedCode(array $lines, int $start, int $contentCol, ?array $lazyQuote, ?string $itemLead = null): ?array
     {
-        $first = $this->normalizeBlockquoteMarkers($this->stripColumns($lines[$start], $contentCol));
+        $first = $itemLead ?? $this->normalizeBlockquoteMarkers($this->stripColumns($lines[$start], $contentCol));
         if (preg_match('/^((?:> )+)(.+)$/s', $first, $match) !== 1) {
             return null;
         }
@@ -4135,9 +4142,9 @@ class MarkdownToCarve
             if ($at > $start && trim($lines[$at]) !== '' && $this->indentWidth($lines[$at]) < $contentCol) {
                 break;
             }
-            $candidate = $this->indentWidth($lines[$at]) >= $contentCol
+            $candidate = $at === $start && $itemLead !== null ? $itemLead : ($this->indentWidth($lines[$at]) >= $contentCol
                 ? $this->stripColumns($lines[$at], $contentCol)
-                : $lines[$at];
+                : $lines[$at]);
             $quoted = $this->quotedText($candidate, $prefix);
             if ($at > $start && $quoted === null) {
                 break;
@@ -4839,15 +4846,19 @@ class MarkdownToCarve
         ) {
             return null;
         }
-        if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])) {5,}(\S.*)$/s', $text, $codeItem) === 1) {
-            $sourceCol = $this->columnWidth($codeItem[1]) + 1;
+        $quotedLead = preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})(>.*)$/s', $text, $quotedItem) === 1;
+        if ($quotedLead) {
+            $quotedLead = preg_match('/^(?:> )+(?: {0,3}(?:`{3,}|~{3,})| {4})/', $this->normalizeBlockquoteMarkers($quotedItem[2])) === 1;
+        }
+        if ($quotedLead || preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])) {5,}(\S.*)$/s', $text, $codeItem) === 1) {
+            $sourceCol = $quotedLead ? $this->columnWidth($quotedItem[1]) : $this->columnWidth($codeItem[1]) + 1;
             $virtual = [$text];
             for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
                 if ($this->indentWidth($lines[$at]) < $contentCol) {
                     break;
                 }
                 $body = $this->quotedText($this->stripColumns($lines[$at], $contentCol), $prefix);
-                if ($body === null || (trim($body) !== '' && $this->indentWidth($body) < $sourceCol + 4)) {
+                if ($body === null || (trim($body) !== '' && $this->indentWidth($body) < $sourceCol + ($quotedLead ? 0 : 4))) {
                     break;
                 }
                 $virtual[] = $body;
@@ -6041,7 +6052,7 @@ class MarkdownToCarve
         if ($this->convertRawHtml) {
             $htmlBodyIndex = 0;
             preg_match_all('/CarveHtmlBody(\d+)/', $this->decodeHtmlReferenceText($line), $htmlBodyMatches);
-            $htmlBodyReserved = array_fill_keys($htmlBodyMatches[1], true);
+            $htmlBodyReserved = array_fill_keys(array_map(static fn (string $index): string => 'CarveHtmlBody' . $index, $htmlBodyMatches[1]), true);
             $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => str_starts_with($span, '<!--')
                 ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
             $line = preg_replace_callback(
@@ -6052,7 +6063,7 @@ class MarkdownToCarve
 
                         return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
                     }
-                    while (isset($htmlBodyReserved[(string)$htmlBodyIndex])) {
+                    while (isset($htmlBodyReserved['CarveHtmlBody' . $htmlBodyIndex])) {
                         $htmlBodyIndex++;
                     }
                     $marker = 'CarveHtmlBody' . $htmlBodyIndex++;
@@ -8272,7 +8283,7 @@ class MarkdownToCarve
     {
         $escapeUnlessDelimiterPair = function (array $match): string {
             $interior = $match[1];
-            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1) {
+            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1 || (preg_match('/^[\/*_^,~=]/', $interior) === 1 && str_contains($interior, '{'))) {
                 return $match[0];
             }
             // A TAG opener at the head of the payload needs escaping too: the

@@ -27,15 +27,15 @@ class ABangIsBareInTheConservativePassTooTest extends TestCase
     public static function escalatedProvider(): array
     {
         return [
-            'the reported shape' => ['a {*a {*!x*} b*} b', "a *a {\\*!x* b*} b\n"],
-            'a trailing bang' => ['a {*a {*x!*} b*} b', "a *a {*x!* b*} b\n"],
-            'a bang between letters' => ['a {*a {*p!q*} b*} b', "a *a {*p!q* b*} b\n"],
-            'a bang alone' => ['a {*a {*!*} b*} b', "a *a {\\*!* b*} b\n"],
-            'two bangs' => ['a {*a {*!!x*} b*} b', "a *a {\\*!!x* b*} b\n"],
-            'an italic unit' => ['a {/a {/!x/} b/} b', "a /a {\\/!x/ b/} b\n"],
-            'an underline unit' => ['a {_a {_!x_} b_} b', "a _a {\\_!x_ b_} b\n"],
-            'a strike unit' => ['a {~a {~!x~} b~} b', "a ~a {\\~!x~ b~} b\n"],
-            'a highlight unit' => ['a {=a {=!x=} b=} b', "a =a {\\=!x= b=} b\n"],
+            'the reported shape' => ['a {*a {*!x*} b*} b', "a {*a {*!x*} b*} b\n"],
+            'a trailing bang' => ['a {*a {*x!*} b*} b', "a {*a {*x!*} b*} b\n"],
+            'a bang between letters' => ['a {*a {*p!q*} b*} b', "a {*a {*p!q*} b*} b\n"],
+            'a bang alone' => ['a {*a {*!*} b*} b', "a {*a {*!*} b*} b\n"],
+            'two bangs' => ['a {*a {*!!x*} b*} b', "a {*a {*!!x*} b*} b\n"],
+            'an italic unit' => ['a {/a {/!x/} b/} b', "a {/a {/!x/} b/} b\n"],
+            'an underline unit' => ['a {_a {_!x_} b_} b', "a {_a {_!x_} b_} b\n"],
+            'a strike unit' => ['a {~a {~!x~} b~} b', "a {~a {~!x~} b~} b\n"],
+            'a highlight unit' => ['a {=a {=!x=} b=} b', "a {=a {=!x=} b=} b\n"],
         ];
     }
 

@@ -286,7 +286,7 @@ bar
             ],
             'converts emphasis nested inside ***bold italic***' => [
                 '***outer _inner_ end***',
-                '/{*outer /inner/ end*}/',
+                '{/{*outer {/inner/} end*}/}',
             ],
             'converts Markdown ~~strike~~ to Carve ~strike~' => [
                 'a ~~gone~~ word',

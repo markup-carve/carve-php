@@ -68,4 +68,19 @@ class BracedOpaqueCloserScalingTest extends TestCase
             );
         }
     }
+
+    public function testNestedNativeSpansShareThePayloadScan(): void
+    {
+        $payload = str_repeat('a {#i#} ', 4000);
+        $this->assertConversionScalesLinearly(
+            static function (string $source): void {
+                (new CarveConverter())->parse($source);
+            },
+            str_repeat('{*', 2) . $payload . str_repeat('*}', 2),
+            str_repeat('{*', 32) . $payload . str_repeat('*}', 32),
+            'native nested spans over the same comment payload',
+            2,
+            32,
+        );
+    }
 }

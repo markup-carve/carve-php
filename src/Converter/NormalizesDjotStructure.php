@@ -101,6 +101,9 @@ trait NormalizesDjotStructure
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
             if ($quoteDepth < $depth && ($blockStart || $item)) {
+                if ($item && !$blank) {
+                    $out[] = rtrim($quote);
+                }
                 $paragraph = false;
                 $headingMarker = '';
                 $lists = [];
@@ -331,6 +334,18 @@ trait NormalizesDjotStructure
             $attributeLine = $attrs !== null && $attrs['end'] === strlen($raw);
             if ($blank && !$this->djotListContains($lists, $indent) && !$attributeLine) {
                 $lists = [];
+            }
+            if ($this->rejectedDjotCommentStartsBlock($visible)) {
+                $outsideList = $lists !== [] && $indent <= $lists[0]->column;
+                if ($headingMarker !== '' || $outsideList) {
+                    $out[] = $quote . str_repeat(' ', $indent);
+                }
+                if ($outsideList) {
+                    $lists = [];
+                    $paragraph = false;
+                    $blank = true;
+                }
+                $headingMarker = '';
             }
             $heading = preg_match('/^(#{1,6})(?:[ \t]+|$)/', $visible, $headingMatch) === 1;
             $reference = preg_match('/^\[[^\]\n]*\]:/', $visible) === 1;

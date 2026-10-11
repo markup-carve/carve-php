@@ -16,6 +16,8 @@ final class DjotEmphasisSpan
      */
     public array $kinds;
 
+    public int $hostDepth = 0;
+
     public function __construct(
         public readonly int $start,
         public readonly int $openEnd,
