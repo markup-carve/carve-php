@@ -3854,7 +3854,12 @@ final class HtmlAstBuilder
             // malformed and its content is text.
             $characters = preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: [];
             if (count($characters) === 1) {
-                return [['type' => 'escaped_text', 'value' => $characters[0]]];
+                $escaped = ['type' => 'escaped_text', 'value' => $characters[0]];
+                if (!$this->sourceSafe) {
+                    $escaped[HtmlAstBuildResult::ESCAPED_CARRIER] = true;
+                }
+
+                return [$escaped];
             }
         }
         $rawFormat = $node->getAttribute('data-carve-raw');
@@ -4215,7 +4220,7 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $image['title'] = $node->getAttribute('title');
         }
-        if ($this->sourceSafe && $node->hasAttribute('data-carve-ref')) {
+        if ($node->hasAttribute('data-carve-ref')) {
             $ref = $node->getAttribute('data-carve-ref');
             $image['ref'] = $ref;
             $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'

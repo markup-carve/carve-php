@@ -29,6 +29,11 @@ use LogicException;
 final class HtmlAstBuildResult
 {
     /**
+     * @var string
+     */
+    public const ESCAPED_CARRIER = "\0carve-escaped-carrier";
+
+    /**
      * @phpstan-param DocumentTree $tree
      *
      * @param array $tree
@@ -83,8 +88,12 @@ final class HtmlAstBuildResult
             $textNode = null;
             $textParts = [];
             foreach ($value as $entry) {
+                $preserveEscape = is_array($entry) && ($entry[self::ESCAPED_CARRIER] ?? false) === true;
+                if ($preserveEscape) {
+                    unset($entry[self::ESCAPED_CARRIER]);
+                }
                 $entry = self::asPublished($entry);
-                if (is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
+                if (!$preserveEscape && is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
                     $escaped = $entry['value'] ?? '';
                     $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
                 }
