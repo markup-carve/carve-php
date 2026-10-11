@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -89,6 +90,27 @@ class RenderersPreserveExhaustedPrivateUsePoolTest extends TestCase
         $result = (new CarveConverter(renderer: $renderer))->convertWithReport(':pool: :left::right:', strictLosses: true);
         self::assertStringContainsString("\u{E009}m0x2\u{E00A}", $result->value);
         self::assertStringNotContainsString('class="footnotes"', $result->value);
+        self::assertSame(0, $result->totalLosses);
+    }
+
+    public function testInvalidByteInConfiguredSymbolDoesNotHideAuthoredMarkers(): void
+    {
+        $text = self::privateUseText();
+        $renderer = new HtmlRenderer(symbols: ['invalid' => "\xFF"]);
+        $result = (new CarveConverter(renderer: $renderer))->convertWithReport("```\n{$text}\n```\n\n:invalid:\n", strictLosses: true);
+        self::assertSame(1, substr_count($result->value, $text));
+        self::assertStringContainsString("\xFF", $result->value);
+        self::assertSame(0, $result->totalLosses);
+    }
+
+    public function testConfiguredTextPrefixesAreNotDefinitionMarkers(): void
+    {
+        $prefix = "\u{E100}0\u{E100}";
+        $renderer = new PlainTextRenderer();
+        $renderer->setListItemPrefix($prefix);
+        $converter = new CarveConverter(renderer: $renderer);
+        $result = $converter->convertWithReport("*[AB]: alpha\n\nAB\n\n* item\n", strictLosses: true);
+        self::assertStringContainsString($prefix . 'item', $result->value);
         self::assertSame(0, $result->totalLosses);
     }
 

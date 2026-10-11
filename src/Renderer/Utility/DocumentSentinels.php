@@ -115,7 +115,10 @@ final class DocumentSentinels
     }
 
     /**
-     * Keep rendering markers atomic when the BMP private-use pool is occupied.
+     * Keep rendering markers atomic by using supplementary private-use ranges
+     * when the BMP pool is occupied.
+     *
+     * @throws \MarkupCarve\Carve\Exception\SentinelSpaceExhaustedException When no private-use range has an unused run.
      *
      * @return list<string>
      */
@@ -124,7 +127,7 @@ final class DocumentSentinels
         try {
             return self::pick($text, $count, $first);
         } catch (SentinelSpaceExhaustedException) {
-            preg_match_all('/[\\x{F0000}-\\x{FFFFD}\\x{100000}-\\x{10FFFD}]/u', $text, $matches);
+            preg_match_all('/\\xF3[\\xB0-\\xBF][\\x80-\\xBF]{2}|\\xF4[\\x80-\\x8F][\\x80-\\xBF]{2}/', $text, $matches);
             $occupied = array_fill_keys($matches[0], true);
             foreach ([[0xF0000, 0xFFFFD], [0x100000, 0x10FFFD]] as [$start, $last]) {
                 for ($base = $start; $base + $count - 1 <= $last; $base++) {
