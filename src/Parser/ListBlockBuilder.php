@@ -182,6 +182,7 @@ final class ListBlockBuilder
         // Seeded with the bullet width; every item overwrites it once its own
         // marker width is known.
         $lastItemContentIndent = $baseIndent + 2;
+        $lastItemAttachColumn = $baseIndent + 2;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -203,7 +204,7 @@ final class ListBlockBuilder
             }
 
             if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine, " \t"))) {
-                $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent);
+                $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemAttachColumn);
                 if ($next !== null) {
                     $i = $next;
                     $lastItemHadBlankAfter = false;
@@ -848,6 +849,8 @@ final class ListBlockBuilder
             $authoredBaseEligible = [];
             $i++;
             $lastItemHadBlankAfter = false;
+
+            $lastItemAttachColumn = $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo);
 
             if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
                 // ...AND ONLY A FLUSH-LEFT ONE (SS17 L3, carve#1436). When the

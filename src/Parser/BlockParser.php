@@ -4445,6 +4445,7 @@ class BlockParser
                     && IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent
                     && $trailingState->fence === null
                     && $this->isReferenceDefinitionLine($trimmed)
+                    && !$this->usesLegacyTrailingHook('attachedBlockHasEnded')
                 ) {
                     return true;
                 }
