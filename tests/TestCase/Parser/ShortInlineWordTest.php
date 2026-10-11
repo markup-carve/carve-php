@@ -42,6 +42,23 @@ class ShortInlineWordTest extends TestCase
         }
     }
 
+    public function testBracedWordsKeepAttributesAndFollowingSpans(): void
+    {
+        $converter = new CarveConverter();
+        foreach ([1, 64, 65] as $length) {
+            $word = str_repeat('a', $length);
+            $source = '{*' . $word . '*}{k="*}"} {*tail*}';
+            $this->assertSame(
+                '<p><strong k="*}">' . $word . '</strong> <strong>tail</strong></p>',
+                trim($converter->convert($source)),
+            );
+        }
+        $this->assertSame(
+            '<p><strong>é</strong> <strong>a b</strong></p>',
+            trim($converter->convert('{*é*} {*a b*}')),
+        );
+    }
+
     public function testLetterAndUnknownMatcherTriggersStillRun(): void
     {
         foreach (['a', null] as $trigger) {

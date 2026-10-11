@@ -3732,7 +3732,11 @@ class InlineParser
         }
 
         if ($this::class === self::class && !str_contains('+-', $marker)) {
-            $end = $this->indexedBracedEnd($text, $pos);
+            $wordLength = strspn($text, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', $pos + 2, 65);
+            $wordEnd = $pos + 2 + $wordLength;
+            $end = $wordLength > 0 && $wordLength <= 64
+                && ($text[$wordEnd] ?? '') === $marker && ($text[$wordEnd + 1] ?? '') === '}'
+                ? $wordEnd + 2 : $this->indexedBracedEnd($text, $pos);
             if ($end === null) {
                 return null;
             }
