@@ -1774,6 +1774,7 @@ final class ListBlockBuilder
                     || (
                         ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) === null
                         && ($this->getFencedBlockParser)()->parseRawBlockOpener($line) === null
+                        && ($this->getFencedBlockParser)()->parseDivFenceOpener($line) === null
                         && $this->blockQuoteLineContent($line) === null
                     )
                 )
