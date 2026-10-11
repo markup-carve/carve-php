@@ -526,7 +526,7 @@ final class BlockQuoteBuilder
 
         if (
             $div !== null && $floor > 0 && $state['mode'] !== BlockQuoteLazyMode::Div
-            && ($colon === null || $floor !== ($colon['base'] ?? $colon['column']) || $at <= $colon['column'])
+            && ($div['className'] !== '|' || $colon === null || $floor !== ($colon['base'] ?? $colon['column']) || $at <= $colon['column'])
         ) {
             $state['colonClaims'][] = ['length' => $div['length'], 'column' => $at, 'body' => false, 'literal' => $div['className'] === '|', 'base' => $floor];
             if (!$blockStart) {

@@ -188,5 +188,35 @@
     "id": "authored-paired-column",
     "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>       ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
     "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div></li></ul><p>:::\n:::bad\n:::\n- tail</p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "last-0",
+    "source": "> - ::: |\n>   ```\n>   :::\n>   p\n>\n> - x\n>   ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code></code></p></div><p>p</p></li><li><p>x\n<code>\nlazy</code></p></li></ul></blockquote>"
+  },
+  {
+    "id": "last-1",
+    "source": "> - ::: |\n>   ```\n>   :::\n>   p\n>\n> para\n>   ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code></code></p></div>\n      p\n    </li></ul><p>para\n<code>\nlazy</code></p></blockquote>"
+  },
+  {
+    "id": "last-2",
+    "source": "- ::: |\n  ```\n  :::\n  p\nlazy\n  ```\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div>\n    p\n  </li></ul><p>lazy\n<code></code></p>"
+  },
+  {
+    "id": "unchanged-named-extra-0",
+    "source": "> - ::: box\n>     ::: tip\n>     x\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><aside class=\"admonition tip\" aria-label=\"Tip\"><p>x</p></aside></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "unchanged-named-extra-1",
+    "source": "> - ::: box\n>     ::: tip\n>     ```\n>     :::\n>     ```\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><aside class=\"admonition tip\" aria-label=\"Tip\"><pre><code>:::\n</code></pre></aside></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "extra-2",
+    "source": "> - ::: box\n>   - ::: |\n>     ```=html\n>     :::\n>     ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>=html\n:::\n</code></p></div>\n            :::bad\n:::\n- tail\n          </li></ul></div></li></ul></blockquote>"
   }
 ]

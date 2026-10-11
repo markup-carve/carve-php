@@ -1355,6 +1355,9 @@ final class BlockContinuationScanner
             $parents[] = $literal;
             $literal = $literal->nestedDiv;
         }
+        if (!$literal->inDiv || !$literal->literalDiv || $literal->fence !== null) {
+            return $state;
+        }
         $literal->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literal->divColumn);
         $literal->openParagraph = false;
         foreach (array_reverse($parents) as $parent) {
