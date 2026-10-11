@@ -9,7 +9,7 @@ use SplQueue;
 /**
  * @internal
  *
- * @extends \SplQueue<\MarkupCarve\Carve\Event\RenderEvent>
+ * @extends \SplQueue<array{type: string, event: \MarkupCarve\Carve\Event\RenderEvent|null}>
  */
 final class RenderEventQueue extends SplQueue
 {

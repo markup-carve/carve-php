@@ -7,11 +7,18 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderLossException;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 class MarkdownUnicodeMarkerExhaustionTest extends TestCase
 {
@@ -176,5 +183,181 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         $renderer->off();
         self::assertSame("a\n", $renderer->render($converter->parse("a\n")));
         self::assertSame(1, $calls);
+    }
+
+    public function testFallbackReplaysExpansionBudgetDecisions(): void
+    {
+        $renderer = new class extends MarkdownRenderer {
+            protected function resetAbbreviationBudget(int $sourceLength): void
+            {
+                parent::resetAbbreviationBudget($sourceLength);
+                $this->abbreviationBudget = 4;
+            }
+        };
+        $document = (new CarveConverter())->parse("```\n" . self::pool() . "\n```\n");
+        $heading = new Heading(1);
+        $heading->setAttribute('id', 'target');
+        $token = "\u{E009}m0x0\u{E00A}";
+        $children = [];
+        foreach (mb_str_split(str_repeat($token, 3)) as $character) {
+            $children[] = new Text($character);
+        }
+        $heading->setChildren($children);
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new HeadingRef('target'));
+        $paragraph->appendChild(new Text(' '));
+        $paragraph->appendChild(new HeadingRef('target'));
+        $document->setChildren([$heading, $paragraph, ...$document->getChildren()]);
+        $output = $renderer->render($document);
+        self::assertSame(2, substr_count($output, str_repeat($token, 3)));
+        self::assertStringContainsString('[target](#', $output);
+        self::assertStringContainsString(self::pool(), $output);
+    }
+
+    public function testFallbackReplaysNodeEventsInOrder(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $document = (new CarveConverter())->parse("```\n" . self::pool() . "\n```\n");
+        $paragraph = new Paragraph();
+        $paragraph->setChildren([new Text('first'), new Text('second')]);
+        $document->setChildren([$paragraph, ...$document->getChildren()]);
+        $calls = 0;
+        $renderer->on('render.text', static function (RenderEvent $event) use (&$calls): void {
+            $event->setHtml((string)++$calls);
+        });
+        self::assertStringStartsWith("12\n", $renderer->render($document));
+        self::assertSame(2, $calls);
+    }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function clonedEventSources(): array
+    {
+        return [
+            'cross-reference' => ["# title\n\n</#title>\n"],
+            'list-table' => ["{header-rows=1}\n::: list-table\n- - A\n  - B\n- - one\n    two\n  - x\n:::\n"],
+        ];
+    }
+
+    #[DataProvider('clonedEventSources')]
+    public function testFallbackReplaysEventsForClonedNodes(string $source): void
+    {
+        $converter = new CarveConverter();
+        $render = static function (string $input) use ($converter): array {
+            $renderer = new MarkdownRenderer();
+            $calls = 0;
+            $renderer->on('render.text', static function (RenderEvent $event) use (&$calls): void {
+                $event->setHtml((string)++$calls);
+            });
+            $output = $renderer->render($converter->parse($input));
+
+            return [$output, $calls];
+        };
+        [$ordinary, $ordinaryCalls] = $render($source);
+        [$fallback, $fallbackCalls] = $render($source . "\n```\n" . self::pool() . "\n```\n");
+        self::assertGreaterThan(1, $ordinaryCalls);
+        self::assertSame($ordinaryCalls, $fallbackCalls);
+        self::assertStringStartsWith(rtrim($ordinary) . "\n\n```\n", $fallback);
+    }
+
+    public function testFailedProbeClearsEventReplayState(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $converter = new CarveConverter();
+        $renderer->on('render.text', static function (): void {
+            throw new RuntimeException('probe listener failed');
+        });
+        try {
+            $renderer->render($converter->parse("a\n\n```\n" . self::pool() . "\n```\n"));
+            self::fail('The listener should throw.');
+        } catch (RuntimeException $error) {
+            self::assertSame('probe listener failed', $error->getMessage());
+        }
+        $renderer->off();
+        self::assertSame("a\n", $renderer->render($converter->parse("a\n")));
+    }
+
+    public function testFallbackReplaysEventsForFlattenedBlockTableCells(): void
+    {
+        $render = static function (bool $fallback): array {
+            $document = new Document();
+            $table = new Table();
+            $row = new TableRow(true);
+            $cell = new TableCell(true);
+            $cell->setBlockContent(true);
+            $paragraph = new Paragraph();
+            $paragraph->appendChild(new Text('title'));
+            $cell->appendChild($paragraph);
+            $row->appendChild($cell);
+            $table->appendChild($row);
+            $document->appendChild($table);
+            if ($fallback) {
+                foreach ((new CarveConverter())->parse("```\n" . self::pool() . "\n```\n")->getChildren() as $block) {
+                    $document->appendChild(clone $block);
+                }
+            }
+            $renderer = new MarkdownRenderer();
+            $calls = 0;
+            $renderer->on('render.text', static function (RenderEvent $event) use (&$calls): void {
+                $event->setHtml((string)++$calls);
+            });
+            $output = $renderer->render($document);
+
+            return [$output, $calls];
+        };
+        [$ordinary, $ordinaryCalls] = $render(false);
+        [$fallback, $fallbackCalls] = $render(true);
+        self::assertSame($ordinaryCalls, $fallbackCalls);
+        self::assertStringStartsWith(rtrim($ordinary) . "\n\n```\n", $fallback);
+    }
+
+    public function testProbeDoesNotDuplicateDiagnosticsForTransientNodes(): void
+    {
+        $renderer = new class extends MarkdownRenderer {
+            /**
+             * @var list<\MarkupCarve\Carve\Node\Inline\Text>
+             */
+            private array $diagnosticNodes = [];
+
+            protected function renderDerivedLabel(array $nodes): string
+            {
+                $node = new Text('transient');
+                $this->diagnosticNodes[] = $node;
+                $this->recordUnspellableField($node, 'test', 'test diagnostic');
+
+                return parent::renderDerivedLabel($nodes);
+            }
+        };
+        $document = (new CarveConverter())->parse("# title\n\n</#title>\n\n```\n" . self::pool() . "\n```\n");
+        foreach ([0, 1] as $maximum) {
+            $renderer->beginConversionDiagnosticCollection($maximum);
+            $renderer->render($document);
+            $report = $renderer->finishConversionDiagnosticCollection();
+            self::assertSame(1, $report['totalDiagnostics']);
+            self::assertCount($maximum, $report['diagnostics']);
+            self::assertSame($maximum === 0, $report['truncated']);
+        }
+    }
+
+    public function testFallbackReplaysAbbreviationsInsideCrossReferenceLabels(): void
+    {
+        $converter = new CarveConverter();
+        $source = "# A ABB\n\n</#A-ABB> </#A-ABB>\n\n*[ABB]: expansion\n";
+        $render = static function (string $input) use ($converter): string {
+            $renderer = new class extends MarkdownRenderer {
+                protected function resetAbbreviationBudget(int $sourceLength): void
+                {
+                    parent::resetAbbreviationBudget($sourceLength);
+                    $this->abbreviationBudget = 40;
+                }
+            };
+
+            return $renderer->render($converter->parse($input));
+        };
+        $ordinary = $render($source);
+        self::assertStringNotContainsString('</#', $ordinary);
+        self::assertStringContainsString('ABB', $ordinary);
+        self::assertStringStartsWith(rtrim($ordinary) . "\n\n```\n", $render($source . "\n```\n" . self::pool() . "\n```\n"));
     }
 }

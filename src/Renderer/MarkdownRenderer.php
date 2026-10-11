@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use Closure;
+use LogicException;
 use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
@@ -91,7 +92,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 {
     use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
-    use AbbreviationBudgetTrait;
+    use AbbreviationBudgetTrait {
+        labelExpansionStillAffordable as private baseLabelExpansionStillAffordable;
+        chargeExpansion as private baseChargeExpansion;
+    }
     use DerivedLabelTrait;
 
     use EventDispatcherTrait;
@@ -278,9 +282,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     /**
      * The picked run as a PCRE class, for the final resolve.
      *
-     * The run is contiguous by construction, so the class is its two ends. Built
-     * with the run rather than written out, so a fourth narrowed character
-     * cannot be added above without the class moving with it.
+     * Character runs use a class; string markers use a token alternation.
+     * Both are built from the picked run.
      *
      * @var string
      */
@@ -408,12 +411,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     private ?HtmlRenderer $attributeSerializer = null;
 
-    /**
-     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, \MarkupCarve\Carve\Renderer\Utility\RenderEventQueue>|null
-     */
-    private ?WeakMap $probedRenderEvents = null;
+    private ?RenderEventQueue $probedRenderEvents = null;
 
     private bool $replayRenderEvents = false;
+
+    private bool $stringSentinels = false;
+
+    /**
+     * @var list<array{kind: string, fits: bool, cost: int}>|null
+     */
+    private ?array $probeBudgetDecisions = null;
+
+    private ?int $budgetReplayIndex = null;
 
     /**
      * @param array<string, string> $symbols The same map HtmlRenderer takes. Markdown keeps the `:name:` spelling, so the map changes no output here.
@@ -630,21 +639,26 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     public function render(Document $document): string
     {
         $this->pickNarrowedSentinels($document);
-        if (strlen($this->fenceSentinel) <= 3) {
+        if (!$this->stringSentinels) {
             return $this->renderBody($document, true);
         }
 
+        $this->probeBudgetDecisions = [];
+        $this->budgetReplayIndex = null;
         $this->probedRenderEvents = null;
         if ($this->hasAnyListeners()) {
-            $this->probedRenderEvents = new WeakMap();
+            $this->probedRenderEvents = new RenderEventQueue();
         }
         try {
             $previousTarget = $this->renderLossTarget;
+            $previousDiagnosticMaximum = $this->conversionDiagnosticMaximum;
+            $this->conversionDiagnosticMaximum = null;
             $this->renderLossTarget = null;
             try {
                 $probe = $this->renderBody($document, false);
             } finally {
                 $this->renderLossTarget = $previousTarget;
+                $this->conversionDiagnosticMaximum = $previousDiagnosticMaximum;
             }
             $nonces = DocumentSentinels::collectNonces($probe)
                 + DocumentSentinels::collectNonces($this->fenceSentinel)
@@ -656,12 +670,71 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                     + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
             ));
             $this->replayRenderEvents = true;
+            $this->budgetReplayIndex = 0;
 
-            return $this->renderBody($document, true);
+            $output = $this->renderBody($document, true);
+            if ($this->probedRenderEvents !== null && !$this->probedRenderEvents->isEmpty()) {
+                throw new LogicException('Markdown event replay is incomplete.');
+            }
+            if ($this->budgetReplayIndex !== count($this->probeBudgetDecisions ?? [])) {
+                throw new LogicException('Markdown budget replay is incomplete.');
+            }
+
+            return $output;
         } finally {
             $this->probedRenderEvents = null;
             $this->replayRenderEvents = false;
+            $this->probeBudgetDecisions = null;
+            $this->budgetReplayIndex = null;
         }
+    }
+
+    protected function labelExpansionStillAffordable(string $id): bool
+    {
+        if ($this->budgetReplayIndex !== null) {
+            return $this->nextBudgetDecision('label')['fits'];
+        }
+        $fits = $this->baseLabelExpansionStillAffordable($id);
+        if ($this->probeBudgetDecisions !== null) {
+            $this->probeBudgetDecisions[] = ['kind' => 'label', 'fits' => $fits, 'cost' => 0];
+        }
+
+        return $fits;
+    }
+
+    protected function chargeExpansion(string $emitted): bool
+    {
+        if ($this->budgetReplayIndex !== null) {
+            $decision = $this->nextBudgetDecision('charge');
+            if ($decision['fits']) {
+                $this->abbreviationExpansionBytes += $decision['cost'];
+            }
+
+            return $decision['fits'];
+        }
+        $fits = $this->baseChargeExpansion($emitted);
+        if ($this->probeBudgetDecisions !== null) {
+            $this->probeBudgetDecisions[] = ['kind' => 'charge', 'fits' => $fits, 'cost' => strlen($emitted)];
+        }
+
+        return $fits;
+    }
+
+    /**
+     * @throws \LogicException
+     *
+     * @return array{kind: string, fits: bool, cost: int}
+     */
+    private function nextBudgetDecision(string $kind): array
+    {
+        $index = $this->budgetReplayIndex;
+        $decision = $index === null ? null : ($this->probeBudgetDecisions[$index] ?? null);
+        if ($decision === null || $decision['kind'] !== $kind) {
+            throw new LogicException('Markdown budget replay diverged.');
+        }
+        $this->budgetReplayIndex = $index + 1;
+
+        return $decision;
     }
 
     private function renderBody(Document $document, bool $normalizeOutput): string
@@ -739,7 +812,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function collapseBlankRunsOutsideFences(string $markdown): string
     {
-        if (strlen($this->fenceSentinel) > 3) {
+        if ($this->stringSentinels) {
             $output = '';
             $read = 0;
             $width = strlen($this->fenceSentinel);
@@ -893,7 +966,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             array_slice($run, $narrowed + $positional + $decided),
         );
         $this->authoredHashes = 0;
-        $this->narrowedSentinelClass = strlen($this->fenceSentinel) > 3
+        $this->stringSentinels = mb_strlen($this->fenceSentinel, 'UTF-8') > 1;
+        $this->narrowedSentinelClass = $this->stringSentinels
             ? '(?:' . implode('|', array_map(static fn (string $marker): string => preg_quote($marker, '/'), $run)) . ')'
             : '[' . implode('', $run) . ']';
     }
@@ -1628,30 +1702,37 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Render one node without the list-adjacency bookkeeping of renderNode().
+     *
+     * @throws \LogicException
      */
     protected function renderNodeBody(Node $node): string
     {
         $eventName = 'render.' . $node->getType();
-        if ($this->hasListenersFor($eventName) || $this->probedRenderEvents !== null) {
-            $events = $this->probedRenderEvents[$node] ?? null;
-            if ($this->replayRenderEvents && $events !== null && !$events->isEmpty()) {
-                $event = $events->dequeue();
-            } else {
+        $event = null;
+        if ($this->replayRenderEvents && $this->probedRenderEvents !== null) {
+            if ($this->probedRenderEvents->isEmpty()) {
+                throw new LogicException('Markdown event replay is incomplete.');
+            }
+            $record = $this->probedRenderEvents->dequeue();
+            if ($record['type'] !== $node->getType()) {
+                throw new LogicException('Markdown event replay diverged.');
+            }
+            $event = $record['event'];
+            if ($event !== null) {
+                $node = $event->getNode();
+            }
+        } else {
+            if ($this->hasListenersFor($eventName)) {
                 $event = new RenderEvent($node);
                 $this->dispatchEvent($eventName, $event);
                 $this->dispatchEvent('render.*', $event);
-                if ($this->probedRenderEvents !== null && !$this->replayRenderEvents) {
-                    if ($events === null) {
-                        $this->probedRenderEvents[$node] = new RenderEventQueue();
-                        $events = $this->probedRenderEvents[$node];
-                    }
-                    $events->enqueue($event);
-                }
             }
-
-            if ($event->isDefaultPrevented()) {
-                return $event->getHtml() ?? '';
+            if ($this->probedRenderEvents !== null) {
+                $this->probedRenderEvents->enqueue(['type' => $node->getType(), 'event' => $event]);
             }
+        }
+        if ($event !== null && $event->isDefaultPrevented()) {
+            return $event->getHtml() ?? '';
         }
 
         // An unresolved reference renders as the source the author
@@ -1873,8 +1954,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $rendered = $nodes === null
                 ? $this->escapeText($label)
                 : $this->renderDerivedLabel($nodes);
-            // Charged as the characters it resolves to: a sentinel is three bytes
-            // standing for one.
+            // Charge resolved characters rather than internal carrier bytes.
             if (!$this->chargeLabelExpansion($id, strtr($rendered, $this->sentinelCharacters()))) {
                 $rendered = $this->escapeText($target);
             }
@@ -2628,7 +2708,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function firstCharacter(string $text): string
     {
-        if (strlen($this->fenceSentinel) > 3) {
+        if ($this->stringSentinels) {
             foreach (array_keys($this->sentinelCharacters()) as $sentinel) {
                 if (str_starts_with($text, $sentinel)) {
                     return $sentinel;
@@ -2641,7 +2721,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function lastCharacter(string $text): string
     {
-        if (strlen($this->fenceSentinel) > 3) {
+        if ($this->stringSentinels) {
             foreach (array_keys($this->sentinelCharacters()) as $sentinel) {
                 if (str_ends_with($text, $sentinel)) {
                     return $sentinel;
