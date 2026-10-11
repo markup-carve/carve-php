@@ -13,6 +13,10 @@ use MarkupCarve\Carve\Converter\HtmlAstBuilder;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -23,6 +27,27 @@ use PHPUnit\Framework\TestCase;
  */
 class SharedRoundtripExportAcceptanceTest extends TestCase
 {
+    public function testCachedTitleMetadataDoesNotAddAReaderDepthLimit(): void
+    {
+        $document = new Document();
+        $div = new Div();
+        $div->addClass('box');
+        $div->setTyped(true);
+        $div->setHeader('x');
+        $first = new Span();
+        $parent = $first;
+        for ($i = 0; $i < 260; $i++) {
+            $child = new Span();
+            $parent->appendChild($child);
+            $parent = $child;
+        }
+        $parent->appendChild(new Text('x'));
+        $div->setHeaderNodes([$first]);
+        $document->appendChild($div);
+        $renderer = new CarveRenderer();
+        self::assertSame("::: box \"x\"\n\n:::\n", $renderer->render($document));
+    }
+
     /**
      * @var list<string>
      */

@@ -3215,7 +3215,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * The href is re-escaped the way the inline tail's is: the reader resolves
      * `\(`, `\)` and `\\`, so writing the resolved value bare would hand back a
-     * line whose parentheses no longer balance. The title is emitted verbatim;
+     * line whose parentheses no longer balance. The title uses quoted-string escaping;
      * the trailing attribute block is the node's own attributes (PART 9 §15
      * A2b), which transfer to every link or image resolving the label rather
      * than styling this line.
@@ -6124,21 +6124,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * that was already encoded, so a backslash gained a backslash on every
      * writer pass without bound, and the div's rendered title changed from a
      * non-breaking space to a literal backslash (carve-php#2397).
-     *
-     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
     protected function quotedTitleToken(Node $node, string $title): string
     {
         if ($node instanceof Div) {
-            $pending = [];
-            foreach ($node->getHeaderNodes() as $inline) {
-                $pending[] = [$inline, 0];
-            }
+            $pending = $node->getHeaderNodes();
+            $seen = [];
             while ($pending !== []) {
-                [$inline, $depth] = array_pop($pending);
-                if ($depth >= InlineParser::MAX_INLINE_DEPTH) {
-                    throw new SourceUnspellableException('inline', 'inline content exceeds the native parser nesting limit');
+                $inline = array_pop($pending);
+                $id = spl_object_id($inline);
+                if (isset($seen[$id])) {
+                    continue;
                 }
+                $seen[$id] = true;
                 if ($inline instanceof Image && $inline->getReferenceLabel() !== null && $inline->getRawReferenceLabel() === null) {
                     $this->recordUnspellableField($inline, 'ref', 'A quoted title writes the image destination inline instead of its reference');
                 } elseif ($inline instanceof EscapedText) {
@@ -6148,7 +6146,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     }
                 }
                 foreach ($inline->getChildren() as $child) {
-                    $pending[] = [$child, $depth + 1];
+                    $pending[] = $child;
                 }
             }
         }
