@@ -1152,7 +1152,7 @@ trait NormalizesDjotStructure
             foreach (AttributeParser::parse($part) as $key => $value) {
                 $value = is_array($value) ? implode(' ', $value) : $value;
                 if ($part[0] === '.') {
-                    if (isset($slots[$key])) {
+                    if (isset($slots[$key]) && $slots[$key] !== '') {
                         $slots[$key] .= ' ' . $value;
                     } else {
                         $slots[$key] = $value;
@@ -1164,6 +1164,46 @@ trait NormalizesDjotStructure
         }
 
         return $slots;
+    }
+
+    /**
+     * @param list<list<string>> $groups
+     *
+     * @return array<string, string>
+     */
+    private function djotReferenceAttributeGroups(array $groups): array
+    {
+        $attributes = [];
+        foreach ($groups as $parts) {
+            foreach ($this->djotReferenceAttributes($parts) as $key => $value) {
+                if ($key === 'class' && ($attributes[$key] ?? '') !== '') {
+                    $attributes[$key] .= ' ' . $value;
+                } else {
+                    $attributes[$key] = $value;
+                }
+            }
+        }
+
+        return $attributes;
+    }
+
+    /**
+     * @param array<string, string> $attributes
+     * @param bool $table
+     */
+    private function writeDjotReferenceAttributes(array $attributes, bool $table = false): string
+    {
+        $parts = [];
+        foreach ($attributes as $key => $value) {
+            $quoted = preg_match('/^[A-Za-z0-9_-]+$/', $value) !== 1;
+            $value = QuotedSlotEscaper::escape($value);
+            if ($table) {
+                $value = str_replace('|', '\\|', $value);
+            }
+            $parts[] = $key . '=' . ($quoted ? '"' . $value . '"' : $value);
+        }
+
+        return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
     }
 
     private function normalizeDjotReferenceUses(string $source): string
@@ -1186,7 +1226,6 @@ trait NormalizesDjotStructure
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previousContent) === 1
                 || ($previousStart > $start && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousStart)) === 1);
             if (preg_match('/^\[(?!\^)([^\[\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
-                $attrs = [];
                 $attributeParts = [];
                 for ($k = $n - 1; $k >= 0; $k--) {
                     $attributeStart = $this->djotContentStart($lines[$k]);
@@ -1205,13 +1244,8 @@ trait NormalizesDjotStructure
                         $removed[$k] = true;
                     }
                 }
-                foreach (array_reverse($attributeParts) as $part) {
-                    foreach ($part as $value) {
-                        $attrs[] = $value;
-                    }
-                }
-                $attrs = $this->djotReferenceAttributes($attrs);
-                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $definition[2], 'attrs' => $attrs, 'line' => $n];
+                $attrs = $this->djotReferenceAttributeGroups(array_reverse($attributeParts));
+                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $definition[2], 'attrs' => $attrs, 'inherited' => $attrs !== [], 'line' => $n];
                 $definitionLines[$n] = ['key' => $this->djotReferenceDefinitionKey($definition[1]), 'start' => $start, 'labelLength' => strlen($definition[1])];
             }
             $offset += strlen($line) + 1;
@@ -1286,23 +1320,69 @@ trait NormalizesDjotStructure
             $at = $open > 0 && $source[$open - 1] === '!' && $escaped[$open - 1] === "\0" ? $open - 1 : $open;
             $end = $labelEnd + 1;
             $own = '';
+            $ownGroups = [];
             while (($source[$end] ?? '') === '{') {
                 $attrs = $this->readDjotWordAttributes($source, $end);
                 if ($attrs === null) {
                     break;
                 }
                 $own .= substr($source, $end, $attrs['end'] - $end);
+                $ownGroups[] = $attrs['parts'];
                 $end = $attrs['end'];
             }
+            $explicit = substr($source, $close + 2, $labelEnd - $close - 2);
+            $content = substr($source, $open + 1, $close - $open - 1);
+            $label = $explicit === '' ? $content : $explicit;
+            $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
+            $parsedLabel = $explicit === '' && (preg_match('/[_*`{~^]/', $label) === 1 || str_contains($label, '\\'));
+            if ($parsedLabel) {
+                $label = $this->djotReferenceRenderedLabel($label);
+            }
+            $key = $parsedLabel ? $this->djotReferenceDefinitionKey($label) : $this->djotReferenceKey($label);
             $matches[] = [
                 [substr($source, $at, $end - $at), $at],
                 [substr($source, $at, $close + 1 - $at), $at],
                 [substr($source, $open + 1, $close - $open - 1), $open + 1],
                 [substr($source, $close + 2, $labelEnd - $close - 2), $close + 2],
                 [$own, $labelEnd + 1],
+                $this->djotReferenceAttributeGroups($ownGroups),
+                $key,
+                $parsedLabel,
             ];
             $open = $end - 1;
         }
+        $useCounts = [];
+        $overrideCounts = [];
+        foreach ($matches as $match) {
+            $key = $match[6];
+            if (($definitions[$key]['url'] ?? '') === '') {
+                continue;
+            }
+            $useCounts[$key] = ($useCounts[$key] ?? 0) + 1;
+            foreach ($match[5] as $attribute => $value) {
+                $overrideCounts[$key][$attribute] = ($overrideCounts[$key][$attribute] ?? 0) + 1;
+            }
+        }
+        foreach ($overrideCounts as $key => $counts) {
+            foreach ($counts as $attribute => $count) {
+                if ($count === $useCounts[$key]) {
+                    unset($definitions[$key]['attrs'][$attribute]);
+                }
+            }
+        }
+        $occupied = array_fill_keys(array_keys($definitions), true);
+        foreach ($matches as $match) {
+            $occupied[$match[6]] = true;
+        }
+        $serial = 0;
+        $nextAlias = static function () use (&$serial, &$occupied): string {
+            do {
+                $alias = 'carve-djot-reference-' . ++$serial;
+            } while (isset($occupied[$alias]));
+            $occupied[$alias] = true;
+
+            return $alias;
+        };
         $aliases = [];
         $needsAliases = false;
         foreach ($definitions as $key => $definition) {
@@ -1313,26 +1393,35 @@ trait NormalizesDjotStructure
             }
         }
         if ($needsAliases) {
-            $occupied = array_fill_keys(array_keys($definitions), true);
-            foreach ($matches as $match) {
-                $label = $match[3][0] === '' ? $match[2][0] : $match[3][0];
-                if ($match[3][0] === '' && (preg_match('/[_*`{~^]/', $label) === 1 || str_contains($label, '\\'))) {
-                    $label = $this->djotReferenceRenderedLabel($label);
-                    $occupied[$this->djotReferenceDefinitionKey($label)] = true;
-                } else {
-                    $occupied[$this->djotReferenceKey($label)] = true;
-                }
-            }
-            $serial = 0;
             foreach ($definitions as $key => $definition) {
                 if (!(str_contains((string)$key, '\\') || str_contains((string)$key, '|'))) {
                     continue;
                 }
-                do {
-                    $alias = 'carve-djot-reference-' . ++$serial;
-                } while (isset($occupied[$alias]));
-                $occupied[$alias] = true;
+                $aliases[$key] = $nextAlias();
+            }
+        }
+        $movedDefinitions = [];
+        $liftedAttributes = [];
+        $classAliases = [];
+        foreach ($definitions as $key => $definition) {
+            if ($definition['url'] === '') {
+                continue;
+            }
+            $line = $lines[$definition['line']];
+            $start = $this->djotContentStart($line);
+            if ($definition['attrs'] !== [] && $start > 0 && trim(substr($line, 0, $start)) !== '') {
+                $alias = $aliases[$key] ?? $nextAlias();
                 $aliases[$key] = $alias;
+                $liftedAttributes[$key] = true;
+                $movedDefinitions[] = [$key, '[' . $alias . ']: ' . $definition['url'] . ' ' . $this->writeDjotReferenceAttributes($definition['attrs'])];
+            }
+            if (isset($definition['attrs']['class'], $overrideCounts[$key]['class'])) {
+                $alias = $nextAlias();
+                $classAliases[$key] = $alias;
+                $attrs = $definition['attrs'];
+                unset($attrs['class']);
+                $attributes = $this->writeDjotReferenceAttributes($attrs);
+                $movedDefinitions[] = [$key, '[' . $alias . ']: ' . $definition['url'] . ($attributes !== '' ? ' ' . $attributes : '')];
             }
         }
         $tableAt = [];
@@ -1341,60 +1430,31 @@ trait NormalizesDjotStructure
         foreach (explode("\n", $source) as $line) {
             $lineEnd = $lineOffset + strlen($line);
             while (isset($matches[$matchIndex]) && $matches[$matchIndex][0][1] <= $lineEnd) {
-                $tableAt[$matches[$matchIndex][0][1]] = str_starts_with(ltrim($line), '|');
+                $tableAt[$matches[$matchIndex][0][1]] = str_starts_with(substr($line, $this->djotContentStart($line)), '|');
                 $matchIndex++;
             }
             $lineOffset = $lineEnd + 1;
         }
-        $rewrite = function (array $match) use ($definitions, $aliases, $mask, $source, $tableAt): string {
+        $rewrite = function (array $match) use ($definitions, $aliases, $classAliases, $mask, $source, $tableAt): string {
             [$text, $at] = $match[0];
             if (($mask[$at] ?? '') === ' ' || $this->isDjotEscaped($source, $at)) {
                 return $text;
             }
-            $label = $match[3][0] === '' ? $match[2][0] : $match[3][0];
-            $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
-            $formatted = $match[3][0] === '' && preg_match('/[_*`{~^]/', $label) === 1;
-            $parsedLabel = $formatted || ($match[3][0] === '' && str_contains($label, '\\'));
-            if ($parsedLabel) {
-                $label = $this->djotReferenceRenderedLabel($label);
-            }
-            $key = $parsedLabel ? $this->djotReferenceDefinitionKey($label) : $this->djotReferenceKey($label);
+            $key = $match[6];
             $definition = $definitions[$key] ?? null;
             if ($definition === null) {
                 return $text;
             }
-            if ($definition['url'] !== '' && $definition['attrs'] !== []) {
-                $referenceName = $aliases[$key] ?? $key;
-                $attrs = '';
-                $ownSource = $match[4][0] ?? '';
-                $ownParts = [];
-                for ($start = 0, $ownLength = strlen($ownSource); $start < $ownLength;) {
-                    $parsed = $this->readDjotWordAttributes($ownSource, $start);
-                    if ($parsed === null) {
-                        break;
-                    }
-                    foreach ($parsed['parts'] as $part) {
-                        $ownParts[] = $part;
-                    }
-                    $start = $parsed['end'];
-                }
-                $own = $this->djotReferenceAttributes($ownParts);
-                foreach (array_replace($definition['attrs'], $own) as $attributeKey => $value) {
-                    $quoted = preg_match('/^[A-Za-z0-9_-]+$/', $value) !== 1;
-                    $value = QuotedSlotEscaper::escape($value);
-                    if ($tableAt[$at] ?? false) {
-                        $value = str_replace('|', '\\|', $value);
-                    }
-                    $attrs .= ($attrs === '' ? '' : ' ') . $attributeKey . '=' . ($quoted ? '"' . $value . '"' : $value);
-                }
+            if ($definition['url'] !== '' && ($definition['inherited'] || $match[4][0] !== '')) {
+                $referenceName = (isset($match[5]['class']) ? ($classAliases[$key] ?? null) : null) ?? $aliases[$key] ?? $key;
+                $attrs = $this->writeDjotReferenceAttributes($match[5], $tableAt[$at] ?? false);
 
-                return $match[1][0] . '[' . $referenceName . ']{' . $attrs . '}';
+                return $match[1][0] . '[' . $referenceName . ']' . $attrs;
             }
 
-            return $match[1][0] . '[' . ($aliases[$key] ?? ($match[3][0] === '' && !$parsedLabel ? '' : $key)) . ']' . ($match[4][0] ?? '');
+            return $match[1][0] . '[' . ($aliases[$key] ?? ($match[3][0] === '' && !$match[7] ? '' : $key)) . ']' . ($match[4][0] ?? '');
         };
         $definitionEdits = [];
-        $movedDefinitions = [];
         $offset = 0;
         foreach ($lines as $n => $line) {
             if (isset($definitionLines[$n])) {
@@ -1405,12 +1465,16 @@ trait NormalizesDjotStructure
                 $alias = $aliases[$key] ?? null;
                 if ($definitions[$key]['line'] !== $n) {
                     $definitionEdits[] = [$offset + $start, strlen($line) - $start, '{%%}'];
-                } elseif ($start > 0 && trim($prefix) === '') {
-                    $definitionEdits[] = [$offset, strlen($line), $prefix . '{%%}'];
+                } elseif (!isset($liftedAttributes[$key])) {
                     $name = $alias ?? substr($line, $start + 1, $record['labelLength']);
-                    $movedDefinitions[] = [$key, '[' . $name . substr($line, $start + $record['labelLength'] + 1)];
-                } elseif ($alias !== null) {
-                    $definitionEdits[] = [$offset + $start + 1, $record['labelLength'], $alias];
+                    $attrs = $definitions[$key]['url'] !== '' ? $this->writeDjotReferenceAttributes($definitions[$key]['attrs']) : '';
+                    $definition = '[' . $name . substr($line, $start + $record['labelLength'] + 1) . ($attrs !== '' ? ' ' . $attrs : '');
+                    if ($start > 0 && trim($prefix) === '') {
+                        $definitionEdits[] = [$offset, strlen($line), $prefix . '{%%}'];
+                        $movedDefinitions[] = [$key, $definition];
+                    } elseif ($alias !== null || $attrs !== '') {
+                        $definitionEdits[] = [$offset + $start, strlen($line) - $start, $definition];
+                    }
                 }
             }
             $offset += strlen($line) + 1;

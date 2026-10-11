@@ -171,7 +171,7 @@ class DjotLossReportTest extends TestCase
     {
         $source = "[wrapped][a and\nb] and [ref][]\n\n[a and b]: url\n\n{title=\"two words\"}\n[ref]: /url\n";
         self::assertSame((new CarveConverter())->convert("[wrapped][a and b] and [ref](/url){title=\"two words\"}\n\n[a and b]: url\n"), (new CarveConverter())->convert((new DjotToCarve())->convert($source)));
-        self::assertSame("[wrapped][a and b] and [ref][ref]{title=\"two words\"}\n\n[a and b]: url\n\n\n[ref]: /url\n", (new DjotToCarve())->convert($source));
+        self::assertSame("[wrapped][a and b] and [ref][ref]\n\n[a and b]: url\n\n\n[ref]: /url {title=\"two words\"}\n", (new DjotToCarve())->convert($source));
     }
 
     public function testDefinitionTermContinuationIsDedented(): void
@@ -184,7 +184,7 @@ class DjotLossReportTest extends TestCase
         $source = "[b][]\n\n{title=t}\n[b]: /u\n\nnext\n";
         $carve = (new DjotToCarve())->convert($source);
         self::assertSame((new CarveConverter())->convert("[b](/u){title=\"t\"}\n\nnext\n"), (new CarveConverter())->convert($carve));
-        self::assertSame("[b][b]{title=\"t\"}\n\n\n[b]: /u\n\nnext\n", $carve);
+        self::assertSame("[b][b]\n\n\n[b]: /u {title=t}\n\nnext\n", $carve);
         self::assertSame("<p><a href=\"/u\" title=\"t\">b</a></p>\n<p>next</p>\n", (new CarveConverter())->convert($carve));
     }
 

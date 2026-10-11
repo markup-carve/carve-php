@@ -11,6 +11,29 @@ use ReflectionMethod;
 
 class DjotReferenceLayoutTest extends TestCase
 {
+    public function testLongInheritedAttributesStayShared(): void
+    {
+        $value = str_repeat('v', 32768);
+        foreach (['title', 'class', 'data-long'] as $attribute) {
+            $source = '{' . $attribute . '="' . $value . '"}' . "\n[r]: /u\n\n" . str_repeat('[x][r] ', 1024);
+            $result = (new DjotToCarve())->convert($source);
+            self::assertLessThan(strlen($source) * 2, strlen($result));
+            self::assertSame(1, substr_count($result, $value));
+        }
+    }
+
+    public function testClassOverridesKeepOtherInheritedAttributesShared(): void
+    {
+        $value = str_repeat('v', 32768);
+        $source = '{.base title="' . $value . '"}' . "\n[r]: /u\n\n[x][r] " . str_repeat('[x][r]{.own} ', 1024);
+        $result = (new DjotToCarve())->convert($source);
+        self::assertLessThan(strlen($source) * 3, strlen($result));
+        self::assertLessThanOrEqual(2, substr_count($result, $value));
+        $small = "{.base title=\"a|b\"}\n[r]: /u\n\n| [x][r] | [x][r]{.own} |\n";
+        $expected = "| [x](/u){class=base title=\"a\\|b\"} | [x](/u){title=\"a\\|b\" class=own} |\n";
+        self::assertSame((new CarveConverter())->convert($expected), (new CarveConverter())->convert((new DjotToCarve())->convert($small)));
+    }
+
     public function testReferenceLabelBoundaries(): void
     {
         $converter = new DjotToCarve();
@@ -62,8 +85,8 @@ class DjotReferenceLayoutTest extends TestCase
         $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
         foreach (
             [
-                ["[a][r]{title=first}{title=last}\n\n{.base}\n[r]: /u", '[a](/u){class=base title=last}'],
-                ["[a][r]{.a}{.b}\n\n{title=base}\n[r]: /u", '[a](/u){title=base class="a b"}'],
+                ["[a][r]{title=first}{title=last}\n\n{.base}\n[r]: /u", '[a](/u){title=last class=base}'],
+                ["[a][r]{.a}{.b}\n\n{title=base}\n[r]: /u", '[a](/u){class="a b" title=base}'],
                 ["[a][r]{.a title=x}{.b title=y}\n\n{.base title=z}\n[r]: /u", '[a](/u){class="a b" title=y}'],
                 ["[a][r]\n\n{.a}\n{.b}\n[r]: /u", '[a](/u){class="a b"}'],
             ] as [$source, $expected]
