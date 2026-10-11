@@ -17,8 +17,11 @@ class RaggedTableFmtTest extends TestCase
     {
         return [
             'ordinary rows' => ["| ~x~ |\n| a | b |\n", "| ~x~ |\n| a | b |\n"],
-            'short body row' => ["| |x |\n|---|\n| y |\n", "|= |= x |\n| y |\n"],
-            'short header row' => ["| h |\n|---|\n| |x |\n", "|= h |\n| | x |\n"],
+            // The authored separator row is reproduced (carve#2894), and it
+            // grows to the row's cell count: a cell the author did not spell
+            // takes the writer's own default width.
+            'short body row' => ["| |x |\n|---|\n| y |\n", "| | x |\n|---|---|\n| y |\n"],
+            'short header row' => ["| h |\n|---|\n| |x |\n", "| h |\n|---|\n| | x |\n"],
         ];
     }
 

@@ -414,7 +414,8 @@
       "columns",
       "rowGroups",
       "caption",
-      "shortCaption"
+      "shortCaption",
+      "separatorWidths"
     ],
     "required": []
   },

@@ -2683,13 +2683,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $rows = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
-        $columnWidths = $node->getRenderHint("\0carve-col-widths") !== null
-            ? array_map(
-                static fn (string $width): int => (int)$width > 0 ? min(1000, (int)$width) : 3,
-                explode(',', (string)$node->getRenderHint("\0carve-col-widths")),
-            )
-            : [];
-        $forceDelimiter = $node->getRenderHint("\0carve-delimiter-row") === '1' || $columnWidths !== [];
+        // `separatorWidths` is an AUTHOR-CHOICE field (PART 12 §3): its PRESENCE
+        // says the author wrote a separator row rather than `|=` header cells,
+        // and its entries say how wide each cell was spelled. Both halves are
+        // reproduced here, the way `list.bulletChar` and `thematic_break.marker`
+        // are.
+        $columnWidths = array_map(
+            static fn (int $width): int => max(1, $width),
+            $node->getSeparatorWidths() ?? [],
+        );
+        $forceDelimiter = $node->getRenderHint("\0carve-delimiter-row") === '1'
+            || $node->getSeparatorWidths() !== null;
         $headerRow = isset($tableRows[0]) && ($tableRows[0]->isHeader() || $forceDelimiter);
         // This parser resolves a cell's alignment at parse time, so a body cell
         // carries the column's alignment even when the author only wrote it on
@@ -2833,13 +2837,24 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $prefix === '' ? $body : $prefix . "\n" . $body;
     }
 
+    /**
+     * One separator cell: the authored dash run, with the colon this CELL's own
+     * alignment asks for.
+     *
+     * The width EXCLUDES the colons, which is how `separatorWidths` counts, so
+     * `|:-----|` is width 5 either way round. One dash is the floor - a cell
+     * spelling none is not a separator - and the parser reads `|-|` back, so
+     * nothing has to be padded up to two.
+     */
     protected function renderTableSeparator(int $width, string $alignment): string
     {
+        $dashes = str_repeat('-', max(1, $width));
+
         return match ($alignment) {
-            TableCell::ALIGN_LEFT => ':' . str_repeat('-', max(2, $width)),
-            TableCell::ALIGN_RIGHT => str_repeat('-', max(2, $width)) . ':',
-            TableCell::ALIGN_CENTER => ':' . str_repeat('-', max(1, $width)) . ':',
-            default => str_repeat('-', max(2, $width)),
+            TableCell::ALIGN_LEFT => ':' . $dashes,
+            TableCell::ALIGN_RIGHT => $dashes . ':',
+            TableCell::ALIGN_CENTER => ':' . $dashes . ':',
+            default => $dashes,
         };
     }
 
@@ -4822,7 +4837,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 || !array_key_exists($slot, $attrs)
                 || $slot === 'id'
                 || $slot === 'class'
-                || $slot === "\0carve-col-widths"
                 || $slot === "\0carve-delimiter-row"
                 || $slot === "\0carve-compact-items"
                 || $slot === "\0carve-leading-blank"

@@ -607,6 +607,12 @@ final class HtmlAstBuilder
             if (!is_array($value)) {
                 continue;
             }
+            // A LIST-VALUED FIELD IS NOT ALWAYS A CHILD LIST. `separatorWidths`
+            // holds integers, so the walk has to ask what is in the list rather
+            // than assume a node (carve#2894).
+            if (array_is_list($value) && $value !== [] && !is_array($value[0])) {
+                continue;
+            }
             if (array_is_list($value)) {
                 $children = self::recordList($value);
                 foreach ($children as &$child) {
@@ -2340,19 +2346,57 @@ final class HtmlAstBuilder
             }
         }
         $this->attachAttrs($table, $node, ['data-carve-col-widths']);
+        // NOT gated on `sourceSafe`: the widths are a PUBLISHED field now, so
+        // the public AST carries them as well as the writer's tree.
         if (
-            $this->sourceSafe
-            && $headerRows > 0
+            $headerRows > 0
             && $node->hasAttribute('data-carve-col-widths')
             && !$node->hasAttribute('data-carve-src')
         ) {
-            $this->setPrivateAttribute($table, "\0carve-col-widths", $node->getAttribute('data-carve-col-widths'));
+            $widths = self::separatorWidths($node->getAttribute('data-carve-col-widths'));
+            if ($widths !== []) {
+                $table['separatorWidths'] = $widths;
+            }
         }
         if ($this->sourceSafe && $headerRows > 0 && HtmlTableStructure::importedTableNeedsDelimiter($rows)) {
             $this->addHint($table, "\0carve-delimiter-row");
         }
 
         return self::importedNode($table);
+    }
+
+    /**
+     * The widest separator cell an import will build.
+     *
+     * The carrier is a number an importer reads off untrusted HTML, and the
+     * writer spells one dash per unit, so an unbounded value is a document-size
+     * amplification rather than a wide table.
+     *
+     * @var int
+     */
+    private const MAX_SEPARATOR_WIDTH = 1000;
+
+    /**
+     * The `data-carve-col-widths` carrier read back as the published field.
+     *
+     * The carrier is author-supplied in the untrusted case and arbitrary in the
+     * trusted one, so every entry is clamped into what the schema allows: an
+     * integer of at least 1, and no wider than a separator row anyone wrote.
+     *
+     * @return array<int, int>
+     */
+    private static function separatorWidths(string $carrier): array
+    {
+        $widths = [];
+        foreach (explode(',', $carrier) as $raw) {
+            $raw = trim($raw);
+            if ($raw === '' || preg_match('/^\d+$/', $raw) !== 1) {
+                return [];
+            }
+            $widths[] = max(1, min(self::MAX_SEPARATOR_WIDTH, (int)$raw));
+        }
+
+        return $widths;
     }
 
     /**
