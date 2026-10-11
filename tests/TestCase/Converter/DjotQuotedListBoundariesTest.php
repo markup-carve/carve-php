@@ -31,7 +31,7 @@ final class DjotQuotedListBoundariesTest extends TestCase
 
     public function testContainerPrefixesDoNotReportCodeLoss(): void
     {
-        foreach (["> a `b\n> c` d\n", "- > a `b\n  > c` d\n"] as $source) {
+        foreach (["> a `b\n> c` d\n", "- > a `b\n  > c` d\n", "ref[^n]\n\n[^n]: a\n\np `b\nc` d\n", "ref[^n]\n\n[^n]: a\n> p `b\n> c` d\n"] as $source) {
             $diagnostics = (new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'];
             self::assertNotContains('structure-unspellable', array_column($diagnostics, 'code'), $source);
         }
@@ -47,5 +47,14 @@ final class DjotQuotedListBoundariesTest extends TestCase
             self::assertLessThanOrEqual(strlen($source) * 2, strlen($result));
             self::assertSame($renderer->convert("1. > a\n" . str_repeat("   > b\n", $size)), $renderer->convert($result));
         }
+    }
+
+    public function testMultilineFootnoteCodeLossUsesTheOriginalOpener(): void
+    {
+        $result = (new DjotToCarve())->convertWithFidelityReport("ref[^n]\n\n[^n]: a `b\nc` d\n");
+        $losses = array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => $row['code'] === 'structure-unspellable'));
+        self::assertCount(1, $losses);
+        self::assertSame('line:3', $losses[0]['path']);
+        self::assertSame('Multiline inline code uses raw HTML; plain-text export omits it.', $losses[0]['message']);
     }
 }

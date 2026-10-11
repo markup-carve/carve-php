@@ -4272,6 +4272,9 @@ class DjotToCarve
             $trimmed = ltrim($content, " \t");
             $indent = strlen($content) - strlen($trimmed);
             $item = preg_match($marker, $trimmed, $itemMatch) === 1;
+            if ($item && str_starts_with($itemMatch[0], '[^') && !$previousBlock && $parsedDepth >= $previousQuote && !($itemColumn > 0 && $parsedDepth === $itemQuote && $indent < $itemColumn)) {
+                $item = false;
+            }
             $oldColumn = $itemColumn;
             $oldQuote = $itemQuote;
             $beganInside = $offset < $consumed;
@@ -4309,8 +4312,20 @@ class DjotToCarve
                     $itemColumn = $indent + 1;
                     $itemQuote = $depth;
                     $itemKind = $itemKindOf($itemMatch[0]);
-                } elseif ($trimmed !== '' && ($depth < $itemQuote || ($depth === $itemQuote && $indent < $itemColumn && (preg_match($block, $trimmed) === 1 || $blockAttributes($trimmed))))) {
-                    $itemColumn = 0;
+                } elseif ($trimmed !== '' && $itemColumn > 0) {
+                    $ownerAt = 0;
+                    for ($q = 0; $q < $itemQuote; $q++) {
+                        if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $line, $ownerPrefix, 0, $ownerAt) !== 1) {
+                            break;
+                        }
+                        $ownerAt += strlen($ownerPrefix[0]);
+                    }
+                    $ownerIndent = strspn($line, " \t", $ownerAt);
+                    $ownerText = substr($line, $ownerAt + $ownerIndent);
+                    if ($depth < $itemQuote || ($ownerIndent < $itemColumn && ($previousBlock || preg_match($block, $ownerText) === 1 || $blockAttributes($ownerText)))) {
+                        $itemColumn = 0;
+                        $itemKind = '';
+                    }
                 }
                 if (preg_match('/^(:{3,})(?:[ \t]+\S.*)?[ \t]*$/', substr($line, $at), $div) === 1) {
                     $owner = $divs !== [] ? end($divs) : null;
@@ -4463,7 +4478,7 @@ class DjotToCarve
                     }
                     $normalized[] = ltrim(substr($value, $valueOffset), " \t");
                 }
-                $rawCode = str_starts_with($itemKind, '[^') && count($normalized) > 1;
+                $rawCode = $itemColumn > 0 && str_starts_with($itemKind, '[^') && count($normalized) > 1;
                 foreach (array_slice($normalized, 1) as $value) {
                     if ((preg_match($block, $value) === 1 || str_starts_with($value, '{')) && (preg_match('/^\|[ \t:|-]*\|$/', $value) !== 1 || ($line[$at] ?? '') !== '|')) {
                         $rawCode = true;

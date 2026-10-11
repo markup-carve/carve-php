@@ -678,5 +678,53 @@
   {
     "source": "- [^00002.a]: b\n",
     "carve": "- [^00002.a]: b\n"
+  },
+  {
+    "source": "[^n]: a `b\nc` d\n",
+    "carve": "[^n]: a `<code>b&#10;c</code>`{=html} d\n"
+  },
+  {
+    "source": "ref[^n]\n\n[^n]: a `b\nc` d\n",
+    "carve": "ref[^n]\n\n[^n]: a `<code>b&#10;c</code>`{=html} d\n"
+  },
+  {
+    "source": "ref[^n> x]\n\n[^n> x]: a `b\n c` d\n",
+    "carve": "ref[^carve-djot-note-0]\n\n[^carve-djot-note-0]: a `<code>b&#10;c</code>`{=html} d\n"
+  },
+  {
+    "source": "> ref[^n]\n>\n> [^n]: a `b\n> c` d\n",
+    "carve": "> ref[^n]\n>\n> [^n]: a `<code>b&#10;c</code>`{=html} d\n"
+  },
+  {
+    "source": "ref[^n]\n\n[^n]: a `b\nc\n",
+    "carve": "ref[^n]\n\n[^n]: a `<code>b&#10;c</code>`{=html}"
+  },
+  {
+    "source": "p\n[^n]: a `b\nc` d\n",
+    "carve": "[^carve-djot-note-0]: %%%%\n\np\n[^carve-djot-note-0]\\: a `b\nc` d\n"
+  },
+  {
+    "source": "p\n[^n]: a `b\n> c` d\n",
+    "carve": "[^carve-djot-note-0]: %%%%\n\np\n[^carve-djot-note-0]\\: a `<code>b&#10;&#62; c</code>`{=html} d\n"
+  },
+  {
+    "source": "ref[^n]\n\n[^n]: a\n\np\n[^m]: a `b\nc` d\n",
+    "carve": "[^carve-djot-note-0]: %%%%\n\nref[^n]\n\n[^n]: a\n\np\n[^carve-djot-note-0]\\: a `b\nc` d\n"
+  },
+  {
+    "source": "~~~\n[^n]: a `b\nc` d\n~~~\n",
+    "carve": "~~~\n[^n]: a `b\nc` d\n~~~\n"
+  },
+  {
+    "source": "`[^n]: a`\n",
+    "carve": "`[^n]: a`\n"
+  },
+  {
+    "source": "- a\n[^n]: a `b\nc` d\n",
+    "carve": "- a\n[^n]: a `<code>b&#10;c</code>`{=html} d\n"
+  },
+  {
+    "source": "# h\n[^n]: a `b\nc` d\n",
+    "carve": "# h\n[^n]: a `<code>b&#10;c</code>`{=html} d\n"
   }
 ]
