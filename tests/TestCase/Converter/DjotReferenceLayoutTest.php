@@ -34,6 +34,16 @@ class DjotReferenceLayoutTest extends TestCase
         self::assertSame((new CarveConverter())->convert($expected), (new CarveConverter())->convert((new DjotToCarve())->convert($small)));
     }
 
+    public function testMalformedLabelKeepsLaterReferenceDefaults(): void
+    {
+        $source = "m[i][j\nthen [x][r] and [y][r]{title=own}\n\n{title=base}\n[r]: /u\n";
+        $converter = new DjotToCarve();
+        $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
+        $normalized = $method->invoke($converter, $source);
+        self::assertStringContainsString('[r]: /u {title=base}', $normalized);
+        self::assertStringContainsString('[y][r]{title=own}', $normalized);
+    }
+
     public function testReferenceLabelBoundaries(): void
     {
         $converter = new DjotToCarve();

@@ -1296,7 +1296,9 @@ trait NormalizesDjotStructure
         $next = -1;
         $nextPipe = -1;
         for ($at = $length - 1; $at >= 0; $at--) {
-            if ($source[$at] === ']' && $escaped[$at] === "\0") {
+            if ($source[$at] === '[' && $mask[$at] === '[' && $escaped[$at] === "\0") {
+                $next = -1;
+            } elseif ($source[$at] === ']' && $escaped[$at] === "\0") {
                 $next = $at;
             }
             if (isset($tablePipes[$at])) {
@@ -1414,6 +1416,11 @@ trait NormalizesDjotStructure
                 $aliases[$key] = $alias;
                 $liftedAttributes[$key] = true;
                 $movedDefinitions[] = [$key, '[' . $alias . ']: ' . $definition['url'] . ' ' . $this->writeDjotReferenceAttributes($definition['attrs'])];
+            }
+        }
+        foreach ($definitions as $key => $definition) {
+            if ($definition['url'] === '') {
+                continue;
             }
             if (isset($definition['attrs']['class'], $overrideCounts[$key]['class'])) {
                 $alias = $nextAlias();
