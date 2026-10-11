@@ -3170,9 +3170,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // what editors and `git apply --whitespace=fix` rewrite
                 // behind the writer.
                 $continuation = str_repeat(' ', $contentColumn);
-                foreach ($lines as $line) {
-                    $output .= ($line === '' ? '' : $continuation . $line) . "\n";
-                }
+                $output .= $this->prefixContinuationLines($lines, $continuation);
             }
 
             // A blank line between items is the only thing that spells a loose
@@ -3808,11 +3806,28 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderFootnote(Footnote $node): string
     {
         $content = $this->containerContent(fn (): string => $this->renderChildren($node));
+        $lines = explode("\n", $content);
+        $firstLine = array_shift($lines);
+        $content = $firstLine . "\n" . $this->prefixContinuationLines($lines, '    ');
 
         // A label is author content, and it is reproduced verbatim in two
         // places; both escape, so a reference still matches its definition
         // (carve-php#1063).
-        return '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']: ' . $content . "\n";
+        return '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']: ' . $content;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param string $prefix
+     */
+    protected function prefixContinuationLines(array $lines, string $prefix): string
+    {
+        $output = '';
+        foreach ($lines as $line) {
+            $output .= ($line === '' ? '' : $prefix . $line) . "\n";
+        }
+
+        return $output;
     }
 
     protected function renderEmphasis(Emphasis $node): string
