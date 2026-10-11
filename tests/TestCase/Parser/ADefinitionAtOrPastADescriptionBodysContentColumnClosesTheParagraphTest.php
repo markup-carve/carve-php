@@ -522,14 +522,9 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
      */
     public static function containerInTheBodyProvider(): array
     {
-        // THE HEADING LEAVES NO PARAGRAPH OPEN AT THE DEEPEST FRAME, so `tail`
-        // never stays in the item at any of these columns
-        // (markup-carve/carve#2884). Columns 4, 5 and 6 now give one answer
-        // where 5 and 6 used to fold, and all three agree with the executable
-        // spec on where `tail` lands. Column 3 still parts company with it over
-        // where the HEADING lands, which is the between-columns band
-        // markup-carve/carve#1918 is about and not this clause.
-        $outOfItem = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n    <p>tail</p>\n  </dd>\n</dl>";
+        // A finished heading leaves no paragraph in either host under
+        // markup-carve/carve#2884 and markup-carve/carve#2895.
+        $outOfItem = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>";
 
         return [
             'between the two columns' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n# H</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"],

@@ -335,6 +335,18 @@ trait NormalizesDjotStructure
             if ($blank && !$this->djotListContains($lists, $indent) && !$attributeLine) {
                 $lists = [];
             }
+            if ($this->rejectedDjotCommentStartsBlock($visible)) {
+                $outsideList = $lists !== [] && $indent <= $lists[0]->column;
+                if ($headingMarker !== '' || $outsideList) {
+                    $out[] = $quote . str_repeat(' ', $indent);
+                }
+                if ($outsideList) {
+                    $lists = [];
+                    $paragraph = false;
+                    $blank = true;
+                }
+                $headingMarker = '';
+            }
             $heading = preg_match('/^(#{1,6})(?:[ \t]+|$)/', $visible, $headingMatch) === 1;
             $reference = preg_match('/^\[[^\]\n]*\]:/', $visible) === 1;
             $block = ($heading && $headingMatch[1] !== $headingMarker) || $div || ($rule && (!str_contains($visible, '*') || !str_contains($visible, '-'))) || str_starts_with($visible, '>') || str_starts_with($visible, '|');

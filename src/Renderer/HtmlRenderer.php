@@ -1450,8 +1450,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $explicitIdAttr = $carriesExplicitId ? ' data-carve-explicit-id="1"' : '';
 
-        return '<h' . $level . $this->renderAttributeArray($attrs, 'h' . $level) . $idAttr . $annotationAttr
-            . $explicitIdAttr . '>'
+        return '<h' . $level . $explicitIdAttr . $this->renderAttributeArray($attrs, 'h' . $level)
+            . $idAttr . $annotationAttr . '>'
             . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
 
@@ -1492,10 +1492,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($language !== null) {
             $langClass = 'class="language-' . $this->escapeAttribute($language) . '"';
 
-            return '<pre' . $attrs . $djotSrcAttr . '><code ' . $langClass . '>' . $code . "</code></pre>\n";
+            return '<pre' . $djotSrcAttr . $attrs . '><code ' . $langClass . '>' . $code . "</code></pre>\n";
         }
 
-        return '<pre' . $attrs . $djotSrcAttr . '><code>' . $code . "</code></pre>\n";
+        return '<pre' . $djotSrcAttr . $attrs . '><code>' . $code . "</code></pre>\n";
     }
 
     /**
@@ -1973,9 +1973,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     private function listLayoutFrame(ListBlock $node): array
     {
+        // PART 10 section 13a: an ordered list's marker IS its delimiter, which
+        // section 12's `data-delim` already carries, so `data-marker` rides a
+        // `<ul>` only.
         $marker = $node->getMarker();
-        $default = $node->getListType() === ListBlock::TYPE_ORDERED ? '.' : '-';
-        $carriesMarker = $this->roundTripMode && $marker !== null && $marker !== $default;
+        $carriesMarker = $this->roundTripMode
+            && $marker !== null
+            && $marker !== '-'
+            && $node->getListType() !== ListBlock::TYPE_ORDERED;
         $attrs = $this->attributesBesideCarriers($node, $carriesMarker ? ['data-marker'] : []);
         if ($node->getListType() === ListBlock::TYPE_ORDERED) {
             $olAttrs = '';
@@ -1993,9 +1998,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             // attribute of its own for, trailing type and start.
             if ($marker === ')') {
                 $olAttrs .= ' data-delim="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
-            }
-            if ($carriesMarker) {
-                $olAttrs .= ' data-marker="' . htmlspecialchars($marker, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
             }
 
             return ['<ol' . $olAttrs . $this->renderAttributeArray($attrs) . '>', '', '</ol>'];
@@ -2146,10 +2148,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         // Preserve character for round-trip (only if non-default and round-trip mode enabled)
         $carries = $this->roundTripMode && $node->char !== '-';
-        $attrs = $this->renderAttributesBesideCarriers($node, $carries ? ['data-char'] : []);
-        if ($carries) {
-            $attrs .= ' data-char="' . htmlspecialchars($node->char, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
-        }
+        $carrier = $carries
+            ? ' data-char="' . htmlspecialchars($node->char, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"'
+            : '';
+        $attrs = $carrier . $this->renderAttributesBesideCarriers($node, $carries ? ['data-char'] : []);
 
         return $this->xhtml ? '<hr' . $attrs . " />\n" : '<hr' . $attrs . ">\n";
     }
@@ -2615,12 +2617,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         if ($node->statedRowGroups() !== null) {
             unset($tableAttrs['body-rows'], $tableAttrs['body-header-rows'], $tableAttrs['body-header-cols']);
         }
-        $attrs = $this->renderAttributeArray($tableAttrs);
-
+        // A carrier leads the authored attributes (PART 10 section 13a).
+        $attrs = '';
         if ($carriesWidths) {
             $widths = implode(',', $separatorWidths);
-            $attrs .= ' data-carve-col-widths="' . htmlspecialchars($widths, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
+            $attrs = ' data-carve-col-widths="' . htmlspecialchars($widths, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
+        $attrs .= $this->renderAttributeArray($tableAttrs);
 
         $lines = [];
 

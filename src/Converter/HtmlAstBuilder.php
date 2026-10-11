@@ -1799,7 +1799,7 @@ final class HtmlAstBuilder
                 continue;
             }
             $label = $item->getAttribute('data-carve-footnote-label');
-            if ($label === '') {
+            if (!self::isValidFootnoteCarrierLabel($label)) {
                 $label = $this->footnoteLabel($id);
             }
             $referenced = $id !== '' && isset($this->session->footnoteTargets[$id]);
@@ -1910,6 +1910,11 @@ final class HtmlAstBuilder
         }
 
         return false;
+    }
+
+    public static function isValidFootnoteCarrierLabel(string $label): bool
+    {
+        return preg_match('/\A[^\]\r\n]+\z/', $label) === 1;
     }
 
     private function footnoteLabel(string $fragment): string
@@ -4171,7 +4176,10 @@ final class HtmlAstBuilder
                 ],
             ];
         }
-        if ($node->hasAttribute('data-carve-footnote-label')) {
+        if (
+            $node->hasAttribute('data-carve-footnote-label')
+            && self::isValidFootnoteCarrierLabel($node->getAttribute('data-carve-footnote-label'))
+        ) {
             return [
                 [
                     'type' => 'footnote_ref',
