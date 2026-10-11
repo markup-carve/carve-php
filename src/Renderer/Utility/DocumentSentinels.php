@@ -115,6 +115,35 @@ final class DocumentSentinels
     }
 
     /**
+     * Keep rendering markers atomic when the BMP private-use pool is occupied.
+     *
+     * @return list<string>
+     */
+    public static function pickRenderMarkers(string $text, int $count, int $first): array
+    {
+        try {
+            return self::pick($text, $count, $first);
+        } catch (SentinelSpaceExhaustedException) {
+            preg_match_all('/[\\x{F0000}-\\x{FFFFD}\\x{100000}-\\x{10FFFD}]/u', $text, $matches);
+            $occupied = array_fill_keys($matches[0], true);
+            foreach ([[0xF0000, 0xFFFFD], [0x100000, 0x10FFFD]] as [$start, $last]) {
+                for ($base = $start; $base + $count - 1 <= $last; $base++) {
+                    $run = self::run($base, $count);
+                    foreach ($run as $candidate) {
+                        if (isset($occupied[$candidate])) {
+                            continue 2;
+                        }
+                    }
+
+                    return $run;
+                }
+            }
+
+            throw new SentinelSpaceExhaustedException($count, 0xF0000, 0x10FFFD);
+        }
+    }
+
+    /**
      * Pick string markers when the single-character pool is occupied.
      *
      * @return list<string>

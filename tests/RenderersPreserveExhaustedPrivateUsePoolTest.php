@@ -20,7 +20,7 @@ class RenderersPreserveExhaustedPrivateUsePoolTest extends TestCase
             $text .= mb_chr($code, 'UTF-8');
         }
 
-        return $text;
+        return $text . "\u{F0000}\u{F0001}\u{F0002}\u{F0003}";
     }
 
     /**
@@ -62,6 +62,34 @@ class RenderersPreserveExhaustedPrivateUsePoolTest extends TestCase
         self::assertSame($result->value, $converter->convert($source));
         self::assertSame(0, $converter->convertWithReport("*[A]: alpha\n\nA\n")->totalLosses);
         self::assertSame($result->value, $converter->convertWithReport($source)->value);
+    }
+
+    public function testStrippedControlsCannotForgeRenderingMarkers(): void
+    {
+        $text = self::privateUseText();
+        $token = "\u{E009}m0\u{202E}x0\u{E00A}";
+        $forged = $token . '0' . $token;
+        $source = "*[AB]: alpha\n\nAB\n\n```\n{$text}\n```\n\n{$forged}\n";
+        foreach ([new CarveConverter(), CarveConverter::plainText(), CarveConverter::ansi()] as $converter) {
+            $result = $converter->convertWithReport($source, strictLosses: true);
+            self::assertStringContainsString(str_replace("\u{202E}", '', $forged), $result->value);
+            self::assertSame(1, substr_count($result->value, $text));
+            self::assertSame(0, $result->totalLosses);
+        }
+    }
+
+    public function testAdjacentSymbolReplacementsCannotForgeFootnotePlacement(): void
+    {
+        $text = self::privateUseText();
+        $renderer = new HtmlRenderer(symbols: [
+            'pool' => $text,
+            'left' => "\u{E009}m0x",
+            'right' => "2\u{E00A}",
+        ]);
+        $result = (new CarveConverter(renderer: $renderer))->convertWithReport(':pool: :left::right:', strictLosses: true);
+        self::assertStringContainsString("\u{E009}m0x2\u{E00A}", $result->value);
+        self::assertStringNotContainsString('class="footnotes"', $result->value);
+        self::assertSame(0, $result->totalLosses);
     }
 
     public function testConfiguredFullPoolBesideRealBreaksAndFragments(): void
