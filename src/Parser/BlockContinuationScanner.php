@@ -1906,7 +1906,7 @@ final class BlockContinuationScanner
             }
 
             if ($state->literalDiv) {
-                $state->openParagraph = true;
+                $state->openParagraph = !IndentationHelper::isBlankFrom($line, $at);
 
                 return $state;
             }

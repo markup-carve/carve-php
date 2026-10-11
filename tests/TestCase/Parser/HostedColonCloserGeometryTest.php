@@ -123,6 +123,31 @@ class HostedColonCloserGeometryTest extends TestCase
         self::assertStringContainsString('href="/url"', $html);
     }
 
+    public function testBlankLineEndsUnfinishedLiteralParagraphClaim(): void
+    {
+        foreach (['- ', '12. '] as $marker) {
+            $source = $marker . "::: |\n" . str_repeat(' ', strlen($marker)) . "a\n\nb\n";
+            $children = (new BlockParser())->parse($source)->getChildren();
+            self::assertCount(2, $children);
+            self::assertSame('list', $children[0]->getType());
+            self::assertSame('paragraph', $children[1]->getType());
+            self::assertSame('b', self::text($children[1]));
+        }
+    }
+
+    public function testOverindentedDefinitionsKeepTheirEstablishedHoist(): void
+    {
+        $converter = new CarveConverter();
+        $html = $converter->convert("- ::: box\n    [r]: /u\n  :::\n\n[t][r]\n");
+        self::assertStringContainsString('href="/u"', $html);
+        self::assertStringNotContainsString('[r]: /u', $html);
+
+        $html = $converter->convert("- ::: box\n    [^n]: note\n  :::\n\nref[^n]\n");
+        self::assertStringContainsString('role="doc-noteref"', $html);
+        self::assertStringContainsString('note', $html);
+        self::assertStringNotContainsString('[^n]: note', $html);
+    }
+
     private static function text(Node $node): string
     {
         $parts = method_exists($node, 'getContent') ? [$node->getContent()] : [];
