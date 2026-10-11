@@ -48,7 +48,7 @@ class ADelimiterAgainstACloseBraceStillOpensTest extends TestCase
     public function testTheMarkdownTargetKeepsTheSecondRun(): void
     {
         $this->assertSame('*<em>*x*</em>*', $this->md("{/{/{/x/}/}/}\n"));
-        $this->assertSame('**<strong>**x**</strong>**', $this->md("{*{*{*x*}*}*}\n"));
+        $this->assertSame('<strong>**<strong>x</strong>**</strong>', $this->md("{*{*{*x*}*}*}\n"));
         $this->assertSame('<mark><mark><mark>x</mark></mark></mark>', $this->md("{={={=x=}=}=}\n"));
     }
 

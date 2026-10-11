@@ -81,6 +81,7 @@ use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
 use Normalizer;
+use WeakMap;
 
 /**
  * Renders AST to Markdown (CommonMark compatible where possible)
@@ -98,6 +99,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @var list<string>
      */
     private array $delimiterAncestors = [];
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, list<string>>|null
+     */
+    private ?WeakMap $renderedChildren = null;
+
+    /**
+     * @var list<string>
+     */
+    private array $lastRenderedParts = [];
+
+    private ?Node $inlineOwner = null;
 
     public function getRenderTarget(): string
     {
@@ -612,6 +625,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     public function render(Document $document): string
     {
+        $this->renderedChildren = new WeakMap();
+        $this->lastRenderedParts = [];
+        $this->delimiterAncestors = [];
+        $this->inlineOwner = null;
         $this->pickNarrowedSentinels($document);
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
@@ -1822,7 +1839,26 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderChildren(Node $node): string
     {
-        return $this->renderInlineNodes(array_values($node->getChildren()));
+        $children = array_values($node->getChildren());
+        $previousOwner = $this->inlineOwner;
+        $this->inlineOwner = $node;
+        try {
+            $result = $this->renderInlineNodes($children);
+        } finally {
+            $this->inlineOwner = $previousOwner;
+        }
+        if (
+            ($node instanceof Emphasis || $node instanceof Strong || $node instanceof Strike)
+            && count($this->lastRenderedParts) === count($children)
+            && implode('', $this->lastRenderedParts) === $result
+        ) {
+            $this->renderedChildren ??= new WeakMap();
+            $this->renderedChildren[$node] = $this->lastRenderedParts;
+        }
+
+        $this->lastRenderedParts = [];
+
+        return $result;
     }
 
     /**
@@ -1882,27 +1918,39 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             if ($piece === null) {
                 continue;
             }
-            $edgeSeparatedByParent = $parent === '**' && count(array_filter($this->delimiterAncestors, static fn (string $run): bool => $run === '**')) === 1
+            $edgeSeparatedByParent = ($this->inlineOwner instanceof Emphasis || $this->inlineOwner instanceof Strong || $this->inlineOwner instanceof Strike)
+                && $piece['delimiter'] === $parent && count(array_filter($this->delimiterAncestors, static fn (string $run): bool => $run === $parent)) === 1
+                && !in_array('***', $this->delimiterAncestors, true)
                 && ($this->neighbourBefore($parts, $index) === '' || $this->neighbourAfter($parts, $index) === '');
-            if ($piece['delimiter'] === '**' && $edgeSeparatedByParent) {
+            if ($edgeSeparatedByParent) {
                 continue;
             }
-            if ($piece['delimiter'] === '**' && in_array('**', $this->delimiterAncestors, true)) {
-                $parts[$index] = $this->spellAsHtml($piece);
+            if ($piece['delimiter'] === '**' && ($parent === '**' || in_array('***', $this->delimiterAncestors, true))) {
+                $parts[$index] = $this->spellNestedAsHtml($piece, $children[$index]);
 
-                continue;
-            }
-            if ($parent === null || $piece['delimiter'][0] !== $parent[0]) {
-                continue;
-            }
-            $opening = strlen($piece['delimiter']) + $this->runAtStart($piece['core'], $piece['delimiter'][0]);
-            if ($parent[0] === '*' && !$this->ruleOfThreeAllows(strlen($parent), $opening)) {
                 continue;
             }
             $before = $piece['lead'] !== '' ? $this->lastCharacter($piece['lead']) : $this->neighbourBefore($parts, $index);
             $inside = $this->afterRunInCore($piece['core'], $piece['delimiter'][0]);
-            if ($before !== '' && !$this->isFlankingWhitespace($this->flankCharacter($before)) && $this->flanks($before, $inside)) {
-                $parts[$index] = $this->spellAsHtml($piece);
+            $closes = $before !== '' && !$this->isFlankingWhitespace($this->flankCharacter($before)) && $this->flanks($before, $inside);
+            $opening = strlen($piece['delimiter']) + $this->runAtStart($piece['core'], $piece['delimiter'][0]);
+            if ($closes) {
+                foreach ($this->delimiterAncestors as $ancestor) {
+                    if ($ancestor[0] === $piece['delimiter'][0] && ($ancestor[0] === '~' || $this->ruleOfThreeAllows(strlen($ancestor), $opening))) {
+                        $parts[$index] = $this->spellNestedAsHtml($piece, $children[$index]);
+
+                        continue 2;
+                    }
+                }
+            }
+            if ($parent === null || $piece['delimiter'][0] !== $parent[0]) {
+                continue;
+            }
+            if ($parent[0] === '*' && !$this->ruleOfThreeAllows(strlen($parent), $opening)) {
+                continue;
+            }
+            if ($closes) {
+                $parts[$index] = $this->spellNestedAsHtml($piece, $children[$index]);
             }
         }
         // Three passes, because each one wants to see the parts the one before
@@ -1912,8 +1960,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // has to run twice, and a later pass never undoes an earlier one.
         foreach (array_keys($parts) as $index) {
             $piece = $this->delimiterPiece($children, $parts, $index);
-            if ($piece !== null && $this->contentGrowsRun($piece, $children[$index])) {
-                $parts[$index] = $this->spellAsHtml($piece);
+            if ($piece !== null && ($this->contentGrowsRun($piece, $children[$index]) || $this->nestedEdgeBreaks($piece, $children[$index]))) {
+                $parts[$index] = $this->spellNestedAsHtml($piece, $children[$index]);
             }
         }
         foreach (array_keys($parts) as $index) {
@@ -1940,7 +1988,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 continue;
             }
 
-            $parts[$index] = $this->spellAsHtml($piece);
+            $parts[$index] = $this->spellNestedAsHtml($piece, $children[$index]);
         }
         foreach (array_keys($parts) as $index) {
             $piece = $this->delimiterPiece($children, $parts, $index);
@@ -1955,11 +2003,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $next = $piece['delimiter'][0] === '~' ? -1 : $this->nextRendered($parts, $index);
             $right = $next < 0 ? null : $this->delimiterPiece($children, $parts, $next);
             if ($right !== null && $right['delimiter'][0] === $piece['delimiter'][0]) {
-                array_splice($parts, $next, 1, [$this->spellAsHtml($right)]);
+                array_splice($parts, $next, 1, [$this->spellNestedAsHtml($right, $children[$next])]);
             } else {
-                $parts[$index] = $this->spellAsHtml($piece);
+                $parts[$index] = $this->spellNestedAsHtml($piece, $children[$index]);
             }
         }
+
+        foreach ($children as $child) {
+            unset($this->renderedChildren[$child]);
+        }
+        $this->lastRenderedParts = $parts;
 
         return implode('', $parts);
     }
@@ -2003,6 +2056,74 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function spellAsHtml(array $piece): string
     {
         return $piece['lead'] . $piece['open'] . $piece['core'] . $piece['close'] . $piece['trail'];
+    }
+
+    /**
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     * @param \MarkupCarve\Carve\Node\Node $node
+     */
+    private function spellNestedAsHtml(array $piece, Node $node): string
+    {
+        $parent = $this->delimiterAncestors !== [] ? $this->delimiterAncestors[count($this->delimiterAncestors) - 1] : null;
+        $children = array_values($node->getChildren());
+        $parts = $this->renderedChildren[$node] ?? null;
+        if (($parent === '**' || $parent === '***') && $parts !== null) {
+            [$lead, $body, $trail] = $this->splitPadding(implode('', $parts));
+            if ($body === $piece['core'] && count($parts) === count($children)) {
+                foreach ($parts as $index => $part) {
+                    $nested = $children[$index] instanceof Strong ? $this->splitDelimitedRun($part, '**') : null;
+                    if ($nested !== null) {
+                        [$childLead, $core, $childTrail] = $nested;
+                        $parts[$index] = $childLead . '<strong' . $this->htmlAttributes($children[$index]) . '>' . $core . '</strong>' . $childTrail;
+                    }
+                }
+                $repaired = implode('', $parts);
+                $piece['core'] = substr($repaired, strlen($lead), strlen($repaired) - strlen($lead) - strlen($trail));
+            }
+        }
+        $piece['open'] = substr($piece['open'], 0, -1) . $this->htmlAttributes($node) . '>';
+
+        return $this->spellAsHtml($piece);
+    }
+
+    /**
+     * @return array{string, string, string}
+     */
+    private function splitPadding(string $text): array
+    {
+        $lead = $this->flankingRunAtStart($text);
+        $rest = substr($text, strlen($lead));
+        $trail = $this->flankingRunAtEnd($rest);
+
+        return [$lead, substr($rest, 0, strlen($rest) - strlen($trail)), $trail];
+    }
+
+    /**
+     * @param array{delimiter: string, open: string, close: string, lead: string, core: string, trail: string} $piece
+     * @param \MarkupCarve\Carve\Node\Node $node
+     */
+    private function nestedEdgeBreaks(array $piece, Node $node): bool
+    {
+        $character = $piece['delimiter'][0];
+        $parts = $this->renderedChildren[$node] ?? null;
+        if ($character !== '*' || $parts === null || $this->runAtEnd($piece['core'], $character) === 0) {
+            return false;
+        }
+        $index = $this->previousRendered($parts, count($parts));
+        if ($index < 0) {
+            return false;
+        }
+        $child = $this->delimiterPiece(array_values($node->getChildren()), $parts, $index);
+        if ($child === null || $child['delimiter'][0] !== $character) {
+            return false;
+        }
+        $before = $child['lead'] !== '' ? $this->lastCharacter($child['lead']) : $this->neighbourBefore($parts, $index);
+        $inside = $this->afterRunInCore($child['core'], $character);
+        $canClose = $before !== '' && !$this->isFlankingWhitespace($this->flankCharacter($before)) && $this->flanks($before, $inside);
+        $opening = strlen($child['delimiter']) + $this->runAtStart($child['core'], $character);
+        $closing = strlen($piece['delimiter']) + $this->runAtEnd($piece['core'], $character);
+
+        return $canClose && !$this->ruleOfThreeAllows($opening, $closing);
     }
 
     protected function runAtStart(string $text, string $character): int
@@ -2125,8 +2246,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return $this->runAtEnd($piece['core'], '*') === 0
-            || ($this->nestsInside($piece, $kids !== [] ? $kids[count($kids) - 1] : null)
-                && $this->runAtEnd($piece['core'], '*') === $this->nestedDelimiterWidth($kids[count($kids) - 1] ?? null));
+            || $this->nestsInside($piece, $kids !== [] ? $kids[count($kids) - 1] : null);
     }
 
     /**
@@ -3515,7 +3635,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderStrong(Strong $node): string
     {
         [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
-        $this->delimiterAncestors[] = $delimiter;
+        $children = array_values($node->getChildren());
+        $this->delimiterAncestors[] = count($children) === 1 && $children[0] instanceof Emphasis ? '***' : $delimiter;
         try {
             return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
         } finally {
@@ -3693,9 +3814,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // `CARVE-P2-024` orders losses by document position.
         $url = $slug !== null ? '#' . $slug : $this->encodeMarkdownDestination($destination, $node);
         $this->linkTextDepth++;
+        $ancestors = $this->delimiterAncestors;
+        $this->delimiterAncestors = [];
         try {
             $text = $this->renderChildren($node);
         } finally {
+            $this->delimiterAncestors = $ancestors;
             $this->linkTextDepth--;
         }
         $title = $this->markdownTitle($node);

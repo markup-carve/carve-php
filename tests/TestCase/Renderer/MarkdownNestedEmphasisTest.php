@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\RenderLossException;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -34,5 +35,29 @@ class MarkdownNestedEmphasisTest extends TestCase
             self::assertSame(0, $result->totalLosses);
             self::assertFalse($result->truncated);
         }
+    }
+
+    public function testRepairKeepsOrderedLossCountsAndRendererReuse(): void
+    {
+        $source = '{*a {/b {*x `omitted`{=latex}*} c/} d*} and `tail`{=typst}';
+        $converter = CarveConverter::markdown();
+        $report = $converter->convertWithReport($source);
+        self::assertSame($converter->convert($source), $report->value);
+        self::assertSame(['latex', 'typst'], array_column($report->losses, 'format'));
+        self::assertSame([13, 45], array_column(array_column($report->losses, 'pos'), 'startColumn'));
+        self::assertSame(2, $report->totalLosses);
+        $bounded = $converter->convertWithReport($source, maxRenderLosses: 0);
+        self::assertSame([], $bounded->losses);
+        self::assertSame(2, $bounded->totalLosses);
+        self::assertTrue($bounded->truncated);
+        try {
+            $converter->convertWithReport($source, true, 1);
+            self::fail('Strict rendering should refuse the loss.');
+        } catch (RenderLossException $error) {
+            self::assertSame(2, $error->totalLosses);
+            self::assertCount(1, $error->losses);
+            self::assertTrue($error->truncated);
+        }
+        self::assertSame(0, $converter->convertWithReport('/clean/')->totalLosses);
     }
 }
