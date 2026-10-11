@@ -4034,7 +4034,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function escapeImageAlt(string $alt): string
     {
-        return str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $alt);
+        $this->linkTextDepth++;
+        try {
+            return $this->escapeText($alt);
+        } finally {
+            $this->linkTextDepth--;
+        }
     }
 
     protected function renderSubscript(Subscript $node): string
