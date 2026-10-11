@@ -418,6 +418,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private bool $stringSentinels = false;
 
     /**
+     * @var list<string>
+     */
+    private array $stringSentinelTokens = [];
+
+    /**
      * @var list<array{kind: string, fits: bool, cost: int}>|null
      */
     private ?array $probeBudgetDecisions = null;
@@ -639,6 +644,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     public function render(Document $document): string
     {
         $this->pickNarrowedSentinels($document);
+        $this->prepareDocument($document);
         if (!$this->stringSentinels) {
             return $this->renderBody($document, true);
         }
@@ -737,15 +743,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         return $decision;
     }
 
-    private function renderBody(Document $document, bool $normalizeOutput): string
+    private function prepareDocument(Document $document): void
     {
-        $this->renderedChildren = new WeakMap();
-        $this->lastRenderedParts = [];
-        $this->delimiterAncestors = [];
-        $this->inlineOwner = null;
-        $this->authoredHashes = 0;
         $this->headingIdTracker->reset();
-        $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         // Collect every heading's resolved id and the set of ids that a `</#id>`
@@ -758,6 +758,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $this->gfmSlugs = [];
         $slugCounts = [];
         $this->collectGfmSlugs($document, $slugCounts);
+    }
+
+    private function renderBody(Document $document, bool $normalizeOutput): string
+    {
+        $this->renderedChildren = new WeakMap();
+        $this->lastRenderedParts = [];
+        $this->delimiterAncestors = [];
+        $this->inlineOwner = null;
+        $this->authoredHashes = 0;
+        $this->resetExpansionBudgetForDocument($document);
         $this->previousList = null;
         $this->listMarkerOverride = null;
 
@@ -967,6 +977,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         );
         $this->authoredHashes = 0;
         $this->stringSentinels = mb_strlen($this->fenceSentinel, 'UTF-8') > 1;
+        $this->stringSentinelTokens = $this->stringSentinels ? array_keys($this->sentinelCharacters()) : [];
         $this->narrowedSentinelClass = $this->stringSentinels
             ? '(?:' . implode('|', array_map(static fn (string $marker): string => preg_quote($marker, '/'), $run)) . ')'
             : '[' . implode('', $run) . ']';
@@ -2709,7 +2720,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function firstCharacter(string $text): string
     {
         if ($this->stringSentinels) {
-            foreach (array_keys($this->sentinelCharacters()) as $sentinel) {
+            foreach ($this->stringSentinelTokens as $sentinel) {
                 if (str_starts_with($text, $sentinel)) {
                     return $sentinel;
                 }
@@ -2722,7 +2733,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function lastCharacter(string $text): string
     {
         if ($this->stringSentinels) {
-            foreach (array_keys($this->sentinelCharacters()) as $sentinel) {
+            foreach ($this->stringSentinelTokens as $sentinel) {
                 if (str_ends_with($text, $sentinel)) {
                     return $sentinel;
                 }

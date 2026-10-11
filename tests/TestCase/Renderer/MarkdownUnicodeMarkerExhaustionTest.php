@@ -360,4 +360,29 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertStringContainsString('ABB', $ordinary);
         self::assertStringStartsWith(rtrim($ordinary) . "\n\n```\n", $render($source . "\n```\n" . self::pool() . "\n```\n"));
     }
+
+    public function testFallbackKeepsPreparedHeadingIdsWhenAListenerMutatesText(): void
+    {
+        $converter = new CarveConverter();
+        $render = static function (string $source) use ($converter): array {
+            $renderer = new MarkdownRenderer();
+            $calls = 0;
+            $renderer->on('render.text', static function (RenderEvent $event) use (&$calls): void {
+                $calls++;
+                $node = $event->getNode();
+                if ($node instanceof Text) {
+                    $node->setContent('Title!');
+                }
+            });
+
+            return [$renderer->render($converter->parse($source)), $calls];
+        };
+        $source = "# title\n\n</#title>\n";
+        [$ordinary, $ordinaryCalls] = $render($source);
+        [$fallback, $fallbackCalls] = $render($source . "\n```\n" . self::pool() . "\n```\n");
+        self::assertSame(2, $ordinaryCalls);
+        self::assertSame($ordinaryCalls, $fallbackCalls);
+        self::assertStringStartsWith(rtrim($ordinary) . "\n\n```\n", $fallback);
+        self::assertStringContainsString('[Title!](#title)', $fallback);
+    }
 }
