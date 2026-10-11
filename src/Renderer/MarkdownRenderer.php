@@ -391,6 +391,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
 
+    protected bool $attributeFallbackSelected = false;
+
     /**
      * PART 11 §10s: whether an element-less container is bracketed with a
      * carrier marker. OFF by default, because a renderer with raw HTML turned
@@ -485,16 +487,17 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
-     * Keep attributes Markdown cannot spell as raw HTML, or drop them (the
-     * default).
+     * Keep attributes Markdown cannot spell as raw HTML, or explicitly drop them.
      *
      * `AttributeFallback::Html` preserves attributes on containers, images,
      * strong, emphasis and strike using raw HTML. `Drop` discards these
-     * attributes, preserving the default policy for human-facing export.
+     * attributes. Inline marks preserve their attributes by default; containers
+     * and images keep their existing default spelling.
      */
     public function setAttributeFallback(AttributeFallback $mode): self
     {
         $this->attributeFallback = $mode;
+        $this->attributeFallbackSelected = true;
 
         return $this;
     }
@@ -3809,7 +3812,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderEmphasis(Emphasis $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->htmlAttributes($node)
+            : '';
         if ($attrs !== '') {
             return '<em' . $attrs . '>' . $this->renderChildren($node) . '</em>';
         }
@@ -3824,7 +3829,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrong(Strong $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->htmlAttributes($node)
+            : '';
         if ($attrs !== '') {
             return '<strong' . $attrs . '>' . $this->renderChildren($node) . '</strong>';
         }
@@ -4210,7 +4217,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrike(Strike $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->htmlAttributes($node)
+            : '';
         if ($attrs !== '') {
             return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
         }
@@ -4594,9 +4603,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         // A newline in a value would put a blank line inside the opening tag,
         // ending the raw HTML block early and leaving the closing tag dangling as
-        // literal text. Tabs and newlines survive stripControls() by design, so
-        // fold them here; every other control character is already gone.
-        return (string)preg_replace('/[\t\n]+/', ' ', $this->stripControls($attrs));
+        // literal text. Fold newlines and retain tabs without changing their
+        // attribute value; every other control character is already gone.
+        return (string)preg_replace('/\n+/', ' ', $this->stripControls($attrs));
     }
 
     /**
