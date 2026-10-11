@@ -21,6 +21,9 @@ class InvalidFootnoteCarrierLabelTest extends TestCase
         self::assertContains('attribute-dropped', array_map(static fn ($row): string => $row->code, $result->diagnostics));
     }
 
+    /**
+     * @return iterable<array{string, string}>
+     */
     public static function invalidLabels(): iterable
     {
         foreach (['safe', 'roundtrip'] as $mode) {
@@ -48,6 +51,9 @@ class InvalidFootnoteCarrierLabelTest extends TestCase
         self::assertSame("[^a b]\n", (new HtmlToCarve(importMode: $mode))->convert($html));
     }
 
+    /**
+     * @return iterable<array{string}>
+     */
     public static function modes(): iterable
     {
         yield ['safe'];
