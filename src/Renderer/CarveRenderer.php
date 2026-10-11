@@ -3951,6 +3951,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function spellSameKind(Node $node, string $delimiter, string $written): string
     {
+        if ($node instanceof Strong && $node->isBoldItalic() && str_starts_with($written, '/*')) {
+            return $written;
+        }
         if (!str_starts_with($written, '{') && ((str_contains('+-', $delimiter) && ($this->separatesAnOuterKind($node) || $this->holdsOuterKindAcrossLink($node))) || isset($this->bracedForAttributes[spl_object_id($node)]))) {
             $written = '{' . $written . '}';
         }
@@ -4040,7 +4043,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $content = $this->renderInlines($inner->getChildren());
             // `/*` needs content that hugs it: `/* x*/` or `/**/` reparses as an
             // emphasis holding literal stars, so fall back to the nested spelling.
-            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) && !isset($this->bracedForAttributes[spl_object_id($node)])) {
+            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content)) {
                 return '/*' . $content . '*/';
             }
         }

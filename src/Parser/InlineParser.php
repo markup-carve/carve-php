@@ -733,6 +733,8 @@ class InlineParser
         $outerNoCloseText = $this->emphNoCloseText;
         $outerNoCloseFrom = $this->emphNoCloseFrom;
         $outerPairIndex = $this->bracedPairIndex;
+        $inheritedPairIndex = $this->nextBracedPairIndex;
+        $this->nextBracedPairIndex = null;
         $outerNestedSubs = $this->nestedSubstitutions;
         $outerBracedEnds = $this->bracedEndFrom;
         $outerBracedFailures = $this->bracedNoCloseBits;
@@ -767,6 +769,10 @@ class InlineParser
         }
         $this->inlineDepth++;
         try {
+            if ($inheritedPairIndex !== null) {
+                $this->resetScanMemos($text);
+                $this->bracedPairIndex = $inheritedPairIndex;
+            }
             $this->parseInlinesImpl($parent, $text, $footnoteRecognitionEnabled);
         } finally {
             if ($quoteRoot) {
@@ -3115,16 +3121,19 @@ class InlineParser
     }
 
     /**
-     * The span kinds open around the text being parsed, bare and forced alike.
+     * The span kinds held against bare openers in the current inline scope.
      *
-     * PART 9 section 9 E3: a further opener of an open kind is literal, and a
-     * forced span pushes and pops on the same stack (markup-carve/carve#2078).
+     * A bare span inherits the enclosing kinds. A braced native span starts
+     * a scope holding its own kind against bare openers; a further braced
+     * native child can nest that kind (CARVE-P9-043).
      *
      * @var array<int, string>
      */
     protected array $openSpanKinds = [];
 
     private ?BracedPairIndex $bracedPairIndex = null;
+
+    private ?BracedPairIndex $nextBracedPairIndex = null;
 
     /**
      * @var array<int, array{0:int, 1:int}|null>
@@ -3137,6 +3146,9 @@ class InlineParser
     protected function parseSpanContent(Node $node, string $content, int $offset, string $kind, bool $braced = false): void
     {
         $outer = $this->openSpanKinds;
+        $outerPendingIndex = $this->nextBracedPairIndex;
+        $this->nextBracedPairIndex = $braced && strlen($kind) === 1 && str_contains('/*_^,~=', $kind)
+            ? $this->bracedPairIndex?->slice($offset, strlen($content)) : null;
         // A braced inline starts its own scope, so an outer kind opens again
         // inside it (markup-carve/carve#2091).
         $this->openSpanKinds = $braced ? [$kind] : [...$outer, $kind];
@@ -3144,6 +3156,7 @@ class InlineParser
             $this->parseInlinesAt($node, $content, $offset);
         } finally {
             $this->openSpanKinds = $outer;
+            $this->nextBracedPairIndex = $outerPendingIndex;
         }
     }
 

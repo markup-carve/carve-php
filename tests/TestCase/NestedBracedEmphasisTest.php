@@ -17,6 +17,22 @@ use PHPUnit\Framework\TestCase;
 
 class NestedBracedEmphasisTest extends TestCase
 {
+    public function testCombinedSourceKeepsForcedChildren(): void
+    {
+        foreach (
+            [
+                '/*a {*b*} c*/ x',
+                '/*a {/b/} c*/ x',
+                '/*a {*b*}{.c} c*/ x',
+                '/*a {/b/}{.c} c*/ x',
+                '{*a /*b*/ c*}',
+                '/*a {*b*} c*/{.p}',
+            ] as $source
+        ) {
+            $this->assertSame($source, trim(CarveConverter::toCarve($source)));
+        }
+    }
+
     private function semantic(array $value): array
     {
         foreach ($value as $key => $item) {

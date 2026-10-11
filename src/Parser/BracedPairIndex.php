@@ -9,6 +9,10 @@ use SplFixedArray;
 
 final class BracedPairIndex
 {
+    private int $offset = 0;
+
+    private int $length;
+
     /**
      * @var array<int, int>
      */
@@ -41,6 +45,7 @@ final class BracedPairIndex
         array $attributeTails = [],
     ) {
         $length = strlen($text);
+        $this->length = $length;
         $tables = [];
         $raw = [];
         foreach (str_split('/*_^,~=+-') as $marker) {
@@ -149,12 +154,16 @@ final class BracedPairIndex
 
     public function end(int $open): ?int
     {
-        return $this->ends[$open] ?? null;
+        $end = $this->ends[$open + $this->offset] ?? null;
+
+        return $end !== null && $end <= $this->offset + $this->length ? $end - $this->offset : null;
     }
 
     public function afterAttributes(int $end): int
     {
-        return $this->attributeTails[$end] ?? $end;
+        $tail = $this->attributeTails[$end + $this->offset] ?? null;
+
+        return $tail !== null && $tail <= $this->offset + $this->length ? $tail - $this->offset : $end;
     }
 
     /**
@@ -162,6 +171,20 @@ final class BracedPairIndex
      */
     public function bareAttributes(int $open): ?array
     {
-        return $this->bareAttributes[$open] ?? null;
+        $pair = $this->bareAttributes[$open + $this->offset] ?? null;
+        if ($pair === null || $pair['end'] > $this->offset + $this->length) {
+            return null;
+        }
+
+        return ['close' => $pair['close'] - $this->offset, 'end' => $pair['end'] - $this->offset];
+    }
+
+    public function slice(int $start, int $length): self
+    {
+        $slice = clone $this;
+        $slice->offset += $start;
+        $slice->length = $length;
+
+        return $slice;
     }
 }
