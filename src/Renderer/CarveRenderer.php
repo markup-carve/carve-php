@@ -504,8 +504,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function pickVerbatimSentinels(string $text): array
     {
         // The final slots carry list boundaries and code continuation guards.
-        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
         // Reserve a ninth character for the footnote continuation guard.
+        /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
         $picked = array_slice(DocumentSentinels::pickTokens($text, 9, 0xE001), 0, 8);
         $this->boundedSentinelChoice = strlen($picked[0]) > 3 ? $picked : null;
 
