@@ -8,7 +8,6 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstSchema;
 use MarkupCarve\Carve\Exception\AstDecodeException;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Test\Fixture\ApprovedSeparatorWidthsSchemaBridge;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 use Throwable;
@@ -493,7 +492,7 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         // remove, so a pin that lost it again would make this comparison pass
         // for the wrong reason.
         $this->assertArrayHasKey('ruby', $upstreamSchema['$defs']);
-        $this->assertSame(ApprovedSeparatorWidthsSchemaBridge::schema($upstreamSchema), $vendoredSchema);
+        $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 
     /**

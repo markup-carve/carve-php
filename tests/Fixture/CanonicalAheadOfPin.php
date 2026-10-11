@@ -19,13 +19,7 @@ final class CanonicalAheadOfPin
     public static function all(): array
     {
         return [
-            // Approved authored separator forms from carve#2919; retire with its published pin.
-            'fmt' => [
-                '284-a-ragged-table-keeps-each-row-s-cell-count-2' => "| | x |\n|---|\n| y |\n",
-                '284-a-ragged-table-keeps-each-row-s-cell-count-3' => "| h |\n|---|\n| | x |\n",
-                '285-adjacent-block-openers-in-an-attached-run-stay-separate-2' => "- x\n+\n| a |\n|---|\n| b |\n+\n| a |\n|---|\n| b |\n",
-                '99-table-cell-attributes' => "|{.highlight} Total | 99 |\n|---|---|\n| a | b |\n",
-            ],
+            'fmt' => [],
             'md' => [],
         ];
     }

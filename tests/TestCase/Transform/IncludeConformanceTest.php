@@ -102,11 +102,6 @@ class IncludeConformanceTest extends TestCase
     public function testVector(array $vector): void
     {
         $name = (string)$vector['name'];
-        if ($name === 'i02-directive-in-a-table-cell') {
-            $approvedFmt = "| A | {{ c.crv }} |\n|---|---|\n| 1 | 2 |\n";
-            $this->assertNotSame($approvedFmt, $vector['expected']['fmt'], 'The spec pin has caught up with carve#2919; remove this named formatter bridge.');
-            $vector['expected']['fmt'] = $approvedFmt;
-        }
         if (isset(self::KNOWN_DIFFERENCES[$name])) {
             $this->markTestSkipped('Known cross-engine difference: ' . self::KNOWN_DIFFERENCES[$name]);
         }
