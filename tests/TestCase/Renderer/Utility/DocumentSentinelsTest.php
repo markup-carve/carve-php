@@ -191,4 +191,30 @@ class DocumentSentinelsTest extends TestCase
         $this->assertStringContainsString('AB', CarveConverter::ansi()->convert($source));
         $this->assertStringContainsString('AB', CarveConverter::toCarve($source));
     }
+
+    public function testRenderingMarkersKeepThePreferredFastPath(): void
+    {
+        $this->assertSame(DocumentSentinels::pick('ordinary', 4, 0xE001), DocumentSentinels::pickRenderMarkers('ordinary', 4, 0xE001));
+    }
+
+    public function testRenderingMarkersUseBothSupplementaryPrivateUsePlanes(): void
+    {
+        $text = '';
+        foreach ([[0xE000, 0xF8FF], [0xF0000, 0xFFFFD]] as [$first, $last]) {
+            for ($code = $first; $code <= $last; $code++) {
+                $text .= mb_chr($code, 'UTF-8');
+            }
+        }
+        $markers = DocumentSentinels::pickRenderMarkers($text, 4, 0xE001);
+        $this->assertSame(["\u{100000}", "\u{100001}", "\u{100002}", "\u{100003}"], $markers);
+        foreach ($markers as $marker) {
+            $this->assertSame(1, mb_strlen($marker, 'UTF-8'));
+            $this->assertStringNotContainsString($marker, $text);
+        }
+        for ($code = 0x100000; $code <= 0x10FFFD; $code++) {
+            $text .= mb_chr($code, 'UTF-8');
+        }
+        $this->expectException(SentinelSpaceExhaustedException::class);
+        DocumentSentinels::pickRenderMarkers($text, 4, 0xE001);
+    }
 }

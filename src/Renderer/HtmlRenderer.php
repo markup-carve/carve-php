@@ -657,7 +657,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function pickBreakGuards(object|array $root): void
     {
-        $this->breakGuards = DocumentSentinels::pick(
+        $this->breakGuards = DocumentSentinels::pickRenderMarkers(
             DocumentSentinels::collectStrings([$root, $this->symbols, $this->labels]),
             4,
             self::BREAK_GUARD_FIRST,
