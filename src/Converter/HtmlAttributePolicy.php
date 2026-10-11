@@ -14,18 +14,16 @@ final class HtmlAttributePolicy
 {
     /**
      * @param string $name
-     * @param string $mode
      * @param array<string> $skip
      */
-    public static function isStripped(string $name, string $mode, array $skip): bool
+    public static function isStripped(string $name, array $skip): bool
     {
         $lower = strtolower($name);
 
         return str_starts_with($lower, 'on')
             || $lower === 'srcdoc'
             || $lower === 'formaction'
-            || (HtmlCarrierNames::isReserved($lower)
-                && ($lower !== 'data-carve-ref' || $mode === 'roundtrip'))
+            || HtmlCarrierNames::isReserved($lower)
             || in_array($name, $skip, true)
             || in_array($lower, $skip, true);
     }
@@ -55,7 +53,7 @@ final class HtmlAttributePolicy
         $order = [];
         foreach ($node->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
-            if (isset($skip[$name]) || self::isStripped($name, $mode, []) || ($name === 'role' && $derivedRole($attribute->value))) {
+            if (isset($skip[$name]) || self::isStripped($name, []) || ($name === 'role' && $derivedRole($attribute->value))) {
                 continue;
             }
             if ($name === 'id') {

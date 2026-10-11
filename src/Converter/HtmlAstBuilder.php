@@ -885,10 +885,10 @@ final class HtmlAstBuilder
         }
         if ($tag === 'hr') {
             $break = ['type' => 'thematic_break'];
-            if ($this->importMode === 'roundtrip' && in_array($node->getAttribute('data-char'), ['*', '_'], true)) {
+            if (in_array($node->getAttribute('data-char'), ['*', '_'], true)) {
                 $break['marker'] = $node->getAttribute('data-char');
             }
-            $this->attachAttrs($break, $node, $this->importMode === 'roundtrip' ? ['data-char'] : []);
+            $this->attachAttrs($break, $node, ['data-char']);
 
             return [$break];
         }
@@ -3674,17 +3674,27 @@ final class HtmlAstBuilder
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
             return [];
         }
-        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-escaped')) {
-            return array_map(
-                static fn (string $char): array => ['type' => 'escaped_text', 'value' => $char],
-                preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: [],
-            );
-        }
-        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-raw')) {
-            $content = '';
-            foreach ($node->childNodes as $child) {
-                $content .= HtmlDomLoader::serialize($child);
+        if ($node->hasAttribute('data-carve-escaped')) {
+            // ONE ESCAPE PER ELEMENT (PART 10 section 13a). Splitting a longer
+            // value into one escaped_text per character wrote `\a\b\c`, which
+            // is not Carve, so a span carrying more than one character is
+            // malformed and its content is text.
+            $characters = preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            if (count($characters) === 1) {
+                return [['type' => 'escaped_text', 'value' => $characters[0]]];
             }
+        }
+        // STILL MODE-GATED, and section 13d does not override it: this carrier
+        // RETURNS ITS PAYLOAD VERBATIM as a raw inline, which section 13e
+        // leaves on the importer's own trust setting. Consuming `data-char` or
+        // `data-carve-escaped` reconstructs syntax; consuming this one decides
+        // that foreign content may re-enter the document as raw.
+        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-raw')) {
+            // THE SPAN'S CONTENT IS TEXT (PART 10 section 13a), so this reads
+            // the text rather than re-serializing the children. Serializing
+            // escaped the payload a second time, so a raw inline holding `&`
+            // came back holding `&amp;`.
+            $content = $node->textContent;
 
             return [
                 [
@@ -4015,18 +4025,14 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $image['title'] = $node->getAttribute('title');
         }
-        if ($this->importMode === 'roundtrip' && $this->sourceSafe && $node->hasAttribute('data-carve-ref')) {
+        if ($this->sourceSafe && $node->hasAttribute('data-carve-ref')) {
             $ref = $node->getAttribute('data-carve-ref');
             $image['ref'] = $ref;
             $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
                 . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
             $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
         }
-        $skip = ['src', 'alt', 'title'];
-        if ($this->importMode === 'roundtrip') {
-            $skip[] = 'data-carve-ref';
-        }
-        $this->attachAttrs($image, $node, $skip);
+        $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-carve-ref']);
 
         return [$image];
     }
@@ -4128,7 +4134,7 @@ final class HtmlAstBuilder
             return [$autolink];
         }
         $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
-        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-ref')) {
+        if ($node->hasAttribute('data-carve-ref')) {
             $labelText = $this->plainInlineText(self::nodeList($children));
             $ref = $node->getAttribute('data-carve-ref');
             if ($ref === '') {
@@ -4145,10 +4151,7 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $link['title'] = $node->getAttribute('title');
         }
-        $skip = ['href', 'title', 'data-carve-autolink', 'data-carve-footnote-label'];
-        if ($this->importMode === 'roundtrip') {
-            $skip[] = 'data-carve-ref';
-        }
+        $skip = ['href', 'title', 'data-carve-autolink', 'data-carve-footnote-label', 'data-carve-ref'];
         if ($this->hasClass($node, 'index-backref')) {
             $skip[] = 'aria-label';
         }

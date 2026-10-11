@@ -36,7 +36,9 @@ class ADeprecatedCarrierSpellingStillImportsTest extends TestCase
                 '<table data-PREFIX-col-widths="3,5"><thead><tr><th>a</th><th>b</th></tr></thead>'
                 . '<tbody><tr><td>c</td><td>d</td></tr></tbody></table>',
             ],
-            'abbreviation definitions' => ['<template data-PREFIX-abbreviations="HTML=HyperText"></template><p>HTML</p>'],
+            'abbreviation definitions' => [
+                '<template data-PREFIX-abbreviations>*[HTML]: HyperText</template><p>HTML</p>',
+            ],
             'an admonition' => [
                 '<div class="admonition note" data-PREFIX-admonition-type="note" '
                 . 'data-PREFIX-admonition-title="Heads up"><p>b</p></div>',

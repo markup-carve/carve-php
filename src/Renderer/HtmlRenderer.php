@@ -4159,9 +4159,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         // Only output if format is HTML
         if ($node->getFormat() !== 'html') {
-            if (!$this->roundTripMode) {
-                $this->recordRawFormatDropped($node, $node->getFormat(), 'block');
-            }
+            // PART 10 section 13: no carrier holds a raw block, and roundtrip
+            // mode used to suppress this diagnostic - which made the
+            // preservation mode the one that lost a block silently.
+            $this->recordRawFormatDropped($node, $node->getFormat(), 'block');
 
             return '';
         }
@@ -4251,9 +4252,13 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $context = $this->getRenderContext();
         $context->headingRawCodeTracker?->observe($content);
 
-        // In round-trip mode, wrap HTML content for recovery
+        // In round-trip mode, wrap HTML content for recovery. THE SPAN'S
+        // CONTENT IS TEXT and escapes as text content: written raw, a payload
+        // like `<b>` opened a tag the span never closed and swallowed the rest
+        // of the paragraph. The non-HTML branch above already escaped.
         if ($this->roundTripMode) {
-            return '<span data-carve-raw="html">' . $this->guardVerbatimNewlines($content) . '</span>';
+            return '<span data-carve-raw="html">'
+                . $this->guardVerbatimNewlines($this->escape($content)) . '</span>';
         }
 
         return $this->guardVerbatimNewlines($content);
@@ -4263,9 +4268,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         $content = $node->getContent();
 
-        // In round-trip mode, wrap escaped text for recovery
+        // In round-trip mode, wrap escaped text for recovery. ONE ESCAPE PER
+        // ELEMENT (PART 10 section 13a): a node holding a run gets one span per
+        // character, because a multi-character span reads back as a run of
+        // backslash escapes, which is not Carve.
         if ($this->roundTripMode) {
-            return '<span data-carve-escaped>' . $this->escape($content) . '</span>';
+            $characters = preg_split('//u', $content, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+            $spans = '';
+            foreach ($characters as $character) {
+                $spans .= '<span data-carve-escaped>' . $this->escape($character) . '</span>';
+            }
+
+            return $spans;
         }
 
         // Without round-trip mode, just output the escaped character

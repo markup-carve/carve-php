@@ -12,6 +12,10 @@ use PHPUnit\Framework\TestCase;
 /**
  * A link label's edge space stands outside it, where it still separates the
  * label from its neighbor (#2094, markup-carve/carve#2361).
+ *
+ * The reference cases read their carrier in this default `safe` mode too, so
+ * what they pin is the space around a RECONSTRUCTED reference rather than
+ * around a carrier written back as an attribute (PART 10 section 13d).
  */
 class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
 {
@@ -24,13 +28,13 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
             'a trailing space before text' => ['<p><a href="u">x </a>y</p>', "[x](u) y\n"],
             'a leading space after text' => ['<p>x<a href="u"> y</a></p>', "x [y](u)\n"],
             'a title' => ['<p><a href="u" title="t">x </a>y</p>', "[x](u \"t\") y\n"],
-            'a full reference' => ['<p><a href="u" data-carve-ref="r">x </a>y</p>', "[x](u){data-carve-ref=r} y\n"],
-            'a collapsed reference' => ['<p><a href="u" data-carve-ref="">x </a>y</p>', "[x](u){data-carve-ref} y\n"],
+            'a full reference' => ['<p><a href="u" data-carve-ref="r">x </a>y</p>', "[x][r] y\n\n[r]: u\n"],
+            'a collapsed reference' => ['<p><a href="u" data-carve-ref="">x </a>y</p>', "[x][] y\n\n[x]: u\n"],
             'inside an emphasis' => ['<p><em><a href="u">x </a></em>y</p>', "{/[x](u) /}y\n"],
             'two links keep one space' => ['<p><a href="u">x </a><a href="v"> y</a></p>', "[x](u) [y](v)\n"],
             'the neighbor has its own space' => ['<p><a href="u">x </a> y</p>', "[x](u) y\n"],
             'the block ends' => ['<p><a href="u">x </a></p>', "[x](u)\n"],
-            'an unpadded collapsed reference' => ['<p><a href="u" data-carve-ref="">x</a> y</p>', "[x](u){data-carve-ref} y\n"],
+            'an unpadded collapsed reference' => ['<p><a href="u" data-carve-ref="">x</a> y</p>', "[x][] y\n\n[x]: u\n"],
             'a strong beside a link' => ['<p><a href="u">x </a><strong> y</strong></p>', "[x](u){* y*}\n"],
             'a strong beside an autolink' => [
                 '<p><a href="https://e.test" data-carve-autolink>https://e.test </a><strong> y</strong></p>',
