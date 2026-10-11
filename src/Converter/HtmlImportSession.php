@@ -140,6 +140,16 @@ final class HtmlImportSession
     public array $footnoteTargets = [];
 
     /**
+     * @var array<string, \DOMElement>
+     */
+    public array $endnoteItems = [];
+
+    /**
+     * @var array<string, true>
+     */
+    public array $activeInlineFootnotes = [];
+
+    /**
      * @var list<ImportedNode>
      */
     public array $footnoteDefinitions = [];
