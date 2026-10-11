@@ -156,7 +156,7 @@ final class MarkdownAssessment
                 $this->emit('raw-html', $line, 'degraded', 'raw-preserved');
                 $result .= $m[0];
             } else {
-                if (str_contains('*_`[\\<', $text[$i]) || self::match('~^(?:\~\~|https?://|www\.)~', $text, $i, $m) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
+                if (str_contains('*_`[\\<', $text[$i]) || self::match('~^(?:\~\~|(?i:https?|ftp)://|www\.)~', $text, $i, $m) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
                     $this->complete = false;
 
                     return $result . self::escape(substr($text, $i));
@@ -169,7 +169,7 @@ final class MarkdownAssessment
                     if ($next === "\n") {
                         $m[0] = preg_replace('/ {2,}$/', '', $m[0]) ?? $m[0];
                     }
-                    if ($m[0] === '' || preg_match('~https?://|www\.|[\w.+-]+@[\w.-]+\.[A-Za-z]~', $m[0])) {
+                    if ($m[0] === '' || preg_match('~(?i:https?|ftp)://|www\.|[\w.+-]+@[\w.-]+\.[A-Za-z]~', $m[0])) {
                         $this->complete = false;
 
                         return $result . self::escape(substr($text, $i));
