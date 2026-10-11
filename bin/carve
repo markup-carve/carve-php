@@ -411,7 +411,6 @@ function parseArgs(array $argv): array
         'maxRenderLosses' => 100,
         'includeRoot' => null,
         'noIncludes' => false,
-        'carryMarkers' => false,
         'roundTripMode' => false,
         'help' => false,
         'version' => false,
@@ -501,10 +500,6 @@ function parseArgs(array $argv): array
             $options['maxRenderLosses'] = (int)$value;
         } elseif ($arg === '--roundtrip') {
             $options['roundTripMode'] = true;
-        } elseif ($arg === '--carry-markers') {
-            // PART 11 §10s. Opt-in because a Markdown renderer with raw HTML
-            // turned off shows the carrier comment as text.
-            $options['carryMarkers'] = true;
         } elseif ($arg === '--smart-typography') {
             // The document-global switch the spec documents. Source mode is
             // for machine-facing output - text piped into something that
@@ -695,7 +690,6 @@ Rendering:
   --smart-typography MODE  glyph (default), source (all source runs),
                            quotes-source (quotes only); every presentation target
   --roundtrip              Preserve round-trip carriers in HTML or Markdown output
-  --carry-markers          Markdown-only alias of --roundtrip
   --strict-losses          Refuse output when a raw format would be dropped
   --report-losses FILE     Write the machine-readable render-loss report (`-` for stderr)
   --allow-loss CODE        Permit raw-format-dropped, ruby-flattened,
@@ -1043,17 +1037,6 @@ if ($options['roundTripMode']) {
     if ($converter->getRenderer() instanceof MarkdownRenderer) {
         $converter->getRenderer()->setRoundTripMode(true);
     }
-}
-
-// The legacy carrier alias applies only to Markdown.
-if ($options['carryMarkers'] ?? false) {
-    $renderer = $converter->getRenderer();
-    if (!$renderer instanceof MarkdownRenderer) {
-        fwrite(STDERR, "Error: --carry-markers applies to --markdown output only\n");
-
-        exit(1);
-    }
-    $renderer->setCarryMarkers();
 }
 
 if (($options['smartTypography'] ?? 'glyph') !== 'glyph') {

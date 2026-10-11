@@ -99,9 +99,8 @@ parse and only this one publishes the result.
 See [`docs/ast-json.md`](ast-json.md). `--stamp-info` and `--stamp-check`
 report a document's provenance marker (see below). `--roundtrip` adds carriers
 for HTML or Markdown output. In Markdown it brackets dropped containers with
-comments holding their Carve openers, so migration can restore them.
-`--carry-markers` is the Markdown-only legacy alias; either option enables
-carriers (see [`docs/markdown-output.md`](markdown-output.md)). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
+comments holding their Carve openers, so migration can restore them
+(see [`docs/markdown-output.md`](markdown-output.md)). `-o FILE` writes to a file; `-w`/`--warnings` and `--strict` report
 parse warnings (exit 1 under `--strict`); `-x`/`--xhtml` and `-s`/`--safe` apply
 to HTML output only. Run `bin/carve --help` for the full list.
 

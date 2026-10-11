@@ -10,40 +10,28 @@ use PHPUnit\Framework\TestCase;
 
 class OneRoundTripOptionPreservesContainersTest extends TestCase
 {
-    public function testRoundTripAloneWritesTheCarrier(): void
+    public function testRoundTripModeWritesTheMarkdownCarrier(): void
     {
         $renderer = (new MarkdownRenderer())->setRoundTripMode(true);
+
         $this->assertTrue($renderer->isRoundTripMode());
-        $this->assertFalse($renderer->getCarryMarkers());
-        $this->assertCarrier($renderer);
+        $this->assertStringContainsString('<!-- carve: ::: aside -->', $this->convert(new CarveConverter(renderer: $renderer)));
     }
 
-    public function testDisablingTheAliasDoesNotDisableRoundTripInEitherOrder(): void
+    public function testMarkdownCarrierIsOffByDefault(): void
     {
-        $this->assertCarrier((new MarkdownRenderer())->setCarryMarkers(false)->setRoundTripMode(true));
-        $this->assertCarrier((new MarkdownRenderer())->setRoundTripMode(true)->setCarryMarkers(false));
-    }
-
-    public function testDisablingRoundTripDoesNotDisableTheAliasInEitherOrder(): void
-    {
-        $this->assertCarrier((new MarkdownRenderer())->setRoundTripMode(false)->setCarryMarkers(true));
-        $this->assertCarrier((new MarkdownRenderer())->setCarryMarkers(true)->setRoundTripMode(false));
+        $this->assertStringNotContainsString('<!-- carve:', $this->convert(new CarveConverter(renderer: new MarkdownRenderer())));
     }
 
     public function testConverterConfiguresTheProvidedMarkdownRenderer(): void
     {
         $converter = new CarveConverter(roundTripMode: true, renderer: new MarkdownRenderer());
-        $this->assertStringContainsString('<!-- carve: ::: aside -->', $converter->convert("::: aside\nText.\n:::\n"));
+
+        $this->assertStringContainsString('<!-- carve: ::: aside -->', $this->convert($converter));
     }
 
-    public function testConverterKeepsPreconfiguredRoundTripEnabled(): void
+    private function convert(CarveConverter $converter): string
     {
-        $this->assertCarrier((new MarkdownRenderer())->setRoundTripMode(true));
-    }
-
-    private function assertCarrier(MarkdownRenderer $renderer): void
-    {
-        $converter = new CarveConverter(renderer: $renderer);
-        $this->assertStringContainsString('<!-- carve: ::: aside -->', $converter->convert("::: aside\nText.\n:::\n"));
+        return $converter->convert("::: aside\nText.\n:::\n");
     }
 }

@@ -26,6 +26,14 @@ class CliTest extends TestCase
         $this->assertStringContainsString('<!-- carve: ::: aside -->', $result['out']);
     }
 
+    public function testCarryMarkersIsNotAnOption(): void
+    {
+        $result = $this->runCliInput(['--markdown', '--carry-markers'], self::SRC);
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('Unknown option: --carry-markers', $result['err']);
+    }
+
     public function testRoundTripRejectsPlainOutput(): void
     {
         $result = $this->runCliInput(['--plain', '--roundtrip'], self::SRC);
