@@ -1928,7 +1928,7 @@ class DjotToCarve
                     }
                 }
                 if (($source[$i + 1] ?? '') === '%' && $this->djotCommentContinuesParagraph($source, $i)) {
-                    for ($inner = $i + 2; $inner < $length && $source[$inner] !== '%' && $source[$inner] !== '}'; $inner++) {
+                    for ($inner = max($i + 2, $escapes[array_key_last($escapes)] + 1); $inner < $length && $source[$inner] !== '%' && $source[$inner] !== '}'; $inner++) {
                         if ($source[$inner] === '{' && $masked[$inner] === '{') {
                             $escapes[] = $inner;
                         }
