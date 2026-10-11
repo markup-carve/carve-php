@@ -1339,6 +1339,27 @@ final class BlockContinuationScanner
             $literal = $literal->nestedDiv;
         }
         $column = $offset + $literal->divColumn;
+        if ($literal->literalCommentLength !== null) {
+            if (($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($line, $literal->literalCommentLength)) {
+                $literal->literalCommentLength = null;
+            }
+            $literal->openParagraph = false;
+            $state->openParagraph = false;
+
+            return $state;
+        }
+        $comment = $literal->inDiv && $literal->literalDiv && $literal->fence === null
+            ? ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($line)
+            : null;
+        if ($comment !== null) {
+            if ($this->literalSourceCommentHasCloser($lines, $index, $comment['length'], $stripColumns + $offset)) {
+                $literal->literalCommentLength = $comment['length'];
+                $literal->openParagraph = false;
+                $state->openParagraph = false;
+
+                return $state;
+            }
+        }
         $opener = $literal->fence === null
             && IndentationHelper::getLeadingColumns($line, $column + 1) === $column
             ? (($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($line, " \t"))
@@ -1371,6 +1392,33 @@ final class BlockContinuationScanner
         }
 
         return $state;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $floor
+     * @param int $width
+     * @param int $index
+     */
+    private function literalSourceCommentHasCloser(array $lines, int $index, int $width, int $floor): bool
+    {
+        $parser = ($this->getFencedBlockParser)();
+        if ($parser::class === FencedBlockParser::class) {
+            $view = $this->state->frame->literalSourceCommentView ??= new LiteralCommentClosers($lines, $parser);
+
+            return $view->hasCloser($width, $index, $floor);
+        }
+        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
+            $line = $lines[$at];
+            if ($parser->isFencedCommentCloserAnyColumn($line, $width)) {
+                return true;
+            }
+            if (!IndentationHelper::isBlankLine($line) && !str_starts_with(ltrim($line, " \t"), '%%') && IndentationHelper::getLeadingColumns($line) < $floor) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
