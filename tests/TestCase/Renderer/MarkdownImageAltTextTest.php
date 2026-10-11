@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\TestCase\Renderer;
+
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\RenderLossException;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class MarkdownImageAltTextTest extends TestCase
+{
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function controls(): array
+    {
+        $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/markdown-image-alt-text.json'), true, flags: JSON_THROW_ON_ERROR);
+        $controls = [];
+        foreach ($rows as $index => $row) {
+            $controls[(string)$index . ': ' . $row['source']] = [$row['source'], $row['markdown']['php']];
+        }
+
+        return $controls;
+    }
+
+    #[DataProvider('controls')]
+    public function testMarkdownPreservesLiteralImageAltText(string $source, string $expected): void
+    {
+        $converter = CarveConverter::markdown();
+        foreach ([$converter->convertWithReport($source), $converter->renderWithReport($converter->parse($source))] as $result) {
+            self::assertSame($expected, $result->value);
+            self::assertSame([], $result->losses);
+            self::assertSame(0, $result->totalLosses);
+            self::assertFalse($result->truncated);
+        }
+    }
+
+    public function testRepairKeepsOrderedLossCountsAndRendererReuse(): void
+    {
+        $source = 'a ![**alt** _x_](u) `one`{=latex} and `two`{=typst}';
+        $converter = CarveConverter::markdown();
+        $report = $converter->convertWithReport($source);
+        self::assertSame($converter->convert($source), $report->value);
+        self::assertSame(['latex', 'typst'], array_column($report->losses, 'format'));
+        self::assertSame(2, $report->totalLosses);
+        $bounded = $converter->convertWithReport($source, maxRenderLosses: 0);
+        self::assertSame([], $bounded->losses);
+        self::assertSame(2, $bounded->totalLosses);
+        self::assertTrue($bounded->truncated);
+        try {
+            $converter->convertWithReport($source, true, 1);
+            self::fail('Strict rendering should refuse the loss.');
+        } catch (RenderLossException $error) {
+            self::assertSame(2, $error->totalLosses);
+            self::assertCount(1, $error->losses);
+            self::assertTrue($error->truncated);
+        }
+        self::assertSame(0, $converter->convertWithReport('/clean/')->totalLosses);
+    }
+}
