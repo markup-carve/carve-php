@@ -390,18 +390,12 @@ final class BlockQuoteBuilder
 
             return true;
         }
-        while (
-            $state['colonClaims'] !== []
-            && ($state['colonClaims'][array_key_last($state['colonClaims'])]['literal'] ?? false)
-            && $column < ($state['colonClaims'][array_key_last($state['colonClaims'])]['base'] ?? $state['colonClaims'][array_key_last($state['colonClaims'])]['column'])
-        ) {
-            array_pop($state['colonClaims']);
-            $state['paragraphOpen'] = false;
-        }
         if (
             $heldColon !== null && $heldColon['literal']
             && $column < ($heldColon['base'] ?? $heldColon['column'])
         ) {
+            array_pop($state['colonClaims']);
+            $state['paragraphOpen'] = false;
             $comment = ($this->getFencedBlockParser)()->parseFencedCommentOpener($text);
             if ($comment !== null && $this->hasClosingCommentFenceAheadInBlockQuote($lines, $index, $comment['length'])) {
                 return false;

@@ -530,5 +530,20 @@
   {
     "source": "> - ::: |\n>   ```\n>   code\n>   ```\n- tail\n",
     "html": "<blockquote><ul><li><div class=\"line-block\"><p><code>\ncode\n</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "review-outer-colon-comment",
+    "source": "> - ::: note\n>   ::: |\n>   x\n> %%%\n> hidden\n> %%%\n>   :::\ntail\n",
+    "html": "<blockquote><ul><li><aside class=\"admonition note\" aria-label=\"Note\"><div class=\"line-block\"><p>x</p></div></aside></li></ul><p>:::</p></blockquote><p>tail</p>"
+  },
+  {
+    "id": "review-descendant-comment-column",
+    "source": "> - ::: note\n>   - ::: |\n>     x\n>   %%%\n>   hidden\n>     %%%\n>   :::\ntail\n",
+    "html": "<blockquote><ul><li><aside class=\"admonition note\" aria-label=\"Note\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul></aside></li></ul></blockquote><p>tail</p>"
+  },
+  {
+    "id": "review-dedented-line-comment",
+    "source": "> - ::: |\n>   x\n> %% note\n>   y\n>   :::\ntail\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>x<br><br>\ny</p></div></li></ul></blockquote><p>tail</p>"
   }
 ]
