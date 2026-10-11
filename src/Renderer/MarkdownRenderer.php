@@ -3909,7 +3909,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         if ($node->getFormat() === 'html') {
             // Escape, not emit: raw HTML in Markdown output would be live again
             // when the Markdown is rendered to HTML downstream.
-            return $this->escapeHtml($this->stripControls($node->getContent())) . "\n\n";
+            return $this->escapeHtml($this->stripControls($node->getPassthroughContent())) . "\n\n";
         }
 
         $this->recordRawFormatDropped($node, $node->getFormat(), 'block');

@@ -87,7 +87,6 @@ use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\Util\TableWidth;
-use MarkupCarve\Carve\VerbatimPayload;
 use Throwable;
 
 /**
@@ -3141,14 +3140,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $content = $node->getContent();
         $fence = $this->safeFence($content, 3);
+        if (!CodePayload::terminated($content)) {
+            $this->recordUnspellableField(
+                $node,
+                'content',
+                'Carve source cannot spell a raw payload whose last line has no break',
+            );
+        }
 
-        $body = $this->protectVerbatim($content);
-
-        // The same separator question as the code fence above, on the raw block's
-        // own encoding: `raw_block.content` keeps the joined form the code fence
-        // left behind (markup-carve/carve#2616 changes only the code payload).
         return $fence . '=' . $this->escapeFormat($node->getFormat()) . "\n"
-            . $body . (VerbatimPayload::terminated($content) ? '' : "\n") . $fence;
+            . $this->protectVerbatim($content) . (CodePayload::terminated($content) ? '' : "\n") . $fence;
     }
 
     protected function renderComment(Comment $node): string
