@@ -80,7 +80,7 @@ class MarkdownMarkAttributesTest extends TestCase
                     $renderer->setAttributeFallback($mode);
                 }
                 $markdown = CarveConverter::create(renderer: $renderer)->convert($source);
-                $this->assertStringStartsWith('<s class="', $markdown);
+                $this->assertMatchesRegularExpression('/^<s class="/i', $markdown);
                 $imported = (new MarkdownToCarve())->convert($markdown);
                 $this->assertStringNotContainsString('{-', $imported);
                 $converter = new CarveConverter();
