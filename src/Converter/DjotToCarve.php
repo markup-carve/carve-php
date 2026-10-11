@@ -648,7 +648,9 @@ class DjotToCarve
                     }
                     $parent = substr($source, $parentFrom, $parentEnd - $parentFrom);
                     if (preg_match($marker, $parent)) {
-                        preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*/', $parent, $leading);
+                        if (preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*/', $parent, $leading) !== 1) {
+                            return false;
+                        }
                         $column = strlen($leading[0]);
                         if ($lines !== [] && strlen($prefix) <= $column && DjotEmphasis::structuralPrefixEnd($lines[array_key_last($lines)]['raw']) > $column) {
                             return false;
@@ -675,7 +677,9 @@ class DjotToCarve
                 continue;
             }
             if (preg_match($marker, $raw)) {
-                preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*/', $raw, $leading);
+                if (preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*/', $raw, $leading) !== 1) {
+                    return false;
+                }
                 if (strlen($prefix) <= strlen($leading[0])) {
                     return false;
                 }
