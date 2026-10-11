@@ -23,6 +23,8 @@ final class TrailingBlockState
 
     public bool $nestedDivBody = false;
 
+    public bool $literalDiv = false;
+
     // Legacy array hooks expose the fence metadata after its closer.
     private ?TrailingCodeFence $lastFence = null;
 
@@ -97,6 +99,7 @@ final class TrailingBlockState
             $this->nestedDiv = $snapshot->nestedDiv;
             $this->nestedDivColumn = $snapshot->nestedDivColumn;
             $this->nestedDivBody = $snapshot->nestedDivBody;
+            $this->literalDiv = $snapshot->literalDiv;
             $this->nestedDivHosts = $snapshot->nestedDivHosts;
             unset($this->legacyExtras["\0carve.nestedDivState"]);
         }
@@ -119,7 +122,7 @@ final class TrailingBlockState
     public function toArray(): array
     {
         $extras = $this->legacyExtras;
-        if ($this->nestedDiv !== null || $this->nestedDivHosts !== []) {
+        if ($this->nestedDiv !== null || $this->nestedDivHosts !== [] || $this->literalDiv) {
             $snapshot = clone $this;
             $snapshot->legacyExtras = [];
             $extras["\0carve.nestedDivState"] = $snapshot;

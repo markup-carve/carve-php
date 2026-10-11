@@ -281,31 +281,46 @@ final class BlockContinuationScanner
             return -1;
         }
         $stack = [$length];
+        $opening = $transform === null ? $lines[$openIdx] : $transform($lines[$openIdx]);
+        $columns = [IndentationHelper::getLeadingColumns($opening)];
+        $literal = [(($this->getFencedBlockParser)()->parseDivFenceOpener($opening)['className'] ?? '') === '|'];
         for ($j = $openIdx + 1; $j < $count; $j++) {
-            $span = $this->opaqueSpanEnd($lines, $j, $count, $transform);
-            if ($span !== -1) {
-                $j = $span;
-
-                continue;
-            }
             $view = $transform === null ? $lines[$j] : $transform($lines[$j]);
             $top = $stack[count($stack) - 1];
-            if (($this->getFencedBlockParser)()->isDivFenceCloser($view, $top)) {
+            $column = IndentationHelper::getLeadingColumns($view, (int)end($columns) + 1);
+            $atBase = $column === 0 || $column === end($columns);
+            if ($atBase && ($this->getFencedBlockParser)()->isDivFenceCloser($view, $top)) {
                 array_pop($stack);
+                array_pop($columns);
+                array_pop($literal);
                 if ($stack === []) {
                     return $j;
                 }
 
                 continue;
             }
+            $span = $this->opaqueSpanEnd($lines, $j, $count, $transform);
+            if ($span !== -1) {
+                $j = $span;
+
+                continue;
+            }
+            if (end($literal)) {
+                continue;
+            }
             if (preg_match('/^(:{3,})[ \t]*$/', $view, $m) === 1 && strlen($m[1]) !== $top) {
                 $stack[] = strlen($m[1]);
+                $columns[] = $column;
+                $literal[] = false;
 
                 continue;
             }
             $opener = ($this->getFencedBlockParser)()->parseDivFenceOpener($view);
-            if ($opener !== null) {
+            $bare = preg_match('/^[ \t]*:{3,}[ \t]*$/', $view) === 1;
+            if ($opener !== null && (!$bare || $atBase)) {
                 $stack[] = $opener['length'];
+                $columns[] = IndentationHelper::getLeadingColumns($view);
+                $literal[] = $opener['className'] === '|';
             }
         }
 
@@ -1874,6 +1889,7 @@ final class BlockContinuationScanner
             }
             if (($this->getFencedBlockParser)()->isDivFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->divFenceLength)) {
                 $state->inDiv = false;
+                $state->literalDiv = false;
                 // The closer is consumed HERE rather than by the bare-run branch
                 // below, so the depth has to come back down here too. Left
                 // unbalanced, a later malformed fence in the same item saw a
@@ -1885,6 +1901,12 @@ final class BlockContinuationScanner
                 // A CLOSED div holds no open paragraph either. S4 is about the
                 // OPEN STACK, and a closed container is not on it.
                 $state->openParagraph = false;
+
+                return $state;
+            }
+
+            if ($state->literalDiv) {
+                $state->openParagraph = !IndentationHelper::isBlankFrom($line, $at);
 
                 return $state;
             }
@@ -2003,6 +2025,7 @@ final class BlockContinuationScanner
             /** @var int $divFenceLength */
             $divFenceLength = $divOpener['length'];
             $state->inDiv = true;
+            $state->literalDiv = $divOpener['className'] === '|';
             $state->divFenceLength = $divFenceLength;
             $state->divColumn = IndentationHelper::getLeadingColumns($line);
             $parentDivDepth = $state->divDepth;
@@ -2019,6 +2042,7 @@ final class BlockContinuationScanner
                 $state->nestedDivColumn = $state->divColumn;
                 $state->nestedDivBody = false;
                 $state->inDiv = false;
+                $state->literalDiv = false;
                 $state->divDepth = $parentDivDepth;
             }
 
