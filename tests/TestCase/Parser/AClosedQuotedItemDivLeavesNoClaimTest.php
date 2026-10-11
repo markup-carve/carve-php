@@ -45,12 +45,16 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
             $this->assertStringContainsString('tail', $html);
         }
     }
+
     public function testOpaqueCodeAndNestedDivsKeepTheOuterCloser(): void
     {
-        foreach ([
-            "> - ::: box\n>   ```\n>   :::\n>   ```\n>   :::\ntail\n",
-            "> - ::: box\n>   - :::: inner\n>     :::: \n>   :::\ntail\n",
-        ] as $source) {
+        foreach (
+            [
+                "> - ::: box\n>   ```\n>   :::\n>   ```\n>   :::\ntail\n",
+                "> - ::: box\n>   %%%\n>   :::\n>   %%%\n>   :::\ntail\n",
+                "> - ::: box\n>   - :::: inner\n>     :::: \n>   :::\ntail\n",
+            ] as $source
+        ) {
             $html = (new CarveConverter())->convert($source);
             $this->assertStringEndsWith("</blockquote>\n<p>tail</p>\n", $html);
         }
@@ -58,13 +62,14 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
 
     public function testAClaimEndsWhenItsItemOrLazyOpenerEnds(): void
     {
-        foreach ([
-            "> - ::: box\n> - b\n>   :::\ntail\n",
-            "> - ::: box\ntail\n>   :::\nmore\n",
-        ] as $source) {
+        foreach (
+            [
+                "> - ::: box\n> - b\n>   :::\ntail\n",
+                "> - ::: box\ntail\n>   :::\nmore\n",
+            ] as $source
+        ) {
             $html = (new CarveConverter())->convert($source);
             $this->assertStringEndsWith("</blockquote>\n", $html);
         }
     }
-
 }

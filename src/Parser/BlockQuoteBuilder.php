@@ -359,7 +359,9 @@ final class BlockQuoteBuilder
             } else {
                 if (
                     ($column === $fence['column'] || $column === $fence['base'])
-                    && ($this->getFencedBlockParser)()->isCodeFenceCloser($text, $fence['char'], $fence['length'])
+                    && ($fence['char'] === '%'
+                        ? ($this->getFencedBlockParser)()->isFencedCommentCloser($text, $fence['length'])
+                        : ($this->getFencedBlockParser)()->isCodeFenceCloser($text, $fence['char'], $fence['length']))
                 ) {
                     $host['fence'] = null;
                 }
@@ -426,6 +428,13 @@ final class BlockQuoteBuilder
         $floor = $host['columns'][array_key_last($host['columns']) ?? 0] ?? 0;
         if ($host['pending'] !== null && $host['pending']['column'] > $floor) {
             $host['pending'] = null;
+        }
+        $comment = ($this->getFencedBlockParser)()->parseFencedCommentOpener($inner);
+        if ($comment !== null && $state['colonClaims'] !== [] && $floor > 0) {
+            $host['fence'] = ['char' => '%', 'length' => $comment['length'], 'column' => $at, 'base' => $floor];
+            $state['paragraphOpen'] = false;
+
+            return true;
         }
         $div = ($this->getFencedBlockParser)()->parseDivFenceOpener($inner);
         if ($div !== null && $floor > 0 && $state['mode'] !== BlockQuoteLazyMode::Div && ($blockStart || !$paragraph)) {
