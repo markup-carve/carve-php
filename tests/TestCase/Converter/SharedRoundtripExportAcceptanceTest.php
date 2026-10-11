@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Converter\HtmlAstBuilder;
 use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -111,7 +112,72 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
             }
         }
         $ordinary = (new HtmlToCarve())->convertToAstWithReport('<p>* ordinary</p>')->value;
-        self::assertSame('text', $ordinary['children'][0]['children'][0]['type']);
+        self::assertTrue(self::matchesProjection($ordinary, [['type' => 'text', 'value' => '* ordinary']]));
+    }
+
+    public function testReferenceImageRecoveryPreservesDestinationsTitlesAndAltText(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+                foreach (['alt', 'a[b', 'a]', 'a\\'] as $alt) {
+                    $html = '<p>lead <img src="/a.png" alt="' . $alt . '" title="T" ' . $prefix . 'ref="r"> tail</p>';
+                    $tree = (new HtmlToCarve(importMode: $mode))->convertToAstWithReport($html)->value;
+                    $source = (new CarveRenderer())->render((new AstCodec())->decode($tree));
+                    $rendered = (new CarveConverter())->convert($source);
+                    $images = array_values(array_filter(self::elements($rendered), static fn (DOMElement $element): bool => strtolower(HtmlDomLoader::elementName($element)) === 'img'));
+                    self::assertCount(1, $images, $mode . ': ' . $source);
+                    self::assertSame('/a.png', $images[0]->getAttribute('src'));
+                    self::assertSame($alt, $images[0]->getAttribute('alt'));
+                    self::assertSame('T', $images[0]->getAttribute('title'));
+                }
+                $html = '<p><a href="/a" ' . $prefix . 'ref="r">a</a> <img src="/b" alt="b" ' . $prefix . 'ref="r"></p>';
+                $result = (new HtmlToCarve(importMode: $mode))->convertToAstWithReport($html);
+                $source = (new CarveRenderer())->render((new AstCodec())->decode($result->value));
+                $parsed = (new CarveConverter())->parse($source);
+                self::assertTrue(self::matchesProjection((new AstCodec())->encode($parsed), [
+                    ['type' => 'link', 'href' => '/a'],
+                    ['type' => 'image', 'src' => '/b'],
+                ]));
+                self::assertContains('attribute-dropped', array_map(static fn ($row): string => $row->code, $result->diagnostics));
+            }
+        }
+    }
+
+    public function testReferenceImageInTitleUsesItsInlineDestination(): void
+    {
+        $html = '<details><summary><img src="/a.png" alt="alt" data-carve-ref="r"></summary><p>x</p></details>';
+        $tree = (new HtmlToCarve())->convertToAstWithReport($html)->value;
+        $source = (new CarveRenderer())->render((new AstCodec())->decode($tree));
+        self::assertStringContainsString('![alt](/a.png)', $source);
+        $images = array_values(array_filter(self::elements((new CarveConverter())->convert($source)), static fn (DOMElement $element): bool => strtolower(HtmlDomLoader::elementName($element)) === 'img'));
+        self::assertCount(1, $images);
+        self::assertSame('/a.png', $images[0]->getAttribute('src'));
+    }
+
+    public function testUnspellableReferenceCarrierFallsBackWithoutAnInventedDefinition(): void
+    {
+        foreach (['^n', '@name'] as $label) {
+            $result = (new HtmlToCarve())->convertToAstWithReport('<p>lead <img src="/a.png" alt="alt" data-carve-ref="' . $label . '"> tail</p>');
+            self::assertAbsentFields($result->value, [['type' => 'image', 'field' => 'ref']]);
+            $source = (new CarveRenderer())->render((new AstCodec())->decode($result->value));
+            self::assertStringContainsString('![alt](/a.png)', $source);
+            self::assertStringNotContainsString(']:', $source);
+            self::assertContains('attribute-dropped', array_map(static fn ($row): string => $row->code, $result->diagnostics));
+        }
+    }
+
+    public function testUnspellableEscapedGlyphRetainsPublicAstAndReportsSourceLoss(): void
+    {
+        foreach ([' ', "\n", 'n', "\u{00a0}", 'é'] as $value) {
+            $tree = (new HtmlToCarve())->convertToAstWithReport('<p>a<span data-carve-escaped>' . $value . '</span>b</p>')->value;
+            self::assertTrue(self::matchesProjection($tree, [['type' => 'escaped_text', 'value' => $value]]));
+            $writer = new CarveRenderer();
+            $writer->beginConversionDiagnosticCollection();
+            $writer->render((new AstCodec())->decode($tree));
+            $report = $writer->finishConversionDiagnosticCollection();
+            self::assertSame('field-unspellable', $report['diagnostics'][0]['code']);
+            self::assertSame('value', $report['diagnostics'][0]['field']);
+        }
     }
 
     public function testEscapedCarriersDoNotBreakIntermediateTreesOrAttributeReports(): void

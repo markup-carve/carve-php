@@ -180,6 +180,21 @@ final class HtmlImportSession
     public array $referenceDefinitions = [];
 
     /**
+     * @var array<string, string>
+     */
+    public array $referenceTitles = [];
+
+    /**
+     * @var array<string, array{href: string, title: string|null}>
+     */
+    public array $referenceClaims = [];
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $droppedReferenceCarriers;
+
+    /**
      * The bracket text an ordered task item's checkbox is written as, keyed by
      * the `<input>` element's object id.
      *
@@ -219,6 +234,7 @@ final class HtmlImportSession
     public function __construct()
     {
         $this->droppedFootnoteLabelCarriers = new SplObjectStorage();
+        $this->droppedReferenceCarriers = new SplObjectStorage();
         $this->endnoteItemLabels = new SplObjectStorage();
         $this->referencedEndnoteItems = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
