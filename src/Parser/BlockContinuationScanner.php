@@ -1316,7 +1316,10 @@ final class BlockContinuationScanner
             }
             $opener = ($this->getFencedBlockParser)()->parseRawBlockOpener($subject)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
-            if ($inLiteral && $opener !== null && $this->hasFenceCloserInView($lines, $index, $opener, $stripColumns)) {
+            $hasCloser = $opener !== null && ($inLiteral
+                ? $this->sourceFenceCloserInView($lines, $index, $opener, $stripColumns)
+                : $this->hasFenceCloserInView($lines, $index, $opener, $stripColumns));
+            if ($inLiteral && $opener !== null && $hasCloser) {
                 $literalState->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literalState->divColumn);
                 $literalState->openParagraph = false;
                 foreach (array_reverse($literalParents) as $parent) {
@@ -1333,7 +1336,7 @@ final class BlockContinuationScanner
             }
             if (
                 $opener !== null
-                && !$this->hasFenceCloserInView($lines, $index, $opener, $stripColumns)
+                && !$hasCloser
             ) {
                 // A neutral prose line advances every non-fence flag exactly as
                 // this failed opener must; only its literal bytes differ.
