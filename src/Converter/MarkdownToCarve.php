@@ -6709,7 +6709,7 @@ class MarkdownToCarve
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
-                        $tail = $this->referenceSourceText($next[0], $protectedSources);
+                        $tail = $protectedSources[(int)$next[1]] ?? '';
                         if (str_starts_with($tail, '(') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
                             return $match[0][0];
                         }
@@ -7958,6 +7958,9 @@ class MarkdownToCarve
         }
         $ranges = array_values(array_filter($outermost, static function (array $range) use ($source, $protected): bool {
             $label = substr($source, $range['start'], $range['end'] - $range['start']);
+            if (!str_contains($label, '/')) {
+                return false;
+            }
             $converted = MarkdownEmphasis::convert($label, protectedSpans: $protected);
 
             return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(?:em|i)>/i', $label) === 1;

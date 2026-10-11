@@ -3634,5 +3634,21 @@
   {
     "source": "> [_a_\\/b](y)\n",
     "html": "<blockquote>\n<p><a href=\"y\"><em>a</em>/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a][b\\]c]\n\n[a]: /one\n[b\\]c]: /two\n",
+    "html": "<p><a href=\"/two\">a</a></p>\n"
+  },
+  {
+    "source": "[*/a/*](u)\n",
+    "html": "<p><a href=\"u\"><em>/a/</em></a></p>\n"
+  },
+  {
+    "source": "- [*/a/*](u)\n",
+    "html": "<ul>\n<li><a href=\"u\"><em>/a/</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*/a/*](u)\n",
+    "html": "<blockquote>\n<p><a href=\"u\"><em>/a/</em></a></p>\n</blockquote>\n"
   }
 ]
