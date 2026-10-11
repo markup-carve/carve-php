@@ -83,13 +83,14 @@ disclosure, a spoiler, a named div or a composite figure group reaches the outpu
 as its children alone. Nothing left in the file says the container was there, so
 an import cannot return it however good it gets.
 
-`setCarryMarkers()` turns on the carrier mode (`--carry-markers` on the CLI,
-Markdown output only). The visible fallback does not move: the mode brackets each
-dropped container with an HTML comment holding its Carve opener and closer
-verbatim.
+`setRoundTripMode(true)` turns on the carrier mode (`--roundtrip` on the CLI).
+`setCarryMarkers()` / `--carry-markers` is the Markdown-only legacy alias.
+Either option enables carriers; disabling one does not disable the other.
+The mode brackets each dropped container with HTML comments holding its Carve
+opener and closer verbatim.
 
 ~~~ php
-$renderer = (new MarkdownRenderer())->setCarryMarkers();
+$renderer = (new MarkdownRenderer())->setRoundTripMode(true);
 ~~~
 
 This Carve source:

@@ -239,13 +239,13 @@ class CarveConverter
      * @param \MarkupCarve\Carve\Profile|null $profile Profile for feature restriction (null = all features allowed)
      * @param \MarkupCarve\Carve\Renderer\SoftBreakMode|null $softBreakMode How to render soft breaks that remain inside a paragraph (HTML renderer only). For local visible line breaks, use `::: \` or a trailing backslash.
      * @param \MarkupCarve\Carve\Renderer\SmartTypographyMode|bool|null $smartTypography Whether smart typography resolves to glyphs. Passing false keeps the author's source runs, so two hyphens stay two hyphens; true and null are the default. Unlike the options above, this one is NOT HTML-only - it reaches a renderer passed in $renderer too.
-     * @param bool $roundTripMode Add data attributes for Carve→HTML→Carve round-trips (HTML renderer only)
+     * @param bool $roundTripMode Add round-trip carriers for HTML or Markdown output
      * @param string $mode Render mode: RenderMode::INTERACTIVE (default) or RenderMode::STATIC (HTML renderer only)
      * @param array<string, \Closure(string): string> $renderers Build-time renderers for client-script extensions (math/mermaid/chart), source-to-string, used in static mode
      * @param array<string, string> $symbols Trusted HTML replacements for `:name:` symbols (HTML renderer only)
      * @param array<string, string> $labels Strings the ENGINE writes rather than the author, keyed as in HtmlRenderer::LABEL_DEFAULTS (HTML renderer only)
      * @param \MarkupCarve\Carve\Parser\BlockParser|null $parser Pre-configured parser (ignores warnings/strict if set)
-     * @param \MarkupCarve\Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode/roundTripMode if set)
+     * @param \MarkupCarve\Carve\Renderer\RendererInterface|null $renderer Pre-configured renderer (ignores xhtml/safeMode/softBreakMode if set)
      * @param bool $sourceLines Stamp block elements, li, dt, and dd with a `data-source-line` attribute (1-based source line). Opt-in, for editor scroll-sync; ignored when a pre-configured $parser is supplied.
      */
     public function __construct(
@@ -289,11 +289,10 @@ class CarveConverter
             if ($softBreakMode !== null) {
                 $htmlRenderer->setSoftBreakMode($softBreakMode);
             }
+        }
 
-            // Configure round-trip mode
-            if ($roundTripMode) {
-                $this->renderer->setRoundTripMode(true);
-            }
+        if ($roundTripMode === true && ($this->renderer instanceof HtmlRenderer || $this->renderer instanceof MarkdownRenderer)) {
+            $this->renderer->setRoundTripMode(true);
         }
 
         if ($smartTypography !== null) {

@@ -285,7 +285,7 @@ final class HtmlAstBuilder
     /**
      * @param bool $listTableForBlockCells
      * @param string $importMode
-     * @param bool $trustedRoundTrip
+     * @param bool $trustStoredSource
      * @param bool $sourceSafe
      * @param array<string, string> $alignmentClasses
      * @param array<string, string> $labels
@@ -293,7 +293,7 @@ final class HtmlAstBuilder
     public function __construct(
         private readonly bool $listTableForBlockCells = false,
         private readonly string $importMode = 'safe',
-        private readonly bool $trustedRoundTrip = false,
+        private readonly bool $trustStoredSource = false,
         private readonly bool $sourceSafe = true,
         private readonly array $alignmentClasses = [],
         private readonly array $labels = [],
@@ -3705,7 +3705,7 @@ final class HtmlAstBuilder
     private function hoistedRun(array $nodes): array
     {
         // A trusted round trip reads its own Carve source back, spaces included.
-        $keep = $this->session->preserveInlineWhitespace || $this->trustedRoundTrip;
+        $keep = $this->session->preserveInlineWhitespace || $this->trustStoredSource;
 
         return $this->coalesceText($keep ? $nodes : $this->hoistEdgeSpace($nodes));
     }
@@ -4549,7 +4549,7 @@ final class HtmlAstBuilder
     private function roundTripBlocks(DOMElement $node): ?array
     {
         if (
-            !$this->trustedRoundTrip
+            !$this->trustStoredSource
             || $this->importMode !== 'roundtrip'
             || $this->session->inCaption
             || !$node->hasAttribute('data-carve-src')

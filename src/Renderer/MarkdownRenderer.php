@@ -394,6 +394,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected bool $carryMarkers = false;
 
+    protected bool $roundTripMode = false;
+
     /**
      * How many carried containers enclose the block being written, which is
      * what decides the colon-fence width a marker payload carries.
@@ -500,6 +502,24 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
+     * Enable Markdown round-trip carriers (PART 10 §13).
+     */
+    public function setRoundTripMode(bool $enabled): self
+    {
+        $this->roundTripMode = $enabled;
+
+        return $this;
+    }
+
+    /**
+     * Whether round-trip mode is enabled, independently of the alias (PART 10 §13f).
+     */
+    public function isRoundTripMode(): bool
+    {
+        return $this->roundTripMode;
+    }
+
+    /**
      * The marker payloads a container takes, or null when the mode is off or
      * the container is not element-less on this target.
      *
@@ -511,7 +531,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function carrierMarkers(Node $node): ?array
     {
-        if (!$this->carryMarkers) {
+        if (!$this->carryMarkers && !$this->roundTripMode) {
             return null;
         }
         // A TABLE CELL CANNOT CARRY AT ALL: this target flattens a cell to one

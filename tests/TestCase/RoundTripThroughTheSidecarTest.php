@@ -17,7 +17,7 @@ use PHPUnit\Framework\TestCase;
  *
  * The converter here runs in `roundTripMode`, so the rendered HTML carries the
  * original Carve in a `data-carve-src` attribute, and the importer runs in
- * `trustedRoundTrip`, so it reads that attribute back verbatim. For every
+ * `trustStoredSource`, so it reads that attribute back verbatim. For every
  * construct that emits the attribute this class therefore proves the SIDECAR
  * SURVIVES A RENDER - a real property, and a much narrower one than "the
  * document round-trips" (markup-carve/carve-php#1603).
@@ -43,7 +43,7 @@ class RoundTripThroughTheSidecarTest extends TestCase
         // Round-trip tests feed carve's OWN (trusted) HTML back through the
         // converter, so they must honor the `data-carve-src` round-trip attribute.
         // The default converter ignores it (untrusted-input safe default).
-        $this->htmlToCarve = new HtmlToCarve(trustedRoundTrip: true);
+        $this->htmlToCarve = new HtmlToCarve(trustStoredSource: true);
     }
 
     /**
