@@ -6697,7 +6697,7 @@ class MarkdownToCarve
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table, $referenceUrls, &$referenceUrlAt): string {
+                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table, &$referenceUrls, &$referenceUrlAt): string {
                     $offset = $match[0][1];
                     while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
                         $referenceUrlAt++;
@@ -6708,8 +6708,11 @@ class MarkdownToCarve
                     }
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
-                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]]) && $this->htmlTagAt($this->referenceSourceText($next[0], $protectedSources), 0) === null) {
-                        return $match[0][0];
+                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
+                        $tail = $this->referenceSourceText($next[0], $protectedSources);
+                        if (str_starts_with($tail, '(') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
+                            return $match[0][0];
+                        }
                     }
                     if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
                         return $match[0][0];
@@ -6719,10 +6722,15 @@ class MarkdownToCarve
                         return $match[0][0];
                     }
                     $target = $this->complexReferenceTarget($label, $protectedSources);
+                    $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null;
+                    if ($url !== null && $offset < $url['start'] && ($target !== null || $definition !== null)) {
+                        for ($at = $referenceUrlAt; isset($referenceUrls[$at]) && $referenceUrls[$at]['start'] < $end; $at++) {
+                            $referenceUrls[$at]['end'] = min($referenceUrls[$at]['end'], $end);
+                        }
+                    }
                     if ($target !== null) {
                         return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')');
                     }
-                    $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null;
                     if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
                         return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
                     }

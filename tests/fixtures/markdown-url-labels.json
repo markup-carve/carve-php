@@ -3394,5 +3394,245 @@
   {
     "source": "> [https://x.test\\/*a*](y)\n",
     "html": "<blockquote>\n<p><a href=\"y\">https://x.test/<em>a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a],[r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>,<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a],[r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>,<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a],[r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>,<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]/[r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>/<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]/[r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>/<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]/[r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>/<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a][r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/two\">https://x.test/a</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a][r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/two\">https://x.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a][r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/two\">https://x.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a],[r]\n\n[https://0.test/a https://1.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a</a>,<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a],[r]\n  \n  [https://0.test/a https://1.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a</a>,<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a],[r]\n> \n> [https://0.test/a https://1.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a</a>,<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a]/[r]\n\n[https://0.test/a https://1.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a</a>/<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a]/[r]\n  \n  [https://0.test/a https://1.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a</a>/<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a]/[r]\n> \n> [https://0.test/a https://1.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a</a>/<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a https://2.test/a],[r]\n\n[https://0.test/a https://1.test/a https://2.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a</a>,<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a https://2.test/a],[r]\n  \n  [https://0.test/a https://1.test/a https://2.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a</a>,<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a https://2.test/a],[r]\n> \n> [https://0.test/a https://1.test/a https://2.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a</a>,<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a https://2.test/a]/[r]\n\n[https://0.test/a https://1.test/a https://2.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a</a>/<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a https://2.test/a]/[r]\n  \n  [https://0.test/a https://1.test/a https://2.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a</a>/<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a https://2.test/a]/[r]\n> \n> [https://0.test/a https://1.test/a https://2.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a</a>/<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a],[r]\n\n[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a</a>,<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a],[r]\n  \n  [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a</a>,<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a],[r]\n> \n> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a</a>,<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]/[r]\n\n[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a</a>/<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]/[r]\n  \n  [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a</a>/<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]/[r]\n> \n> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a</a>/<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a],[r]\n\n[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a</a>,<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a],[r]\n  \n  [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a</a>,<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a],[r]\n> \n> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a</a>,<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]/[r]\n\n[https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a</a>/<a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]/[r]\n  \n  [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a</a>/<a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]/[r]\n> \n> [https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://0.test/a https://1.test/a https://2.test/a https://3.test/a https://4.test/a https://5.test/a https://6.test/a https://7.test/a https://8.test/a https://9.test/a https://10.test/a https://11.test/a https://12.test/a https://13.test/a https://14.test/a https://15.test/a</a>/<a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]\\_, [r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>_, <a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]\\_, [r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>_, <a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]\\_, [r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>_, <a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]\\/, [r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>/, <a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]\\/, [r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>/, <a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]\\/, [r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>/, <a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]\\*, [r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>*, <a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]\\*, [r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>*, <a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]\\*, [r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>*, <a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]\\>, [r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>&gt;, <a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]\\>, [r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>&gt;, <a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]\\>, [r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>&gt;, <a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]`code`, [r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a><code>code</code>, <a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]`code`, [r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a><code>code</code>, <a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]`code`, [r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a><code>code</code>, <a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]&amp;, [r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>&amp;, <a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]&amp;, [r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>&amp;, <a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]&amp;, [r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>&amp;, <a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]\\ , [r]\n\n[https://x.test/a]: /one\n[r]: /two\n",
+    "html": "<p><a href=\"/one\">https://x.test/a</a>\\ , <a href=\"/two\">r</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]\\ , [r]\n  \n  [https://x.test/a]: /one\n  [r]: /two\n",
+    "html": "<ul>\n<li><a href=\"/one\">https://x.test/a</a>\\ , <a href=\"/two\">r</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]\\ , [r]\n> \n> [https://x.test/a]: /one\n> [r]: /two\n",
+    "html": "<blockquote>\n<p><a href=\"/one\">https://x.test/a</a>\\ , <a href=\"/two\">r</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a*\\/b](y)\n",
+    "html": "<p><a href=\"y\"><em>a</em>/b</a></p>\n"
+  },
+  {
+    "source": "- [*a*\\/b](y)\n",
+    "html": "<ul>\n<li><a href=\"y\"><em>a</em>/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a*\\/b](y)\n",
+    "html": "<blockquote>\n<p><a href=\"y\"><em>a</em>/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[_a_\\/b](y)\n",
+    "html": "<p><a href=\"y\"><em>a</em>/b</a></p>\n"
+  },
+  {
+    "source": "- [_a_\\/b](y)\n",
+    "html": "<ul>\n<li><a href=\"y\"><em>a</em>/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [_a_\\/b](y)\n",
+    "html": "<blockquote>\n<p><a href=\"y\"><em>a</em>/b</a></p>\n</blockquote>\n"
   }
 ]
