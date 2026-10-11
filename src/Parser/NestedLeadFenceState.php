@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 /**
- * Progress through an append-only marker-lead item's nested fence and tail.
+ * Progress through a marker lead's nested fence and tail in either host.
  *
  * @internal
  */
