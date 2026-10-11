@@ -2434,7 +2434,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null}} $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -4822,9 +4822,13 @@ class BlockParser
             // AT OR PAST the content column, the same reading the plain-lead
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
-            $trailingState = $trailingState->hasLiteralDiv()
-                ? $this->continuationsMapper()->advanceLiteralStateWithSourceFenceLookahead($trailingState, $stripped, $lines, $i, $contentIndent)
-                : $this->advanceTrailingState($trailingState, $stripped, true);
+            if (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
+                $trailingState = $this->advanceTrailingState($trailingState, 'x', true);
+            } else {
+                $trailingState = $trailingState->hasLiteralDiv()
+                    ? $this->continuationsMapper()->advanceLiteralStateWithSourceFenceLookahead($trailingState, $stripped, $lines, $i, $contentIndent)
+                    : $this->advanceTrailingState($trailingState, $stripped, true);
+            }
             if ($bareContinuationLead) {
                 $claimLine = ltrim($stripped, " \t");
                 $claimOpen = $this->advanceTrailingState(new TrailingBlockState(), $claimLine, true)->openParagraph;
@@ -7068,11 +7072,20 @@ class BlockParser
      * @param int $depth
      * @param string $char
      * @param int $length
-     * @param array<string, array{from:int, end:int, maxRun:int}> $memo
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $memo
      * @param int $column
+     * @param bool $withInlineBoundary
      */
-    private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo, int $column = 0): bool
-    {
+    private function quotedCodeFenceHasCloser(
+        array $lines,
+        int $index,
+        int $depth,
+        string $char,
+        int $length,
+        array &$memo,
+        int $column = 0,
+        bool $withInlineBoundary = false,
+    ): bool {
         $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
         $key = $sourceIndent . ':' . $depth . ':' . $column . ':' . $char;
         if ($char === '%') {
@@ -7080,10 +7093,13 @@ class BlockParser
         }
         $start = $index + 1;
         $cached = $memo[$key] ?? null;
-        if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun']) {
+        if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun'] && (!$withInlineBoundary || $cached['inlineChecked'])) {
             return false;
         }
         $maxRun = 0;
+        // Reuse this scan for the descendant handoff's boundary guard. A
+        // cached boundary may reject a later handoff, but cannot admit one.
+        $inlineBoundary = false;
         $count = count($lines);
         for ($i = $start; $i < $count; $i++) {
             if (IndentationHelper::getLeadingColumns($lines[$i]) !== $sourceIndent) {
@@ -7091,7 +7107,18 @@ class BlockParser
             }
             $content = self::quotedContentAtDepth(IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent), $depth);
             if ($content === null) {
+                if ($withInlineBoundary) {
+                    $marker = $this->listParser->parseListItemMarker(ltrim($lines[$i], " \t"));
+                    $inlineBoundary = $inlineBoundary || ($marker !== null && !str_starts_with(ltrim($lines[$i], " \t"), '- '));
+                }
+
                 break;
+            }
+            if ($withInlineBoundary && !$inlineBoundary) {
+                $text = ltrim($content, " \t");
+                $inlineBoundary = IndentationHelper::isBlankLine($content)
+                    || IndentationHelper::getLeadingColumns($content) < $column
+                    || (!str_starts_with($text, ':') && $this->lineOpensBlockForLooseness($text));
             }
             if (IndentationHelper::getLeadingColumns($content) !== $column) {
                 continue;
@@ -7108,7 +7135,7 @@ class BlockParser
                 $maxRun = max($maxRun, strlen($match[1]));
             }
         }
-        $memo[$key] = ['from' => $start, 'end' => $i, 'maxRun' => $maxRun];
+        $memo[$key] = ['from' => $start, 'end' => $i, 'maxRun' => $maxRun, 'inlineBoundary' => $inlineBoundary, 'inlineChecked' => $withInlineBoundary];
 
         return false;
     }
