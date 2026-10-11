@@ -2022,6 +2022,11 @@ final class HtmlAstBuilder
         return preg_match('/\A[^\]\r\n]+\z/', $label) === 1;
     }
 
+    public static function isValidRawCarrierFormat(string $format): bool
+    {
+        return preg_match('/\A[a-zA-Z0-9-]+\z/', $format) === 1;
+    }
+
     private function footnoteLabel(string $fragment): string
     {
         return preg_replace('/^(?:fn|footnote[-_]?)/i', '', $fragment) ?: $fragment;
@@ -3852,23 +3857,31 @@ final class HtmlAstBuilder
                 return [['type' => 'escaped_text', 'value' => $characters[0]]];
             }
         }
-        // STILL MODE-GATED, and section 13d does not override it: this carrier
-        // RETURNS ITS PAYLOAD VERBATIM as a raw inline, which section 13e
-        // leaves on the importer's own trust setting. Consuming `data-char` or
-        // `data-carve-escaped` reconstructs syntax; consuming this one decides
-        // that foreign content may re-enter the document as raw.
-        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-raw')) {
-            // THE SPAN'S CONTENT IS TEXT (PART 10 section 13a), so this reads
-            // the text rather than re-serializing the children. Serializing
-            // escaped the payload a second time, so a raw inline holding `&`
-            // came back holding `&amp;`.
-            $content = $node->textContent;
+        $rawFormat = $node->getAttribute('data-carve-raw');
+        // Only HTML payloads require roundtrip mode; other formats are inert in HTML output.
+        if (
+            self::isValidRawCarrierFormat($rawFormat)
+            && ($this->importMode === 'roundtrip' || strcasecmp($rawFormat, 'html') !== 0)
+        ) {
+            // A text payload is entity-decoded; element children are the payload's own markup (as carve-js reads it).
+            $content = '';
+            $holdsElements = false;
+            foreach ($node->childNodes as $child) {
+                $holdsElements = $holdsElements || $child instanceof DOMElement;
+            }
+            if ($holdsElements) {
+                foreach ($node->childNodes as $child) {
+                    $content .= HtmlDomLoader::serialize($child);
+                }
+            } else {
+                $content = $node->textContent;
+            }
 
             return [
                 [
                     'type' => 'raw_inline',
                     'content' => $content,
-                    'format' => $node->getAttribute('data-carve-raw'),
+                    'format' => $rawFormat,
                 ],
             ];
         }
