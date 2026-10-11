@@ -34,6 +34,35 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         }
     }
 
+    public function testLegalSiblingsRemainSeparateBeforeTheFollowingEmptyDiv(): void
+    {
+        foreach ([0, 2] as $column) {
+            $source = "- a\n  - ::: box\n    body\n" . str_repeat(' ', $column)
+                . "- sibling\n    :::\ntail\n";
+            $html = (new CarveConverter())->convert($source);
+            $this->assertStringContainsString('<p>body</p>', $html);
+            $this->assertStringContainsString('<li>sibling', $html);
+            $this->assertStringNotContainsString("<p>body\n- sibling</p>", $html);
+            $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+        }
+    }
+
+    public function testCollapsedMarkersAndOpaquePayloadKeepTheRealCloser(): void
+    {
+        foreach (["- - ::: box\n      body\n      :::", "- ::: box\n    ```\n    :::\n    ```\n    :::"] as $body) {
+            $html = (new CarveConverter())->convert("- a\n  " . $body . "\ntail\n");
+            $this->assertStringContainsString('<div class="box">', $html);
+            $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
+        }
+    }
+
+    public function testAnIndentedParagraphAfterTheCloserHasItsOwnClaim(): void
+    {
+        $html = (new CarveConverter())->convert("- a\n  - ::: box\n    body\n    :::\n    after\ntail\n");
+        $this->assertStringContainsString("after\ntail", $html);
+        $this->assertStringEndsWith("</ul>\n", $html);
+    }
+
     public function testAnUnestablishedOpenerStillDemotes(): void
     {
         $html = (new CarveConverter())->convert("- a\n  - ::: box\nlazy\n");
