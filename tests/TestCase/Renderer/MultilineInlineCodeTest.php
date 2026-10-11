@@ -79,6 +79,65 @@ class MultilineInlineCodeTest extends TestCase
         $this->assertStringContainsString("\n   [r]: /url", $written);
     }
 
+    public function testInvalidReferenceAttributesRemainVerbatimInsideFootnotes(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        $wire = $codec->encode($converter->parse("body[^n]\n\n[^n]: body\n"));
+        $value = "x\n[r]: /u {#}\ntail";
+        foreach ($wire['children'] as &$child) {
+            if ($child['type'] === 'footnote') {
+                $child['children'][0]['children'] = [['type' => 'code', 'value' => $value]];
+            }
+        }
+        unset($child);
+        $document = $codec->decode($wire);
+        $renderer = new CarveRenderer();
+        $written = $renderer->render($document);
+        $parsed = $converter->parse($written);
+        $this->assertSame($converter->render($document), $converter->render($parsed));
+        $this->assertSame($value, $codec->encode($parsed)['children'][1]['children'][0]['children'][0]['value']);
+        $this->assertSame($written, $renderer->render($parsed));
+    }
+
+    public function testDefinitionTermsInsideFootnotesPreservePayloadsOrRefuseAccurately(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        foreach (['code', 'raw_inline', 'literal_inline', 'math'] as $type) {
+            foreach (['[r]: /u', ' [r]: /u', '> y', ' > y'] as $line) {
+                $value = "x\n{$line}\ntail";
+                $wire = $codec->encode($converter->parse("body[^n]\n\n[^n]: :: term\n  : body\n"));
+                $node = ['type' => $type, $type === 'code' ? 'value' : 'content' => $value];
+                if ($type === 'raw_inline') {
+                    $node['format'] = 'html';
+                } elseif ($type === 'math') {
+                    $node['display'] = false;
+                }
+                $wire['children'][1]['children'][0]['items'][0]['children'] = [$node];
+                $document = $codec->decode($wire);
+                $renderer = new CarveRenderer();
+                if ($line !== ' > y') {
+                    try {
+                        $renderer->render($document);
+                        $this->fail('An unsafe footnote term must refuse to render.');
+                    } catch (SourceUnspellableException $error) {
+                        $this->assertSame($type, $error->nodeType);
+                        $this->assertSame($line[0] === ' ' ? 'a block-marker continuation cannot stay inside a footnote body' : 'a block marker on a continuation line ends the definition term', $error->reason);
+                    }
+
+                    continue;
+                }
+                $written = $renderer->render($document);
+                $parsed = $converter->parse($written);
+                $this->assertSame($converter->render($document), $converter->render($parsed));
+                $actual = $codec->encode($parsed)['children'][1]['children'][0]['items'][0]['children'][0];
+                $this->assertSame($value, $actual[$type === 'code' ? 'value' : 'content']);
+                $this->assertSame($written, $renderer->render($parsed));
+            }
+        }
+    }
+
     public function testDocumentsWithoutFootnotesPreserveAnEightCharacterFreeWindow(): void
     {
         $value = '';
@@ -124,7 +183,7 @@ class MultilineInlineCodeTest extends TestCase
                 $this->fail('Expected a source refusal');
             } catch (SourceUnspellableException $exception) {
                 $this->assertSame($type, $exception->nodeType);
-                $this->assertSame('a block-marker continuation cannot stay inside a footnote paragraph', $exception->reason);
+                $this->assertSame('a block-marker continuation cannot stay inside a footnote body', $exception->reason);
             }
         }
     }
@@ -178,7 +237,7 @@ class MultilineInlineCodeTest extends TestCase
                 } catch (SourceUnspellableException $exception) {
                     $this->assertSame($type, $exception->nodeType);
                     $this->assertSame($padding === ''
-                        ? 'a block-marker continuation cannot stay inside a footnote paragraph'
+                        ? 'a block-marker continuation cannot stay inside a footnote body'
                         : 'a line of the value starts with whitespace, which the block layer strips', $exception->reason);
                 }
             }
@@ -228,7 +287,7 @@ class MultilineInlineCodeTest extends TestCase
                             $this->fail('Expected a source refusal');
                         } catch (SourceUnspellableException $exception) {
                             $this->assertSame($type, $exception->nodeType);
-                            $this->assertSame('a block-marker continuation cannot stay inside a footnote paragraph', $exception->reason);
+                            $this->assertSame('a block-marker continuation cannot stay inside a footnote body', $exception->reason);
                         }
 
                         continue;
