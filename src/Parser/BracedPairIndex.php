@@ -115,9 +115,12 @@ final class BracedPairIndex
                 && $next !== $char && $before !== $char && ($before === '' || preg_match('/[A-Za-z0-9_]/', $before) !== 1)
                 && ($char !== '=' || $next !== '>') && (($char !== '/' && $char !== '_') || $before !== '/');
             $bareClose = $canOpenBare ? ($bareTables[$char][$at + 1] ?? -1) : -1;
-            $bareTail = is_int($bareClose) && $bareClose !== -1 ? ($attributeTails[$bareClose + 1] ?? null) : null;
-            if ($bareTail !== null && is_int($bareClose)) {
-                $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail];
+            $bareTail = null;
+            if (is_int($bareClose) && $bareClose !== -1) {
+                $bareTail = $attributeTails[$bareClose + 1] ?? null;
+                if ($bareTail !== null) {
+                    $this->bareAttributes[$at] = ['close' => $bareClose, 'end' => $bareTail];
+                }
             }
             foreach ($tables as $marker => $table) {
                 $rawCloser = $raw[$marker] ?? -1;

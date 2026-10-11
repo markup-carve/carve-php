@@ -1244,7 +1244,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // list: +1 per list put the second at one space and the third at two,
             // where a bullet's content column NESTS the later list in the earlier.
             $previousList = null;
-            $previousBlock = null;
+            $previousCompactDefinition = false;
             $listSeparated = false;
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
@@ -1272,7 +1272,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[array_key_last($parts)] .= "\n" . $this->listBoundary() . $rendered;
                     } elseif (
                         $parts !== []
-                        && $previousBlock?->getRenderHint("\0carve-compact-definition") === '1'
+                        && $previousCompactDefinition
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
@@ -1280,7 +1280,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         $parts[] = $rendered;
                     }
                 }
-                $previousBlock = $block;
+                $previousCompactDefinition = $block->getRenderHint("\0carve-compact-definition") === '1';
             }
 
             return implode(self::BLOCK_SEPARATOR, $parts);
