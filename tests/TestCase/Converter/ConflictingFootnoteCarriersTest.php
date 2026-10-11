@@ -35,7 +35,7 @@ class ConflictingFootnoteCarriersTest extends TestCase
      */
     public static function sharedFixtures(): iterable
     {
-        $fixtures = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/fixtures/footnote-carrier-recovery-fixtures.json'), true, 512, JSON_THROW_ON_ERROR);
+        $fixtures = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/spec/resources/footnote-carrier-recovery-fixtures.json'), true, 512, JSON_THROW_ON_ERROR);
         foreach ($fixtures as $fixture) {
             yield $fixture['name'] => [$fixture];
         }
