@@ -129,7 +129,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                     $result = (new HtmlToCarve(importMode: $mode))->convertToAstWithReport($html);
                     self::assertTrue(self::matchesProjection($result->value, [['type' => 'escaped_text', 'value' => '*']]));
                     self::assertSame([], $result->diagnostics);
-                    $built = (new HtmlAstBuilder(importMode: $mode, sourceSafe: false))->build($html);
+                    $built = (new HtmlAstBuilder(importMode: $mode, sourceSafe: false))->buildResult($html);
                     (new AstCodec())->decodeImporterTree($built->tree);
                     self::assertStringNotContainsString('carve-escaped-carrier', json_encode($built->tree, JSON_THROW_ON_ERROR));
                 }
