@@ -92,7 +92,8 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         foreach (["|\n>     body", 'box'] as $body) {
             $source = "> - a\n>   - ::: " . $body . "\n>  - next\n>     :::\n- tail\n";
             $html = (new CarveConverter())->convert($source);
-            $this->assertStringContainsString('- next', $html);
+            $expected = $body === 'box' ? "<li>::: box\n- next" : "<p>body<br>\n- next</p>";
+            $this->assertStringContainsString($expected, $html);
             $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
         }
     }
