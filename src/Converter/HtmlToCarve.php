@@ -2438,7 +2438,7 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' with a denied URL scheme on <' . $tag . '>', 'warning', $path);
             } elseif (str_starts_with($name, 'on')) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
-            } elseif ($this->importMode === 'roundtrip' && $tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
+            } elseif ($tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
                 continue;
             } elseif (
                 $name === 'data-carve-src'
@@ -3276,8 +3276,7 @@ class HtmlToCarve
      */
     protected function importAttributeIsReadNotWritten(string $tag, string $name): bool
     {
-        return (HtmlCarrierNames::isReserved($name)
-                && ($name !== 'data-carve-ref' || $this->importMode === 'roundtrip'))
+        return HtmlCarrierNames::isReserved($name)
             || ($tag === 'math' && in_array($name, ['display', 'alttext', 'xmlns'], true));
     }
 
@@ -3748,7 +3747,7 @@ class HtmlToCarve
      */
     protected function isStrippedImportAttribute(string $name): bool
     {
-        return HtmlAttributePolicy::isStripped($name, $this->importMode, $this->skipAttributes);
+        return HtmlAttributePolicy::isStripped($name, $this->skipAttributes);
     }
 
     /**
@@ -4456,11 +4455,7 @@ class HtmlToCarve
      */
     protected function overwrittenImportImageAttributes(DOMElement $paragraph, DOMElement $image): array
     {
-        $skip = ['src', 'alt', 'title'];
-        if ($this->importMode === 'roundtrip') {
-            $skip[] = 'data-carve-ref';
-        }
-        $imageNames = $this->writtenImportAttributeNames($image, $skip);
+        $imageNames = $this->writtenImportAttributeNames($image, ['src', 'alt', 'title', 'data-carve-ref']);
         if ($imageNames === []) {
             return [];
         }

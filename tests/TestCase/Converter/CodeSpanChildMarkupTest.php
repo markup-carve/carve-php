@@ -112,7 +112,7 @@ class CodeSpanChildMarkupTest extends TestCase
 
     public function testARawCarrierIsNotReportedAsADiscardedCodeSpan(): void
     {
-        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<p><code data-carve-raw="html"><strong>x</strong></code></p>');
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<p><code data-carve-raw="html">&lt;strong&gt;x&lt;/strong&gt;</code></p>');
         $this->assertStringContainsString('<strong>x</strong>', $result->value);
         $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'inside <code>')));
     }
@@ -132,7 +132,7 @@ class CodeSpanChildMarkupTest extends TestCase
 
     public function testASpanRawCarrierDoesNotReportDiscardedCodeChildren(): void
     {
-        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<span data-carve-raw="html"><code><b>x</b></code></span>');
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<span data-carve-raw="html">&lt;code&gt;&lt;b&gt;x&lt;/b&gt;&lt;/code&gt;</span>');
         $this->assertStringContainsString('<code><b>x</b></code>', $result->value);
         $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'inside <code>')));
     }
