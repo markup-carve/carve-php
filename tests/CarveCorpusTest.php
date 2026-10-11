@@ -1164,16 +1164,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '547-an-info-string-does-not-change-how-a-flush-left-fence-folds-into-a-description-body' => [
-            'reason' => 'markup-carve/carve#2895 applies the deepest-frame ruling from carve#2884',
-            'html' => "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<pre><code class=\"language-rust\"></code></pre>\n",
-        ],
-        '547-an-info-string-does-not-change-how-a-flush-left-fence-folds-into-a-description-body-2' => [
-            'reason' => 'markup-carve/carve#2895 applies the deepest-frame ruling from carve#2884',
-            'html' => "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<pre><code></code></pre>\n",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
