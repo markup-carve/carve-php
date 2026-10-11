@@ -124,14 +124,46 @@ final class DocumentSentinels
         try {
             return self::pick($text, $count, $first);
         } catch (SentinelSpaceExhaustedException) {
-            $prefix = "\u{E009}" . str_repeat("\u{E008}", substr_count($text, "\u{E008}") + 1);
-            $tokens = [];
-            for ($index = 0; $index < $count; $index++) {
-                $tokens[] = $prefix . mb_chr(0xE010 + $index, 'UTF-8') . "\u{E00A}";
-            }
-
-            return $tokens;
+            return self::shortTokens(self::collectNonces($text), $count);
         }
+    }
+
+    /**
+     * @internal
+     *
+     * @return array<int, true>
+     */
+    public static function collectNonces(string $text): array
+    {
+        preg_match_all("/\u{E009}m([0-9]{1,20})x[0-9]+\u{E00A}/", $text, $matches);
+        $nonces = [];
+        foreach ($matches[1] as $nonce) {
+            $nonces[(int)$nonce] = true;
+        }
+
+        return $nonces;
+    }
+
+    /**
+     * @internal
+     *
+     * @param array<int, true> $nonces
+     * @param int $count
+     *
+     * @return list<string>
+     */
+    public static function shortTokens(array $nonces, int $count): array
+    {
+        $nonce = 0;
+        while (isset($nonces[$nonce])) {
+            $nonce++;
+        }
+        $tokens = [];
+        for ($slot = 0; $slot < $count; $slot++) {
+            $tokens[] = "\u{E009}m{$nonce}x{$slot}\u{E00A}";
+        }
+
+        return $tokens;
     }
 
     /**

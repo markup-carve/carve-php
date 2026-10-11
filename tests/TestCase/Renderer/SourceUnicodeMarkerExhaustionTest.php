@@ -6,11 +6,73 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\RawText;
+use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class SourceUnicodeMarkerExhaustionTest extends TestCase
 {
+    public function testProbeKeepsAttributeBracingIndependentOfTheOccupiedPool(): void
+    {
+        $pool = implode('', array_map(static fn (int $code): string => mb_chr($code, 'UTF-8'), range(0xE000, 0xF8FF)));
+        $writer = CarveConverter::carve();
+        foreach (["*a*{.one}\n", "/b/{.two}\n", "*/c/*{.three}\n", "[*a*]{.host}\n", "*a /b/ c*{.one}\n"] as $source) {
+            $ordinary = $writer->convert($source);
+            $written = $writer->convert("```\n{$pool}\n```\n\n" . $source);
+            $this->assertStringEndsWith($ordinary, $written);
+        }
+    }
+
+    public function testProbeDoesNotDuplicateRubyLosses(): void
+    {
+        $pool = implode('', array_map(static fn (int $code): string => mb_chr($code, 'UTF-8'), range(0xE000, 0xF8FF)));
+        $writer = CarveConverter::carve();
+        $document = $writer->parse("```\n{$pool}\n```\n");
+        $paragraph = new Paragraph();
+        $paragraph->setChildren([new Ruby([['base' => [new Text('base')], 'annotation' => [new Text('reading')]]])]);
+        $document->setChildren([...$document->getChildren(), $paragraph]);
+        $report = $writer->renderWithReport($document);
+        $this->assertSame(1, $report->totalLosses);
+        $this->assertCount(1, $report->losses);
+        $this->assertStringContainsString('base(reading)', $report->value);
+    }
+
+    public function testAssemblyDoesNotCreateAnAuthoredTokenCollision(): void
+    {
+        $pool = implode('', array_map(static fn (int $code): string => mb_chr($code, 'UTF-8'), range(0xE000, 0xF8FF)));
+        $converter = new CarveConverter();
+        $document = $converter->parse("```\n{$pool}\n```\n");
+        $paragraph = new Paragraph();
+        $paragraph->setChildren([new Text("\u{E009}m0"), new RawText("x0\u{E00A}")]);
+        $document->setChildren([...$document->getChildren(), $paragraph]);
+        $renderer = new CarveRenderer();
+        $written = $renderer->render($document);
+        $this->assertStringContainsString("\u{E009}m0x0\u{E00A}", $written);
+        $this->assertSame($written, $renderer->render($converter->parse($written)));
+    }
+
+    public function testCustomMultiCharacterSentinelsAreRetained(): void
+    {
+        $renderer = new class extends CarveRenderer {
+            protected function pickVerbatimSentinels(string $text): array
+            {
+                return ["\u{E100}custom0\u{E101}", "\u{E100}custom1\u{E101}", "\u{E100}custom2\u{E101}", "\u{E100}custom3\u{E101}", "\u{E100}custom4\u{E101}", "\u{E100}custom5\u{E101}", "\u{E100}custom6\u{E101}", "\u{E100}custom7\u{E101}"];
+            }
+
+            public function firstToken(): string
+            {
+                return $this->verbatimSentinels[0];
+            }
+        };
+        $this->assertSame("ordinary\n", $renderer->render((new CarveConverter())->parse("ordinary\n")));
+        $this->assertSame("\u{E100}custom0\u{E101}", $renderer->firstToken());
+    }
+
     /**
      * @return array<string, array{string, string}>
      */
@@ -22,7 +84,18 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
         }
         $payload = $pool . "\u{E009}" . str_repeat("\u{E008}", 24) . "\u{E010}\u{E00A}";
 
+        $lookalikes = '';
+        for ($nonce = 0; $nonce < 64; $nonce++) {
+            $lookalikes .= "\u{E009}m{$nonce}x0\u{E00A}";
+        }
+        $large = $pool . $lookalikes . str_repeat("\u{E008}", 1024);
+        $spaces = str_repeat(' ', 1024);
+
         return [
+            'large code whitespace' => ["```\n{$large}{$spaces}\n\nlast\t\n```\n", $large],
+            'large verse whitespace' => ["| {$large}{$spaces}\n| last\n", $large],
+            'footnote code block' => ["a[^n] {$pool}\n\n[^n]: x\n\n  ```\n  \u{E007}> y\n  ```\n", $pool],
+            'footnote code span' => ["a[^n] {$pool}\n\n[^n]: `x\n  \u{E007}> y`\n", $pool],
             'text' => ["a{$payload}b\n", $payload],
             'code' => ["`{$payload}`\n", $payload],
             'literal' => ["!`{$payload}`\n", $payload],
@@ -34,6 +107,18 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
             'list' => ["- a{$payload}\n  b\n", $payload],
             'footnote label' => ["a{$pool}b\n\n[^\u{E009}\u{E008}\u{E008}\u{E010}\u{E00A}]: definition\n", $pool],
         ];
+    }
+
+    public function testTokenSizeStaysBoundedForLongAuthoredRuns(): void
+    {
+        $rows = self::sources();
+        $text = $rows['large code whitespace'][0] . str_repeat("\u{E008}", 8192);
+        $tokens = DocumentSentinels::pickTokens($text, 8, 0xE001);
+        self::assertCount(8, array_unique($tokens));
+        foreach ($tokens as $token) {
+            self::assertLessThan(64, strlen($token));
+            self::assertStringNotContainsString($token, $text);
+        }
     }
 
     /**

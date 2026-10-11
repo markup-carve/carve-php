@@ -452,8 +452,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
-     * The four writer-only sentinels, chosen per render from code points the
-     * DOCUMENT does not contain.
+     * The eight writer-only tokens, chosen per render to avoid authored text.
+     * Tokens may contain several code points when the private-use pool is full.
      *
      * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string}
      */
@@ -467,6 +467,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         "\u{E007}",
         "\u{E008}",
     ];
+
+    /**
+     * @var list<string>|null
+     */
+    private ?array $boundedSentinelChoice = null;
 
     /**
      * Every string in the tree, joined.
@@ -489,6 +494,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // The final slots carry list boundaries and code continuation guards.
         /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
         $picked = DocumentSentinels::pickTokens($text, 8, 0xE001);
+        $this->boundedSentinelChoice = strlen($picked[0]) > 3 ? $picked : null;
 
         return $picked;
     }
@@ -510,7 +516,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $document = $this->withTextAsOneRun($document);
         // Choose the sentinels before anything is rendered, so both escape passes
         // below agree on them.
-        $this->verbatimSentinels = $this->pickVerbatimSentinels($this->collectStrings($document));
+        $sentinelSource = $this->collectStrings($document);
+        $this->boundedSentinelChoice = null;
+        $this->verbatimSentinels = $this->pickVerbatimSentinels($sentinelSource);
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->bracedForAttributes = [];
@@ -522,6 +530,25 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->writerState->pairedClosers = [];
         $this->escapedOpeners = [];
         $this->planStructuralEscapes($document);
+        if ($this->boundedSentinelChoice !== null && $this->verbatimSentinels === $this->boundedSentinelChoice) {
+            $savedState = [$this->bracedSpans, $this->bracedForAttributes, $this->expandedBoldItalic, $this->treeCache, $this->treeCacheSource];
+            $this->markerProbeNonces = DocumentSentinels::collectNonces($sentinelSource . implode('', $this->verbatimSentinels));
+            try {
+                $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
+                $nonces = $this->markerProbeNonces ?? [];
+            } finally {
+                $this->markerProbeNonces = null;
+                [$this->bracedSpans, $this->bracedForAttributes, $this->expandedBoldItalic, $this->treeCache, $this->treeCacheSource] = $savedState;
+                $this->writerState->structuralEscapes = [];
+                $this->writerState->fixedBracketSites = [];
+                $this->writerState->pairedClosers = [];
+                $this->escapedOpeners = [];
+                $this->planStructuralEscapes($document);
+            }
+            /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
+            $picked = DocumentSentinels::shortTokens($nonces, 8);
+            $this->verbatimSentinels = $picked;
+        }
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
         if ($minimal === $conservative) {
@@ -5015,8 +5042,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         );
     }
 
+    /**
+     * @var array<int, true>|null
+     */
+    private ?array $markerProbeNonces = null;
+
     protected function normalize(string $text): string
     {
+        if ($this->markerProbeNonces !== null) {
+            $this->markerProbeNonces += DocumentSentinels::collectNonces($text);
+        }
         $text = str_replace($this->verbatimSentinels[4], '\ ', $text);
         $lines = explode("\n", $this->trimNonNbsp($text));
         foreach ($lines as $i => $line) {
