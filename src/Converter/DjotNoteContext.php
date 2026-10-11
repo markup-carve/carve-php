@@ -19,6 +19,7 @@ final class DjotNoteContext
      * @param int $parentDepth
      * @param array{depth: int, column: int, content: int}|null $parentOpaque
      * @param int|null $placement
+     * @param \MarkupCarve\Carve\Converter\DjotEmbeddedListStack $parentEmbeddedOwners
      * @param int $parentDefinition
      */
     public function __construct(
@@ -33,6 +34,7 @@ final class DjotNoteContext
         public readonly ?array $parentOpaque,
         public readonly int $parentDefinition,
         public readonly ?int $placement,
+        public readonly DjotEmbeddedListStack $parentEmbeddedOwners,
     ) {
     }
 }

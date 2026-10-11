@@ -1650,5 +1650,461 @@
   {
     "source": "> > - > a `b\n> 　\n>   > c` d\n",
     "carve": "> > - > a `b\n　\nc` d\n"
+  },
+  {
+    "source": "- > 2. > a\n > > b\n",
+    "carve": "- > 2. > a\n  >\n  > > b\n"
+  },
+  {
+    "source": "> - > 2. > a\n>     >  > b\n",
+    "carve": "> - > 2. > a\n>   >    > b\n"
+  },
+  {
+    "source": "- > 2. > 2. > a\n\n >   > b\n",
+    "carve": "- > 2. > 2. > a\n\n  > > b\n"
+  },
+  {
+    "source": "> - > 2. > 2. > a\n> \n>     >     > b\n",
+    "carve": "> - > 2. > 2. > a\n> \n>   > > b\n"
+  },
+  {
+    "source": "- > 2. > - > a\n >\n >         > b\n",
+    "carve": "- > 2. > - > a\n  >\n  >    > b\n"
+  },
+  {
+    "source": "> - > 2. > - > a\n>  >\n>       > > b\n",
+    "carve": "> - > 2. > - > a\n>   >\n>   >    > b\n"
+  },
+  {
+    "source": "- > 00002. > a\n  >   > b\n",
+    "carve": "- > 2. > a\n  >    > b\n"
+  },
+  {
+    "source": "> - > 00002. > a\n>       >     > b\n",
+    "carve": "> - > 2. > a\n>   >    > b\n"
+  },
+  {
+    "source": "- > 00002. > 2. > a\n\n  >         > b\n",
+    "carve": "- > 2. > 2. > a\n\n  > > b\n"
+  },
+  {
+    "source": "> - > 00002. > 2. > a\n> \n>         > > b\n",
+    "carve": "> - > 2. > 2. > a\n> \n>   > > b\n"
+  },
+  {
+    "source": "- > 00002. > - > a\n >\n   >  > b\n",
+    "carve": "- > 2. > - > a\n  >\n  >    > b\n"
+  },
+  {
+    "source": "> - > 00002. > - > a\n>  >\n>         >   > b\n",
+    "carve": "> - > 2. > - > a\n>   >\n>   >    > b\n"
+  },
+  {
+    "source": "- > - > a\n   >         > b\n",
+    "carve": "- > - > a\n  >   > b\n"
+  },
+  {
+    "source": "> - > - > 2. > a\n>  > > b\n",
+    "carve": "> - > - > 2. > a\n>   >\n>   > > b\n"
+  },
+  {
+    "source": "- > - > 2. > a\n\n    >  > b\n",
+    "carve": "- > - > 2. > a\n\n  > > b\n"
+  },
+  {
+    "source": "> - > - > - > a\n> \n>  >   > b\n",
+    "carve": "> - > - > - > a\n> \n>   > > b\n"
+  },
+  {
+    "source": "- > - > - > a\n >\n    >     > b\n",
+    "carve": "- > - > - > a\n  >\n  >   > b\n"
+  },
+  {
+    "source": "> - > - [x] > a\n>  >\n>  >         > b\n",
+    "carve": "> - > - [x] > a\n>   >\n>   >   > b\n"
+  },
+  {
+    "source": "- > - [x] > a\n      >  > b\n",
+    "carve": "- > - [x] > a\n  >   > b\n"
+  },
+  {
+    "source": "> - > - [x] > 2. > a\n>   >   > b\n",
+    "carve": "> - > - [x] > 2. > a\n>   >   > b\n"
+  },
+  {
+    "source": "- > - [x] > 2. > a\n\n      >     > b\n",
+    "carve": "- > - [x] > 2. > a\n\n  > > b\n"
+  },
+  {
+    "source": "> - > - [x] > - > a\n> \n>   >         > b\n",
+    "carve": "> - > - [x] > - > a\n> \n>   > > b\n"
+  },
+  {
+    "source": "- > - [x] > - > a\n >\n        > > b\n",
+    "carve": "- > - [x] > - > a\n  >\n  >   > b\n"
+  },
+  {
+    "source": "> - [x] > 2. > a\n>  >\n>    >  > b\n",
+    "carve": "> - [x] > 2. > a\n>   >\n>   > > b\n"
+  },
+  {
+    "source": "- [x] > 2. > a\n        >     > b\n",
+    "carve": "- [x] > 2. > a\n  >    > b\n"
+  },
+  {
+    "source": "> - [x] > 2. > 2. > a\n>    >         > b\n",
+    "carve": "> - [x] > 2. > 2. > a\n>   >    >    b\n"
+  },
+  {
+    "source": "- [x] > 2. > - > a\n\n > > b\n",
+    "carve": "- [x] > 2. > - > a\n\n  > > b\n"
+  },
+  {
+    "source": "> - [x] > 2. > - > a\n> \n>     >  > b\n",
+    "carve": "> - [x] > 2. > - > a\n> \n>   > > b\n"
+  },
+  {
+    "source": "- [x] > 00002. > a\n >\n >   > b\n",
+    "carve": "- [x] > 2. > a\n  >\n  > > b\n"
+  },
+  {
+    "source": "> - [x] > 00002. > a\n>  >\n>     >     > b\n",
+    "carve": "> - [x] > 2. > a\n>   >\n>   >    > b\n"
+  },
+  {
+    "source": "- [x] > 00002. > 2. > a\n  > > b\n",
+    "carve": "- [x] > 2. > 2. > a\n  >\n  > > b\n"
+  },
+  {
+    "source": "> - [x] > 00002. > 2. > a\n>       >  > b\n",
+    "carve": "> - [x] > 2. > 2. > a\n>   >    > b\n"
+  },
+  {
+    "source": "- [x] > 00002. > - > a\n\n  >   > b\n",
+    "carve": "- [x] > 2. > - > a\n\n  > > b\n"
+  },
+  {
+    "source": "> - [x] > 00002. > - > a\n> \n>       >     > b\n",
+    "carve": "> - [x] > 2. > - > a\n> \n>   > > b\n"
+  },
+  {
+    "source": "- [x] > - > a\n >\n  >         > b\n",
+    "carve": "- [x] > - > a\n  >\n  >   > b\n"
+  },
+  {
+    "source": "> - [x] > - > a\n>  >\n>         > > b\n",
+    "carve": "> - [x] > - > a\n>   >\n>   >   > b\n"
+  },
+  {
+    "source": "- [x] > - > 2. > a\n   >   > b\n",
+    "carve": "- [x] > - > 2. > a\n  >\n  > > b\n"
+  },
+  {
+    "source": "> - [x] > - > 2. > a\n>         >     > b\n",
+    "carve": "> - [x] > - > 2. > a\n>   >   >     b\n"
+  },
+  {
+    "source": "- [x] > - > - > a\n\n   >         > b\n",
+    "carve": "- [x] > - > - > a\n\n  > > b\n"
+  },
+  {
+    "source": "> - [x] > - [x] > a\n> \n>  > > b\n",
+    "carve": "> - [x] > - [x] > a\n> \n>   > > b\n"
+  },
+  {
+    "source": "- [x] > - [x] > a\n >\n    >  > b\n",
+    "carve": "- [x] > - [x] > a\n  >\n  > > b\n"
+  },
+  {
+    "source": "> - [x] > - [x] > 2. > a\n>  >\n>  >   > b\n",
+    "carve": "> - [x] > - [x] > 2. > a\n>   >\n>   > > b\n"
+  },
+  {
+    "source": "- [x] > - [x] > 2. > a\n    >         > b\n",
+    "carve": "- [x] > - [x] > 2. > a\n  >   > b\n"
+  },
+  {
+    "source": "> - [x] > - [x] > - > a\n>   > > b\n",
+    "carve": "> - [x] > - [x] > - > a\n>   >\n>   > > b\n"
+  },
+  {
+    "source": "- [x] > - [x] > - > a\n\n      >  > b\n",
+    "carve": "- [x] > - [x] > - > a\n\n  > > b\n"
+  },
+  {
+    "source": "> 2. > 2. > a\n> \n>   >   > b\n",
+    "carve": "> 2. > 2. > a\n> \n>    > > b\n"
+  },
+  {
+    "source": "2. > 2. > a\n >\n      >     > b\n",
+    "carve": "2. > 2. > a\n   >\n   >    > b\n"
+  },
+  {
+    "source": "> 2. > 2. > 2. > a\n>  >\n>   >         > b\n",
+    "carve": "> 2. > 2. > 2. > a\n>    >\n>    >    > b\n"
+  },
+  {
+    "source": "2. > 2. > 2. > a\n        >  > b\n",
+    "carve": "2. > 2. > 2. > a\n   >    >    b\n"
+  },
+  {
+    "source": "> 2. > 2. > - > a\n>    >   > b\n",
+    "carve": "> 2. > 2. > - > a\n>    >    > b\n"
+  },
+  {
+    "source": "2. > 2. > - > a\n\n        >     > b\n",
+    "carve": "2. > 2. > - > a\n\n   > > b\n"
+  },
+  {
+    "source": "> 2. > 00002. > a\n> \n>    >         > b\n",
+    "carve": "> 2. > 2. > a\n> \n>    > > b\n"
+  },
+  {
+    "source": "2. > 00002. > 2. > a\n >\n > > b\n",
+    "carve": "2. > 2. > 2. > a\n   >\n   > > b\n"
+  },
+  {
+    "source": "> 2. > 00002. > 2. > a\n>  >\n>     >  > b\n",
+    "carve": "> 2. > 2. > 2. > a\n>    >\n>    >    > b\n"
+  },
+  {
+    "source": "2. > 00002. > - > a\n >     > b\n",
+    "carve": "2. > 2. > - > a\n   >    > b\n"
+  },
+  {
+    "source": "> 2. > 00002. > - > a\n>     >         > b\n",
+    "carve": "> 2. > 2. > - > a\n>    >    >   b\n"
+  },
+  {
+    "source": "2. > - > a\n\n  > > b\n",
+    "carve": "2. > - > a\n\n   > > b\n"
+  },
+  {
+    "source": "> 2. > - > a\n> \n>       >  > b\n",
+    "carve": "> 2. > - > a\n> \n>    > > b\n"
+  },
+  {
+    "source": "2. > - > 2. > a\n >\n  >   > b\n",
+    "carve": "2. > - > 2. > a\n   >\n   >   > b\n"
+  },
+  {
+    "source": "> 2. > - > 2. > a\n>  >\n>       >     > b\n",
+    "carve": "> 2. > - > 2. > a\n>    >\n>    >   > b\n"
+  },
+  {
+    "source": "2. > - > - > a\n   > > b\n",
+    "carve": "2. > - > - > a\n   >\n   > > b\n"
+  },
+  {
+    "source": "> 2. > - > - > a\n>         >  > b\n",
+    "carve": "> 2. > - > - > a\n>    >   >     b\n"
+  },
+  {
+    "source": "2. > - [x] > a\n\n   >   > b\n",
+    "carve": "2. > - [x] > a\n\n   > > b\n"
+  },
+  {
+    "source": "> 2. > - [x] > a\n> \n>         >     > b\n",
+    "carve": "> 2. > - [x] > a\n> \n>    > > b\n"
+  },
+  {
+    "source": "2. > - [x] > 2. > a\n >\n   >         > b\n",
+    "carve": "2. > - [x] > 2. > a\n   >\n   >   > b\n"
+  },
+  {
+    "source": "> 2. > - [x] > - > a\n>  >\n>  > > b\n",
+    "carve": "> 2. > - [x] > - > a\n>    >\n>    > > b\n"
+  },
+  {
+    "source": "2. > - [x] > - > a\n    >   > b\n",
+    "carve": "2. > - [x] > - > a\n   >   > b\n"
+  },
+  {
+    "source": "[^n]: - > 2. > a\n > > b\n\nref[^n]\n",
+    "carve": "[^n]: - > 2. > a\n    >\n  > > b\n\nref[^n]\n"
+  },
+  {
+    "source": "> [^n]: - > 2. > a\n>   > > b\n\nref[^n]\n",
+    "carve": "[^n]: - > 2. > a\n    >\n  > > b\n\n>\nref[^n]\n"
+  },
+  {
+    "source": "[^n]: - > 2. > a\n\n    > > b\n\nref[^n]\n",
+    "carve": "[^n]: - > 2. > a\n\n  > > b\n\nref[^n]\n"
+  },
+  {
+    "source": "> [^n]: - > 2. > a\n>\n>         > > b\n\nref[^n]\n",
+    "carve": "[^n]: - > 2. > a\n\n    > > b\n\n>\nref[^n]\n"
+  },
+  {
+    "source": "[^n]: - > 2. > a\n            >  > b\n\nref[^n]\n",
+    "carve": "[^n]: - > 2. > a\n    >    > b\n\nref[^n]\n"
+  },
+  {
+    "source": "> [^a|b]: - > 2. > a\n>  >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - > 2. > a\n    >\n  > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^a|b]: - > 2. > a\n\n  >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - > 2. > a\n\n  > > b\n\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "> [^a|b]: - > 2. > a\n>\n>     >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - > 2. > a\n\n  > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^a|b]: - > 2. > a\n        >   > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - > 2. > a\n    >\n  > > b\n\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "> [^a|b]: - > 2. > a\n>             >   > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - > 2. > a\n    >    > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^😀]: - > 2. > a\n\n >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - > 2. > a\n\n  > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^😀]: - > 2. > a\n>\n>   >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - > 2. > a\n\n  > > b\n\n>\nref[^😀]\n"
+  },
+  {
+    "source": "[^😀]: - > 2. > a\n    >     > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - > 2. > a\n    >\n  > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^😀]: - > 2. > a\n>         >     > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - > 2. > a\n    >    > b\n\n>\nref[^😀]\n"
+  },
+  {
+    "source": "[^😀]: - > 2. > a\n\n            >     > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - > 2. > a\n\n    > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^n]: > - > 2. > a\n>\n>  >     > b\n\nref[^n]\n",
+    "carve": "[^n]: > - > 2. > a\n\n  > > b\n\n>\nref[^n]\n"
+  },
+  {
+    "source": "[^n]: > - > 2. > a\n    > > b\n\nref[^n]\n",
+    "carve": "[^n]: > - > 2. > a\n  >\n  > > b\n\nref[^n]\n"
+  },
+  {
+    "source": "> [^n]: > - > 2. > a\n>         > > b\n\nref[^n]\n",
+    "carve": "[^n]: > - > 2. > a\n  >   > b\n\n>\nref[^n]\n"
+  },
+  {
+    "source": "[^n]: > - > 2. > a\n\n            > > b\n\nref[^n]\n",
+    "carve": "[^n]: > - > 2. > a\n\n  > > b\n\nref[^n]\n"
+  },
+  {
+    "source": "> [^a|b]: > - > 2. > a\n>\n>  > > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: > - > 2. > a\n\n  > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^a|b]: > - > 2. > a\n  >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: > - > 2. > a\n  >\n  > > b\n\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "> [^a|b]: > - > 2. > a\n>     >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: > - > 2. > a\n  >\n  > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^a|b]: > - > 2. > a\n\n        >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: > - > 2. > a\n\n  > > b\n\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "> [^a|b]: > - > 2. > a\n>\n>             >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: > - > 2. > a\n\n  > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^😀]: > - > 2. > a\n >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: > - > 2. > a\n  >\n  > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^😀]: > - > 2. > a\n>   >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: > - > 2. > a\n  >\n  > > b\n\n>\nref[^😀]\n"
+  },
+  {
+    "source": "[^😀]: > - > 2. > a\n\n    >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: > - > 2. > a\n\n  > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^😀]: > - > 2. > a\n>\n>         >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: > - > 2. > a\n\n  > > b\n\n>\nref[^😀]\n"
+  },
+  {
+    "source": "[^😀]: > - > 2. > a\n            >     > b\n\nref[^😀]\n",
+    "carve": "[^😀]: > - > 2. > a\n  >   >        b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^n]: - [x] > 2. > 3. > a\n>  >     > b\n\nref[^n]\n",
+    "carve": "[^n]: - [x] > 2. > 3. > a\n    >\n  > > b\n\n>\nref[^n]\n"
+  },
+  {
+    "source": "[^n]: - [x] > 2. > 3. > a\n\n  >     > b\n\nref[^n]\n",
+    "carve": "[^n]: - [x] > 2. > 3. > a\n\n  > > b\n\nref[^n]\n"
+  },
+  {
+    "source": "> [^n]: - [x] > 2. > 3. > a\n>\n>     >     > b\n\nref[^n]\n",
+    "carve": "[^n]: - [x] > 2. > 3. > a\n\n  > > b\n\n>\nref[^n]\n"
+  },
+  {
+    "source": "[^n]: - [x] > 2. > 3. > a\n            > > b\n\nref[^n]\n",
+    "carve": "[^n]: - [x] > 2. > 3. > a\n    >\n    > > b\n\nref[^n]\n"
+  },
+  {
+    "source": "> [^a|b]: - [x] > 2. > 3. > a\n>  > > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - [x] > 2. > 3. > a\n    >\n  > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^a|b]: - [x] > 2. > 3. > a\n\n  > > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - [x] > 2. > 3. > a\n\n  > > b\n\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "> [^a|b]: - [x] > 2. > 3. > a\n>\n>     > > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - [x] > 2. > 3. > a\n\n  > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^a|b]: - [x] > 2. > 3. > a\n        >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - [x] > 2. > 3. > a\n    >\n  > > b\n\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "> [^a|b]: - [x] > 2. > 3. > a\n>             >  > b\n\nref[^a|b]\n",
+    "carve": "[^carve-djot-note-0]: - [x] > 2. > 3. > a\n    >\n    > > b\n\n>\nref[^carve-djot-note-0]\n"
+  },
+  {
+    "source": "[^😀]: - [x] > 2. > 3. > a\n\n >  > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - [x] > 2. > 3. > a\n\n  > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^😀]: - [x] > 2. > 3. > a\n>\n>   >  > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - [x] > 2. > 3. > a\n\n  > > b\n\n>\nref[^😀]\n"
+  },
+  {
+    "source": "[^😀]: - [x] > 2. > 3. > a\n    >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - [x] > 2. > 3. > a\n    >\n  > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "> [^😀]: - [x] > 2. > 3. > a\n>         >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - [x] > 2. > 3. > a\n    >\n    > > b\n\n>\nref[^😀]\n"
+  },
+  {
+    "source": "[^😀]: - [x] > 2. > 3. > a\n\n            >   > b\n\nref[^😀]\n",
+    "carve": "[^😀]: - [x] > 2. > 3. > a\n\n    > > b\n\nref[^😀]\n"
+  },
+  {
+    "source": "  [^n]: q\n\n  ```\n  y\n  ```\n\nafter\n",
+    "carve": "[^n]: q\n\n```\ny\n```\n\nafter\n"
+  },
+  {
+    "source": "- Text\n  [^a|b]: Note.\n",
+    "carve": "[^carve-djot-note-0]: %%%%\n\n- Text\n  [^carve-djot-note-0]\\: Note.\n"
+  },
+  {
+    "source": "- Text\n[^n]: Note.\n",
+    "carve": "- Text\n\n[^n]: Note.\n"
+  },
+  {
+    "source": "- # h\n  [^n]: Note.\n",
+    "carve": "[^n]: Note.\n\n- # h"
   }
 ]

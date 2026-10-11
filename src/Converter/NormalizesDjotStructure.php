@@ -64,6 +64,7 @@ trait NormalizesDjotStructure
         $paragraph = false;
         $blank = true;
         $depth = 0;
+        $embeddedOwners = new DjotEmbeddedListStack();
         $embeddedListOwner = null;
         $opaqueQuoteOwner = null;
         $quoteBoundary = '';
@@ -72,7 +73,7 @@ trait NormalizesDjotStructure
         $noteOwner = null;
         $notes = new DjotNoteStack();
         $completedNotes = [];
-        $endNote = function (DjotNoteStack $notes) use (&$out, &$completedNotes, &$lists, &$divs, &$depth, &$quoteBoundary, &$embeddedListOwner, &$opaqueQuoteOwner, &$definitionIndent, &$paragraph, &$headingMarker): ?DjotNoteContext {
+        $endNote = function (DjotNoteStack $notes) use (&$out, &$completedNotes, &$lists, &$divs, &$depth, &$quoteBoundary, &$embeddedListOwner, &$embeddedOwners, &$opaqueQuoteOwner, &$definitionIndent, &$paragraph, &$headingMarker): ?DjotNoteContext {
             $ended = $notes->pop();
             if ($divs !== []) {
                 $this->dropOrphanDjotAttributeLine($out);
@@ -90,6 +91,7 @@ trait NormalizesDjotStructure
             $depth = $ended->parentDepth;
             $quoteBoundary = $ended->parentBoundary;
             $embeddedListOwner = $ended->parentEmbedded;
+            $embeddedOwners = $ended->parentEmbeddedOwners;
             $opaqueQuoteOwner = $ended->parentOpaque;
             $definitionIndent = $ended->parentDefinition;
             $paragraph = false;
@@ -120,7 +122,7 @@ trait NormalizesDjotStructure
             $visible = substr($view, $rawIndent);
             $quoteBases = [];
             $quoteColumns = $quoteDepth > 0 ? $this->djotIndentColumnsAfterQuotes($original, $quoteDepth, $quoteBases) : [];
-            $listColumn = static fn (DjotListContext $owner): int => $quoteDepth > $owner->depth ? ($quoteColumns[$owner->depth] ?? $rawIndent) + ($owner->sourcePrefix === null ? 0 : ($quoteBases[$owner->depth] ?? 0) - $owner->sourcePrefix) : $indent;
+            $listColumn = static fn (DjotListContext $owner): int => $quoteDepth > $owner->depth ? ($quoteColumns[$owner->depth] ?? $rawIndent) + ($owner->sourcePrefix === null ? 0 : ($quoteBases[$owner->depth] ?? 0) - $owner->sourcePrefix) : ($owner->sourcePrefix === null ? $indent : strlen($quote) + $rawIndent - $owner->sourcePrefix);
             $noteHead = null;
             if (str_starts_with($visible, '[^') && preg_match('/^(\[\^[^\]\n]+\]:[ \t]*)(.*)$/', $text, $noteMatch) === 1 && ($blank || !$paragraph || $quoteDepth < $depth || ($noteOwner !== null && $indent <= $noteOwner->column) || ($n > 0 && $isBoundary !== null && $isBoundary($lines[$n - 1])))) {
                 $noteHead = $noteMatch;
@@ -162,7 +164,7 @@ trait NormalizesDjotStructure
             if ($opaqueQuoteOwner !== null && $text !== '' && ($quoteDepth < $opaqueQuoteOwner['depth'] || ($quoteDepth === $opaqueQuoteOwner['depth'] ? $indent : ($quoteColumns[$opaqueQuoteOwner['depth']] ?? 0)) < $opaqueQuoteOwner['column'] + 1)) {
                 $opaqueQuoteOwner = null;
             }
-            $quoteForCarve = function () use ($quoteDepth, &$noteOwner, &$definitionIndent, $hasDefinitionSyntax, &$lists, &$embeddedListOwner, &$opaqueQuoteOwner, $quoteColumns, $quoteBases, $fences, $n, $original, $masked, $quote): string {
+            $quoteForCarve = function () use ($quoteDepth, &$noteOwner, &$definitionIndent, $hasDefinitionSyntax, &$lists, &$opaqueQuoteOwner, $quoteColumns, $quoteBases, $embeddedOwners, $fences, $n, $original, $masked, $quote): string {
                 $baseDepth = $noteOwner->depth ?? 0;
                 $retainedQuote = $baseDepth > 0 ? (preg_replace('/^[ \t]/', '', substr($quote, strlen($this->djotClosedQuoteBoundary($quote, $baseDepth - 1)))) ?? '') : $quote;
                 if ($quoteDepth === 0 || $definitionIndent >= 0 || $hasDefinitionSyntax || $fences[$n] !== $original || ($masked[strpos($quote, '>') ?: 0] ?? '') !== '>') {
@@ -173,8 +175,11 @@ trait NormalizesDjotStructure
                 if ($owner !== null) {
                     $contexts[] = ['depth' => $owner->depth, 'column' => $owner->column, 'content' => $owner->content, 'target' => $owner->target, 'sourcePrefix' => $owner->sourcePrefix];
                 }
-                if ($embeddedListOwner !== null) {
-                    $contexts[] = ['depth' => $embeddedListOwner->depth, 'column' => $embeddedListOwner->column, 'content' => $embeddedListOwner->content, 'target' => 0];
+                foreach ($embeddedOwners->all() as $candidate) {
+                    if ($candidate->depth >= $quoteDepth) {
+                        break;
+                    }
+                    $contexts[] = ['depth' => $candidate->depth, 'column' => $candidate->column, 'content' => $candidate->content, 'target' => $candidate->target, 'sourcePrefix' => $candidate->sourcePrefix];
                 }
                 if ($noteOwner !== null) {
                     $contexts[] = ['depth' => $noteOwner->depth, 'column' => $noteOwner->column, 'content' => 2, 'target' => 0];
@@ -188,14 +193,16 @@ trait NormalizesDjotStructure
                     $firstOwned = min($firstOwned, $context['depth']);
                     $lastOwned = max($lastOwned, $context['depth']);
                 }
+                $byDepth = [];
+                foreach ($contexts as $candidate) {
+                    $level = $candidate['depth'];
+                    if (($quoteColumns[$level] ?? 0) + (isset($candidate['sourcePrefix']) ? ($quoteBases[$level] ?? 0) - $candidate['sourcePrefix'] : 0) > $candidate['column'] && (!isset($byDepth[$level]) || $candidate['column'] >= $byDepth[$level]['column'])) {
+                        $byDepth[$level] = $candidate;
+                    }
+                }
                 $parts = [];
                 for ($level = $baseDepth; $level < $quoteDepth; ++$level) {
-                    $held = null;
-                    foreach ($contexts as $candidate) {
-                        if ($candidate['depth'] === $level && ($quoteColumns[$level] ?? 0) + (isset($candidate['sourcePrefix']) ? ($quoteBases[$level] ?? 0) - $candidate['sourcePrefix'] : 0) > $candidate['column'] && ($held === null || $candidate['column'] >= $held['column'])) {
-                            $held = $candidate;
-                        }
-                    }
+                    $held = $byDepth[$level] ?? null;
                     $column = $held !== null ? $held['target'] + $held['content'] : ($level > $firstOwned && $level < $lastOwned ? ($quoteColumns[$level] ?? 0) : 0);
                     $parts[] = str_repeat(' ', $column) . '>';
                     if ($level + 1 < $quoteDepth || !str_ends_with($quote, '>')) {
@@ -207,6 +214,37 @@ trait NormalizesDjotStructure
             };
             $nativeRemainder = $rawIndent !== $indent && $fences[$n] === $original ? str_repeat(' ', $indent) . $text : $raw;
             $originalForCarve = static fn (string $remainder): string => $quoteForCarve() . ($noteOwner !== null && $text !== '' && $quoteDepth === $noteOwner->depth && $noteHead === null ? ($fences[$n] === $original ? '  ' . $text : substr($remainder, min($indent, $noteOwner->column))) : $remainder);
+            $embeddedParent = $lists !== [] ? $lists[array_key_last($lists)] : null;
+            if ($text !== '' && $fences[$n] === $original && $embeddedOwners->last() !== null && $embeddedParent !== null && $quoteDepth > $embeddedParent->depth && $listColumn($embeddedParent) <= $embeddedParent->column) {
+                if ($paragraph && !$blank) {
+                    $out[] = $this->djotClosedQuoteBoundary($quoteBoundary, max(0, $embeddedParent->depth - ($noteOwner->depth ?? 0)));
+                }
+                $embeddedOwners->clear();
+                $embeddedListOwner = null;
+                $paragraph = false;
+                $headingMarker = '';
+            }
+            if ($text !== '' && $fences[$n] === $original) {
+                $startsBlock = preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[|]|[`~]{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|\[[^\]\n]+\]:)/', $visible) === 1;
+                foreach ($embeddedOwners->all() as $i => $owner) {
+                    $outside = $quoteDepth < $owner->depth || $listColumn($owner) <= $owner->column;
+                    if ($outside && ($blank || !$paragraph || $quoteDepth > $owner->depth || $startsBlock)) {
+                        $siblingItem = $quoteDepth === $owner->depth && preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+/', $visible) === 1;
+                        if ($paragraph && !$blank) {
+                            $out[] = $this->djotClosedQuoteBoundary($quoteBoundary, max(0, $owner->depth - ($noteOwner->depth ?? 0) - 1 + ($siblingItem ? 1 : 0)));
+                        }
+                        $embeddedOwners->truncate($i);
+                        $embeddedListOwner = $embeddedOwners->last();
+                        $paragraph = false;
+                        $headingMarker = '';
+
+                        break;
+                    }
+                    if ($owner->depth >= $quoteDepth && !$blank && $paragraph && !$startsBlock) {
+                        break;
+                    }
+                }
+            }
             $blockIndent = $quoteDepth > $depth ? ($quoteColumns[$depth] ?? $indent) : $indent;
             $quoteList = $lists === [] ? null : $lists[array_key_last($lists)];
             if ($embeddedListOwner !== null && $embeddedListOwner->depth < $quoteDepth && ($quoteList === null || $embeddedListOwner->depth > $quoteList->depth)) {
@@ -220,9 +258,10 @@ trait NormalizesDjotStructure
                 if ($quoteDepth > 0 || ($lists === [] && $out !== [] && trim($out[array_key_last($out)]) !== '')) {
                     $out[] = rtrim($quoteForCarve());
                 }
-                $noteOwner = new DjotNoteContext($quoteDepth, $indent, $out, $lists, $divs, $depth, $quoteBoundary, $embeddedListOwner, $opaqueQuoteOwner, $definitionIndent, $noteOwner === null && $quoteDepth === 0 && $indent === 0 && $lists === [] ? count($out) : null);
+                $noteOwner = new DjotNoteContext($quoteDepth, $indent, $out, $lists, $divs, $depth, $quoteBoundary, $embeddedListOwner, $opaqueQuoteOwner, $definitionIndent, $noteOwner === null && $quoteDepth === 0 && $indent === 0 && $lists === [] ? count($out) : null, $embeddedOwners);
                 $notes->push($noteOwner);
                 $out = $lists = $divs = [];
+                $embeddedOwners = new DjotEmbeddedListStack();
                 $embeddedListOwner = $opaqueQuoteOwner = null;
                 $definitionIndent = -1;
                 $body = $noteHead[2];
@@ -239,6 +278,11 @@ trait NormalizesDjotStructure
                     $noteOwner->fenceColumn = 2;
                 }
                 $inlineQuote = $this->djotItemQuotePrefix($childBody);
+                $noteBodyStart = strlen($quote) + $rawIndent + intdiv(strlen(mb_convert_encoding($noteHead[1], 'UTF-16LE', 'UTF-8')), 2) + strlen($body) - strlen($childBody);
+                foreach ($inlineQuote['owners'] as $owner) {
+                    $embeddedListOwner = new DjotListContext($owner['column'], $owner['content'], $owner['target'], '', '', 0, $quoteDepth + $owner['depth'], $noteBodyStart + $owner['sourceOffset'], $owner['sourceContent']);
+                    $embeddedOwners->push($embeddedListOwner);
+                }
                 $depth = $quoteDepth + $inlineQuote['depth'];
                 $context = $child ? $lists[array_key_last($lists)] : null;
                 $contentColumn = $context !== null ? $context->target + $context->content : 2;
@@ -260,13 +304,15 @@ trait NormalizesDjotStructure
                     array_pop($lists);
                 }
                 if ($embeddedListOwner !== null && $embeddedListOwner->depth > $quoteDepth) {
-                    $embeddedListOwner = null;
+                    $embeddedOwners->trim($quoteDepth);
+                    $embeddedListOwner = $embeddedOwners->last();
                 }
                 if ($outsideQuoteItem) {
                     while ($lists !== [] && $quoteDepth > $lists[array_key_last($lists)]->depth && $listColumn($lists[array_key_last($lists)]) < $lists[array_key_last($lists)]->column + 1) {
                         array_pop($lists);
                     }
-                    if ($embeddedListOwner !== null && $quoteDepth > $embeddedListOwner->depth && ($quoteColumns[$embeddedListOwner->depth] ?? $indent) < $embeddedListOwner->column + 1) {
+                    if ($embeddedListOwner !== null && $quoteDepth > $embeddedListOwner->depth && $listColumn($embeddedListOwner) < $embeddedListOwner->column + 1) {
+                        $embeddedOwners->clear();
                         $embeddedListOwner = null;
                     }
                     $depth = $quoteDepth;
@@ -319,7 +365,8 @@ trait NormalizesDjotStructure
                 $paragraph = false;
                 $quoteBoundary = rtrim($quoteForCarve());
             }
-            if ($embeddedListOwner !== null && $quoteDepth > $embeddedListOwner->depth && $quoteDepth >= $depth && ($quoteColumns[$embeddedListOwner->depth] ?? $indent) < $embeddedListOwner->column + 1) {
+            if ($embeddedListOwner !== null && $quoteDepth > $embeddedListOwner->depth && $quoteDepth >= $depth && $listColumn($embeddedListOwner) < $embeddedListOwner->column + 1) {
+                $embeddedOwners->clear();
                 $embeddedListOwner = null;
             }
             if ($quoteDepth < $depth && ($blockStart || $item || $this->rejectedDjotCommentStartsBlock($visible))) {
@@ -327,7 +374,8 @@ trait NormalizesDjotStructure
                     array_pop($lists);
                 }
                 if ($embeddedListOwner !== null && $embeddedListOwner->depth > $quoteDepth) {
-                    $embeddedListOwner = null;
+                    $embeddedOwners->trim($quoteDepth);
+                    $embeddedListOwner = $embeddedOwners->last();
                 }
                 $owner = $lists === [] ? null : $lists[array_key_last($lists)];
                 if ($item && !$blank && $paragraph && ($owner === null || $owner->depth !== $quoteDepth || $indent > $owner->column)) {
@@ -373,12 +421,13 @@ trait NormalizesDjotStructure
                     }
                 }
             }
-            if ($lists === []) {
+            if ($blockStart && $lists === []) {
+                $embeddedOwners->clear();
                 $embeddedListOwner = null;
             }
             $top = $lists === [] ? null : $lists[array_key_last($lists)];
             if (
-                $top !== null && $quoteDepth >= $depth && $quoteDepth > $top->depth
+                $top !== null && $quoteDepth > $top->depth
                 && $listColumn($top) >= $top->column + 1
                 && (!$paragraph || $quoteDepth === $depth)
             ) {
@@ -386,7 +435,9 @@ trait NormalizesDjotStructure
                 $depth = $quoteDepth;
                 if ($item && (!$paragraph || ($embeddedListOwner !== null && $embeddedListOwner->depth === $quoteDepth && $indent <= $embeddedListOwner->column))) {
                     $nativeRemainder = substr($raw, 0, $indent) . $this->compactDjotListPrefix($text);
-                    $embeddedListOwner = new DjotListContext($indent, strlen($this->compactDjotListPrefix(substr($itemMatch[0], 0, -1))), 0, '', '', 0, $quoteDepth);
+                    $embeddedListOwner = new DjotListContext($indent, strlen($this->compactDjotListPrefix(substr($itemMatch[0], 0, -1))), 0, '', '', 0, $quoteDepth, strlen($quote), strlen($itemMatch[0]) - 1);
+                    $embeddedOwners->trim($quoteDepth - 1);
+                    $embeddedOwners->push($embeddedListOwner);
                 }
                 $out[] = $originalForCarve($nativeRemainder);
                 $paragraph = !($row || $fences[$n] !== $original
@@ -435,6 +486,7 @@ trait NormalizesDjotStructure
             }
             if ($quoteDepth > $depth && !$paragraph) {
                 $lists = [];
+                $embeddedOwners->clear();
                 $embeddedListOwner = null;
                 $depth = $quoteDepth;
                 $quoteBoundary = rtrim($quoteForCarve());
@@ -443,7 +495,8 @@ trait NormalizesDjotStructure
                     array_pop($lists);
                 }
                 if ($embeddedListOwner !== null && $embeddedListOwner->depth > $quoteDepth) {
-                    $embeddedListOwner = null;
+                    $embeddedOwners->trim($quoteDepth);
+                    $embeddedListOwner = $embeddedOwners->last();
                 }
                 $depth = $quoteDepth;
                 $quoteBoundary = rtrim($quoteForCarve());
@@ -572,12 +625,13 @@ trait NormalizesDjotStructure
                 $quoteBody = '';
                 $task = str_starts_with($body, '[') && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMatch) === 1;
                 $itemBody = $task ? substr($body, strlen($taskMatch[0])) : $body;
+                $embeddedOwners->clear();
                 $embeddedListOwner = null;
                 if (str_starts_with($itemBody, '>')) {
                     $itemQuote = $this->djotItemQuotePrefix($itemBody);
-                    $quoteOwner = $itemQuote['owner'];
-                    if ($quoteOwner !== null) {
-                        $embeddedListOwner = new DjotListContext($quoteOwner['column'], $quoteOwner['content'], 0, '', '', 0, $quoteDepth + $quoteOwner['depth']);
+                    foreach ($itemQuote['owners'] as $quoteOwner) {
+                        $embeddedListOwner = new DjotListContext($quoteOwner['column'], $quoteOwner['content'], $quoteOwner['target'], '', '', 0, $quoteDepth + $quoteOwner['depth'], strlen($quote) + $rawIndent + strlen($itemMatch[0]) - 1 + ($task ? strlen($taskMatch[0]) : 0) + $quoteOwner['sourceOffset'], $quoteOwner['sourceContent']);
+                        $embeddedOwners->push($embeddedListOwner);
                     }
                     $itemQuoteDepth = $itemQuote['depth'];
                     $quoteBody = $itemQuote['body'];
@@ -608,6 +662,7 @@ trait NormalizesDjotStructure
             $attributeLine = $attrs !== null && $attrs['end'] === strlen($raw);
             if ($blank && !$this->djotListContains($lists, $indent) && !$attributeLine) {
                 $lists = [];
+                $embeddedOwners->clear();
                 $embeddedListOwner = null;
             }
             if ($this->rejectedDjotCommentStartsBlock($visible)) {
@@ -668,10 +723,25 @@ trait NormalizesDjotStructure
             } elseif ($rule && $lists === [] && !$paragraph) {
                 $out[] = $quoteForCarve() . ($noteOwner !== null && $quoteDepth === $noteOwner->depth ? '  ' : '') . '***';
             } else {
+                $embedded = null;
+                foreach ($embeddedOwners->all() as $candidate) {
+                    if ($candidate->depth > $quoteDepth) {
+                        break;
+                    }
+                    if ($candidate->depth === $quoteDepth && $listColumn($candidate) > $candidate->column) {
+                        $embedded = $candidate;
+
+                        break;
+                    }
+                }
                 $parent = $lists === [] ? null : $lists[array_key_last($lists)];
-                $out[] = $parent !== null && $indent > $parent->column
+                if ($embedded !== null) {
+                    $out[] = $quoteForCarve() . str_repeat(' ', $embedded->target + $embedded->content + max(0, $listColumn($embedded) - $embedded->column - ($embedded->sourceContent ?? $embedded->content))) . $text;
+                } else {
+                    $out[] = $parent !== null && $indent > $parent->column
                     ? $quoteForCarve() . str_repeat(' ', $parent->target + $parent->content + max(0, $indent - $parent->column - $parent->content)) . $text
                     : ($noteOwner !== null && $quoteDepth === $noteOwner->depth ? $quoteForCarve() . '  ' . $text : ($dedent > 0 ? $quoteForCarve() . substr($raw, $dedent) : $originalForCarve($nativeRemainder)));
+                }
             }
             $fence = preg_match('/^[`~]{3,}/', $text) === 1 && trim($visible) === '';
             $paragraph = !($heading || $headingMarker !== '' || $rule || $attributeLine || $reference || $fence || $text === '+' || preg_match('/^:[ \t]/', $visible) === 1 || $quoteDepth > $depth);
@@ -680,6 +750,7 @@ trait NormalizesDjotStructure
             }
             if ($blank && !$item && !$this->djotListContains($lists, $indent) && !$attributeLine) {
                 $lists = [];
+                $embeddedOwners->clear();
                 $embeddedListOwner = null;
             }
             $blank = false;
@@ -786,7 +857,7 @@ trait NormalizesDjotStructure
     }
 
     /**
-     * @return array{depth: int, prefix: string, body: string, owner: ?array{depth: int, column: int, content: int}}
+     * @return array{depth: int, prefix: string, body: string, owner: ?array{depth: int, column: int, content: int, sourceOffset: int, sourceContent: int, target: int}, owners: list<array{depth: int, column: int, content: int, sourceOffset: int, sourceContent: int, target: int}>}
      */
     private function djotItemQuotePrefix(string $body): array
     {
@@ -794,6 +865,7 @@ trait NormalizesDjotStructure
         $depth = 0;
         $prefix = '';
         $owner = null;
+        $owners = [];
         while (preg_match('/\G(?:>(?:[ \t]+|$))+/A', $body, $quote, 0, $at) === 1) {
             $depth += substr_count($quote[0], '>');
             $prefix .= $quote[0];
@@ -805,7 +877,8 @@ trait NormalizesDjotStructure
             while ($end > 0 && ($quote[0][$end - 1] === ' ' || $quote[0][$end - 1] === "\t")) {
                 --$end;
             }
-            $owner = ['depth' => $depth, 'column' => max(0, strlen($quote[0]) - $end - 1), 'content' => strlen($this->compactDjotListPrefix($item[1]))];
+            $owner = ['depth' => $depth, 'column' => max(0, strlen($quote[0]) - $end - 1), 'content' => strlen($this->compactDjotListPrefix($item[1])), 'sourceOffset' => $at - max(0, strlen($quote[0]) - $end - 1), 'sourceContent' => strlen($item[1]), 'target' => max(0, strlen($quote[0]) - $end - 1)];
+            $owners[] = $owner;
             $next = $at + strlen($item[0]);
             if (preg_match('/\G>(?:[ \t]|$)/A', $body, $nextQuote, 0, $next) !== 1) {
                 break;
@@ -814,7 +887,7 @@ trait NormalizesDjotStructure
             $at = $next;
         }
 
-        return ['depth' => $depth, 'prefix' => $prefix, 'body' => substr($body, $at), 'owner' => $owner];
+        return ['depth' => $depth, 'prefix' => $prefix, 'body' => substr($body, $at), 'owner' => $owner, 'owners' => $owners];
     }
 
     /**

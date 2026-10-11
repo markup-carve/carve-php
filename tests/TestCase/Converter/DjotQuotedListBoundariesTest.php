@@ -77,4 +77,16 @@ final class DjotQuotedListBoundariesTest extends TestCase
             self::assertSame($size, substr_count($html, 'role="doc-noteref"'));
         }
     }
+
+    public function testDeepInlineListsWithLazyQuotedTextHaveBoundedOutput(): void
+    {
+        $importer = new DjotToCarve();
+        $renderer = new CarveConverter();
+        foreach ([16, 32, 64] as $size) {
+            $source = str_repeat('- > ', $size) . "a\n" . str_repeat(" > lazy\n", 1024);
+            $result = $importer->convert($source);
+            self::assertLessThanOrEqual(strlen($source) * 2, strlen($result));
+            self::assertSame(1024, substr_count($renderer->convert($result), 'lazy'));
+        }
+    }
 }

@@ -19,6 +19,7 @@ final class DjotListContext
         public int $start,
         public readonly int $depth = 0,
         public readonly ?int $sourcePrefix = null,
+        public readonly ?int $sourceContent = null,
     ) {
     }
 }
