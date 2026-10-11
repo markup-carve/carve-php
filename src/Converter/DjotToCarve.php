@@ -2225,6 +2225,7 @@ class DjotToCarve
     {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
+        $fenceOpener = '/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/';
         $heldFence = null;
         $previousBlock = true;
         $normalizeBoundary = true;
@@ -2311,19 +2312,37 @@ class DjotToCarve
 
                 continue;
             }
-            if (preg_match('/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $content, $open) === 1) {
+            $nestedNote = false;
+            $nestedNoteColumn = -1;
+            $openResult = preg_match($fenceOpener, $content, $open);
+            if ($openResult !== 1 && str_contains($content, '[^') && (str_contains($content, '```') || str_contains($content, '~~~'))) {
+                $openingAt = $this->djotContentStart($content);
+                $openingPrefix = substr($content, 0, $openingAt);
+                preg_match_all('/\[\^[^\]\n]+\]:[ \t]*/', $openingPrefix, $headers, PREG_OFFSET_CAPTURE);
+                if (count($headers[0]) > 1 && !str_contains(preg_replace('/\[\^[^\]\n]+\]:[ \t]*/', '', $openingPrefix) ?? '', '>')) {
+                    $openResult = preg_match($fenceOpener, substr($content, $openingAt), $open);
+                    if ($openResult === 1) {
+                        $nestedNote = true;
+                        $open[1] = substr($content, 0, strspn($content, " \t"));
+                        $open[2] = substr($openingPrefix, strlen($open[1]));
+                        $lastHeader = $headers[0][array_key_last($headers[0])];
+                        $nestedNoteColumn = (int)(strlen(mb_convert_encoding(substr($openingPrefix, 0, $lastHeader[1]), 'UTF-16LE', 'UTF-8')) / 2);
+                    }
+                }
+            }
+            if ($openResult === 1) {
                 if ((str_starts_with($open[2], ':') && !$previousBlock) || ($strict && !$canNormalize && $open[2] === '')) {
                     continue;
                 }
-                $container = $open[2] !== '' ? strlen($open[1]) + 1 : ($nested ? $ownerIndent + 1 : null);
+                $container = $nestedNote ? $nestedNoteColumn + 1 : ($open[2] !== '' ? strlen($open[1]) + 1 : ($nested ? $ownerIndent + 1 : null));
                 $nativeMarker = preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)$/', '$1.$2', $open[2]) ?? $open[2];
-                $targetColumn = str_starts_with($open[2], '[^') ? strlen($open[1]) + 2 : ($open[2] !== '' ? strlen($open[1]) + strlen($nativeMarker) : ($nested ? $ownerColumn : 0));
-                $heldFence = ['container' => $container, 'char' => $open[3][0], 'length' => strlen($open[3]), 'depth' => $depth, 'target' => str_repeat(' ', $targetColumn), 'dedent' => strlen($open[1]) + strlen($open[2]), 'normalize' => $canNormalize || $open[2] !== ''];
+                $targetColumn = $nestedNote ? $nestedNoteColumn + 2 : (str_starts_with($open[2], '[^') ? strlen($open[1]) + 2 : ($open[2] !== '' ? strlen($open[1]) + strlen($nativeMarker) : ($nested ? $ownerColumn : 0)));
+                $heldFence = ['container' => $container, 'char' => $open[3][0], 'length' => strlen($open[3]), 'depth' => $depth, 'target' => str_repeat(' ', $targetColumn), 'dedent' => $nestedNote ? (int)(strlen(mb_convert_encoding($openingPrefix, 'UTF-16LE', 'UTF-8')) / 2) : strlen($open[1]) + strlen($open[2]), 'normalize' => $canNormalize || $open[2] !== ''];
                 if ($onFenceLine !== null && $heldFence['normalize'] && ($open[2] === '' || $nativeMarker !== $open[2])) {
                     $openingPrefix = $open[2] === '' ? $heldFence['target'] : $open[1] . $nativeMarker;
                     $onFenceLine($i, substr($line, 0, strlen($line) - strlen($content)) . $openingPrefix . substr($content, $heldFence['dedent']));
                 }
-                $start = strpos($line, $open[3]);
+                $start = $nestedNote ? strlen($line) - strlen($content) + $openingAt : strpos($line, $open[3]);
                 if ($start === false) {
                     continue;
                 }

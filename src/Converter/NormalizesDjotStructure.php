@@ -338,7 +338,7 @@ trait NormalizesDjotStructure
                         continue;
                     }
                     if (preg_match('/^(`{3,}|~{3,})[ \t]*[a-zA-Z0-9_+#.-]*$/', $childBody) === 1) {
-                        $noteOwner->fenceColumn = 2;
+                        $noteOwner->fenceColumn = $noteOwner->column + 2;
                     }
                     $inlineQuote = $this->djotItemQuotePrefix($childBody);
                     $noteBodyStart = $noteBodySourceAt + intdiv(strlen(mb_convert_encoding($noteHead[1], 'UTF-16LE', 'UTF-8')), 2) + strlen($body) - strlen($childBody);

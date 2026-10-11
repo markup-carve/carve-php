@@ -7050,5 +7050,21 @@
   {
     "source": "> [^a]: one\n>\n> - > [^b]: two\n>\n> r[^a] r[^b]\n",
     "carve": "[^a]: one\n\n>\n> - > [^b]: two\n>\n>\n> r[^a] r[^b]\n"
+  },
+  {
+    "source": "[^a]: - [^b]: ```\n         code\n         ```\n     para\n\nr[^a] r[^b]\n",
+    "carve": "[^b]: ```\n  code\n  ```\n\n[^a]: - %%%%\n  para\n\nr[^a] r[^b]\n"
+  },
+  {
+    "source": "[^a]: - [^b]: ```\n         code\n         ```\n      para\n\nr[^a] r[^b]\n",
+    "carve": "[^b]: ```\n  code\n  ```\n\n[^a]: - %%%%\n  para\n\nr[^a] r[^b]\n"
+  },
+  {
+    "source": "[^a]: - [^b]: ```\n         code\n         ```\n       para\n\nr[^a] r[^b]\n",
+    "carve": "[^b]: ```\n  code\n  ```\n\n[^a]: - %%%%\n    para\n\nr[^a] r[^b]\n"
+  },
+  {
+    "source": "[^a]: - [^b]: ```\n         code\n         ```\n        para\n\nr[^a] r[^b]\n",
+    "carve": "[^b]: ```\n  code\n  ```\n\n[^a]: - %%%%\n    para\n\nr[^a] r[^b]\n"
   }
 ]
