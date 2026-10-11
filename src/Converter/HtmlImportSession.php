@@ -150,6 +150,11 @@ final class HtmlImportSession
     public array $endnoteLabels = [];
 
     /**
+     * @var \SplObjectStorage<\DOMElement, string>
+     */
+    public SplObjectStorage $endnoteItemLabels;
+
+    /**
      * @var \SplObjectStorage<\DOMElement, true>
      */
     public SplObjectStorage $droppedFootnoteLabelCarriers;
@@ -209,6 +214,7 @@ final class HtmlImportSession
     public function __construct()
     {
         $this->droppedFootnoteLabelCarriers = new SplObjectStorage();
+        $this->endnoteItemLabels = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();

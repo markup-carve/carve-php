@@ -497,6 +497,7 @@ final class HtmlAstBuilder
             return new HtmlAstBuildResult(['type' => 'document', 'srcByteLength' => $sourceByteLength ?? strlen($html), 'children' => []], $this->session, $this->sourceSafe);
         }
 
+        $allEndnoteItems = [];
         foreach ($root->getElementsByTagName('section') as $section) {
             if (strtolower($section->getAttribute('role')) !== 'doc-endnotes') {
                 continue;
@@ -507,41 +508,12 @@ final class HtmlAstBuilder
                 }
             }
             foreach ($this->directEndnoteItems($section) as $item) {
+                $allEndnoteItems[] = $item;
                 $id = $item->getAttribute('id');
                 if ($id !== '' && !isset($this->session->endnoteItems[$id])) {
                     $this->session->endnoteItems[$id] = $item;
                 }
             }
-        }
-        $reservedLabels = [];
-        foreach ($this->session->endnoteItems as $id => $item) {
-            $label = $item->getAttribute('data-carve-footnote-label');
-            if (!self::isValidFootnoteCarrierLabel($label) || self::hasConflictingEndnoteCarriers($item)) {
-                continue;
-            }
-            $key = LabelKey::normalize($label);
-            if (isset($reservedLabels[$key])) {
-                $this->session->droppedFootnoteLabelCarriers[$item] = true;
-
-                continue;
-            }
-            $reservedLabels[$key] = true;
-            $this->session->endnoteLabels[$id] = $label;
-        }
-        $nextLabel = 1;
-        foreach ($this->session->endnoteItems as $id => $item) {
-            if (isset($this->session->endnoteLabels[$id])) {
-                continue;
-            }
-            $label = $this->footnoteLabel($id);
-            if (isset($reservedLabels[LabelKey::normalize($label)])) {
-                while (isset($reservedLabels[(string)$nextLabel])) {
-                    $nextLabel++;
-                }
-                $label = (string)$nextLabel++;
-            }
-            $reservedLabels[LabelKey::normalize($label)] = true;
-            $this->session->endnoteLabels[$id] = $label;
         }
         foreach ($root->getElementsByTagName('a') as $anchor) {
             if (
@@ -558,6 +530,47 @@ final class HtmlAstBuilder
             $href = $anchor->getAttribute('href');
             if (str_starts_with($href, '#') && strlen($href) > 1) {
                 $this->session->footnoteTargets[substr($href, 1)] = true;
+            }
+        }
+        $reservedLabels = [];
+        foreach ($allEndnoteItems as $item) {
+            $label = $item->getAttribute('data-carve-footnote-label');
+            if (!self::isValidFootnoteCarrierLabel($label) || self::hasConflictingEndnoteCarriers($item)) {
+                continue;
+            }
+            $key = 'label:' . LabelKey::normalize($label);
+            if (isset($reservedLabels[$key])) {
+                $this->session->droppedFootnoteLabelCarriers[$item] = true;
+
+                continue;
+            }
+            $reservedLabels[$key] = true;
+            $this->session->endnoteItemLabels[$item] = $label;
+        }
+        foreach ($this->session->footnoteTargets as $target => $_) {
+            if (!isset($this->session->endnoteItems[$target])) {
+                $reservedLabels['label:' . LabelKey::normalize($this->footnoteLabel($target))] = true;
+            }
+        }
+        $nextLabel = 1;
+        foreach ($allEndnoteItems as $item) {
+            $id = $item->getAttribute('id');
+            if (!isset($this->session->endnoteItemLabels[$item])) {
+                if ($id === '' && !isset($this->session->droppedFootnoteLabelCarriers[$item])) {
+                    continue;
+                }
+                $label = $this->footnoteLabel($id);
+                if ($label === '' || isset($reservedLabels['label:' . LabelKey::normalize($label)])) {
+                    while (isset($reservedLabels['label:' . $nextLabel])) {
+                        $nextLabel++;
+                    }
+                    $label = (string)$nextLabel++;
+                }
+                $reservedLabels['label:' . LabelKey::normalize($label)] = true;
+                $this->session->endnoteItemLabels[$item] = $label;
+            }
+            if ($id !== '' && ($this->session->endnoteItems[$id] ?? null) === $item) {
+                $this->session->endnoteLabels[$id] = $this->session->endnoteItemLabels[$item];
             }
         }
         foreach ($root->getElementsByTagName('template') as $template) {
@@ -1848,7 +1861,7 @@ final class HtmlAstBuilder
 
                 continue;
             }
-            $label = $this->session->endnoteLabels[$id] ?? '';
+            $label = $this->session->endnoteItemLabels[$item] ?? '';
             if (!self::isValidFootnoteCarrierLabel($label)) {
                 $label = $this->footnoteLabel($id);
             }

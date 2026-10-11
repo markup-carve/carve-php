@@ -221,6 +221,35 @@ class ConflictingFootnoteCarriersTest extends TestCase
         }
     }
 
+    public function testDistinctLabelsOnDuplicateIdsKeepBothDefinitions(): void
+    {
+        $html = '<p><a href="#fn1" role="doc-noteref" data-carve-footnote-label="a">1</a> <a href="#fn1" role="doc-noteref" data-carve-footnote-label="b">2</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1" data-carve-footnote-label="a"><p>first body</p></li>'
+            . '<li id="fn1" data-carve-footnote-label="b"><p>second body</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $source = (new HtmlToCarve(importMode: $mode))->convert($html);
+            self::assertSame("[^a] [^b]\n\n[^a]: first body\n[^b]: second body\n", $source);
+            $rendered = (new CarveConverter())->convert($source);
+            self::assertStringContainsString('first body', $rendered);
+            self::assertStringContainsString('second body', $rendered);
+        }
+    }
+
+    public function testRenumberingDoesNotCaptureAMissingTarget(): void
+    {
+        $html = '<p><a href="#fn1" role="doc-noteref">1</a> <a href="#x" role="doc-noteref">2</a> <a href="#fn2" role="doc-noteref">3</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1"><p>first body</p></li>'
+            . '<li id="x" data-carve-footnote-label="1"><p>second body</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $source = (new HtmlToCarve(importMode: $mode))->convert($html);
+            self::assertSame("[^3] [^1] [^2]\n\n[^3]: first body\n[^1]: second body\n", $source);
+            $rendered = (new CarveConverter())->convert($source);
+            self::assertStringContainsString('first body', $rendered);
+            self::assertStringContainsString('second body', $rendered);
+            self::assertStringContainsString('[^2]', $rendered);
+        }
+    }
+
     private static function noteHtml(string $attributes, bool $referenceLabel = false): string
     {
         return '<p><a href="#fn1" role="doc-noteref"' . ($referenceLabel ? ' data-carve-footnote-label="named"' : '') . '>1</a></p>'
