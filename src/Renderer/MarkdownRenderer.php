@@ -77,6 +77,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\RenderEventQueue;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -408,6 +409,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private ?HtmlRenderer $attributeSerializer = null;
 
     /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Node, \MarkupCarve\Carve\Renderer\Utility\RenderEventQueue>|null
+     */
+    private ?WeakMap $probedRenderEvents = null;
+
+    private bool $replayRenderEvents = false;
+
+    /**
      * @param array<string, string> $symbols The same map HtmlRenderer takes. Markdown keeps the `:name:` spelling, so the map changes no output here.
      */
     public function __construct(protected array $symbols = [])
@@ -622,7 +630,15 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     public function render(Document $document): string
     {
         $this->pickNarrowedSentinels($document);
-        if (strlen($this->fenceSentinel) > 3) {
+        if (strlen($this->fenceSentinel) <= 3) {
+            return $this->renderBody($document, true);
+        }
+
+        $this->probedRenderEvents = null;
+        if ($this->hasAnyListeners()) {
+            $this->probedRenderEvents = new WeakMap();
+        }
+        try {
             $previousTarget = $this->renderLossTarget;
             $this->renderLossTarget = null;
             try {
@@ -630,14 +646,22 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             } finally {
                 $this->renderLossTarget = $previousTarget;
             }
+            $nonces = DocumentSentinels::collectNonces($probe)
+                + DocumentSentinels::collectNonces($this->fenceSentinel)
+                + DocumentSentinels::collectNonces(DocumentSentinels::collectStrings($document));
+            unset($probe);
             $this->setNarrowedSentinels(DocumentSentinels::shortTokens(
-                DocumentSentinels::collectNonces($probe) + DocumentSentinels::collectNonces($this->fenceSentinel),
+                $nonces,
                 count(self::NARROWED_CHARACTERS) + count(self::AUTHORED_POSITIONAL)
                     + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
             ));
-        }
+            $this->replayRenderEvents = true;
 
-        return $this->renderBody($document, true);
+            return $this->renderBody($document, true);
+        } finally {
+            $this->probedRenderEvents = null;
+            $this->replayRenderEvents = false;
+        }
     }
 
     private function renderBody(Document $document, bool $normalizeOutput): string
@@ -869,7 +893,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             array_slice($run, $narrowed + $positional + $decided),
         );
         $this->authoredHashes = 0;
-        $this->narrowedSentinelClass = '(?:' . implode('|', array_map(static fn (string $marker): string => preg_quote($marker, '/'), $run)) . ')';
+        $this->narrowedSentinelClass = strlen($this->fenceSentinel) > 3
+            ? '(?:' . implode('|', array_map(static fn (string $marker): string => preg_quote($marker, '/'), $run)) . ')'
+            : '[' . implode('', $run) . ']';
     }
 
     /**
@@ -1606,10 +1632,22 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderNodeBody(Node $node): string
     {
         $eventName = 'render.' . $node->getType();
-        if ($this->hasListenersFor($eventName)) {
-            $event = new RenderEvent($node);
-            $this->dispatchEvent($eventName, $event);
-            $this->dispatchEvent('render.*', $event);
+        if ($this->hasListenersFor($eventName) || $this->probedRenderEvents !== null) {
+            $events = $this->probedRenderEvents[$node] ?? null;
+            if ($this->replayRenderEvents && $events !== null && !$events->isEmpty()) {
+                $event = $events->dequeue();
+            } else {
+                $event = new RenderEvent($node);
+                $this->dispatchEvent($eventName, $event);
+                $this->dispatchEvent('render.*', $event);
+                if ($this->probedRenderEvents !== null && !$this->replayRenderEvents) {
+                    if ($events === null) {
+                        $this->probedRenderEvents[$node] = new RenderEventQueue();
+                        $events = $this->probedRenderEvents[$node];
+                    }
+                    $events->enqueue($event);
+                }
+            }
 
             if ($event->isDefaultPrevented()) {
                 return $event->getHtml() ?? '';

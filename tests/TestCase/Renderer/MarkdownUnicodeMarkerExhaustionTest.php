@@ -5,9 +5,11 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderLossException;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -156,5 +158,23 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         $result = $writer->renderWithReport($document);
         self::assertStringContainsString('1' . $token . " x\n", $result->value);
         self::assertSame(0, $result->totalLosses);
+    }
+
+    public function testFallbackReplaysRenderEventsWithoutDispatchingTwice(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $converter = new CarveConverter();
+        $calls = 0;
+        $replacement = "\u{E009}m1x0\u{E00A}";
+        $renderer->on('render.text', static function (RenderEvent $event) use (&$calls, $replacement): void {
+            $calls++;
+            $event->setHtml($replacement);
+        });
+        $document = $converter->parse("a\n\n```\n" . self::pool() . "\n```\n");
+        self::assertStringContainsString($replacement, $renderer->render($document));
+        self::assertSame(1, $calls);
+        $renderer->off();
+        self::assertSame("a\n", $renderer->render($converter->parse("a\n")));
+        self::assertSame(1, $calls);
     }
 }
