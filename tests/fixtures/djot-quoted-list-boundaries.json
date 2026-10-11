@@ -198,5 +198,65 @@
   {
     "source": "- > a\n\n  text\n  - x\n",
     "carve": "- > a\n\n  text\n  \\- x\n"
+  },
+  {
+    "source": "> ***\ntext\n- b\n",
+    "carve": "> ***\ntext\n\\- b\n"
+  },
+  {
+    "source": "- a\n\n  > q\n  > 1. x\n- b\n",
+    "carve": "- a\n\n  > q\n  > 1. x\n- b\n"
+  },
+  {
+    "source": "- a\n\n  > q\n  > > z\n  - x\n",
+    "carve": "- a\n\n  > q\n  > \\> z\n  >\n  - x\n"
+  },
+  {
+    "source": "> - > a\n- b\n",
+    "carve": "> - > a\n>   >\n- b\n"
+  },
+  {
+    "source": "- >x\n- b\n",
+    "carve": "- >x\n- b\n"
+  },
+  {
+    "source": "- [ ] > a\n- b\n",
+    "carve": "- [ ] > a\n- b\n"
+  },
+  {
+    "source": "> ```\n> code\n> ```\ntext\n- b\n",
+    "carve": "> ```\n> code\n> ```\ntext\n\\- b\n"
+  },
+  {
+    "source": "> - apples\n>\n>\n>\n- oranges\n",
+    "carve": "> - apples\n>\n>\n>\n- oranges\n"
+  },
+  {
+    "source": ">x\n- b\n",
+    "carve": ">x\n\\- b\n"
+  },
+  {
+    "source": "- > - > a\n  > - y\n- x\n",
+    "carve": "- > - > a\n  > - y\n- x\n"
+  },
+  {
+    "source": "> - > - > a\n>   > - y\n> - x\n",
+    "carve": "> - > - > a\n>   > - y\n> - x\n"
+  },
+  {
+    "source": "> > - > - > a\n> >   > - y\n> > - x\n",
+    "carve": "> > - > - > a\n> >   > - y\n> > - x\n"
+  },
+  {
+    "source": "- > - > a\n  > > b\n- x\n",
+    "carve": "- > - > a\n  > > b\n- x\n"
+  },
+  {
+    "source": "> - > - > a\n>   > > b\n> - x\n",
+    "carve": "> - > - > a\n>   > > b\n> - x\n"
+  },
+  {
+    "source": "> > - > - > a\n> >   > > b\n> > - x\n",
+    "carve": "> > - > - > a\n> >   > > b\n> > - x\n"
   }
 ]
