@@ -6555,6 +6555,16 @@ class BlockParser
 
         // Handle BlockQuote - wrap in figure
         if ($lastChild instanceof BlockQuote) {
+            // PART 9 §4d: a quote built out of nothing but structural-only `>`
+            // lines is not a captionable host. It holds nothing the caption
+            // could be about, and taking one binds the caption across the
+            // container change that opened the quote - which is how
+            // `| a |` / blank / `>` / blank / `^ cap` captioned an empty quote
+            // nobody wrote the caption under (markup-carve/carve#2892).
+            if ($lastChild->getChildren() === []) {
+                return null;
+            }
+
             $figure = new Figure();
 
             foreach ($lastChild->getAttributeEntries() as $key => $value) {

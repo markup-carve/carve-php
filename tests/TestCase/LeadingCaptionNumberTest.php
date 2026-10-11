@@ -12,7 +12,7 @@ class LeadingCaptionNumberTest extends TestCase
 {
     public function testAPlaceholderAtTheStartOfACaptionIsNumbered(): void
     {
-        $source = ">\n^ # H\n";
+        $source = "> q\n^ # H\n";
 
         $this->assertStringContainsString('<figcaption>1 H</figcaption>', (new CarveConverter())->convert($source));
 
