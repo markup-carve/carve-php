@@ -3850,10 +3850,8 @@ class BlockParser
      * A marker-lead item's nested lead fence and its closer, as
      * `[nested content column, closer index in $itemLines]`.
      *
-     * The shared walk behind both questions the dedent gate asks about a nested
-     * lead: whether a closed fence is the lead's LAST block (carve#2734's fold
-     * arm) and whether a paragraph is still open below it (§10 lazy
-     * continuation, markup-carve/carve-php#2903).
+     * The dedent gate distinguishes a finished nested fence from a paragraph
+     * still open below its closer (markup-carve/carve#2895).
      *
      * Null where the lead has no nested marker, where its innermost content is
      * not a code fence or raw block, or where no closer stands at the nested
@@ -4690,44 +4688,26 @@ class BlockParser
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
-                // A CLOSED FENCE OR RAW BLOCK AT THE NESTED LEAD'S BOTTOM IS
-                // THE ONE FINISHED BLOCK THAT STILL FOLDS A FLUSH-LEFT LINE
-                // INTO THE OUTER ITEM, ruled on markup-carve/carve#2734. A
-                // heading, a comment or the item's OWN closed fence in the same
-                // position does not, so the question is asked of the nested
-                // lead's block kind rather than of "is any block finished": a
-                // uniform column-0 fold matches every fence row of the family
-                // and then disagrees with the spec on the other kinds, which is
-                // why the ruling has two arms.
-                //
-                // Tracked incrementally over the collected lines because the
-                // outer trailing-block tracker reads this stream one container out. It sees
-                // the nested lead's opener as prose and its closer as a second
-                // opener. Teaching the tracker the nested fence instead moved
-                // the UNFINISHED-fence family (carve-php#1900, #1958) with it.
+                // The deepest frame decides continuation after a closed fence
+                // in either host (markup-carve/carve#2895).
                 if ($nextIndent === 0 && !$legacyNestedFence) {
                     $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 }
                 $lastItemLine = array_key_last($itemLines);
-                $foldsOnClosedNestedFence = $nextIndent === 0
+                $closedNestedFence = $nextIndent === 0
                     && $lastItemLine !== null
                     && !IndentationHelper::isBlankLine($itemLines[$lastItemLine])
                     && ($legacyNestedFence
                         ? $this->nestedLeadEndsInAClosedFence($itemLines)
                         : $nestedFence->closed && $nestedFence->onlyBlankBelow);
-                // A PARAGRAPH LEFT OPEN BELOW THAT CLOSED FENCE TAKES THE LINE
-                // INSTEAD (markup-carve/carve-php#2903). §10 lazy continuation,
-                // not the fold arm: the line joins the paragraph in the INNER
-                // item rather than becoming the outer item's own block, and the
-                // two are mutually exclusive because the fold arm requires
-                // nothing but blank lines below the closer.
+                // A paragraph below the closer still takes a lazy line in the
+                // inner item (markup-carve/carve-php#2903).
                 $nestedLeadParagraphOpen = $nextIndent === 0
                     && ($legacyNestedFence
                         ? $this->nestedLeadParagraphOpenBelowAClosedFence($itemLines)
                         : $nestedFence->closed && $nestedFence->trailing->openParagraph);
                 if (
-                    (!$trailingState->openParagraph
-                        && !$foldsOnClosedNestedFence
+                    ((!$trailingState->openParagraph || $closedNestedFence)
                         && !$nestedLeadParagraphOpen
                         && !($trailingState->afterComment && $trailingState->nestedColumn > 0 && $nextIndent > $baseIndent))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
@@ -4787,13 +4767,11 @@ class BlockParser
                 // 1, where the closer still closed and the body came back as a
                 // paragraph of the item ABOVE. Framed ONCE however many
                 // containers fold it, so the single strip in the body suffices.
-                // THE FRAME IS AN OPEN FENCE'S CLAIM ON THE LINE. Once the
-                // lead's fence has seen its closer the line is nobody's
-                // verbatim content, so it takes the ordinary one-column clamp
-                // and the nested parse reads it as the outer item's text.
+                // A line that continues below a closer joins the nested
+                // paragraph rather than the fence body.
                 $folded = str_starts_with($nextTrimmed, self::LAZY_FRAME)
                     ? $nextTrimmed
-                    : ($this->leadBottomOpensFence((string)($itemLines[0] ?? '')) && !$foldsOnClosedNestedFence
+                    : ($this->leadBottomOpensFence((string)($itemLines[0] ?? '')) && !$nestedLeadParagraphOpen
                         ? self::LAZY_FRAME . $nextTrimmed
                         : ' ' . $nextTrimmed);
                 $itemLines[] = $folded;
@@ -8670,6 +8648,7 @@ class BlockParser
             keptCommentDelimiterCallback: $this->keptCommentDelimiter(...),
             lastCommentFenceIndexCallback: $this->lastCommentFenceIndex(...),
             leadBottomOpensFenceCallback: $this->leadBottomOpensFence(...),
+            advanceNestedLeadFenceStateCallback: $this->advanceNestedLeadFenceState(...),
             lineOpensBlockForLoosenessCallback: $this->lineOpensBlockForLooseness(...),
             linesLeaveACommentSpanOpenCallback: $this->collectedLinesLeaveACommentSpanOpen(...),
             parseBlocksCallback: $this->parseBlocks(...),
