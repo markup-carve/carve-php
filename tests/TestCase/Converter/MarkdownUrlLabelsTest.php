@@ -29,10 +29,39 @@ class MarkdownUrlLabelsTest extends TestCase
     {
         $converter = new CarveConverter();
         $source = (new MarkdownToCarve())->convert($control['source']);
+        $migration = (new MarkdownToCarve())->convertWithFidelityReport($control['source']);
+        $this->assertSame($source, $migration->value);
+        foreach ($migration->diagnostics as $diagnostic) {
+            $this->assertFalse($diagnostic->confidence === 'exact' && $diagnostic->fidelity === 'dropped');
+            if ($diagnostic->code === 'fidelity-unverified') {
+                $this->assertSame('warning', $diagnostic->severity);
+                $this->assertSame('dropped', $diagnostic->fidelity);
+                $this->assertSame('fallback', $diagnostic->confidence);
+            }
+        }
         $document = $converter->parse($source);
         $written = (new CarveRenderer())->render($document);
         foreach ([$converter->convert($source), $converter->render($document), $converter->convert($written)] as $html) {
             $this->assertSame($this->htmlTree($control['html']), $this->htmlTree($html), $control['source']);
+        }
+    }
+
+    public function testLiteralPathSpellingIsUnchanged(): void
+    {
+        foreach (["[a/b](x)\n", "[src/index.ts](x)\n", "[https://e.test](https://e.test)\n", "see https://x.test/a\\_b/_c_\n"] as $source) {
+            $this->assertSame($source, (new MarkdownToCarve())->convert($source));
+        }
+    }
+
+    public function testSupportedUrlLabelsAreVerifiedExactly(): void
+    {
+        foreach (["[https://e.test](x)\n", "[*https://e.test*](x)\n", "[https://x.test/_a_](x)\n", "[a/b](x)\n", "[src/index.ts](x)\n", "[*https://example.test/a/_v1_/x*](u)\n"] as $source) {
+            $diagnostics = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
+            $this->assertContains('markdown-link', array_map(static fn ($row): string => $row->code, $diagnostics));
+            foreach ($diagnostics as $diagnostic) {
+                $this->assertSame('exact', $diagnostic->confidence);
+                $this->assertNotSame('dropped', $diagnostic->fidelity);
+            }
         }
     }
 

@@ -6665,23 +6665,6 @@ class MarkdownToCarve
 
             return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
         }, $line) ?? $line;
-        $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
-        $labelAt = 0;
-        $line = preg_replace_callback(
-            '/\bhttps?:\/\/[^\s<>`\x00]+/',
-            static function (array $match) use ($protect, $labelRanges, &$labelAt): string {
-                $offset = $match[0][1];
-                while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
-                    $labelAt++;
-                }
-                $label = $labelRanges[$labelAt] ?? null;
-
-                return $label !== null && $offset >= $label['start'] && $offset < $label['end']
-                    ? $match[0][0] : $protect($match[0][0]);
-            },
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
         // A definition kept where it stands is a definition, not link text -
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
@@ -6744,6 +6727,43 @@ class MarkdownToCarve
                 flags: PREG_OFFSET_CAPTURE,
             ) ?? $line;
         }
+
+        $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
+        $labelAt = 0;
+        $urlCursor = 0;
+        $urlSearch = 0;
+        $protectedUrls = '';
+        while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
+            $offset = $start[0][1];
+            while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
+                $labelAt++;
+            }
+            $label = $labelRanges[$labelAt] ?? null;
+            if ($label !== null && $offset >= $label['start'] && $offset < $label['end']) {
+                $urlSearch = $label['end'];
+
+                continue;
+            }
+            $end = $offset + strlen($start[0][0]);
+            $length = strlen($line);
+            while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
+                if ($line[$end] === "\0") {
+                    if (
+                        preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
+                        || preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[(int)$token[1]] ?? '') !== 1
+                    ) {
+                        break;
+                    }
+                    $end += strlen($token[0]);
+                } else {
+                    $end++;
+                }
+            }
+            $protectedUrls .= substr($line, $urlCursor, $offset - $urlCursor) . $protect(substr($line, $offset, $end - $offset));
+            $urlCursor = $end;
+            $urlSearch = $end;
+        }
+        $line = $protectedUrls . substr($line, $urlCursor);
 
         if ($this->convertMath) {
             $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
@@ -7859,6 +7879,12 @@ class MarkdownToCarve
     private function escapeLinkLabelSlashes(string $source, array $protected): string
     {
         $ranges = MarkdownEmphasis::linkLabelRanges($source, $protected);
+        $ranges = array_values(array_filter($ranges, static function (array $range) use ($source, $protected): bool {
+            $label = substr($source, $range['start'], $range['end'] - $range['start']);
+            $converted = MarkdownEmphasis::convert($label, protectedSpans: $protected);
+
+            return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(?:em|i)(?:\s|>)/i', $label) === 1;
+        }));
         $rangeAt = 0;
         $out = '';
         $opaqueEnds = [];

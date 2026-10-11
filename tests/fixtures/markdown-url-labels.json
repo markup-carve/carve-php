@@ -3130,5 +3130,173 @@
   {
     "source": "> [[before *`a/b`* after](/inner)](/outer)",
     "html": "<blockquote>\n<p>[<a href=\"/inner\">before <em><code>a/b</code></em> after</a>](/outer)</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/a]\n\n[https://x.test/a]: /u\n",
+    "html": "<p><a href=\"/u\">https://x.test/a</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/a]\n  \n  [https://x.test/a]: /u\n",
+    "html": "<ul>\n<li><a href=\"/u\">https://x.test/a</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/a]\n> \n> [https://x.test/a]: /u\n",
+    "html": "<blockquote>\n<p><a href=\"/u\">https://x.test/a</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://example.test/a/_v1_/x*]\n\n[*https://example.test/a/_v1_/x*]: /url\n",
+    "html": "<p><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://example.test/a/_v1_/x*]\n  \n  [*https://example.test/a/_v1_/x*]: /url\n",
+    "html": "<ul>\n<li><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://example.test/a/_v1_/x*]\n> \n> [*https://example.test/a/_v1_/x*]: /url\n",
+    "html": "<blockquote>\n<p><a href=\"/url\"><em>https://example.test/a/<em>v1</em>/x</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/_a_][]\n\n[https://x.test/_a_]: /u\n",
+    "html": "<p><a href=\"/u\">https://x.test/<em>a</em></a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/_a_][]\n  \n  [https://x.test/_a_]: /u\n",
+    "html": "<ul>\n<li><a href=\"/u\">https://x.test/<em>a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/_a_][]\n> \n> [https://x.test/_a_]: /u\n",
+    "html": "<blockquote>\n<p><a href=\"/u\">https://x.test/<em>a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[![CI](i)](l) [*https://x.test*](y)\n",
+    "html": "<p><a href=\"l\"><img src=\"i\" alt=\"CI\" /></a> <a href=\"y\"><em>https://x.test</em></a></p>\n"
+  },
+  {
+    "source": "- [![CI](i)](l) [*https://x.test*](y)\n",
+    "html": "<ul>\n<li><a href=\"l\"><img src=\"i\" alt=\"CI\" /></a> <a href=\"y\"><em>https://x.test</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [![CI](i)](l) [*https://x.test*](y)\n",
+    "html": "<blockquote>\n<p><a href=\"l\"><img src=\"i\" alt=\"CI\" /></a> <a href=\"y\"><em>https://x.test</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a/b](x)\n",
+    "html": "<p><a href=\"x\">a/b</a></p>\n"
+  },
+  {
+    "source": "- [a/b](x)\n",
+    "html": "<ul>\n<li><a href=\"x\">a/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a/b](x)\n",
+    "html": "<blockquote>\n<p><a href=\"x\">a/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a/b*](x)\n",
+    "html": "<p><a href=\"x\"><em>a/b</em></a></p>\n"
+  },
+  {
+    "source": "- [*a/b*](x)\n",
+    "html": "<ul>\n<li><a href=\"x\"><em>a/b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a/b*](x)\n",
+    "html": "<blockquote>\n<p><a href=\"x\"><em>a/b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[**a/b**](x)\n",
+    "html": "<p><a href=\"x\"><strong>a/b</strong></a></p>\n"
+  },
+  {
+    "source": "- [**a/b**](x)\n",
+    "html": "<ul>\n<li><a href=\"x\"><strong>a/b</strong></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [**a/b**](x)\n",
+    "html": "<blockquote>\n<p><a href=\"x\"><strong>a/b</strong></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[src/index.ts](x)\n",
+    "html": "<p><a href=\"x\">src/index.ts</a></p>\n"
+  },
+  {
+    "source": "- [src/index.ts](x)\n",
+    "html": "<ul>\n<li><a href=\"x\">src/index.ts</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [src/index.ts](x)\n",
+    "html": "<blockquote>\n<p><a href=\"x\">src/index.ts</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://e.test](https://e.test)\n",
+    "html": "<p><a href=\"https://e.test\">https://e.test</a></p>\n"
+  },
+  {
+    "source": "- [https://e.test](https://e.test)\n",
+    "html": "<ul>\n<li><a href=\"https://e.test\">https://e.test</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://e.test](https://e.test)\n",
+    "html": "<blockquote>\n<p><a href=\"https://e.test\">https://e.test</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "before ![https://x.test/_a_](i) after\n",
+    "html": "<p>before <img src=\"i\" alt=\"https://x.test/a\" /> after</p>\n"
+  },
+  {
+    "source": "- before ![https://x.test/_a_](i) after\n",
+    "html": "<ul>\n<li>before <img src=\"i\" alt=\"https://x.test/a\" /> after</li>\n</ul>\n"
+  },
+  {
+    "source": "> before ![https://x.test/_a_](i) after\n",
+    "html": "<blockquote>\n<p>before <img src=\"i\" alt=\"https://x.test/a\" /> after</p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://x.test*](x) [*https://y.test/_a_*](y)\n",
+    "html": "<p><a href=\"x\"><em>https://x.test</em></a> <a href=\"y\"><em>https://y.test/<em>a</em></em></a></p>\n"
+  },
+  {
+    "source": "- [*https://x.test*](x) [*https://y.test/_a_*](y)\n",
+    "html": "<ul>\n<li><a href=\"x\"><em>https://x.test</em></a> <a href=\"y\"><em>https://y.test/<em>a</em></em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://x.test*](x) [*https://y.test/_a_*](y)\n",
+    "html": "<blockquote>\n<p><a href=\"x\"><em>https://x.test</em></a> <a href=\"y\"><em>https://y.test/<em>a</em></em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/~u/a=b?q=1&r=2#frag](x)\n",
+    "html": "<p><a href=\"x\">https://x.test/~u/a=b?q=1&amp;r=2#frag</a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/~u/a=b?q=1&r=2#frag](x)\n",
+    "html": "<ul>\n<li><a href=\"x\">https://x.test/~u/a=b?q=1&amp;r=2#frag</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/~u/a=b?q=1&r=2#frag](x)\n",
+    "html": "<blockquote>\n<p><a href=\"x\">https://x.test/~u/a=b?q=1&amp;r=2#frag</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*https://x.test/a--b^c{d}*](x)\n",
+    "html": "<p><a href=\"x\"><em>https://x.test/a--b^c{d}</em></a></p>\n"
+  },
+  {
+    "source": "- [*https://x.test/a--b^c{d}*](x)\n",
+    "html": "<ul>\n<li><a href=\"x\"><em>https://x.test/a--b^c{d}</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*https://x.test/a--b^c{d}*](x)\n",
+    "html": "<blockquote>\n<p><a href=\"x\"><em>https://x.test/a--b^c{d}</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[*a* https://x.test/b](y)\n",
+    "html": "<p><a href=\"y\"><em>a</em> https://x.test/b</a></p>\n"
+  },
+  {
+    "source": "- [*a* https://x.test/b](y)\n",
+    "html": "<ul>\n<li><a href=\"y\"><em>a</em> https://x.test/b</a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [*a* https://x.test/b](y)\n",
+    "html": "<blockquote>\n<p><a href=\"y\"><em>a</em> https://x.test/b</a></p>\n</blockquote>\n"
   }
 ]
