@@ -13,6 +13,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Assert;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -179,6 +180,76 @@ class MultilineInlineCodeTest extends TestCase
                     $this->assertSame($padding === ''
                         ? 'a block-marker continuation cannot stay inside a footnote paragraph'
                         : 'a line of the value starts with whitespace, which the block layer strips', $exception->reason);
+                }
+            }
+        }
+    }
+
+    public function testFootnoteHostsPreserveVerbatimPayloadsOrRefuseAccurately(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        foreach (['code', 'raw_inline', 'literal_inline', 'math'] as $type) {
+            foreach (['paragraph' => 'body', 'list' => '- body', 'quote' => '> body', 'quote-list' => '> - body', 'list-quote' => '- > body'] as $host => $body) {
+                foreach (['[r]: /url', '> next'] as $line) {
+                    $value = "x`\n{$line}\ntail";
+                    $wire = $codec->encode($converter->parse("body[^n]\n\n[^n]: {$body}\n"));
+                    $replacement = ['type' => $type, $type === 'code' ? 'value' : 'content' => $value];
+                    if ($type === 'raw_inline') {
+                        $replacement['format'] = 'html';
+                    } elseif ($type === 'math') {
+                        $replacement['display'] = false;
+                    }
+                    $replace = static function (array &$node) use (&$replace, $replacement): bool {
+                        if (($node['type'] ?? null) === 'paragraph') {
+                            $node['children'] = [$replacement];
+
+                            return true;
+                        }
+                        foreach ($node as &$child) {
+                            if (is_array($child) && $replace($child)) {
+                                return true;
+                            }
+                        }
+
+                        return false;
+                    };
+                    foreach ($wire['children'] as &$child) {
+                        if ($child['type'] === 'footnote') {
+                            $replace($child);
+                        }
+                    }
+                    unset($child);
+                    $document = $codec->decode($wire);
+                    $writer = new CarveRenderer();
+                    if ($host === 'paragraph' || $host === 'list') {
+                        try {
+                            $writer->render($document);
+                            $this->fail('Expected a source refusal');
+                        } catch (SourceUnspellableException $exception) {
+                            $this->assertSame($type, $exception->nodeType);
+                            $this->assertSame('a block-marker continuation cannot stay inside a footnote paragraph', $exception->reason);
+                        }
+
+                        continue;
+                    }
+                    $written = $writer->render($document);
+                    $this->assertSame($this->htmlTree((new HtmlRenderer())->render($document)), $this->htmlTree($converter->convert($written)));
+                    $stack = [$codec->encode($converter->parse($written))];
+                    $payloads = [];
+                    while ($stack !== []) {
+                        $node = array_pop($stack);
+                        if (($node['type'] ?? null) === $type) {
+                            $payloads[] = $node[$type === 'code' ? 'value' : 'content'];
+                        }
+                        foreach ($node as $child) {
+                            if (is_array($child)) {
+                                $stack[] = $child;
+                            }
+                        }
+                    }
+                    $this->assertSame([$value], $payloads);
+                    $this->assertSame($written, $writer->render($converter->parse($written)));
                 }
             }
         }

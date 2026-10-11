@@ -5233,7 +5233,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $text = (string)preg_replace_callback(
             '/^([ \t>]*)' . preg_quote($this->footnoteCodeGuard, '/') . '(?=\[)/m',
-            static fn (array $m): string => $m[1] . ' ',
+            static fn (array $m): string => str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : $m[1] . ' ',
             $text,
         );
 
