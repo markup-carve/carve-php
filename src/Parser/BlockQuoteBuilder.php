@@ -390,6 +390,17 @@ final class BlockQuoteBuilder
 
             return true;
         }
+        if (
+            $heldColon !== null && $heldColon['literal']
+            && $column < ($heldColon['base'] ?? $heldColon['column'])
+        ) {
+            array_pop($state['colonClaims']);
+            $state['paragraphOpen'] = false;
+            $comment = ($this->getFencedBlockParser)()->parseFencedCommentOpener($text);
+            if ($comment !== null && $this->hasClosingCommentFenceAheadInBlockQuote($lines, $index, $comment['length'])) {
+                return false;
+            }
+        }
         $paragraph = $state['paragraphOpen'];
         $leftOfOutermost = $host['markers'] !== [] && $column < min($host['markers']);
         $lazyMarker = false;
