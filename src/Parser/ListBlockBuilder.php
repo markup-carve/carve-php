@@ -43,7 +43,7 @@ final class ListBlockBuilder
      * @param \Closure(int|null, string, array<string>, int): (?int) $advanceItemCommentFenceCallback
      * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateCallback
      * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
-     * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock, array<string>, int, int, int): (?int) $attachListContinuationCallback
+     * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock, array<string>, int, int, int, int): (?int) $attachListContinuationCallback
      * @param \Closure(array<string>, int): (int) $blockQuoteExtentThroughDefinitionCallback
      * @param \Closure(string): (?string) $blockQuoteLineContentCallback
      * @param \Closure(array<string>, int, int, int): (array{0: int, 1: array<string>, 2: array<int, int>}) $collectListContinuationBlockCallback
@@ -182,6 +182,7 @@ final class ListBlockBuilder
         // Seeded with the bullet width; every item overwrites it once its own
         // marker width is known.
         $lastItemContentIndent = $baseIndent + 2;
+        $lastItemAttachColumn = $baseIndent + 2;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -203,7 +204,7 @@ final class ListBlockBuilder
             }
 
             if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine, " \t"))) {
-                $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent);
+                $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemAttachColumn);
                 if ($next !== null) {
                     $i = $next;
                     $lastItemHadBlankAfter = false;
@@ -848,6 +849,8 @@ final class ListBlockBuilder
             $authoredBaseEligible = [];
             $i++;
             $lastItemHadBlankAfter = false;
+
+            $lastItemAttachColumn = $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo);
 
             if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
                 // ...AND ONLY A FLUSH-LEFT ONE (SS17 L3, carve#1436). When the
@@ -2198,10 +2201,11 @@ final class ListBlockBuilder
      * @param int $i
      * @param int $count
      * @param int $baseIndent
+     * @param int $contentIndent
      */
-    private function attachListContinuation(ListBlock $list, array $lines, int $i, int $count, int $baseIndent): ?int
+    private function attachListContinuation(ListBlock $list, array $lines, int $i, int $count, int $baseIndent, int $contentIndent): ?int
     {
-        return ($this->attachListContinuationCallback)($list, $lines, $i, $count, $baseIndent);
+        return ($this->attachListContinuationCallback)($list, $lines, $i, $count, $baseIndent, $contentIndent);
     }
 
     /**

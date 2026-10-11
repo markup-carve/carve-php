@@ -12,6 +12,62 @@ use PHPUnit\Framework\TestCase;
 
 class BuilderHookCompatibilityTest extends TestCase
 {
+    public function testAttachedContinuationsHonorTheExistingCollectorSignature(): void
+    {
+        foreach (["- a\n+\n", "- +\n"] as $lead) {
+            $parser = new class extends BlockParser {
+                public int $calls = 0;
+
+                /**
+                 * @param array<string> $lines
+                 * @param int $i
+                 * @param int $count
+                 * @param int $baseIndent
+                 *
+                 * @return array{0: int, 1: array<string>, 2: array<int, int>}
+                 */
+                protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
+                {
+                    $this->calls++;
+
+                    return parent::collectListContinuationBlock($lines, $i, $count, $baseIndent);
+                }
+            };
+            $parser->parse($lead . "text\n [r]: /url\n\nSee [r][].\n");
+
+            self::assertGreaterThan(0, $parser->calls);
+        }
+    }
+
+    public function testAttachedBoundaryOverridesStillSeeBelowColumnDefinitions(): void
+    {
+        $parser = new class extends BlockParser {
+            public bool $definitionSeen = false;
+
+            /**
+             * @param string $kind
+             * @param string $line
+             * @param array<string> $lines
+             * @param int $index
+             * @param array<string, mixed> $trailingState
+             */
+            protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
+            {
+                if (str_starts_with($line, '[r]:')) {
+                    $this->definitionSeen = true;
+
+                    return false;
+                }
+
+                return parent::attachedBlockHasEnded($kind, $line, $lines, $index, $trailingState);
+            }
+        };
+        $parser->parse("- a\n+\ntext\n [r]: /url\n\nSee [r][].\n");
+
+        self::assertTrue($parser->definitionSeen);
+        self::assertNotNull($parser->getReference('r'));
+    }
+
     public function testExtractedBuildersHonorProtectedOverrides(): void
     {
         $parser = new class extends BlockParser {
