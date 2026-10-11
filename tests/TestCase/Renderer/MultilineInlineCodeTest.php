@@ -75,7 +75,7 @@ class MultilineInlineCodeTest extends TestCase
         };
         $source = "x[^n]\n\n[^n]: p `a\n  [r]: /url` q\n";
         $written = $renderer->render((new CarveConverter())->parse($source));
-        $this->assertStringNotContainsString("\u{E009}", $written);
+        $this->assertStringNotContainsString("\u{E008}", $written);
         $this->assertStringContainsString("\n   [r]: /url", $written);
     }
 

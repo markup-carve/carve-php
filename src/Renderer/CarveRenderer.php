@@ -455,6 +455,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * The eight writer-only tokens, chosen per render to avoid authored text.
      * Tokens may contain several code points when the private-use pool is full.
+     * Slot 7 also encloses a node-type tag. Pass tagged values through
+     * restoreVerbatim() rather than removing the slot token directly.
      *
      * @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string}
      */
