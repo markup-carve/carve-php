@@ -87,10 +87,10 @@ class InlineFootnotesExtension implements ExtensionInterface
             $html = '<a id="fnref' . $number . '" href="#fn' . $number . '" role="doc-noteref"';
             if ($renderer->isRoundTripMode()) {
                 $contentHtml = $event->getChildrenHtml();
-                $html .= ' data-djot-inline-footnote-html="'
+                $html .= ' data-carve-inline-footnote-html="'
                     . htmlspecialchars($contentHtml, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
                 if ($cssClass !== 'fn') {
-                    $html .= ' data-djot-inline-footnote-class="'
+                    $html .= ' data-carve-inline-footnote-class="'
                         . htmlspecialchars($cssClass, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
                 }
             }

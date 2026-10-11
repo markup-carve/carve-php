@@ -611,7 +611,7 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertStringContainsString('data-djot-src="', $result);
+        $this->assertStringContainsString('data-carve-src="', $result);
         $this->assertStringContainsString('``` php', $result);
     }
 
@@ -626,7 +626,7 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertStringNotContainsString('data-djot-src=', $result);
+        $this->assertStringNotContainsString('data-carve-src=', $result);
     }
 
     public function testRoundTripCodeBlockWithBackticks(): void
@@ -640,7 +640,7 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertStringContainsString('data-djot-src="', $result);
+        $this->assertStringContainsString('data-carve-src="', $result);
         // Should use 4+ backticks to avoid conflict
         $this->assertStringContainsString('````', $result);
     }
@@ -655,7 +655,7 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertStringContainsString('data-djot-src="', $result);
+        $this->assertStringContainsString('data-carve-src="', $result);
         // Should have fence without trailing space when no language
         $this->assertStringContainsString("```\nplain code", $result);
     }

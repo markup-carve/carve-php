@@ -233,9 +233,9 @@ class HeadingReferenceExtension implements ResettableExtensionInterface, BeforeR
                     1,
                 );
                 if ($this->roundTripMode) {
-                    $attrs .= ' data-djot-heading-ref="' . $this->escapeAttribute($target) . '"';
+                    $attrs .= ' data-carve-heading-ref="' . $this->escapeAttribute($target) . '"';
                     if ($displayText !== $target) {
-                        $attrs .= ' data-djot-heading-ref-display="' . $this->escapeAttribute($displayText) . '"';
+                        $attrs .= ' data-carve-heading-ref-display="' . $this->escapeAttribute($displayText) . '"';
                     }
                 }
 

@@ -32,7 +32,7 @@ use PHPUnit\Framework\TestCase;
  *
  * FOUR ARMS. The label is written on any colon-fence opener, so the lift runs on
  * the bare `<div>`, the container-class `<div>`, the `<aside class="admonition">`
- * and the `data-djot-admonition-type` `<div>` alike.
+ * and the `data-carve-admonition-type` `<div>` alike.
  *
  * THE LIFT TAKES MARKUP NOW. It refused anything but text while a label was
  * published escaped, because lifting `<strong>` would have flattened it without a

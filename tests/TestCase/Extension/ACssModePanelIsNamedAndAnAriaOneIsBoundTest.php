@@ -212,7 +212,7 @@ class ACssModePanelIsNamedAndAnAriaOneIsBoundTest extends TestCase
 
         $html = $converter->convert(self::CODE_GROUP);
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         $this->assertStringContainsString('::: code-group', $html);
         $this->assertStringContainsString('role="tablist"', $html);
     }

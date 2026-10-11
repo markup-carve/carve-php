@@ -119,14 +119,14 @@ class AnUnreferencedEndnotesSectionKeepsItsTextTest extends TestCase
 
     /**
      * A round-trip label rather than an `fn`-shaped id: the reference names
-     * `#fn1` and the item carries `data-djot-footnote-label`, so the two have to
+     * `#fn1` and the item carries `data-carve-footnote-label`, so the two have to
      * meet on the label as well as on the id.
      */
     public function testAReferenceMatchesARoundTripLabelToo(): void
     {
         $imported = (new HtmlToCarve())->convert(
             '<p>a<a href="#fn1" role="doc-noteref">1</a></p>'
-            . '<section role="doc-endnotes"><hr><ol><li data-djot-footnote-label="1"><p>n</p></li></ol></section>',
+            . '<section role="doc-endnotes"><hr><ol><li data-carve-footnote-label="1"><p>n</p></li></ol></section>',
         );
 
         $this->assertStringContainsString("[^1]: n\n", $imported);

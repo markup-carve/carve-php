@@ -362,10 +362,10 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         // Build wrapper attributes
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer);
 
-        // Add data-djot-src for round-trip support
+        // Add data-carve-src for round-trip support
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $codeBlocks);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
+            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";
@@ -448,7 +448,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         // was written second.
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $codeBlocks);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
+            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";

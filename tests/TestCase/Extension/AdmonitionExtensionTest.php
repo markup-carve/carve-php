@@ -77,7 +77,7 @@ class AdmonitionExtensionTest extends TestCase
         $html = $converter->convert("::: note \"a *b*\"\nContent.\n:::");
 
         $this->assertStringContainsString('<p class="admonition-title">a <strong>b</strong></p>', $html);
-        $this->assertStringContainsString('data-djot-admonition-title="a *b*"', $html);
+        $this->assertStringContainsString('data-carve-admonition-title="a *b*"', $html);
     }
 
     public function testCollapsibleIsPassThroughAttribute(): void

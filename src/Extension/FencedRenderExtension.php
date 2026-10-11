@@ -329,13 +329,13 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // Author attributes (id, extra classes, data-*) ride onto the wrapper in
         // source order (the `mermaid` base class merged into the class value), so
         // static output never loses authored metadata and matches carve-js/rs.
-        // Round-trip mode carries the same data-djot-src the interactive openTag()
+        // Round-trip mode carries the same data-carve-src the interactive openTag()
         // emits, so Carve -> static HTML -> Carve still reconstructs the fence.
         $source = CodePayload::joinedLines($node->getContent());
         $build = $renderer->getStaticRenderer($this->cssClass);
         $defaults = [];
         if ($this->roundTripMode) {
-            $defaults['data-djot-src'] = $this->reconstructCodeBlockSource($node);
+            $defaults['data-carve-src'] = $this->reconstructCodeBlockSource($node);
         }
         // ONLY the rendered image is named. The no-renderer path really is
         // SOURCE TEXT in a `<pre><code>` - calling that an image would hide the
@@ -427,7 +427,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         }
 
         if ($this->roundTripMode) {
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($this->reconstructCodeBlockSource($node)) . '"';
+            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($this->reconstructCodeBlockSource($node)) . '"';
         }
 
         return '<' . $this->tag . $attrs . '>';

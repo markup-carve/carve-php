@@ -21,9 +21,9 @@ class HtmlToCarveTest extends TestCase
     protected HtmlToCarve $converter;
 
     /**
-     * A converter that trusts `data-djot-src` round-trip attributes. Used only by
+     * A converter that trusts `data-carve-src` round-trip attributes. Used only by
      * the round-trip tests, which feed it HTML that carve itself produced. The
-     * default $converter ignores `data-djot-src` (untrusted-input safe default).
+     * default $converter ignores `data-carve-src` (untrusted-input safe default).
      */
     protected HtmlToCarve $roundTripConverter;
 
@@ -412,7 +412,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testCollapsedReferenceLinkWithUnsafeLabelFallsBackToInlineLink(): void
     {
-        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-djot-ref="">a ] b</a>');
+        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-carve-ref="">a ] b</a>');
 
         $this->assertSame("[a \\] b](https://example.com)\n", $result);
         $this->assertStringNotContainsString("\n[a \\] b]:", $result);
@@ -420,7 +420,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testReferenceLinkWithUnsafeReferenceLabelFallsBackToInlineLink(): void
     {
-        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-djot-ref="ref]x">txt</a>');
+        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-carve-ref="ref]x">txt</a>');
 
         $this->assertSame("[txt](https://example.com)\n", $result);
         $this->assertStringNotContainsString('[txt][', $result);
@@ -476,10 +476,10 @@ class HtmlToCarveTest extends TestCase
 
     public function testRawImageFallbackStripsDjotMetadata(): void
     {
-        $result = $this->roundTripConverter->convert('<img src="img.png" alt="a [ b" data-djot-ref="">');
+        $result = $this->roundTripConverter->convert('<img src="img.png" alt="a [ b" data-carve-ref="">');
 
         $this->assertSame("`<img src=\"img.png\" alt=\"a [ b\">`{=html}\n", $result);
-        $this->assertStringNotContainsString('data-djot-ref', $result);
+        $this->assertStringNotContainsString('data-carve-ref', $result);
     }
 
     public function testUntrustedRawImageFallbackIsSafe(): void
@@ -496,8 +496,8 @@ class HtmlToCarveTest extends TestCase
 
     public function testUntrustedDataDjotRawSpanIsSafe(): void
     {
-        // `data-djot-raw` raw-inline must be ignored for untrusted input.
-        $result = $this->converter->convert('<span data-djot-raw="html"><script>alert(1)</script></span>');
+        // `data-carve-raw` raw-inline must be ignored for untrusted input.
+        $result = $this->converter->convert('<span data-carve-raw="html"><script>alert(1)</script></span>');
         $this->assertStringNotContainsString('{=html}', $result);
         $htmlBack = (new CarveConverter())->convert($result);
         $this->assertStringNotContainsString('<script>', $htmlBack);
@@ -879,7 +879,7 @@ HTML;
     public function testEndnotesSectionKeepsMultilineFootnoteInsideDefinition(): void
     {
         $html = '<p>ref<a id="fnref1" href="#fn1" role="doc-noteref">1</a></p>'
-            . '<section role="doc-endnotes"><ol><li id="fn1" data-djot-footnote-label="1">'
+            . '<section role="doc-endnotes"><ol><li id="fn1" data-carve-footnote-label="1">'
             . '<p>One</p><p>Two</p><p><a role="doc-backlink" href="#fnref1">↩︎</a></p></li></ol></section>';
         $result = $this->converter->convert($html);
 
@@ -1476,7 +1476,7 @@ HTML;
     public static function fenceInsideACellProvider(): array
     {
         return [
-            'admonition' => ['<div data-djot-admonition-type="note"><p>d</p></div>', '<td>d</td>'],
+            'admonition' => ['<div data-carve-admonition-type="note"><p>d</p></div>', '<td>d</td>'],
             // The two lines are separated rather than run together: a line
             // block's lines ARE a block boundary, and dropping the fence in a
             // cell no longer drops that with it.
@@ -1502,7 +1502,7 @@ HTML;
     {
         $this->assertStringContainsString(
             "::: note\nd\n:::",
-            $this->converter->convert('<div data-djot-admonition-type="note"><p>d</p></div>'),
+            $this->converter->convert('<div data-carve-admonition-type="note"><p>d</p></div>'),
         );
         $this->assertStringContainsString(
             '::: details',
@@ -1628,7 +1628,7 @@ HTML;
 
         $html = $djotConverter->convert('# Title');
 
-        $this->assertStringContainsString('data-djot-source-level="1"', $html);
+        $this->assertStringContainsString('data-carve-source-level="1"', $html);
         $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame('# Title', $back);
@@ -1644,7 +1644,7 @@ HTML;
         $djot = "See [[Getting Started]].\n\n# Getting Started";
         $html = $djotConverter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-heading-ref="Getting Started"', $html);
+        $this->assertStringContainsString('data-carve-heading-ref="Getting Started"', $html);
         $this->assertStringNotContainsString('data-heading-ref=', $html);
         $back = trim($this->roundTripConverter->convert($html));
 
@@ -1659,7 +1659,7 @@ HTML;
         $djot = 'Text[Footnote]{.fn} after.';
         $html = $djotConverter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-inline-footnote-html=', $html);
+        $this->assertStringContainsString('data-carve-inline-footnote-html=', $html);
         $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame($djot, $back);
@@ -1673,7 +1673,7 @@ HTML;
         $djot = 'Text[Footnote]{.footnote} after.';
         $html = $djotConverter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-inline-footnote-class="footnote"', $html);
+        $this->assertStringContainsString('data-carve-inline-footnote-class="footnote"', $html);
         $back = trim($this->roundTripConverter->convert($html));
 
         $this->assertSame($djot, $back);
@@ -1863,7 +1863,7 @@ DJOT;
         $html = $djotConverter->convert($djot);
 
         // HTML should contain the column widths attribute (11 dashes, 9 dashes, 19 dashes)
-        $this->assertStringContainsString('data-djot-col-widths="11,9,19"', $html);
+        $this->assertStringContainsString('data-carve-col-widths="11,9,19"', $html);
 
         // Convert back to Djot
         $back = trim($this->roundTripConverter->convert($html));
@@ -1874,7 +1874,7 @@ DJOT;
 
     public function testTableSeparatorWidthsNotPresentInNonRoundTripMode(): void
     {
-        // Without round-trip mode, no data-djot-col-widths attribute
+        // Without round-trip mode, no data-carve-col-widths attribute
         $djot = <<<'DJOT'
 | H1 | H2 |
 |----|----|
@@ -1884,7 +1884,7 @@ DJOT;
         $djotConverter = new CarveConverter(roundTripMode: false);
         $html = $djotConverter->convert($djot);
 
-        $this->assertStringNotContainsString('data-djot-col-widths', $html);
+        $this->assertStringNotContainsString('data-carve-col-widths', $html);
     }
 
     public function testCodeBlockRoundTripUsesDjotSrc(): void
@@ -2222,7 +2222,7 @@ DJOT;
 
     public function testTableAlignmentRoundTripWithoutDjotSrcUsesCellAlignment(): void
     {
-        $html = '<table data-djot-col-widths="5,6"><tr><th style="text-align: left;">Left</th><th style="text-align: right;">Right</th></tr><tr><td style="text-align: left;">a</td><td style="text-align: right;">b</td></tr></table>';
+        $html = '<table data-carve-col-widths="5,6"><tr><th style="text-align: left;">Left</th><th style="text-align: right;">Right</th></tr><tr><td style="text-align: left;">a</td><td style="text-align: right;">b</td></tr></table>';
         $back = trim($this->roundTripConverter->convert($html));
 
         $expected = <<<'DJOT'
@@ -2243,7 +2243,7 @@ DJOT;
 
     public function testImportedTableWidthsHaveAResourceBound(): void
     {
-        $html = '<table data-djot-col-widths="200000000"><tr><th>x</th></tr></table>';
+        $html = '<table data-carve-col-widths="200000000"><tr><th>x</th></tr></table>';
         $carve = $this->roundTripConverter->convert($html);
 
         $this->assertLessThan(2000, strlen($carve));
@@ -2449,7 +2449,7 @@ DJOT;
 
     public function testAbbrMatchingRoundTripDefinitionFallsBackToPlainText(): void
     {
-        $html = '<template data-djot-abbreviations>*[HTML]: HyperText Markup Language</template>'
+        $html = '<template data-carve-abbreviations>*[HTML]: HyperText Markup Language</template>'
             . '<p>Use <abbr title="HyperText Markup Language">HTML</abbr> for structure.</p>';
         $result = trim($this->converter->convert($html));
 
@@ -2458,7 +2458,7 @@ DJOT;
 
     public function testAbbrWithDifferentTitleStillUsesSemanticSpanSyntax(): void
     {
-        $html = '<template data-djot-abbreviations>*[HTML]: HyperText Markup Language</template>'
+        $html = '<template data-carve-abbreviations>*[HTML]: HyperText Markup Language</template>'
             . '<p>Use <abbr title="HyperText Markup Language">HTML</abbr> and <abbr title="Hyperlink Reference">HREF</abbr>.</p>';
         $result = trim($this->converter->convert($html));
 
@@ -2568,21 +2568,21 @@ DJOT;
         $this->assertSame('Set [y]{.math var} to 5.', $result);
     }
 
-    // ==================== Security: untrusted data-djot-src ====================
+    // ==================== Security: untrusted data-carve-src ====================
 
     /**
-     * P0 XSS guard: a crafted `data-djot-src` smuggling a raw-HTML block must NOT
+     * P0 XSS guard: a crafted `data-carve-src` smuggling a raw-HTML block must NOT
      * be re-emitted as live Carve by the DEFAULT converter. The attribute is
      * emitted verbatim when honored, so an attacker-supplied value containing a
      * `=html` raw block would otherwise round-trip into a live `<script>`.
      */
     public function testMaliciousDataDjotSrcIsIgnoredByDefault(): void
     {
-        $html = "<pre data-djot-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
+        $html = "<pre data-carve-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
 
         $result = $this->converter->convert($html);
 
-        // Default converter ignores data-djot-src: no raw-HTML block, no script.
+        // Default converter ignores data-carve-src: no raw-HTML block, no script.
         $this->assertStringNotContainsString('=html', $result);
         $this->assertStringNotContainsString('<script>', $result);
         // It falls back to the actual element content instead.
@@ -2591,7 +2591,7 @@ DJOT;
 
     public function testRoundTripModeDoesNotImplyTrust(): void
     {
-        $html = "<pre data-djot-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
+        $html = "<pre data-carve-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
         $converter = new HtmlToCarve(importMode: 'roundtrip');
 
         $result = $converter->convert($html);
@@ -2601,13 +2601,13 @@ DJOT;
     }
 
     /**
-     * The opt-in trusted converter DOES honor `data-djot-src` (round-trip use
+     * The opt-in trusted converter DOES honor `data-carve-src` (round-trip use
      * with carve-produced HTML). This is the trade-off the default protects
      * against: only enable it for trusted input.
      */
     public function testTrustedConverterHonorsDataDjotSrc(): void
     {
-        $html = "<pre data-djot-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
+        $html = "<pre data-carve-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
 
         $result = $this->roundTripConverter->convert($html);
 
@@ -2617,14 +2617,14 @@ DJOT;
 
     public function testTrustedStoredSourceReplacesAllOfItsRenderedChildren(): void
     {
-        $html = '<p>lead</p><div data-djot-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
+        $html = '<p>lead</p><div data-carve-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
 
         $this->assertSame("lead\n\nx\n\ny\n", $this->roundTripConverter->convert($html));
     }
 
     public function testAstExitKeepsAllStoredSourceBlocksWithoutPrivateHints(): void
     {
-        $html = '<div data-djot-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
+        $html = '<div data-carve-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
 
         $tree = $this->roundTripConverter->convertToAst($html);
 

@@ -217,10 +217,10 @@ class AdmonitionExtension implements ExtensionInterface
 
         // Add round-trip data attributes
         if ($renderer->isRoundTripMode()) {
-            $extraAttrs .= ' data-djot-admonition-type="' . StringUtil::escapeHtmlAttribute($type) . '"';
+            $extraAttrs .= ' data-carve-admonition-type="' . StringUtil::escapeHtmlAttribute($type) . '"';
             // Store custom title if provided (null means auto-generated)
             if ($customTitle !== null) {
-                $extraAttrs .= ' data-djot-admonition-title="' . StringUtil::escapeHtmlAttribute($customTitle) . '"';
+                $extraAttrs .= ' data-carve-admonition-title="' . StringUtil::escapeHtmlAttribute($customTitle) . '"';
             }
         }
 

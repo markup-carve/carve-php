@@ -153,7 +153,7 @@ class ABlankTableRowIsUnspellableTest extends TestCase
                 [[$dropped, '/table[1]/tr[1]'], [$dropped, '/table[1]/tr[2]'], ['element-dropped', '/table[1]/tr[2]']],
             ],
             'a blank header row in the separator form' => [
-                '<table data-djot-col-widths="3"><thead><tr><th></th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>',
+                '<table data-carve-col-widths="3"><thead><tr><th></th></tr></thead><tbody><tr><td>a</td></tr></tbody></table>',
                 "| a |\n",
                 [[$dropped, '/table[1]/tr[1]']],
             ],

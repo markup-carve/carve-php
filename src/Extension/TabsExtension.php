@@ -314,10 +314,10 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Build wrapper attributes
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer);
 
-        // Add data-djot-src for round-trip support
+        // Add data-carve-src for round-trip support
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $tabs, $renderer);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
+            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";
@@ -377,10 +377,10 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Build wrapper attributes with tablist role
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer, 'tablist');
 
-        // Add data-djot-src for round-trip support
+        // Add data-carve-src for round-trip support
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $this->reconstructDjotSource($wrapper, $tabs, $renderer);
-            $attrs .= ' data-djot-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
+            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
         }
 
         $html = '<div' . $attrs . ">\n";
@@ -577,9 +577,9 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
      *
      * The HTML reconstructed here is carve's OWN rendered output (from
      * `HtmlRenderer::renderNodeFragment`), so it is trusted and may carry
-     * faithful `data-djot-src` round-trip attributes (e.g. a code fence's
+     * faithful `data-carve-src` round-trip attributes (e.g. a code fence's
      * `` ``` php `` info string). Pass `trustedRoundTrip: true` so those inner
-     * sources are honored; the default converter ignores `data-djot-src` to stay
+     * sources are honored; the default converter ignores `data-carve-src` to stay
      * safe against untrusted external HTML.
      */
     protected function trustedHtmlToCarve(): HtmlToCarve
@@ -615,7 +615,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
 
     protected function renderDivToDjot(Div $div, HtmlRenderer $renderer): string
     {
-        $djotSrc = $div->getAttribute('data-djot-src');
+        $djotSrc = $div->getAttribute('data-carve-src');
         if ($djotSrc !== null && $djotSrc !== '') {
             return rtrim($djotSrc, "\n");
         }

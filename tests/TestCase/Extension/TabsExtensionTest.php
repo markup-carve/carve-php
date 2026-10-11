@@ -121,7 +121,7 @@ DJOT;
 
         $html = $converter->convert(":::: tabs\n::: tab \"Inner\" [First]\nBody.\n:::\n::::");
 
-        $this->assertMatchesRegularExpression('/data-djot-src="[^"]*tab &quot;Inner&quot; \[First\]/', $html);
+        $this->assertMatchesRegularExpression('/data-carve-src="[^"]*tab &quot;Inner&quot; \[First\]/', $html);
     }
 
     public function testOpenerLabelPreservesContentHeading(): void
@@ -1017,7 +1017,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         $this->assertStringContainsString(':::: tabs', $html);
     }
 
@@ -1038,7 +1038,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringNotContainsString('data-djot-src=', $html);
+        $this->assertStringNotContainsString('data-carve-src=', $html);
     }
 
     public function testRoundTripWithCodeBlock(): void
@@ -1062,7 +1062,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         // The reconstructed djot should contain the code fence
         $this->assertStringContainsString('``` php', $html);
     }
@@ -1088,7 +1088,7 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-djot-src="', $html);
+        $this->assertStringContainsString('data-carve-src="', $html);
         // The reconstructed djot should contain the table
         $this->assertStringContainsString('| Header 1 | Header 2 |', $html);
     }

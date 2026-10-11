@@ -68,7 +68,7 @@ class ImportAttributePolicyParityTest extends TestCase
     public function testIgnoredNestedSourceMarkersAreReported(): void
     {
         foreach (['safe', 'semantic'] as $mode) {
-            foreach (['data-carve-src', 'data-djot-src'] as $name) {
+            foreach (['data-carve-src', 'data-carve-src'] as $name) {
                 $result = (new HtmlToCarve(importMode: $mode))->convertWithReport("<form><p {$name}=\"stored\">text</p></form>");
                 $rows = array_values(array_filter($result->report()['diagnostics'], fn (array $row): bool => $row['code'] === 'attribute-dropped'));
                 $this->assertCount(1, $rows);

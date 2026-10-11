@@ -510,7 +510,7 @@ final class HtmlAstBuilder
             }
         }
         foreach ($root->getElementsByTagName('template') as $template) {
-            if (!$template->hasAttribute('data-djot-abbreviations')) {
+            if (!$template->hasAttribute('data-carve-abbreviations')) {
                 continue;
             }
             if (preg_match_all('/^\*\[([^\]\n]+)\]: +(.+)$/m', $template->textContent, $matches, PREG_SET_ORDER) === false) {
@@ -875,7 +875,7 @@ final class HtmlAstBuilder
                 'children' => $children,
                 self::SLUG_KEY => (new HeadingIdTracker())->normalizeId(trim($node->textContent)),
             ];
-            $skip = ['data-djot-source-level', 'data-djot-explicit-id'];
+            $skip = ['data-carve-source-level', 'data-carve-explicit-id'];
             if ($this->headingIdWasGenerated($node)) {
                 $skip[] = 'id';
             }
@@ -1041,7 +1041,7 @@ final class HtmlAstBuilder
                 $headingAttrs['id'] = $node->getAttribute('id');
                 $headingAttrs['order'] = ['#id', ...array_values(array_diff($headingAttrs['order'] ?? [], ['#id']))];
                 $block['attrs'] = $headingAttrs;
-                if (!$node->hasAttribute('data-djot-explicit-id')) {
+                if (!$node->hasAttribute('data-carve-explicit-id')) {
                     $block[self::SECTION_ID_KEY] = true;
                 }
 
@@ -1262,7 +1262,7 @@ final class HtmlAstBuilder
 
     private function headingIdWasGenerated(DOMElement $node): bool
     {
-        if ($this->importMode !== 'roundtrip' || !$node->hasAttribute('id') || $node->hasAttribute('data-djot-explicit-id')) {
+        if ($this->importMode !== 'roundtrip' || !$node->hasAttribute('id') || $node->hasAttribute('data-carve-explicit-id')) {
             return false;
         }
         $names = [];
@@ -1786,12 +1786,12 @@ final class HtmlAstBuilder
         $unreferenced = [];
         foreach ($this->directEndnoteItems($section) as $item) {
             $id = $item->getAttribute('id');
-            if ($item->hasAttribute('data-djot-inline-footnote')) {
+            if ($item->hasAttribute('data-carve-inline-footnote')) {
                 $found = true;
 
                 continue;
             }
-            $label = $item->getAttribute('data-djot-footnote-label');
+            $label = $item->getAttribute('data-carve-footnote-label');
             if ($label === '') {
                 $label = $this->footnoteLabel($id);
             }
@@ -2338,14 +2338,14 @@ final class HtmlAstBuilder
                 break;
             }
         }
-        $this->attachAttrs($table, $node, ['data-djot-col-widths']);
+        $this->attachAttrs($table, $node, ['data-carve-col-widths']);
         if (
             $this->sourceSafe
             && $headerRows > 0
-            && $node->hasAttribute('data-djot-col-widths')
-            && !$node->hasAttribute('data-djot-src')
+            && $node->hasAttribute('data-carve-col-widths')
+            && !$node->hasAttribute('data-carve-src')
         ) {
-            $this->setPrivateAttribute($table, "\0carve-col-widths", $node->getAttribute('data-djot-col-widths'));
+            $this->setPrivateAttribute($table, "\0carve-col-widths", $node->getAttribute('data-carve-col-widths'));
         }
         if ($this->sourceSafe && $headerRows > 0 && HtmlTableStructure::importedTableNeedsDelimiter($rows)) {
             $this->addHint($table, "\0carve-delimiter-row");
@@ -2544,7 +2544,7 @@ final class HtmlAstBuilder
                 break;
             }
         }
-        $attrs = $this->attrs($node, ['data-djot-col-widths']);
+        $attrs = $this->attrs($node, ['data-carve-col-widths']);
         foreach (['header-rows' => $headerRows, 'header-cols' => $headerCols] as $key => $count) {
             if ($count > 0) {
                 $attrs['keyValues'][$key] = (string)$count;
@@ -2957,8 +2957,8 @@ final class HtmlAstBuilder
             && (
                 trim($titleNode->textContent) === $this->derivedAriaLabel($node)
                 || (
-                    $node->hasAttribute('data-djot-admonition-type')
-                    && trim($titleNode->textContent) === ucfirst($node->getAttribute('data-djot-admonition-type'))
+                    $node->hasAttribute('data-carve-admonition-type')
+                    && trim($titleNode->textContent) === ucfirst($node->getAttribute('data-carve-admonition-type'))
                 )
             )
         ) {
@@ -3012,7 +3012,7 @@ final class HtmlAstBuilder
         }
         $attrs = $this->attrs($node, $skipAttrs);
         $classes = $attrs['classes'] ?? [];
-        $structuralKind = trim($node->getAttribute('data-djot-admonition-type'));
+        $structuralKind = trim($node->getAttribute('data-carve-admonition-type'));
         $tag = strtolower(HtmlDomLoader::elementName($node));
         $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
         $lineBlockIndex = array_search('line-block', $classes, true);
@@ -3160,7 +3160,7 @@ final class HtmlAstBuilder
         if (array_intersect($classes, ['tabs-panel', 'code-group-panel']) !== []) {
             return in_array($role, ['group', 'tabpanel'], true);
         }
-        $kind = trim($node->getAttribute('data-djot-admonition-type'));
+        $kind = trim($node->getAttribute('data-carve-admonition-type'));
         if ($kind === '' && ($classes[0] ?? null) === 'admonition') {
             $kind = $classes[1] ?? '';
         }
@@ -3674,13 +3674,13 @@ final class HtmlAstBuilder
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
             return [];
         }
-        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-escaped')) {
+        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-escaped')) {
             return array_map(
                 static fn (string $char): array => ['type' => 'escaped_text', 'value' => $char],
                 preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: [],
             );
         }
-        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-raw')) {
+        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-raw')) {
             $content = '';
             foreach ($node->childNodes as $child) {
                 $content .= HtmlDomLoader::serialize($child);
@@ -3690,7 +3690,7 @@ final class HtmlAstBuilder
                 [
                     'type' => 'raw_inline',
                     'content' => $content,
-                    'format' => $node->getAttribute('data-djot-raw'),
+                    'format' => $node->getAttribute('data-carve-raw'),
                 ],
             ];
         }
@@ -4015,8 +4015,8 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $image['title'] = $node->getAttribute('title');
         }
-        if ($this->importMode === 'roundtrip' && $this->sourceSafe && $node->hasAttribute('data-djot-ref')) {
-            $ref = $node->getAttribute('data-djot-ref');
+        if ($this->importMode === 'roundtrip' && $this->sourceSafe && $node->hasAttribute('data-carve-ref')) {
+            $ref = $node->getAttribute('data-carve-ref');
             $image['ref'] = $ref;
             $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
                 . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
@@ -4024,7 +4024,7 @@ final class HtmlAstBuilder
         }
         $skip = ['src', 'alt', 'title'];
         if ($this->importMode === 'roundtrip') {
-            $skip[] = 'data-djot-ref';
+            $skip[] = 'data-carve-ref';
         }
         $this->attachAttrs($image, $node, $skip);
 
@@ -4070,7 +4070,7 @@ final class HtmlAstBuilder
         if (self::carriesNoDestination($node->getAttribute('href'))) {
             $skip = ['href'];
             foreach ($node->attributes as $attribute) {
-                if (str_starts_with(strtolower(HtmlDomLoader::attributeName($attribute)), 'data-djot-')) {
+                if (HtmlCarrierNames::isReserved(HtmlDomLoader::attributeName($attribute))) {
                     $skip[] = strtolower(HtmlDomLoader::attributeName($attribute));
                 }
             }
@@ -4085,9 +4085,9 @@ final class HtmlAstBuilder
             return $children;
         }
         $children = $this->bracketedChildren($node);
-        if ($node->hasAttribute('data-djot-inline-footnote-html')) {
-            $content = $this->inlineHtml($node->getAttribute('data-djot-inline-footnote-html'));
-            $class = $node->getAttribute('data-djot-inline-footnote-class');
+        if ($node->hasAttribute('data-carve-inline-footnote-html')) {
+            $content = $this->inlineHtml($node->getAttribute('data-carve-inline-footnote-html'));
+            $class = $node->getAttribute('data-carve-inline-footnote-class');
 
             return [
                 [
@@ -4100,11 +4100,11 @@ final class HtmlAstBuilder
                 ],
             ];
         }
-        if ($node->hasAttribute('data-djot-footnote-label')) {
+        if ($node->hasAttribute('data-carve-footnote-label')) {
             return [
                 [
                     'type' => 'footnote_ref',
-                    'label' => $node->getAttribute('data-djot-footnote-label'),
+                    'label' => $node->getAttribute('data-carve-footnote-label'),
                 ],
             ];
         }
@@ -4117,20 +4117,20 @@ final class HtmlAstBuilder
         if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
             return [];
         }
-        if ($node->hasAttribute('data-djot-autolink')) {
+        if ($node->hasAttribute('data-carve-autolink')) {
             $autolink = [
                 'type' => 'autolink',
                 'href' => $node->getAttribute('href'),
                 'text' => trim($node->textContent),
             ];
-            $this->attachAttrs($autolink, $node, ['href', 'data-djot-autolink']);
+            $this->attachAttrs($autolink, $node, ['href', 'data-carve-autolink']);
 
             return [$autolink];
         }
         $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
-        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-djot-ref')) {
+        if ($this->importMode === 'roundtrip' && $node->hasAttribute('data-carve-ref')) {
             $labelText = $this->plainInlineText(self::nodeList($children));
-            $ref = $node->getAttribute('data-djot-ref');
+            $ref = $node->getAttribute('data-carve-ref');
             if ($ref === '') {
                 $ref = trim($labelText);
             }
@@ -4145,9 +4145,9 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $link['title'] = $node->getAttribute('title');
         }
-        $skip = ['href', 'title', 'data-djot-autolink', 'data-djot-footnote-label'];
+        $skip = ['href', 'title', 'data-carve-autolink', 'data-carve-footnote-label'];
         if ($this->importMode === 'roundtrip') {
-            $skip[] = 'data-djot-ref';
+            $skip[] = 'data-carve-ref';
         }
         if ($this->hasClass($node, 'index-backref')) {
             $skip[] = 'aria-label';
@@ -4293,7 +4293,7 @@ final class HtmlAstBuilder
         foreach ($clone->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if (
-                str_starts_with($name, 'data-djot-')
+                HtmlCarrierNames::isReserved($name)
                 || str_starts_with($name, 'on')
             ) {
                 $remove[] = $attribute->nodeName;
@@ -4334,13 +4334,13 @@ final class HtmlAstBuilder
             !$this->trustedRoundTrip
             || $this->importMode !== 'roundtrip'
             || $this->session->inCaption
-            || !$node->hasAttribute('data-djot-src')
+            || !$node->hasAttribute('data-carve-src')
         ) {
             return null;
         }
         $this->session->storedSourceElements[$node] = null;
         $source = html_entity_decode(
-            $node->getAttribute('data-djot-src'),
+            $node->getAttribute('data-carve-src'),
             ENT_QUOTES | ENT_HTML5,
             'UTF-8',
         );

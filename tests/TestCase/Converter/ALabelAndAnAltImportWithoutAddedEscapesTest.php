@@ -78,7 +78,7 @@ class ALabelAndAnAltImportWithoutAddedEscapesTest extends TestCase
                 "<p><span cite=\"c\">\u{201C}a]b\u{201D}</span></p>",
             ],
             'a bracket in a round-trip inline footnote' => [
-                '<p><a href="#x" data-djot-inline-footnote-html="a]b">1</a></p>',
+                '<p><a href="#x" data-carve-inline-footnote-html="a]b">1</a></p>',
                 "[a\\]b]{.fn}\n",
                 '<p><span class="fn">a]b</span></p>',
             ],
