@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\AttributeFallback;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\TestCase;
@@ -73,7 +74,7 @@ class MarkdownMarkAttributesTest extends TestCase
     public function testAuthoredDeletionClassOnStrikeDoesNotCreateCriticMarkup(): void
     {
         foreach ([null, AttributeFallback::Html] as $mode) {
-            foreach (['~x~{.critic-delete}', '~*x*~{.k .critic-delete}'] as $source) {
+            foreach (['~x~{.critic-delete}', '~*x*~{.k .critic-delete}', '~x~{.CRITIC-DELETE}', '~x~{.Critic-Delete}'] as $source) {
                 $renderer = new MarkdownRenderer();
                 if ($mode !== null) {
                     $renderer->setAttributeFallback($mode);
@@ -90,5 +91,21 @@ class MarkdownMarkAttributesTest extends TestCase
         $this->assertSame("~~x~~\n", CarveConverter::create(renderer: $renderer)->convert('~x~{.critic-delete}'));
         $this->assertSame("<strong class=\"critic-delete\">x</strong>\n", CarveConverter::markdown()->convert('*x*{.critic-delete}'));
         $this->assertSame("<del class=\"critic-delete\">x</del>\n", CarveConverter::markdown()->convert('{-x-}'));
+    }
+
+    public function testExistingAttributeOverrideSignatureStillWorks(): void
+    {
+        $renderer = new class extends MarkdownRenderer {
+            public int $calls = 0;
+
+            protected function htmlAttributes(Node $node, array $exclude = []): string
+            {
+                $this->calls++;
+
+                return parent::htmlAttributes($node, $exclude);
+            }
+        };
+        $this->assertSame("<strong k=\"a\tb\">x</strong>\n", CarveConverter::create(renderer: $renderer)->convert("*x*{k=\"a\tb\"}"));
+        $this->assertGreaterThan(0, $renderer->calls);
     }
 }

@@ -396,6 +396,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected bool $attributeFallbackSelected = false;
 
+    private bool $retainMarkAttributeTabs = false;
+
     /**
      * PART 11 §10s: whether an element-less container is bracketed with a
      * carrier marker. OFF by default, because a renderer with raw HTML turned
@@ -3816,7 +3818,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderEmphasis(Emphasis $node): string
     {
         $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
-            ? $this->htmlAttributes($node, preserveTabs: true)
+            ? $this->markdownMarkAttributes($node)
             : '';
         if ($attrs !== '') {
             return '<em' . $attrs . '>' . $this->renderChildren($node) . '</em>';
@@ -3833,7 +3835,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderStrong(Strong $node): string
     {
         $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
-            ? $this->htmlAttributes($node, preserveTabs: true)
+            ? $this->markdownMarkAttributes($node)
             : '';
         if ($attrs !== '') {
             return '<strong' . $attrs . '>' . $this->renderChildren($node) . '</strong>';
@@ -4221,11 +4223,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderStrike(Strike $node): string
     {
         $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
-            ? $this->htmlAttributes($node, preserveTabs: true)
+            ? $this->markdownMarkAttributes($node)
             : '';
         if ($attrs !== '') {
             // A del with this authored class reads back as CriticMarkup deletion.
-            $tag = $node->hasClass('critic-delete') ? 's' : 'del';
+            $tag = in_array('critic-delete', array_map('strtolower', $node->getClassList()), true) ? 's' : 'del';
 
             return '<' . $tag . $attrs . '>' . $this->renderChildren($node) . '</' . $tag . '>';
         }
@@ -4602,9 +4604,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $exclude Attribute names the caller spells itself.
-     * @param bool $preserveTabs
      */
-    protected function htmlAttributes(Node $node, array $exclude = [], bool $preserveTabs = false): string
+    protected function htmlAttributes(Node $node, array $exclude = []): string
     {
         $attrs = $this->attributeSerializer()->renderAttributesExcluding($node, $exclude);
 
@@ -4612,7 +4613,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // ending the raw HTML block early and leaving the closing tag dangling as
         // literal text. Fold newlines and retain tabs without changing their
         // attribute value; every other control character is already gone.
-        return (string)preg_replace($preserveTabs ? '/\n+/' : '/[\t\n]+/', ' ', $this->stripControls($attrs));
+        return (string)preg_replace($this->retainMarkAttributeTabs ? '/\n+/' : '/[\t\n]+/', ' ', $this->stripControls($attrs));
+    }
+
+    private function markdownMarkAttributes(Node $node): string
+    {
+        $previous = $this->retainMarkAttributeTabs;
+        $this->retainMarkAttributeTabs = true;
+        try {
+            return $this->htmlAttributes($node);
+        } finally {
+            $this->retainMarkAttributeTabs = $previous;
+        }
     }
 
     /**
