@@ -335,7 +335,7 @@ trait NormalizesDjotStructure
             if ($blank && !$this->djotListContains($lists, $indent) && !$attributeLine) {
                 $lists = [];
             }
-            if (preg_match('/^\\\\\{\x00DJOTINVALIDATTR\x00[0-9]+\x00%/', $visible) === 1) {
+            if ($this->rejectedDjotCommentStartsBlock($visible)) {
                 $outsideList = $lists !== [] && $indent <= $lists[0]->column;
                 if ($headingMarker !== '' || $outsideList) {
                     $out[] = $quote . str_repeat(' ', $indent);

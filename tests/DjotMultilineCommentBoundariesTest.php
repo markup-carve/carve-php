@@ -38,9 +38,22 @@ final class DjotMultilineCommentBoundariesTest extends TestCase
         self::assertStringContainsString('z', $html);
     }
 
+    public function testConsecutiveBlockCommentsDoNotRecurseThroughTheirContext(): void
+    {
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert(str_repeat("{% x\n  y %}\n", 64)));
+        self::assertSame('', trim($html));
+    }
+
+    public function testACommentThatFailsOnItsFirstLineContinuesTheHeading(): void
+    {
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert("# a\n{% 50% off %}\n"));
+        self::assertStringContainsString('<h1>a {% 50% off %}</h1>', $html);
+        self::assertStringNotContainsString('<p>', $html);
+    }
+
     public function testValidCommentsRemainConsumed(): void
     {
-        foreach (["- a\n {% x\n y %}\n", "para\n# not a heading\n{% x\ny %}\n", "para\n- not an item\n{% x\ny %}\n", "p\n\na\n{% x\ny %} z\n", "- a\n\n  b\n  {% x\n  y %} z\n", "> p\n>\n> a\n> {% x\n> y %} z\n", "Hi. there\n{% x\ny %} z\n", "a\n{% x\ny %} z\n", "- a\n  {% x\n  y %} z\n", "{% x %}\n", "{% x\n  y %}\n"] as $source) {
+        foreach ([": def\n  {% x\n  y %} z\n", "- a\n {% x\n y %}\n", "para\n# not a heading\n{% x\ny %}\n", "para\n- not an item\n{% x\ny %}\n", "p\n\na\n{% x\ny %} z\n", "- a\n\n  b\n  {% x\n  y %} z\n", "> p\n>\n> a\n> {% x\n> y %} z\n", "Hi. there\n{% x\ny %} z\n", "a\n{% x\ny %} z\n", "- a\n  {% x\n  y %} z\n", "{% x %}\n", "{% x\n  y %}\n"] as $source) {
             self::assertStringNotContainsString('x', (new DjotToCarve())->convert($source));
         }
         self::assertSame('<p>a  z</p>', trim((new CarveConverter())->convert((new DjotToCarve())->convert("a {% x\ny %} z\n"))));

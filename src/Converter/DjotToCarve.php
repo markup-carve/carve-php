@@ -580,7 +580,7 @@ class DjotToCarve
                     break;
                 }
                 $next = ltrim($lines[$i + 1], " \t");
-                if (preg_match('/^\\\\\{\x00DJOTINVALIDATTR\x00[0-9]+\x00%/', $next) === 1) {
+                if ($this->rejectedDjotCommentStartsBlock($next)) {
                     break;
                 }
                 if (preg_match($marker, $next) === 1) {
@@ -601,6 +601,15 @@ class DjotToCarve
         }
 
         return implode("\n", $result);
+    }
+
+    private function rejectedDjotCommentStartsBlock(string $line): bool
+    {
+        if (preg_match('/^\\\{\x00DJOTINVALIDATTR\x00[0-9]+\x00(%[^\n]*)/', $line, $match) !== 1) {
+            return false;
+        }
+
+        return $this->readDjotWordAttributes('{' . $match[1] . '}', 0) !== null;
     }
 
     private function djotCommentContinuesParagraph(string $source, int $start): bool
@@ -681,7 +690,7 @@ class DjotToCarve
                 continue;
             }
             if (str_starts_with($body, '{')) {
-                $attrs = $this->readDjotWordAttributes($source, $from + $bodyAt);
+                $attrs = $this->readDjotWordAttributes($source, $from + $bodyAt, false, false, false);
                 if ($attrs !== null) {
                     $attributeEnd = $attrs['end'];
                     $kind = null;
@@ -701,6 +710,14 @@ class DjotToCarve
                 continue;
             }
             if ($kind === 'heading') {
+                continue;
+            }
+            if (preg_match('/^:[ \t]/', $body)) {
+                if (strlen($prefix) <= $bodyAt) {
+                    return false;
+                }
+                $kind = trim(substr($body, 1)) !== '' ? 'paragraph' : null;
+
                 continue;
             }
             if (preg_match('/^\[\^[^\]]+\]:[ \t]*(.*)$/', $body, $note)) {
@@ -758,7 +775,7 @@ class DjotToCarve
     /**
      * @return array{end: int, source: string, parts: list<string>}|null
      */
-    private function readDjotWordAttributes(string $source, int $start, bool $carve = false, bool $table = false): ?array
+    private function readDjotWordAttributes(string $source, int $start, bool $carve = false, bool $table = false, bool $paragraphContext = true): ?array
     {
         $parts = [];
         $length = strlen($source);
@@ -783,7 +800,7 @@ class DjotToCarve
                     $i++;
                 }
             }
-            if (($source[$i] ?? '') === '}' && str_contains(substr($source, $start, $i + 1 - $start), "\n") && ($parts !== [] || !$this->djotCommentContinuesParagraph($source, $start))) {
+            if (($source[$i] ?? '') === '}' && str_contains(substr($source, $start, $i + 1 - $start), "\n") && ($parts !== [] || !$paragraphContext || !$this->djotCommentContinuesParagraph($source, $start))) {
                 $context = $this->djotAttributeContext($source, $start);
                 foreach (array_slice(explode("\n", substr($source, $start, $i + 1 - $start)), 1) as $raw) {
                     $line = $this->djotAttributeLine($raw, $context['depth']);
