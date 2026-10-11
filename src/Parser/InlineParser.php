@@ -3145,6 +3145,22 @@ class InlineParser
      */
     protected function parseSpanContent(Node $node, string $content, int $offset, string $kind, bool $braced = false): void
     {
+        $length = strlen($content);
+        if (
+            $length > 0 && $length <= 64 && $this::class === self::class
+            && $this->blockParser->getAbbreviations() === []
+            && strspn($content, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') === $length
+        ) {
+            $significant = $this->significantInlineBytes($this->hasConditionalInlineMatchers ? $content : null);
+            if ($significant !== null && strcspn($content, implode('', array_keys($significant))) === $length) {
+                $text = new Text($content);
+                $this->placeAt($text, $offset, $offset + $length);
+                $node->appendChild($text);
+
+                return;
+            }
+        }
+
         $outer = $this->openSpanKinds;
         $outerPendingIndex = $this->nextBracedPairIndex;
         $this->nextBracedPairIndex = $braced && strlen($kind) === 1 && str_contains('/*_^,~=', $kind)
