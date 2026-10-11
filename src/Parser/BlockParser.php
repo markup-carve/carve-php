@@ -2431,7 +2431,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null}} $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -7067,6 +7067,9 @@ class BlockParser
     {
         $sourceIndent = IndentationHelper::getLeadingColumns($lines[$index]);
         $key = $sourceIndent . ':' . $depth . ':' . $column . ':' . $char;
+        if ($char === '%') {
+            $key .= ':' . $length;
+        }
         $start = $index + 1;
         $cached = $memo[$key] ?? null;
         if ($cached !== null && $start >= $cached['from'] && $start <= $cached['end'] && $length > $cached['maxRun']) {
@@ -7086,7 +7089,11 @@ class BlockParser
                 continue;
             }
             $content = IndentationHelper::stripLeadingColumns($content, $column);
-            if ($this->fencedBlockParser->isCodeFenceCloser($content, $char, $length)) {
+            if (
+                $char === '%'
+                ? $this->fencedBlockParser->isFencedCommentCloser($content, $length)
+                : $this->fencedBlockParser->isCodeFenceCloser($content, $char, $length)
+            ) {
                 return true;
             }
             if (preg_match('/^(`{3,}|~{3,})[ \t]*$/', $content, $match) === 1 && $match[1][0] === $char) {
