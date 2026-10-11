@@ -265,7 +265,7 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
      */
     public function testStoredRoundTripSourceIsNotTakenInsideACaption(): void
     {
-        $result = (new HtmlToCarve(trustedRoundTrip: true))->convertWithReport(
+        $result = (new HtmlToCarve(trustStoredSource: true))->convertWithReport(
             '<table><caption><ul data-carve-src="- a"><li>a</li></ul></caption><tr><td>x</td></tr></table>',
         );
         $rendered = (new CarveConverter())->convert($result->value);

@@ -271,7 +271,7 @@ class HtmlToCarve
      * input. Default false: untrusted HTML must not be able to smuggle raw Carve
      * (incl. a raw-HTML block) through that attribute.
      */
-    protected bool $trustedRoundTrip = false;
+    protected bool $trustStoredSource = false;
 
     /**
      * Maps a CSS `text-align` value to the class name that should carry it.
@@ -319,29 +319,33 @@ class HtmlToCarve
     protected bool $usedStoredRoundTripSource = false;
 
     /**
-     * @param bool $trustedRoundTrip
+     * @param bool $trustStoredSource Re-emit `data-carve-src` stored Carve source verbatim; trusted HTML only; implies importMode 'roundtrip'; carriers are always read.
      * @param array<string, string> $alignmentClasses text-align value => class name
      * @param bool $listTableForBlockCells Emit `::: list-table` for a table with block-content cells.
-     * @param string $importMode
-     * @param string $importAdapter
-     * @param int $maxDiagnostics
+     * @param string|null $importMode How unsupported HTML is handled: safe, semantic or roundtrip; null selects the trust-dependent default.
+     * @param string $importAdapter Source generator whose markup conventions are recognized.
+     * @param int $maxDiagnostics Maximum number of detailed import diagnostics.
      * @param array<string, string> $labels The `labels` map the HTML was RENDERED with, keyed as in HtmlRenderer::LABEL_DEFAULTS
      *
      * @throws \InvalidArgumentException
      */
     public function __construct(
-        bool $trustedRoundTrip = false,
+        bool $trustStoredSource = false,
         array $alignmentClasses = [],
         bool $listTableForBlockCells = false,
-        string $importMode = 'safe',
+        ?string $importMode = null,
         string $importAdapter = 'generic',
         int $maxDiagnostics = 1000,
         protected array $labels = [],
     ) {
+        $importMode ??= $trustStoredSource ? 'roundtrip' : 'safe';
         $modes = ['safe', 'semantic', 'roundtrip'];
         $adapters = ['generic', 'tiptap', 'prosemirror', 'ckeditor', 'tinymce', 'word', 'google-docs'];
         if (!in_array($importMode, $modes, true)) {
             throw new InvalidArgumentException('Unknown HTML import mode: ' . $importMode);
+        }
+        if ($trustStoredSource && $importMode !== 'roundtrip') {
+            throw new InvalidArgumentException("trustStoredSource requires importMode 'roundtrip': stored source may hold raw HTML that a safe or semantic import filters out");
         }
         if (!in_array($importAdapter, $adapters, true)) {
             throw new InvalidArgumentException('Unknown HTML import adapter: ' . $importAdapter);
@@ -349,10 +353,10 @@ class HtmlToCarve
         if ($maxDiagnostics < 0) {
             throw new InvalidArgumentException('maxDiagnostics must not be negative');
         }
-        $this->trustedRoundTrip = $trustedRoundTrip;
+        $this->trustStoredSource = $trustStoredSource;
         $this->alignmentClasses = array_change_key_case($alignmentClasses);
         $this->listTableForBlockCells = $listTableForBlockCells;
-        $this->importMode = $trustedRoundTrip ? 'roundtrip' : $importMode;
+        $this->importMode = $importMode;
         $this->importAdapter = $importAdapter;
         $this->maxDiagnostics = $maxDiagnostics;
     }
@@ -367,7 +371,7 @@ class HtmlToCarve
      * distinct contexts were found where the two disagreed, five of them
      * patched one at a time before the next one appeared: a pipe row versus a
      * list-table item, a caption, a `<td>` with no owning table, a table nested
-     * in a cell, the stored source `trustedRoundTrip` emits without converting
+     * in a cell, the stored source `trustStoredSource` emits without converting
      * its descendants, and the footnote definitions the `word` and
      * `google-docs` adapters move out of a cell before serialization
      * (carve-php#1346).
@@ -505,7 +509,7 @@ class HtmlToCarve
         $builder = new HtmlAstBuilder(
             $this->listTableForBlockCells,
             $this->importMode,
-            $this->trustedRoundTrip,
+            $this->trustStoredSource,
             false,
             $this->alignmentClasses,
             $this->labels,
@@ -514,7 +518,7 @@ class HtmlToCarve
         try {
             $this->astImportSession = $result->session;
             $this->captureBuiltImport($result->session);
-            $this->usedStoredRoundTripSource = $this->trustedRoundTrip && $this->singleStoredRoundTripSource($normalized) !== null;
+            $this->usedStoredRoundTripSource = $this->trustStoredSource && $this->singleStoredRoundTripSource($normalized) !== null;
             $this->inspectedAst = $result;
             $this->inspectedImportSourceBytes = strlen($html);
             $diagnostics = $this->inspectImportLoss($html);
@@ -946,7 +950,7 @@ class HtmlToCarve
 
             // A `<math>` with no TeX leaves as text or not at all, and its one
             // row covers the attributes riding on it.
-            $mathLeaves = $tag === 'math' && !$this->trustedRoundTrip && $this->resolveMathTex($node)['tier'] === 4;
+            $mathLeaves = $tag === 'math' && !$this->trustStoredSource && $this->resolveMathTex($node)['tier'] === 4;
             // No item, no list: its one row covers the attributes it would have
             // written (carve#2367); a refused one keeps its own row.
             $emptyList = in_array($tag, ['ul', 'ol'], true) && !$this->hasListItemChild($node);
@@ -2454,7 +2458,7 @@ class HtmlToCarve
                 continue;
             } elseif (
                 $name === 'data-carve-src'
-                && !($this->trustedRoundTrip && $this->importMode === 'roundtrip')
+                && !($this->trustStoredSource && $this->importMode === 'roundtrip')
             ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
@@ -3005,7 +3009,7 @@ class HtmlToCarve
             return;
         }
 
-        if ($this->trustedRoundTrip) {
+        if ($this->trustStoredSource) {
             return;
         }
 
@@ -3809,7 +3813,7 @@ class HtmlToCarve
         $builder = new HtmlAstBuilder(
             $this->listTableForBlockCells,
             $this->importMode,
-            $this->trustedRoundTrip,
+            $this->trustStoredSource,
             true,
             $this->alignmentClasses,
             $this->labels,
@@ -3838,7 +3842,7 @@ class HtmlToCarve
 
     private function singleStoredRoundTripSource(string $html): ?string
     {
-        if (!$this->trustedRoundTrip) {
+        if (!$this->trustStoredSource) {
             return null;
         }
         $document = HtmlDomLoader::fragment($html);

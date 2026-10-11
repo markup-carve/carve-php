@@ -392,11 +392,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
 
     /**
-     * PART 11 §10s: whether an element-less container is bracketed with a
-     * carrier marker. OFF by default, because a renderer with raw HTML turned
-     * off shows the comment as text.
+     * PART 10 §13 on this target: whether an element-less container is
+     * bracketed with a PART 11 §10s carrier marker. OFF by default, because a
+     * renderer with raw HTML turned off shows the comment as text.
      */
-    protected bool $carryMarkers = false;
+    protected bool $roundTripMode = false;
 
     /**
      * How many carried containers enclose the block being written, which is
@@ -501,24 +501,24 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Carry an element-less container through a Markdown round trip in an HTML
-     * comment holding its Carve opener verbatim (PART 11 §10s).
+     * comment holding its Carve opener verbatim (PART 10 §13, PART 11 §10s).
      *
      * The visible fallback is unchanged: the mode only ADDS comment lines, so
      * with it off the emitted bytes are the ones this target emits today.
      */
-    public function setCarryMarkers(bool $carry = true): self
+    public function setRoundTripMode(bool $enabled): self
     {
-        $this->carryMarkers = $carry;
+        $this->roundTripMode = $enabled;
 
         return $this;
     }
 
     /**
-     * Whether the carrier mode is on.
+     * Whether the roundtrip export is on.
      */
-    public function getCarryMarkers(): bool
+    public function isRoundTripMode(): bool
     {
-        return $this->carryMarkers;
+        return $this->roundTripMode;
     }
 
     /**
@@ -533,7 +533,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function carrierMarkers(Node $node): ?array
     {
-        if (!$this->carryMarkers) {
+        if (!$this->roundTripMode) {
             return null;
         }
         // A TABLE CELL CANNOT CARRY AT ALL: this target flattens a cell to one

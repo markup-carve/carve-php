@@ -357,7 +357,7 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
             // untouched from the stored text.
             'trusted round-trip emits stored source' => [
                 '<div data-carve-src="{cite=u}&#10;&#10;&gt; q">' . $inCell . '</div>',
-                ['trustedRoundTrip' => true],
+                ['trustStoredSource' => true],
             ],
             // These adapters MOVE footnote definitions out of their cell before
             // serialization, so the quote is never written through a pipe row

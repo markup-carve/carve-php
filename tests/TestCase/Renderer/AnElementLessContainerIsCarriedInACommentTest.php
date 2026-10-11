@@ -40,7 +40,7 @@ class AnElementLessContainerIsCarriedInACommentTest extends TestCase
     {
         $renderer = new MarkdownRenderer();
         if ($carry) {
-            $renderer->setCarryMarkers();
+            $renderer->setRoundTripMode(true);
         }
 
         return CarveConverter::create(new BlockParser(), $renderer)->convert($carve);

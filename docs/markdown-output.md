@@ -41,7 +41,7 @@ $markdown = CarveConverter::create(null, $renderer)->convert($carveSource);
   format rather than a rendering. Attribute names and values are validated and
   escaped by the same code the HTML target uses, so event handlers, injection
   sinks and denylisted URL schemes are dropped there too.
-- `setCarryMarkers()`: the carrier mode of PART 11 §10s, off by default. See
+- `setRoundTripMode()`: the carrier mode of PART 11 §10s, off by default. See
   [Carrying a dropped container](#carrying-a-dropped-container) below.
 
 The constructor also takes a `symbols` map, the same one `HtmlRenderer` takes,
@@ -83,13 +83,12 @@ disclosure, a spoiler, a named div or a composite figure group reaches the outpu
 as its children alone. Nothing left in the file says the container was there, so
 an import cannot return it however good it gets.
 
-`setCarryMarkers()` turns on the carrier mode (`--carry-markers` on the CLI,
-Markdown output only). The visible fallback does not move: the mode brackets each
-dropped container with an HTML comment holding its Carve opener and closer
-verbatim.
+`setRoundTripMode(true)` turns on the carrier mode (`--roundtrip` on the CLI),
+the same option that adds the carrier attributes to HTML output. The mode brackets each dropped container with HTML comments holding its Carve
+opener and closer verbatim.
 
 ~~~ php
-$renderer = (new MarkdownRenderer())->setCarryMarkers();
+$renderer = (new MarkdownRenderer())->setRoundTripMode(true);
 ~~~
 
 This Carve source:

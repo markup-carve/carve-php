@@ -254,7 +254,7 @@ class MathMlImportsItsDeclaredTexTest extends TestCase
 
     public function testRoundtripKeepsTheWholeElementInsteadOfDroppingIt(): void
     {
-        $result = (new HtmlToCarve(trustedRoundTrip: true))
+        $result = (new HtmlToCarve(trustStoredSource: true))
             ->convertWithReport('<p>Bare <math><mfrac><mn>1</mn><mn>2</mn></mfrac></math> here.</p>');
 
         $this->assertSame(

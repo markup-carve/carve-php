@@ -237,7 +237,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
         $html = '<table data-carve-col-widths="5,3">'
             . '<thead><tr><th style="text-align: left;">a</th><th style="text-align: right;">b</th></tr></thead>'
             . '<tbody><tr><td>1</td><td>2</td></tr></tbody></table>';
-        $ast = (new HtmlToCarve(trustedRoundTrip: true))->convertToAst($html);
+        $ast = (new HtmlToCarve(trustStoredSource: true))->convertToAst($html);
 
         $this->assertSame([5, 3], $ast['children'][0]['separatorWidths']);
     }
@@ -330,7 +330,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
         $html = '<table data-carve-col-widths="' . $carrier . '">'
             . '<thead><tr><th>a</th><th>b</th></tr></thead>'
             . '<tbody><tr><td>1</td><td>2</td></tr></tbody></table>';
-        $ast = (new HtmlToCarve(trustedRoundTrip: true))->convertToAst($html);
+        $ast = (new HtmlToCarve(trustStoredSource: true))->convertToAst($html);
 
         $this->assertArrayNotHasKey('separatorWidths', $ast['children'][0]);
         foreach (['safe', 'roundtrip'] as $mode) {
