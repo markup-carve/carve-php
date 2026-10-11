@@ -467,6 +467,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         "\u{E008}",
     ];
 
+    private string $footnoteCodeGuard = "\u{E009}";
+
     /**
      * @var list<string>|null
      */
@@ -518,6 +520,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $sentinelSource = $this->collectStrings($document);
         $this->boundedSentinelChoice = null;
         $this->verbatimSentinels = $this->pickVerbatimSentinels($sentinelSource);
+        $this->footnoteCodeGuard = DocumentSentinels::pick($sentinelSource . implode('', $this->verbatimSentinels), 1, 0xE001)[0];
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->bracedForAttributes = [];
@@ -3225,6 +3228,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function renderFootnote(Footnote $node): string
     {
         $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
+        $rawBody = str_replace($this->verbatimSentinels[7] . '[', $this->footnoteCodeGuard . '[', $rawBody);
         foreach (explode("\n", $rawBody) as $line) {
             if (str_starts_with(ltrim($line, " \t"), $this->verbatimSentinels[7] . '>')) {
                 throw new SourceUnspellableException('code', 'a block-marker continuation cannot stay inside a footnote paragraph');
@@ -4592,7 +4596,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private function codeSpanFence(string $content): string
     {
-        if (preg_match('/^[\r\n]/', $content)) {
+        if (preg_match('/[\r\n]/', $content)) {
             preg_match_all('/`+/', $content, $matches);
             $widths = array_fill_keys(array_map('strlen', $matches[0]), true);
             foreach ([1, 2] as $width) {
@@ -5180,8 +5184,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function restoreVerbatim(string $text): string
     {
         $text = (string)preg_replace_callback(
+            '/^([ \t>]*)' . preg_quote($this->footnoteCodeGuard, '/') . '(?=\[)/m',
+            static fn (array $m): string => $m[1] . ' ',
+            $text,
+        );
+        $text = str_replace($this->footnoteCodeGuard, '', $text);
+        $text = (string)preg_replace_callback(
             '/^([ \t>]*)' . preg_quote($this->verbatimSentinels[7], '/') . '([>\[])/m',
-            static fn (array $m): string => ($m[2] === '[' ? $m[1] . ' ' : (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ')) . $m[2],
+            static fn (array $m): string => (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ') . $m[2],
             $text,
         );
         $text = str_replace($this->verbatimSentinels[7], '', $text);
