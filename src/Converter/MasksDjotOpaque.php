@@ -110,7 +110,8 @@ trait MasksDjotOpaque
                 continue;
             }
             if ($source[$at] === '{') {
-                if (($source[$at + 1] ?? '') === '%' && $lastBrace !== false && $at < $lastBrace) {
+                $attrs = $this->readDjotWordAttributes($source, $at);
+                if ($attrs !== null && ($source[$at + 1] ?? '') === '%' && $lastBrace !== false && $at < $lastBrace) {
                     $end = $at + 2;
                     while ($end < $length && $source[$end] !== '}' && !($source[$end] === '%' && ($source[$end + 1] ?? '') === '}')) {
                         $end++;
@@ -130,7 +131,6 @@ trait MasksDjotOpaque
                         continue;
                     }
                 }
-                $attrs = $this->readDjotWordAttributes($source, $at);
                 if ($attrs !== null) {
                     preg_match_all('/=\s*("(?:\\\\.|[^"\\\\])*"|[^\s{}%]+)/', substr($source, $at, $attrs['end'] - $at), $values, PREG_OFFSET_CAPTURE | PREG_SET_ORDER);
                     foreach ($values as $value) {

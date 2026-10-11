@@ -580,6 +580,9 @@ class DjotToCarve
                     break;
                 }
                 $next = ltrim($lines[$i + 1], " \t");
+                if (preg_match('/^\\\\\{\x00DJOTINVALIDATTR\x00[0-9]+\x00%/', $next) === 1) {
+                    break;
+                }
                 if (preg_match($marker, $next) === 1) {
                     $part = preg_replace($marker, '', $next) ?? $next;
                     if (trim($part) === '') {
@@ -598,6 +601,125 @@ class DjotToCarve
         }
 
         return implode("\n", $result);
+    }
+
+    private function djotCommentContinuesParagraph(string $source, int $start): bool
+    {
+        $context = $this->djotAttributeContext($source, $start);
+        if ($context['indent'] === null) {
+            return true;
+        }
+        $marker = '/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdmIVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdmIVXLCDM]+)\))[ \t]+/';
+        $lineStart = $start;
+        while ($lineStart > 0 && $source[$lineStart - 1] !== "\n") {
+            $lineStart--;
+        }
+        $prefix = substr($source, $lineStart, $start - $lineStart);
+        if (preg_match($marker, $prefix)) {
+            return false;
+        }
+        $lines = [];
+        $end = $lineStart - 1;
+        while ($end >= 0) {
+            $from = $end;
+            while ($from > 0 && $source[$from - 1] !== "\n") {
+                $from--;
+            }
+            $raw = substr($source, $from, $end - $from);
+            preg_match('/^[ \t]*(?:>[ \t]*)+/', $raw, $quotes);
+            if (substr_count($quotes[0] ?? '', '>') !== $context['depth']) {
+                return false;
+            }
+            if (trim(substr($raw, DjotEmphasis::structuralPrefixEnd($raw))) === '') {
+                $parentEnd = $from - 1;
+                while ($parentEnd >= 0) {
+                    $parentFrom = $parentEnd;
+                    while ($parentFrom > 0 && $source[$parentFrom - 1] !== "\n") {
+                        $parentFrom--;
+                    }
+                    $parent = substr($source, $parentFrom, $parentEnd - $parentFrom);
+                    if (preg_match($marker, $parent)) {
+                        preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*/', $parent, $leading);
+                        $column = strlen($leading[0]);
+                        if ($lines !== [] && strlen($prefix) <= $column && DjotEmphasis::structuralPrefixEnd($lines[array_key_last($lines)]['raw']) > $column) {
+                            return false;
+                        }
+
+                        break;
+                    }
+                    if (trim($parent) === '') {
+                        break;
+                    }
+                    $parentEnd = $parentFrom - 1;
+                }
+
+                break;
+            }
+            $lines[] = ['raw' => $raw, 'from' => $from];
+            $end = $from - 1;
+        }
+        $kind = null;
+        $fence = '';
+        $attributeEnd = -1;
+        foreach (array_reverse($lines) as ['raw' => $raw, 'from' => $from]) {
+            if ($from < $attributeEnd || $kind === 'paragraph') {
+                continue;
+            }
+            if (preg_match($marker, $raw)) {
+                preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*/', $raw, $leading);
+                if (strlen($prefix) <= strlen($leading[0])) {
+                    return false;
+                }
+            }
+            $bodyAt = DjotEmphasis::structuralPrefixEnd($raw);
+            $body = substr($raw, $bodyAt);
+            if ($kind === 'fence') {
+                if (str_starts_with($body, $fence)) {
+                    $kind = null;
+                }
+
+                continue;
+            }
+            if (str_starts_with($body, '{')) {
+                $attrs = $this->readDjotWordAttributes($source, $from + $bodyAt);
+                if ($attrs !== null) {
+                    $attributeEnd = $attrs['end'];
+                    $kind = null;
+
+                    continue;
+                }
+            }
+            if (preg_match('/^#{1,6}(?:[ \t]|$)/', $body)) {
+                $kind = 'heading';
+
+                continue;
+            }
+            if (preg_match('/^(`{3,}|~{3,})/', $body, $opened)) {
+                $kind = 'fence';
+                $fence = $opened[1];
+
+                continue;
+            }
+            if ($kind === 'heading') {
+                continue;
+            }
+            if (preg_match('/^\[\^[^\]]+\]:[ \t]*(.*)$/', $body, $note)) {
+                if (strlen($prefix) < $bodyAt + 2) {
+                    return false;
+                }
+                $kind = trim($note[1]) !== '' ? 'paragraph' : null;
+
+                continue;
+            }
+            if (preg_match('/^(?::::|\||\[[^\]]*\]:|:[ \t]|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$)/', $body)) {
+                $kind = null;
+
+                continue;
+            }
+            $kind = 'paragraph';
+        }
+
+        return $kind === 'paragraph';
     }
 
     /**
@@ -661,7 +783,7 @@ class DjotToCarve
                     $i++;
                 }
             }
-            if (($source[$i] ?? '') === '}' && $parts !== [] && str_contains(substr($source, $start, $i + 1 - $start), "\n")) {
+            if (($source[$i] ?? '') === '}' && str_contains(substr($source, $start, $i + 1 - $start), "\n") && ($parts !== [] || !$this->djotCommentContinuesParagraph($source, $start))) {
                 $context = $this->djotAttributeContext($source, $start);
                 foreach (array_slice(explode("\n", substr($source, $start, $i + 1 - $start)), 1) as $raw) {
                     $line = $this->djotAttributeLine($raw, $context['depth']);
