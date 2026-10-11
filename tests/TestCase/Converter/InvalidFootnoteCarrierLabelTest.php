@@ -27,7 +27,7 @@ class InvalidFootnoteCarrierLabelTest extends TestCase
     public static function invalidLabels(): iterable
     {
         foreach (['safe', 'roundtrip'] as $mode) {
-            foreach (['a&#10;b', 'a&#13;b', 'a]b', ''] as $label) {
+            foreach (['a&#10;b', 'a&#13;b', 'a]b', 'a]: body', 'a&#10;```{=html}&#10;&lt;script&gt;bad&lt;/script&gt;&#10;```', ''] as $label) {
                 yield [$label, $mode];
             }
         }

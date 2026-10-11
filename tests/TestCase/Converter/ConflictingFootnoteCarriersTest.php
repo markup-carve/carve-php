@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -107,7 +108,7 @@ class ConflictingFootnoteCarriersTest extends TestCase
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             foreach (['data-carve-', 'data-djot-'] as $labelPrefix) {
                 foreach (['data-carve-', 'data-djot-'] as $inlinePrefix) {
-                    foreach (['', 'bad]label', 'bad&#10;label', 'bad&#13;label'] as $label) {
+                    foreach (['', 'bad]label', 'a]: body', 'bad&#10;label', 'bad&#13;label', 'a&#10;```{=html}&#10;&lt;script&gt;bad&lt;/script&gt;&#10;```'] as $label) {
                         yield [$mode, $labelPrefix, $inlinePrefix, $label];
                     }
                 }
@@ -158,12 +159,65 @@ class ConflictingFootnoteCarriersTest extends TestCase
         }
     }
 
+    public function testAReferenceCarrierWithoutARoleStillPreservesTheConflictingEndnote(): void
+    {
+        $html = str_replace(' role="doc-noteref"', '', self::noteHtml('data-carve-footnote-label="named" data-carve-inline-footnote="1"', true));
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $result = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);
+            self::assertSame("[^1]\n\n[^1]: body\n", $result->value);
+            self::assertCount(1, $result->diagnostics);
+            self::assertSame('attribute-dropped', $result->diagnostics[0]->code);
+        }
+    }
+
     public function testAnOrdinaryLinkToTheEndnoteRemainsALink(): void
     {
         $html = '<p><a href="#fn1">Jump</a></p>' . self::noteHtml('data-carve-inline-footnote="1"');
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             $source = (new HtmlToCarve(importMode: $mode))->convert($html);
             self::assertSame("[Jump](#fn1)\n\n^[body]\n", $source);
+        }
+    }
+
+    public function testNormalizedCarrierCollisionsPreserveBothBodies(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach ([['a b', 'a  b', 'a b', '2', 1], [null, '1 ', '2', '1 ', 0]] as [$first, $second, $expected, $secondExpected, $losses]) {
+                $html = '<p><a href="#fn1" role="doc-noteref">1</a> <a href="#fn2" role="doc-noteref">2</a></p><section role="doc-endnotes"><ol>';
+                foreach ([$first, $second] as $index => $label) {
+                    $html .= '<li id="fn' . ($index + 1) . '"' . ($label === null ? '' : ' data-carve-footnote-label="' . $label . '"') . '><p>body' . ($index + 1) . '</p></li>';
+                }
+                $html .= '</ol></section>';
+                $converter = new HtmlToCarve(importMode: $mode);
+                $result = $converter->convertWithReport($html);
+                self::assertSame('[^' . $expected . '] [^' . $secondExpected . "]\n\n[^" . $expected . "]: body1\n[^" . $secondExpected . "]: body2\n", $result->value);
+                self::assertCount($losses, $result->diagnostics);
+                if ($losses !== 0) {
+                    self::assertSame('attribute-dropped', $result->diagnostics[0]->code);
+                }
+                $rendered = (new CarveConverter())->convert($result->value);
+                self::assertStringContainsString('body1', $rendered);
+                self::assertStringContainsString('body2', $rendered);
+                self::assertStringContainsString('href="#fn1"', $rendered);
+                self::assertStringContainsString('href="#fn2"', $rendered);
+                $ast = $converter->convertToAstWithReport($html);
+                self::assertSame($expected, $ast->value['children'][1]['label']);
+                self::assertSame($secondExpected, $ast->value['children'][2]['label']);
+                self::assertCount($losses, $ast->diagnostics);
+            }
+        }
+    }
+
+    public function testAConflictingPairAvoidsAnotherAuthoredNumericLabel(): void
+    {
+        $html = '<p><a href="#fn1" role="doc-noteref" data-carve-footnote-label="named">1</a> <a href="#fn2" role="doc-noteref">2</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1" data-carve-footnote-label="named" data-carve-inline-footnote="1"><p>first body</p></li>'
+            . '<li id="fn2" data-carve-footnote-label="1"><p>second body</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $result = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);
+            self::assertSame("[^2] [^1]\n\n[^2]: first body\n[^1]: second body\n", $result->value);
+            self::assertCount(1, $result->diagnostics);
+            self::assertSame('attribute-dropped', $result->diagnostics[0]->code);
         }
     }
 

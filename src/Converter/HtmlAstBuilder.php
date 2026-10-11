@@ -16,6 +16,7 @@ use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -512,8 +513,41 @@ final class HtmlAstBuilder
                 }
             }
         }
+        $reservedLabels = [];
+        foreach ($this->session->endnoteItems as $id => $item) {
+            $label = $item->getAttribute('data-carve-footnote-label');
+            if (!self::isValidFootnoteCarrierLabel($label) || self::hasConflictingEndnoteCarriers($item)) {
+                continue;
+            }
+            $key = LabelKey::normalize($label);
+            if (isset($reservedLabels[$key])) {
+                $this->session->droppedFootnoteLabelCarriers[$item] = true;
+
+                continue;
+            }
+            $reservedLabels[$key] = true;
+            $this->session->endnoteLabels[$id] = $label;
+        }
+        $nextLabel = 1;
+        foreach ($this->session->endnoteItems as $id => $item) {
+            if (isset($this->session->endnoteLabels[$id])) {
+                continue;
+            }
+            $label = $this->footnoteLabel($id);
+            if (isset($reservedLabels[LabelKey::normalize($label)])) {
+                while (isset($reservedLabels[(string)$nextLabel])) {
+                    $nextLabel++;
+                }
+                $label = (string)$nextLabel++;
+            }
+            $reservedLabels[LabelKey::normalize($label)] = true;
+            $this->session->endnoteLabels[$id] = $label;
+        }
         foreach ($root->getElementsByTagName('a') as $anchor) {
-            if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
+            if (
+                strtolower($anchor->getAttribute('role')) !== 'doc-noteref'
+                && !self::isValidFootnoteCarrierLabel($anchor->getAttribute('data-carve-footnote-label'))
+            ) {
                 continue;
             }
             for ($ancestor = $anchor->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
@@ -1814,7 +1848,7 @@ final class HtmlAstBuilder
 
                 continue;
             }
-            $label = self::hasConflictingEndnoteCarriers($item) ? '' : $item->getAttribute('data-carve-footnote-label');
+            $label = $this->session->endnoteLabels[$id] ?? '';
             if (!self::isValidFootnoteCarrierLabel($label)) {
                 $label = $this->footnoteLabel($id);
             }
@@ -4164,8 +4198,8 @@ final class HtmlAstBuilder
         $markedReference = strtolower($node->getAttribute('role')) === 'doc-noteref'
             || self::isValidFootnoteCarrierLabel($node->getAttribute('data-carve-footnote-label'));
         $endnote = $markedReference ? ($this->session->endnoteItems[$fragment] ?? null) : null;
-        if ($endnote !== null && self::hasConflictingEndnoteCarriers($endnote)) {
-            return [['type' => 'footnote_ref', 'label' => $this->footnoteLabel($fragment)]];
+        if ($endnote !== null && (self::hasConflictingEndnoteCarriers($endnote) || isset($this->session->droppedFootnoteLabelCarriers[$endnote]))) {
+            return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)]];
         }
         // Raw HTML would write a denied destination the report says was dropped.
         if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
@@ -4251,13 +4285,13 @@ final class HtmlAstBuilder
         }
 
         if ($endnote !== null && self::isValidFootnoteCarrierLabel($endnote->getAttribute('data-carve-footnote-label'))) {
-            return [['type' => 'footnote_ref', 'label' => $endnote->getAttribute('data-carve-footnote-label')]];
+            return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
         }
         if (strtolower($node->getAttribute('role')) === 'doc-noteref') {
             $href = $node->getAttribute('href');
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
 
-            return [['type' => 'footnote_ref', 'label' => $this->footnoteLabel($fragment)]];
+            return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)]];
         }
         if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
             return [];
