@@ -392,11 +392,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
 
     /**
-     * PART 11 §10s: whether an element-less container is bracketed with a
-     * carrier marker. OFF by default, because a renderer with raw HTML turned
-     * off shows the comment as text.
+     * An explicit Drop also suppresses the default attribute-preserving mark tags.
      */
-    protected bool $carryMarkers = false;
+    protected bool $attributeFallbackSelected = false;
+
+    private bool $retainMarkAttributeTabs = false;
+
+    /**
+     * PART 10 §13 on this target: whether an element-less container is
+     * bracketed with a PART 11 §10s carrier marker. OFF by default, because a
+     * renderer with raw HTML turned off shows the comment as text.
+     */
+    protected bool $roundTripMode = false;
 
     /**
      * How many carried containers enclose the block being written, which is
@@ -405,8 +412,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private int $carrierDepth = 0;
 
     /**
-     * Lazily built HTML renderer used ONLY to serialize attributes under
-     * AttributeFallback::Html, so the raw HTML this target emits is validated and
+     * Lazily built HTML renderer used to serialize raw HTML attributes, including
+     * the default inline mark fallback. The emitted attributes are validated and
      * escaped by the same code as the HTML target rather than by a second copy.
      */
     private ?HtmlRenderer $attributeSerializer = null;
@@ -485,40 +492,41 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
-     * Keep attributes Markdown cannot spell as raw HTML, or drop them (the
-     * default).
+     * Keep attributes Markdown cannot spell as raw HTML, or explicitly drop them.
      *
      * `AttributeFallback::Html` preserves attributes on containers, images,
      * strong, emphasis and strike using raw HTML. `Drop` discards these
-     * attributes, preserving the default policy for human-facing export.
+     * attributes. Inline marks preserve their attributes by default; containers
+     * and images keep their existing default spelling.
      */
     public function setAttributeFallback(AttributeFallback $mode): self
     {
         $this->attributeFallback = $mode;
+        $this->attributeFallbackSelected = true;
 
         return $this;
     }
 
     /**
      * Carry an element-less container through a Markdown round trip in an HTML
-     * comment holding its Carve opener verbatim (PART 11 §10s).
+     * comment holding its Carve opener verbatim (PART 10 §13, PART 11 §10s).
      *
      * The visible fallback is unchanged: the mode only ADDS comment lines, so
      * with it off the emitted bytes are the ones this target emits today.
      */
-    public function setCarryMarkers(bool $carry = true): self
+    public function setRoundTripMode(bool $enabled): self
     {
-        $this->carryMarkers = $carry;
+        $this->roundTripMode = $enabled;
 
         return $this;
     }
 
     /**
-     * Whether the carrier mode is on.
+     * Whether the roundtrip export is on.
      */
-    public function getCarryMarkers(): bool
+    public function isRoundTripMode(): bool
     {
-        return $this->carryMarkers;
+        return $this->roundTripMode;
     }
 
     /**
@@ -533,7 +541,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function carrierMarkers(Node $node): ?array
     {
-        if (!$this->carryMarkers) {
+        if (!$this->roundTripMode) {
             return null;
         }
         // A TABLE CELL CANNOT CARRY AT ALL: this target flattens a cell to one
@@ -3809,7 +3817,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderEmphasis(Emphasis $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->markdownMarkAttributes($node)
+            : '';
         if ($attrs !== '') {
             return '<em' . $attrs . '>' . $this->renderChildren($node) . '</em>';
         }
@@ -3824,7 +3834,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrong(Strong $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->markdownMarkAttributes($node)
+            : '';
         if ($attrs !== '') {
             return '<strong' . $attrs . '>' . $this->renderChildren($node) . '</strong>';
         }
@@ -4210,9 +4222,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrike(Strike $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->markdownMarkAttributes($node)
+            : '';
         if ($attrs !== '') {
-            return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
+            // A del with this authored class reads back as CriticMarkup deletion.
+            // Match the serialized class: names and values can change during sanitization.
+            $tag = preg_match('/(?:^|[ \t])class="([^"]*)"/i', $attrs, $class) === 1
+                && preg_match('/(?:^|[ \t])critic-delete(?:$|[ \t])/i', $class[1]) === 1
+                ? 's'
+                : 'del';
+
+            return '<' . $tag . $attrs . '>' . $this->renderChildren($node) . '</' . $tag . '>';
         }
         [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
         $this->delimiterAncestors[] = $delimiter;
@@ -4594,9 +4615,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         // A newline in a value would put a blank line inside the opening tag,
         // ending the raw HTML block early and leaving the closing tag dangling as
-        // literal text. Tabs and newlines survive stripControls() by design, so
-        // fold them here; every other control character is already gone.
-        return (string)preg_replace('/[\t\n]+/', ' ', $this->stripControls($attrs));
+        // literal text. Fold newlines and retain tabs without changing their
+        // attribute value; every other control character is already gone.
+        return (string)preg_replace($this->retainMarkAttributeTabs ? '/\n+/' : '/[\t\n]+/', ' ', $this->stripControls($attrs));
+    }
+
+    private function markdownMarkAttributes(Node $node): string
+    {
+        $previous = $this->retainMarkAttributeTabs;
+        $this->retainMarkAttributeTabs = true;
+        try {
+            return $this->htmlAttributes($node);
+        } finally {
+            $this->retainMarkAttributeTabs = $previous;
+        }
     }
 
     /**

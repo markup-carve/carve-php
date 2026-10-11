@@ -19,6 +19,35 @@ class CliTest extends TestCase
      */
     private const SRC = "# Hi\n\n_em_ *strong* `code`\n";
 
+    public function testRoundTripPreservesMarkdownContainers(): void
+    {
+        $result = $this->runCliInput(['--markdown', '--roundtrip'], "::: aside\nText.\n:::\n");
+        $this->assertSame(0, $result['exit']);
+        $this->assertStringContainsString('<!-- carve: ::: aside -->', $result['out']);
+    }
+
+    public function testCarryMarkersIsNotAnOption(): void
+    {
+        $result = $this->runCliInput(['--markdown', '--carry-markers'], self::SRC);
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringContainsString('Unknown option: --carry-markers', $result['err']);
+    }
+
+    public function testRoundTripRejectsPlainOutput(): void
+    {
+        $result = $this->runCliInput(['--plain', '--roundtrip'], self::SRC);
+        $this->assertSame(1, $result['exit']);
+        $this->assertSame("Error: --roundtrip applies to --html or --markdown output only\n", $result['err']);
+    }
+
+    public function testRoundTripPreservesHtmlBreakCharacters(): void
+    {
+        $result = $this->runCliInput(['--roundtrip'], "***\n");
+        $this->assertSame(0, $result['exit']);
+        $this->assertStringContainsString('data-char="*"', $result['out']);
+    }
+
     public function testAnUnspellableAstReportsAnErrorWithoutAStackTrace(): void
     {
         $ast = [

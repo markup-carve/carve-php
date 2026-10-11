@@ -77,7 +77,7 @@ class ATableCellReportsFlattenedBlocksTest extends TestCase
 
     public function testStoredSourceDoesNotSuppressTheNextImportsCellReport(): void
     {
-        $converter = new HtmlToCarve(trustedRoundTrip: true);
+        $converter = new HtmlToCarve(trustStoredSource: true);
         $stored = '<div data-carve-src="stored"><table><tr><td><p>x</p></td></tr></table></div>';
         $this->assertSame([], $converter->convertWithReport($stored)->diagnostics);
 

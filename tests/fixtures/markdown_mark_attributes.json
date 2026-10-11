@@ -1,0 +1,37 @@
+[
+  {
+    "id": "252-a-tab-separates-two-attributes-and-pads-a-block-as-a-space-does-2",
+    "source": "*x*{k=a\t.b}\n\n*y*{k=\"a\tb\"}\n",
+    "markdown": "**x**{k=a\t.b}\n\n<strong k=\"a\tb\">y</strong>\n"
+  },
+  {
+    "id": "273-the-inline-attribute-interior-is-space-only-the-attribute-line-is-not",
+    "source": "*x*{.a .b}\n\n*y*{ .c}\n\n*z*{.d }\n\n[w]{ }\n",
+    "markdown": "<strong class=\"a b\">x</strong>\n\n<strong class=\"c\">y</strong>\n\n<strong class=\"d\">z</strong>\n\nw\n"
+  },
+  {
+    "id": "152-leading-attribute-brace-before-an-inline-span-stays-literal-3",
+    "source": "x*{title=\"`\"} y\n\n*x*{title=\"`\"} y\n",
+    "markdown": "x\\*{title=“`\"} y`\n\n<strong title=\"`\">x</strong> y\n"
+  },
+  {
+    "id": "274-a-quoted-attribute-value-stops-at-the-newline-2",
+    "source": "*x*{k=\"a b\"}\n",
+    "markdown": "<strong k=\"a b\">x</strong>\n"
+  },
+  {
+    "id": "80-trailing-attribute-block-edge-cases",
+    "source": "*x*{.real}\n",
+    "markdown": "<strong class=\"real\">x</strong>\n"
+  },
+  {
+    "id": "474-glued-attribute-blocks-on-an-inline-element-merge",
+    "source": "*x*{.k}{.j}\n",
+    "markdown": "<strong class=\"k j\">x</strong>\n"
+  },
+  {
+    "id": "474-glued-attribute-blocks-on-an-inline-element-merge-3",
+    "source": "*a*{.k} {.j}\n\n*b*{.k}{???}\n\n*c*{.k}{*d*}\n",
+    "markdown": "<strong class=\"k\">a</strong> {.j}\n\n<strong class=\"k\">b</strong>{???}\n\n<strong class=\"k\">c</strong>**d**\n"
+  }
+]
