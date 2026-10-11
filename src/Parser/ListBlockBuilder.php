@@ -1748,11 +1748,22 @@ final class ListBlockBuilder
         $afterBlank = false;
         $blockState = new TrailingBlockState();
         $blockStateCursor = 0;
+        $minimumColonEnd = -1;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
             if (IndentationHelper::isBlankLine($line)) {
                 $afterBlank = true;
 
+                continue;
+            }
+            if ($i > $minimumColonEnd && $eligible !== null && !isset($eligible[$i]) && ($line[0] ?? '') === ':') {
+                $minimumDiv = ($this->getFencedBlockParser)()->parseDivFenceOpener($line);
+                if ($minimumDiv !== null) {
+                    $closer = $this->colonFenceEnd($lines, $i, $minimumDiv['length'], $count, null);
+                    $minimumColonEnd = $closer === -1 ? $count - 1 : $closer;
+                }
+            }
+            if ($i <= $minimumColonEnd && preg_match('/^[ \t]+:{3,}[ \t]*$/', $line) === 1) {
                 continue;
             }
             // A CODE-FENCE OPENER AT THE ITEM'S CONTENT COLUMN IS ALWAYS

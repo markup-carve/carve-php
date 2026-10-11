@@ -1772,6 +1772,9 @@ class BlockParser
         $this->nestingDepth++;
         $previousFrame = $this->state->frame;
         $frame = new BlockParseFrame();
+        $frame->hostedColonFences = $previousFrame->hostedColonFences
+            || $itemBody
+            || in_array($parent->getType(), ['list_item', 'definition_description', 'footnote_definition', 'block_quote'], true);
         $unchangedColonBody = $this->pendingColonView !== null;
         if ($unchangedColonBody) {
             $frame->colonFenceIndex = $this->pendingColonView['index'];
@@ -3305,6 +3308,8 @@ class BlockParser
         $innerLines = [];
         $innerLineMap = [];
         $stack = [$fenceLength];
+        $columns = [IndentationHelper::getLeadingColumns($lines[$start])];
+        $literal = [!$nestingAware];
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
@@ -3318,8 +3323,13 @@ class BlockParser
             }
 
             $currentLine = $lines[$i];
-            if ($this->isBareColonFence($currentLine, $colonLength) && $colonLength === end($stack)) {
+            $bare = $this->isBareColonFence($currentLine, $colonLength);
+            $column = $bare ? IndentationHelper::getLeadingColumns($currentLine, (int)end($columns) + 1) : 0;
+            $atBase = !$this->state->frame->hostedColonFences || $column === 0 || $column === end($columns);
+            if ($bare && $colonLength === end($stack) && $atBase) {
                 array_pop($stack);
+                array_pop($columns);
+                array_pop($literal);
                 $opening = array_pop($openings);
                 if ($index !== null && $opening !== null) {
                     $index->ends[$base + $opening] = $base + $i;
@@ -3338,9 +3348,11 @@ class BlockParser
                 continue;
             }
 
-            if ($nestingAware) {
+            if ($nestingAware && !end($literal)) {
                 $opener = $this->fencedBlockParser->parseDivFenceOpener($currentLine);
-                if ($opener !== null) {
+                if ($opener !== null && (!$bare || $atBase)) {
+                    $columns[] = IndentationHelper::getLeadingColumns($currentLine);
+                    $literal[] = $opener['className'] === '|';
                     $stack[] = $opener['length'];
                     $openings[] = $i;
                 }
