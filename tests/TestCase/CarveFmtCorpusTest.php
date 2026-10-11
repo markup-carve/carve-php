@@ -380,10 +380,6 @@ class CarveFmtCorpusTest extends TestCase
      */
     private static function pinnedCanonicalForm(string $slug): ?string
     {
-        if (CanonicalAheadOfPin::declares('fmt', $slug)) {
-            return CanonicalAheadOfPin::get('fmt', $slug);
-        }
-
         $path = dirname(__DIR__) . '/spec/tests/corpus/' . $slug . '.fmt';
 
         return file_exists($path) ? (string)file_get_contents($path) : null;

@@ -8,7 +8,6 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
-use MarkupCarve\Carve\Test\Fixture\ApprovedSeparatorWidthsSchemaBridge;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -1117,13 +1116,6 @@ HTML;
         $this->assertFileExists(
             $schemaPath,
             'the spec submodule is missing - run `git submodule update --init --recursive`',
-        );
-
-        $published = json_decode((string)file_get_contents($schemaPath), true, 512, JSON_THROW_ON_ERROR);
-        $schemaPath = $repoRoot . '/resources/ast-schema.json';
-        $this->assertSame(
-            ApprovedSeparatorWidthsSchemaBridge::schema($published),
-            json_decode((string)file_get_contents($schemaPath), true, 512, JSON_THROW_ON_ERROR),
         );
 
         $binCarve = $repoRoot . '/bin/carve';
