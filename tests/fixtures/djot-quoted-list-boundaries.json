@@ -7322,5 +7322,33 @@
   {
     "source": "- [ ] {.t}\n  [a]: /x\n\n[l][a]\n",
     "carve": "- [ ] {%%}\n  {%%}\n\n[l](/x){.t}\n"
+  },
+  {
+    "source": "  > a {% b\n  > c\n",
+    "carve": "> a \\{% b\n> c\n"
+  },
+  {
+    "source": "- x\n\n  > a {% b\n  > c\n",
+    "carve": "- x\n\n  > a \\{% b\n  > c\n"
+  },
+  {
+    "source": "1. a {% b\n2. ***\n   > d\n",
+    "carve": "1. a \\{% b\n2. \\*\\*\\*\n   \\> d\n"
+  },
+  {
+    "source": "1. a {% b\n2. ```\n   x % y\n   ```\n   > d\n",
+    "carve": "1. a \\{% b\n2. ```\n   x % y\n   ```\n> d\n"
+  },
+  {
+    "source": "- > {% x\n# h\n > y %}\n",
+    "carve": "- > \\{% x\n# h\n> y %}\n"
+  },
+  {
+    "source": "- > {% x\n```\na\n```\n > y %}\n",
+    "carve": "- > \\{% x\n```\na\n```\n> y %}\n"
+  },
+  {
+    "source": "- > {% x\n- > next\n > y %}\n",
+    "carve": "- > \\{% x\n- > next\n  > y %}\n"
   }
 ]
