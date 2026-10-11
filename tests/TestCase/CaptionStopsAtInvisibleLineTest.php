@@ -28,34 +28,34 @@ class CaptionStopsAtInvisibleLineTest extends TestCase
 
     public function testALinkDefinitionDoesNotJoinTheCaption(): void
     {
-        $this->assertSame('p', $this->caption(">\n^ p\n[A]: /u\n"));
+        $this->assertSame('p', $this->caption("> q\n^ p\n[A]: /u\n"));
     }
 
     public function testAFootnoteDefinitionDoesNotJoinTheCaption(): void
     {
-        $html = (new CarveConverter())->convert(">\n^ p\n[^f]: t\n");
+        $html = (new CarveConverter())->convert("> q\n^ p\n[^f]: t\n");
 
         $this->assertStringContainsString('<figcaption>p</figcaption>', $html);
     }
 
     public function testAnAbbreviationDefinitionDoesNotJoinTheCaption(): void
     {
-        $this->assertSame('p', $this->caption(">\n^ p\n*[A]: x\n"));
+        $this->assertSame('p', $this->caption("> q\n^ p\n*[A]: x\n"));
     }
 
     public function testACommentDoesNotJoinTheCaption(): void
     {
-        $this->assertSame('p', $this->caption(">\n^ p\n%% c\n"));
+        $this->assertSame('p', $this->caption("> q\n^ p\n%% c\n"));
     }
 
     public function testABlockAttributeLineDoesNotJoinTheCaption(): void
     {
-        $this->assertSame('p', $this->caption(">\n^ p\n{.c}\n"));
+        $this->assertSame('p', $this->caption("> q\n^ p\n{.c}\n"));
     }
 
     public function testAPlainLineStillFolds(): void
     {
-        $this->assertSame("p\nmore", $this->caption(">\n^ p\nmore\n"));
+        $this->assertSame("p\nmore", $this->caption("> q\n^ p\nmore\n"));
     }
 
     public function testALinkDefinitionBetweenATableAndCaptionPreventsAttachment(): void

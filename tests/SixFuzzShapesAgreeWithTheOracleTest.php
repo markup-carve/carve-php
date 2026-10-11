@@ -63,13 +63,21 @@ class SixFuzzShapesAgreeWithTheOracleTest extends TestCase
                 "`a %%\nb`\n",
                 "<p><code>a %%\nb</code></p>\n",
             ],
+            // Both reductions open with a BARE `>`, and PART 9 section 4d
+            // (CARVE-P9-080, markup-carve/carve#2892) made that quote an
+            // uncaptionable host: a structural-only line resets caption scope.
+            // The oracle moved with the engines, so these two expectations were
+            // re-captured from it rather than relaxed. What the rows still pin
+            // is agreement with the oracle on the reduction as the fuzzer found
+            // it; the caption-extent question they used to carry is pinned by
+            // CaptionStopsAtInvisibleLineTest, on a quote that has content.
             'a quote caption followed by a bare pipe' => [
                 ">\n^ -\n|\n",
-                "<figure>\n  <blockquote>\n\n  </blockquote>\n  <figcaption>-\n|</figcaption>\n</figure>\n",
+                "<blockquote>\n\n</blockquote>\n<p>^ -\n|</p>\n",
             ],
             'a real table row still ends the caption' => [
                 ">\n^ -\n| a |\n",
-                "<figure>\n  <blockquote>\n\n  </blockquote>\n  <figcaption>-</figcaption>\n</figure>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n",
+                "<blockquote>\n\n</blockquote>\n<p>^ -</p>\n<table>\n  <tbody>\n    <tr><td>a</td></tr>\n  </tbody>\n</table>\n",
             ],
             // A comment PAST the column belongs with this one and is not here:
             // it was the seventh row, and markup-carve/carve-php#2651 fixed it
