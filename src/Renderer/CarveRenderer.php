@@ -472,13 +472,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     private ?string $footnoteCodeGuard = null;
 
     /**
-     * @var array<int, true>|null
-     */
-    private ?array $footnoteGuardNonces = null;
-
-    private string $footnoteGuardSource = '';
-
-    /**
      * @var list<string>|null
      */
     private ?array $boundedSentinelChoice = null;
@@ -504,9 +497,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function pickVerbatimSentinels(string $text): array
     {
         // The final slots carry list boundaries and code continuation guards.
-        // Reserve a ninth character for the footnote continuation guard.
         /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
-        $picked = array_slice(DocumentSentinels::pickTokens($text, 9, 0xE001), 0, 8);
+        $picked = DocumentSentinels::pickTokens($text, 8, 0xE001);
         $this->boundedSentinelChoice = strlen($picked[0]) > 3 ? $picked : null;
 
         return $picked;
@@ -532,9 +524,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $sentinelSource = $this->collectStrings($document);
         $this->boundedSentinelChoice = null;
         $this->verbatimSentinels = $this->pickVerbatimSentinels($sentinelSource);
+        if (
+            $this->boundedSentinelChoice === null
+            && preg_match('/^\x{E009}m([0-9]{1,20})x0\x{E00A}$/u', $this->verbatimSentinels[0], $family)
+            && $this->verbatimSentinels === array_map(static fn (int $slot): string => "\u{E009}m{$family[1]}x{$slot}\u{E00A}", range(0, 7))
+        ) {
+            $this->boundedSentinelChoice = $this->verbatimSentinels;
+        }
         $this->footnoteCodeGuard = null;
-        $this->footnoteGuardSource = $sentinelSource . implode('', $this->verbatimSentinels);
-        $this->footnoteGuardNonces = $this->boundedSentinelChoice === null ? null : DocumentSentinels::collectNonces($this->footnoteGuardSource);
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->bracedForAttributes = [];
@@ -565,8 +562,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $picked = DocumentSentinels::shortTokens($nonces, 8);
             $this->verbatimSentinels = $picked;
             $this->footnoteCodeGuard = null;
-            $this->footnoteGuardSource = $sentinelSource . implode('', $picked);
-            $this->footnoteGuardNonces = $nonces + DocumentSentinels::collectNonces($this->footnoteGuardSource);
         }
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
@@ -3244,9 +3239,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderFootnote(Footnote $node): string
     {
-        $this->footnoteCodeGuard ??= $this->footnoteGuardNonces === null
-            ? DocumentSentinels::pickTokens($this->footnoteGuardSource, 1, 0xE001)[0]
-            : DocumentSentinels::shortTokens($this->markerProbeNonces ?? $this->footnoteGuardNonces, 1)[0];
+        $this->footnoteCodeGuard ??= $this->verbatimSentinels[7] . 'f' . $this->verbatimSentinels[7];
         $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
         $sentinel = preg_quote($this->verbatimSentinels[7], '/');
         $refusal = '/^' . $sentinel . '(?:g(code|math|raw_inline|literal_inline)' . $sentinel . ')?(.*)$/';
@@ -5107,6 +5100,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($this->markerProbeNonces !== null) {
             $this->markerProbeNonces += DocumentSentinels::collectNonces($text);
         }
+        $text = $this->restoreFootnoteCodeGuard($text);
         $text = str_replace($this->verbatimSentinels[4], '\ ', $text);
         $lines = explode("\n", $this->trimNonNbsp($text));
         foreach ($lines as $i => $line) {
@@ -5176,7 +5170,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $blank . "\n" . $blank . "\n" . $blank . "\n" . $prefix . substr($line, $boundary + strlen($this->listBoundary()));
         }, explode("\n", $text)));
 
-        $out = $this->restoreVerbatim($this->restoreFootnoteCodeGuard($this->trimNonNbsp($text)));
+        $out = $this->restoreVerbatim($this->trimNonNbsp($text));
 
         // A DOCUMENT MAY NOT BEGIN WITH U+FEFF, because the parser reads a BOM
         // at byte 0 as the file's encoding mark and removes it (PART 12). A

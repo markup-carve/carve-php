@@ -78,7 +78,7 @@ class MultilineInlineCodeTest extends TestCase
         $this->assertStringContainsString("\n   [r]: /url", $written);
     }
 
-    public function testDocumentsWithoutFootnotesNeedOnlyTheExistingSentinelSlots(): void
+    public function testDocumentsWithoutFootnotesPreserveAnEightCharacterFreeWindow(): void
     {
         $value = '';
         for ($point = 0xE009; $point <= 0xF8FF; $point++) {

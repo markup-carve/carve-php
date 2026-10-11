@@ -39,12 +39,28 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
                     array_push($stack, ...$node->getChildren());
                 }
             }
+            $legacy = new class extends CarveRenderer {
+                protected function pickVerbatimSentinels(string $text): array
+                {
+                    /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
+                    $picked = DocumentSentinels::pickTokens($text, 8, 0xE001);
+
+                    return $picked;
+                }
+            };
+            $legacyWritten = $legacy->render($document);
+            $this->assertSame(self::semanticTree((new AstCodec())->encode($document)), self::semanticTree((new AstCodec())->encode($writer->parse($legacyWritten))));
+            $this->assertSame($legacyWritten, $legacy->render($writer->parse($legacyWritten)));
             $baseline = $writer->renderWithReport($document);
             $this->assertSame([], $baseline->losses);
             $this->assertSame(self::semanticTree((new AstCodec())->encode($document)), self::semanticTree((new AstCodec())->encode($writer->parse($baseline->value))));
             $paragraph = new Paragraph();
             $paragraph->setChildren([new Text("\u{E009}m0"), new RawText("x0\u{E00A}")]);
             $document->setChildren([$paragraph, ...$document->getChildren()]);
+            $legacyWritten = $legacy->render($document);
+            $this->assertStringContainsString("\u{E009}m0x0\u{E00A}", $legacyWritten);
+            $this->assertStringContainsString($pool, $legacyWritten);
+            $this->assertSame($legacyWritten, $legacy->render($writer->parse($legacyWritten)));
             $result = $writer->renderWithReport($document);
             $this->assertSame([], $result->losses);
             $this->assertStringContainsString($pool, $result->value);
