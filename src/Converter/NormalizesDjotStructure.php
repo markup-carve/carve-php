@@ -62,7 +62,7 @@ trait NormalizesDjotStructure
         $fenceParser = new FencedBlockParser();
         foreach ($lines as $n => $original) {
             $masked = $mask[$n];
-            preg_match('/^(?:[ \t]*>[ ]?)*/', $original, $quoteMatch);
+            preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $original, $quoteMatch);
             $quote = $quoteMatch[0] ?? '';
             $quoteDepth = substr_count($quote, '>');
             $raw = substr($original, strlen($quote));
@@ -87,6 +87,12 @@ trait NormalizesDjotStructure
             } elseif ($definitionIndent >= 0 && $blank && $indent <= $definitionIndent) {
                 $definitionIndent = -1;
             }
+            if ($definitionIndent >= 0 && $indent <= $definitionIndent && $this->rejectedDjotCommentStartsBlock($visible)) {
+                $out[] = $quote . str_repeat(' ', $indent);
+                $definitionIndent = -1;
+                $paragraph = false;
+                $blank = true;
+            }
             if ($definitionIndent >= 0) {
                 $out[] = $original;
                 $headingMarker = '';
@@ -100,9 +106,11 @@ trait NormalizesDjotStructure
                 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\|)/', $visible) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
-            if ($quoteDepth < $depth && ($blockStart || $item)) {
+            if ($quoteDepth < $depth && ($blockStart || $item || $this->rejectedDjotCommentStartsBlock($visible))) {
                 if ($item && !$blank) {
                     $out[] = rtrim($quote);
+                } elseif ($this->rejectedDjotCommentStartsBlock($visible) && !$blank) {
+                    $out[] = '';
                 }
                 $paragraph = false;
                 $headingMarker = '';

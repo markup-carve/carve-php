@@ -58,4 +58,20 @@ final class DjotMultilineCommentBoundariesTest extends TestCase
         }
         self::assertSame('<p>a  z</p>', trim((new CarveConverter())->convert((new DjotToCarve())->convert("a {% x\ny %} z\n"))));
     }
+
+    public function testSharedReferenceFixtures(): void
+    {
+        $fixtures = json_decode((string)file_get_contents(__DIR__ . '/fixtures/djot-comment-boundary-fixtures.json'), true, 512, JSON_THROW_ON_ERROR);
+        $normalize = static function (string $html): string {
+            $html = (string)preg_replace('/>\s+</', '><', $html);
+            $html = (string)preg_replace('/\s+/', ' ', $html);
+
+            return trim(str_replace([' <', '> '], ['<', '>'], $html));
+        };
+        foreach ($fixtures as $fixture) {
+            $carve = (new DjotToCarve())->convert($fixture['source']);
+            $html = (new CarveConverter())->convert($carve);
+            self::assertSame($normalize($fixture['html']), $normalize($html), $fixture['id']);
+        }
+    }
 }
