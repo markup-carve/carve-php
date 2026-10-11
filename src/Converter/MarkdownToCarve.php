@@ -4846,12 +4846,19 @@ class MarkdownToCarve
         ) {
             return null;
         }
-        $quotedLead = preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})(>.*)$/s', $text, $quotedItem) === 1;
-        if ($quotedLead) {
-            $quotedLead = preg_match('/^(?:> )+(?: {0,3}(?:`{3,}|~{3,})| {4})/', $this->normalizeBlockquoteMarkers($quotedItem[2])) === 1;
+        $quotedLead = false;
+        $sourceCol = null;
+        if (
+            preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})(>.*)$/s', $text, $quotedItem) === 1
+            && preg_match('/^(?:> )+(?: {0,3}(?:`{3,}|~{3,})| {4})/', $this->normalizeBlockquoteMarkers($quotedItem[2])) === 1
+        ) {
+            $quotedLead = true;
+            $sourceCol = $this->columnWidth($quotedItem[1]);
         }
-        if ($quotedLead || preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])) {5,}(\S.*)$/s', $text, $codeItem) === 1) {
-            $sourceCol = $quotedLead ? $this->columnWidth($quotedItem[1]) : $this->columnWidth($codeItem[1]) + 1;
+        if ($sourceCol === null && preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])) {5,}(\S.*)$/s', $text, $codeItem) === 1) {
+            $sourceCol = $this->columnWidth($codeItem[1]) + 1;
+        }
+        if ($sourceCol !== null) {
             $virtual = [$text];
             for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
                 if ($this->indentWidth($lines[$at]) < $contentCol) {
