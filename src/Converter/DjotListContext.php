@@ -17,7 +17,7 @@ final class DjotListContext
         public string $kind,
         public string $bullet,
         public int $start,
-        public readonly int $depth,
+        public readonly int $depth = 0,
     ) {
     }
 }

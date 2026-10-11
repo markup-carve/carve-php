@@ -2471,7 +2471,7 @@ class DjotToCarve
     {
         $depth = 0;
         $offset = 0;
-        while (preg_match('/\G[ \t]*>[ ]?/', $line, $prefix, 0, $offset)) {
+        while (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $line, $prefix, 0, $offset)) {
             $depth++;
             $offset += strlen($prefix[0]);
         }
@@ -4116,7 +4116,11 @@ class DjotToCarve
         return $output;
     }
 
-    private function closeDjotTableCode(string $source): string
+    /**
+     * @param string $source
+     * @param callable(int): void|null $onRawCode
+     */
+    private function closeDjotTableCode(string $source, ?callable $onRawCode = null): string
     {
         if (!str_contains($source, '`')) {
             return $source;
@@ -4248,6 +4252,12 @@ class DjotToCarve
         foreach (explode("\n", $source) as $line) {
             $at = $this->djotContentStart($line);
             $lineEnd = $offset + strlen($line);
+            $codeDepth = 0;
+            for ($p = 0; $p < $at; ++$p) {
+                if ($line[$p] === '>' && ($p + 1 === strlen($line) || $line[$p + 1] === ' ' || $line[$p + 1] === "\t")) {
+                    ++$codeDepth;
+                }
+            }
             [$depth, $content] = $this->quoted($line);
             $trimmed = ltrim($content, " \t");
             $indent = strlen($content) - strlen($trimmed);
@@ -4412,7 +4422,7 @@ class DjotToCarve
                         continue;
                     }
                     $valueOffset = 0;
-                    for ($q = 0; $q < $depth; $q++) {
+                    for ($q = 0; $q < $codeDepth; $q++) {
                         if (preg_match('/\G[ \t]*>[ ]?/', $value, $prefixMatch, 0, $valueOffset) !== 1) {
                             break;
                         }
@@ -4428,7 +4438,16 @@ class DjotToCarve
                         break;
                     }
                 }
+                if ($closed && $codeDepth > $depth && !$rawCode) {
+                    $i = $end + $width;
+                    $consumed = $i;
+
+                    continue;
+                }
                 if ($rawCode) {
+                    if ($onRawCode !== null) {
+                        $onRawCode($i);
+                    }
                     $payload = '<code>' . (preg_replace_callback('/[!-\/:-@\[-`{-~]|\n/', static fn (array $match): string => '&#' . ord($match[0]) . ';', implode("\n", $normalized)) ?? '') . '</code>';
                 }
                 preg_match_all('/`+/', $payload, $payloadRuns);

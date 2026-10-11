@@ -25,7 +25,15 @@ final class DjotQuotedListBoundariesTest extends TestCase
         $result = (new DjotToCarve())->convertWithFidelityReport("a `b\n> c` d\n");
         $losses = array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => $row['code'] === 'structure-unspellable'));
         self::assertCount(1, $losses);
-        self::assertSame('line:2', $losses[0]['path']);
-        self::assertSame('Multiline inline code containing a quote marker uses raw HTML; plain-text export omits it.', $losses[0]['message']);
+        self::assertSame('line:1', $losses[0]['path']);
+        self::assertSame('Multiline inline code uses raw HTML; plain-text export omits it.', $losses[0]['message']);
+    }
+
+    public function testContainerPrefixesDoNotReportCodeLoss(): void
+    {
+        foreach (["> a `b\n> c` d\n", "- > a `b\n  > c` d\n"] as $source) {
+            $diagnostics = (new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'];
+            self::assertNotContains('structure-unspellable', array_column($diagnostics, 'code'), $source);
+        }
     }
 }

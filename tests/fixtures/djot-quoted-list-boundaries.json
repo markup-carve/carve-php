@@ -390,5 +390,37 @@
   {
     "source": "> a `b\n> > c` d\n",
     "carve": "> a `<code>b&#10;&#62; c</code>`{=html} d\n"
+  },
+  {
+    "source": "- a\n- > b\n  > > c\n",
+    "carve": "- a\n- > b\n  > \\> c\n"
+  },
+  {
+    "source": "- a\n- > b\n  - x\n",
+    "carve": "- a\n- > b\n  >\n  - x\n"
+  },
+  {
+    "source": "> - a\n> - > b\n>   - x\n",
+    "carve": "> - a\n> - > b\n>   >\n>   - x\n"
+  },
+  {
+    "source": "> a `b\n> c` d\n",
+    "carve": "> a `b\n> c` d\n"
+  },
+  {
+    "source": "- > a `b\n  > c` d\n",
+    "carve": "- > a `b\n  > c` d\n"
+  },
+  {
+    "source": "a `b\n> c` d\n\nother `x\ny` z\n",
+    "carve": "a `<code>b&#10;&#62; c</code>`{=html} d\n\nother `x\ny` z\n"
+  },
+  {
+    "source": ">x a `b\n> c` d\n",
+    "carve": ">x a `<code>b&#10;&#62; c</code>`{=html} d\n"
+  },
+  {
+    "source": "> >x a `b\n> > c` d\n",
+    "carve": "> >x a `<code>b&#10;&#62; c</code>`{=html} d\n"
   }
 ]
