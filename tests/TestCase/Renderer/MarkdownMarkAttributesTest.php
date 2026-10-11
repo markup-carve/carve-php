@@ -74,7 +74,7 @@ class MarkdownMarkAttributesTest extends TestCase
     public function testAuthoredDeletionClassOnStrikeDoesNotCreateCriticMarkup(): void
     {
         foreach ([null, AttributeFallback::Html] as $mode) {
-            foreach (['~x~{.critic-delete}', '~*x*~{.k .critic-delete}', '~x~{.CRITIC-DELETE}', '~x~{.Critic-Delete}'] as $source) {
+            foreach (['~x~{.critic-delete}', '~*x*~{.k .critic-delete}', '~x~{.CRITIC-DELETE}', '~x~{.Critic-Delete}', '~x~{CLASS=critic-delete}'] as $source) {
                 $renderer = new MarkdownRenderer();
                 if ($mode !== null) {
                     $renderer->setAttributeFallback($mode);
@@ -107,5 +107,21 @@ class MarkdownMarkAttributesTest extends TestCase
         };
         $this->assertSame("<strong k=\"a\tb\">x</strong>\n", CarveConverter::create(renderer: $renderer)->convert("*x*{k=\"a\tb\"}"));
         $this->assertGreaterThan(0, $renderer->calls);
+    }
+
+    public function testStrikeCollisionUsesSanitizedClassAndExactTokens(): void
+    {
+        foreach ([null, AttributeFallback::Html] as $mode) {
+            $renderer = new MarkdownRenderer();
+            if ($mode !== null) {
+                $renderer->setAttributeFallback($mode);
+            }
+            $converter = CarveConverter::create(renderer: $renderer);
+            $markdown = $converter->convert("~x~{class=\"critic-\x7fdelete\"}");
+            $this->assertSame("<s class=\"critic-delete\">x</s>\n", $markdown);
+            $this->assertStringNotContainsString('{-', (new MarkdownToCarve())->convert($markdown));
+            $this->assertSame("<del class=\"critic-delete-other\">x</del>\n", $converter->convert('~x~{.critic-delete-other}'));
+            $this->assertSame("<del title=\"critic-delete\">x</del>\n", $converter->convert('~x~{title=critic-delete}'));
+        }
     }
 }

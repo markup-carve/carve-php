@@ -4227,7 +4227,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             : '';
         if ($attrs !== '') {
             // A del with this authored class reads back as CriticMarkup deletion.
-            $tag = in_array('critic-delete', array_map('strtolower', $node->getClassList()), true) ? 's' : 'del';
+            // Match the serialized class: names and values can change during sanitization.
+            $tag = preg_match('/(?:^|[ \t])class="([^"]*)"/i', $attrs, $class) === 1
+                && preg_match('/(?:^|[ \t])critic-delete(?:$|[ \t])/i', $class[1]) === 1
+                ? 's'
+                : 'del';
 
             return '<' . $tag . $attrs . '>' . $this->renderChildren($node) . '</' . $tag . '>';
         }
