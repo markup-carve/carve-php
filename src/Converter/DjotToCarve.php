@@ -47,19 +47,19 @@ use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
  */
 class DjotToCarve
 {
-    private string $paragraphContextSource = '';
-
-    /**
-     * @var array<int, array{key: string, result: bool}>
-     */
-    private array $paragraphStarts = [];
-
     use EscapesCarveConstructs;
     use PreservesHeadingIds;
     use ReportsMigrationFidelity;
     use NormalizesDjotStructure;
     use ReportsDjotLosses;
     use MasksDjotOpaque;
+
+    private string $paragraphContextSource = '';
+
+    /**
+     * @var array<int, array{key: string, result: bool}>
+     */
+    private array $paragraphStarts = [];
 
     /**
      * @var string
