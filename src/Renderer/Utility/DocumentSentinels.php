@@ -115,6 +115,58 @@ final class DocumentSentinels
     }
 
     /**
+     * Pick string markers when the single-character pool is occupied.
+     *
+     * @return list<string>
+     */
+    public static function pickTokens(string $text, int $count, int $first): array
+    {
+        try {
+            return self::pick($text, $count, $first);
+        } catch (SentinelSpaceExhaustedException) {
+            return self::shortTokens(self::collectNonces($text), $count);
+        }
+    }
+
+    /**
+     * @internal
+     *
+     * @return array<int, true>
+     */
+    public static function collectNonces(string $text): array
+    {
+        preg_match_all("/\u{E009}m([0-9]{1,20})x[0-9]+\u{E00A}/", $text, $matches);
+        $nonces = [];
+        foreach ($matches[1] as $nonce) {
+            $nonces[(int)$nonce] = true;
+        }
+
+        return $nonces;
+    }
+
+    /**
+     * @internal
+     *
+     * @param array<int, true> $nonces
+     * @param int $count
+     *
+     * @return list<string>
+     */
+    public static function shortTokens(array $nonces, int $count): array
+    {
+        $nonce = 0;
+        while (isset($nonces[$nonce])) {
+            $nonce++;
+        }
+        $tokens = [];
+        for ($slot = 0; $slot < $count; $slot++) {
+            $tokens[] = "\u{E009}m{$nonce}x{$slot}\u{E00A}";
+        }
+
+        return $tokens;
+    }
+
+    /**
      * @return list<string>
      */
     protected static function run(int $base, int $count): array
