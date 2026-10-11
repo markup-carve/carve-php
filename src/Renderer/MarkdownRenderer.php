@@ -94,6 +94,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     use EventDispatcherTrait;
 
+    /**
+     * @var list<string>
+     */
+    private array $delimiterAncestors = [];
+
     public function getRenderTarget(): string
     {
         return RenderTarget::MARKDOWN;
@@ -1871,6 +1876,35 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function reflankRuns(array $children, array $parts): string
     {
+        $parent = $this->delimiterAncestors !== [] ? $this->delimiterAncestors[count($this->delimiterAncestors) - 1] : null;
+        foreach (array_keys($parts) as $index) {
+            $piece = $this->delimiterPiece($children, $parts, $index);
+            if ($piece === null) {
+                continue;
+            }
+            $edgeSeparatedByParent = $parent === '**' && count(array_filter($this->delimiterAncestors, static fn (string $run): bool => $run === '**')) === 1
+                && ($this->neighbourBefore($parts, $index) === '' || $this->neighbourAfter($parts, $index) === '');
+            if ($piece['delimiter'] === '**' && $edgeSeparatedByParent) {
+                continue;
+            }
+            if ($piece['delimiter'] === '**' && in_array('**', $this->delimiterAncestors, true)) {
+                $parts[$index] = $this->spellAsHtml($piece);
+
+                continue;
+            }
+            if ($parent === null || $piece['delimiter'][0] !== $parent[0]) {
+                continue;
+            }
+            $opening = strlen($piece['delimiter']) + $this->runAtStart($piece['core'], $piece['delimiter'][0]);
+            if ($parent[0] === '*' && !$this->ruleOfThreeAllows(strlen($parent), $opening)) {
+                continue;
+            }
+            $before = $piece['lead'] !== '' ? $this->lastCharacter($piece['lead']) : $this->neighbourBefore($parts, $index);
+            $inside = $this->afterRunInCore($piece['core'], $piece['delimiter'][0]);
+            if ($before !== '' && !$this->isFlankingWhitespace($this->flankCharacter($before)) && $this->flanks($before, $inside)) {
+                $parts[$index] = $this->spellAsHtml($piece);
+            }
+        }
         // Three passes, because each one wants to see the parts the one before
         // it settled. A part re-spelled as inline HTML contributes a `<` or a
         // `>` where it used to contribute a delimiter, which can only make a
@@ -2086,12 +2120,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             }
             $kids[] = $kid;
         }
-        if ($this->runAtStart($piece['core'], '*') > 0 && !$this->nestsInside($piece, $kids[0] ?? null)) {
+        if ($this->runAtStart($piece['core'], '*') > 0 && (!$this->nestsInside($piece, $kids[0] ?? null) || $this->runAtStart($piece['core'], '*') !== $this->nestedDelimiterWidth($kids[0] ?? null))) {
             return false;
         }
 
         return $this->runAtEnd($piece['core'], '*') === 0
-            || $this->nestsInside($piece, $kids !== [] ? $kids[count($kids) - 1] : null);
+            || ($this->nestsInside($piece, $kids !== [] ? $kids[count($kids) - 1] : null)
+                && $this->runAtEnd($piece['core'], '*') === $this->nestedDelimiterWidth($kids[count($kids) - 1] ?? null));
     }
 
     /**
@@ -2105,6 +2140,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return strlen($this->delimiterRun($kid)[0]) !== strlen($piece['delimiter']);
+    }
+
+    private function nestedDelimiterWidth(?Node $node): int
+    {
+        return $node instanceof Emphasis || $node instanceof Strong ? strlen($this->delimiterRun($node)[0]) : 0;
     }
 
     /**
@@ -3464,15 +3504,23 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderEmphasis(Emphasis $node): string
     {
         [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
-
-        return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
+        $this->delimiterAncestors[] = $delimiter;
+        try {
+            return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
+        } finally {
+            array_pop($this->delimiterAncestors);
+        }
     }
 
     protected function renderStrong(Strong $node): string
     {
         [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
-
-        return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
+        $this->delimiterAncestors[] = $delimiter;
+        try {
+            return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
+        } finally {
+            array_pop($this->delimiterAncestors);
+        }
     }
 
     /**
@@ -3815,8 +3863,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderStrike(Strike $node): string
     {
         [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
-
-        return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
+        $this->delimiterAncestors[] = $delimiter;
+        try {
+            return $this->padOutside($this->renderChildren($node), $delimiter, $openTag, $closeTag);
+        } finally {
+            array_pop($this->delimiterAncestors);
+        }
     }
 
     /**
