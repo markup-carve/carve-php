@@ -253,7 +253,8 @@ final class MarkdownEmphasis
                         $besideLiteral = true;
                     }
                 }
-                $braced = $frame['repeated'] || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic) || ($frame['kind'] === '~' && $strike) || $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
+                $besideSlash = $pair['kind'] === '/' && $pair['scope'] !== -1 && ($neighbor($pair['open'], true) === '/' || ($source[$pair['close'] + $pair['width']] ?? '') === '/' || substr($source, $pair['close'] + $pair['width'], 2) === '\\/');
+                $braced = $besideSlash || $frame['repeated'] || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic) || ($frame['kind'] === '~' && $strike) || $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
                 $strong = $strong || $pair['kind'] === '*';
                 $italic = $italic || $pair['kind'] === '/';
                 $strike = $strike || $pair['kind'] === '~';
@@ -285,6 +286,26 @@ final class MarkdownEmphasis
         }
 
         return implode('', $output);
+    }
+
+    /**
+     * @internal
+     *
+     * @param string $source
+     * @param array<string> $protectedSpans
+     *
+     * @return list<array{start: int, end: int}>
+     */
+    public static function linkLabelRanges(string $source, array $protectedSpans): array
+    {
+        $ranges = [];
+        foreach (self::bracketRuns($source, $protectedSpans) as $bracket) {
+            if ($bracket['link']) {
+                $ranges[] = ['start' => $bracket['open'] + 1, 'end' => $bracket['close']];
+            }
+        }
+
+        return $ranges;
     }
 
     /**

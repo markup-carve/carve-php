@@ -6564,7 +6564,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if (($line[$at] === '<' || $line[$at] === 'h') && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`]+)~', $line, $url, 0, $at) === 1) {
+            if (($line[$at] === '<' || ($line[$at] === 'h' && $openLabels === [])) && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`\x00]+)~', $line, $url, 0, $at) === 1) {
                 $at += strlen($url[0]) - 1;
 
                 continue;
@@ -6672,7 +6672,6 @@ class MarkdownToCarve
 
             return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
         }, $line) ?? $line;
-        $line = preg_replace_callback('/\bhttps?:\/\/[^\s<>`]+/', fn (array $match): string => $protect($match[0]), $line) ?? $line;
         // A definition kept where it stands is a definition, not link text -
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
@@ -6699,15 +6698,28 @@ class MarkdownToCarve
         // Carve has no shortcut reference, so a defined `[r]` is written in the
         // full form, collapsed only where Carve's exact label match still holds.
         if ($this->referenceDefinitionLabels !== [] || $this->complexReferenceTargets !== []) {
+            $referenceUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
+            $referenceUrlAt = 0;
             $subject = $line;
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table): string {
+                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table, &$referenceUrls, &$referenceUrlAt): string {
+                    $offset = $match[0][1];
+                    while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
+                        $referenceUrlAt++;
+                    }
+                    $url = $referenceUrls[$referenceUrlAt] ?? null;
+                    if ($url !== null && $offset >= $url['start'] && $offset < $url['end']) {
+                        return $match[0][0];
+                    }
                     $label = $match[2][0];
                     $end = $match[0][1] + strlen($match[0][0]);
-                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]]) && $this->htmlTagAt($this->referenceSourceText($next[0], $protectedSources), 0) === null) {
-                        return $match[0][0];
+                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
+                        $tail = $protectedSources[(int)$next[1]] ?? '';
+                        if (str_starts_with($tail, '(') || str_starts_with($tail, '{title=') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
+                            return $match[0][0];
+                        }
                     }
                     if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
                         return $match[0][0];
@@ -6717,10 +6729,15 @@ class MarkdownToCarve
                         return $match[0][0];
                     }
                     $target = $this->complexReferenceTarget($label, $protectedSources);
+                    $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null;
+                    if ($url !== null && $offset < $url['start'] && ($target !== null || $definition !== null)) {
+                        for ($at = $referenceUrlAt; isset($referenceUrls[$at]) && $referenceUrls[$at]['start'] < $end; $at++) {
+                            $referenceUrls[$at]['end'] = min($referenceUrls[$at]['end'], $end);
+                        }
+                    }
                     if ($target !== null) {
                         return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')');
                     }
-                    $definition = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null;
                     if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
                         return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
                     }
@@ -6734,6 +6751,45 @@ class MarkdownToCarve
                 $line,
                 flags: PREG_OFFSET_CAPTURE,
             ) ?? $line;
+        }
+
+        if (str_contains($line, 'http://') || str_contains($line, 'https://')) {
+            $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
+            $labelAt = 0;
+            $urlCursor = 0;
+            $urlSearch = 0;
+            $protectedUrls = '';
+            while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
+                $offset = $start[0][1];
+                while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
+                    $labelAt++;
+                }
+                $label = $labelRanges[$labelAt] ?? null;
+                if ($label !== null && $offset >= $label['start'] && $offset < $label['end']) {
+                    $urlSearch = $label['end'];
+
+                    continue;
+                }
+                $end = $offset + strlen($start[0][0]);
+                $length = strlen($line);
+                while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
+                    if ($line[$end] === "\0") {
+                        if (
+                            preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
+                            || !$this->isPlainMarkdownUrlToken((int)$token[1], $protected, $protectedSources)
+                        ) {
+                            break;
+                        }
+                        $end += strlen($token[0]);
+                    } else {
+                        $end++;
+                    }
+                }
+                $protectedUrls .= substr($line, $urlCursor, $offset - $urlCursor) . $protect(substr($line, $offset, $end - $offset));
+                $urlCursor = $end;
+                $urlSearch = $end;
+            }
+            $line = $protectedUrls . substr($line, $urlCursor);
         }
 
         if ($this->convertMath) {
@@ -6755,6 +6811,7 @@ class MarkdownToCarve
         $line = $this->restoreNumericReferenceHashes($line);
         $line = str_replace('&#', '&\\#', $line);
 
+        $line = $this->escapeLinkLabelSlashes($line, $protected);
         $line = MarkdownEmphasis::convert($line, function (): void {
             $this->flattenedEmphasis = true;
         }, null, $protected);
@@ -6811,14 +6868,29 @@ class MarkdownToCarve
             $htmlSource = $line;
             $line = preg_replace_callback(
                 '/<(' . $tagPattern . ')>([^<]+)<\/\1>/i',
-                static function (array $match) use ($htmlSource): string {
+                static function (array $match) use ($htmlSource, $protected): string {
                     $marker = in_array(strtolower($match[1][0]), ['em', 'i'], true) ? '/' : '*';
                     $body = $match[2][0];
                     $offset = $match[0][1];
                     $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
+                    if ($before === "\x00") {
+                        $start = $offset - 2;
+                        while ($start >= 0 && $htmlSource[$start] !== "\x00") {
+                            $start--;
+                        }
+                        if ($start >= 0 && preg_match('/^\x00P(\d+)\x00$/', substr($htmlSource, $start, $offset - $start), $token)) {
+                            $index = (int)$token[1];
+                            $value = $protected[$index] ?? '';
+                            while (preg_match('/\x00P(\d+)\x00$/', $value, $nested) === 1 && (int)$nested[1] < $index) {
+                                $index = (int)$nested[1];
+                                $value = $protected[$index] ?? '';
+                            }
+                            $before = $value !== '' ? substr($value, -1) : $before;
+                        }
+                    }
                     $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
                     $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
-                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1;
+                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1 || ($marker === '/' && $before === '/');
                     $written = $marker . $body . $marker;
 
                     return $forced ? '{' . $written . '}' : $written;
@@ -7840,6 +7912,125 @@ class MarkdownToCarve
         }
 
         return '[' . $label . ']' . $protect('{title=' . $this->quoteAttributeValue($title) . '}');
+    }
+
+    /**
+     * @param int $index
+     * @param array<string> $protected
+     * @param array<string> $sources
+     */
+    private function isPlainMarkdownUrlToken(int $index, array $protected, array $sources): bool
+    {
+        return preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[$index] ?? '') === 1
+            || preg_match('/^&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});$/', $sources[$index] ?? '') === 1;
+    }
+
+    /**
+     * @param string $line
+     * @param array<string> $protected
+     * @param array<string> $protectedSources
+     *
+     * @return list<array{start: int, end: int}>
+     */
+    private function plainMarkdownUrlRanges(string $line, array $protected, array $protectedSources): array
+    {
+        $urlSearch = 0;
+        $ranges = [];
+        while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
+            $offset = $start[0][1];
+            $end = $offset + strlen($start[0][0]);
+            $length = strlen($line);
+            while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
+                if ($line[$end] === "\0") {
+                    if (
+                        preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
+                        || !$this->isPlainMarkdownUrlToken((int)$token[1], $protected, $protectedSources)
+                    ) {
+                        break;
+                    }
+                    $end += strlen($token[0]);
+                } else {
+                    $end++;
+                }
+            }
+            $ranges[] = ['start' => $offset, 'end' => $end];
+            $urlSearch = $end;
+        }
+
+        return $ranges;
+    }
+
+    /**
+     * @param string $source
+     * @param array<string> $protected
+     */
+    private function escapeLinkLabelSlashes(string $source, array $protected): string
+    {
+        if (!str_contains($source, '[')) {
+            return $source;
+        }
+
+        $ranges = MarkdownEmphasis::linkLabelRanges($source, $protected);
+        $outermost = [];
+        $previousEnd = 0;
+        foreach ($ranges as $range) {
+            if ($range['start'] < $previousEnd) {
+                continue;
+            }
+            $outermost[] = $range;
+            $previousEnd = $range['end'];
+        }
+        $ranges = array_values(array_filter($outermost, static function (array $range) use ($source, $protected): bool {
+            $label = substr($source, $range['start'], $range['end'] - $range['start']);
+            if (!str_contains($label, '/')) {
+                return false;
+            }
+            $converted = MarkdownEmphasis::convert($label, protectedSpans: $protected);
+
+            return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(?:em|i)>/i', $label) === 1;
+        }));
+        if ($ranges === []) {
+            return $source;
+        }
+        $rangeAt = 0;
+        $out = '';
+        $opaqueEnds = [];
+        for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+            if ($source[$at] === '\\' && $at + 1 < $length) {
+                $out .= substr($source, $at, 2);
+                $at++;
+
+                continue;
+            }
+            if ($source[$at] === "\0") {
+                $end = strpos($source, "\0", $at + 1);
+                if ($end !== false) {
+                    $out .= substr($source, $at, $end - $at + 1);
+                    $at = $end;
+
+                    continue;
+                }
+            }
+            $tagEnd = $source[$at] === '<'
+                ? $this->opaqueHtmlEnd($source, $at, $opaqueEnds) ?? ($this->htmlTagAt($source, $at)['end'] ?? null)
+                : null;
+            if ($tagEnd !== null) {
+                $out .= substr($source, $at, $tagEnd - $at);
+                $at = $tagEnd - 1;
+
+                continue;
+            }
+            while (isset($ranges[$rangeAt]) && $ranges[$rangeAt]['end'] <= $at) {
+                $rangeAt++;
+            }
+            $range = $ranges[$rangeAt] ?? null;
+            if ($source[$at] === '/' && $range !== null && $at >= $range['start'] && $at < $range['end']) {
+                $out .= '\\';
+            }
+            $out .= $source[$at];
+        }
+
+        return $out;
     }
 
     /**
