@@ -2970,5 +2970,69 @@
   {
     "source": ">  - - ::: box\n\n> > tail\n",
     "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<blockquote>\n  <blockquote><p>tail</p></blockquote>\n</blockquote>"
+  },
+  {
+    "source": ">  - a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">  - a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n* tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">  - a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n1. tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">  - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n: body\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">   - a\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">   - a\n* tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n* tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">   - a\n1. tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n1. tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">   - a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n: body\n- tail</li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "source": ">  1. a\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n- tail</li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": ">  1. a\n* tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n* tail</li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": ">  1. a\n1. tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n1. tail</li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": ">  1. a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n: body\n- tail</li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": ">   1. a\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n- tail</li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": ">   1. a\n* tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n* tail</li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": ">   1. a\n1. tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n1. tail</li>\n  </ol>\n</blockquote>"
+  },
+  {
+    "source": ">   1. a\n: body\n- tail\n",
+    "html": "<blockquote>\n  <ol>\n    <li>a\n: body\n- tail</li>\n  </ol>\n</blockquote>"
   }
 ]
