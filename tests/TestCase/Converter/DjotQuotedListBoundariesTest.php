@@ -19,4 +19,13 @@ final class DjotQuotedListBoundariesTest extends TestCase
             self::assertSame($renderer->convert($case['carve']), $renderer->convert($importer->convert($case['source'])), $case['source']);
         }
     }
+
+    public function testMultilineCodeFallbackReportsPlainExportLoss(): void
+    {
+        $result = (new DjotToCarve())->convertWithFidelityReport("a `b\n> c` d\n");
+        $losses = array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => $row['code'] === 'structure-unspellable'));
+        self::assertCount(1, $losses);
+        self::assertSame('line:2', $losses[0]['path']);
+        self::assertSame('Multiline inline code containing a quote marker uses raw HTML; plain-text export omits it.', $losses[0]['message']);
+    }
 }

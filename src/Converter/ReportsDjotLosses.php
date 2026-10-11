@@ -22,6 +22,9 @@ trait ReportsDjotLosses
         $add = static function (int $at, string $message) use (&$findings): void {
             $findings[] = [$at, $message];
         };
+        foreach ($this->djotCodeQuoteMarkers($source) as $at) {
+            $add($at, 'Multiline inline code containing a quote marker uses raw HTML; plain-text export omits it.');
+        }
         DjotEmphasis::convert($source, $mask, static fn (string $text): string => $text, [], static function (int $at) use ($add): void {
             $add($at, 'Emphasis exceeding the native nesting budget is flattened; its text is preserved.');
         }, $this->djotTableCellBoundaries($source));

@@ -3558,8 +3558,9 @@ class DjotToCarve
 
     private function normalizeDjotFences(string $source): string
     {
+        $quoteCode = $this->djotCodeQuoteMarkers($source) !== [];
         if (!str_contains($source, '```') && !str_contains($source, '~~~')) {
-            return str_contains($source, '\\|') ? $this->closeDjotTableCode($source) : $source;
+            return str_contains($source, '\\|') || $quoteCode ? $this->closeDjotTableCode($source) : $source;
         }
         $lines = explode("\n", $source);
         $rows = $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false));
@@ -3579,7 +3580,7 @@ class DjotToCarve
             }
         }
 
-        return str_contains($source, '\\|') || $inlineFence ? $this->closeDjotTableCode($normalized) : $normalized;
+        return $quoteCode || str_contains($source, '\\|') || $inlineFence ? $this->closeDjotTableCode($normalized) : $normalized;
     }
 
     private function normalizeDjotAutolinks(string $source): string

@@ -326,5 +326,69 @@
   {
     "source": "- > a\r\n  - x\r\n",
     "carve": "- > a\n  >\n  - x\n"
+  },
+  {
+    "source": "- > > a\n> q\n- x\n",
+    "carve": "- > > a\n> q\n>\n- x\n"
+  },
+  {
+    "source": "- a\n>\n",
+    "carve": "- a\n>\n"
+  },
+  {
+    "source": "> q\n> - x\n> > z\n",
+    "carve": "> q\n> \\- x\n> \\> z\n"
+  },
+  {
+    "source": "> - a\n> ***\n> b\n> > q\n",
+    "carve": "> - a\n> ***\n> b\n> \\> q\n"
+  },
+  {
+    "source": "- a\n\n  > q\n  > - x\n",
+    "carve": "- a\n\n  > q\n  > - x\n"
+  },
+  {
+    "source": "a `b\n> c` d\n",
+    "carve": "a `<code>b&#10;&#62; c</code>`{=html} d\n"
+  },
+  {
+    "source": "> a\n \n- x\n",
+    "carve": "> a\n \n>\n- x\n"
+  },
+  {
+    "source": "-  x\n",
+    "carve": "-  x\n"
+  },
+  {
+    "source": "> a\n-  x\n",
+    "carve": "> a\n>\n-  x\n"
+  },
+  {
+    "source": "[a]: /u\n> q\n",
+    "carve": "[a]: /u\n> q\n"
+  },
+  {
+    "source": "[^n]: body\n> q\n",
+    "carve": "[^n]: body\n> q\n"
+  },
+  {
+    "source": "- a\n\n  > [r]: /u\n  > > z\n",
+    "carve": "- a\n\n  > [r]: /u\n  > > z\n"
+  },
+  {
+    "source": "- >\n  text\n  - x\n",
+    "carve": "- >\n  text\n  \\- x\n"
+  },
+  {
+    "source": "- a\n  - b\n  >\n  - c\n",
+    "carve": "- a\n  \\- b\n  \\>\n  \\- c\n"
+  },
+  {
+    "source": "- a\n\n  > {#id}\n  > > z\n",
+    "carve": "- a\n\n  > {#id}\n  > > z\n"
+  },
+  {
+    "source": "> a `b\n> > c` d\n",
+    "carve": "> a `<code>b&#10;&#62; c</code>`{=html} d\n"
   }
 ]
