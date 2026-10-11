@@ -1348,7 +1348,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     private static function hostsACaption(Node $block): bool
     {
-        if ($block instanceof Table || $block instanceof CodeBlock || $block instanceof BlockQuote) {
+        if ($block instanceof BlockQuote) {
+            return $block->getChildren() !== [];
+        }
+
+        if ($block instanceof Table || $block instanceof CodeBlock) {
             return true;
         }
 
