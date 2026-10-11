@@ -80,12 +80,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
         $this->assertSame(['carrier-attribute-dropped' => 1], $report->lossCounts);
     }
 
-    /**
-     * A code block's carrier holds the construct's Carve source VERBATIM, so
-     * the dropped attribute block is still inside the value. The collision is
-     * on the `<pre>` open tag, which is where the attribute would have gone.
-     */
-    public function testACodeBlockKeepsTheDroppedNameOnlyInsideItsStoredSource(): void
+    public function testACodeBlockDropsAndReportsAuthoredStoredSource(): void
     {
         $renderer = new HtmlRenderer();
         $renderer->setRoundTripMode(true);
@@ -94,8 +89,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
 
         $open = substr($report->value, 0, (int)strpos($report->value, '><code'));
         $this->assertStringNotContainsString('data-carve-src="x"', $open);
-        $this->assertSame(1, substr_count($open, 'data-carve-src="'), 'the attribute slot is the carrier\'s alone');
-        $this->assertStringContainsString('{data-carve-src=x}', $open, 'the stored source stays verbatim');
+        $this->assertStringNotContainsString('data-carve-src', $report->value);
         $this->assertSame('data-carve-src', $report->losses[0]['attribute']);
     }
 

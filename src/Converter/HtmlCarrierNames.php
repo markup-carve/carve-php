@@ -55,6 +55,7 @@ final class HtmlCarrierNames
         'inline-footnote',
         'inline-footnote-class',
         'inline-footnote-html',
+        'label',
         'raw',
         'ref',
         'source-level',

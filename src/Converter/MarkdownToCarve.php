@@ -10,9 +10,12 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -329,7 +332,7 @@ class MarkdownToCarve
      * The carrier payloads this conversion lifted out of the source, in the
      * order their marker lines appeared.
      *
-     * @var list<array{payload: string, closer: bool, caption: bool}>
+     * @var list<array{payload: string, closer: bool, caption: bool, equation: string|null}>
      */
     protected array $carrierSlots = [];
 
@@ -338,6 +341,8 @@ class MarkdownToCarve
      * reads the file as ordinary Markdown, comments and all (PART 11 §10s).
      */
     protected bool $carrierDamaged = false;
+
+    protected bool $carrierFallbackMode = false;
 
     /**
      * The placeholder a lifted marker line stands in as, unique in the source.
@@ -435,7 +440,7 @@ class MarkdownToCarve
         $this->carrierSlots = [];
         $this->carrierDamaged = false;
         $this->carrierToken = '';
-        if (!str_contains($markdown, CarrierMarkers::PREFIX)) {
+        if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::PREFIX)) {
             return $markdown;
         }
 
@@ -464,7 +469,7 @@ class MarkdownToCarve
         if (!$seen) {
             return $markdown;
         }
-        if (!$this->carrierSetBalances($payloads)) {
+        if (!$this->carrierSetBalances($payloads, $lines, $hosts)) {
             $this->carrierDamaged = true;
 
             return $markdown;
@@ -478,14 +483,17 @@ class MarkdownToCarve
 
         $out = [];
         $drop = 0;
+        $replaceParagraph = false;
         $skipBlank = false;
         $host = '';
         $last = count($lines) - 1;
         foreach ($lines as $at => $line) {
             if (!isset($payloads[$at])) {
                 $body = $this->withoutCarrierHost($line, $host);
-                if ($drop > 0 && preg_match('/^\*\*.+\*\*$/D', $body) === 1) {
-                    $drop--;
+                if ($drop > 0 && ($replaceParagraph || preg_match('/^\*\*.+\*\*$/D', $body) === 1) && $body !== '') {
+                    if (!$replaceParagraph) {
+                        $drop--;
+                    }
                     $skipBlank = true;
 
                     continue;
@@ -495,29 +503,51 @@ class MarkdownToCarve
                 // would leave the Carve output without its own final newline.
                 if ($skipBlank && $at !== $last && $body === '') {
                     $skipBlank = false;
+                    $drop = 0;
+                    $replaceParagraph = false;
 
                     continue;
                 }
                 $skipBlank = false;
+                if ($body === '') {
+                    $drop = 0;
+                    $replaceParagraph = false;
+                }
                 $out[] = $line;
 
                 continue;
             }
             $payload = $payloads[$at];
             $host = $hosts[$at];
-            $closer = CarrierMarkers::isCloser($payload);
+            $closer = CarrierMarkers::isCloser($payload) || $payload === '';
             $out[] = $host . $token . count($this->carrierSlots) . 'Z';
+            $equation = null;
+            if (CarrierMarkers::isCaption($payload)) {
+                $before = $at - 1;
+                while ($before >= 0 && trim($lines[$before], " \t>") === '') {
+                    $before--;
+                }
+                $previous = $this->withoutCarrierHost($lines[$before] ?? '', $host);
+                if (preg_match('/^(?:(?:[-+*]|\d+[.)])[ \t]+)?(\$\$[^$]+\$\$)[ \t]*$/D', $previous, $math) === 1) {
+                    $equation = rtrim((new self(convertMath: true))->convert($math[1]), "\n");
+                }
+            }
             $this->carrierSlots[] = [
                 'payload' => $payload,
                 'closer' => $closer,
                 'caption' => CarrierMarkers::isCaption($payload),
+                'equation' => $equation,
             ];
             // The writer emitted the opener's title and label, and a group
             // caption, as bold lines of their own; the payload carries them
             // now, so the fallback would be the same text twice. A CAPTION
             // MARKER REPLACES ITS RENDERED PARAGRAPH rather than adding a
             // second copy of it (PART 11 §10s).
-            $drop = $closer ? 0 : $this->carrierFallbackLines($payload);
+            $replaceParagraph = CarrierMarkers::isCaption($payload) || str_starts_with($payload, ':: ');
+            $drop = $replaceParagraph ? 1 : ($closer ? 0 : $this->carrierFallbackLines($payload));
+            if ($replaceParagraph || str_starts_with($payload, '{')) {
+                $out[] = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
+            }
         }
 
         return implode("\n", $out);
@@ -550,53 +580,133 @@ class MarkdownToCarve
     }
 
     /**
+     * @param list<string> $lines
+     * @param array<int, string> $payloads
+     * @param string $host
+     * @param int $start
+     */
+    protected function carrierParagraphFollows(array $lines, array $payloads, string $host, int $start): bool
+    {
+        $paragraph = [];
+        $count = count($lines);
+        for ($at = $start; $at < $count && !isset($payloads[$at]); $at++) {
+            $line = $this->withoutCarrierHost($lines[$at], $host);
+            if ($line === '') {
+                break;
+            }
+            $paragraph[] = $line;
+        }
+        $source = (new self())->convert(implode("\n", $paragraph));
+        $blocks = CarveConverter::create()->parse($source)->getChildren();
+
+        return count($blocks) === 1 && $blocks[0] instanceof Paragraph;
+    }
+
+    /**
      * Whether a marker set records a structure at all: every opener closed by a
      * bare fence of its own width, every attribute line against an opener, and
      * nothing left open.
      *
      * @param array<int, string> $payloads
+     * @param list<string> $lines
+     * @param array<int, string> $hosts
      */
-    protected function carrierSetBalances(array $payloads): bool
+    protected function carrierSetBalances(array $payloads, array $lines, array $hosts): bool
     {
         $open = [];
-        $prelude = false;
-        $closed = false;
-        foreach ($payloads as $payload) {
-            if (CarrierMarkers::isCaption($payload)) {
-                // A caption line belongs to the container the marker before it
-                // closed, so one standing anywhere else records nothing.
-                if ($prelude || !$closed) {
+        $definitions = [];
+        $previousAt = null;
+        $previousPayload = null;
+        foreach ($payloads as $at => $payload) {
+            $next = $this->withoutCarrierHost($lines[$at + 1] ?? '', $hosts[$at]);
+            $nestedTerm = $previousAt === $at - 1 && $previousPayload === ':';
+            $previousAt = $at;
+            $previousPayload = $payload;
+            if (str_starts_with($payload, '{')) {
+                $nextMarker = $payloads[$at + 1] ?? null;
+                $sameHost = $nextMarker !== null
+                    && (preg_replace('/[^>\t]/', ' ', $hosts[$at + 1]) ?? $hosts[$at + 1])
+                === (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]);
+                $lostBlock = $sameHost
+                    && !str_starts_with($nextMarker, ':: ')
+                    && (CarrierMarkers::fenceWidth($nextMarker) === 0 || CarrierMarkers::isCloser($nextMarker));
+                if (!str_ends_with($payload, '}') || !AttributeParser::isValidPayload(substr($payload, 1, -1)) || $next === '' || $lostBlock) {
                     return false;
                 }
-                $closed = false;
+
+                continue;
+            }
+            if (str_starts_with($payload, ':: ')) {
+                $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
+                $last = count($definitions) - 1;
+                if ($last < 0 || $definitions[$last]['key'] !== $key || $nestedTerm) {
+                    $definitions[] = ['key' => $key, 'defined' => false];
+                } elseif (!$definitions[$last]['defined']) {
+                    return false;
+                } else {
+                    $definitions[$last]['defined'] = false;
+                }
+                if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
+                    return false;
+                }
+
+                continue;
+            }
+            if ($payload === ':' || $payload === '') {
+                $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
+                $last = count($definitions) - 1;
+                if ($last < 0 || $definitions[$last]['key'] !== $key || ($payload === '' && !$definitions[$last]['defined'])) {
+                    return false;
+                }
+                if ($payload === '') {
+                    array_pop($definitions);
+                } else {
+                    $definitions[$last]['defined'] = true;
+                    if ($next === '' || (isset($payloads[$at + 1]) && in_array($payloads[$at + 1], ['', ':'], true))) {
+                        return false;
+                    }
+                }
+
+                continue;
+            }
+            if (CarrierMarkers::isCaption($payload)) {
+                if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
+                    return false;
+                }
 
                 continue;
             }
             $width = CarrierMarkers::fenceWidth($payload);
             if ($width === 0) {
-                // An attribute line belongs to the opener on the next marker.
-                $prelude = true;
-                $closed = false;
-
-                continue;
+                return false;
             }
             if (CarrierMarkers::isCloser($payload)) {
-                if ($prelude || $open === [] || array_pop($open) !== $width) {
+                if ($open === [] || array_pop($open) !== $width) {
                     return false;
                 }
-                $closed = true;
 
                 continue;
             }
-            $prelude = false;
-            $closed = false;
             if ($open !== [] && $width <= $open[count($open) - 1]) {
                 return false;
             }
             $open[] = $width;
         }
 
-        return !$prelude && $open === [];
+        return $open === [] && $definitions === [];
+    }
+
+    protected function attachedCaptionCount(Node $node): int
+    {
+        $count = $node instanceof Figure && $node->getCaption() !== null ? 1 : 0;
+        if ($node instanceof Table || $node instanceof FigureGroup) {
+            $count += $node->getCaption() === null ? 0 : 1;
+        }
+        foreach ($node->getChildren() as $child) {
+            $count += $this->attachedCaptionCount($child);
+        }
+
+        return $count;
     }
 
     /**
@@ -630,16 +740,80 @@ class MarkdownToCarve
                 continue;
             }
             $slot = $this->carrierSlots[(int)$match[1]];
+            if ($slot['equation'] !== null) {
+                // Restore the equation alone, preserving attributes and the item opener.
+                $before = count($items) - 1;
+                while ($before >= 0 && $items[$before]['text'] === '' && $items[$before]['kind'] === null) {
+                    $before--;
+                }
+                if ($before >= 0 && $items[$before]['kind'] === null) {
+                    if (preg_match('/^(?:(?:[-+*]|\d+[.)])[ \t]+)?/', $items[$before]['text'], $prefix) === 1) {
+                        $items[$before]['text'] = $prefix[0] . $slot['equation'];
+                    }
+                }
+            }
             $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
             $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind];
         }
         $items = $this->anchorCarrierClosers($items);
+        $definitions = [];
+        foreach ($items as $at => $item) {
+            $last = count($definitions) - 1;
+            if ($item['kind'] !== null && str_starts_with($item['text'], ':: ')) {
+                if ($last < 0 || $definitions[$last]->pending) {
+                    $original = preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead'];
+                    $base = $last < 0 ? $original : $definitions[$last]->base . '  ';
+                    if ($last >= 0 && $definitions[$last]->marker !== null) {
+                        $items[$at] = ['lead' => $definitions[$last]->base . ': ', 'text' => $item['text'], 'kind' => $item['kind']];
+                        $marker = $definitions[$last]->marker;
+                        $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
+                        $definitions[$last]->pending = false;
+                    }
+                    $definitions[] = new MarkdownCarrierDefinition($base, $original);
+                } else {
+                    $items[$at] = ['lead' => $definitions[$last]->base, 'text' => $item['text'], 'kind' => $item['kind']];
+                }
+
+                continue;
+            }
+            if ($last < 0) {
+                continue;
+            }
+            if ($item['kind'] !== null && $item['text'] === '') {
+                $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close'];
+                array_pop($definitions);
+
+                continue;
+            }
+            if ($item['kind'] !== null && $item['text'] === ':') {
+                $definitions[$last]->pending = true;
+                $definitions[$last]->marker = $at;
+
+                continue;
+            }
+            if ($definitions[$last]->marker !== null) {
+                $lead = $item['text'] === '' ? $definitions[$last]->base
+                    : $definitions[$last]->base . '  ' . substr($item['lead'], strlen($definitions[$last]->original));
+                if ($definitions[$last]->pending && $item['text'] !== '') {
+                    $lead = $definitions[$last]->base . ': ' . substr($item['lead'], strlen($definitions[$last]->original));
+                    $marker = $definitions[$last]->marker;
+                    $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
+                    $definitions[$last]->pending = false;
+                }
+                $items[$at] = ['lead' => $lead, 'text' => $item['text'], 'kind' => $item['kind']];
+            }
+        }
         $spelled = [];
+        $emptyCloser = false;
         foreach ($this->separateCarrierLines($items) as $item) {
+            if ($emptyCloser && $item['text'] === '') {
+                continue;
+            }
+            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '';
             $spelled[] = $item['lead'] . $item['text'];
         }
 
-        return implode("\n", $spelled);
+        return rtrim(implode("\n", $spelled), " \t\n") . "\n";
     }
 
     /**
@@ -671,7 +845,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($item['kind'] === 'close' && $open !== []) {
+            if ($item['kind'] === 'close' && CarrierMarkers::isCloser($item['text']) && $open !== []) {
                 $closed = array_pop($open);
                 $items[$at]['lead'] = $closed;
 
@@ -732,7 +906,7 @@ class MarkdownToCarve
             // quote of its own.
             if ($marker !== null) {
                 for ($drop = $at; $drop < $end; $drop++) {
-                    if (rtrim($items[$drop]['lead']) !== rtrim($marker['lead'])) {
+                    if (rtrim($items[$drop]['lead']) !== rtrim($marker['kind'] === 'open' ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead'])) {
                         $marker = null;
 
                         break;
@@ -787,6 +961,7 @@ class MarkdownToCarve
         // the verbatim run or refuses the nesting a document most often has
         // (markup-carve/carve#2850). Everything this probe dirties is reset
         // below, before the conversion proper reads any of it.
+        $carrierOriginal = $markdown;
         $markdown = $this->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
         $this->unspellableOrderedTasks = [];
         $this->flattenedEmphasis = false;
@@ -2119,7 +2294,20 @@ class MarkdownToCarve
             $carve = $this->writeWithoutOmittedTableComments($carve);
         }
 
+        $captionMarkers = count(array_filter($this->carrierSlots, static fn (array $slot): bool => $slot['caption']));
+        $beforeCaptions = $captionMarkers === 0 ? 0 : $this->attachedCaptionCount(CarveConverter::create()->parse($carve));
         $carve = $this->restoreCarrierMarkers($carve);
+        if ($captionMarkers > 0 && $this->attachedCaptionCount(CarveConverter::create()->parse($carve)) !== $beforeCaptions + $captionMarkers) {
+            $this->carrierFallbackMode = true;
+            try {
+                $carve = $this->convert($carrierOriginal);
+            } finally {
+                $this->carrierFallbackMode = false;
+            }
+            $this->carrierDamaged = true;
+
+            return $carve;
+        }
 
         if ($frontmatter === []) {
             return $carve;

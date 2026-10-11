@@ -113,12 +113,24 @@ class AuthoredClassEntriesTest extends TestCase
         }
     }
 
+    public function testCoreCodeBlockRestoresClassEntriesWithoutStoredSource(): void
+    {
+        $renderer = new HtmlRenderer();
+        $renderer->setRoundTripMode(true);
+        $converter = CarveConverter::create(renderer: $renderer);
+        $source = '{class="a  b" .c class=""}' . "\n``` php\nx\n```\n";
+        $html = $converter->convert($source);
+        self::assertSame(1, preg_match('/<pre\b[^>]*>/', $html, $match));
+        self::assertStringNotContainsString('data-carve-src', $match[0]);
+        $imported = (new HtmlToCarve())->convert($html);
+        self::assertSame(['a', 'b', 'c'], $converter->parse($imported)->getChildren()[0]->getClassEntries());
+    }
+
     public function testRoundTripHtmlWritesEachClassEntrySpellably(): void
     {
         $attributes = '{class="a  b" .c class=""}';
         foreach (
             [
-                $attributes . "\n``` php\nx\n```\n",
                 $attributes . "\n::: code-group\n``` php\nx\n```\n:::\n",
                 ":::: tabs\n::: tab\n" . $attributes . "\n::: div\nx\n:::\n:::\n::::\n",
             ] as $source
