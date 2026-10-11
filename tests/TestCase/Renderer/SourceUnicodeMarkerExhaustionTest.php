@@ -105,6 +105,9 @@ class SourceUnicodeMarkerExhaustionTest extends TestCase
             'verse' => ["| a{$payload}\n| b\n", $payload],
             'quote' => ["> a{$payload}\n> b\n", $payload],
             'list' => ["- a{$payload}\n  b\n", $payload],
+            'footnote code guard' => ["body[^n]\n\n[^n]: `a{$payload}\n  [r]: /target\n  tail`\n", $payload],
+            'footnote literal guard' => ["body[^n]\n\n[^n]: !`a{$payload}\n  [r]: /target\n  tail`\n", $payload],
+            'footnote math guard' => ["body[^n]\n\n[^n]: $`a{$payload}\n  [r]: /target\n  tail`\n", $payload],
             'footnote label' => ["a{$pool}b\n\n[^\u{E009}\u{E008}\u{E008}\u{E010}\u{E00A}]: definition\n", $pool],
         ];
     }

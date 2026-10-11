@@ -3230,7 +3230,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderFootnote(Footnote $node): string
     {
-        $this->footnoteCodeGuard ??= DocumentSentinels::pick($this->footnoteGuardSource, 1, 0xE001)[0];
+        $this->footnoteCodeGuard ??= DocumentSentinels::pickTokens($this->footnoteGuardSource, 1, 0xE001)[0];
         $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
         $rawBody = str_replace($this->verbatimSentinels[7] . '[', $this->footnoteCodeGuard . '[', $rawBody);
         foreach (explode("\n", $rawBody) as $line) {
