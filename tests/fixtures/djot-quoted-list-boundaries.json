@@ -184,8 +184,8 @@
     "carve": "```\n- > a\n  - x\n```\n"
   },
   {
-    "source": "- > a\n  - \u00e9l\u00e8ve\n",
-    "carve": "- > a\n  >\n  - \u00e9l\u00e8ve\n"
+    "source": "- > a\n  - élève\n",
+    "carve": "- > a\n  >\n  - élève\n"
   },
   {
     "source": "- > a\n  - [x] done\n",
@@ -213,7 +213,7 @@
   },
   {
     "source": "> - > a\n- b\n",
-    "carve": "> - > a\n>   >\n- b\n"
+    "carve": "> - > a\n>\n- b\n"
   },
   {
     "source": "- >x\n- b\n",
@@ -258,5 +258,73 @@
   {
     "source": "> > - > - > a\n> >   > > b\n> > - x\n",
     "carve": "> > - > - > a\n> >   > > b\n> > - x\n"
+  },
+  {
+    "source": "> > ***\n> b\n- x\n",
+    "carve": "> > ***\n> b\n>\n- x\n"
+  },
+  {
+    "source": "- a\n\n> q\n- x\n",
+    "carve": "- a\n\n> q\n>\n- x\n"
+  },
+  {
+    "source": "- [ ] > a\n  - x\n",
+    "carve": "- [ ] > a\n  >\n  - x\n"
+  },
+  {
+    "source": "- > - >\n  - x\n",
+    "carve": "- > - >\n  >\n  - x\n"
+  },
+  {
+    "source": "- > - a\n  > > q\n  - x\n",
+    "carve": "- > - a\n  > > q\n  >\n  - x\n"
+  },
+  {
+    "source": "- > - a\n  - x\n",
+    "carve": "- > - a\n  >\n  - x\n"
+  },
+  {
+    "source": "- > - a\n  >   > q\n  - x\n",
+    "carve": "- > - a\n  >   \\> q\n  >\n  - x\n"
+  },
+  {
+    "source": "- a\n> q\n- x\n",
+    "carve": "- a\n> q\n>\n- x\n"
+  },
+  {
+    "source": "> - a\n> > q\n> - x\n",
+    "carve": "> - a\n> > q\n> >\n> - x\n"
+  },
+  {
+    "source": "- > - a\n\npara\n> q\n",
+    "carve": "- > - a\n\npara\n\\> q\n"
+  },
+  {
+    "source": "- > a\n> q\n- x\n",
+    "carve": "- > a\n> q\n>\n- x\n"
+  },
+  {
+    "source": "- a\n\n  > - y\n  > > z\n",
+    "carve": "- a\n\n  > - y\n  > > z\n"
+  },
+  {
+    "source": "- a\n\ntext\n> q\n- x\n",
+    "carve": "- a\n\ntext\n\\> q\n\\- x\n"
+  },
+  {
+    "source": "> a\n> >\n> b\n",
+    "carve": "> a\n> \\>\n> b\n"
+  },
+  {
+    "source": "- a\n```\ncode\n```\ntext\n> q\n- x\n",
+    "carve": "- a\n```\ncode\n```\ntext\n\\> q\n\\- x\n"
+  },
+  {
+    "source": "- > a\n> >\n- x\n",
+    "carve": "- > a\n> >\n- x\n"
+  },
+  {
+    "source": "- > a\r\n  - x\r\n",
+    "carve": "- > a\n  >\n  - x\n"
   }
 ]
