@@ -522,5 +522,21 @@
   {
     "source": "> - > a `b\n>   >\n> c` d\n",
     "carve": "> - > a `b`\n>   >\n>\n> c` d`"
+  },
+  {
+    "source": "> a `b\n- c` d\n",
+    "carve": "> a `b`\n\n- c` d`"
+  },
+  {
+    "source": "> `a\n- c` d\n",
+    "carve": "> `a`\n\n- c` d`"
+  },
+  {
+    "source": "- > a `b\n- c` d\n",
+    "carve": "- > a `b`\n- c` d`"
+  },
+  {
+    "source": "> - > a `b\n- c` d\n",
+    "carve": "> - > a `b`\n\n- c` d`"
   }
 ]
