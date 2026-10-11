@@ -4893,7 +4893,9 @@ class BlockParser
             $i++;
         }
 
-        return $i < $count && IndentationHelper::getLeadingColumns($lines[$i], $contentIndent) >= $contentIndent;
+        return $i < $count
+            && !isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
+            && IndentationHelper::getLeadingColumns($lines[$i], $contentIndent) >= $contentIndent;
     }
 
     /**
