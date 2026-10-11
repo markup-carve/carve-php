@@ -15,6 +15,11 @@ class DjotEmphasisPairingTest extends TestCase
     {
         foreach (
             [
+                ["> a\n- *x*", "<blockquote><p>a</p></blockquote>\n<ul>\n  <li><strong>x</strong></li>\n</ul>"],
+                ["> a\n> > b", "<blockquote><p>a\n&gt; b</p></blockquote>"],
+                ["> > a\n> - *x*", "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <ul>\n    <li><strong>x</strong></li>\n  </ul>\n</blockquote>"],
+                ["> > a\n>  - *x*", "<blockquote>\n  <blockquote><p>a</p></blockquote>\n  <ul>\n    <li><strong>x</strong></li>\n  </ul>\n</blockquote>"],
+                ["> > a\n> b\n> > c", "<blockquote>\n  <blockquote><p>a\nb\nc</p></blockquote>\n</blockquote>"],
                 ['foo*bar*baz', '<p>foo<strong>bar</strong>baz</p>'],
                 ['_(_foo_)_', '<p><em>(</em>foo<em>)</em></p>'],
                 ['___', '<p>___</p>'],
