@@ -62,7 +62,7 @@ class MarkdownNestedEmphasisTest extends TestCase
             ['a{*!x*}{.c}b', "a<strong>!x</strong>b\n"],
             ['{*a{*x*}{.c}b*}', "**a<strong>x</strong>b**\n"],
         ];
-        $converter = CarveConverter::markdown();
+        $converter = CarveConverter::create(renderer: (new MarkdownRenderer())->setAttributeFallback(AttributeFallback::Drop));
         foreach ($controls as [$source, $expected]) {
             self::assertSame($expected, $converter->convert($source), $source);
         }

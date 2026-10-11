@@ -4224,7 +4224,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             ? $this->htmlAttributes($node, preserveTabs: true)
             : '';
         if ($attrs !== '') {
-            return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
+            // A del with this authored class reads back as CriticMarkup deletion.
+            $tag = $node->hasClass('critic-delete') ? 's' : 'del';
+
+            return '<' . $tag . $attrs . '>' . $this->renderChildren($node) . '</' . $tag . '>';
         }
         [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
         $this->delimiterAncestors[] = $delimiter;

@@ -69,4 +69,26 @@ class MarkdownMarkAttributesTest extends TestCase
     {
         $this->assertSame("<mark k=\"a b\">x</mark>\n", CarveConverter::markdown()->convert("{=x=}{k=\"a\tb\"}"));
     }
+
+    public function testAuthoredDeletionClassOnStrikeDoesNotCreateCriticMarkup(): void
+    {
+        foreach ([null, AttributeFallback::Html] as $mode) {
+            foreach (['~x~{.critic-delete}', '~*x*~{.k .critic-delete}'] as $source) {
+                $renderer = new MarkdownRenderer();
+                if ($mode !== null) {
+                    $renderer->setAttributeFallback($mode);
+                }
+                $markdown = CarveConverter::create(renderer: $renderer)->convert($source);
+                $this->assertStringStartsWith('<s class="', $markdown);
+                $imported = (new MarkdownToCarve())->convert($markdown);
+                $this->assertStringNotContainsString('{-', $imported);
+                $converter = new CarveConverter();
+                $this->assertSame($converter->convert($source), $converter->convert($imported));
+            }
+        }
+        $renderer = (new MarkdownRenderer())->setAttributeFallback(AttributeFallback::Drop);
+        $this->assertSame("~~x~~\n", CarveConverter::create(renderer: $renderer)->convert('~x~{.critic-delete}'));
+        $this->assertSame("<strong class=\"critic-delete\">x</strong>\n", CarveConverter::markdown()->convert('*x*{.critic-delete}'));
+        $this->assertSame("<del class=\"critic-delete\">x</del>\n", CarveConverter::markdown()->convert('{-x-}'));
+    }
 }
