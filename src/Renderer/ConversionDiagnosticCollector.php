@@ -10,8 +10,8 @@ namespace MarkupCarve\Carve\Renderer;
  * The channel answers what the output model cannot say, so every writer for a
  * target with no spelling for a shape implements it: Carve, Markdown, plain and
  * ANSI. It is separate from the `CARVE-P2-024` render-loss report, whose code
- * enum holds `raw-format-dropped`, `ruby-flattened`, `editorial-comment-flattened`
- * and `destination-denied`.
+ * enum holds `raw-format-dropped`, `ruby-flattened`,
+ * `editorial-comment-flattened`, `destination-denied` and `carrier-attribute-dropped`.
  */
 interface ConversionDiagnosticCollector
 {

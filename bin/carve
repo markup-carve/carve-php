@@ -485,8 +485,8 @@ function parseArgs(array $argv): array
             }
             $options['maxConversionDiagnostics'] = (int)$argv[++$i];
         } elseif ($arg === '--allow-loss') {
-            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened'], true)) {
-                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened or editorial-comment-flattened\n");
+            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened', 'carrier-attribute-dropped'], true)) {
+                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened or carrier-attribute-dropped\n");
                 exit(2);
             }
             $options['allowLoss'][] = $argv[++$i];
@@ -696,8 +696,9 @@ Rendering:
                            opener, so `carve migrate --from md` returns it
   --strict-losses          Refuse output when a raw format would be dropped
   --report-losses FILE     Write the machine-readable render-loss report (`-` for stderr)
-  --allow-loss CODE        Permit raw-format-dropped, ruby-flattened or
-                           editorial-comment-flattened (repeatable)
+  --allow-loss CODE        Permit raw-format-dropped, ruby-flattened,
+                           editorial-comment-flattened or carrier-attribute-dropped
+                           (repeatable)
   --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
   --report-conversion-diagnostics FILE
                            Write source conversion diagnostics (`-` for stderr; text targets only)
