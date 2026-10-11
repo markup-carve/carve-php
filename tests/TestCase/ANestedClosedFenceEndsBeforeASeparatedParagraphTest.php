@@ -19,10 +19,10 @@ class ANestedClosedFenceEndsBeforeASeparatedParagraphTest extends TestCase
         }
     }
 
-    public function testAnAbuttingLineStillFoldsIntoTheOuterItem(): void
+    public function testAnAbuttingLineAlsoLeavesTheList(): void
     {
         $html = (new CarveConverter())->convert("- - ```\n    ```\nx\n");
-        $this->assertMatchesRegularExpression('/<\/ul>\s*x\s*<\/li>\s*<\/ul>\s*$/', $html);
+        $this->assertMatchesRegularExpression('/<\/ul>\s*<p>x<\/p>\s*$/', $html);
     }
 
     public function testFormattingKeepsTheParagraphOutsideTheList(): void
