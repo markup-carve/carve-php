@@ -11,6 +11,9 @@ use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Transform\IncludeContext;
+use MarkupCarve\Carve\Transform\IncludeExpander;
+use MarkupCarve\Carve\Transform\IncludeResolverInterface;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -143,6 +146,38 @@ class SeparatorWidthsFidelityAndBudgetTest extends TestCase
         $this->expectException(SourceUnspellableException::class);
         $this->expectExceptionMessage('document expansion budget');
         (new CarveRenderer())->render($document);
+    }
+
+    public function testIncludedAuthoredWidthsUseAdmittedSourceBytes(): void
+    {
+        $source = "| a |\n|" . str_repeat('-', 1030000) . "|\n| x |\n";
+        $resolver = new class ($source) implements IncludeResolverInterface {
+            public function __construct(private string $source)
+            {
+            }
+
+            public function resolve(string $path, IncludeContext $context): string
+            {
+                return $this->source;
+            }
+        };
+        $root = (new BlockParser())->parse("{{ c.crv }}\n");
+        $expanded = (new IncludeExpander($resolver))->transform($root);
+        self::assertSame($root->getSourceLength(), $expanded->getSourceLength());
+        self::assertSame($source, (new CarveRenderer())->render($expanded));
+        self::assertArrayNotHasKey('admittedIncludeLength', (new AstCodec())->encode($expanded));
+    }
+
+    public function testEncodingCannotPublishInvalidHandSetWidths(): void
+    {
+        $codec = new AstCodec();
+        foreach ([[], [0], [-1], [1.5], ['3']] as $widths) {
+            $document = (new BlockParser())->parse("|= a |\n");
+            $document->getChildren()[0]->setSeparatorWidths($widths);
+            $encoded = $codec->encode($document);
+            self::assertArrayNotHasKey('separatorWidths', $encoded['children'][0]);
+            self::assertSame($encoded, $codec->encode($codec->decode($encoded)));
+        }
     }
 
     public function testAnAuthoredLongSeparatorCannotEraseItsDocument(): void

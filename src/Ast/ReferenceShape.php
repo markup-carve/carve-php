@@ -221,7 +221,7 @@ final class ReferenceShape
         // cost, which is a fact about the ARRIVAL rather than about the
         // document, and re-publishing it would put a reader's own measurement
         // back on the wire where the next reader would read it as a claim.
-        'document' => ['abbreviationSpans', 'ingestPayloadLength'],
+        'document' => ['abbreviationSpans', 'ingestPayloadLength', 'admittedIncludeLength'],
     ];
 
     /**

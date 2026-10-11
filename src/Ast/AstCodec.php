@@ -1836,6 +1836,14 @@ class AstCodec
         $encoded = ['type' => $type];
         foreach (self::encodingProperties(self::reflectNode($node::class), $type) as [$property, $field, $default, $required]) {
             $value = $property->isInitialized($node) ? $property->getValue($node) : null;
+            if ($type === 'table' && $field === 'separatorWidths' && $value !== null) {
+                if (
+                    !is_array($value) || $value === [] || !array_is_list($value)
+                    || array_filter($value, static fn (mixed $width): bool => !is_int($width) || $width < 1) !== []
+                ) {
+                    continue;
+                }
+            }
 
             // Omit a field only when it holds the node's own default. Omitting
             // every null/[]/false instead would lose information wherever the
