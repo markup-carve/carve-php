@@ -2452,6 +2452,8 @@ class HtmlToCarve
             } elseif ($tag === 'ol' && $name === 'start' && filter_var($attribute->value, FILTER_VALIDATE_INT) === 1) {
                 // The native default preserves this value without an attribute.
                 continue;
+            } elseif ($name === 'data-carve-footnote-label' && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid footnote carrier label on <' . $tag . '>', 'warning', $path);
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
                 // attribute - so asking the output for it is the wrong
