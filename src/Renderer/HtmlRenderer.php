@@ -82,6 +82,7 @@ use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\Util\TableWidth;
+use ReflectionMethod;
 
 /**
  * Renders AST to HTML
@@ -2219,30 +2220,53 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * @var bool|null
+     */
+    private ?bool $customNoteScan = null;
+
+    /**
      * Whether the tree holds a note the endnotes section will carry: a resolved
      * `[^label]` reference or an inline `^[...]` note. A definition nobody
      * references renders no section, and neither does an unresolved reference.
      */
     protected function holdsANote(Node $node): bool
     {
-        if ($node instanceof FootnoteRef) {
-            return !$node->isUnresolved();
+        $customScan = $this->customNoteScan ??= (new ReflectionMethod($this, __FUNCTION__))
+            ->getDeclaringClass()->getName() !== self::class;
+        if ($customScan) {
+            if ($node instanceof FootnoteRef) {
+                return !$node->isUnresolved();
+            }
+            if ($node instanceof InlineFootnote) {
+                return true;
+            }
+            foreach ($node->getChildren() as $child) {
+                if (!$child instanceof Footnote && $this->holdsANote($child)) {
+                    return true;
+                }
+            }
+
+            return false;
         }
-        if ($node instanceof InlineFootnote) {
-            return true;
-        }
-        foreach ($node->getChildren() as $child) {
-            // A DEFINITION'S OWN BODY DOES NOT COUNT. An unreferenced definition
-            // renders nothing, so a note inside one cannot put a section in the
-            // document; reading it would send the marker down the placement path
-            // for a section that never arrives, and its title and label would go
-            // with the swept sentinel. A note inside a REFERENCED definition is
-            // already covered by the reference that reaches it.
-            if ($child instanceof Footnote) {
+
+        $stack = [$node];
+        while ($stack !== []) {
+            $current = array_pop($stack);
+            if ($current instanceof FootnoteRef) {
+                if (!$current->isUnresolved()) {
+                    return true;
+                }
+
                 continue;
             }
-            if ($this->holdsANote($child)) {
+            if ($current instanceof InlineFootnote) {
                 return true;
+            }
+            foreach (array_reverse($current->getChildren()) as $child) {
+                // A definition only contributes through a reachable reference.
+                if (!$child instanceof Footnote) {
+                    $stack[] = $child;
+                }
             }
         }
 
