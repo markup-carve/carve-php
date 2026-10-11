@@ -2785,7 +2785,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $tableRows[0]->getChildren(),
                 static fn (Node $child): bool => $child instanceof TableCell,
             ));
-            // ONE SEPARATOR CELL PER ENTRY THE FIELD HOLDS, not per header cell.
+            // ONE SEPARATOR CELL PER ENTRY THE FIELD HOLDS, not per header cell
+            // (PART 11 §6h `CARVE-P11-066`: the field decides the cell count and
+            // the writer never pads to the header's width).
             // A ragged table is authored with a separator row shorter than its
             // header (`| |x |` over `|---|`), and padding it out to the header's
             // width added a cell the author never wrote - which re-parsed to a
