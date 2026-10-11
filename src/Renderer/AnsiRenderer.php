@@ -581,11 +581,13 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // body has said which expansions it actually emitted.
         $this->emittedAbbreviationExpansions = [];
         $this->deferredAbbreviationDefinitions = [];
-        $this->abbreviationDefinitionSentinel = DocumentSentinels::pick(
-            DocumentSentinels::collectStrings($document),
-            1,
-            self::ABBREVIATION_SENTINEL_FIRST,
-        )[0];
+        $this->abbreviationDefinitionSentinel = ConsumedAbbreviationDefinitions::hasDefinitionNodes($document)
+            ? DocumentSentinels::pick(
+                DocumentSentinels::collectStrings($document),
+                1,
+                self::ABBREVIATION_SENTINEL_FIRST,
+            )[0]
+            : '';
 
         // The definition renders WHERE IT WAS WRITTEN, from its node, because the
         // dispatch has an arm for it. This used to place the whole set at one end

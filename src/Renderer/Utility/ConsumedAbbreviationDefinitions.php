@@ -4,8 +4,11 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer\Utility;
 
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Node;
+use SplObjectStorage;
 use function spl_object_id;
 
 /**
@@ -46,6 +49,35 @@ use function spl_object_id;
  */
 final class ConsumedAbbreviationDefinitions
 {
+    public static function hasDefinitionNodes(Node $root): bool
+    {
+        $stack = [$root];
+        $seen = new SplObjectStorage();
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node instanceof AbbreviationDefinition) {
+                return true;
+            }
+            if (is_object($node)) {
+                if ($seen->offsetExists($node)) {
+                    continue;
+                }
+                $seen->offsetSet($node, null);
+            }
+            // Inspect owned side fields as well as children.
+            foreach ((array)$node as $key => $value) {
+                if (is_string($key) && (str_ends_with($key, "\0parent") || str_ends_with($key, "\0extensionPayload"))) {
+                    continue;
+                }
+                if (is_object($value) || is_array($value)) {
+                    $stack[] = $value;
+                }
+            }
+        }
+
+        return false;
+    }
+
     /**
      * The separator between a key's two halves.
      *
