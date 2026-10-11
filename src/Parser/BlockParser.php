@@ -2931,7 +2931,7 @@ class BlockParser
         // a ~~~=html block closes with ~~~, not ```.
         $fenceChar = $rawInfo['fence'][0];
 
-        $content = '';
+        $payload = [];
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
@@ -2947,7 +2947,7 @@ class BlockParser
                 break;
             }
 
-            $content .= self::stripLazyFrame($currentLine) . "\n";
+            $payload[] = self::stripLazyFrame($currentLine);
             $i++;
         }
 
@@ -2955,13 +2955,7 @@ class BlockParser
             $this->addWarning('Unclosed raw block', $start, 1, true);
         }
 
-        // The last newline is the structural separator before the closing
-        // fence. Remove exactly that one, not the whole trailing run: any
-        // earlier newline represents an authored blank payload line and is
-        // part of raw_block.content (carve#1414, corpus 366).
-        if (str_ends_with($content, "\n") && trim($content, "\n") !== '') {
-            $content = substr($content, 0, -1);
-        }
+        $content = CodePayload::content($payload, $closed || $this->lineOwnsBreak($i - 1));
 
         $rawBlock = new RawBlock($content, $format);
         $this->applyPendingAttributes($rawBlock);
