@@ -3865,7 +3865,7 @@ class DjotToCarve
             while (($line[$at] ?? '') === ' ' || ($line[$at] ?? '') === "\t") {
                 $at++;
             }
-            if (($line[$at] ?? '') === '>') {
+            if (($line[$at] ?? '') === '>' && ($at + 1 === $length || ($line[$at + 1] ?? '') === ' ' || ($line[$at + 1] ?? '') === "\t")) {
                 $at++;
 
                 continue;
@@ -3874,6 +3874,9 @@ class DjotToCarve
                 break;
             }
             $at += strlen($marker[0]);
+            if (in_array($marker[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $task, offset: $at) === 1) {
+                $at += strlen($task[0]);
+            }
         }
 
         return $at;
@@ -4115,6 +4118,11 @@ class DjotToCarve
         if (!str_contains($source, '`')) {
             return $source;
         }
+        $blockAttributes = function (string $value): bool {
+            $attrs = str_starts_with($value, '{') ? $this->readDjotWordAttributes($value, 0) : null;
+
+            return $attrs !== null && trim(substr($value, $attrs['end']), " \t") === '';
+        };
         $mask = $this->maskDjotOpaque($this->maskDjotFences($source), false, ['code' => false]);
         $length = strlen($source);
         preg_match_all('/`+/', $source, $tickMatches, PREG_OFFSET_CAPTURE);
@@ -4256,7 +4264,7 @@ class DjotToCarve
                     break;
                 }
                 $prefixAt += strlen($itemPrefix[0]);
-                if (!str_starts_with($itemPrefix[0], '[^') && preg_match('/\G\[[ xX]\][ \t]+/', $line, $taskPrefix, 0, $prefixAt) === 1) {
+                if (in_array($itemPrefix[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $taskPrefix, 0, $prefixAt) === 1) {
                     $prefixAt += strlen($taskPrefix[0]);
                 }
             }
@@ -4298,10 +4306,10 @@ class DjotToCarve
                     continue;
                 }
                 if ($item) {
-                    $itemColumn = $indent + (str_starts_with($itemMatch[0], '[^') ? 2 : strlen($itemMatch[0]));
+                    $itemColumn = $indent + 1;
                     $itemQuote = $depth;
                     $itemKind = $itemKindOf($itemMatch[0]);
-                } elseif ($trimmed !== '' && ($depth < $itemQuote || ($depth === $itemQuote && $indent < $itemColumn && (preg_match($block, $trimmed) === 1 || (str_starts_with($trimmed, '{') && $this->readDjotWordAttributes($trimmed, 0) !== null))))) {
+                } elseif ($trimmed !== '' && ($depth < $itemQuote || ($depth === $itemQuote && $indent < $itemColumn && (preg_match($block, $trimmed) === 1 || $blockAttributes($trimmed))))) {
                     $itemColumn = 0;
                 }
                 if (preg_match('/^(:{3,})(?:[ \t]+\S.*)?[ \t]*$/', substr($line, $at), $div) === 1) {
@@ -4415,7 +4423,7 @@ class DjotToCarve
                     $nextIndent = strlen($nextContent) - strlen($nextTrimmed);
                     $owner = $divs !== [] ? end($divs) : null;
                     $closesDiv = $owner !== null && $nextDepth === $owner['depth'] && $nextIndent <= $owner['column'] + 3 && preg_match('/^:{3,}[ \t]*$/', $nextTrimmed) === 1 && strlen(trim($nextTrimmed)) >= $owner['width'];
-                    $attributes = str_starts_with($nextTrimmed, '{') && $this->readDjotWordAttributes($nextTrimmed, 0) !== null;
+                    $attributes = $blockAttributes($nextTrimmed);
                     if ($closesDiv || ($outside && (preg_match($block, $nextTrimmed) === 1 || ($itemColumn > 0 && $ownerIndent < $itemColumn && preg_match($block, ltrim($ownerContent, " \t")) === 1) || $attributes))) {
                         $limit = $next - 1;
                         $nextItem = preg_match($marker, $nextTrimmed, $nextItemMatch) === 1 ? $itemKindOf($nextItemMatch[0]) : null;
@@ -4435,7 +4443,9 @@ class DjotToCarve
                 if (!$closed && $end === $length) {
                     $payload = preg_replace('/\n[ \t]*(?:>[ \t]*)*$/', '', $payload) ?? $payload;
                 }
-                $payload = preg_replace('/\n$/', '', $payload) ?? $payload;
+                if (!$closed) {
+                    $payload = preg_replace('/\n$/', '', $payload) ?? $payload;
+                }
                 $payload = preg_replace('/^ `|` $/', '`', $payload) ?? $payload;
                 $normalized = [];
                 foreach (explode("\n", $payload) as $n => $value) {
@@ -4460,12 +4470,6 @@ class DjotToCarve
 
                         break;
                     }
-                }
-                if ($closed && $codeDepth > $depth && !$rawCode) {
-                    $i = $end + $width;
-                    $consumed = $i;
-
-                    continue;
                 }
                 if ($codeDepth > 0 && !$rawCode) {
                     $payload = implode("\n", $normalized);
@@ -4499,7 +4503,7 @@ class DjotToCarve
                 }
                 $i = $consumed;
             }
-            $previousBlock = !$beganInside && $consumed <= $lineEnd && ($trimmed === '' || preg_match('/^(?:#{1,6} |:{3,}|\[[^\]]+\]:)/', $trimmed) === 1 || (str_starts_with($trimmed, '{') && $this->readDjotWordAttributes($trimmed, 0) !== null) || (($line[$at] ?? '') === '|' && str_ends_with(rtrim($line), '|') && !str_ends_with(rtrim($line), '\\|')));
+            $previousBlock = !$beganInside && $consumed <= $lineEnd && ($trimmed === '' || preg_match('/^(?:#{1,6} |:{3,}|\[[^\]]+\]:)/', $trimmed) === 1 || $blockAttributes($trimmed) || (($line[$at] ?? '') === '|' && str_ends_with(rtrim($line), '|') && !str_ends_with(rtrim($line), '\\|')));
             $offset = $lineEnd + 1;
         }
         $output[] = substr($source, $cursor);

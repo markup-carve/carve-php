@@ -538,5 +538,101 @@
   {
     "source": "> - > a `b\n- c` d\n",
     "carve": "> - > a `b`\n\n- c` d`"
+  },
+  {
+    "source": "  > a\n",
+    "carve": "> a\n"
+  },
+  {
+    "source": "> a\n  > lazy\n- x\n",
+    "carve": "> a\n> lazy\n>\n- x\n"
+  },
+  {
+    "source": "> a\n>\n>   > b\n",
+    "carve": "> a\n>\n> > b\n"
+  },
+  {
+    "source": "  >\n",
+    "carve": ">\n"
+  },
+  {
+    "source": "> a `b\n  >\nc` d\n",
+    "carve": "> a `b`\n>\nc` d`"
+  },
+  {
+    "source": "- a\n  > q\n",
+    "carve": "- a\n  \\> q\n"
+  },
+  {
+    "source": "> - a\n>   > q\n",
+    "carve": "> - a\n>   \\> q\n"
+  },
+  {
+    "source": "- > | a\\\\|b | z |\n  > |---|---|\n",
+    "carve": "- > | a\\\\\\|b | z |\n  > |---|---|\n"
+  },
+  {
+    "source": "> - > | a\\\\|b | z |\n>   > |---|---|\n",
+    "carve": "> - > | a\\\\\\|b | z |\n>   > |---|---|\n"
+  },
+  {
+    "source": "- [ ] > | a\\\\|b | z |\n  > |---|---|\n",
+    "carve": "- [ ] > | a\\\\\\|b | z |\n  > |---|---|\n"
+  },
+  {
+    "source": "- > a\n > b\n",
+    "carve": "- > a\n  > b\n"
+  },
+  {
+    "source": "1. > a\n > b\n",
+    "carve": "1. > a\n   > b\n"
+  },
+  {
+    "source": "- a\n\n > b\n",
+    "carve": "- a\n\n  > b\n"
+  },
+  {
+    "source": "10. a\n\n > b\n",
+    "carve": "10. a\n\n    > b\n"
+  },
+  {
+    "source": "- [ ] > a\n > b\n",
+    "carve": "- [ ] > a\n  > b\n"
+  },
+  {
+    "source": ">|a|b|\n",
+    "carve": ">|a|b|\n"
+  },
+  {
+    "source": ">>|a|b|\n",
+    "carve": ">>|a|b|\n"
+  },
+  {
+    "source": ">x|a|b|\n",
+    "carve": ">x|a|b|\n"
+  },
+  {
+    "source": "1. [ ] > a `b\n > c` d\n",
+    "carve": "1. [ ] > a `<code>b&#10;&#62; c</code>`{=html} d\n"
+  },
+  {
+    "source": "> - > a `b\n> {#id} c` d\n",
+    "carve": "> - > a `<code>b&#10;&#123;&#35;id&#125; c</code>`{=html} d\n"
+  },
+  {
+    "source": "> > - > a `b\n> > {#id} c` d\n",
+    "carve": "> > - > a `<code>b&#10;&#123;&#35;id&#125; c</code>`{=html} d\n"
+  },
+  {
+    "source": "> - > a `b\n> {#id}\n> c` d\n",
+    "carve": "> - > a `b`\n>\n> {#id}\n> c` d`"
+  },
+  {
+    "source": "> a `b\n> ` d\n",
+    "carve": "> a `b\n` d\n"
+  },
+  {
+    "source": "> a `b\n> c\n> ` d\n",
+    "carve": "> a `b\nc\n` d\n"
   }
 ]
