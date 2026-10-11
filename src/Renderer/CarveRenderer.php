@@ -2582,7 +2582,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         // Ask about the source as it will be written: an encoded blank verbatim
         // line would otherwise read as a non-blank line at column 0.
-        return $this->rebaseProbe->bodyRebaseWouldMoveALine($this->restoreVerbatim($rendered));
+        return $this->rebaseProbe->bodyRebaseWouldMoveALine($this->restoreVerbatim($this->restoreFootnoteCodeGuard($rendered)));
     }
 
     protected function renderDefinitionList(DefinitionList $node): string
@@ -3232,10 +3232,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $this->footnoteCodeGuard ??= DocumentSentinels::pickTokens($this->footnoteGuardSource, 1, 0xE001)[0];
         $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
-        $rawBody = str_replace($this->verbatimSentinels[7] . '[', $this->footnoteCodeGuard . '[', $rawBody);
+        $rawBody = (string)preg_replace('/' . $this->verbatimLineGuardPattern() . '(?=\[)/', $this->footnoteCodeGuard, $rawBody);
+        $sentinel = preg_quote($this->verbatimSentinels[7], '/');
+        $refusal = '/^' . $sentinel . '(?:g(code|math|raw_inline|literal_inline)' . $sentinel . ')?>/';
         foreach (explode("\n", $rawBody) as $line) {
-            if (str_starts_with(ltrim($line, " \t"), $this->verbatimSentinels[7] . '>')) {
-                throw new SourceUnspellableException('code', 'a block-marker continuation cannot stay inside a footnote paragraph');
+            if (preg_match($refusal, ltrim($line, " \t"), $match)) {
+                throw new SourceUnspellableException($match[1] ?? 'code', 'a block-marker continuation cannot stay inside a footnote paragraph');
             }
         }
         $body = $this->trimNonNbsp($rawBody);
@@ -4628,7 +4630,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $written;
         }
 
-        return (string)preg_replace($marker, "\n" . $this->verbatimSentinels[7], $written);
+        return (string)preg_replace($marker, "\n" . $this->verbatimSentinels[7] . 'g' . $nodeType . $this->verbatimSentinels[7], $written);
+    }
+
+    private function verbatimLineGuardPattern(): string
+    {
+        $sentinel = preg_quote($this->verbatimSentinels[7], '/');
+
+        return $sentinel . '(?:g(?:code|math|raw_inline|literal_inline)' . $sentinel . ')?';
     }
 
     private function renderCodeWithUnclosed(string $content, bool $allowUnclosed): string
@@ -4816,7 +4825,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // from closing the fence at all. The item then swallows the rest of
             // the body, reads TIGHT, and the writer spells a `{loose}` the
             // blank lines already said (carve-php#2762).
-            return self::looseKeyIsNeededForBody(true, count($items), $this->restoreVerbatim($body));
+            return self::looseKeyIsNeededForBody(true, count($items), $this->restoreVerbatim($this->restoreFootnoteCodeGuard($body)));
         }
 
         return $node->isLoose();
@@ -5204,11 +5213,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $text = $this->restoreFootnoteCodeGuard($text);
         $text = (string)preg_replace_callback(
-            '/^([ \t>]*)' . preg_quote($this->verbatimSentinels[7], '/') . '([>\[])/m',
-            static fn (array $m): string => (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ') . $m[2],
+            '/^([ \t>]*)' . preg_quote($this->verbatimSentinels[7], '/') . '(g(?:code|math|raw_inline|literal_inline)' . preg_quote($this->verbatimSentinels[7], '/') . ')?([>\[])/m',
+            static fn (array $m): string => ($m[2] === '' ? $m[1] . ' ' : (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ')) . $m[3],
             $text,
         );
-        $text = str_replace($this->verbatimSentinels[7], '', $text);
+        $text = (string)preg_replace('/' . $this->verbatimLineGuardPattern() . '/', '', $text);
 
         $marker = preg_quote($this->verbatimSentinels[2], '/');
         $text = (string)preg_replace_callback(

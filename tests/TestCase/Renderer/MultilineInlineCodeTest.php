@@ -105,6 +105,29 @@ class MultilineInlineCodeTest extends TestCase
         $this->assertSame($written, $renderer->render($converter->parse($written)));
     }
 
+    public function testFootnoteRefusalsIdentifyTheVerbatimNode(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        foreach (['code', 'raw_inline', 'literal_inline', 'math'] as $type) {
+            $wire = $codec->encode($converter->parse("x[^n]\n\n[^n]: body\n"));
+            $node = ['type' => $type, $type === 'code' ? 'value' : 'content' => "x\n> y"];
+            if ($type === 'raw_inline') {
+                $node['format'] = 'html';
+            } elseif ($type === 'math') {
+                $node['display'] = false;
+            }
+            $wire['children'][1]['children'][0]['children'] = [$node];
+            try {
+                (new CarveRenderer())->render($codec->decode($wire));
+                $this->fail('Expected a source refusal');
+            } catch (SourceUnspellableException $exception) {
+                $this->assertSame($type, $exception->nodeType);
+                $this->assertSame('a block-marker continuation cannot stay inside a footnote paragraph', $exception->reason);
+            }
+        }
+    }
+
     public function testTermRefusalsIdentifyTheVerbatimNode(): void
     {
         $converter = new CarveConverter();
