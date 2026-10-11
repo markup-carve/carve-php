@@ -527,6 +527,7 @@ class CarveCorpusTest extends TestCase
         'a-fence-opened-on-a-list-marker-line-body-below-the-content-column',
         'a-below-column-marker-after-a-comment-where-no-paragraph-is-open',
         'a-below-column-line-continues-a-paragraph-only-where-one-is-open',
+        'a-caption-scope-resets-at-a-structural-only-line',
         'a-list-marker-at-the-content-column-inside-an-open-fence',
         'a-boundary-line-inside-an-open-fence-does-not-end-the-container',
         'a-fence-keeps-the-blank-line-at-the-end-of-its-content',
@@ -1127,6 +1128,7 @@ class CarveCorpusTest extends TestCase
         'a-description-body-whose-own-block-is-a-fence-keeps-no-line-below-its-column',
         'a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run',
         'a-below-column-line-continues-a-paragraph-only-where-one-is-open',
+        'a-caption-scope-resets-at-a-structural-only-line',
     ];
 
     /**
