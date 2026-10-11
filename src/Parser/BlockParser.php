@@ -1402,6 +1402,7 @@ class BlockParser
      */
     protected function resetParseState(): void
     {
+        $this->sourceService?->resetOwnedFenceEnds();
         $this->bindNewSession();
     }
 
@@ -2763,6 +2764,12 @@ class BlockParser
             // there is no attribute block it appeared in (carve#785).
             $codeBlock->setSynthesizedAttribute('title', $header);
         }
+        if (
+            !$closed && $payload !== [] && !$this->lineOwnsBreak($i - 1)
+            && IndentationHelper::isBlankLine($payload[array_key_last($payload)])
+        ) {
+            $this->sourceMapper()->recordOwnedFenceEnd($codeBlock, $this->sourceLineFor($i - 1));
+        }
         $parent->appendChild($codeBlock);
 
         return $i - $start;
@@ -2962,6 +2969,12 @@ class BlockParser
 
         $rawBlock = new RawBlock($content, $format);
         $this->applyPendingAttributes($rawBlock);
+        if (
+            !$closed && $payload !== [] && !$this->lineOwnsBreak($i - 1)
+            && IndentationHelper::isBlankLine($payload[array_key_last($payload)])
+        ) {
+            $this->sourceMapper()->recordOwnedFenceEnd($rawBlock, $this->sourceLineFor($i - 1));
+        }
         $parent->appendChild($rawBlock);
 
         return $i - $start;
