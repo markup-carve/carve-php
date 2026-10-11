@@ -49,6 +49,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-unterminated-raw-fence-keeps-literal-payload-termination',
         'an-ordered-list-carries-its-authored-delimiter',
         'multiple-table-bodies-have-positional-source-metadata',
         'empty-table-bodies-keep-their-source-boundaries',
