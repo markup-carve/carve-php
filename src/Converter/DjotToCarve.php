@@ -655,7 +655,7 @@ class DjotToCarve
         if ($context['indent'] === null) {
             return true;
         }
-        $marker = '/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdmIVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdmIVXLCDM]+)\))[ \t]+/';
+        $marker = '/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))[.)]|\((?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))\))[ \t]+/';
         $lineStart = $start;
         while ($lineStart > 0 && $source[$lineStart - 1] !== "\n") {
             $lineStart--;
@@ -677,6 +677,9 @@ class DjotToCarve
                 return false;
             }
             if (trim(substr($raw, DjotEmphasis::structuralPrefixEnd($raw))) === '') {
+                if ($lines === []) {
+                    break;
+                }
                 $parentEnd = $from - 1;
                 while ($parentEnd >= 0) {
                     $parentFrom = $parentEnd;
@@ -809,14 +812,14 @@ class DjotToCarve
             $lineStart--;
         }
         $prefix = substr($source, $lineStart, $start - $lineStart);
-        $prefix = preg_replace('/^[ \t]*(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+(?=>)/', '', $prefix) ?? $prefix;
+        $prefix = preg_replace('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))[.)]|\((?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))\))[ \t]+(?=>)/', '', $prefix) ?? $prefix;
         $depth = 0;
         while (preg_match('/^[ \t]*>(?:[ \t]|$)/', $prefix, $quote)) {
             $prefix = substr($prefix, strlen($quote[0]));
             $depth++;
         }
-        preg_match('/^[ \t]*(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $prefix, $marker);
-        $block = preg_match('/^(?:[ \t]*(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)?[ \t]*$/', $prefix) === 1;
+        preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))[.)]|\((?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))\))[ \t]+/', $prefix, $marker);
+        $block = preg_match('/^(?:[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))[.)]|\((?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))\))[ \t]+)?[ \t]*$/', $prefix) === 1;
 
         return ['depth' => $depth, 'indent' => $block ? strlen($prefix) : null, 'minimum' => strlen($marker[0] ?? '')];
     }
@@ -892,8 +895,20 @@ class DjotToCarve
                 while ($end < $length && $source[$end] !== '%' && $source[$end] !== '}') {
                     $end++;
                 }
-                if ($end === $length || preg_match('/\n[ \t]*\n/', substr($source, $i, $end - $i)) === 1) {
+                $comment = substr($source, $i, $end - $i);
+                if ($end === $length || preg_match('/\n[ \t]*\r?\n/', $comment) === 1) {
                     return null;
+                }
+                if (str_contains($comment, '>') && str_contains($comment, "\n")) {
+                    $context ??= $this->djotAttributeContext($source, $start);
+                    if ($context['depth'] > 0) {
+                        foreach (array_slice(explode("\n", $comment), 1, -1) as $raw) {
+                            $line = $this->djotAttributeLine($raw, $context['depth']);
+                            if ($line !== null && trim($line) === '') {
+                                return null;
+                            }
+                        }
+                    }
                 }
                 $i = $source[$end] === '%' ? $end + 1 : $end;
 
@@ -1849,14 +1864,20 @@ class DjotToCarve
             while ($from > 0 && $source[$from - 1] !== "\n") {
                 $from--;
             }
-            preg_match('/^(?:[ \t]*>(?:[ \t]|$))+/', preg_replace('/^[ \t]*(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+(?=>)/', '', substr($source, $from, $at - $from)) ?? '', $openingQuote);
+            $linePrefix = substr($source, $from, $at - $from);
+            preg_match('/^[ \t]*(?:[-*+]|(?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))[.)]|\((?:[0-9]+|[A-Za-z]|(?:[ivxlcdm]+|[IVXLCDM]+))\))[ \t]+(?=>)/', $linePrefix, $enclosing);
+            preg_match('/^(?:[ \t]*>(?:[ \t]|$))+/', substr($linePrefix, strlen($enclosing[0] ?? '')), $openingQuote);
             while ($line !== false) {
-                if (preg_match('/^(?:[ \t]*>(?:[ \t]|$))+/', substr($source, $line + 1), $quote) === 1 && substr_count($quote[0], '>') < $context['depth']) {
+                $hasQuote = preg_match('/\G(?:[ \t]*>(?:[ \t]|$))+/', $source, $quote, offset: $line + 1) === 1;
+                if ($hasQuote && $enclosing !== [] && strlen($quote[0]) - strlen(ltrim($quote[0])) < strlen($enclosing[0])) {
+                    break;
+                }
+                if ($hasQuote && substr_count($quote[0], '>') < $context['depth']) {
                     $edits[$line + 1] = rtrim($quote[0]) . "\n";
 
                     break;
                 }
-                if (preg_match('/^(?:[ \t]*>(?:[ \t]|$))+/', substr($source, $line + 1), $quote) !== 1 || ltrim($quote[0]) !== ltrim($openingQuote[0] ?? '') || substr_count($quote[0], '>') !== $context['depth']) {
+                if (!$hasQuote || ltrim($quote[0]) !== ltrim($openingQuote[0] ?? '') || substr_count($quote[0], '>') !== $context['depth']) {
                     break;
                 }
                 $end = strpos($source, "\n", $line + 1);
@@ -1929,6 +1950,13 @@ class DjotToCarve
                 }
                 if (($source[$i + 1] ?? '') === '%' && $this->djotCommentContinuesParagraph($source, $i)) {
                     for ($inner = max($i + 2, $escapes[array_key_last($escapes)] + 1); $inner < $length && $source[$inner] !== '%' && $source[$inner] !== '}'; $inner++) {
+                        if ($source[$inner] === "\n") {
+                            $nextEnd = strpos($source, "\n", $inner + 1);
+                            $nextLine = substr($source, $inner + 1, ($nextEnd === false ? $length : $nextEnd) - $inner - 1);
+                            if (trim(substr($nextLine, DjotEmphasis::structuralPrefixEnd($nextLine))) === '') {
+                                break;
+                            }
+                        }
                         if ($source[$inner] === '{' && $masked[$inner] === '{') {
                             $escapes[] = $inner;
                         }

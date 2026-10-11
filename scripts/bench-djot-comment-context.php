@@ -7,9 +7,9 @@ use MarkupCarve\Carve\Converter\DjotToCarve;
 require $argv[1] ?? dirname(__DIR__) . '/vendor/autoload.php';
 
 $reader = new DjotToCarve();
-foreach (['paragraph', 'blocks'] as $family) {
+foreach (in_array('--quoted', $argv, true) ? ['quoted'] : ['paragraph', 'blocks'] as $family) {
     foreach ([500, 1000, 2000, 4000] as $count) {
-        $source = $family === 'paragraph' ? "a\n" . str_repeat("{% x\ny %}\n", $count) : str_repeat("{% x\n  y %}\n", $count);
+        $source = $family === 'quoted' ? str_repeat("> {% x %\n>\n", $count) : ($family === 'paragraph' ? "a\n" . str_repeat("{% x\ny %}\n", $count) : str_repeat("{% x\n  y %}\n", $count));
         $reader->convert($source);
         $samples = [];
         for ($n = 0; $n < 3; $n++) {

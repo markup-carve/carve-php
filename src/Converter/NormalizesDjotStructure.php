@@ -110,7 +110,7 @@ trait NormalizesDjotStructure
                 if ($item && !$blank) {
                     $out[] = rtrim($quote);
                 } elseif ($this->rejectedDjotCommentStartsBlock($visible) && !$blank) {
-                    $out[] = '';
+                    $out[] = rtrim($quote);
                 }
                 $paragraph = false;
                 $headingMarker = '';
