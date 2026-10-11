@@ -333,7 +333,8 @@
   "raw_block": {
     "fields": [
       "content",
-      "format"
+      "format",
+      "contentTerminated"
     ],
     "required": []
   },

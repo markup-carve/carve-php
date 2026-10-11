@@ -3112,6 +3112,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function renderRawBlock(RawBlock $node): string
     {
+        if ($node->getContentTerminated() === false) {
+            $this->recordUnspellableField($node, 'contentTerminated', 'Carve source cannot preserve raw payload termination before a closing fence');
+        }
         $content = $node->getContent();
         $fence = $this->safeFence($content, 3);
 

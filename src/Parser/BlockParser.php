@@ -2935,6 +2935,7 @@ class BlockParser
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
+        $lastPayloadLine = null;
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -2947,6 +2948,7 @@ class BlockParser
                 break;
             }
 
+            $lastPayloadLine = $i;
             $content .= self::stripLazyFrame($currentLine) . "\n";
             $i++;
         }
@@ -2963,7 +2965,7 @@ class BlockParser
             $content = substr($content, 0, -1);
         }
 
-        $rawBlock = new RawBlock($content, $format);
+        $rawBlock = new RawBlock($content, $format, $lastPayloadLine !== null && !$this->lineOwnsBreak($lastPayloadLine) ? false : null);
         $this->applyPendingAttributes($rawBlock);
         $parent->appendChild($rawBlock);
 

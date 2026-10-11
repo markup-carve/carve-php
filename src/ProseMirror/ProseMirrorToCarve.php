@@ -1570,6 +1570,7 @@ class ProseMirrorToCarve
                 continue;
             }
             $consumed[$key] = match (true) {
+                $node instanceof RawBlock && $key === 'contentTerminated' => $this->setState($node, 'contentTerminated', self::asBool($value)),
                 $node instanceof Heading && $key === 'level' => $this->setState($node, 'level', self::asInt($value)),
                 $node instanceof CodeBlock
                     && ($applied = $this->applyCodeBlockAttribute($node, $key, $value, $attrs)) !== null => $applied,

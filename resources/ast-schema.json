@@ -2745,6 +2745,10 @@
         },
         "pos": {
           "$ref": "#/$defs/pos"
+        },
+        "contentTerminated": {
+          "type": "boolean",
+          "description": "Final payload-line termination. Omission retains the legacy implied final newline."
         }
       },
       "additionalProperties": false

@@ -14,6 +14,7 @@ class RawBlock extends BlockNode implements ContentNodeInterface
     public function __construct(
         protected string $content = '',
         protected string $format = '',
+        protected ?bool $contentTerminated = null,
     ) {
     }
 
@@ -35,7 +36,24 @@ class RawBlock extends BlockNode implements ContentNodeInterface
      */
     public function getCodeBlockContent(): string
     {
-        return trim($this->content, "\n") === '' ? $this->content : $this->content . "\n";
+        if ($this->content === '') {
+            return '';
+        }
+        if (trim($this->content, "\n") === '') {
+            return $this->contentTerminated === false ? substr($this->content, 0, -1) : $this->content;
+        }
+
+        return $this->content . ($this->contentTerminated === false ? '' : "\n");
+    }
+
+    public function getContentTerminated(): ?bool
+    {
+        return $this->contentTerminated;
+    }
+
+    public function setContentTerminated(?bool $terminated): void
+    {
+        $this->contentTerminated = $terminated;
     }
 
     public function getFormat(): string
