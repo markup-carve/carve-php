@@ -51,6 +51,9 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
         foreach (
             [
                 "> - ::: box\n>   ```\n>   :::\n>   ```\n>   :::\ntail\n",
+                "> - ::: box\n>\n>   body\n>   :::\ntail\n",
+                "> - ::: box\n>   body\nlazy\n>   :::\ntail\n",
+                "> - ::: box\n>\n>   :::: inner\n>   :::: \n>   :::\ntail\n",
                 "> - ::: box\n>   %%%\n>   :::\n>   %%%\n>   :::\ntail\n",
                 "> - ::: box\n>   - :::: inner\n>     :::: \n>   :::\ntail\n",
             ] as $source
@@ -66,6 +69,7 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
             [
                 "> - ::: box\n> - b\n>   :::\ntail\n",
                 "> - ::: box\ntail\n>   :::\nmore\n",
+                "> > - ::: box\n> tail\n> >   :::\nmore\n",
             ] as $source
         ) {
             $html = (new CarveConverter())->convert($source);
