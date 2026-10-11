@@ -825,6 +825,10 @@ final class BlockQuoteBuilder
                 // into the OUTER quote (markup-carve/carve#2519). The code and
                 // comment branches above read at this depth for the same reason.
                 $content = BlockGrammar::quotedContentAtDepth($content, $state['innerDepth']) ?? $content;
+                if (IndentationHelper::isBlankLine($content)) {
+                    $state['hosts'] ??= ['columns' => [0], 'markers' => [], 'kinds' => [], 'fence' => null, 'pending' => null];
+                    $state['hosts']['paragraphBoundary'] = true;
+                }
                 if (($this->getFencedBlockParser)()->isDivFenceCloser($content, $state['divFenceLength'])) {
                     // A CLOSED container holds no open paragraph either.
                     $state['divDepth']--;

@@ -54,7 +54,7 @@ class ColonParagraphFenceOwnershipTest extends TestCase
             true,
             flags: JSON_THROW_ON_ERROR,
         );
-        $this->assertCount(78, $rows);
+        $this->assertCount(144, $rows);
         $converter = new CarveConverter();
         foreach ($rows as $row) {
             $actual = preg_replace('/>\s+</', '><', $converter->convert($row['source']));
