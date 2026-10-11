@@ -115,6 +115,38 @@ final class DocumentSentinels
     }
 
     /**
+     * Keep rendering markers atomic by using supplementary private-use ranges
+     * when the BMP pool is occupied.
+     *
+     * @throws \MarkupCarve\Carve\Exception\SentinelSpaceExhaustedException When no private-use range has an unused run.
+     *
+     * @return list<string>
+     */
+    public static function pickRenderMarkers(string $text, int $count, int $first): array
+    {
+        try {
+            return self::pick($text, $count, $first);
+        } catch (SentinelSpaceExhaustedException) {
+            preg_match_all('/\\xF3[\\xB0-\\xBF][\\x80-\\xBF]{2}|\\xF4[\\x80-\\x8F][\\x80-\\xBF]{2}/', $text, $matches);
+            $occupied = array_fill_keys($matches[0], true);
+            foreach ([[0xF0000, 0xFFFFD], [0x100000, 0x10FFFD]] as [$start, $last]) {
+                for ($base = $start; $base + $count - 1 <= $last; $base++) {
+                    $run = self::run($base, $count);
+                    foreach ($run as $candidate) {
+                        if (isset($occupied[$candidate])) {
+                            continue 2;
+                        }
+                    }
+
+                    return $run;
+                }
+            }
+
+            throw new SentinelSpaceExhaustedException($count, 0xF0000, 0x10FFFD);
+        }
+    }
+
+    /**
      * Pick string markers when the single-character pool is occupied.
      *
      * @return list<string>

@@ -58,13 +58,7 @@ class EveryImportModeConsumesTheCarrierInventoryTest extends TestCase
         ];
     }
 
-    /**
-     * `data-carve-raw` is the ONE carrier a mode still gates, because it
-     * returns its payload verbatim as a raw inline, which PART 10 section 13e
-     * leaves on the importer's trust setting. Consuming the others
-     * reconstructs syntax; consuming this one lets foreign content back in.
-     */
-    public function testTheRawCarrierStaysOnTheImporterSTrustSetting(): void
+    public function testTheHtmlRawCarrierStaysOnTheImporterSTrustSetting(): void
     {
         $html = '<p>a<span data-carve-raw="html">&lt;b&gt;</span>b</p>';
 

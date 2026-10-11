@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use Closure;
+use LogicException;
 use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
@@ -77,6 +78,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\RenderEventQueue;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -90,7 +92,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 {
     use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
-    use AbbreviationBudgetTrait;
+    use AbbreviationBudgetTrait {
+        labelExpansionStillAffordable as private baseLabelExpansionStillAffordable;
+        chargeExpansion as private baseChargeExpansion;
+    }
     use DerivedLabelTrait;
 
     use EventDispatcherTrait;
@@ -277,9 +282,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     /**
      * The picked run as a PCRE class, for the final resolve.
      *
-     * The run is contiguous by construction, so the class is its two ends. Built
-     * with the run rather than written out, so a fourth narrowed character
-     * cannot be added above without the class moving with it.
+     * Character runs use a class; string markers use a token alternation.
+     * Both are built from the picked run.
      *
      * @var string
      */
@@ -388,11 +392,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected AttributeFallback $attributeFallback = AttributeFallback::Drop;
 
     /**
-     * PART 11 §10s: whether an element-less container is bracketed with a
-     * carrier marker. OFF by default, because a renderer with raw HTML turned
-     * off shows the comment as text.
+     * An explicit Drop also suppresses the default attribute-preserving mark tags.
      */
-    protected bool $carryMarkers = false;
+    protected bool $attributeFallbackSelected = false;
+
+    private bool $retainMarkAttributeTabs = false;
+
+    /**
+     * PART 10 §13 on this target: whether an element-less container is
+     * bracketed with a PART 11 §10s carrier marker. OFF by default, because a
+     * renderer with raw HTML turned off shows the comment as text.
+     */
+    protected bool $roundTripMode = false;
 
     /**
      * How many carried containers enclose the block being written, which is
@@ -401,11 +412,29 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     private int $carrierDepth = 0;
 
     /**
-     * Lazily built HTML renderer used ONLY to serialize attributes under
-     * AttributeFallback::Html, so the raw HTML this target emits is validated and
+     * Lazily built HTML renderer used to serialize raw HTML attributes, including
+     * the default inline mark fallback. The emitted attributes are validated and
      * escaped by the same code as the HTML target rather than by a second copy.
      */
     private ?HtmlRenderer $attributeSerializer = null;
+
+    private ?RenderEventQueue $probedRenderEvents = null;
+
+    private bool $replayRenderEvents = false;
+
+    private bool $stringSentinels = false;
+
+    /**
+     * @var list<string>
+     */
+    private array $stringSentinelTokens = [];
+
+    /**
+     * @var list<array{kind: string, fits: bool, cost: int}>|null
+     */
+    private ?array $probeBudgetDecisions = null;
+
+    private ?int $budgetReplayIndex = null;
 
     /**
      * @param array<string, string> $symbols The same map HtmlRenderer takes. Markdown keeps the `:name:` spelling, so the map changes no output here.
@@ -463,40 +492,41 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     }
 
     /**
-     * Keep attributes Markdown cannot spell as raw HTML, or drop them (the
-     * default).
+     * Keep attributes Markdown cannot spell as raw HTML, or explicitly drop them.
      *
      * `AttributeFallback::Html` preserves attributes on containers, images,
      * strong, emphasis and strike using raw HTML. `Drop` discards these
-     * attributes, preserving the default policy for human-facing export.
+     * attributes. Inline marks preserve their attributes by default; containers
+     * and images keep their existing default spelling.
      */
     public function setAttributeFallback(AttributeFallback $mode): self
     {
         $this->attributeFallback = $mode;
+        $this->attributeFallbackSelected = true;
 
         return $this;
     }
 
     /**
      * Carry an element-less container through a Markdown round trip in an HTML
-     * comment holding its Carve opener verbatim (PART 11 §10s).
+     * comment holding its Carve opener verbatim (PART 10 §13, PART 11 §10s).
      *
      * The visible fallback is unchanged: the mode only ADDS comment lines, so
      * with it off the emitted bytes are the ones this target emits today.
      */
-    public function setCarryMarkers(bool $carry = true): self
+    public function setRoundTripMode(bool $enabled): self
     {
-        $this->carryMarkers = $carry;
+        $this->roundTripMode = $enabled;
 
         return $this;
     }
 
     /**
-     * Whether the carrier mode is on.
+     * Whether the roundtrip export is on.
      */
-    public function getCarryMarkers(): bool
+    public function isRoundTripMode(): bool
     {
-        return $this->carryMarkers;
+        return $this->roundTripMode;
     }
 
     /**
@@ -511,7 +541,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function carrierMarkers(Node $node): ?array
     {
-        if (!$this->carryMarkers) {
+        if (!$this->roundTripMode) {
             return null;
         }
         // A TABLE CELL CANNOT CARRY AT ALL: this target flattens a cell to one
@@ -621,13 +651,109 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     public function render(Document $document): string
     {
-        $this->renderedChildren = new WeakMap();
-        $this->lastRenderedParts = [];
-        $this->delimiterAncestors = [];
-        $this->inlineOwner = null;
         $this->pickNarrowedSentinels($document);
+        $this->prepareDocument($document);
+        if (!$this->stringSentinels) {
+            return $this->renderBody($document, true);
+        }
+
+        $this->probeBudgetDecisions = [];
+        $this->budgetReplayIndex = null;
+        $this->probedRenderEvents = null;
+        if ($this->hasAnyListeners()) {
+            $this->probedRenderEvents = new RenderEventQueue();
+        }
+        try {
+            $previousTarget = $this->renderLossTarget;
+            $previousDiagnosticMaximum = $this->conversionDiagnosticMaximum;
+            $this->conversionDiagnosticMaximum = null;
+            $this->renderLossTarget = null;
+            try {
+                $probe = $this->renderBody($document, false);
+            } finally {
+                $this->renderLossTarget = $previousTarget;
+                $this->conversionDiagnosticMaximum = $previousDiagnosticMaximum;
+            }
+            $nonces = DocumentSentinels::collectNonces($probe)
+                + DocumentSentinels::collectNonces($this->fenceSentinel)
+                + DocumentSentinels::collectNonces(DocumentSentinels::collectStrings($document));
+            unset($probe);
+            $this->setNarrowedSentinels(DocumentSentinels::shortTokens(
+                $nonces,
+                count(self::NARROWED_CHARACTERS) + count(self::AUTHORED_POSITIONAL)
+                    + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
+            ));
+            $this->replayRenderEvents = true;
+            $this->budgetReplayIndex = 0;
+
+            $output = $this->renderBody($document, true);
+            if ($this->probedRenderEvents !== null && !$this->probedRenderEvents->isEmpty()) {
+                throw new LogicException('Markdown event replay is incomplete.');
+            }
+            if ($this->budgetReplayIndex !== count($this->probeBudgetDecisions ?? [])) {
+                throw new LogicException('Markdown budget replay is incomplete.');
+            }
+
+            return $output;
+        } finally {
+            $this->probedRenderEvents = null;
+            $this->replayRenderEvents = false;
+            $this->probeBudgetDecisions = null;
+            $this->budgetReplayIndex = null;
+        }
+    }
+
+    protected function labelExpansionStillAffordable(string $id): bool
+    {
+        if ($this->budgetReplayIndex !== null) {
+            return $this->nextBudgetDecision('label')['fits'];
+        }
+        $fits = $this->baseLabelExpansionStillAffordable($id);
+        if ($this->probeBudgetDecisions !== null) {
+            $this->probeBudgetDecisions[] = ['kind' => 'label', 'fits' => $fits, 'cost' => 0];
+        }
+
+        return $fits;
+    }
+
+    protected function chargeExpansion(string $emitted): bool
+    {
+        if ($this->budgetReplayIndex !== null) {
+            $decision = $this->nextBudgetDecision('charge');
+            if ($decision['fits']) {
+                $this->abbreviationExpansionBytes += $decision['cost'];
+            }
+
+            return $decision['fits'];
+        }
+        $fits = $this->baseChargeExpansion($emitted);
+        if ($this->probeBudgetDecisions !== null) {
+            $this->probeBudgetDecisions[] = ['kind' => 'charge', 'fits' => $fits, 'cost' => strlen($emitted)];
+        }
+
+        return $fits;
+    }
+
+    /**
+     * @throws \LogicException
+     *
+     * @return array{kind: string, fits: bool, cost: int}
+     */
+    private function nextBudgetDecision(string $kind): array
+    {
+        $index = $this->budgetReplayIndex;
+        $decision = $index === null ? null : ($this->probeBudgetDecisions[$index] ?? null);
+        if ($decision === null || $decision['kind'] !== $kind) {
+            throw new LogicException('Markdown budget replay diverged.');
+        }
+        $this->budgetReplayIndex = $index + 1;
+
+        return $decision;
+    }
+
+    private function prepareDocument(Document $document): void
+    {
         $this->headingIdTracker->reset();
-        $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
 
         // Collect every heading's resolved id and the set of ids that a `</#id>`
@@ -640,6 +766,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $this->gfmSlugs = [];
         $slugCounts = [];
         $this->collectGfmSlugs($document, $slugCounts);
+    }
+
+    private function renderBody(Document $document, bool $normalizeOutput): string
+    {
+        $this->renderedChildren = new WeakMap();
+        $this->lastRenderedParts = [];
+        $this->delimiterAncestors = [];
+        $this->inlineOwner = null;
+        $this->authoredHashes = 0;
+        $this->resetExpansionBudgetForDocument($document);
         $this->previousList = null;
         $this->listMarkerOverride = null;
 
@@ -657,6 +793,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $markdown = $document->hasAbbreviationsBeforeBody()
                 ? $residual . "\n" . $markdown
                 : $markdown . "\n" . $residual;
+        }
+
+        if (!$normalizeOutput) {
+            return $markdown;
         }
 
         // Normalize multiple blank lines, OUTSIDE a fenced payload.
@@ -690,6 +830,23 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function collapseBlankRunsOutsideFences(string $markdown): string
     {
+        if ($this->stringSentinels) {
+            $output = '';
+            $read = 0;
+            $width = strlen($this->fenceSentinel);
+            while (($opener = strpos($markdown, $this->fenceSentinel, $read)) !== false) {
+                $output .= preg_replace('/\n{3,}/', "\n\n", substr($markdown, $read, $opener - $read));
+                $body = $opener + $width;
+                $closer = strpos($markdown, $this->fenceSentinel, $body);
+                if ($closer === false) {
+                    return $output . substr($markdown, $body);
+                }
+                $output .= substr($markdown, $body, $closer - $body);
+                $read = $closer + $width;
+            }
+
+            return $output . preg_replace('/\n{3,}/', "\n\n", substr($markdown, $read));
+        }
         $sentinel = preg_quote($this->fenceSentinel, '/');
 
         // A PAYLOAD IS CONSUMED WHOLE, so a run inside one is never reached. The
@@ -787,20 +944,28 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $narrowed = count(self::NARROWED_CHARACTERS);
         $positional = count(self::AUTHORED_POSITIONAL);
-        $run = DocumentSentinels::pick(
+        $run = DocumentSentinels::pickTokens(
             DocumentSentinels::collectStrings($document),
             $narrowed + $positional + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
             self::NARROWED_SENTINEL_FIRST,
         );
+        $this->setNarrowedSentinels($run);
+    }
+
+    /**
+     * @param list<string> $run
+     */
+    private function setNarrowedSentinels(array $run): void
+    {
+        $narrowed = count(self::NARROWED_CHARACTERS);
+        $positional = count(self::AUTHORED_POSITIONAL);
         // LAST IN THE RUN, and outside the class below. The fence sentinel is
         // gone before resolveNarrowedEscapes() runs, so widening the class to
         // cover it would only give that pass a character it has no mapping for.
         $this->fenceSentinel = $run[count($run) - 1];
         $run = array_slice($run, 0, -1);
 
-        // ONE RUN, TWO FAMILIES. Picked together so the collision search runs
-        // once and the two families are guaranteed contiguous, which is what
-        // lets a single character class find every candidate in one pass.
+        // Pick every family together so their markers remain distinct.
         $this->narrowedSentinels = array_combine(
             self::NARROWED_CHARACTERS,
             array_slice($run, 0, $narrowed),
@@ -819,7 +984,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             array_slice($run, $narrowed + $positional + $decided),
         );
         $this->authoredHashes = 0;
-        $this->narrowedSentinelClass = '[' . $run[0] . '-' . $run[count($run) - 1] . ']';
+        $this->stringSentinels = mb_strlen($this->fenceSentinel, 'UTF-8') > 1;
+        $this->stringSentinelTokens = $this->stringSentinels ? array_keys($this->sentinelCharacters()) : [];
+        $this->narrowedSentinelClass = $this->stringSentinels
+            ? '(?:' . implode('|', array_map(static fn (string $marker): string => preg_quote($marker, '/'), $run)) . ')'
+            : '[' . implode('', $run) . ']';
     }
 
     /**
@@ -851,24 +1020,21 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $markdown,
         );
 
-        // OFFSETS DO NOT CARRY ACROSS, which is the trap in spelling this on
-        // bytes. Each sentinel is a U+E00x code point, three bytes in UTF-8,
-        // and it stands for a one-byte character - so every sentinel before a
-        // candidate shifts its position in `$line` two bytes left. carve-js can
-        // reuse the offset directly because its sentinel is one UTF-16 unit
-        // exactly like the character it replaces; here it cannot.
+        // Translate byte offsets by the length each preceding marker loses
+        // when replaced with its character.
         $pairs = str_contains($line, '_') ? $this->pairableUnderscoresPerBlock($line) : [];
 
-        $index = 0;
+        $removed = 0;
 
         return preg_replace_callback(
             $pattern,
-            function (array $match) use ($character, $authored, $kept, $lookahead, $line, $pairs, $markdown, &$index): string {
+            function (array $match) use ($character, $authored, $kept, $lookahead, $line, $pairs, $markdown, &$removed): string {
                 $sentinel = $match[0][0];
                 $offset = (int)$match[0][1];
                 $char = $character[$sentinel];
 
-                $at = $offset - 2 * $index++;
+                $at = $offset - $removed;
+                $removed += strlen($sentinel) - strlen($char);
                 // TWO FAMILIES, TWO TESTS, AND A THIRD CASE ALREADY SETTLED. M1b
                 // asks whether a delimiter of the same character stands beside the
                 // candidate. M2b asks WHERE ON THE LINE the candidate stands, and
@@ -1055,21 +1221,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $text,
         );
 
-        // OFFSETS DO NOT CARRY ACROSS, the same trap resolveNarrowedEscapes
-        // spells out: every sentinel is a three-byte code point standing for a
-        // one-byte character, so each one before a candidate shifts it two
-        // bytes left in `$line`. The index counts EVERY sentinel, decided or
-        // not, because every one of them is three bytes wide.
+        // Every matched marker contributes to the byte-offset translation,
+        // including candidates already decided by an enclosing container.
         $out = '';
         $read = 0;
-        foreach ($matches[0] as $index => [$sentinel, $offset]) {
+        $removed = 0;
+        foreach ($matches[0] as [$sentinel, $offset]) {
+            $at = (int)$offset - $removed;
+            $removed += strlen($sentinel) - strlen($character[$sentinel]);
             if (!isset($undecided[$sentinel])) {
                 continue;
             }
 
             $offset = (int)$offset;
             $char = $undecided[$sentinel];
-            $at = $offset - 2 * $index;
 
             $out .= substr($text, $read, $offset - $read);
             $out .= $this->opensAnAtxHeading($line, $at)
@@ -1556,18 +1721,37 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     /**
      * Render one node without the list-adjacency bookkeeping of renderNode().
+     *
+     * @throws \LogicException
      */
     protected function renderNodeBody(Node $node): string
     {
         $eventName = 'render.' . $node->getType();
-        if ($this->hasListenersFor($eventName)) {
-            $event = new RenderEvent($node);
-            $this->dispatchEvent($eventName, $event);
-            $this->dispatchEvent('render.*', $event);
-
-            if ($event->isDefaultPrevented()) {
-                return $event->getHtml() ?? '';
+        $event = null;
+        if ($this->replayRenderEvents && $this->probedRenderEvents !== null) {
+            if ($this->probedRenderEvents->isEmpty()) {
+                throw new LogicException('Markdown event replay is incomplete.');
             }
+            $record = $this->probedRenderEvents->dequeue();
+            if ($record['type'] !== $node->getType()) {
+                throw new LogicException('Markdown event replay diverged.');
+            }
+            $event = $record['event'];
+            if ($event !== null) {
+                $node = $event->getNode();
+            }
+        } else {
+            if ($this->hasListenersFor($eventName)) {
+                $event = new RenderEvent($node);
+                $this->dispatchEvent($eventName, $event);
+                $this->dispatchEvent('render.*', $event);
+            }
+            if ($this->probedRenderEvents !== null) {
+                $this->probedRenderEvents->enqueue(['type' => $node->getType(), 'event' => $event]);
+            }
+        }
+        if ($event !== null && $event->isDefaultPrevented()) {
+            return $event->getHtml() ?? '';
         }
 
         // An unresolved reference renders as the source the author
@@ -1789,8 +1973,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $rendered = $nodes === null
                 ? $this->escapeText($label)
                 : $this->renderDerivedLabel($nodes);
-            // Charged as the characters it resolves to: a sentinel is three bytes
-            // standing for one.
+            // Charge resolved characters rather than internal carrier bytes.
             if (!$this->chargeLabelExpansion($id, strtr($rendered, $this->sentinelCharacters()))) {
                 $rendered = $this->escapeText($target);
             }
@@ -2544,11 +2727,27 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function firstCharacter(string $text): string
     {
+        if ($this->stringSentinels) {
+            foreach ($this->stringSentinelTokens as $sentinel) {
+                if (str_starts_with($text, $sentinel)) {
+                    return $sentinel;
+                }
+            }
+        }
+
         return preg_match('/^./us', $text, $matches) === 1 ? $matches[0] : '';
     }
 
     protected function lastCharacter(string $text): string
     {
+        if ($this->stringSentinels) {
+            foreach ($this->stringSentinelTokens as $sentinel) {
+                if (str_ends_with($text, $sentinel)) {
+                    return $sentinel;
+                }
+            }
+        }
+
         return preg_match('/.$/usD', $text, $matches) === 1 ? $matches[0] : '';
     }
 
@@ -2971,9 +3170,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 // what editors and `git apply --whitespace=fix` rewrite
                 // behind the writer.
                 $continuation = str_repeat(' ', $contentColumn);
-                foreach ($lines as $line) {
-                    $output .= ($line === '' ? '' : $continuation . $line) . "\n";
-                }
+                $output .= $this->prefixContinuationLines($lines, $continuation);
             }
 
             // A blank line between items is the only thing that spells a loose
@@ -3609,16 +3806,35 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderFootnote(Footnote $node): string
     {
         $content = $this->containerContent(fn (): string => $this->renderChildren($node));
+        $lines = explode("\n", $content);
+        $firstLine = array_shift($lines);
+        $content = $firstLine . "\n" . $this->prefixContinuationLines($lines, '    ');
 
         // A label is author content, and it is reproduced verbatim in two
         // places; both escape, so a reference still matches its definition
         // (carve-php#1063).
-        return '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']: ' . $content . "\n";
+        return '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']: ' . $content;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param string $prefix
+     */
+    protected function prefixContinuationLines(array $lines, string $prefix): string
+    {
+        $output = '';
+        foreach ($lines as $line) {
+            $output .= ($line === '' ? '' : $prefix . $line) . "\n";
+        }
+
+        return $output;
     }
 
     protected function renderEmphasis(Emphasis $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->markdownMarkAttributes($node)
+            : '';
         if ($attrs !== '') {
             return '<em' . $attrs . '>' . $this->renderChildren($node) . '</em>';
         }
@@ -3633,7 +3849,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrong(Strong $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->markdownMarkAttributes($node)
+            : '';
         if ($attrs !== '') {
             return '<strong' . $attrs . '>' . $this->renderChildren($node) . '</strong>';
         }
@@ -4019,9 +4237,18 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderStrike(Strike $node): string
     {
-        $attrs = $this->attributeFallback === AttributeFallback::Html ? $this->htmlAttributes($node) : '';
+        $attrs = !$this->attributeFallbackSelected || $this->attributeFallback === AttributeFallback::Html
+            ? $this->markdownMarkAttributes($node)
+            : '';
         if ($attrs !== '') {
-            return '<del' . $attrs . '>' . $this->renderChildren($node) . '</del>';
+            // A del with this authored class reads back as CriticMarkup deletion.
+            // Match the serialized class: names and values can change during sanitization.
+            $tag = preg_match('/(?:^|[ \t])class="([^"]*)"/i', $attrs, $class) === 1
+                && preg_match('/(?:^|[ \t])critic-delete(?:$|[ \t])/i', $class[1]) === 1
+                ? 's'
+                : 'del';
+
+            return '<' . $tag . $attrs . '>' . $this->renderChildren($node) . '</' . $tag . '>';
         }
         [$delimiter, $openTag, $closeTag] = $this->delimiterRun($node);
         $this->delimiterAncestors[] = $delimiter;
@@ -4403,9 +4630,20 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         // A newline in a value would put a blank line inside the opening tag,
         // ending the raw HTML block early and leaving the closing tag dangling as
-        // literal text. Tabs and newlines survive stripControls() by design, so
-        // fold them here; every other control character is already gone.
-        return (string)preg_replace('/[\t\n]+/', ' ', $this->stripControls($attrs));
+        // literal text. Fold newlines and retain tabs without changing their
+        // attribute value; every other control character is already gone.
+        return (string)preg_replace($this->retainMarkAttributeTabs ? '/\n+/' : '/[\t\n]+/', ' ', $this->stripControls($attrs));
+    }
+
+    private function markdownMarkAttributes(Node $node): string
+    {
+        $previous = $this->retainMarkAttributeTabs;
+        $this->retainMarkAttributeTabs = true;
+        try {
+            return $this->htmlAttributes($node);
+        } finally {
+            $this->retainMarkAttributeTabs = $previous;
+        }
     }
 
     /**

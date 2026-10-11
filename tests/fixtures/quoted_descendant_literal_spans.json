@@ -220,14 +220,14 @@
     "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>=html\n:::\n</code></p></div>\n            :::bad\n:::\n- tail\n          </li></ul></div></li></ul></blockquote>"
   },
   {
-    "id": "unchanged-authored-gap-canonical-closer",
+    "id": "authored-gap-canonical-closer",
     "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>     ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::\n:::bad\n:::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::\n:::bad\n:::\n- tail</code></p></div></li></ul></blockquote>"
   },
   {
-    "id": "unchanged-review4-0",
+    "id": "authored-gap-lazy-tail",
     "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>     ```\n>     :::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::</code></p></div></li></ul></blockquote><p>lazy</p>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::\nlazy</code></p></div></li></ul></blockquote>"
   },
   {
     "id": "unchanged-review4-1",

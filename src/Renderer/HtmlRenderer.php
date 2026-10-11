@@ -647,7 +647,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * Choose guards this document does not contain.
+     * Choose guards absent from the document and configured replacement text.
      *
      * Called at every TOP-LEVEL render entry and nowhere else: a fragment
      * rendered mid-render must keep the outer render's guards, or the outer
@@ -657,8 +657,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function pickBreakGuards(object|array $root): void
     {
-        $this->breakGuards = DocumentSentinels::pick(
-            DocumentSentinels::collectStrings($root),
+        $this->breakGuards = DocumentSentinels::pickRenderMarkers(
+            DocumentSentinels::collectStrings([$root, $this->symbols, $this->labels]),
             4,
             self::BREAK_GUARD_FIRST,
         );

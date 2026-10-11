@@ -2,6 +2,19 @@
 
 The loss report, the diagnostic `path` locator, and the import modes.
 
+## Which option does what
+
+| Option | Effect |
+| --- | --- |
+| Export `roundTripMode` / `--roundtrip` | Adds carriers to output. Any import mode reads them; this is not a trust decision. |
+| `importMode`: `safe`, `semantic`, `roundtrip` | Decides what happens to HTML Carve cannot spell. `roundtrip` keeps it as raw `{=html}`. |
+| `trustStoredSource` | Re-emits `data-carve-src` verbatim. Use only with trusted input; implies `roundtrip` import mode. |
+
+Omitting `importMode` selects `safe`, or `roundtrip` when `trustStoredSource`
+is true. Combining stored-source trust with explicit `safe` or `semantic`
+throws `InvalidArgumentException`. Export options do not select an import mode
+or trust setting.
+
 HTML import uses PHP's native HTML5 parser on PHP 8.4 and later. On PHP 8.2 and
 8.3 it keeps the legacy libxml parser. Both paths require `ext-dom` when importing
 HTML; no additional Composer package is required.

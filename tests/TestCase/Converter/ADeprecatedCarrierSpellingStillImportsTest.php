@@ -96,9 +96,9 @@ class ADeprecatedCarrierSpellingStillImportsTest extends TestCase
 
     public function testStoredSourceIsTrustedUnderEitherSpelling(): void
     {
-        $converter = new HtmlToCarve(trustedRoundTrip: true, importMode: 'roundtrip');
+        $converter = new HtmlToCarve(trustStoredSource: true, importMode: 'roundtrip');
         $canonical = $converter->convert('<p data-carve-src="*stored*">rendered</p>');
-        $legacy = (new HtmlToCarve(trustedRoundTrip: true, importMode: 'roundtrip'))
+        $legacy = (new HtmlToCarve(trustStoredSource: true, importMode: 'roundtrip'))
             ->convert('<p data-djot-src="*stored*">rendered</p>');
         $this->assertSame($canonical, $legacy);
         $this->assertStringContainsString('*stored*', $legacy);

@@ -31,17 +31,18 @@ $markdown = CarveConverter::create(null, $renderer)->convert($carveSource);
   headings they point at do not disagree.
 - `setAttributeFallback()`: Markdown has no block container and no attribute
   syntax on an image, so a `::: class` div and an `![alt](src){.class}` lose
-  their `{#id .class data-*}` by default (`AttributeFallback::Drop`), which is
-  right for human-facing export. `AttributeFallback::Html` keeps them as raw
-  HTML instead. It also preserves attributes on strong, emphasis and strike
-  with `<strong ...>`, `<em ...>` and `<del ...>` tags. Containers use a
+  their `{#id .class data-*}` by default. `AttributeFallback::Html` keeps them as raw
+  HTML instead. Strong, emphasis and strike preserve their attributes by
+  default with `<strong ...>`, `<em ...>` and `<del ...>` tags. Explicit
+  `AttributeFallback::Drop` discards those attributes too. Marks without
+  attributes use Markdown delimiters. Containers use a
   `<div ...>` wrapper with blank lines around its
   Markdown-rendered body, and an `<img ...>` tag - the way an inline `{=mark=}`
   already degrades to `<mark>`. Use it when the Markdown is an interchange
   format rather than a rendering. Attribute names and values are validated and
   escaped by the same code the HTML target uses, so event handlers, injection
   sinks and denylisted URL schemes are dropped there too.
-- `setCarryMarkers()`: the carrier mode of PART 11 §10s, off by default. See
+- `setRoundTripMode()`: the carrier mode of PART 11 §10s, off by default. See
   [Carrying a dropped container](#carrying-a-dropped-container) below.
 
 The constructor also takes a `symbols` map, the same one `HtmlRenderer` takes,
@@ -83,13 +84,12 @@ disclosure, a spoiler, a named div or a composite figure group reaches the outpu
 as its children alone. Nothing left in the file says the container was there, so
 an import cannot return it however good it gets.
 
-`setCarryMarkers()` turns on the carrier mode (`--carry-markers` on the CLI,
-Markdown output only). The visible fallback does not move: the mode brackets each
-dropped container with an HTML comment holding its Carve opener and closer
-verbatim.
+`setRoundTripMode(true)` turns on the carrier mode (`--roundtrip` on the CLI),
+the same option that adds the carrier attributes to HTML output. The mode brackets each dropped container with HTML comments holding its Carve
+opener and closer verbatim.
 
 ~~~ php
-$renderer = (new MarkdownRenderer())->setCarryMarkers();
+$renderer = (new MarkdownRenderer())->setRoundTripMode(true);
 ~~~
 
 This Carve source:

@@ -18,7 +18,7 @@ use PHPUnit\Framework\TestCase;
  * survived an export while `{#id .class data-*}` did not (carve-php#458).
  *
  * `AttributeFallback::Html` is the opt-in that keeps them, as raw HTML. The
- * default drops attributes that Markdown cannot represent.
+ * default drops container and image attributes; inline marks preserve theirs.
  */
 class MarkdownAttributeFallbackTest extends TestCase
 {

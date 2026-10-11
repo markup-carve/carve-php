@@ -578,13 +578,13 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
      * The HTML reconstructed here is carve's OWN rendered output (from
      * `HtmlRenderer::renderNodeFragment`), so it is trusted and may carry
      * faithful `data-carve-src` round-trip attributes (e.g. a code fence's
-     * `` ``` php `` info string). Pass `trustedRoundTrip: true` so those inner
+     * `` ``` php `` info string). Pass `trustStoredSource: true` so those inner
      * sources are honored; the default converter ignores `data-carve-src` to stay
      * safe against untrusted external HTML.
      */
     protected function trustedHtmlToCarve(): HtmlToCarve
     {
-        return new HtmlToCarve(trustedRoundTrip: true);
+        return new HtmlToCarve(trustStoredSource: true);
     }
 
     protected function reconstructChildToDjot(Node $child, HtmlRenderer $renderer): string

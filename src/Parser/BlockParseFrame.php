@@ -90,6 +90,8 @@ final class BlockParseFrame
 
     public ?IndexedFenceView $literalSourceFenceView = null;
 
+    public ?LiteralCommentClosers $literalSourceCommentView = null;
+
     public ?RangeMaximum $literalSourceBoundaryColumns = null;
 
     /**
