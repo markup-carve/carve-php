@@ -515,6 +515,7 @@ final class HtmlAstBuilder
                 }
             }
         }
+        $footnoteAnchors = [];
         foreach ($root->getElementsByTagName('a') as $anchor) {
             if (
                 strtolower($anchor->getAttribute('role')) !== 'doc-noteref'
@@ -527,6 +528,7 @@ final class HtmlAstBuilder
                     continue 2;
                 }
             }
+            $footnoteAnchors[] = $anchor;
             $href = $anchor->getAttribute('href');
             if (str_starts_with($href, '#') && strlen($href) > 1) {
                 $this->session->footnoteTargets[substr($href, 1)] = true;
@@ -547,13 +549,40 @@ final class HtmlAstBuilder
             $reservedLabels[$key] = true;
             $this->session->endnoteItemLabels[$item] = $label;
         }
+        $itemsByLabel = [];
+        foreach ($allEndnoteItems as $item) {
+            $label = $this->session->endnoteItemLabels[$item] ?? $this->footnoteLabel($item->getAttribute('id'));
+            if ($label !== '') {
+                $itemsByLabel['label:' . $label] ??= $item;
+            }
+        }
+        $targetItems = [];
         foreach ($this->session->footnoteTargets as $target => $_) {
-            if (!isset($this->session->endnoteItems[$target])) {
+            $item = $this->session->endnoteItems[$target] ?? $itemsByLabel['label:' . $this->footnoteLabel($target)] ?? null;
+            if ($item !== null) {
+                $targetItems[$target] = $item;
+                $this->session->referencedEndnoteItems[$item] = true;
+            } else {
                 $reservedLabels['label:' . LabelKey::normalize($this->footnoteLabel($target))] = true;
             }
         }
+        foreach ($footnoteAnchors as $anchor) {
+            $label = $anchor->getAttribute('data-carve-footnote-label');
+            if (!self::isValidFootnoteCarrierLabel($label)) {
+                continue;
+            }
+            $target = substr($anchor->getAttribute('href'), 1);
+            $item = $this->session->endnoteItems[$target] ?? null;
+            if ($item !== null && (self::hasConflictingEndnoteCarriers($item) || isset($this->session->droppedFootnoteLabelCarriers[$item]))) {
+                continue;
+            }
+            $reservedLabels['label:' . LabelKey::normalize($label)] = true;
+        }
         $nextLabel = 1;
         foreach ($allEndnoteItems as $item) {
+            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+                continue;
+            }
             $id = $item->getAttribute('id');
             if (!isset($this->session->endnoteItemLabels[$item])) {
                 if ($id === '' && !isset($this->session->droppedFootnoteLabelCarriers[$item])) {
@@ -571,6 +600,11 @@ final class HtmlAstBuilder
             }
             if ($id !== '' && ($this->session->endnoteItems[$id] ?? null) === $item) {
                 $this->session->endnoteLabels[$id] = $this->session->endnoteItemLabels[$item];
+            }
+        }
+        foreach ($targetItems as $target => $item) {
+            if (isset($this->session->endnoteItemLabels[$item])) {
+                $this->session->endnoteLabels[$target] = $this->session->endnoteItemLabels[$item];
             }
         }
         foreach ($root->getElementsByTagName('template') as $template) {
@@ -1865,16 +1899,7 @@ final class HtmlAstBuilder
             if (!self::isValidFootnoteCarrierLabel($label)) {
                 $label = $this->footnoteLabel($id);
             }
-            $referenced = $id !== '' && isset($this->session->footnoteTargets[$id]);
-            if (!$referenced && $label !== '') {
-                foreach (array_keys($this->session->footnoteTargets) as $target) {
-                    if ($this->footnoteLabel($target) === $label) {
-                        $referenced = true;
-
-                        break;
-                    }
-                }
-            }
+            $referenced = ($id !== '' && isset($this->session->footnoteTargets[$id])) || isset($this->session->referencedEndnoteItems[$item]);
             if (!$referenced) {
                 $unreferenced[] = [
                     'type' => 'list_item',

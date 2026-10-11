@@ -157,6 +157,11 @@ final class HtmlImportSession
     /**
      * @var \SplObjectStorage<\DOMElement, true>
      */
+    public SplObjectStorage $referencedEndnoteItems;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
     public SplObjectStorage $droppedFootnoteLabelCarriers;
 
     /**
@@ -215,6 +220,7 @@ final class HtmlImportSession
     {
         $this->droppedFootnoteLabelCarriers = new SplObjectStorage();
         $this->endnoteItemLabels = new SplObjectStorage();
+        $this->referencedEndnoteItems = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();

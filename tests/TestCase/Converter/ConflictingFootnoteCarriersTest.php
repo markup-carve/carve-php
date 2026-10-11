@@ -250,6 +250,51 @@ class ConflictingFootnoteCarriersTest extends TestCase
         }
     }
 
+    public function testNaturalIdAliasesRemainReferences(): void
+    {
+        $html = '<p><a href="#fn9" role="doc-noteref">9</a></p><section role="doc-endnotes"><ol><li id="footnote-9"><p>NINE</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $result = (new HtmlToCarve(importMode: $mode))->convertWithReport($html);
+            self::assertSame("[^9]\n\n[^9]: NINE\n", $result->value);
+            self::assertSame(['attribute-dropped', 'attribute-dropped'], array_map(static fn ($row): string => $row->code, $result->diagnostics));
+        }
+    }
+
+    public function testAnUnreferencedItemIsNotCapturedByRenumbering(): void
+    {
+        $html = '<p><a href="#a" role="doc-noteref">1</a> <a href="#fn2" role="doc-noteref">2</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="a" data-carve-footnote-label="1"><p>A</p></li>'
+            . '<li id="fn1"><p>UNREF</p></li><li id="fn2"><p>C</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $source = (new HtmlToCarve(importMode: $mode))->convert($html);
+            self::assertStringNotContainsString('[^2]: UNREF', $source);
+            $rendered = (new CarveConverter())->convert($source);
+            self::assertStringContainsString('UNREF', $rendered);
+            self::assertStringContainsString('<p>C', $rendered);
+        }
+    }
+
+    public function testAMissingTargetsOwnLabelIsReserved(): void
+    {
+        $html = '<p><a href="#y" role="doc-noteref">1</a> <a href="#zzz" role="doc-noteref" data-carve-footnote-label="2">2</a> <a href="#fn1" role="doc-noteref">3</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="y" data-carve-footnote-label="1"><p>Y</p></li><li id="fn1"><p>F</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $source = (new HtmlToCarve(importMode: $mode))->convert($html);
+            self::assertSame("[^1] [^2] [^3]\n\n[^1]: Y\n[^3]: F\n", $source);
+            self::assertStringContainsString('[^2]', (new CarveConverter())->convert($source));
+        }
+    }
+
+    public function testInlineNotesDoNotConsumeNumberedLabels(): void
+    {
+        $html = '<p><a href="#fn1" role="doc-noteref">1</a> <a href="#fn2" role="doc-noteref">2</a> <a href="#fn3" role="doc-noteref">3</a></p>'
+            . '<section role="doc-endnotes"><ol><li id="fn1" data-carve-inline-footnote="1"><p>I</p></li>'
+            . '<li id="fn2"><p>N</p></li><li id="fn3" data-carve-footnote-label="1"><p>A</p></li></ol></section>';
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            self::assertSame("^[I] [^2] [^1]\n\n[^2]: N\n[^1]: A\n", (new HtmlToCarve(importMode: $mode))->convert($html));
+        }
+    }
+
     private static function noteHtml(string $attributes, bool $referenceLabel = false): string
     {
         return '<p><a href="#fn1" role="doc-noteref"' . ($referenceLabel ? ' data-carve-footnote-label="named"' : '') . '>1</a></p>'
