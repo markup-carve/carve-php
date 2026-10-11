@@ -253,7 +253,7 @@ final class MarkdownEmphasis
                         $besideLiteral = true;
                     }
                 }
-                $besideSlash = $pair['kind'] === '/' && $pair['scope'] !== -1 && (($source[$pair['open'] - 1] ?? '') === '/' || ($source[$pair['close'] + $pair['width']] ?? '') === '/' || substr($source, $pair['close'] + $pair['width'], 2) === '\\/');
+                $besideSlash = $pair['kind'] === '/' && $pair['scope'] !== -1 && ($neighbor($pair['open'], true) === '/' || ($source[$pair['close'] + $pair['width']] ?? '') === '/' || substr($source, $pair['close'] + $pair['width'], 2) === '\\/');
                 $braced = $besideSlash || $frame['repeated'] || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic) || ($frame['kind'] === '~' && $strike) || $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
                 $strong = $strong || $pair['kind'] === '*';
                 $italic = $italic || $pair['kind'] === '/';

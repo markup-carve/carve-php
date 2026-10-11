@@ -6853,11 +6853,21 @@ class MarkdownToCarve
             $htmlSource = $line;
             $line = preg_replace_callback(
                 '/<(' . $tagPattern . ')>([^<]+)<\/\1>/i',
-                static function (array $match) use ($htmlSource): string {
+                static function (array $match) use ($htmlSource, $protected): string {
                     $marker = in_array(strtolower($match[1][0]), ['em', 'i'], true) ? '/' : '*';
                     $body = $match[2][0];
                     $offset = $match[0][1];
                     $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
+                    if ($before === "\x00") {
+                        $start = $offset - 2;
+                        while ($start >= 0 && $htmlSource[$start] !== "\x00") {
+                            $start--;
+                        }
+                        if ($start >= 0 && preg_match('/^\x00P(\d+)\x00$/', substr($htmlSource, $start, $offset - $start), $token)) {
+                            $value = $protected[(int)$token[1]] ?? '';
+                            $before = $value !== '' ? substr($value, -1) : $before;
+                        }
+                    }
                     $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
                     $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
                         || preg_match('/^[*\/]|[*\/]$/', $body) === 1 || ($marker === '/' && $before === '/');
