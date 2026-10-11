@@ -1319,6 +1319,129 @@ final class BlockContinuationScanner
     }
 
     /**
+     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
+     * @param string $line
+     * @param array<string> $lines Immutable source lines in the current frame.
+     * @param int $stripColumns
+     * @param int $index
+     */
+    public function advanceLiteralStateWithSourceFenceLookahead(
+        TrailingBlockState $state,
+        string $line,
+        array $lines,
+        int $index,
+        int $stripColumns,
+    ): TrailingBlockState {
+        $literal = $state;
+        $offset = 0;
+        while ($literal->nestedDiv !== null) {
+            $offset += $literal->nestedDivColumn;
+            $literal = $literal->nestedDiv;
+        }
+        $column = $offset + $literal->divColumn;
+        $opener = $literal->fence === null
+            && IndentationHelper::getLeadingColumns($line, $column + 1) === $column
+            ? (($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($line, " \t"))
+                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")))
+            : null;
+        $paired = $opener !== null && $this->literalSourceFenceHasCloser($lines, $index, $opener, $stripColumns + $column, $stripColumns + $offset);
+        $state = $this->advanceTrailingState($state, $line, true);
+        if (!$paired) {
+            return $state;
+        }
+        $parents = [];
+        $literal = $state;
+        while ($literal->nestedDiv !== null) {
+            $parents[] = $literal;
+            $literal = $literal->nestedDiv;
+        }
+        if (!$literal->inDiv || !$literal->literalDiv || $literal->fence !== null) {
+            return $state;
+        }
+        $literal->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literal->divColumn);
+        $literal->openParagraph = false;
+        foreach (array_reverse($parents) as $parent) {
+            $fence = $literal->fence;
+            if ($fence !== null) {
+                $parent->openFence($fence->char, $fence->length, $fence->column + $parent->nestedDivColumn, $fence->hostColumn + $parent->nestedDivColumn);
+            }
+            $parent->openParagraph = false;
+            $parent->nestedDivBody = true;
+            $literal = $parent;
+        }
+
+        return $state;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param array{fence:string,length:int,char?:string} $opener
+     * @param int $base
+     * @param int $column
+     */
+    private function literalSourceFenceHasCloser(array $lines, int $index, array $opener, int $column, int $base): bool
+    {
+        $frame = $this->state->frame;
+        if ($frame->literalSourceFenceView === null || $frame->literalSourceBoundaryColumns === null) {
+            $frame->literalSourceFenceView = new IndexedFenceView();
+            $frame->literalSourceFenceView->advance($lines);
+            $frame->literalSourceBoundaryColumns = new RangeMaximum();
+            foreach ($lines as $i => $source) {
+                $threshold = 0;
+                if (($this->getListParser)()->parseListItemMarker(ltrim($source, " \t")) !== null) {
+                    $threshold = PHP_INT_MAX - IndentationHelper::getLeadingColumns($source);
+                } elseif (IndentationHelper::isBlankLine($source)) {
+                    $after = $lines[$i + 1] ?? null;
+                    $threshold = $after === null || IndentationHelper::isBlankLine($after)
+                        ? PHP_INT_MAX
+                        : PHP_INT_MAX - IndentationHelper::getLeadingColumns($after);
+                }
+                if ($threshold > 0) {
+                    $slot = count($frame->literalSourceBoundaryPositions);
+                    $frame->literalSourceBoundaryPositions[] = $i;
+                    $frame->literalSourceBoundaryColumns->set($slot, $threshold);
+                }
+            }
+        }
+        $positions = $frame->literalSourceBoundaryPositions;
+        $low = 0;
+        $high = count($positions);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($positions[$mid] <= $index) {
+                $low = $mid + 1;
+            } else {
+                $high = $mid;
+            }
+        }
+        $start = $low;
+        $high = count($positions);
+        while ($low < $high) {
+            $mid = intdiv($low + $high, 2);
+            if ($frame->literalSourceBoundaryColumns->maximum($start, $mid + 1) > PHP_INT_MAX - $base) {
+                $high = $mid;
+            } else {
+                $low = $mid + 1;
+            }
+        }
+        $end = $positions[$low] ?? count($lines);
+        $char = $opener['char'] ?? $opener['fence'][0];
+        if (($this->getFencedBlockParser)()::class !== FencedBlockParser::class) {
+            for ($i = $index + 1; $i < $end; $i++) {
+                $at = IndentationHelper::getLeadingColumns($lines[$i], max($column, $base) + 1);
+                if ($at === $column && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return $frame->literalSourceFenceView->contains($index + 1, $end, $column, $char, $opener['length']);
+    }
+
+    /**
      * Does a description body's fence find its closer in the SOURCE?
      *
      * §10 I4 opens a fence after a paragraph only when a closer follows, and
