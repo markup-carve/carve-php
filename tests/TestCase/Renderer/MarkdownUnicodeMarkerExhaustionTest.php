@@ -6,6 +6,8 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderLossException;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Text;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -91,5 +93,68 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
                 self::assertSame(0, $result->totalLosses);
             }
         }
+    }
+
+    public function testFallbackTokensAssembledAcrossTextNodesRemainLiteral(): void
+    {
+        $writer = CarveConverter::markdown();
+        $document = $writer->parse("ordinary\n");
+        $authored = '';
+        for ($nonce = 0; $nonce < 32; $nonce++) {
+            $authored .= "\u{E009}m{$nonce}x0\u{E00A}";
+        }
+        $children = [new Text(self::pool())];
+        foreach (mb_str_split($authored) as $character) {
+            $children[] = new Text($character);
+        }
+        $children[] = new Text(' a@b.co');
+        $paragraph = new Paragraph();
+        $paragraph->setChildren($children);
+        $document->setChildren([$paragraph]);
+        $result = $writer->renderWithReport($document);
+        self::assertSame(self::pool() . $authored . " a<!---->@b.co\n", $result->value);
+        self::assertSame(0, $result->totalLosses);
+    }
+
+    public function testEmailOffsetsAfterStringMarkers(): void
+    {
+        $writer = CarveConverter::markdown();
+        $document = $writer->parse("ordinary\n");
+        $paragraph = new Paragraph();
+        $paragraph->setChildren([new Text(self::pool() . ' _ a@b.co')]);
+        $document->setChildren([$paragraph]);
+        $result = $writer->renderWithReport($document);
+        self::assertSame(self::pool() . " _ a<!---->@b.co\n", $result->value);
+        self::assertSame(0, $result->totalLosses);
+    }
+
+    public function testTightEmphasisKeepsItsFlanksWithStringMarkers(): void
+    {
+        $writer = CarveConverter::markdown();
+        $anchor = "```\n" . self::pool() . "\n```\n\n";
+        foreach (['a*_x*', 'a*x!*', 'a*[x*', 'a*#x*', '*x*_b', '*x*_', 'a/*_x*/'] as $source) {
+            $expected = $writer->convert($source);
+            $result = $writer->convertWithReport($anchor . $source);
+            self::assertSame($anchor . $expected, $result->value, $source);
+            self::assertSame(0, $result->totalLosses, $source);
+        }
+    }
+
+    public function testProbeTokensConsumedAsListMarkersAreNotReused(): void
+    {
+        $writer = CarveConverter::markdown();
+        $document = $writer->parse("```\n" . self::pool() . "\n```\n");
+        $token = "\u{E009}m0x8\u{E00A}";
+        $children = [new Text('1')];
+        foreach (mb_str_split($token) as $character) {
+            $children[] = new Text($character);
+        }
+        $children[] = new Text(' x');
+        $paragraph = new Paragraph();
+        $paragraph->setChildren($children);
+        $document->setChildren([$paragraph, ...$document->getChildren()]);
+        $result = $writer->renderWithReport($document);
+        self::assertStringContainsString('1' . $token . " x\n", $result->value);
+        self::assertSame(0, $result->totalLosses);
     }
 }

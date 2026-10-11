@@ -621,11 +621,32 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     public function render(Document $document): string
     {
+        $this->pickNarrowedSentinels($document);
+        if (strlen($this->fenceSentinel) > 3) {
+            $previousTarget = $this->renderLossTarget;
+            $this->renderLossTarget = null;
+            try {
+                $probe = $this->renderBody($document, false);
+            } finally {
+                $this->renderLossTarget = $previousTarget;
+            }
+            $this->setNarrowedSentinels(DocumentSentinels::shortTokens(
+                DocumentSentinels::collectNonces($probe) + DocumentSentinels::collectNonces($this->fenceSentinel),
+                count(self::NARROWED_CHARACTERS) + count(self::AUTHORED_POSITIONAL)
+                    + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
+            ));
+        }
+
+        return $this->renderBody($document, true);
+    }
+
+    private function renderBody(Document $document, bool $normalizeOutput): string
+    {
         $this->renderedChildren = new WeakMap();
         $this->lastRenderedParts = [];
         $this->delimiterAncestors = [];
         $this->inlineOwner = null;
-        $this->pickNarrowedSentinels($document);
+        $this->authoredHashes = 0;
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
@@ -657,6 +678,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $markdown = $document->hasAbbreviationsBeforeBody()
                 ? $residual . "\n" . $markdown
                 : $markdown . "\n" . $residual;
+        }
+
+        if (!$normalizeOutput) {
+            return $markdown;
         }
 
         // Normalize multiple blank lines, OUTSIDE a fenced payload.
@@ -809,6 +834,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $narrowed + $positional + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
             self::NARROWED_SENTINEL_FIRST,
         );
+        $this->setNarrowedSentinels($run);
+    }
+
+    /**
+     * @param list<string> $run
+     */
+    private function setNarrowedSentinels(array $run): void
+    {
+        $narrowed = count(self::NARROWED_CHARACTERS);
+        $positional = count(self::AUTHORED_POSITIONAL);
         // LAST IN THE RUN, and outside the class below. The fence sentinel is
         // gone before resolveNarrowedEscapes() runs, so widening the class to
         // cover it would only give that pass a character it has no mapping for.
@@ -2555,11 +2590,27 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function firstCharacter(string $text): string
     {
+        if (strlen($this->fenceSentinel) > 3) {
+            foreach (array_keys($this->sentinelCharacters()) as $sentinel) {
+                if (str_starts_with($text, $sentinel)) {
+                    return $sentinel;
+                }
+            }
+        }
+
         return preg_match('/^./us', $text, $matches) === 1 ? $matches[0] : '';
     }
 
     protected function lastCharacter(string $text): string
     {
+        if (strlen($this->fenceSentinel) > 3) {
+            foreach (array_keys($this->sentinelCharacters()) as $sentinel) {
+                if (str_ends_with($text, $sentinel)) {
+                    return $sentinel;
+                }
+            }
+        }
+
         return preg_match('/.$/usD', $text, $matches) === 1 ? $matches[0] : '';
     }
 
