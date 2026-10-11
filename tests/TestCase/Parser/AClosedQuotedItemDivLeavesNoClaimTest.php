@@ -53,8 +53,11 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
                 "> - ::: box\n>   ```\n>   :::\n>   ```\n>   :::\ntail\n",
                 "> - ::: box\n>\n>   body\n>   :::\ntail\n",
                 "> - ::: box\n>   body\nlazy\n>   :::\ntail\n",
+                "> - a\n>   ::: box\n>   :::\ntail\n",
                 "> - ::: box\n>\n>   :::: inner\n>   :::: \n>   :::\ntail\n",
                 "> - ::: box\n>   %%%\n>   :::\n>   %%%\n>   :::\ntail\n",
+                "> - ::: box\n>   body\n>   %%% x\n>   :::\n>   %%%\n>   :::\ntail\n",
+                "> - ::: box\n>   %%%\n>   %%%%% a\n>   :::\n>   %%%%% b\n>   :::\ntail\n",
                 "> - ::: box\n>   - :::: inner\n>     :::: \n>   :::\ntail\n",
             ] as $source
         ) {
@@ -73,7 +76,24 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
             ] as $source
         ) {
             $html = (new CarveConverter())->convert($source);
-            $this->assertStringEndsWith("</blockquote>\n", $html);
+            $this->assertMatchesRegularExpression('/<\/blockquote>\n<p>(?:tail|more)<\/p>\n$/', $html);
         }
+    }
+
+    public function testAnUnclosedCommentDoesNotHideTheColonCloser(): void
+    {
+        $source = "> - ::: box\n>   body\n>   %%%\n>   :::\n>   after\ntail\n";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString("after\ntail", $html);
+        $this->assertStringEndsWith("</blockquote>\n", $html);
+    }
+
+    public function testMalformedColonAbsorptionBelongsToOneItem(): void
+    {
+        $html = (new CarveConverter())->convert("> - :::bad\n>   :::\n- tail\n");
+        $this->assertStringContainsString(":::bad\n:::\n- tail", $html);
+        $this->assertStringEndsWith("</blockquote>\n", $html);
+        $html = (new CarveConverter())->convert("> - prose\n>   :::bad\n> - next\n>   :::\n- tail\n");
+        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
     }
 }
