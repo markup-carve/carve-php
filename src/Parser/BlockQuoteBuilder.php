@@ -375,9 +375,19 @@ final class BlockQuoteBuilder
             return false;
         }
         $paragraph = $state['paragraphOpen'];
+        $lazyMarker = false;
+        if (
+            $paragraph && $host['markers'] !== [] && $column > min($host['markers'])
+            && ($this->getListParser)()->parseListItemMarker($text) !== null && !in_array($column, $host['markers'], true)
+        ) {
+            foreach (array_slice($host['columns'], 0, -1) as $ancestorColumn) {
+                $lazyMarker = $lazyMarker || $column < $ancestorColumn;
+            }
+        }
         $foldedText = $paragraph
-            && ($this->getListParser)()->parseListItemMarker($text) === null
+            && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
+        $lazyMarker = $lazyMarker && $foldedText;
         while (
             $state['colonClaims'] !== []
             && $column < $state['colonClaims'][array_key_last($state['colonClaims'])]['column']
@@ -423,7 +433,7 @@ final class BlockQuoteBuilder
         $at = $column;
         $blockStart = false;
         while (true) {
-            $marker = ($this->getListParser)()->parseListItemMarker($inner);
+            $marker = $lazyMarker ? null : ($this->getListParser)()->parseListItemMarker($inner);
             if ($marker !== null) {
                 if ($paragraph && !$insideItem && !$sibling) {
                     break;
