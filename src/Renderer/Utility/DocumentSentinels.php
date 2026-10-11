@@ -115,6 +115,26 @@ final class DocumentSentinels
     }
 
     /**
+     * Pick string markers when the single-character pool is occupied.
+     *
+     * @return list<string>
+     */
+    public static function pickTokens(string $text, int $count, int $first): array
+    {
+        try {
+            return self::pick($text, $count, $first);
+        } catch (SentinelSpaceExhaustedException) {
+            $prefix = "\u{E009}" . str_repeat("\u{E008}", substr_count($text, "\u{E008}") + 1);
+            $tokens = [];
+            for ($index = 0; $index < $count; $index++) {
+                $tokens[] = $prefix . mb_chr(0xE010 + $index, 'UTF-8') . "\u{E00A}";
+            }
+
+            return $tokens;
+        }
+    }
+
+    /**
      * @return list<string>
      */
     protected static function run(int $base, int $count): array

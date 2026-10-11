@@ -488,7 +488,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         // The final slots carry list boundaries and code continuation guards.
         /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
-        $picked = DocumentSentinels::pick($text, 8, 0xE001);
+        $picked = DocumentSentinels::pickTokens($text, 8, 0xE001);
 
         return $picked;
     }
@@ -5009,8 +5009,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return (string)preg_replace_callback(
-            '/(?:^' . preg_quote($this->verbatimSentinels[4], '/') . '+)|' . preg_quote($this->verbatimSentinels[4], '/') . '{2,}/mu',
-            fn (array $m): string => str_repeat($this->verbatimSentinels[0], (int)mb_strlen($m[0], 'UTF-8')),
+            '/(?:^(?:' . preg_quote($this->verbatimSentinels[4], '/') . ')+)|(?:' . preg_quote($this->verbatimSentinels[4], '/') . '){2,}/mu',
+            fn (array $m): string => str_repeat($this->verbatimSentinels[0], intdiv(strlen($m[0]), strlen($this->verbatimSentinels[4]))),
             $text,
         );
     }
