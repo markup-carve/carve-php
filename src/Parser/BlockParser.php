@@ -3657,15 +3657,18 @@ class BlockParser
      * @param int $i
      * @param int $count
      * @param int $baseIndent
+     * @param int $contentIndent
      */
-    private function attachListContinuation(ListBlock $list, array $lines, int $i, int $count, int $baseIndent): ?int
+    private function attachListContinuation(ListBlock $list, array $lines, int $i, int $count, int $baseIndent, int $contentIndent): ?int
     {
         $lastItem = $this->listParser->getLastListItem($list);
         if ($lastItem === null) {
             return null;
         }
 
-        [$next, $attached, $lineMap] = $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent);
+        [$next, $attached, $lineMap] = $this->usesLegacyTrailingHook('collectListContinuationBlock')
+            ? $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent)
+            : $this->collectListContinuationAtColumn($lines, $i + 1, $count, $baseIndent, $contentIndent);
         if ($attached !== []) {
             $this->parseItemBlocks($lastItem, $attached, $lineMap);
         }
@@ -4402,6 +4405,20 @@ class BlockParser
      */
     protected function collectListContinuationBlock(array $lines, int $i, int $count, int $baseIndent): array
     {
+        return $this->collectListContinuationAtColumn($lines, $i, $count, $baseIndent, null);
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $i
+     * @param int $count
+     * @param int $baseIndent
+     * @param int|null $contentIndent
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int, int>}
+     */
+    private function collectListContinuationAtColumn(array $lines, int $i, int $count, int $baseIndent, ?int $contentIndent): array
+    {
         $trailingState = new TrailingBlockState();
         $attachedKind = self::ATTACHED_PENDING;
         $pendingThrough = -1;
@@ -4409,7 +4426,7 @@ class BlockParser
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, $lines, $baseIndent): bool {
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, $lines, $baseIndent, $contentIndent): bool {
                 $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
                 $trimmed = ltrim($line, " \t");
                 if (
@@ -4418,6 +4435,16 @@ class BlockParser
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
                         && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed)))
+                ) {
+                    return true;
+                }
+                if (
+                    $attachedKind === self::ATTACHED_PARAGRAPH
+                    && $contentIndent !== null
+                    && $lineIndent > $baseIndent
+                    && IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent
+                    && $trailingState->fence === null
+                    && $this->isReferenceDefinitionLine($trimmed)
                 ) {
                     return true;
                 }

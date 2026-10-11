@@ -43,7 +43,7 @@ final class ListBlockBuilder
      * @param \Closure(int|null, string, array<string>, int): (?int) $advanceItemCommentFenceCallback
      * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateCallback
      * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
-     * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock, array<string>, int, int, int): (?int) $attachListContinuationCallback
+     * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock, array<string>, int, int, int, int): (?int) $attachListContinuationCallback
      * @param \Closure(array<string>, int): (int) $blockQuoteExtentThroughDefinitionCallback
      * @param \Closure(string): (?string) $blockQuoteLineContentCallback
      * @param \Closure(array<string>, int, int, int): (array{0: int, 1: array<string>, 2: array<int, int>}) $collectListContinuationBlockCallback
@@ -203,7 +203,7 @@ final class ListBlockBuilder
             }
 
             if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine, " \t"))) {
-                $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent);
+                $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemContentIndent);
                 if ($next !== null) {
                     $i = $next;
                     $lastItemHadBlankAfter = false;
@@ -2198,10 +2198,11 @@ final class ListBlockBuilder
      * @param int $i
      * @param int $count
      * @param int $baseIndent
+     * @param int $contentIndent
      */
-    private function attachListContinuation(ListBlock $list, array $lines, int $i, int $count, int $baseIndent): ?int
+    private function attachListContinuation(ListBlock $list, array $lines, int $i, int $count, int $baseIndent, int $contentIndent): ?int
     {
-        return ($this->attachListContinuationCallback)($list, $lines, $i, $count, $baseIndent);
+        return ($this->attachListContinuationCallback)($list, $lines, $i, $count, $baseIndent, $contentIndent);
     }
 
     /**
