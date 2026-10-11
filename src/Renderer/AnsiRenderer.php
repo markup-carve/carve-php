@@ -1384,7 +1384,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         // Show raw blocks dimmed
         $format = $this->stripControls($node->getFormat());
-        $content = $this->stripControls($node->getContent());
+        $content = $this->stripControls($node->getPassthroughContent());
 
         return $this->style('[raw:' . $format . '] ' . $content, self::DIM) . "\n\n";
     }

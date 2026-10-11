@@ -327,7 +327,7 @@ class ProfileFilter
             return;
         }
 
-        $codeBlock = new CodeBlock($node->getCodeBlockContent(), $node->getFormat());
+        $codeBlock = new CodeBlock($node->getContent(), $node->getFormat());
         $codeBlock->setAttributesWithOrder($node->getAttributeEntries(), $node->getAttributeOrder());
         $codeBlock->setPos($node->getPos());
         $parent->replaceChildNode($node, $codeBlock);
@@ -721,7 +721,7 @@ class ProfileFilter
 
         // Handle nodes that store content directly (CodeBlock, RawBlock, etc.)
         if ($node instanceof ContentNodeInterface) {
-            $content = $node->getContent();
+            $content = $node instanceof RawBlock ? $node->getPassthroughContent() : $node->getContent();
             if ($content !== '') {
                 return $content;
             }

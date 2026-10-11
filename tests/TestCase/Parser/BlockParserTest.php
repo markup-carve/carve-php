@@ -727,6 +727,6 @@ DJOT;
 
         $children = $doc->getChildren();
         $this->assertCount(1, $children);
-        $this->assertSame("\n<b>bold</b>\n", $children[0]->getContent());
+        $this->assertSame("\n<b>bold</b>\n\n", $children[0]->getContent());
     }
 }

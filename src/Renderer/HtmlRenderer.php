@@ -4265,7 +4265,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return '';
         }
 
-        $content = $node->getContent();
+        $content = $node->getPassthroughContent();
 
         // Handle raw HTML according to safe mode
         if ($this->safeMode !== null) {
@@ -4275,7 +4275,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
             // An escaped raw block is a code block in its format (PART 10 §6).
             if ($mode === SafeMode::RAW_HTML_ESCAPE) {
-                return $this->renderPreCode($node, $node->getCodeBlockContent(), $node->getFormat());
+                return $this->renderPreCode($node, $node->getContent(), $node->getFormat());
             }
         }
 
