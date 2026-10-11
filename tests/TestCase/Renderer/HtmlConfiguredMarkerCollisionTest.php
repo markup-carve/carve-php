@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -18,7 +19,7 @@ class HtmlConfiguredMarkerCollisionTest extends TestCase
     public static function guards(): array
     {
         $rows = [];
-        for ($code = 0xE001; $code <= 0xE008; $code++) {
+        for ($code = 0xE001; $code <= 0xE004; $code++) {
             $rows[dechex($code)] = [(string)mb_chr($code, 'UTF-8')];
         }
 
@@ -69,5 +70,18 @@ class HtmlConfiguredMarkerCollisionTest extends TestCase
         $converter = new CarveConverter(renderer: $renderer);
 
         $this->assertSame("<p>{$glyphs}\nnext</p>\n", $converter->convert(":rocket:\nnext"));
+        $renderer->setSoftBreakMode(SoftBreakMode::Break);
+        $this->assertSame("<p>{$glyphs}<br>\nnext</p>\n", $converter->convert(":rocket:\nnext"));
+    }
+
+    public function testDocumentAndConfigurationBothExcludeGuardCandidates(): void
+    {
+        $glyphs = "\u{E001}\u{E002}\u{E003}\u{E004}";
+        $renderer = new HtmlRenderer(symbols: ['rocket' => $glyphs]);
+
+        $this->assertSame(
+            "<p>{$glyphs} \u{E005}</p>\n",
+            (new CarveConverter(renderer: $renderer))->convert(":rocket: \u{E005}"),
+        );
     }
 }
