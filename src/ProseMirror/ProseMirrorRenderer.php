@@ -850,9 +850,6 @@ class ProseMirrorRenderer
             $attrs['name'] = $node->getExtensionType();
         } elseif ($node instanceof RawBlock || $node instanceof RawInline) {
             $attrs['format'] = $node->getFormat();
-            if ($node instanceof RawBlock && $node->getContentTerminated() !== null) {
-                $attrs['contentTerminated'] = $node->getContentTerminated();
-            }
         } elseif ($node instanceof Comment) {
             // CarveKit's shape: the text is the single text child (the
             // codeBlock asymmetry, handled in renderBlock), and `block` is what

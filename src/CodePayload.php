@@ -20,8 +20,7 @@ use function substr;
  * built block may too; `"a"` and `"a\n"` are different values and survive JSON as
  * such.
  *
- * The raw block is NOT this encoding and keeps {@see \MarkupCarve\Carve\VerbatimPayload}
- * (markup-carve/carve#2616 leaves `raw_block.content` alone).
+ * Raw blocks use the same literal content encoding (markup-carve/carve#2911).
  *
  * @internal
  */

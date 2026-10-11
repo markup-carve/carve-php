@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Block;
 
+use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Node\ContentNodeInterface;
 
 /**
@@ -14,7 +15,6 @@ class RawBlock extends BlockNode implements ContentNodeInterface
     public function __construct(
         protected string $content = '',
         protected string $format = '',
-        protected ?bool $contentTerminated = null,
     ) {
     }
 
@@ -28,32 +28,9 @@ class RawBlock extends BlockNode implements ContentNodeInterface
         $this->content = $content;
     }
 
-    /**
-     * The content a code block stores for the same payload lines.
-     *
-     * The parser drops a raw block's final payload newline unless every payload
-     * line is blank; a code block keeps it.
-     */
-    public function getCodeBlockContent(): string
+    public function getPassthroughContent(): string
     {
-        if ($this->content === '') {
-            return '';
-        }
-        if (trim($this->content, "\n") === '') {
-            return $this->contentTerminated === false ? substr($this->content, 0, -1) : $this->content;
-        }
-
-        return $this->content . ($this->contentTerminated === false ? '' : "\n");
-    }
-
-    public function getContentTerminated(): ?bool
-    {
-        return $this->contentTerminated;
-    }
-
-    public function setContentTerminated(?bool $terminated): void
-    {
-        $this->contentTerminated = $terminated;
+        return trim($this->content, "\n") === '' ? $this->content : CodePayload::joinedLines($this->content);
     }
 
     public function getFormat(): string
