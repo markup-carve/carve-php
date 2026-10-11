@@ -16,6 +16,7 @@ use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -496,8 +497,30 @@ final class HtmlAstBuilder
             return new HtmlAstBuildResult(['type' => 'document', 'srcByteLength' => $sourceByteLength ?? strlen($html), 'children' => []], $this->session, $this->sourceSafe);
         }
 
+        $allEndnoteItems = [];
+        foreach ($root->getElementsByTagName('section') as $section) {
+            if (strtolower($section->getAttribute('role')) !== 'doc-endnotes') {
+                continue;
+            }
+            for ($ancestor = $section->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre', 'template'], true)) {
+                    continue 2;
+                }
+            }
+            foreach ($this->directEndnoteItems($section) as $item) {
+                $allEndnoteItems[] = $item;
+                $id = $item->getAttribute('id');
+                if ($id !== '' && !isset($this->session->endnoteItems[$id])) {
+                    $this->session->endnoteItems[$id] = $item;
+                }
+            }
+        }
+        $footnoteAnchors = [];
         foreach ($root->getElementsByTagName('a') as $anchor) {
-            if (strtolower($anchor->getAttribute('role')) !== 'doc-noteref') {
+            if (
+                strtolower($anchor->getAttribute('role')) !== 'doc-noteref'
+                && !self::isValidFootnoteCarrierLabel($anchor->getAttribute('data-carve-footnote-label'))
+            ) {
                 continue;
             }
             for ($ancestor = $anchor->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
@@ -505,9 +528,87 @@ final class HtmlAstBuilder
                     continue 2;
                 }
             }
+            $footnoteAnchors[] = $anchor;
             $href = $anchor->getAttribute('href');
             if (str_starts_with($href, '#') && strlen($href) > 1) {
                 $this->session->footnoteTargets[substr($href, 1)] = true;
+            }
+        }
+        $reservedLabels = [];
+        foreach ($allEndnoteItems as $item) {
+            $label = $item->getAttribute('data-carve-footnote-label');
+            if (!self::isValidFootnoteCarrierLabel($label) || self::hasConflictingEndnoteCarriers($item)) {
+                continue;
+            }
+            $key = 'label:' . LabelKey::normalize($label);
+            if (isset($reservedLabels[$key])) {
+                $this->session->droppedFootnoteLabelCarriers[$item] = true;
+
+                continue;
+            }
+            $reservedLabels[$key] = true;
+            $this->session->endnoteItemLabels[$item] = $label;
+        }
+        $itemsByLabel = [];
+        foreach ($allEndnoteItems as $item) {
+            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+                continue;
+            }
+            $label = $this->session->endnoteItemLabels[$item] ?? $this->footnoteLabel($item->getAttribute('id'));
+            if ($label !== '') {
+                $itemsByLabel['label:' . $label] ??= $item;
+            }
+        }
+        $targetItems = [];
+        foreach ($this->session->footnoteTargets as $target => $_) {
+            $target = (string)$target;
+            $item = $this->session->endnoteItems[$target] ?? $itemsByLabel['label:' . $this->footnoteLabel($target)] ?? null;
+            if ($item !== null) {
+                $targetItems[$target] = $item;
+                $this->session->referencedEndnoteItems[$item] = true;
+            } else {
+                $reservedLabels['label:' . LabelKey::normalize($this->footnoteLabel($target))] = true;
+            }
+        }
+        foreach ($footnoteAnchors as $anchor) {
+            $label = $anchor->getAttribute('data-carve-footnote-label');
+            if (!self::isValidFootnoteCarrierLabel($label)) {
+                continue;
+            }
+            $target = substr($anchor->getAttribute('href'), 1);
+            $item = $this->session->endnoteItems[$target] ?? null;
+            if ($item !== null && (self::hasConflictingEndnoteCarriers($item) || isset($this->session->droppedFootnoteLabelCarriers[$item]))) {
+                continue;
+            }
+            $reservedLabels['label:' . LabelKey::normalize($label)] = true;
+        }
+        $nextLabel = 1;
+        foreach ($allEndnoteItems as $item) {
+            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+                continue;
+            }
+            $id = $item->getAttribute('id');
+            if (!isset($this->session->endnoteItemLabels[$item])) {
+                if ($id === '' && !isset($this->session->droppedFootnoteLabelCarriers[$item])) {
+                    continue;
+                }
+                $label = $this->footnoteLabel($id);
+                if ($label === '' || isset($reservedLabels['label:' . LabelKey::normalize($label)])) {
+                    while (isset($reservedLabels['label:' . $nextLabel])) {
+                        $nextLabel++;
+                    }
+                    $label = (string)$nextLabel++;
+                }
+                $reservedLabels['label:' . LabelKey::normalize($label)] = true;
+                $this->session->endnoteItemLabels[$item] = $label;
+            }
+            if ($id !== '' && ($this->session->endnoteItems[$id] ?? null) === $item) {
+                $this->session->endnoteLabels[$id] = $this->session->endnoteItemLabels[$item];
+            }
+        }
+        foreach ($targetItems as $target => $item) {
+            if (isset($this->session->endnoteItemLabels[$item])) {
+                $this->session->endnoteLabels[$target] = $this->session->endnoteItemLabels[$item];
             }
         }
         foreach ($root->getElementsByTagName('template') as $template) {
@@ -1793,25 +1894,16 @@ final class HtmlAstBuilder
         $unreferenced = [];
         foreach ($this->directEndnoteItems($section) as $item) {
             $id = $item->getAttribute('id');
-            if ($item->hasAttribute('data-carve-inline-footnote')) {
+            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
                 $found = true;
 
                 continue;
             }
-            $label = $item->getAttribute('data-carve-footnote-label');
+            $label = $this->session->endnoteItemLabels[$item] ?? '';
             if (!self::isValidFootnoteCarrierLabel($label)) {
                 $label = $this->footnoteLabel($id);
             }
-            $referenced = $id !== '' && isset($this->session->footnoteTargets[$id]);
-            if (!$referenced && $label !== '') {
-                foreach (array_keys($this->session->footnoteTargets) as $target) {
-                    if ($this->footnoteLabel($target) === $label) {
-                        $referenced = true;
-
-                        break;
-                    }
-                }
-            }
+            $referenced = ($id !== '' && isset($this->session->footnoteTargets[$id])) || isset($this->session->referencedEndnoteItems[$item]);
             if (!$referenced) {
                 $unreferenced[] = [
                     'type' => 'list_item',
@@ -1875,6 +1967,19 @@ final class HtmlAstBuilder
         }
 
         return $items;
+    }
+
+    public static function hasConflictingEndnoteCarriers(DOMElement $node): bool
+    {
+        $list = $node->parentNode;
+        $section = $list?->parentNode;
+
+        return strtolower(HtmlDomLoader::elementName($node)) === 'li'
+            && $list instanceof DOMElement && strtolower(HtmlDomLoader::elementName($list)) === 'ol'
+            && $section instanceof DOMElement && strtolower(HtmlDomLoader::elementName($section)) === 'section'
+            && strtolower($section->getAttribute('role')) === 'doc-endnotes'
+            && self::isValidFootnoteCarrierLabel($node->getAttribute('data-carve-footnote-label'))
+            && $node->hasAttribute('data-carve-inline-footnote');
     }
 
     private function hasFollowingContent(DOMElement $node): bool
@@ -4130,6 +4235,14 @@ final class HtmlAstBuilder
      */
     private function inlineLink(DOMElement $node): array
     {
+        $href = $node->getAttribute('href');
+        $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
+        $markedReference = strtolower($node->getAttribute('role')) === 'doc-noteref'
+            || self::isValidFootnoteCarrierLabel($node->getAttribute('data-carve-footnote-label'));
+        $endnote = $markedReference ? ($this->session->endnoteItems[$fragment] ?? null) : null;
+        if ($endnote !== null && (self::hasConflictingEndnoteCarriers($endnote) || isset($this->session->droppedFootnoteLabelCarriers[$endnote]))) {
+            return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)]];
+        }
         // Raw HTML would write a denied destination the report says was dropped.
         if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
             foreach ($node->getElementsByTagName('img') as $image) {
@@ -4191,11 +4304,36 @@ final class HtmlAstBuilder
                 ],
             ];
         }
+        if (
+            $endnote !== null && $endnote->hasAttribute('data-carve-inline-footnote')
+            && !isset($this->session->activeInlineFootnotes[$fragment])
+        ) {
+            $this->session->activeInlineFootnotes[$fragment] = true;
+            $previous = $this->session->inFootnoteDefinition;
+            $this->session->inFootnoteDefinition = true;
+            try {
+                $inline = [];
+                foreach ($this->blocks($this->children($endnote)) as $block) {
+                    foreach ($this->projectToInlines($block) as $child) {
+                        $inline[] = $child;
+                    }
+                }
+            } finally {
+                $this->session->inFootnoteDefinition = $previous;
+                unset($this->session->activeInlineFootnotes[$fragment]);
+            }
+
+            return [['type' => 'inline_footnote', 'inline' => $inline]];
+        }
+
+        if ($endnote !== null && self::isValidFootnoteCarrierLabel($endnote->getAttribute('data-carve-footnote-label'))) {
+            return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
+        }
         if (strtolower($node->getAttribute('role')) === 'doc-noteref') {
             $href = $node->getAttribute('href');
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
 
-            return [['type' => 'footnote_ref', 'label' => $this->footnoteLabel($fragment)]];
+            return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)]];
         }
         if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
             return [];

@@ -29,8 +29,10 @@ class TrailingStateCompatibilityTest extends TestCase
             ): array {
                 $this->calls++;
                 $trailingState['extension-state'] = 'kept';
+                $trailingState['nestedDivState'] = 'extension';
                 $result = parent::collectPlainListItemContinuation($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible);
                 TestCase::assertSame('kept', $result[1]['extension-state']);
+                TestCase::assertSame('extension', $result[1]['nestedDivState']);
 
                 return $result;
             }
@@ -57,6 +59,50 @@ class TrailingStateCompatibilityTest extends TestCase
         $this->assertSame('`', $state['fenceChar']);
         $this->assertSame(3, $state['fenceLength']);
         $this->assertSame('kept', $state['extension-state']);
+    }
+
+    public function testDescendantTrackingDoesNotReenterTheLegacyHook(): void
+    {
+        $parser = new class extends BlockParser {
+            public int $calls = 0;
+
+            protected function advanceTrailingBlockState(array $state, string $line, bool $atContentColumn = false): array
+            {
+                $this->calls++;
+
+                return parent::advanceTrailingBlockState($state, $line, $atContentColumn);
+            }
+
+            public function trackDescendantBody(): void
+            {
+                $state = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, '- ::: box');
+                $this->advanceTrailingBlockState($state, '  body', true);
+            }
+        };
+        $parser->trackDescendantBody();
+        $this->assertSame(2, $parser->calls);
+    }
+
+    public function testDescendantFenceMetadataSurvivesItsCloser(): void
+    {
+        $parser = new class extends BlockParser {
+            public function closedDescendantFence(): array
+            {
+                $state = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, '- ::: box');
+                $state = $this->advanceTrailingBlockState($state, '  ```', true);
+                TestCase::assertTrue($state['inFence']);
+                TestCase::assertSame(2, $state['fenceColumn']);
+                TestCase::assertSame(2, $state['fenceHostColumn']);
+
+                return $this->advanceTrailingBlockState($state, '  ```', true);
+            }
+        };
+        $state = $parser->closedDescendantFence();
+        $this->assertFalse($state['inFence']);
+        $this->assertSame('`', $state['fenceChar']);
+        $this->assertSame(3, $state['fenceLength']);
+        $this->assertSame(2, $state['fenceColumn']);
+        $this->assertSame(2, $state['fenceHostColumn']);
     }
 
     public function testEachTrailingStateOverrideRunsDuringParsing(): void

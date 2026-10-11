@@ -12,6 +12,17 @@ namespace MarkupCarve\Carve\Parser;
  */
 final class TrailingBlockState
 {
+    /**
+     * @var list<array{marker:int, parent:int}>
+     */
+    public array $nestedDivHosts = [];
+
+    public ?self $nestedDiv = null;
+
+    public int $nestedDivColumn = 0;
+
+    public bool $nestedDivBody = false;
+
     // Legacy array hooks expose the fence metadata after its closer.
     private ?TrailingCodeFence $lastFence = null;
 
@@ -74,8 +85,26 @@ final class TrailingBlockState
         }
 
         $result->legacyExtras = array_diff_key($state, $result->toArray());
+        $result->restoreNestedDivState();
 
         return $result;
+    }
+
+    private function restoreNestedDivState(): void
+    {
+        $snapshot = $this->legacyExtras["\0carve.nestedDivState"] ?? null;
+        if ($snapshot instanceof self) {
+            $this->nestedDiv = $snapshot->nestedDiv;
+            $this->nestedDivColumn = $snapshot->nestedDivColumn;
+            $this->nestedDivBody = $snapshot->nestedDivBody;
+            $this->nestedDivHosts = $snapshot->nestedDivHosts;
+            unset($this->legacyExtras["\0carve.nestedDivState"]);
+        }
+    }
+
+    public function hasOpenDiv(): bool
+    {
+        return $this->inDiv || $this->nestedDiv !== null;
     }
 
     public function openFence(string $char, int $length, int $column, int $hostColumn = 0): void
@@ -89,6 +118,13 @@ final class TrailingBlockState
      */
     public function toArray(): array
     {
+        $extras = $this->legacyExtras;
+        if ($this->nestedDiv !== null || $this->nestedDivHosts !== []) {
+            $snapshot = clone $this;
+            $snapshot->legacyExtras = [];
+            $extras["\0carve.nestedDivState"] = $snapshot;
+        }
+
         return [
             'openParagraph' => $this->openParagraph,
             'inFence' => $this->fence !== null,
@@ -110,6 +146,6 @@ final class TrailingBlockState
             'quoteParagraph' => $this->quoteParagraph,
             'nestedColumn' => $this->nestedColumn,
             'nestedIsQuote' => $this->nestedIsQuote,
-        ] + $this->legacyExtras;
+        ] + $extras;
     }
 }

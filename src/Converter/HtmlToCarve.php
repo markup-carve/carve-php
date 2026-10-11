@@ -432,6 +432,7 @@ class HtmlToCarve
         $this->inspectedImportSourceBytes = null;
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
+        $this->droppedFootnoteLabelCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -454,6 +455,7 @@ class HtmlToCarve
 
     private function captureBuiltImport(HtmlImportSession $session): void
     {
+        $this->droppedFootnoteLabelCarriers = $session->droppedFootnoteLabelCarriers;
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
         $this->retainedListTypes = $session->retainedListTypes;
@@ -2114,6 +2116,14 @@ class HtmlToCarve
      */
     protected function inspectImportAttributes(DOMElement $node, string $tag, string $path, array &$diagnostics): void
     {
+        if (HtmlAstBuilder::hasConflictingEndnoteCarriers($node)) {
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting footnote label and inline footnote carriers on <' . $tag . '>', 'warning', $path);
+        }
+
+        if (isset($this->droppedFootnoteLabelCarriers[$node])) {
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped colliding footnote carrier label on <' . $tag . '>', 'warning', $path);
+        }
+
         $outerElement = $this->inspectedElement;
         $outerContent = $this->inspectedElementContent;
         $this->inspectedElement = $node;
@@ -2452,7 +2462,7 @@ class HtmlToCarve
             } elseif ($tag === 'ol' && $name === 'start' && filter_var($attribute->value, FILTER_VALIDATE_INT) === 1) {
                 // The native default preserves this value without an attribute.
                 continue;
-            } elseif ($name === 'data-carve-footnote-label' && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
+            } elseif ($name === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid footnote carrier label on <' . $tag . '>', 'warning', $path);
             } elseif ($name === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
@@ -3776,6 +3786,7 @@ class HtmlToCarve
         $this->displacedImportFigureAttributes = [];
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
+        $this->droppedFootnoteLabelCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -5039,6 +5050,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $droppedEmptyImportElements = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, true>|null
+     */
+    private ?SplObjectStorage $droppedFootnoteLabelCarriers = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, string|null>|null

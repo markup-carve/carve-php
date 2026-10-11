@@ -140,6 +140,36 @@ final class HtmlImportSession
     public array $footnoteTargets = [];
 
     /**
+     * @var array<string, \DOMElement>
+     */
+    public array $endnoteItems = [];
+
+    /**
+     * @var array<string, string>
+     */
+    public array $endnoteLabels = [];
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, string>
+     */
+    public SplObjectStorage $endnoteItemLabels;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
+    public SplObjectStorage $referencedEndnoteItems;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, true>
+     */
+    public SplObjectStorage $droppedFootnoteLabelCarriers;
+
+    /**
+     * @var array<string, true>
+     */
+    public array $activeInlineFootnotes = [];
+
+    /**
      * @var list<ImportedNode>
      */
     public array $footnoteDefinitions = [];
@@ -188,6 +218,9 @@ final class HtmlImportSession
 
     public function __construct()
     {
+        $this->droppedFootnoteLabelCarriers = new SplObjectStorage();
+        $this->endnoteItemLabels = new SplObjectStorage();
+        $this->referencedEndnoteItems = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();
