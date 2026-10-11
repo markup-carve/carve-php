@@ -33,7 +33,9 @@ $markdown = CarveConverter::create(null, $renderer)->convert($carveSource);
   syntax on an image, so a `::: class` div and an `![alt](src){.class}` lose
   their `{#id .class data-*}` by default (`AttributeFallback::Drop`), which is
   right for human-facing export. `AttributeFallback::Html` keeps them as raw
-  HTML instead - a `<div ...>` wrapper with blank lines around its
+  HTML instead. It also preserves attributes on strong, emphasis and strike
+  with `<strong ...>`, `<em ...>` and `<del ...>` tags. Containers use a
+  `<div ...>` wrapper with blank lines around its
   Markdown-rendered body, and an `<img ...>` tag - the way an inline `{=mark=}`
   already degrades to `<mark>`. Use it when the Markdown is an interchange
   format rather than a rendering. Attribute names and values are validated and

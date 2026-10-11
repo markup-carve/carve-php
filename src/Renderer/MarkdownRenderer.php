@@ -466,13 +466,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * Keep attributes Markdown cannot spell as raw HTML, or drop them (the
      * default).
      *
-     * Markdown has no block container and no attribute syntax on an image, so
-     * `{#id .class data-*}` has nowhere to go and is dropped - right for
-     * human-facing export, data loss for a consumer using Markdown as an
-     * interchange format. `AttributeFallback::Html` degrades those two to raw
-     * HTML instead, the way an inline mark already degrades to `<mark>`.
-     * Everything else is unchanged, and `Drop` output is byte-identical to
-     * before.
+     * `AttributeFallback::Html` preserves attributes on containers, images,
+     * strong, emphasis and strike using raw HTML. `Drop` discards these
+     * attributes, preserving the default policy for human-facing export.
      */
     public function setAttributeFallback(AttributeFallback $mode): self
     {
@@ -2074,14 +2070,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                     $nested = $children[$index] instanceof Strong ? $this->splitDelimitedRun($part, '**') : null;
                     if ($nested !== null) {
                         [$childLead, $core, $childTrail] = $nested;
-                        $parts[$index] = $childLead . '<strong' . $this->htmlAttributes($children[$index]) . '>' . $core . '</strong>' . $childTrail;
+                        $parts[$index] = $childLead . '<strong>' . $core . '</strong>' . $childTrail;
                     }
                 }
                 $repaired = implode('', $parts);
                 $piece['core'] = substr($repaired, strlen($lead), strlen($repaired) - strlen($lead) - strlen($trail));
             }
         }
-        $piece['open'] = substr($piece['open'], 0, -1) . $this->htmlAttributes($node) . '>';
 
         return $this->spellAsHtml($piece);
     }
@@ -4166,7 +4161,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderCaption(Caption $node): string
     {
-        return rtrim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+        try {
+            return rtrim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE) . "\n\n";
+        } finally {
+            unset($this->renderedChildren[$node]);
+        }
     }
 
     /**

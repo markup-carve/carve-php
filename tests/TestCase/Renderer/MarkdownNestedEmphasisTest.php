@@ -48,7 +48,23 @@ class MarkdownNestedEmphasisTest extends TestCase
                 self::assertSame($row['markdown'], $report->value);
                 self::assertSame([], $report->losses);
                 self::assertSame(0, $report->totalLosses);
+                self::assertFalse($report->truncated);
             }
+        }
+    }
+
+    public function testDropModeDoesNotRetainAttributesInDelimiterFallbacks(): void
+    {
+        $controls = [
+            ['{*x*}{#s .c}', "**x**\n"],
+            ['{/x/}{#e .c}', "*x*\n"],
+            ['{~x~}{#d .c}', "~~x~~\n"],
+            ['a{*!x*}{.c}b', "a<strong>!x</strong>b\n"],
+            ['{*a{*x*}{.c}b*}', "**a<strong>x</strong>b**\n"],
+        ];
+        $converter = CarveConverter::markdown();
+        foreach ($controls as [$source, $expected]) {
+            self::assertSame($expected, $converter->convert($source), $source);
         }
     }
 

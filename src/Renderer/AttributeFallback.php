@@ -7,7 +7,8 @@ namespace MarkupCarve\Carve\Renderer;
 /**
  * Controls what the Markdown target does with attributes Markdown cannot spell.
  *
- * Markdown has no syntax for a block container or for attributes on an image, so
+ * Markdown has no syntax for a block container or for attributes on images,
+ * strong, emphasis or strike, so
  * `{#id .class data-*}` has nowhere to go. `Drop` discards them, which is right
  * for human-facing export. `Html` keeps them as raw HTML - a `<div>` wrapper and
  * an `<img>` tag - the same degradation an inline mark already gets, which is
