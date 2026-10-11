@@ -57,4 +57,24 @@ final class DjotQuotedListBoundariesTest extends TestCase
         self::assertSame('line:3', $losses[0]['path']);
         self::assertSame('Multiline inline code uses raw HTML; plain-text export omits it.', $losses[0]['message']);
     }
+
+    public function testNestedNotesWithLazyContinuationHaveBoundedOutput(): void
+    {
+        $importer = new DjotToCarve();
+        $renderer = new CarveConverter();
+        foreach ([16, 32, 64] as $size) {
+            $headers = [];
+            $references = [];
+            for ($n = 0; $n < $size; $n++) {
+                $headers[] = str_repeat(' ', $n) . "[^n{$n}]: a";
+                $references[] = "[^n{$n}]";
+            }
+            $source = implode("\n\n", $headers) . "\n" . str_repeat("lazy\n", 4096) . "\n" . implode(' ', $references) . "\n";
+            $result = $importer->convert($source);
+            self::assertLessThanOrEqual(strlen($source) * 2, strlen($result));
+            $html = $renderer->convert($result);
+            self::assertSame(4096, substr_count($html, 'lazy'));
+            self::assertSame($size, substr_count($html, 'role="doc-noteref"'));
+        }
+    }
 }
