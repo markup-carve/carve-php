@@ -70,6 +70,14 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         }
     }
 
+    public function testMarkerBetweenThreeListHostsKeepsTheActualFence(): void
+    {
+        $source = "> - a\n>   - b\n>     - ::: box\n>       body\n>    - next\n>       :::\n- tail\n";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString("<p>body\n- next</p>", $html);
+        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+    }
+
     public function testMarkerBeforeTheOutermostHostStaysStructural(): void
     {
         $source = ">  - a\n>    - ::: box\n>      body\n> - next\n>      :::\n- tail\n";
