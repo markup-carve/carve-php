@@ -87,6 +87,25 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         $this->assertStringNotContainsString("<p>body\n- next</p>", $html);
     }
 
+    public function testLiteralAndDemotedBodiesAlsoCloseTheirRealDiv(): void
+    {
+        foreach (["|\n>     body", 'box'] as $body) {
+            $source = "> - a\n>   - ::: " . $body . "\n>  - next\n>     :::\n- tail\n";
+            $html = (new CarveConverter())->convert($source);
+            $this->assertStringContainsString('- next', $html);
+            $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+        }
+    }
+
+    public function testOffsetNestedMarkerKeepsAnAncestorColumnStructural(): void
+    {
+        $source = "> - a\n>    - ::: box\n>      body\n>   - next\n>      :::\n- tail\n";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString('<p>body</p>', $html);
+        $this->assertStringContainsString('<li>next', $html);
+        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+    }
+
     public function testHardbreakBodiesStillParseNestedDivs(): void
     {
         $source = <<<'CRV'
