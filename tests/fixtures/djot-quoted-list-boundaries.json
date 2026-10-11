@@ -7038,5 +7038,9 @@
   {
     "source": "[^a]: - [^b]: - item\n\n                para\n\nr[^a] r[^b]\n",
     "carve": "[^b]: - item\n\n    para\n\n[^a]: - %%%%\n\nr[^a] r[^b]\n"
+  },
+  {
+    "source": "[^a]: - [^b]: - [^c]: - item\n\n     para\n\nr[^a] r[^b] r[^c]\n",
+    "carve": "[^b]: - [^c]: - item\n\n[^a]: - %%%%\n  para\n\nr[^a] r[^b] r[^c]\n"
   }
 ]
