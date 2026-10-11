@@ -141,4 +141,25 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $this->assertStringContainsString('::: box', $html);
         $this->assertStringContainsString('lazy', $html);
     }
+
+    public function testAnUnestablishedContinuationOpenerKeepsItsLazyFollower(): void
+    {
+        $html = (new CarveConverter())->convert("- a\n  - b\n    ::: box\nlazy\n");
+        $this->assertStringContainsString("    lazy\n  </li>", $html);
+        $this->assertStringNotContainsString('<p>lazy</p>', $html);
+    }
+
+    public function testNestedCodePayloadKeepsWhitespaceOnlyLines(): void
+    {
+        $html = (new CarveConverter())->convert("- a\n  - ::: box\n    ```\n    x\n      \n    y\n    ```\n    :::\n");
+        $this->assertStringContainsString("<pre><code>x\n  \ny\n</code></pre>", $html);
+    }
+
+    public function testDefinitionLookingPayloadIsNotHoistedFromANote(): void
+    {
+        $source = "[^n]: note\n  - b\n    ::: box\n    ```\n    [r]: /url\n    ```\n    :::\n\nref[^n]\n";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString('[r]: /url', $html);
+        $this->assertStringContainsString("<code>\n[r]: /url\n</code>", $html);
+    }
 }

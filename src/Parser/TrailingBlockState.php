@@ -92,14 +92,14 @@ final class TrailingBlockState
 
     private function restoreNestedDivState(): void
     {
-        $snapshot = $this->legacyExtras['nestedDivState'] ?? null;
+        $snapshot = $this->legacyExtras["\0carve.nestedDivState"] ?? null;
         if ($snapshot instanceof self) {
             $this->nestedDiv = $snapshot->nestedDiv;
             $this->nestedDivColumn = $snapshot->nestedDivColumn;
             $this->nestedDivBody = $snapshot->nestedDivBody;
             $this->nestedDivHosts = $snapshot->nestedDivHosts;
+            unset($this->legacyExtras["\0carve.nestedDivState"]);
         }
-        unset($this->legacyExtras['nestedDivState']);
     }
 
     public function hasOpenDiv(): bool
@@ -122,7 +122,7 @@ final class TrailingBlockState
         if ($this->nestedDiv !== null || $this->nestedDivHosts !== []) {
             $snapshot = clone $this;
             $snapshot->legacyExtras = [];
-            $extras['nestedDivState'] = $snapshot;
+            $extras["\0carve.nestedDivState"] = $snapshot;
         }
 
         return [

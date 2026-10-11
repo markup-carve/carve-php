@@ -1700,10 +1700,22 @@ final class BlockContinuationScanner
             $text = ltrim($line, " \t");
             if ($column >= $state->nestedDivColumn || $text === '') {
                 $local = IndentationHelper::stripLeadingColumns($line, $state->nestedDivColumn);
-                $state->nestedDiv = $this->advanceTrailingState($state->nestedDiv, $local, true);
-                $state->openParagraph = $state->nestedDiv->openParagraph;
+                $child = $this->advanceTrailingStateCore($state->nestedDiv, $local, true);
+                $state->nestedDiv = $child;
+                $state->openParagraph = $child->openParagraph;
+                $fence = $child->fence;
+                if ($fence === null) {
+                    $state->fence = null;
+                } else {
+                    $state->openFence(
+                        $fence->char,
+                        $fence->length,
+                        $fence->column + $state->nestedDivColumn,
+                        $fence->hostColumn + $state->nestedDivColumn,
+                    );
+                }
                 $state->nestedDivBody = $state->nestedDivBody || $text !== '';
-                if (!$state->nestedDiv->inDiv && $state->nestedDiv->divDepth === 0) {
+                if (!$child->inDiv && $child->divDepth === 0) {
                     $state->nestedDiv = null;
                     $state->nestedColumn = 0;
                     $state->nestedIsQuote = false;
@@ -1723,6 +1735,7 @@ final class BlockContinuationScanner
                 return $state;
             }
             $state->nestedDiv = null;
+            $state->fence = null;
         }
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Clearing it here and re-arming it only
@@ -2002,6 +2015,7 @@ final class BlockContinuationScanner
                 $state->nestedDiv = $child;
                 $state->nestedDivColumn = $state->divColumn;
                 $state->nestedDivBody = false;
+                $state->openParagraph = !$bareFence;
                 $state->inDiv = false;
                 $state->divDepth = $parentDivDepth;
             }
