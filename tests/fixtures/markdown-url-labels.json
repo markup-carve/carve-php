@@ -3298,5 +3298,53 @@
   {
     "source": "> [*a* https://x.test/b](y)\n",
     "html": "<blockquote>\n<p><a href=\"y\"><em>a</em> https://x.test/b</a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a/<em>b</em>](y)\n",
+    "html": "<p><a href=\"y\">a/<em>b</em></a></p>\n"
+  },
+  {
+    "source": "- [a/<em>b</em>](y)\n",
+    "html": "<ul>\n<li><a href=\"y\">a/<em>b</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a/<em>b</em>](y)\n",
+    "html": "<blockquote>\n<p><a href=\"y\">a/<em>b</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[https://x.test/<em>a</em>](y)\n",
+    "html": "<p><a href=\"y\">https://x.test/<em>a</em></a></p>\n"
+  },
+  {
+    "source": "- [https://x.test/<em>a</em>](y)\n",
+    "html": "<ul>\n<li><a href=\"y\">https://x.test/<em>a</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [https://x.test/<em>a</em>](y)\n",
+    "html": "<blockquote>\n<p><a href=\"y\">https://x.test/<em>a</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[<em>b/ <strong>c</strong> d</em>](y)\n",
+    "html": "<p><a href=\"y\"><em>b/ <strong>c</strong> d</em></a></p>\n"
+  },
+  {
+    "source": "- [<em>b/ <strong>c</strong> d</em>](y)\n",
+    "html": "<ul>\n<li><a href=\"y\"><em>b/ <strong>c</strong> d</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [<em>b/ <strong>c</strong> d</em>](y)\n",
+    "html": "<blockquote>\n<p><a href=\"y\"><em>b/ <strong>c</strong> d</em></a></p>\n</blockquote>\n"
+  },
+  {
+    "source": "[a/b <em class=\"c\">x</em>](u)\n",
+    "html": "<p><a href=\"u\">a/b <em class=\"c\">x</em></a></p>\n"
+  },
+  {
+    "source": "- [a/b <em class=\"c\">x</em>](u)\n",
+    "html": "<ul>\n<li><a href=\"u\">a/b <em class=\"c\">x</em></a></li>\n</ul>\n"
+  },
+  {
+    "source": "> [a/b <em class=\"c\">x</em>](u)\n",
+    "html": "<blockquote>\n<p><a href=\"u\">a/b <em class=\"c\">x</em></a></p>\n</blockquote>\n"
   }
 ]

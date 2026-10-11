@@ -6738,42 +6738,44 @@ class MarkdownToCarve
             ) ?? $line;
         }
 
-        $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
-        $labelAt = 0;
-        $urlCursor = 0;
-        $urlSearch = 0;
-        $protectedUrls = '';
-        while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
-            $offset = $start[0][1];
-            while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
-                $labelAt++;
-            }
-            $label = $labelRanges[$labelAt] ?? null;
-            if ($label !== null && $offset >= $label['start'] && $offset < $label['end']) {
-                $urlSearch = $label['end'];
-
-                continue;
-            }
-            $end = $offset + strlen($start[0][0]);
-            $length = strlen($line);
-            while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
-                if ($line[$end] === "\0") {
-                    if (
-                        preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
-                        || preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[(int)$token[1]] ?? '') !== 1
-                    ) {
-                        break;
-                    }
-                    $end += strlen($token[0]);
-                } else {
-                    $end++;
+        if (str_contains($line, 'http://') || str_contains($line, 'https://')) {
+            $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
+            $labelAt = 0;
+            $urlCursor = 0;
+            $urlSearch = 0;
+            $protectedUrls = '';
+            while (preg_match('/\bhttps?:\/\//', $line, $start, PREG_OFFSET_CAPTURE, $urlSearch) === 1) {
+                $offset = $start[0][1];
+                while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
+                    $labelAt++;
                 }
+                $label = $labelRanges[$labelAt] ?? null;
+                if ($label !== null && $offset >= $label['start'] && $offset < $label['end']) {
+                    $urlSearch = $label['end'];
+
+                    continue;
+                }
+                $end = $offset + strlen($start[0][0]);
+                $length = strlen($line);
+                while ($end < $length && preg_match('/[\s<>`]/', $line[$end]) !== 1) {
+                    if ($line[$end] === "\0") {
+                        if (
+                            preg_match('/\G\x00P(\d+)\x00/', $line, $token, 0, $end) !== 1
+                            || preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[(int)$token[1]] ?? '') !== 1
+                        ) {
+                            break;
+                        }
+                        $end += strlen($token[0]);
+                    } else {
+                        $end++;
+                    }
+                }
+                $protectedUrls .= substr($line, $urlCursor, $offset - $urlCursor) . $protect(substr($line, $offset, $end - $offset));
+                $urlCursor = $end;
+                $urlSearch = $end;
             }
-            $protectedUrls .= substr($line, $urlCursor, $offset - $urlCursor) . $protect(substr($line, $offset, $end - $offset));
-            $urlCursor = $end;
-            $urlSearch = $end;
+            $line = $protectedUrls . substr($line, $urlCursor);
         }
-        $line = $protectedUrls . substr($line, $urlCursor);
 
         if ($this->convertMath) {
             $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
@@ -6858,7 +6860,7 @@ class MarkdownToCarve
                     $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
                     $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
                     $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
-                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1;
+                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1 || ($marker === '/' && $before === '/');
                     $written = $marker . $body . $marker;
 
                     return $forced ? '{' . $written . '}' : $written;
@@ -7922,6 +7924,10 @@ class MarkdownToCarve
      */
     private function escapeLinkLabelSlashes(string $source, array $protected): string
     {
+        if (!str_contains($source, '[')) {
+            return $source;
+        }
+
         $ranges = MarkdownEmphasis::linkLabelRanges($source, $protected);
         $outermost = [];
         $previousEnd = 0;
@@ -7936,8 +7942,11 @@ class MarkdownToCarve
             $label = substr($source, $range['start'], $range['end'] - $range['start']);
             $converted = MarkdownEmphasis::convert($label, protectedSpans: $protected);
 
-            return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(em|i)>[^<]+<\/\1>/i', $label) === 1;
+            return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(?:em|i)>/i', $label) === 1;
         }));
+        if ($ranges === []) {
+            return $source;
+        }
         $rangeAt = 0;
         $out = '';
         $opaqueEnds = [];
