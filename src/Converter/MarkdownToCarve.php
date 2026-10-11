@@ -247,13 +247,19 @@ class MarkdownToCarve
     protected array $movedDefinitions = [];
 
     /**
-     * Footnote definitions taken out of the body, each already written the way
-     * `carve fmt` writes it: the label line, then its continuation lines two
-     * columns in. They precede the reference definitions at the end.
+     * Footnote definitions taken out of the body. Paragraph continuations use
+     * two columns; block bodies retain their four-column Markdown prefix.
      *
      * @var array<array<string>>
      */
     protected array $movedFootnotes = [];
+
+    private bool $importingFootnoteBody = false;
+
+    /**
+     * @var array<int, true>
+     */
+    private array $movedFootnoteBlockBodies = [];
 
     /**
      * @var list<int>
@@ -364,7 +370,7 @@ class MarkdownToCarve
             return [];
         }
         $all = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
-        $offset = count($this->splitFrontmatter($all));
+        $offset = $this->importingFootnoteBody ? 0 : count($this->splitFrontmatter($all));
         $sourceLines = $this->markdownSourceLines;
         $htmlSourceLines = $this->markdownHtmlSourceLines;
         $found = [];
@@ -809,11 +815,13 @@ class MarkdownToCarve
         // body is transformed. Run through the line loop it would be destroyed:
         // the opening `---` becomes a thematic break and the closing one a
         // setext underline, turning `description: y` into an `##` heading.
-        $frontmatter = $this->splitFrontmatter($allLines);
+        $frontmatter = $this->importingFootnoteBody ? [] : $this->splitFrontmatter($allLines);
         $this->markdownFrontmatterLines = count($frontmatter);
         $this->frontmatterSynthesized = $frontmatter !== [];
         $lines = $this->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
-        $this->importedFootnoteLabels = [];
+        if (!$this->importingFootnoteBody) {
+            $this->importedFootnoteLabels = [];
+        }
         $reservedFootnotes = [];
         preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
         foreach ($candidates[1] as $label) {
@@ -2033,6 +2041,27 @@ class MarkdownToCarve
                 if ($result !== []) {
                     $result[] = '';
                 }
+                if (
+                    isset($this->movedFootnoteBlockBodies[$index])
+                    && preg_match('/^(\[\^(?:[^\]\\\\]|\\\\.)+\]:)[ \t]*(.*)$/', $footnote[0], $head) === 1
+                ) {
+                    $body = [$head[2]];
+                    foreach (array_slice($footnote, 1) as $line) {
+                        $body[] = $line === '' ? '' : substr($line, 4);
+                    }
+                    $importer = clone $this;
+                    $importer->importingFootnoteBody = true;
+                    $converted = rtrim($importer->convert(implode("\n", $body)), "\n");
+                    $this->mergeFootnoteDiagnostics($importer, ($this->movedFootnoteSourceLines[$index] ?? 1) - 1);
+                    $body = explode("\n", $converted);
+                    $firstLine = array_shift($body);
+                    $result[] = $this->convertInlineFormatting($head[1]) . ' ' . ($firstLine === '' ? '{empty}' : $firstLine);
+                    foreach ($body as $line) {
+                        $result[] = $line === '' ? '' : '  ' . $line;
+                    }
+
+                    continue;
+                }
                 array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
             }
             foreach ($this->movedDefinitions as $definition) {
@@ -2073,7 +2102,7 @@ class MarkdownToCarve
         // - so the import takes the same answer, through the writer's own
         // parser test, marker and formatter, rather than a leading blank that
         // moved line 0 off `---` and lost the round trip (carve-php#2977).
-        if ($frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
+        if (!$this->importingFootnoteBody && $frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
             foreach ($breakLines as $at) {
                 $line = (string)($result[$at] ?? '');
                 if (str_ends_with($line, '---')) {
@@ -2106,6 +2135,24 @@ class MarkdownToCarve
         return $body === ''
             ? $prefix . "\n"
             : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body;
+    }
+
+    private function mergeFootnoteDiagnostics(self $importer, int $offset): void
+    {
+        $this->flattenedEmphasis = $this->flattenedEmphasis || $importer->flattenedEmphasis;
+        $this->carrierDamaged = $this->carrierDamaged || $importer->carrierDamaged;
+        foreach (['tableDiagnostics', 'rawSpanWhitespaceDiagnostics', 'boundaryDiagnostics', 'leadingWhitespaceDiagnostics', 'codeFallbackDiagnostics'] as $property) {
+            foreach ($importer->{$property} as $diagnostic) {
+                $path = $diagnostic->path;
+                if ($path !== null && preg_match('/^line:(\d+)$/', $path, $line) === 1) {
+                    $path = 'line:' . ((int)$line[1] + $offset);
+                }
+                $this->{$property}[] = new MigrationDiagnostic($diagnostic->code, $diagnostic->message, $diagnostic->severity, $diagnostic->fidelity, $diagnostic->confidence, $path);
+            }
+        }
+        foreach ($importer->unspellableOrderedTasks as $line) {
+            $this->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', self::ORDERED_TASK_ITEM_UNSPELLABLE, 'warning', 'dropped', 'exact', 'line:' . ($importer->sourceLine($line) + $offset));
+        }
     }
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
@@ -7263,19 +7310,22 @@ class MarkdownToCarve
      */
     protected function extractReferenceDefinitions(array $lines, ?array &$blockHtml = null): array
     {
-        $this->markdownFootnoteLabels = [];
-        $this->emptyDestinationLabels = [];
-        $this->complexReferenceTargets = [];
+        if (!$this->importingFootnoteBody) {
+            $this->markdownFootnoteLabels = [];
+            $this->emptyDestinationLabels = [];
+            $this->complexReferenceTargets = [];
+        }
         $authoredDefinitions = [];
         $invalidDefinitionPrefixes = [];
         $referenceChunk = null;
         $this->movedDefinitions = [];
         $this->movedFootnotes = [];
+        $this->movedFootnoteBlockBodies = [];
         $this->movedFootnoteSourceLines = [];
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
         $quote = '/^((?: {0,3}>[ \t]?)*)/';
-        $defined = [];
-        $labels = [];
+        $defined = $this->importingFootnoteBody ? $this->definedReferenceLabels : [];
+        $labels = $this->importingFootnoteBody ? $this->referenceDefinitionLabels : [];
         $kept = [];
         $fence = null;
         $htmlCloser = null;
@@ -7671,12 +7721,8 @@ class MarkdownToCarve
      * reporting whether it was taken. `carve fmt` writes footnotes there, ahead
      * of the reference definitions.
      *
-     * A footnote body can run over several lines, and it moves as one block, so
-     * only a body of paragraph text moves: every continuation line reaches the
-     * footnote's paragraph, and none of them is a block of its own. Each is
-     * written two columns in, which is the formatter's spelling. A footnote
-     * whose body holds a blank line, a block, or indented code stays where the
-     * source had it, and so does one inside a quote or a list item.
+     * Paragraph continuations use Carve's two-column prefix. A body with later
+     * blocks retains its Markdown prefix until block conversion removes it.
      *
      * @param array<string> $lines
      * @param int $index Advanced past the block taken.
@@ -7685,13 +7731,16 @@ class MarkdownToCarve
     {
         $count = count($lines);
         $end = $index;
+        preg_match('/^ {0,3}\[\^(?:[^\]\\\\]|\\\\.)+\]:[ \t]*(.*)$/', $lines[$index], $opening);
+        $paragraphOpen = isset($opening[1]) && trim($opening[1]) !== '' && !$this->opensMarkdownBlock($opening[1]);
         for ($at = $index + 1; $at < $count; $at++) {
             $line = $this->expandLeadingTabs($lines[$at], 8);
             if (
-                trim($line) === ''
+                !$paragraphOpen
+                || trim($line) === ''
                 || strspn($line, ' ') >= 8
                 || $this->opensMarkdownBlock(ltrim($line, ' '))
-                || preg_match('/^ *\[(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
+                || preg_match('/^ *\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
             ) {
                 break;
             }
@@ -7702,7 +7751,23 @@ class MarkdownToCarve
         for ($at = $end + 1; $at < $count; $at++) {
             if (trim($lines[$at]) !== '') {
                 if (strspn($this->expandLeadingTabs($lines[$at], 4), ' ') >= 4) {
-                    return false;
+                    $block = [ltrim($lines[$index], ' ')];
+                    for ($next = $index + 1; $next < $count; $next++) {
+                        $line = $this->expandLeadingTabs($lines[$next], 4);
+                        if ($next > $end && trim($line) !== '' && strspn($line, ' ') < 4) {
+                            break;
+                        }
+                        $block[] = trim($line) === '' ? '' : ($next <= $end ? '    ' . ltrim($line, ' ') : $line);
+                    }
+                    while (end($block) === '') {
+                        array_pop($block);
+                    }
+                    $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
+                    $this->movedFootnoteBlockBodies[count($this->movedFootnotes)] = true;
+                    $this->movedFootnotes[] = $block;
+                    $index = $next - 1;
+
+                    return true;
                 }
 
                 break;
@@ -7717,7 +7782,8 @@ class MarkdownToCarve
             $block[0] .= " \x00FNEMPTY\x00";
         }
         for ($at = $index + 1; $at <= $end; $at++) {
-            $block[] = '  ' . ltrim($this->expandLeadingTabs($lines[$at], 8), ' ');
+            // Reference definitions cannot interrupt the Markdown paragraph, but can in Carve.
+            $block[] = '  ' . $this->escapeBlockOpener(ltrim($this->expandLeadingTabs($lines[$at], 8), ' '));
         }
         $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
         $this->movedFootnotes[] = $block;
