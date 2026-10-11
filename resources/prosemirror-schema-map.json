@@ -108,7 +108,10 @@
     },
     "table": {
       "kind": "node",
-      "pm": "table"
+      "pm": "table",
+      "attrs": {
+        "carveSeparatorWidths": "authored separator-row dash widths, colons excluded; its PRESENCE says the author wrote a separator row rather than `|=` header cells"
+      }
     },
     "table_row": {
       "kind": "node",

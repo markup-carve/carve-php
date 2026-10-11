@@ -2785,10 +2785,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $tableRows[0]->getChildren(),
                 static fn (Node $child): bool => $child instanceof TableCell,
             ));
+            // ONE SEPARATOR CELL PER ENTRY THE FIELD HOLDS, not per header cell.
+            // A ragged table is authored with a separator row shorter than its
+            // header (`| |x |` over `|---|`), and padding it out to the header's
+            // width added a cell the author never wrote - which re-parsed to a
+            // different `separatorWidths` and broke `parse(fmt(x)) == parse(x)`.
+            // With no field at all the single default cell stands in, which is
+            // the pre-existing shape for an importer-forced delimiter row.
             $separators = [];
-            foreach ($headerCells as $index => $cell) {
+            $cellCount = $columnWidths !== [] ? count($columnWidths) : count($headerCells);
+            for ($index = 0; $index < $cellCount; $index++) {
                 $width = $columnWidths[$index] ?? 3;
-                $separators[] = $this->renderTableSeparator($width, $cell->getAlignment());
+                $alignment = isset($headerCells[$index])
+                    ? $headerCells[$index]->getAlignment()
+                    : TableCell::ALIGN_DEFAULT;
+                $separators[] = $this->renderTableSeparator($width, $alignment);
             }
             array_splice($rows, 1, 0, '|' . implode('|', $separators !== [] ? $separators : ['---']) . '|');
         }

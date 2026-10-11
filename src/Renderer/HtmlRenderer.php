@@ -2571,9 +2571,35 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $open . "\n" . ($body === '' ? "\n" : $body . "\n") . $close . "\n";
     }
 
+    /**
+     * Whether every width is one `data-carve-col-widths` can state so that a
+     * conforming reader takes it back (PART 10 §13a: a positive run of decimal
+     * digits, 1000 at most).
+     *
+     * @param array<int, int> $widths
+     */
+    private static function carrierStatesEveryWidth(array $widths): bool
+    {
+        foreach ($widths as $width) {
+            if ($width < 1 || $width > 1000) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     protected function renderTable(Table $node): string
     {
-        $carriesWidths = $this->roundTripMode && $node->getSeparatorWidths() !== null;
+        // NO CARRIER AT ALL where an entry is outside what a conforming reader
+        // takes (PART 10 §13a). The field itself has no upper bound, but §13a
+        // has the reader refuse the whole carrier above 1000, so writing one
+        // would be a round-trip promise this writer cannot keep. The bound is
+        // folded into `$carriesWidths` rather than checked at the write below,
+        // so a withheld carrier does not claim the attribute slot either and an
+        // author's own `data-carve-col-widths` wins the collision it should.
+        $separatorWidths = $this->roundTripMode ? $node->getSeparatorWidths() : null;
+        $carriesWidths = $separatorWidths !== null && self::carrierStatesEveryWidth($separatorWidths);
         $tableAttrs = $this->attributesBesideCarriers($node, $carriesWidths ? ['data-carve-col-widths'] : []);
         unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
         $hasBodyMetadata = isset($tableAttrs['body-rows']) || isset($tableAttrs['body-header-rows']) || isset($tableAttrs['body-header-cols']);
@@ -2585,9 +2611,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $attrs = $this->renderAttributeArray($tableAttrs);
 
-        // Add round-trip separator widths attribute if available and in round-trip mode
         if ($carriesWidths) {
-            $widths = implode(',', $node->getSeparatorWidths());
+            $widths = implode(',', $separatorWidths);
             $attrs .= ' data-carve-col-widths="' . htmlspecialchars($widths, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"';
         }
 

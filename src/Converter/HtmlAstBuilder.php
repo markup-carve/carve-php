@@ -2366,22 +2366,27 @@ final class HtmlAstBuilder
     }
 
     /**
-     * The widest separator cell an import will build.
+     * The widest separator cell the CARRIER may state (PART 10 §13a).
      *
-     * The carrier is a number an importer reads off untrusted HTML, and the
-     * writer spells one dash per unit, so an unbounded value is a document-size
-     * amplification rather than a wide table.
+     * The bound is the carrier's alone. A parse records what the author typed
+     * and nothing amplifies there, so neither the field nor the schema caps a
+     * width; the carrier is a number an importer reads off HTML it does not
+     * control, and the writer spells one dash per unit, so six characters of
+     * attribute would otherwise buy a megabyte of separator row.
      *
      * @var int
      */
-    private const MAX_SEPARATOR_WIDTH = 1000;
+    private const MAX_CARRIER_WIDTH = 1000;
 
     /**
      * The `data-carve-col-widths` carrier read back as the published field.
      *
-     * The carrier is author-supplied in the untrusted case and arbitrary in the
-     * trusted one, so every entry is clamped into what the schema allows: an
-     * integer of at least 1, and no wider than a separator row anyone wrote.
+     * PART 10 §13a: a reader REFUSES THE WHOLE CARRIER, writing no field at all
+     * and so leaving the `|=` form, where any entry is not a run of decimal
+     * digits, is not positive, or exceeds 1000. Not a clamp: clamping keeps a
+     * separator row whose widths nobody wrote, which is the same objection that
+     * makes whole-carrier refusal right for a non-numeric entry. A carrier one
+     * reader cannot take is not evidence about the entries it could.
      *
      * @return array<int, int>
      */
@@ -2390,10 +2395,14 @@ final class HtmlAstBuilder
         $widths = [];
         foreach (explode(',', $carrier) as $raw) {
             $raw = trim($raw);
-            if ($raw === '' || preg_match('/^\d+$/', $raw) !== 1) {
+            if (preg_match('/^\d+$/', $raw) !== 1) {
                 return [];
             }
-            $widths[] = max(1, min(self::MAX_SEPARATOR_WIDTH, (int)$raw));
+            $width = (int)$raw;
+            if ($width < 1 || $width > self::MAX_CARRIER_WIDTH) {
+                return [];
+            }
+            $widths[] = $width;
         }
 
         return $widths;

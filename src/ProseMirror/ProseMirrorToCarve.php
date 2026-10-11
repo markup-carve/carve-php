@@ -1585,6 +1585,11 @@ class ProseMirrorToCarve
                 $node instanceof ListBlock && in_array($key, ['carveOlType', 'carveListStyle'], true) => $this->setState($node, 'style', self::asString($value)),
                 $node instanceof ListBlock && in_array($key, ['carveDelim', 'carveListMarker'], true) => $this->setState($node, 'marker', self::asString($value)),
                 $node instanceof ThematicBreak && $key === 'carveMarker' => true,
+                $node instanceof Table && $key === 'carveSeparatorWidths' => $this->setState(
+                    $node,
+                    'separatorWidths',
+                    self::separatorWidths($value),
+                ),
                 $node instanceof BlockQuote && $key === 'carveFenced' => $this->setState(
                     $node,
                     'fenced',
@@ -2354,6 +2359,37 @@ class ProseMirrorToCarve
         }
 
         return $text;
+    }
+
+    /**
+     * `carveSeparatorWidths` read back, bounded the way PART 10 §13a bounds it.
+     *
+     * The payload comes from an editor, so an entry may be anything. A list
+     * holding an entry that is not a positive integer is refused WHOLE and the
+     * field stays unset, the same answer the HTML importer gives a carrier it
+     * cannot take. No UPPER bound here: §13a bounds the HTML carrier, where six
+     * characters of attribute buy a dash per unit, and this payload states each
+     * width as a JSON integer with nothing to amplify.
+     *
+     * @return array<int, int>|null
+     */
+    private static function separatorWidths(mixed $value): ?array
+    {
+        if (!is_array($value) || $value === []) {
+            return null;
+        }
+        $widths = [];
+        foreach ($value as $entry) {
+            if (is_string($entry) && preg_match('/^\d+$/', $entry) === 1) {
+                $entry = (int)$entry;
+            }
+            if (!is_int($entry) || $entry < 1) {
+                return null;
+            }
+            $widths[] = $entry;
+        }
+
+        return $widths;
     }
 
     protected function setState(Node $node, string $property, mixed $value): bool

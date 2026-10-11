@@ -13,6 +13,8 @@ use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -133,19 +135,46 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     }
 
     /**
-     * A tree built by hand can carry a count that disagrees with the row. The
-     * separator is spelled for the cells that exist and no further, and a width
-     * below 1 writes one dash rather than an empty cell no parser reads back.
+     * THE FIELD DRIVES THE SEPARATOR CELL COUNT, not the header row.
+     *
+     * A ragged table is authored with a separator row holding FEWER cells than
+     * its header, so padding the row out to the header's width wrote a cell the
+     * author never spelled and re-parsed to a different `separatorWidths`;
+     * `parse(fmt(x)) == parse(x)` failed on three corpus documents. A count
+     * ABOVE the header's is reproduced for the same reason: the entries are
+     * what the author wrote, and dropping the surplus loses it. The drawn
+     * shapes are in the two test bodies below.
+     *
+     * A cell past the header takes no alignment colon, there being no cell to
+     * take one from.
      */
-    public function testAnEntryCountDisagreeingWithTheRowIsSpelledForTheCellsThatExist(): void
+    public function testTheFieldDrivesTheSeparatorCellCount(): void
     {
-        $source = "| a | b |\n|---|---|\n| 1 | 2 |\n";
-        $document = $this->parse($source);
+        $document = $this->parse("| a | b |\n|---|---|\n| 1 | 2 |\n");
         $table = $document->getChildren()[0];
         $this->assertInstanceOf(Table::class, $table);
-        $table->setSeparatorWidths([4, 2, 9, 7]);
+        $table->setSeparatorWidths([4, 2, 9]);
 
-        $this->assertSame("| a | b |\n|----|--|\n| 1 | 2 |\n", (new CarveRenderer())->render($document));
+        $written = (new CarveRenderer())->render($document);
+        $this->assertSame("| a | b |\n|----|--|---------|\n| 1 | 2 |\n", $written);
+    }
+
+    /**
+     * A SHORTER separator row than the header is kept short, which is what the
+     * ragged-table corpus documents author and the case the padding broke. The
+     * widths are compared rather than only the bytes, since re-parsing to the
+     * same field is the property the padding violated.
+     */
+    public function testAShorterSeparatorRowThanTheHeaderIsKeptShort(): void
+    {
+        $source = "| |x |\n|---|\n| y |\n";
+        $written = (new CarveRenderer())->render($this->parse($source));
+
+        $this->assertSame("| | x |\n|---|\n| y |\n", $written);
+        $this->assertSame(
+            $this->codec->encode($this->parse($written))['children'][0]['separatorWidths'],
+            $this->codec->encode($this->parse($source))['children'][0]['separatorWidths'],
+        );
     }
 
     /**
@@ -162,6 +191,89 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
         $ast = (new HtmlToCarve(trustedRoundTrip: true))->convertToAst($html);
 
         $this->assertSame([5, 3], $ast['children'][0]['separatorWidths']);
+    }
+
+    /**
+     * PART 10 §13a: a reader REFUSES THE WHOLE CARRIER, writing no field, where
+     * any entry is not a run of decimal digits, is not positive, or exceeds
+     * 1000. Not a clamp: clamping to the bound keeps a separator row whose
+     * widths nobody wrote, and absence of the field is a real spelling of the
+     * same table.
+     */
+    #[DataProvider('refusedCarrierProvider')]
+    public function testARefusedCarrierLeavesTheWholeFieldUnwritten(string $carrier): void
+    {
+        $html = '<table data-carve-col-widths="' . $carrier . '">'
+            . '<thead><tr><th>a</th><th>b</th></tr></thead>'
+            . '<tbody><tr><td>1</td><td>2</td></tr></tbody></table>';
+        $ast = (new HtmlToCarve(trustedRoundTrip: true))->convertToAst($html);
+
+        $this->assertArrayNotHasKey('separatorWidths', $ast['children'][0]);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function refusedCarrierProvider(): iterable
+    {
+        yield 'not a digit run' => ['5,x'];
+        yield 'no digits at all' => ['abc'];
+        yield 'an empty entry' => ['5,,3'];
+        yield 'a signed entry' => ['5,-3'];
+        yield 'a fractional entry' => ['5,3.5'];
+        yield 'zero is not positive' => ['0'];
+        yield 'zero beside a readable entry' => ['5,0'];
+        yield 'one past the bound' => ['1001'];
+        yield 'one past the bound beside a readable entry' => ['5,1001'];
+        yield 'far past the bound' => ['200000000'];
+    }
+
+    /**
+     * THE BOUND IS THE CARRIER'S, NOT THE FIELD'S. A parse records what the
+     * author typed and nothing amplifies there, so the schema caps no width and
+     * a 1500-dash separator row rides the wire intact.
+     */
+    public function testTheFieldItselfHasNoUpperBound(): void
+    {
+        $source = '| a |' . "\n" . '|' . str_repeat('-', 1500) . '|' . "\n" . '| 1 |' . "\n";
+        $ast = $this->codec->encode($this->parse($source));
+
+        $this->assertSame([1500], $ast['children'][0]['separatorWidths']);
+        $this->assertNull(AstSchema::firstViolation($ast));
+    }
+
+    /**
+     * The writer half of §13a: NO CARRIER where a conforming reader would
+     * refuse it, because a carrier the reader throws away is a round-trip
+     * promise the writer cannot keep. The table still renders, and imports back
+     * as the `|=` form.
+     */
+    public function testNoCarrierIsWrittenForAWidthPastTheBound(): void
+    {
+        $document = $this->parse("| a |\n|---|\n| 1 |\n");
+        $table = $document->getChildren()[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $table->setSeparatorWidths([1001]);
+
+        $renderer = new HtmlRenderer();
+        $renderer->setRoundTripMode(true);
+        $html = $renderer->render($document);
+
+        $this->assertStringNotContainsString('data-carve-col-widths', $html);
+        $this->assertStringContainsString('<table', $html);
+    }
+
+    public function testTheCarrierIsStillWrittenAtTheBound(): void
+    {
+        $document = $this->parse("| a |\n|---|\n| 1 |\n");
+        $table = $document->getChildren()[0];
+        $this->assertInstanceOf(Table::class, $table);
+        $table->setSeparatorWidths([1000]);
+
+        $renderer = new HtmlRenderer();
+        $renderer->setRoundTripMode(true);
+
+        $this->assertStringContainsString('data-carve-col-widths="1000"', $renderer->render($document));
     }
 
     // =========================================================================

@@ -753,6 +753,13 @@ class ProseMirrorRenderer
             $attrs['carveFenced'] = true;
         } elseif ($node instanceof ThematicBreak) {
             $attrs['carveMarker'] = $node->char;
+        } elseif ($node instanceof Table && $node->getSeparatorWidths() !== null) {
+            // An author-choice field, so it rides a prefixed attribute the way
+            // `carveMarker` does. Without it the bridge is not identity on a
+            // table the author wrote with a separator row: the widths are gone
+            // and, worse, so is the PRESENCE, so the writer comes back with the
+            // `|=` header form (markup-carve/carve#2894).
+            $attrs['carveSeparatorWidths'] = $node->getSeparatorWidths();
         } elseif ($node instanceof CodeBlock) {
             $this->appendCodeBlockAttributes($node, $attrs);
         } elseif ($node instanceof ListBlock) {

@@ -2241,13 +2241,27 @@ DJOT;
         $this->assertSame("{data-carve-stored-source=forged}\nreal\n", $this->roundTripConverter->convert($html));
     }
 
+    /**
+     * PART 10 §13a: THE WHOLE CARRIER IS REFUSED past the 1000 bound, writing no
+     * `separatorWidths` at all, so the header comes back in the `|=` form. This
+     * used to clamp, which bounded the resource but kept a separator row whose
+     * widths nobody wrote (markup-carve/carve#2894).
+     */
     public function testImportedTableWidthsHaveAResourceBound(): void
     {
         $html = '<table data-carve-col-widths="200000000"><tr><th>x</th></tr></table>';
         $carve = $this->roundTripConverter->convert($html);
 
         $this->assertLessThan(2000, strlen($carve));
-        $this->assertStringContainsString('| x |', $carve);
+        $this->assertSame("|= x |\n", $carve);
+    }
+
+    public function testAnImportedWidthAtTheBoundIsStillTaken(): void
+    {
+        $html = '<table data-carve-col-widths="1000"><tr><th>x</th></tr><tr><td>y</td></tr></table>';
+        $carve = $this->roundTripConverter->convert($html);
+
+        $this->assertStringContainsString('|' . str_repeat('-', 1000) . '|', $carve);
     }
 
     // ==================== Blockquote Footer and Cite Content ====================
