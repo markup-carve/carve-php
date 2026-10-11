@@ -25,6 +25,29 @@ class DjotWordAttributesTest extends TestCase
         );
     }
 
+    public function testClassAssignmentsResetEarlierClassesInTheirGroup(): void
+    {
+        foreach (
+            [
+                ['word{.a class=b .c}', '<p><span class="b c">word</span></p>'],
+                ['word{.a class=b .c class=d .e}', '<p><span class="d e">word</span></p>'],
+                ['word{.a title=x class=b .c}', '<p><span title="x" class="b c">word</span></p>'],
+                ['word{class=a}{class=b}', '<p><span class="a b">word</span></p>'],
+                ["word{.a\n.md:flex}", '<p><span class="a md:flex">word</span></p>'],
+                ["word{.a\n.-dash}", '<p><span class="a -dash">word</span></p>'],
+                ["word{.a\n.md:flex class=b .c}", '<p><span class="b c">word</span></p>'],
+                ["word{.a\nclass=b .md:flex}", '<p><span class="b md:flex">word</span></p>'],
+                ['[word]{.a class=b .c}', '<p><span class="b c">word</span></p>'],
+                ['*word*{.a class=b .c}', '<p><strong class="b c">word</strong></p>'],
+                ['[word](/u){.a class=b .c}', '<p><a href="/u" class="b c">word</a></p>'],
+                ['word{.a class=b .c}{.d class=e .f}', '<p><span class="b c e f">word</span></p>'],
+            ] as [$source, $expected]
+        ) {
+            $converted = (new DjotToCarve())->convert($source);
+            $this->assertSame($expected, rtrim((new CarveConverter())->convert($converted), "\n"), $source);
+        }
+    }
+
     public function testWordAttributes(): void
     {
         $cases = json_decode(<<<'JSON'

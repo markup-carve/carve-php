@@ -11,6 +11,71 @@ use ReflectionMethod;
 
 class DjotReferenceLayoutTest extends TestCase
 {
+    public function testOpeningBracketsInDefinitionLabelsResolve(): void
+    {
+        foreach (
+            [
+                ["[a[b]: /u\n\n[`a[b`][]", '<p><a href="/u"><code>a[b</code></a></p>'],
+                ["[a[b]: /u\n\n[x][a\\[b]", '<p><a href="/u">x</a></p>'],
+            ] as [$source, $expected]
+        ) {
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            $this->assertSame($expected, rtrim((new CarveConverter())->convert($result->value), "\n"), $source);
+            self::assertSame([], array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference'))));
+        }
+    }
+
+    public function testOpeningBracketAliasesKeepTheirContextsAndAvoidCollisions(): void
+    {
+        foreach (
+            [
+                "[a[b]: /u\n\n| [x][a\\[b] |",
+                "[a[b]: /u\n\n> [x][a\\[b]",
+                "[a[b]: /u\n\n- [x][a\\[b]",
+                "[a[b]: /old\n[a[b]: /u\n\n[x][a\\[b]",
+                "[carve-djot-reference-1]: /other\n[a[b]: /u\n\n[x][a\\[b] [y][carve-djot-reference-1]",
+            ] as $source
+        ) {
+            $converted = (new DjotToCarve())->convert($source);
+            $html = (new CarveConverter())->convert($converted);
+            $this->assertStringContainsString('<a href="/u">x</a>', $html, $source);
+            if (str_contains($source, '/other')) {
+                $this->assertStringContainsString('<a href="/other">y</a>', $html);
+            }
+        }
+    }
+
+    public function testShorthandClassesKeepTheirAppendSemanticsOnReferences(): void
+    {
+        foreach (
+            [
+                ["{.a .md:flex}\n[r]: /u\n\n[x][r]", 'a md:flex'],
+                ["{.a\n  .md:flex}\n[r]: /u\n\n[x][r]", 'a md:flex'],
+                ["[r]: /u\n\n[x][r]{.a .md:flex}", 'a md:flex'],
+                ["{.a class=b .md:flex}\n[r]: /u\n\n[x][r]", 'b md:flex'],
+            ] as [$source, $classes]
+        ) {
+            $native = (new DjotToCarve())->convert($source);
+            self::assertSame('<p><a href="/u" class="' . $classes . '">x</a></p>', rtrim((new CarveConverter())->convert($native), "\n"));
+        }
+    }
+
+    public function testCollapsedBracketLabelUsesItsWholeDefinitionKey(): void
+    {
+        $source = "[a[b]: /u\n[b]: /v\n\n[a\\[b][]";
+        $native = (new DjotToCarve())->convert($source);
+        self::assertSame('<p><a href="/u">a[b</a></p>', rtrim((new CarveConverter())->convert($native), "\n"));
+    }
+
+    public function testBracketAndPipeLabelResolvesInsideItsTableCell(): void
+    {
+        $source = "[a[b|c]: /u\n\n| [x][a\\[b\\|c] |";
+        $native = (new DjotToCarve())->convert($source);
+        $html = (new CarveConverter())->convert($native);
+        self::assertStringContainsString('<table>', $html);
+        self::assertStringContainsString('<td><a href="/u">x</a></td>', $html);
+    }
+
     public function testLongInheritedAttributesStayShared(): void
     {
         $value = str_repeat('v', 32768);

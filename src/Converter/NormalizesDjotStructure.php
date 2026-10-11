@@ -713,7 +713,7 @@ trait NormalizesDjotStructure
                 }
                 $itemAttributes = $this->readDjotWordAttributes($itemBody, 0);
                 $paragraph = !$itemDiv && !$itemHeading && ($itemAttributes === null || $itemAttributes['end'] !== strlen($itemBody))
-                    && preg_match('/^\[(?!\^)[^\[\]\n]+\]:/', $itemBody) !== 1 && !str_contains($body, "\x00DJOTNOTEATTR\x00")
+                    && preg_match('/^\[(?!\^)[^\]\n]+\]:/', $itemBody) !== 1 && !str_contains($body, "\x00DJOTNOTEATTR\x00")
                     && !($itemQuoteDepth > 0 && ($quoteBody === '' || preg_match('/^\[[^\]\n]*\]:/', $quoteBody) === 1 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|(?:[*-][ \t]*){3,}$)/', $quoteBody) === 1));
                 $blank = $itemDiv;
 
@@ -1149,7 +1149,8 @@ trait NormalizesDjotStructure
     {
         $slots = [];
         foreach ($parts as $part) {
-            foreach (AttributeParser::parse($part) as $key => $value) {
+            $parsed = $part[0] === '.' ? ['class' => substr($part, 1)] : AttributeParser::parse($part);
+            foreach ($parsed as $key => $value) {
                 $value = is_array($value) ? implode(' ', $value) : $value;
                 if ($part[0] === '.') {
                     if (isset($slots[$key]) && $slots[$key] !== '') {
@@ -1225,7 +1226,7 @@ trait NormalizesDjotStructure
                 || isset($definitionLines[$n - 1])
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previousContent) === 1
                 || ($previousStart > $start && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousStart)) === 1);
-            if (preg_match('/^\[(?!\^)([^\[\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
+            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
                 $attributeParts = [];
                 for ($k = $n - 1; $k >= 0; $k--) {
                     $attributeStart = $this->djotContentStart($lines[$k]);
@@ -1235,7 +1236,7 @@ trait NormalizesDjotStructure
                         break;
                     }
                     $attributeContent = substr($lines[$k], $attributeStart);
-                    $parsed = $this->readDjotWordAttributes($attributeContent, 0);
+                    $parsed = $this->readDjotWordAttributes($attributeContent, 0, preserveShorthand: true);
                     if ($parsed === null || $parsed['end'] !== strlen($attributeContent)) {
                         break;
                     }
@@ -1324,7 +1325,7 @@ trait NormalizesDjotStructure
             $own = '';
             $ownGroups = [];
             while (($source[$end] ?? '') === '{') {
-                $attrs = $this->readDjotWordAttributes($source, $end);
+                $attrs = $this->readDjotWordAttributes($source, $end, preserveShorthand: true);
                 if ($attrs === null) {
                     break;
                 }
@@ -1388,7 +1389,7 @@ trait NormalizesDjotStructure
         $aliases = [];
         $needsAliases = false;
         foreach ($definitions as $key => $definition) {
-            if ((str_contains((string)$key, '\\') || str_contains((string)$key, '|'))) {
+            if ((str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
                 $needsAliases = true;
 
                 break;
@@ -1396,7 +1397,7 @@ trait NormalizesDjotStructure
         }
         if ($needsAliases) {
             foreach ($definitions as $key => $definition) {
-                if (!(str_contains((string)$key, '\\') || str_contains((string)$key, '|'))) {
+                if (!(str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
                     continue;
                 }
                 $aliases[$key] = $nextAlias();

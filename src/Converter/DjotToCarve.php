@@ -884,9 +884,16 @@ class DjotToCarve
     /**
      * @return array{end: int, source: string, parts: list<string>}|null
      */
-    private function readDjotWordAttributes(string $source, int $start, bool $carve = false, bool $table = false, bool $paragraphContext = true): ?array
-    {
+    private function readDjotWordAttributes(
+        string $source,
+        int $start,
+        bool $carve = false,
+        bool $table = false,
+        bool $paragraphContext = true,
+        bool $preserveShorthand = false,
+    ): ?array {
         $parts = [];
+        $lastClassAssignment = -1;
         $length = strlen($source);
         $i = $start + 1;
         $context = null;
@@ -933,6 +940,10 @@ class DjotToCarve
                     }
                 }
 
+                if ($carve && $lastClassAssignment >= 0) {
+                    $parts = array_values(array_filter($parts, static fn (string $part, int $index): bool => $index >= $lastClassAssignment || (!str_starts_with($part, '.') && !str_starts_with($part, 'class=')), ARRAY_FILTER_USE_BOTH));
+                }
+
                 return ['end' => $i + 1, 'source' => '{' . implode(' ', $parts) . '}', 'parts' => $parts];
             }
             if (($source[$i] ?? '') === '%') {
@@ -977,12 +988,15 @@ class DjotToCarve
                 if ($kind === '#' ? preg_match('/[\]\[~!@#$%^&*(){}`,.<>\\\\|=+\/?\x{0009}-\x{000D}\x{0020}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', $value) === 1 : preg_match('/^[A-Za-z0-9_:-]+$/D', $value) !== 1) {
                     return null;
                 }
-                $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/', $value) === 1
+                $parts[] = ($preserveShorthand && !$carve && $kind === '.') || preg_match('/^[A-Za-z0-9_][\w-]*$/', $value) === 1
                     ? $kind . $value
                     : ($kind === '#' ? 'id' : 'class') . '=' . $quoteValue($value);
             } else {
                 if (preg_match('/\G[A-Za-z][A-Za-z0-9_-]*=/', $source, $key, offset: $i) !== 1) {
                     return null;
+                }
+                if ($key[0] === 'class=') {
+                    $lastClassAssignment = count($parts);
                 }
                 $i += strlen($key[0]);
                 $from = $i;
@@ -3210,7 +3224,7 @@ class DjotToCarve
             if ($mask[$i] !== '{' || $this->isDjotEscaped($source, $i)) {
                 continue;
             }
-            $attrs = $this->readDjotWordAttributes($source, $i);
+            $attrs = $this->readDjotWordAttributes($source, $i, preserveShorthand: true);
             if ($attrs === null) {
                 $end = $closes[$i] ?? null;
                 if ($end !== null && preg_match('/\G[A-Za-z][A-Za-z0-9_-]*=/', $source, offset: $i + 1)) {

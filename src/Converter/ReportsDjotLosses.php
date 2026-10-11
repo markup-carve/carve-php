@@ -83,7 +83,7 @@ trait ReportsDjotLosses
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:)/', $previousContent) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $previousContent) === 1
                 || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousAt)) === 1);
-            if (preg_match('/^\[(?!\^)([^\[\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
+            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
                 $destination = $definition[2];
                 for ($next = $n + 1; $next < $lineCount && $this->djotContentStart($lines[$next]) > $at && preg_match('/^\S+$/', substr($lines[$next], $this->djotContentStart($lines[$next]))) === 1; $next++) {
                     $destination .= substr($lines[$next], $this->djotContentStart($lines[$next]));
