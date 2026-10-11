@@ -10,6 +10,21 @@ use PHPUnit\Framework\TestCase;
 
 class DjotWordAttributesTest extends TestCase
 {
+    public function testLongConsecutiveAttributeGroupsKeepEveryClass(): void
+    {
+        $classes = [];
+        $source = 'word';
+        for ($i = 0; $i < 1024; $i++) {
+            $classes[] = 'c' . $i;
+            $source .= '{}{.c' . $i . '}';
+        }
+        $converted = (new DjotToCarve())->convert($source);
+        $this->assertSame(
+            '<p><span class="' . implode(' ', $classes) . '">word</span></p>',
+            rtrim((new CarveConverter())->convert($converted), "\n"),
+        );
+    }
+
     public function testWordAttributes(): void
     {
         $cases = json_decode(<<<'JSON'

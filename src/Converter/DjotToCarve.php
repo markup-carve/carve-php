@@ -553,13 +553,20 @@ class DjotToCarve
                 continue;
             }
             $firstAttributeEnd = $attrs['end'];
-            while (($source[$attrs['end']] ?? '') === '{') {
-                $next = $readAttributes($attrs['end']);
+            $attributeSources = $attrs['source'] === '{}' ? [] : [$attrs['source']];
+            $attributeEnd = $attrs['end'];
+            while (($source[$attributeEnd] ?? '') === '{') {
+                $next = $readAttributes($attributeEnd);
                 if ($next === null) {
                     break;
                 }
-                $joined = ($attrs['source'] === '{}' ? '' : $attrs['source']) . ($next['source'] === '{}' ? '' : $next['source']);
-                $attrs = ['end' => $next['end'], 'source' => $joined !== '' ? $joined : '{}'];
+                if ($next['source'] !== '{}') {
+                    $attributeSources[] = $next['source'];
+                }
+                $attributeEnd = $next['end'];
+            }
+            if ($attributeEnd !== $attrs['end']) {
+                $attrs = ['end' => $attributeEnd, 'source' => $attributeSources !== [] ? implode('', $attributeSources) : '{}'];
             }
             if ($wire !== null) {
                 $wire[$i] = $attrs + ['single' => $attrs['end'] === $firstAttributeEnd];
@@ -1191,13 +1198,20 @@ class DjotToCarve
             if ($attrs === null) {
                 continue;
             }
-            while (($source[$attrs['end']] ?? '') === '{') {
-                $next = $readNative($attrs['end']);
+            $attributeSources = $attrs['source'] === '{}' ? [] : [$attrs['source']];
+            $attributeEnd = $attrs['end'];
+            while (($source[$attributeEnd] ?? '') === '{') {
+                $next = $readNative($attributeEnd);
                 if ($next === null) {
                     break;
                 }
-                $joined = ($attrs['source'] === '{}' ? '' : $attrs['source']) . ($next['source'] === '{}' ? '' : $next['source']);
-                $attrs = ['end' => $next['end'], 'source' => $joined !== '' ? $joined : '{}'];
+                if ($next['source'] !== '{}') {
+                    $attributeSources[] = $next['source'];
+                }
+                $attributeEnd = $next['end'];
+            }
+            if ($attributeEnd !== $attrs['end']) {
+                $attrs = ['end' => $attributeEnd, 'source' => $attributeSources !== [] ? implode('', $attributeSources) : '{}'];
             }
             if ($attrs['source'] === '{}') {
                 $i = $attrs['end'] - 1;
