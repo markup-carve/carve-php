@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -17,6 +18,42 @@ use PHPUnit\Framework\TestCase;
 
 class SourceUnicodeMarkerExhaustionTest extends TestCase
 {
+    public function testFootnoteGuardsStaySeparateWhenOnlyEightCharactersAreFree(): void
+    {
+        foreach ([0xE001, 0xE003, 0xE004, 0xE005, 0xE006] as $freeStart) {
+            $pool = '';
+            for ($code = 0xE000; $code <= 0xF8FF; $code++) {
+                if ($code < $freeStart || $code >= $freeStart + 8) {
+                    $pool .= mb_chr($code, 'UTF-8');
+                }
+            }
+            $writer = CarveConverter::carve();
+            $source = "```\n{$pool}\n```\n\nbody[^n]\n\n[^n]: > `x`\n";
+            $document = $writer->parse($source);
+            $stack = $document->getChildren();
+            while ($stack !== []) {
+                $node = array_pop($stack);
+                if ($node instanceof Code) {
+                    $node->setContent("x`\n[r]: /url\ntail");
+                } elseif (method_exists($node, 'getChildren')) {
+                    array_push($stack, ...$node->getChildren());
+                }
+            }
+            $baseline = $writer->renderWithReport($document);
+            $this->assertSame([], $baseline->losses);
+            $this->assertSame(self::semanticTree((new AstCodec())->encode($document)), self::semanticTree((new AstCodec())->encode($writer->parse($baseline->value))));
+            $paragraph = new Paragraph();
+            $paragraph->setChildren([new Text("\u{E009}m0"), new RawText("x0\u{E00A}")]);
+            $document->setChildren([$paragraph, ...$document->getChildren()]);
+            $result = $writer->renderWithReport($document);
+            $this->assertSame([], $result->losses);
+            $this->assertStringContainsString($pool, $result->value);
+            $this->assertStringContainsString("\u{E009}m0x0\u{E00A}", $result->value);
+            $this->assertStringContainsString('[r]: /url', $result->value);
+            $this->assertSame($result->value, $writer->convert($result->value));
+        }
+    }
+
     public function testProbeKeepsAttributeBracingIndependentOfTheOccupiedPool(): void
     {
         $pool = implode('', array_map(static fn (int $code): string => mb_chr($code, 'UTF-8'), range(0xE000, 0xF8FF)));

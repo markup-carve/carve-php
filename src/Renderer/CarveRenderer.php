@@ -7,6 +7,8 @@ namespace MarkupCarve\Carve\Renderer;
 use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
+use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
+use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
@@ -469,6 +471,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private ?string $footnoteCodeGuard = null;
 
+    /**
+     * @var array<int, true>|null
+     */
+    private ?array $footnoteGuardNonces = null;
+
     private string $footnoteGuardSource = '';
 
     /**
@@ -490,13 +497,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
+     * @phpstan-impure
+     *
      * @return array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string}
      */
     protected function pickVerbatimSentinels(string $text): array
     {
         // The final slots carry list boundaries and code continuation guards.
         /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
-        $picked = DocumentSentinels::pickTokens($text, 8, 0xE001);
+        // Reserve a ninth character for the footnote continuation guard.
+        $picked = array_slice(DocumentSentinels::pickTokens($text, 9, 0xE001), 0, 8);
         $this->boundedSentinelChoice = strlen($picked[0]) > 3 ? $picked : null;
 
         return $picked;
@@ -524,6 +534,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->verbatimSentinels = $this->pickVerbatimSentinels($sentinelSource);
         $this->footnoteCodeGuard = null;
         $this->footnoteGuardSource = $sentinelSource . implode('', $this->verbatimSentinels);
+        $this->footnoteGuardNonces = $this->boundedSentinelChoice === null ? null : DocumentSentinels::collectNonces($this->footnoteGuardSource);
         $this->treeCacheSource = null;
         $this->bracedSpans = [];
         $this->bracedForAttributes = [];
@@ -553,6 +564,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             /** @var array{0: string, 1: string, 2: string, 3: string, 4: string, 5: string, 6: string, 7: string} $picked */
             $picked = DocumentSentinels::shortTokens($nonces, 8);
             $this->verbatimSentinels = $picked;
+            $this->footnoteCodeGuard = null;
+            $this->footnoteGuardSource = $sentinelSource . implode('', $picked);
+            $this->footnoteGuardNonces = $nonces + DocumentSentinels::collectNonces($this->footnoteGuardSource);
         }
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
@@ -3230,16 +3244,27 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderFootnote(Footnote $node): string
     {
-        $this->footnoteCodeGuard ??= DocumentSentinels::pickTokens($this->footnoteGuardSource, 1, 0xE001)[0];
+        $this->footnoteCodeGuard ??= $this->footnoteGuardNonces === null
+            ? DocumentSentinels::pickTokens($this->footnoteGuardSource, 1, 0xE001)[0]
+            : DocumentSentinels::shortTokens($this->markerProbeNonces ?? $this->footnoteGuardNonces, 1)[0];
         $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
-        $rawBody = (string)preg_replace('/' . $this->verbatimLineGuardPattern() . '(?=\[)/', $this->footnoteCodeGuard, $rawBody);
         $sentinel = preg_quote($this->verbatimSentinels[7], '/');
-        $refusal = '/^' . $sentinel . '(?:g(code|math|raw_inline|literal_inline)' . $sentinel . ')?>/';
+        $refusal = '/^' . $sentinel . '(?:g(code|math|raw_inline|literal_inline)' . $sentinel . ')?(.*)$/';
+        $definitions = new ReferenceDefinitionExtractor();
         foreach (explode("\n", $rawBody) as $line) {
-            if (preg_match($refusal, ltrim($line, " \t"), $match)) {
-                throw new SourceUnspellableException($match[1] ?? 'code', 'a block-marker continuation cannot stay inside a footnote paragraph');
+            if (!preg_match($refusal, ltrim($line, " \t"), $match)) {
+                continue;
+            }
+            $continuation = $match[2];
+            $referenceLine = ltrim($continuation, " \t");
+            if (str_starts_with($continuation, '>')
+                || $definitions->matchDefinitionLine($referenceLine) !== null
+                || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $referenceLine) === 1
+            ) {
+                throw new SourceUnspellableException($match[1] !== '' ? $match[1] : 'code', 'a block-marker continuation cannot stay inside a footnote paragraph');
             }
         }
+        $rawBody = (string)preg_replace_callback('/' . $this->verbatimLineGuardPattern() . '(?=\[)/', fn (): string => $this->footnoteCodeGuard ?? '', $rawBody);
         $body = $this->trimNonNbsp($rawBody);
         if ($body === '') {
             return '[^' . $this->writeFlatBracketRun($node->getLabel()) . ']: ' . self::EMPTY_BODY_SENTINEL;
@@ -3839,7 +3864,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Math => $withAttrs($this->guardCodeLines($this->renderMath($node), 'math')),
             $node instanceof RawInline => $node->getContent() === ''
                 ? throw new SourceUnspellableException('raw_inline', 'an empty raw inline has no Carve source spelling')
-                : $this->guardCodeLines($this->renderCode($node->getContent()), 'raw_inline') . '{=' . $this->escapeFormat($node->getFormat()) . '}',
+                : $this->guardCodeLines($this->renderVerbatimCode($node->getContent(), 'raw_inline'), 'raw_inline') . '{=' . $this->escapeFormat($node->getFormat()) . '}',
             $node instanceof LiteralInline => $this->guardCodeLines($this->renderLiteralInline($node), 'literal_inline'),
             $node instanceof RawText => $node->getContent(),
             $node instanceof Symbol => $withAttrs(':' . $this->escapeSymbolName($node->getName()) . ':'),
@@ -4444,7 +4469,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $this->recordUnspellableField($node, 'number', 'Carve source cannot spell an equation number');
         }
 
-        return ($node->isDisplay() ? '$$' : '$') . $this->renderCode($node->getContent());
+        return ($node->isDisplay() ? '$$' : '$') . $this->renderVerbatimCode($node->getContent(), 'math');
     }
 
     /**
@@ -4597,7 +4622,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderLiteralInline(LiteralInline $node): string
     {
-        return '!' . $this->renderCode($node->getContent()) . $this->renderAttrs($node);
+        return '!' . $this->renderVerbatimCode($node->getContent(), 'literal_inline') . $this->renderAttrs($node);
     }
 
     private function codeSpanFence(string $content): string
@@ -4620,6 +4645,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $this->renderCodeWithUnclosed($content, false);
     }
 
+    private function renderVerbatimCode(string $content, string $nodeType): string
+    {
+        try {
+            return $this->renderCode($content);
+        } catch (SourceUnspellableException $exception) {
+            throw new SourceUnspellableException($nodeType, $exception->reason);
+        }
+    }
+
     private function guardCodeLines(string $written, string $nodeType = 'code'): string
     {
         $marker = '/\n(?=>(?: |\n|$)|\[[^\]\n]+\]:[ \t])/';
@@ -4630,6 +4664,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $written;
         }
 
+        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]))/';
         return (string)preg_replace($marker, "\n" . $this->verbatimSentinels[7] . 'g' . $nodeType . $this->verbatimSentinels[7], $written);
     }
 
@@ -5214,7 +5249,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $text = $this->restoreFootnoteCodeGuard($text);
         $text = (string)preg_replace_callback(
             '/^([ \t>]*)' . preg_quote($this->verbatimSentinels[7], '/') . '(g(?:code|math|raw_inline|literal_inline)' . preg_quote($this->verbatimSentinels[7], '/') . ')?([>\[])/m',
-            static fn (array $m): string => ($m[2] === '' ? $m[1] . ' ' : (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ')) . $m[3],
+            static fn (array $m): string => ($m[2] === '' && $m[3] === '[' ? $m[1] . ' ' : (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ')) . $m[3],
             $text,
         );
         $text = (string)preg_replace('/' . $this->verbatimLineGuardPattern() . '/', '', $text);

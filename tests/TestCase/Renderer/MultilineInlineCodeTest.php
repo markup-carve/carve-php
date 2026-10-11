@@ -128,6 +128,74 @@ class MultilineInlineCodeTest extends TestCase
         }
     }
 
+    public function testNestedHostsPreserveDefinitionShapedCodePayloads(): void
+    {
+        $writer = CarveConverter::carve();
+        $codec = new AstCodec();
+        foreach (["- a\n  - b `x\n    [r]: /url` z\n", "> - a\n>   - b `x\n>     [r]: /url` z\n"] as $source) {
+            $document = $writer->parse($source);
+            $payloads = static function (array $tree) use (&$payloads): array {
+                $found = ($tree['type'] ?? null) === 'code' ? [$tree['value']] : [];
+                foreach ($tree as $child) {
+                    if (is_array($child)) {
+                        array_push($found, ...$payloads($child));
+                    }
+                }
+
+                return $found;
+            };
+            $this->assertSame(["x\n[r]: /url"], $payloads($codec->encode($document)));
+            $result = $writer->renderWithReport($document, strictLosses: true);
+            $this->assertSame(["x\n[r]: /url"], $payloads($codec->encode($writer->parse($result->value))));
+            $this->assertSame([], $result->losses);
+            $this->assertSame($result->value, $writer->convert($result->value));
+        }
+    }
+
+    public function testFootnoteReferenceContinuationsRefuseWithTheirNodeType(): void
+    {
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        foreach (['code', 'raw_inline', 'literal_inline', 'math'] as $type) {
+            foreach (['', ' ', "\t"] as $padding) {
+                $wire = $codec->encode($converter->parse("body[^n]\n\n[^n]: body\n"));
+                $node = ['type' => $type, $type === 'code' ? 'value' : 'content' => "x`\n{$padding}[r]: /url\ntail"];
+                if ($type === 'raw_inline') {
+                    $node['format'] = 'html';
+                } elseif ($type === 'math') {
+                    $node['display'] = false;
+                }
+                foreach ($wire['children'] as &$child) {
+                    if ($child['type'] === 'footnote') {
+                        $child['children'][0]['children'] = [$node];
+                    }
+                }
+                unset($child);
+                try {
+                    (new CarveRenderer())->render($codec->decode($wire));
+                    $this->fail('Expected a source refusal');
+                } catch (SourceUnspellableException $exception) {
+                    $this->assertSame($type, $exception->nodeType);
+                    $this->assertSame($padding === ''
+                        ? 'a block-marker continuation cannot stay inside a footnote paragraph'
+                        : 'a line of the value starts with whitespace, which the block layer strips', $exception->reason);
+                }
+            }
+        }
+    }
+
+    public function testLegacyVerbatimGuardRestorationKeepsItsIndent(): void
+    {
+        $renderer = new class extends CarveRenderer {
+            public function restoreLegacyGuard(string $tail): string
+            {
+                return $this->restoreVerbatim('  ' . $this->verbatimSentinels[7] . $tail);
+            }
+        };
+        $this->assertSame('   [r]: /url', $renderer->restoreLegacyGuard('[r]: /url'));
+        $this->assertSame(' > tail', $renderer->restoreLegacyGuard('> tail'));
+    }
+
     public function testTermRefusalsIdentifyTheVerbatimNode(): void
     {
         $converter = new CarveConverter();
