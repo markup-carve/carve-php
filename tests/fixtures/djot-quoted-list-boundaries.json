@@ -7246,5 +7246,81 @@
   {
     "source": "[a.b]: /x\n\np ![a\\.b][] q\n",
     "carve": "[a.b]: /x\n\np ![a\\.b][a.b] q\n"
+  },
+  {
+    "source": "[a]: /one\n\n  [a]: /two\n\n[l][a]\n",
+    "carve": "[l](/two)\n"
+  },
+  {
+    "source": "  [a]: /one\n\n[a]: /two\n\n[l][a]\n",
+    "carve": "[l](/two)\n"
+  },
+  {
+    "source": "[a]: /one\n\n  {.t}\n  [a]: /two\n\n[l][a]\n",
+    "carve": "[l](/two){.t}\n"
+  },
+  {
+    "source": "{.c}\n[x]: /u\n\n| h |\n|---|\n| [`a|b`][x] |\n",
+    "carve": "| h |\n|---|\n| [`a|b`](/u){.c} |\n"
+  },
+  {
+    "source": "[a|b]: /x\n\n| h |\n|---|\n| [`a|b`][] |\n",
+    "carve": "| h |\n|---|\n| [`a|b`](/x) |\n"
+  },
+  {
+    "source": "{.t}\n> [a]: /x\n\n[l][a]\n",
+    "carve": "{.t}\n> %%\n\n[l](/x)\n"
+  },
+  {
+    "source": "[ab]: /x\n\n[a\\ b][]\n",
+    "carve": "[a\\ b](/x)\n"
+  },
+  {
+    "source": "- {.t}\n  [a]: /x\n\n[l][a]\n",
+    "carve": "- %%\n\n[l](/x){.t}\n"
+  },
+  {
+    "source": "1. {.t}\n   [a]: /x\n\n[l][a]\n",
+    "carve": "1. %%\n\n[l](/x){.t}\n"
+  },
+  {
+    "source": "> - {.t}\n>   [a]: /x\n\n[l][a]\n",
+    "carve": "> - %%\n\n[l](/x){.t}\n"
+  },
+  {
+    "source": "{.t}\n- [a]: /x\n\n[l][a]\n",
+    "carve": "{.t}\n- %%\n\n[l](/x)\n"
+  },
+  {
+    "source": "{.t}\n> [a\\*b]: /x\n\n[l][a\\\\*b]\n",
+    "carve": "{.t}\n> %%\n\n[l](/x)\n"
+  },
+  {
+    "source": "{.c}\n[x]: /u\n\n| h |\n|---|\n| [[a](u|v)][x] |\n",
+    "carve": "| h |\n|---|\n| [[a]\\(u|v)][x] |\n"
+  },
+  {
+    "source": "  {.t}\n[a]: /x\n\n[l][a]\n",
+    "carve": "[l](/x){.t}\n"
+  },
+  {
+    "source": ">   {.t}\n> [a]: /x\n\n[l][a]\n",
+    "carve": "> %%\n\n[l](/x){.t}\n"
+  },
+  {
+    "source": "- {.t}\n  - [a]: /x\n\n[l][a]\n",
+    "carve": "- {.t}\n  - %%\n\n[l](/x)\n"
+  },
+  {
+    "source": "-   {.t}\n  [a]: /x\n\n[l][a]\n",
+    "carve": "- %%\n\n[l](/x){.t}\n"
+  },
+  {
+    "source": "- - {.t}\n    [a]: /x\n\n[l][a]\n",
+    "carve": "- - {%%}\n    {%%}\n\n[l](/x){.t}\n"
+  },
+  {
+    "source": "- [ ] {.t}\n  [a]: /x\n\n[l][a]\n",
+    "carve": "- [ ] {%%}\n  {%%}\n\n[l](/x){.t}\n"
   }
 ]

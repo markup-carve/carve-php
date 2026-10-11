@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
@@ -287,6 +288,18 @@ trait ReportsDjotLosses
     {
         $paragraph = new Paragraph();
         (new InlineParser(new BlockParser()))->parse($paragraph, $this->convert($label));
+
+        $pending = [$paragraph];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            $children = array_values(array_filter($node->getChildren(), static fn ($child): bool => !$child instanceof NonBreakingSpace));
+            if (count($children) !== count($node->getChildren())) {
+                $node->setChildren($children);
+            }
+            foreach ($children as $child) {
+                $pending[] = $child;
+            }
+        }
 
         return (new HeadingIdTracker())->getPlainText($paragraph, SmartTypographyMode::Source);
     }

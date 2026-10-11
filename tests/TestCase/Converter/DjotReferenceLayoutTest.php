@@ -110,7 +110,18 @@ class DjotReferenceLayoutTest extends TestCase
 
     public function testNonbreakingLabelWhitespaceDoesNotResolveSpaceDefinition(): void
     {
-        $result = (new DjotToCarve())->convertWithFidelityReport("[a b]: /x\n\n[a\\ b][]\n");
-        self::assertCount(1, array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference')));
+        foreach (['a b', "a\u{00a0}b"] as $label) {
+            $result = (new DjotToCarve())->convertWithFidelityReport('[' . $label . "]: /x\n\n[a\\ b][]\n");
+            self::assertCount(1, array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference')));
+        }
+    }
+
+    public function testPipesInsideNestedAttributesRemainCellBoundaries(): void
+    {
+        $source = "{.c}\n[x]: /u\n\n| h |\n|---|\n| [a{k=\"a|b\"}][x] |\n";
+        $method = new ReflectionMethod(DjotToCarve::class, 'normalizeDjotReferenceUses');
+        $normalized = $method->invoke(new DjotToCarve(), $source);
+        self::assertStringContainsString('[a{k="a|b"}][x]', $normalized);
+        self::assertStringNotContainsString('[x]{class=c}', $normalized);
     }
 }

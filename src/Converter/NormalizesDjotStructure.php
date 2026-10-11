@@ -711,7 +711,9 @@ trait NormalizesDjotStructure
                         $quoteBoundary = rtrim($quoteForCarve() . str_repeat(' ', $context->target + $context->content) . $itemQuote['prefix']);
                     }
                 }
-                $paragraph = !$itemDiv && !$itemHeading && !str_contains($body, "\x00DJOTNOTEATTR\x00")
+                $itemAttributes = $this->readDjotWordAttributes($itemBody, 0);
+                $paragraph = !$itemDiv && !$itemHeading && ($itemAttributes === null || $itemAttributes['end'] !== strlen($itemBody))
+                    && preg_match('/^\[(?!\^)[^\[\]\n]+\]:/', $itemBody) !== 1 && !str_contains($body, "\x00DJOTNOTEATTR\x00")
                     && !($itemQuoteDepth > 0 && ($quoteBody === '' || preg_match('/^\[[^\]\n]*\]:/', $quoteBody) === 1 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|(?:[*-][ \t]*){3,}$)/', $quoteBody) === 1));
                 $blank = $itemDiv;
 
@@ -1188,6 +1190,11 @@ trait NormalizesDjotStructure
                 $attributeParts = [];
                 for ($k = $n - 1; $k >= 0; $k--) {
                     $attributeStart = $this->djotContentStart($lines[$k]);
+                    $attributePrefix = substr($lines[$k], 0, $attributeStart);
+                    $prefix = substr($line, 0, $start);
+                    if (strpbrk($prefix, '-*+.):') !== false || substr_count($prefix, '>') > substr_count($attributePrefix, '>')) {
+                        break;
+                    }
                     $attributeContent = substr($lines[$k], $attributeStart);
                     $parsed = $this->readDjotWordAttributes($attributeContent, 0);
                     if ($parsed === null || $parsed['end'] !== strlen($attributeContent)) {
@@ -1204,7 +1211,7 @@ trait NormalizesDjotStructure
                     }
                 }
                 $attrs = $this->djotReferenceAttributes($attrs);
-                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $definition[2], 'attrs' => $attrs];
+                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $definition[2], 'attrs' => $attrs, 'line' => $n];
                 $definitionLines[$n] = ['key' => $this->djotReferenceDefinitionKey($definition[1]), 'start' => $start, 'labelLength' => strlen($definition[1])];
             }
             $offset += strlen($line) + 1;
@@ -1226,13 +1233,14 @@ trait NormalizesDjotStructure
         $labelClosers = [];
         $labelBarriers = [];
         $tablePipes = [];
-        $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false)) : [];
+        $pipeMask = str_contains($source, '|') ? $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false, 'autolinks' => false, 'attributeValues' => false, 'comments' => false]) : '';
+        $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $pipeMask) : [];
         $rowIndex = 0;
         $slashes = 0;
         for ($at = 0; $at < $length; $at++) {
             $escaped[$at] = $slashes % 2 === 0 ? "\0" : "\1";
             $slashes = $source[$at] === '\\' ? $slashes + 1 : 0;
-            if (($tableRows[$rowIndex] ?? false) && $source[$at] === '|' && $escaped[$at] === "\0") {
+            if (($tableRows[$rowIndex] ?? false) && $source[$at] === '|' && $pipeMask[$at] === '|' && $escaped[$at] === "\0") {
                 $tablePipes[$at] = true;
                 $brackets = [];
             }
@@ -1395,7 +1403,9 @@ trait NormalizesDjotStructure
                 $start = $record['start'];
                 $prefix = substr($line, 0, $start);
                 $alias = $aliases[$key] ?? null;
-                if ($start > 0 && trim($prefix) === '') {
+                if ($definitions[$key]['line'] !== $n) {
+                    $definitionEdits[] = [$offset + $start, strlen($line) - $start, '{%%}'];
+                } elseif ($start > 0 && trim($prefix) === '') {
                     $definitionEdits[] = [$offset, strlen($line), $prefix . '{%%}'];
                     $name = $alias ?? substr($line, $start + 1, $record['labelLength']);
                     $movedDefinitions[] = [$key, '[' . $name . substr($line, $start + $record['labelLength'] + 1)];
