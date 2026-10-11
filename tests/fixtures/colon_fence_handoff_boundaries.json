@@ -1,0 +1,222 @@
+[
+  {
+    "id": "published-dedent-g2-6118",
+    "source": "> 1. ::: box\n>    - ::: |\n>      ```\n>      x\n>      ```\n>      :::\n>     ```\n>     - x\n> ```\n",
+    "html": "<blockquote><ol><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ul><p><code>\n- x</code></p></div></li></ol><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g2-8855",
+    "source": "> 1. ::: box\n>    -  ::: |\n>       ```\n>       ```\n>       ```\n>       :::\n>      ```\n>      1. o\n> ```\n",
+    "html": "<blockquote><ol><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code><br><code></code></p></div></li></ul><p><code>\n1. o</code></p></div></li></ol><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g2-9215",
+    "source": "> 1. ::: box\n>    -  ::: |\n>       :::\n>     ```\n>     - x\n>   - n\n",
+    "html": "<blockquote><ol><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p><code>\n- x</code></p></div></li></ol><ul><li>n</li></ul></blockquote>"
+  },
+  {
+    "id": "published-dedent-g2-9440",
+    "source": "> 1. ::: box\n>    -  ::: |\n>       %% c\n>       ```\n>       :::\n>      ```\n>      1. o\n> ```\n",
+    "html": "<blockquote><ol><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><br><code></code></p></div></li></ul><p><code>\n1. o</code></p></div></li></ol><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g2-11020",
+    "source": "> 1. ::: box\n>    -   ::: |\n>        ```\n>        ```\n>        ```\n>        :::\n>       ```\n>       1. o\n> ```\n",
+    "html": "<blockquote><ol><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code><br><code></code></p></div></li></ul><p><code>\n1. o</code></p></div></li></ol><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-5166",
+    "source": "> > - ::: box\n> >   - - ::: |\n> >       ```\n> >       x\n> >       ```\n> >       :::\n> >    ```\n> >    - x\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><ul><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ul></li></ul><p><code>\n- x</code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-5727",
+    "source": "> > - ::: box\n> >   - - ::: |\n> >       ````\n> >       ```\n> >       :::\n> >    ```\n> >    - x\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><ul><li><div class=\"line-block\"><p><code>\n```</code></p></div></li></ul></li></ul><p><code>\n- x</code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-6071",
+    "source": "> - ::: box\n>   :::: in\n>   - ::: |\n>     ```\n>     :::\n>    ```\n>    - x\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n- x</code></p></div></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-6077",
+    "source": "> - ::: box\n>   :::: in\n>   - ::: |\n>     ```\n>     :::\n>    ```\n>    %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code></code></p></div></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-6298",
+    "source": "> - ::: box\n>   :::: in\n>   - ::: |\n>     x\n>     :::\n>    ```\n>    - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p><code>\n- x</code></p></div></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-6410",
+    "source": "> - ::: box\n>   :::: in\n>   - ::: |\n>     :::\n>    ```\n>    - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"></div></li></ul><p><code>\n- x</code></p></div></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-6537",
+    "source": "> - ::: box\n>   :::: in\n>   - ::: |\n>     ~~~\n>     :::\n>    ```\n>    - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>~~~</p></div></li></ul><p><code>\n- x</code></p></div></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-6639",
+    "source": "> - ::: box\n>   :::: in\n>   - ::: |\n>     ```=html\n>     :::\n>    ```\n>    - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p><code>=html</code></p></div></li></ul><p><code>\n- x</code></p></div></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-7316",
+    "source": "> > - ::: box\n> >   :::: in\n> >   - ::: |\n> >     x\n> >     :::\n> >    ```\n> >    %% c\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p><code></code></p></div></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-7526",
+    "source": "> > - ::: box\n> >   :::: in\n> >   - ::: |\n> >     ~~~\n> >     :::\n> >    ```\n> >    - x\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>~~~</p></div></li></ul><p><code>\n- x</code></p></div></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-14154",
+    "source": "> - ::: box\n>   -  ::: |\n>      ```\n>      :::\n>    ```\n>    - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n- x</code></p></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-14476",
+    "source": "> - ::: box\n>   -  ::: |\n>      ```\n>      x\n>      ```\n>      :::\n>     ```\n>     - x\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ul><p><code>\n- x</code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-14493",
+    "source": "> - ::: box\n>   -  ::: |\n>      ```\n>      x\n>      ```\n>      :::\n>     ```\n>     %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ul><p><code></code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-15160",
+    "source": "> - ::: box\n>   -  ::: |\n>      :::\n>    ```\n>    - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p><code>\n- x</code></p></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-15491",
+    "source": "> - ::: box\n>   -  ::: |\n>      ~~~\n>      :::\n>     ```\n>     - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div></li></ul><p><code>\n- x</code></p></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-15875",
+    "source": "> - ::: box\n>   -  ::: |\n>      ```=html\n>      :::\n>     ```\n>     - x\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>=html</code></p></div></li></ul><p><code>\n- x</code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-15900",
+    "source": "> - ::: box\n>   -  ::: |\n>      ```=html\n>      :::\n>     ```\n>     %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>=html</code></p></div></li></ul><p><code></code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-17613",
+    "source": "> > - ::: box\n> >   -  ::: |\n> >      ```\n> >      x\n> >      ```\n> >      :::\n> >    ```\n> >    %% c\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ul><p><code></code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-17923",
+    "source": "> > - ::: box\n> >   -  ::: |\n> >      x\n> >      :::\n> >     ```\n> >     - x\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p><code>\n- x</code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-18635",
+    "source": "> > - ::: box\n> >   -  ::: |\n> >      ~~~\n> >      :::\n> >    ```\n> >    %% c\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div></li></ul><p><code></code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-20269",
+    "source": "> - ::: box\n>   10. ::: |\n>       ```\n>       :::\n>    ```\n>    %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code></code></p></div></li></ol><p><code></code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-20374",
+    "source": "> - ::: box\n>   10. ::: |\n>       ```\n>       x\n>       ```\n>       :::\n>    ```\n>    - x\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ol><p><code>\n- x</code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-20606",
+    "source": "> - ::: box\n>   10. ::: |\n>       :::\n>      ```\n>      %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"></div></li></ol><p><code></code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-20827",
+    "source": "> - ::: box\n>   10. ::: |\n>       ```=html\n>       :::\n>    ```\n>    - x\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>=html</code></p></div></li></ol><p><code>\n- x</code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-20837",
+    "source": "> - ::: box\n>   10. ::: |\n>       ```=html\n>       :::\n>      ```\n>      %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>=html</code></p></div></li></ol><p><code></code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-20950",
+    "source": "> - ::: box\n>   10. ::: |\n>       ````\n>       ```\n>       :::\n>      ```\n>      - x\n>  x\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>\n```</code></p></div></li></ol><p><code>\n- x</code></p></div></li></ul><p>x</p></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-21793",
+    "source": "> > - ::: box\n> >   10. ::: |\n> >       ~~~\n> >       :::\n> >    ```\n> >    - x\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p>~~~</p></div></li></ol><p><code>\n- x</code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-21922",
+    "source": "> > - ::: box\n> >   10. ::: |\n> >       ```=html\n> >       :::\n> >      ```\n> >      %% c\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>=html</code></p></div></li></ol><p><code></code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "published-dedent-g3-22043",
+    "source": "> > - ::: box\n> >   10. ::: |\n> >       ````\n> >       ```\n> >       :::\n> >      ```\n> >      %% c\n> > q\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>\n```</code></p></div></li></ol><p><code></code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+  },
+  {
+    "id": "boundary-C1",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>    ```\n>    - x\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p><code>\n- x</code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "boundary-C1x",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>    x\n>    - x\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p>x\n- x\n<code></code></p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "boundary-C2",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>    ```\n>    %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p><code></code></p></div></li></ul><pre><code></code></pre></blockquote>"
+  },
+  {
+    "id": "boundary-C2x",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>    x\n>    %% c\n> ```\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p>x</p><p><code></code></p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "boundary-C3",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>    ```\n>    - x\n>  q\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p><code>\n- x</code></p></div></li></ul><p>q</p></blockquote>"
+  },
+  {
+    "id": "boundary-C3x",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>    x\n>    - x\n>  q\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p>x\n- x\nq</p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "boundary-D1",
+    "source": "> - ::: box\n>   ::: |\n>   ```\n>   :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"line-block\"><p><code>\n:::\n</code></p></div></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "boundary-D2",
+    "source": "> - ::: box\n>   ::: |\n>   :::\n>    ```\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"line-block\"></div><pre><code></code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "boundary-E1",
+    "source": "> - ::: box\n>   text\n>\n>   - ::: |\n>     :::\n>    ```\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><p>text</p><ul><li><div class=\"line-block\"></div></li></ul><pre><code></code></pre></div></li></ul></blockquote><p>lazy</p>"
+  },
+  {
+    "id": "boundary-E2",
+    "source": "> - ::: box\n>   - ::: |\n>     :::\n>    ```\n>\n>    z\nlazy\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><pre><code>\nz\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
+  }
+]

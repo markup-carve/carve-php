@@ -45,4 +45,21 @@ class ColonParagraphFenceOwnershipTest extends TestCase
             $this->assertSame($row['html'], trim((string)$actual), $row['id'] . "\n" . $row['source']);
         }
     }
+
+    public function testTheScopedHandoffPreservesLooseAndStructuralBoundaries(): void
+    {
+        /** @var array<array{id:string, source:string, html:string}> $rows */
+        $rows = json_decode(
+            (string)file_get_contents(__DIR__ . '/../../fixtures/colon_fence_handoff_boundaries.json'),
+            true,
+            flags: JSON_THROW_ON_ERROR,
+        );
+        $this->assertCount(44, $rows);
+        $converter = new CarveConverter();
+        foreach ($rows as $row) {
+            $actual = preg_replace('/>\s+</', '><', $converter->convert($row['source']));
+            $this->assertSame($row['html'], trim((string)$actual), $row['id'] . "\n" . $row['source']);
+        }
+    }
+
 }

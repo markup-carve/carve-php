@@ -2434,7 +2434,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>}} $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -7072,7 +7072,7 @@ class BlockParser
      * @param int $depth
      * @param string $char
      * @param int $length
-     * @param array<string, array{from:int, end:int, maxRun:int}> $memo
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool}> $memo
      * @param int $column
      */
     private function quotedCodeFenceHasCloser(array $lines, int $index, int $depth, string $char, int $length, array &$memo, int $column = 0): bool
@@ -7088,6 +7088,9 @@ class BlockParser
             return false;
         }
         $maxRun = 0;
+        // Reuse this scan for the descendant handoff's boundary guard. A
+        // cached boundary may reject a later handoff, but cannot admit one.
+        $inlineBoundary = false;
         $count = count($lines);
         for ($i = $start; $i < $count; $i++) {
             if (IndentationHelper::getLeadingColumns($lines[$i]) !== $sourceIndent) {
@@ -7095,8 +7098,16 @@ class BlockParser
             }
             $content = self::quotedContentAtDepth(IndentationHelper::stripLeadingColumns($lines[$i], $sourceIndent), $depth);
             if ($content === null) {
+                $marker = $this->listParser->parseListItemMarker(ltrim($lines[$i], " \t"));
+                $inlineBoundary = $inlineBoundary || ($marker !== null && !str_starts_with(ltrim($lines[$i], " \t"), '- '));
+
                 break;
             }
+            $text = ltrim($content, " \t");
+            $inlineBoundary = $inlineBoundary
+                || IndentationHelper::isBlankLine($content)
+                || IndentationHelper::getLeadingColumns($content) < $column
+                || (!str_starts_with($text, ':') && $this->lineOpensBlockForLooseness($text));
             if (IndentationHelper::getLeadingColumns($content) !== $column) {
                 continue;
             }
@@ -7112,7 +7123,7 @@ class BlockParser
                 $maxRun = max($maxRun, strlen($match[1]));
             }
         }
-        $memo[$key] = ['from' => $start, 'end' => $i, 'maxRun' => $maxRun];
+        $memo[$key] = ['from' => $start, 'end' => $i, 'maxRun' => $maxRun, 'inlineBoundary' => $inlineBoundary];
 
         return false;
     }
