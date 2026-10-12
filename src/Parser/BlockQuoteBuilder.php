@@ -575,16 +575,6 @@ final class BlockQuoteBuilder
         }
         $host['absorbing'] = !$blockStart && $paragraph && ($host['absorbing'] ?? false);
         $div = ($this->getFencedBlockParser)()->parseDivFenceOpener($inner);
-        if (
-            $floor > 0 && $colon === null && $at > $floor
-            && isset($host['initialMarkerColumn'])
-            && ($host['markers'][array_key_last($host['markers']) ?? 0] ?? $host['initialMarkerColumn']) < $host['initialMarkerColumn']
-            && preg_match('/^:{3,}[ \t]*$/', $inner) === 1
-        ) {
-            $state['paragraphOpen'] = true;
-
-            return true;
-        }
         if ($floor > 0 && $div === null && preg_match('/^:{3,}/', $inner) === 1) {
             $host['absorbing'] = true;
         }
