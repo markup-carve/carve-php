@@ -748,7 +748,9 @@ final class BlockContinuationScanner
                         $trackedContent = $markerContent;
                     }
                 }
-                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $trackedContent, $lines, $i);
+                $openCommentLength = $trailingState->hasLiteralDiv()
+                    ? null
+                    : $this->advanceItemCommentFence($openCommentLength, $trackedContent, $lines, $i);
                 if (!$inCommentSpan && $openCommentLength !== null) {
                     $spanFromMarkerLine = false;
                 }
@@ -784,14 +786,16 @@ final class BlockContinuationScanner
                     && !$wasInFence
                     && $this->itemFenceRunOutlivesTheItem($lines, $i, $contentLine, $contentIndent)
                     ? $this->advanceTrailingState($trailingState, 'text', true)
-                    : $this->advanceTrailingStateWithFenceLookahead(
-                        $trailingState,
-                        $trackedContent,
-                        $lines,
-                        $i,
-                        true,
-                        $contentIndent,
-                    );
+                    : ($trailingState->hasLiteralDiv()
+                        ? $this->advanceLiteralStateWithSourceFenceLookahead($trailingState, $trackedContent, $lines, $i, $contentIndent)
+                        : $this->advanceTrailingStateWithFenceLookahead(
+                            $trailingState,
+                            $trackedContent,
+                            $lines,
+                            $i,
+                            true,
+                            $contentIndent,
+                        ));
                 if ($inCommentSpan) {
                     // The opener already closed the paragraph and set the
                     // retention flag; a payload line that reopened the paragraph
@@ -1359,6 +1363,10 @@ final class BlockContinuationScanner
 
                 return $state;
             }
+            $literal->openParagraph = false;
+            $state->openParagraph = false;
+
+            return $state;
         }
         $opener = $literal->fence === null
             && IndentationHelper::getLeadingColumns($line, $column + 1) === $column
