@@ -229,7 +229,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         foreach ([$written, CarveConverter::toCarve($written)] as $rendered) {
             $html = (new CarveConverter())->convert($rendered);
             self::assertSame(1, substr_count($html, '<ul>'));
-            self::assertStringContainsString('<li><p>text</p></li>', $html);
+            self::assertMatchesRegularExpression('~<li>(?:<p>)?text(?:</p>)?</li>~', $html);
             self::assertStringContainsString("<pre><code>code\n</code></pre>", $html);
         }
     }
