@@ -1044,7 +1044,9 @@ final class BlockQuoteBuilder
             }
 
             $trimmed = ltrim($content, " \t");
-            $atContentColumn = $trimmed === $content;
+            $hostColumns = $state['hosts']['columns'] ?? [0];
+            $atContentColumn = $trimmed === $content
+                || IndentationHelper::getLeadingColumns($content) === $hostColumns[array_key_last($hostColumns)];
             $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
             $isThematicBreak = $atContentColumn && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
             $isTableRow = $atContentColumn && ($this->getTableParser)()->isTableRow($trimmed);

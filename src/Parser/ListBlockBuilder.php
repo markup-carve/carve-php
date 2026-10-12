@@ -439,6 +439,13 @@ final class ListBlockBuilder
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
                                 $trackedLine = $subMarkerComment ?? $stripped;
+                                if (!$wasSubInFence && $strippedIsMarker) {
+                                    $markerOffset = ($this->getListParser)()->markerWalkOffset($stripped, 0);
+                                    if ($markerOffset !== null && $this->itemFenceOpenerAt(substr($stripped, $markerOffset)) !== null) {
+                                        $trackedLine = (string)preg_replace('/[^ \t]/', ' ', substr($stripped, 0, $markerOffset))
+                                            . substr($stripped, $markerOffset);
+                                    }
+                                }
                                 // A closer at the host column ends a fence opened past it, as the item's own parse reads it.
                                 if (
                                     $subInterruptedParagraphFence
