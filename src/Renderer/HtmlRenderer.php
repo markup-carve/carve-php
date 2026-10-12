@@ -2249,25 +2249,34 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return false;
         }
 
-        $stack = [$node];
-        while ($stack !== []) {
-            $current = array_pop($stack);
+        $stack = [];
+        $current = $node;
+        while ($current !== null) {
             if ($current instanceof FootnoteRef) {
                 if (!$current->isUnresolved()) {
                     return true;
                 }
-
-                continue;
-            }
-            if ($current instanceof InlineFootnote) {
+            } elseif ($current instanceof InlineFootnote) {
                 return true;
-            }
-            foreach (array_reverse($current->getChildren()) as $child) {
-                // A definition only contributes through a reachable reference.
-                if (!$child instanceof Footnote) {
-                    $stack[] = $child;
+            } else {
+                $children = $current->getChildren();
+                if (count($children) === 1) {
+                    $child = reset($children);
+                    if (!$child instanceof Footnote) {
+                        $current = $child;
+
+                        continue;
+                    }
+                } elseif ($children !== []) {
+                    foreach (array_reverse($children) as $child) {
+                        // A definition only contributes through a reachable reference.
+                        if (!$child instanceof Footnote) {
+                            $stack[] = $child;
+                        }
+                    }
                 }
             }
+            $current = array_pop($stack);
         }
 
         return false;
