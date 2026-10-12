@@ -1355,6 +1355,42 @@ final class ListBlockBuilder
         // those with a byte-level opener probe before asking the visual-column
         // gate about every line; the latter is deliberately instrumented by the
         // scaling suite and must not be repeated at every nesting depth.
+        // A marker-led chunk delegates openers at its content floor to the
+        // descendant. Only an opener inside the parent band needs this pass.
+        $firstVisible = null;
+        foreach ($lines as $probeLine) {
+            if (!IndentationHelper::isBlankLine($probeLine)) {
+                $firstVisible = $probeLine;
+
+                break;
+            }
+        }
+        $firstMarker = $firstVisible === null ? null : ($this->getListParser)()->parseListItemMarker($firstVisible);
+        if ($firstVisible !== null && $firstMarker !== null && IndentationHelper::getLeadingColumns($firstVisible) === 0) {
+            $floor = $this->listMarkerWidth($firstVisible, $firstMarker);
+            $parentCandidate = false;
+            foreach ($lines as $index => $line) {
+                if ($eligible !== null && !isset($eligible[$index])) {
+                    continue;
+                }
+                $column = IndentationHelper::getLeadingColumns($line);
+                if ($column <= 0 || $column >= $floor) {
+                    continue;
+                }
+                $local = IndentationHelper::stripLeadingColumns($line, $column);
+                if (
+                    ($this->getListParser)()->parseListItemMarker($local) === null
+                    && $this->lineOpensBlockForLooseness($local, true)
+                ) {
+                    $parentCandidate = true;
+
+                    break;
+                }
+            }
+            if (!$parentCandidate) {
+                return false;
+            }
+        }
         $probeNestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
         $probeAfterBlank = false;
         $skipUntil = -1;
