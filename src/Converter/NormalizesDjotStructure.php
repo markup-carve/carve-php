@@ -430,7 +430,7 @@ trait NormalizesDjotStructure
             $row = ($rows[$n] ?? false) && !($noteOwner !== null && $paragraph && $quoteDepth >= $depth && !($lists !== [] && $indent <= $lists[array_key_last($lists)]->column));
             $blockStart = $outsideQuoteItem || ($quoteDepth > $depth && !$paragraph) || $row || $fences[$n] !== $original
                 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\|)/', $visible) === 1
-                || preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
+                || (preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1 && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) === 1);
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+[^ \t]/', $visible, $itemMatch) === 1;
             if ($outsideQuoteItem) {
                 $paragraph = false;
@@ -517,7 +517,7 @@ trait NormalizesDjotStructure
                 $out[] = $originalForCarve($nativeRemainder);
                 $paragraph = !($row || $fences[$n] !== $original
                     || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,})/', $visible) === 1
-                    || preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1 || preg_match('/^\[[^\]\n]*\]:/', $visible) === 1 || (!$paragraph && str_starts_with($visible, '{') && ($this->readDjotWordAttributes($visible, 0)['end'] ?? null) === strlen($visible)));
+                    || (preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1 && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) === 1) || preg_match('/^\[[^\]\n]*\]:/', $visible) === 1 || (!$paragraph && str_starts_with($visible, '{') && ($this->readDjotWordAttributes($visible, 0)['end'] ?? null) === strlen($visible)));
                 $blank = false;
 
                 continue;
@@ -631,7 +631,7 @@ trait NormalizesDjotStructure
 
                 continue;
             }
-            $rule = preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
+            $rule = (preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1 && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) === 1);
             if ($item && !$rule) {
                 $previousList = $lists === [] ? null : $lists[array_key_last($lists)];
                 $endsNestedList = $previousList !== null && $indent < $previousList->column;

@@ -292,7 +292,7 @@ class DjotToCarve
             $imageLines[] = ['end' => $imageOffset + strlen($line) + 1, 'quotes' => substr_count(substr($line, 0, $contentStart), '>'), 'itemColumn' => $imageItemColumn, 'itemQuote' => $imageItemQuote, 'table' => ($line[$contentStart] ?? '') === '|', 'div' => $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)]];
             $imageOffset += strlen($line) + 1;
         }
-        $source = $this->replaceImageLabels($source, $imageMask, function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask, $imageParagraph, $imageStarts, $imageLines, &$imageLine): string {
+        $source = $this->replaceImageLabels($source, $imageMask, function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask, $imageParagraph, $imageStarts, $imageLines, &$imageLine, $inherited): string {
             [$image, $at] = $match[0];
             if ($imageMask[$at] !== '!' || $imageMask[$at + strlen($image) - 1] !== ']' || preg_match('/\n[ \t]*\n/', $match[1][0]) === 1 || $this->isDjotEscaped($source, $at)) {
                 return $image;
@@ -323,7 +323,7 @@ class DjotToCarve
                 $renderer->setSoftBreakMode(SoftBreakMode::Newline);
             }
             $token = $altPrefix . count($strongSpans) . "\x00";
-            $plain = (new CarveConverter(smartTypography: false, renderer: $renderer))->convert(str_replace("\0U\0", "\0", $this->convert('DJOTALT ' . $label . ' DJOTEND')));
+            $plain = (new CarveConverter(smartTypography: false, renderer: $renderer))->convert(str_replace("\0U\0", "\0", $this->removeInheritedAttributeMarkers($this->convert('DJOTALT ' . $label . ' DJOTEND'), $inherited)));
             $alt = QuotedSlotEscaper::escapeImageAlt(strtr(preg_replace('/^DJOTALT ?| ?DJOTEND\n?$/', '', $plain) ?? $plain, $scalars), $imageLines[$imageLine]['table']);
             $continuation = 0;
             $strongSpans[$token] = preg_replace_callback('/\n/', static function () use ($continuations, &$continuation): string {
@@ -1664,6 +1664,10 @@ class DjotToCarve
             if (trim($masked) === '') {
                 continue;
             }
+            $contentAt = strlen($line) - strlen(ltrim($line, " \t"));
+            if (($masked[$contentAt] ?? '') !== ($line[$contentAt] ?? '')) {
+                continue;
+            }
             $view = $line;
             while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]|\([0-9A-Za-z]+\)) +(?:\[[ xX]\] +)?|: |\[\^[^\]\r\n]+\]: +))/', $view, $host)) {
                 $view = substr($view, strlen($host[0]));
@@ -1695,7 +1699,7 @@ class DjotToCarve
 
                 continue;
             }
-            if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)([*-])(?:[ \t]*\3){2,}[ \t]*$/', $masked, $rule)) {
+            if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)([*-])(?:[ \t]*\3){2,}[ \t]*$/', $masked, $rule) || !preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)([*-])(?:[ \t]*\3){2,}[ \t]*$/', $line)) {
                 continue;
             }
             $indent = $rule[1] === '' && $nested[$i] ? $rule[2] : '';
@@ -2962,6 +2966,49 @@ class DjotToCarve
 
             return $token;
         };
+        $codeMask = $this->maskDjotOpaque($label, false, ['code' => false, 'rawCode' => false]);
+        preg_match_all('/`+/', $codeMask, $runs, PREG_OFFSET_CAPTURE);
+        $ends = [];
+        $next = [];
+        foreach (array_reverse($runs[0]) as [$run, $at]) {
+            $width = strlen($run);
+            for ($offset = 0; $offset < $width; $offset++) {
+                $ends[$at + $offset] = $next[$width - $offset] ?? -1;
+            }
+            $next[$width] = $at + $width;
+        }
+        preg_match_all('/\{=[^\x09-\x0d\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}{}`]+\}/u', $label, $formats, PREG_OFFSET_CAPTURE);
+        $rawFormats = [];
+        foreach ($formats[0] as [$format, $at]) {
+            $rawFormats[$at] = $at + strlen($format);
+        }
+        $chunks = [];
+        $copied = 0;
+        foreach ($runs[0] as [$run, $at]) {
+            $width = strlen($run);
+            if ($this->isDjotEscaped($label, $at)) {
+                $at++;
+                $width--;
+            }
+            if ($width === 0 || $at < $copied || $ends[$at] < 0) {
+                continue;
+            }
+            $end = $ends[$at];
+            $value = substr($label, $at + $width, $end - $at - 2 * $width);
+            $raw = $rawFormats[$end] ?? null;
+            if ($raw !== null) {
+                $value = preg_replace('/^ `/', '`', $value) ?? $value;
+                $value = preg_replace('/` \z/', '`', $value) ?? $value;
+            } elseif (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, " \t\n\r") !== '') {
+                $value = substr($value, 1, -1);
+            }
+            $chunks[] = substr($label, $copied, $at - $copied);
+            $chunks[] = $scalar($value);
+            $copied = $raw ?? $end;
+        }
+        if ($copied > 0) {
+            $label = implode('', $chunks) . substr($label, $copied);
+        }
         $mask = $this->maskCodeAndDestinations($label);
         $label = preg_replace_callback('/(\n[ \t]*)(#{1,6}(?=[ \t]|$)|>(?=[ \t]|$)|(?:[-*][ \t]*){3,}(?=\n|$)|[-*+](?=[ \t]|$)|:{1,}(?=[ \t]|$)|\||\^(?=[ \t]|$)|%%|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)](?=[ \t]|$))/m', static function (array $match) use ($mask, $scalar): string {
             [$all, $at] = $match[0];
