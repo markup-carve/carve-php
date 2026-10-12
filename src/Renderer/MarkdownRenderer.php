@@ -2042,6 +2042,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
         if (
             ($node instanceof Emphasis || $node instanceof Strong || $node instanceof Strike || $node instanceof DefinitionTerm || $node instanceof Caption)
+            && !(count($children) === 1 && $children[0] instanceof Text)
             && count($this->lastRenderedParts) === count($children)
             && implode('', $this->lastRenderedParts) === $result
         ) {
