@@ -92,7 +92,7 @@
   {
     "id": "unchanged-unmatched-1-```",
     "source": "> - ::: box\n>   - ::: |\n>     ```\n>     :::\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li></ul><p>- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-1-```",
@@ -102,7 +102,7 @@
   {
     "id": "unchanged-unmatched-1-~~~",
     "source": "> - ::: box\n>   - ::: |\n>     ~~~\n>     :::\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li></ul><p>- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-1-~~~",
@@ -112,7 +112,7 @@
   {
     "id": "unchanged-unmatched-2-```",
     "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >     :::\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li></ul><p>- tail</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-2-```",
@@ -122,7 +122,7 @@
   {
     "id": "unchanged-unmatched-2-~~~",
     "source": "> > - ::: box\n> >   - ::: |\n> >     ~~~\n> >     :::\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li></ul><p>- tail</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-2-~~~",
