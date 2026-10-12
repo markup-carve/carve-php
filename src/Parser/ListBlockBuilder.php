@@ -71,6 +71,7 @@ final class ListBlockBuilder
      * @param \Closure(array<string>, bool): (bool) $subContentHasLooseningBlankCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Node, array<string>, array<int, int>|null, array<int, true>|null, int|null): (void))|null $parseItemBlocksCallback
      * @param (\Closure(): bool)|null $canRepairParagraphLocallyCallback
+     * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
      */
     public function __construct(
         private BlockParserState $state,
@@ -108,6 +109,7 @@ final class ListBlockBuilder
         private Closure $parseBlocksCallback,
         private Closure $startsNewBlockCallback,
         private Closure $subContentHasLooseningBlankCallback,
+        private Closure $wrappedBlockAttributeLengthCallback,
         private ?Closure $parseItemBlocksCallback = null,
         private ?Closure $canRepairParagraphLocallyCallback = null,
     ) {
@@ -1273,7 +1275,8 @@ final class ListBlockBuilder
                 );
             if (!$continues) {
                 if (
-                    $termOpen && !$this->isCommentLineOrFence($candidate) && (
+                    $termOpen && !$this->isCommentLineOrFence($candidate)
+                    && (($candidate[0] ?? '') !== '{' || ($this->wrappedBlockAttributeLengthCallback)($lines, $j) === null) && (
                         ((($candidate[0] ?? '') === '`' || ($candidate[0] ?? '') === '~')
                             && ($this->getFencedBlockParser)()->isCodeFenceHead($candidate, 0)
                             && ($this->getFencedBlockParser)()->parseCodeFenceOpener($candidate) === null
