@@ -323,6 +323,52 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertStringContainsString('[target](#', $renderer->render($document));
     }
 
+    public function testRepeatedCallbackLabelsChargeDecodedBytesConsistently(): void
+    {
+        $renderer = new class extends MarkdownRenderer {
+            protected function resetAbbreviationBudget(int $sourceLength): void
+            {
+                parent::resetAbbreviationBudget($sourceLength);
+                $this->abbreviationBudget = 6;
+            }
+        };
+        $heading = new Heading(1);
+        $heading->setAttribute('id', 'target');
+        $heading->appendChild(new Text('label'));
+        $paragraph = new Paragraph();
+        $paragraph->setChildren([new HeadingRef('target'), new Text(' '), new HeadingRef('target')]);
+        $document = new Document();
+        $document->setChildren([$heading, $paragraph]);
+        $renderer->on('render.text', static function (RenderEvent $event): void {
+            $event->setHtml("\u{E004}");
+        });
+        $output = $renderer->render($document);
+        self::assertSame(2, substr_count($output, "[\u{E004}](#"));
+        self::assertStringNotContainsString('[target](#', $output);
+    }
+
+    public function testRawAbbreviationTitleDoesNotDecodeAsAnInternalFrame(): void
+    {
+        $renderer = new class extends MarkdownRenderer {
+            protected function resetAbbreviationBudget(int $sourceLength): void
+            {
+                parent::resetAbbreviationBudget($sourceLength);
+                $this->abbreviationBudget = 6;
+            }
+
+            public function acceptsTitle(string $title): bool
+            {
+                return $this->chargeAbbreviationExpansion($title);
+            }
+        };
+        $document = new Document();
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new Text(self::pool()));
+        $document->appendChild($paragraph);
+        $renderer->render($document);
+        self::assertFalse($renderer->acceptsTitle("\u{E100}\u{E101}\u{E100}"));
+    }
+
     public function testLateInsertedInlineLiteralsMatchPreexistingLiterals(): void
     {
         $converter = new CarveConverter();

@@ -90,9 +90,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 {
     use ConversionDiagnosticCollectorTrait;
     use RenderLossCollectorTrait;
-    use AbbreviationBudgetTrait {
-        chargeExpansion as private baseChargeExpansion;
-    }
+    use AbbreviationBudgetTrait;
     use DerivedLabelTrait;
 
     use EventDispatcherTrait;
@@ -655,11 +653,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $this->prepareDocument($document);
 
         return $this->renderBody($document, true);
-    }
-
-    protected function chargeExpansion(string $emitted): bool
-    {
-        return $this->baseChargeExpansion($this->restoreLiteralCharacters($emitted));
     }
 
     private function prepareDocument(Document $document): void
@@ -1899,7 +1892,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 ? $this->escapeText($this->guardLiteralCharacters($label))
                 : $this->renderDerivedLabel($nodes);
             // Charge resolved characters rather than internal carrier bytes.
-            if (!$this->chargeLabelExpansion($id, strtr($rendered, $this->sentinelCharacters()))) {
+            if (!$this->chargeLabelExpansion($id, $this->restoreLiteralCharacters(strtr($rendered, $this->sentinelCharacters())))) {
                 $rendered = $this->escapeText($this->guardLiteralCharacters($target));
             }
 
@@ -4651,6 +4644,30 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         );
     }
 
+    private function guardLiteralCharacters(string $text): string
+    {
+        return $this->literalGuards === [] ? $text : strtr($text, $this->literalGuards);
+    }
+
+    private function restoreLiteralCharacters(string $text): string
+    {
+        if ($this->literalGuards === []) {
+            return $text;
+        }
+
+        return preg_replace_callback(
+            '/' . preg_quote($this->literalGuardStart, '/') . '((?:' . preg_quote($this->literalGuardRepeat, '/') . ')+)'
+                . preg_quote($this->literalGuardStart, '/') . '/',
+            fn (array $match): string => $this->guardedCharacters[intdiv(strlen($match[1]), strlen($this->literalGuardRepeat)) - 1] ?? $match[0],
+            $text,
+        ) ?? $text;
+    }
+
+    private function literalCarrierLine(string $payload): string
+    {
+        return CarrierMarkers::line($this->guardLiteralCharacters($payload));
+    }
+
     /**
      * Drop the control characters this target does NOT emit.
      *
@@ -4682,30 +4699,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * regression, which is why the three targets spell this separately rather
      * than sharing one function.
      */
-    private function guardLiteralCharacters(string $text): string
-    {
-        return $this->literalGuards === [] ? $text : strtr($text, $this->literalGuards);
-    }
-
-    private function restoreLiteralCharacters(string $text): string
-    {
-        if ($this->literalGuards === []) {
-            return $text;
-        }
-
-        return preg_replace_callback(
-            '/' . preg_quote($this->literalGuardStart, '/') . '(' . preg_quote($this->literalGuardRepeat, '/') . '+)'
-                . preg_quote($this->literalGuardStart, '/') . '/u',
-            fn (array $match): string => $this->guardedCharacters[mb_strlen($match[1], 'UTF-8') - 1] ?? $match[0],
-            $text,
-        ) ?? $text;
-    }
-
-    private function literalCarrierLine(string $payload): string
-    {
-        return CarrierMarkers::line($this->guardLiteralCharacters($payload));
-    }
-
     protected function stripControls(string $text): string
     {
         $text = (string)preg_replace('/[\x{000D}\x{007F}-\x{009F}]/u', '', $text);
