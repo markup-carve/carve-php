@@ -653,8 +653,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $this->pickNarrowedSentinels($document);
         $this->prepareDocument($document);
-        if (!$this->stringSentinels) {
+        if (!$this->stringSentinels && !$this->hasAnyListeners()) {
             return $this->renderBody($document, true);
+        }
+
+        if (!$this->stringSentinels) {
+            $this->setNarrowedSentinels(DocumentSentinels::shortTokens(
+                DocumentSentinels::collectNonces(DocumentSentinels::collectStrings($document)),
+                count(self::NARROWED_CHARACTERS) + count(self::AUTHORED_POSITIONAL)
+                    + count(self::AUTHORED_DECIDED) + count(self::LOOKAHEAD_CHARACTERS) + 1,
+            ));
         }
 
         $this->probeBudgetDecisions = [];

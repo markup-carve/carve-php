@@ -167,6 +167,22 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertSame(0, $result->totalLosses);
     }
 
+    public function testOrdinaryRenderKeepsListenerMarkerCharacters(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $calls = 0;
+        $replacement = "\u{E009}m0x0\u{E00A} \u{E009}m1x0\u{E00A}";
+        $renderer->on('render.text', static function (RenderEvent $event) use (&$calls, $replacement): void {
+            $calls++;
+            $event->setHtml($replacement);
+        });
+        $document = (new CarveConverter())->parse("a\n");
+        self::assertSame($replacement . "\n", $renderer->render($document));
+        self::assertSame(1, $calls);
+        $renderer->off();
+        self::assertSame("a\n", $renderer->render($document));
+    }
+
     public function testFallbackReplaysRenderEventsWithoutDispatchingTwice(): void
     {
         $renderer = new MarkdownRenderer();
