@@ -663,6 +663,9 @@ final class BlockContinuationScanner
         $termCodeTailEligible = true;
         $termCodeTailFence = null;
         $termCodeTailAfterBlank = false;
+        $leadIsDefinitionTerm = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($itemLines[0] ?? '', " \t")) === 1;
+        // Whether the open `: ` body follows a term; without one the line is paragraph text.
+        $definitionBodyHasTerm = false;
         foreach ($itemLines as $seedLine) {
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
@@ -884,6 +887,10 @@ final class BlockContinuationScanner
                         $pendingDefinitionTerm = true;
                         $termCodeTailEligible = true;
                         $pendingTermFence = null;
+                        $definitionBodyHasTerm = false;
+                    } elseif ($pendingDefinitionTerm && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)) {
+                        $pendingDefinitionTerm = false;
+                        $definitionBodyHasTerm = true;
                     } elseif (
                         $pendingDefinitionTerm && (
                             preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)
@@ -1047,7 +1054,15 @@ final class BlockContinuationScanner
                             || $legacyRawAdmission
                             || $this->listAuthoredFenceCloserAhead($lines, $i, $opener, $column, $contentIndent, $baseIndent, $authoredFenceMisses, $authoredFenceHits)
                         ) {
-                            $authoredCodeColumn = $column;
+                            // A closed fence reaching an open description body's column is that body's (CARVE-P0-004).
+                            if (
+                                $openDefinitionBody === null
+                                || !$definitionBodyHasTerm
+                                || $leadIsDefinitionTerm
+                                || $column < $contentIndent + $openDefinitionBody
+                            ) {
+                                $authoredCodeColumn = $column;
+                            }
                         } else {
                             $inlineAuthoredFence = true;
                             $failedFenceColumn = $column;
