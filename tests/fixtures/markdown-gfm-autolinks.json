@@ -10818,5 +10818,193 @@
   {
     "source": "<mark>a</mark><mark>b</mark> c@d.test",
     "html": "<p><mark>a</mark><mark>b</mark> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\>)",
+    "html": "<p><a href=\"http://a.b/a%3E\">a</a></p>\n"
+  },
+  {
+    "source": "[a]( http://a.b/a\\> )",
+    "html": "<p><a href=\"http://a.b/a%3E\">a</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\>  \"title\")",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\>\n\"title\")",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\> (title))",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/x \"http://a.b/a\\>\")",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/x 'http://a.b/a\\>')",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/x (http://a.b/a\\>))",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: http://a.b/a(b) \"title\"",
+    "html": "<p><a href=\"http://a.b/a(b)\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: http://a.b/a\\> \"title\"",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /x \"http://a.b/`x\"",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/`x\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /x \"http://a.b/a\\>\"",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[unknown http://a.b/`x][missing]",
+    "html": "<p>[unknown http://a.b/`x][missing]</p>\n"
+  },
+  {
+    "source": "[unknown http://a.b/a\\>][missing]",
+    "html": "<p>[unknown http://a.b/a&gt;][missing]</p>\n"
+  },
+  {
+    "source": "![a](http://a.b/a\\>)",
+    "html": "<p><img src=\"http://a.b/a%3E\" alt=\"a\" /></p>\n"
+  },
+  {
+    "source": "![http://a.b/a\\>](/x)",
+    "html": "<p><img src=\"/x\" alt=\"http://a.b/a&gt;\" /></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /a\\(b",
+    "html": "<p><a href=\"/a(b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: </a(b>",
+    "html": "<p><a href=\"/a(b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /a&#40;b",
+    "html": "<p><a href=\"/a(b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][`x`]\n\n[`x`]: /u",
+    "html": "<p><a href=\"/u\">a</a></p>\n"
+  },
+  {
+    "source": "[a][x\\*y]\n\n[x\\*y]: /u",
+    "html": "<p><a href=\"/u\">a</a></p>\n"
+  },
+  {
+    "source": "[a][x&amp;y]\n\n[x&amp;y]: /u",
+    "html": "<p><a href=\"/u\">a</a></p>\n"
+  },
+  {
+    "source": "[foo][*x*]\n\n[foo]: /u",
+    "html": "<p>[foo][<em>x</em>]</p>\n"
+  },
+  {
+    "source": "[a*b*][x](/u)",
+    "html": "<p>[a<em>b</em>]<a href=\"/u\">x</a></p>\n"
+  },
+  {
+    "source": "[link][_id_]",
+    "html": "<p>[link][<em>id</em>]</p>\n"
+  },
+  {
+    "source": "[a](<a\\&lt;b>)",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
+  },
+  {
+    "source": "[a](<a&amp;lt;b>)",
+    "html": "<p><a href=\"a&amp;lt;b\">a</a></p>\n"
+  },
+  {
+    "source": "[a](<a&#92;&lt;b>)",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
+  },
+  {
+    "source": "[a](a\\&lt;b)",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/u \"a\\&lt;b\")",
+    "html": "<p><a href=\"/u\" title=\"a&lt;b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: <a\\&lt;b>",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
+  },
+  {
+    "source": "[a][b][c](/u)\n\n[a]: /x",
+    "html": "<p>[a][b]<a href=\"/u\">c</a></p>\n"
+  },
+  {
+    "source": "![a][b][c](/u)\n\n[a]: /x",
+    "html": "<p>![a][b]<a href=\"/u\">c</a></p>\n"
+  },
+  {
+    "source": "- a\n\n[x&amp;y]: /u\n\n- b\n\n[t][x&amp;y]",
+    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"/u\">t</a></p>\n"
+  },
+  {
+    "source": "- a\n\n[x&amp;y]: /u\n\n- b\n\n[t][x&y]",
+    "html": "<ul>\n<li>a</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p>[t][x&amp;y]</p>\n"
+  },
+  {
+    "source": "[a\\*b]\n\n[a\\*b]: /u",
+    "html": "<p><a href=\"/u\">a*b</a></p>\n"
+  },
+  {
+    "source": "[t][x\\*y]\n\n[x\\*y]: /u",
+    "html": "<p><a href=\"/u\">t</a></p>\n"
+  },
+  {
+    "source": "[a][b][c](/u)\n\n[b]: /x",
+    "html": "<p><a href=\"/x\">a</a><a href=\"/u\">c</a></p>\n"
+  },
+  {
+    "source": "![a][b][c](/u)\n\n[b]: /x",
+    "html": "<p><img src=\"/x\" alt=\"a\" /><a href=\"/u\">c</a></p>\n"
+  },
+  {
+    "source": "[x][a][b](/u)\n\n[a]: /d",
+    "html": "<p><a href=\"/d\">x</a><a href=\"/u\">b</a></p>\n"
+  },
+  {
+    "source": "[x][a][b][c](/u)\n\n[a]: /d",
+    "html": "<p><a href=\"/d\">x</a>[b]<a href=\"/u\">c</a></p>\n"
+  },
+  {
+    "source": "[a^b][x](/u)",
+    "html": "<p>[a^b]<a href=\"/u\">x</a></p>\n"
+  },
+  {
+    "source": "[t][x\\]y]\n\n[x\\]y]: http://a.b/c \"t\"",
+    "html": "<p><a href=\"http://a.b/c\" title=\"t\">t</a></p>\n"
+  },
+  {
+    "source": "<span title=\"[a][b](/u)\">x</span>",
+    "html": "<p><span title=\"[a][b](/u)\">x</span></p>\n"
+  },
+  {
+    "source": "[todo]: fix /path/ now",
+    "html": "<p>[todo]: fix /path/ now</p>\n"
+  },
+  {
+    "source": "[foo]: *bar* baz",
+    "html": "<p>[foo]: <em>bar</em> baz</p>\n"
+  },
+  {
+    "source": "- [see]: visit http://a.b/c now",
+    "html": "<ul>\n<li>[see]: visit <a href=\"http://a.b/c\">http://a.b/c</a> now</li>\n</ul>\n"
   }
 ]
