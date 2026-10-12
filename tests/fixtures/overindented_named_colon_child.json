@@ -1,0 +1,17 @@
+[
+  {
+    "id": "overindented-named-colon-child-opens",
+    "source": "- ::: box\n    ::: note\n    x\n    :::\n- tail\n",
+    "html": "<ul><li><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></li><li>tail</li></ul>"
+  },
+  {
+    "id": "overindented-named-colon-child-opens-quoted",
+    "source": "> - ::: box\n>     ::: note\n>     x\n>     :::\n- tail\n",
+    "html": "<blockquote><ul><li><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></li></ul></blockquote><ul><li>tail</li></ul>"
+  },
+  {
+    "id": "overindented-named-colon-child-opens-then-box-closer",
+    "source": "- ::: box\n    ::: note\n    x\n    :::\n  :::\n- tail\n",
+    "html": "<ul><li><div class=\"box\"><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></div></li><li>tail</li></ul>"
+  }
+]
