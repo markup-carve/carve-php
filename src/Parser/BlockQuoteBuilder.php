@@ -479,6 +479,20 @@ final class BlockQuoteBuilder
             return true;
         }
         if ($colon !== null && $colon['literal']) {
+            // A paired comment in the literal body shields the colon runs
+            // between its delimiters, as it does in the item's own parse.
+            $literalComment = $column === $colon['column']
+                ? ($this->getFencedBlockParser)()->parseFencedCommentOpener($text)
+                : null;
+            if (
+                $literalComment !== null
+                && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, '%', $literalComment['length'], $memo, $column)
+            ) {
+                $host['fence'] = ['char' => '%', 'length' => $literalComment['length'], 'column' => $column, 'base' => $colon['base'] ?? $colon['column']];
+                $state['paragraphOpen'] = false;
+
+                return true;
+            }
             $open = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
             if ($open !== null && $column === $colon['column']) {
@@ -501,6 +515,19 @@ final class BlockQuoteBuilder
             }
             $state['colonClaims'][] = $colon;
             $state['paragraphOpen'] = true;
+
+            return true;
+        }
+        // A bare run at a nested host's own floor opens that host's container;
+        // only a run off every column is the colon body's text.
+        $hostFloor = $host['columns'][array_key_last($host['columns'])];
+        if (
+            $colon !== null && !$paragraph && !($host['absorbing'] ?? false)
+            && $column === $hostFloor && $hostFloor > ($colon['base'] ?? $colon['column'])
+            && preg_match('/^:{3,}[ \t]*$/', $text) === 1
+        ) {
+            $state['colonClaims'][] = ['length' => strspn($text, ':'), 'column' => $column, 'body' => false, 'literal' => false, 'base' => $hostFloor];
+            $state['paragraphOpen'] = false;
 
             return true;
         }
