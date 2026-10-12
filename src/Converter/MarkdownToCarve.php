@@ -8207,6 +8207,11 @@ class MarkdownToCarve
                 && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
                 && $this->collectFootnoteDefinition($lines, $i)
             ) {
+                if ($fenceCloser !== null) {
+                    $this->markdownSourceLines[count($kept)] = $i;
+                    $kept[] = $fenceCloser;
+                    $outdent = strspn($fenceCloser, ' ');
+                }
                 $footnoteIndent = strspn($line, ' ');
                 while (($referenceListColumns[$lineDepth] ?? []) !== [] && end($referenceListColumns[$lineDepth]) > $footnoteIndent) {
                     array_pop($referenceListColumns[$lineDepth]);
@@ -8254,6 +8259,11 @@ class MarkdownToCarve
                     $i += $parsed['lines'] - 1;
                     $referenceDefinitionEnd = $i;
                     $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
+                    if ($fenceCloser !== null) {
+                        $this->markdownSourceLines[count($kept)] = $i;
+                        $kept[] = $fenceCloser;
+                        $outdent = strspn($fenceCloser, ' ');
+                    }
                     if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)) {
                         for ($blank = 0; $blank < 2; $blank++) {
                             $this->hardReferenceSeparators[count($kept)] = true;
@@ -8408,6 +8418,11 @@ class MarkdownToCarve
                 $referenceDefinitionEnd = $i;
                 $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
                 $canStart = true;
+                if ($fenceCloser !== null) {
+                    $this->markdownSourceLines[count($kept)] = $i;
+                    $kept[] = $fenceCloser;
+                    $outdent = strspn($fenceCloser, ' ');
+                }
                 $definitionColumn = strpos($line, '[' . $definition[1] . ']:');
                 if (
                     !$opensItem && $definitionColumn !== false

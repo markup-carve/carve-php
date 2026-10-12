@@ -222,6 +222,20 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         }
     }
 
+    public function testMovedDefinitionsCloseAnItemFenceBeforeSeparatingLists(): void
+    {
+        foreach (['[r]: <>', '[r]: <a b>', '[^n]: note'] as $definition) {
+            $source = "- a\n  ```\n  code\n" . $definition . "\n\n- b\n\n[t][r] t[^n]";
+            $written = (new MarkdownToCarve())->convert($source);
+            foreach ([$written, CarveConverter::toCarve($written)] as $rendered) {
+                $html = (new CarveConverter())->convert($rendered);
+                self::assertSame(2, substr_count($html, '<ul>'));
+                self::assertStringContainsString("<pre><code>code\n</code></pre>", $html);
+                self::assertStringNotContainsString("code\n\n", $html);
+            }
+        }
+    }
+
     public function testMovingAFootnoteDoesNotJoinTheListsAroundIt(): void
     {
         $written = (new MarkdownToCarve())->convert("- a\n\n[^n]: note\n\n- b\n\ntext[^n]");
