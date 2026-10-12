@@ -287,6 +287,7 @@ final class ListBlockBuilder
                     // paragraph on the strength of a closer only the SOURCE view
                     // shows. See the hand-down below the loop.
                     $subInterruptedParagraphFence = false;
+                    $subTermCodeFence = null;
                     // Entries this loop DEDENTED by the item's content column,
                     // by index - the same proof collectMarkerLeadItem() records
                     // and for the same reader (markup-carve/carve#1896).
@@ -317,6 +318,25 @@ final class ListBlockBuilder
                             $subLine,
                             max($subIndent, $baseIndent) + 1,
                         );
+
+                        if ($subTermCodeFence !== null && $lineIndent < $subIndent) {
+                            $subject = ltrim($subLine, " \t");
+                            if (
+                                (($this->getListParser)()->parseListItemMarker($subject) !== null && $lineIndent <= $baseIndent)
+                                || (!($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0)
+                                    && ($this->isBlockElementStart($subject, $lines, $i)
+                                        || $this->startsNewBlock($subject, $lines, $i)
+                                        || ($this->isBlockAttributeLineCallback)($subject)
+                                        || $this->isFoldableInvisibleLine($subject)))
+                            ) {
+                                break;
+                            }
+                            $subLines[] = BlockGrammar::LAZY_FRAME . $subject;
+                            $subLineMap[] = $this->sourceLineFor($i);
+                            $i++;
+
+                            continue;
+                        }
 
                         // If we've seen content at a higher indent level (actual nested content),
                         // and now we're back at the marker level (subIndent) after a blank line,
@@ -438,6 +458,17 @@ final class ListBlockBuilder
                                 )
                             ) {
                                 $subTermColumn = null;
+                            }
+                            if (
+                                $subTermCodeFence !== null && $lineIndent === $subIndent
+                                && ($this->getFencedBlockParser)()->isCodeFenceCloser($subSubject, $subTermCodeFence['char'] ?? $subTermCodeFence['fence'][0], $subTermCodeFence['length'])
+                            ) {
+                                $subTermCodeFence = null;
+                            } elseif ($afterSubTerm && $lineIndent === $subIndent && $subTrailingState->fence === null) {
+                                $subTermCodeFence = $this->itemFenceOpenerAt($stripped);
+                                if ($subTermCodeFence !== null) {
+                                    $subTrailingState->openParagraph = false;
+                                }
                             }
                             $subFenceOpener = $sawBlankLine || $subTrailingState->fence !== null
                                 || !$subTrailingState->openParagraph
