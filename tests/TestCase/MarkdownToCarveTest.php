@@ -795,6 +795,7 @@ bar
     {
         return [
             'path-like slashes' => ['a/b/c'],
+            'intraword underscore with paths' => ['snake_case in src/app and/or 1/2'],
             'and-or slashes' => ['and/or'],
             'fraction slashes' => ['1/2'],
             'spaced equals' => ['x = y = z'],

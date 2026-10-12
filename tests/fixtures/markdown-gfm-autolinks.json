@@ -10506,5 +10506,201 @@
   {
     "source": "[a&amp;b]http://a.b\n\n[a&b]: /z\n",
     "html": "<p>[a&amp;b]<a href=\"http://a.b\">http://a.b</a></p>\n"
+  },
+  {
+    "source": "<code>a<!---->@b.test</code>\n",
+    "html": "<p><code>a<!---->@b.test</code></p>\n"
+  },
+  {
+    "source": "<code>h<!---->ttps://example.test</code>\n",
+    "html": "<p><code>h<!---->ttps://example.test</code></p>\n"
+  },
+  {
+    "source": "<code>w<!---->ww.example.test</code>\n",
+    "html": "<p><code>w<!---->ww.example.test</code></p>\n"
+  },
+  {
+    "source": "- a\n  - [foo]: http://x.test\n\n[foo]\n",
+    "html": "<ul>\n<li>a\n<ul>\n<li></li>\n</ul>\n</li>\n</ul>\n<p><a href=\"http://x.test\">foo</a></p>\n"
+  },
+  {
+    "source": "[a\\]b]: http://x.test\n\n[a\\]b]\n",
+    "html": "<p><a href=\"http://x.test\">a]b</a></p>\n"
+  },
+  {
+    "source": "\"hello\" ... me",
+    "html": "<p>&quot;hello&quot; ... me</p>\n"
+  },
+  {
+    "source": "\"hello\" .... me",
+    "html": "<p>&quot;hello&quot; .... me</p>\n"
+  },
+  {
+    "source": "\"hello\" ... a@b.test",
+    "html": "<p>&quot;hello&quot; ... <a href=\"mailto:a@b.test\">a@b.test</a></p>\n"
+  },
+  {
+    "source": "snake_case in src/app and/or 1/2",
+    "html": "<p>snake_case in src/app and/or 1/2</p>\n"
+  },
+  {
+    "source": "[*see src/ dir*]",
+    "html": "<p>[<em>see src/ dir</em>]</p>\n"
+  },
+  {
+    "source": "[ *see src/ dir*",
+    "html": "<p>[ <em>see src/ dir</em></p>\n"
+  },
+  {
+    "source": "a <--> b",
+    "html": "<p>a &lt;--&gt; b</p>\n"
+  },
+  {
+    "source": "a <--> b c@d.test",
+    "html": "<p>a &lt;--&gt; b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a <-> b",
+    "html": "<p>a &lt;-&gt; b</p>\n"
+  },
+  {
+    "source": "a <-> b c@d.test",
+    "html": "<p>a &lt;-&gt; b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a --> b",
+    "html": "<p>a --&gt; b</p>\n"
+  },
+  {
+    "source": "a --> b c@d.test",
+    "html": "<p>a --&gt; b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a <-- b",
+    "html": "<p>a &lt;-- b</p>\n"
+  },
+  {
+    "source": "a <-- b c@d.test",
+    "html": "<p>a &lt;-- b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a <=> b",
+    "html": "<p>a &lt;=&gt; b</p>\n"
+  },
+  {
+    "source": "a <=> b c@d.test",
+    "html": "<p>a &lt;=&gt; b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a ==> b",
+    "html": "<p>a ==&gt; b</p>\n"
+  },
+  {
+    "source": "a ==> b c@d.test",
+    "html": "<p>a ==&gt; b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a <== b",
+    "html": "<p>a &lt;== b</p>\n"
+  },
+  {
+    "source": "a <== b c@d.test",
+    "html": "<p>a &lt;== b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a (tm) b",
+    "html": "<p>a (tm) b</p>\n"
+  },
+  {
+    "source": "a (tm) b c@d.test",
+    "html": "<p>a (tm) b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a -> b",
+    "html": "<p>a -&gt; b</p>\n"
+  },
+  {
+    "source": "a -> b c@d.test",
+    "html": "<p>a -&gt; b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a <- b",
+    "html": "<p>a &lt;- b</p>\n"
+  },
+  {
+    "source": "a <- b c@d.test",
+    "html": "<p>a &lt;- b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a <= b",
+    "html": "<p>a &lt;= b</p>\n"
+  },
+  {
+    "source": "a <= b c@d.test",
+    "html": "<p>a &lt;= b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a >= b",
+    "html": "<p>a &gt;= b</p>\n"
+  },
+  {
+    "source": "a >= b c@d.test",
+    "html": "<p>a &gt;= b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a != b",
+    "html": "<p>a != b</p>\n"
+  },
+  {
+    "source": "a != b c@d.test",
+    "html": "<p>a != b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a +- b",
+    "html": "<p>a +- b</p>\n"
+  },
+  {
+    "source": "a +- b c@d.test",
+    "html": "<p>a +- b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a (c) b",
+    "html": "<p>a (c) b</p>\n"
+  },
+  {
+    "source": "a (c) b c@d.test",
+    "html": "<p>a (c) b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a (r) b",
+    "html": "<p>a (r) b</p>\n"
+  },
+  {
+    "source": "a (r) b c@d.test",
+    "html": "<p>a (r) b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "<mark>Done!</mark>",
+    "html": "<p><mark>Done!</mark></p>\n"
+  },
+  {
+    "source": "<ins>-5</ins>",
+    "html": "<p><ins>-5</ins></p>\n"
+  },
+  {
+    "source": "<mark>a></mark>",
+    "html": "<p><mark>a&gt;</mark></p>\n"
+  },
+  {
+    "source": "!<mark>x</mark>",
+    "html": "<p>!<mark>x</mark></p>\n"
+  },
+  {
+    "source": "<<mark>x</mark>",
+    "html": "<p>&lt;<mark>x</mark></p>\n"
+  },
+  {
+    "source": "><mark>x</mark>",
+    "html": "<blockquote>\n<p><mark>x</mark></p>\n</blockquote>\n"
   }
 ]

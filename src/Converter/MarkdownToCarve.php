@@ -5785,7 +5785,7 @@ class MarkdownToCarve
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
 
-        $rawDefinition = preg_match('/^\s*\[([^^\]][^\]]*)\]:/', $sourceInput, $definition) === 1;
+        $rawDefinition = preg_match('/^[ \t]*' . self::DEFINITION_MARKER . '\[((?!\^)(?:[^\]\\\\]|\\\\.)+)\]:/', $sourceInput, $definition) === 1;
         $guardBareLinkPrefix = function (string $before) use ($protect): string {
             if ($before === '') {
                 return $before;
@@ -6188,7 +6188,7 @@ class MarkdownToCarve
                     return null;
                 }
             }
-            $value = implode('', array_map(function (string $part): string {
+            $decodedParts = array_map(function (string $part): string {
                 $decoded = preg_replace_callback(
                     '/\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
                     fn (array $piece): string => $piece[1] ?? $this->decodeHtmlReferenceText($piece[0]),
@@ -6196,10 +6196,13 @@ class MarkdownToCarve
                 ) ?? $part;
 
                 return str_replace(["\r\n", "\r"], "\n", $decoded);
-            }, $parts));
-            if (str_contains($value, '@') && MarkdownBareLinks::ranges($value, null, 'email') !== []) {
-                return null;
+            }, $parts);
+            foreach ($decodedParts as $part) {
+                if (str_contains($part, '@') && MarkdownBareLinks::ranges($part, null, 'email') !== []) {
+                    return null;
+                }
             }
+            $value = implode('', $decodedParts);
             if ($this->nativeCodeSlot && $terminal && !$table && $standaloneCodeSource === $match[0]) {
                 $document = new Document();
                 $paragraph = new Paragraph();
@@ -6342,7 +6345,11 @@ class MarkdownToCarve
             }
         }
         $line = $escaped;
-        if (!$isReferenceDefinition && str_contains($line, '/') && preg_match('/[*_]|<(?:em|i)\\b/i', $line) === 1) {
+        if (
+            !$isReferenceDefinition && str_contains($line, '/')
+            && (preg_match('/<(?:em|i)\\b/i', $line) === 1
+                || (strpbrk($line, '*_') !== false && substr_count(MarkdownEmphasis::convert($line, protectedSpans: $protected), '/') > substr_count($line, '/')))
+        ) {
             $authored = $line;
             $guarded = '';
             $opaqueEnds = [];
@@ -6391,7 +6398,7 @@ class MarkdownToCarve
                         continue;
                     }
                 }
-                $guarded .= $authored[$at] === '/' && $bracketDepth === 0 ? $protect('\\/', '/') : $authored[$at];
+                $guarded .= $authored[$at] === '/' ? $protect('\\/', '/') : $authored[$at];
                 $at++;
             }
             $line = $guarded;
@@ -7270,8 +7277,13 @@ class MarkdownToCarve
         // left unchanged would silently mis-render. Off by default: `==x==` is
         // literal in CommonMark and GFM alike, so converting it unconditionally
         // invented a highlight the source never had.
+        $replaceNativeInline = static function (string $pattern, string $replacement, string $subject) use ($protect): string {
+            [$open, $close] = explode('$1', $replacement);
+
+            return preg_replace_callback($pattern, static fn (array $match): string => $protect($open) . $match[1] . $protect($close), $subject) ?? $subject;
+        };
         if ($this->convertHighlight) {
-            $line = preg_replace('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line) ?? $line;
+            $line = $replaceNativeInline('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line);
         }
 
         // Highlight/super/subscript use the forced brace forms: an HTML tag can
@@ -7284,17 +7296,18 @@ class MarkdownToCarve
         // always-braced form. The others below have no bare form and are always
         // braced (sup/sub/ins) or always bare (del/s).
         if (!$this->convertRawHtml) {
-            $line = preg_replace('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line) ?? $line;
-            $line = preg_replace('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line) ?? $line;
-            $line = preg_replace('/<mark>([^<]+)<\/mark>/i', '=$1=', $line) ?? $line;
+            $line = $replaceNativeInline('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line);
+            $line = preg_replace_callback('/([!<>])<mark>([^<]+)<\/mark>/i', static fn (array $match): string => $protect('\\' . $match[1] . '{=') . $match[2] . $protect('=}'), $line) ?? $line;
+            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line);
+            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>/i', '=$1=', $line);
             // §8c writes `underline` as `<u>`, which this table did not read back
             // at all (carve#2838). The bare `_x_` form is preferred, braced where
             // a bare underline would be literal: against a word character, or
             // around a whitespace-padded body.
-            $line = preg_replace('/(?<=[A-Za-z0-9])<u>([^<]+)<\/u>/i', '{_$1_}', $line) ?? $line;
-            $line = preg_replace('/<u>([^<]+)<\/u>(?=[A-Za-z0-9])/i', '{_$1_}', $line) ?? $line;
-            $line = preg_replace('/<u>(\s[^<]*|[^<]*\s)<\/u>/i', '{_$1_}', $line) ?? $line;
-            $line = preg_replace('/<u>([^<]+)<\/u>/i', '_$1_', $line) ?? $line;
+            $line = $replaceNativeInline('/(?<=[A-Za-z0-9])<u>([^<]+)<\/u>/i', '{_$1_}', $line);
+            $line = $replaceNativeInline('/<u>([^<]+)<\/u>(?=[A-Za-z0-9])/i', '{_$1_}', $line);
+            $line = $replaceNativeInline('/<u>(\s[^<]*|[^<]*\s)<\/u>/i', '{_$1_}', $line);
+            $line = $replaceNativeInline('/<u>([^<]+)<\/u>/i', '_$1_', $line);
         }
         $htmlRules = [
             '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
@@ -7306,7 +7319,7 @@ class MarkdownToCarve
             '/<sub>([^<]+)<\/sub>/i' => '{,$1,}',
         ];
         foreach ($htmlRules as $pattern => $replacement) {
-            $line = preg_replace($pattern, $replacement, $line) ?? $line;
+            $line = $replaceNativeInline($pattern, $replacement, $line);
         }
         foreach (['strong|b', 'em|i'] as $tagPattern) {
             $htmlSource = $line;
@@ -7356,6 +7369,8 @@ class MarkdownToCarve
 
         $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
         $line = $this->escapeTypographicDashes($line);
+        $line = preg_replace_callback('/(?<!\\\\)\.{3,}/', static fn (array $run): string => str_replace('.', '\\.', $run[0]), $line) ?? $line;
+        $line = preg_replace_callback('/(?<!\\\\)(?:<-->|<->|-->|<--|<=>|==>|<==|\(tm\)|->|<-|<=|>=|!=|\+-|\(c\)|\(r\))/', static fn (array $symbol): string => preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $symbol[0]) ?? $symbol[0], $line) ?? $line;
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeListsThatAttach($line);
         }

@@ -39,6 +39,12 @@ final class MarkdownGfmAutolinksTest extends TestCase
         }
     }
 
+    public function testOptInHighlightKeepsGeneratedDelimitersSeparateFromLiteralSymbols(): void
+    {
+        $written = (new MarkdownToCarve(convertHighlight: true))->convert('==Done!==');
+        self::assertSame('<p><mark>Done!</mark></p>' . "\n", (new CarveConverter())->convert($written));
+    }
+
     /**
      * @return array<mixed>
      */
@@ -73,7 +79,13 @@ final class MarkdownGfmAutolinksTest extends TestCase
                 }
                 $part = $visit($child, $literal);
                 if ($part !== null) {
-                    $children[] = $part;
+                    $last = array_key_last($children);
+                    if (is_string($part) && $last !== null && is_string($children[$last])) {
+                        $joined = $children[$last] . $part;
+                        $children[$last] = $literal ? $joined : (preg_replace('/[ \t\n\r\f]+/', ' ', $joined) ?? $joined);
+                    } else {
+                        $children[] = $part;
+                    }
                 }
             }
             $attrs = [];
