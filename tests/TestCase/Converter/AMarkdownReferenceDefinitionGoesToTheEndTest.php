@@ -191,4 +191,44 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         self::assertStringStartsWith($expected, (new CarveConverter())->convert($written));
         self::assertStringStartsWith($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
+
+    public function testDefinitionsInsideAnOuterItemKeepOneLooseList(): void
+    {
+        $expected = "<ul>\n  <li><p>a</p>\n    <ul>\n      <li>x</li>\n    </ul>\n  </li>\n  <li><p>b</p></li>\n</ul>\n";
+        foreach (['[r]: <>', '[x\\]y]: /u', '[^n]: note'] as $definition) {
+            $written = (new MarkdownToCarve())->convert("- a\n  - x\n\n  " . $definition . "\n\n- b\n\n[t][r] text[^n]");
+            self::assertStringStartsWith($expected, (new CarveConverter())->convert($written));
+            self::assertStringStartsWith($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        }
+    }
+
+    public function testAQuotedDefinitionOutsideTheItemSeparatesItsLists(): void
+    {
+        $migration = (new MarkdownToCarve())->convertWithFidelityReport("> - a\n>\n>  [r]: <>\n>\n> - b\n\n[t][r]");
+        $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p>t</p>\n";
+        self::assertSame($expected, (new CarveConverter())->convert($migration->value));
+        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+    }
+
+    public function testMarkerColumnsDetermineWhetherAnEmptyDefinitionLeavesTheList(): void
+    {
+        foreach (["-\ta", ' - a', '  - a', '   - a'] as $head) {
+            $written = (new MarkdownToCarve())->convert($head . "\n\n[r]: <>\n\n - b\n\n[t][r]");
+            $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>t</p>\n";
+            self::assertSame($expected, (new CarveConverter())->convert($written));
+            self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        }
+        $written = (new MarkdownToCarve())->convert("-     code\n\n  [r]: <>\n\n- b\n\n[t][r]");
+        $expected = "<ul>\n  <li>\n    <pre><code>code\n</code></pre>\n  </li>\n  <li><p>b</p></li>\n</ul>\n<p>t</p>\n";
+        self::assertSame($expected, (new CarveConverter())->convert($written));
+        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+    }
+
+    public function testSeparateListsSurviveConversionInsideABlockFootnote(): void
+    {
+        $written = (new MarkdownToCarve())->convert("text[^n]\n\n[^n]: intro\n\n    - a\n\n    [r]: <>\n\n    - b");
+        $expected = "      <ul>\n        <li>a</li>\n      </ul>\n      <ul>\n        <li>b</li>\n      </ul>";
+        self::assertStringContainsString($expected, (new CarveConverter())->convert($written));
+        self::assertStringContainsString($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+    }
 }

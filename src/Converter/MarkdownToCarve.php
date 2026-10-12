@@ -2245,7 +2245,12 @@ class MarkdownToCarve
                     $body = explode("\n", $converted);
                     $firstLine = array_shift($body);
                     $result[] = $this->convertInlineFormatting($head[1]) . ' ' . ($firstLine === '' ? '{empty}' : $firstLine);
+                    $blankRun = 0;
                     foreach ($body as $line) {
+                        $blankRun = $line === '' ? $blankRun + 1 : 0;
+                        if ($blankRun >= 3) {
+                            $hardListBlanks[count($result)] = true;
+                        }
                         $result[] = $line === '' ? '' : '  ' . $line;
                     }
 
@@ -6804,9 +6809,12 @@ class MarkdownToCarve
                 ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
         };
 
-        $encodeDest = function (string $paren) use ($protected, &$protectedSources, $table): ?string {
+        $encodeDest = function (string $paren, bool $reference = false) use ($protected, &$protectedSources, $table): ?string {
             $sourceParen = $this->referenceSourceText($paren, $protectedSources);
-            if ($this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1) {
+            if (
+                $reference ? MarkdownReferenceDefinition::read('[x]: ' . substr($sourceParen, 1, -1), 0) === null
+                    : $this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1
+            ) {
                 return null;
             }
             $paren = $sourceParen;
@@ -6846,8 +6854,8 @@ class MarkdownToCarve
             return '(' . $this->writeMarkdownDestination($url, originalSource: true) . $rest . ')';
         };
 
-        $protectDestination = function (string $alt, string $paren, ?string $source = null) use ($encodeDest, $protect): string {
-            $encoded = $encodeDest($paren);
+        $protectDestination = function (string $alt, string $paren, ?string $source = null, bool $reference = false) use ($encodeDest, $protect): string {
+            $encoded = $encodeDest($paren, $reference);
 
             return $encoded === null ? $alt . '\\(' . substr($paren, 1) : $protect($alt . $encoded, $source ?? $alt . $paren);
         };
@@ -6931,8 +6939,8 @@ class MarkdownToCarve
                 $lastTarget = $this->complexReferenceTarget($third, $protectedSources);
                 $middle = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($second)] ?? null;
                 $last = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($third)] ?? null;
-                $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')') : ($middle !== null ? $protect('[' . $middle . ']') : null);
-                $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')') : ($last !== null ? $protect('[' . $last . ']') : null);
+                $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')', reference: true) : ($middle !== null ? $protect('[' . $middle . ']') : null);
+                $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')', reference: true) : ($last !== null ? $protect('[' . $last . ']') : null);
                 if ($middleTail !== null) {
                     if (($chainSubject[$offset - 1] ?? '') === '!' || ($chainSubject[$offset + strlen($match[0][0])] ?? '') === '[') {
                         return $match[0][0];
@@ -6955,7 +6963,7 @@ class MarkdownToCarve
                 $label = ($match[2] ?? '') !== '' ? $match[2] : $match[1];
                 $target = $this->complexReferenceTarget($label, $protectedSources);
                 if ($target !== null) {
-                    return $protectDestination($imageLabel('![' . $match[1] . ']'), '(' . $target . ')');
+                    return $protectDestination($imageLabel('![' . $match[1] . ']'), '(' . $target . ')', reference: true);
                 }
                 $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
                 if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
@@ -7130,7 +7138,7 @@ class MarkdownToCarve
                 $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
                 $target = $label !== null ? $this->complexReferenceTarget($label, $protectedSources) : null;
                 if ($target !== null) {
-                    return $protectDestination('', '(' . $target . ')');
+                    return $protectDestination('', '(' . $target . ')', reference: true);
                 }
                 $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
                     ? ($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
@@ -7234,7 +7242,7 @@ class MarkdownToCarve
                 if (preg_match('/^(\[(?:[^\]\\\\]|\\\\.)*\]:[ \t]*)(.*)$/s', $source, $parts) !== 1) {
                     return $match[1] . $protect($match[2]);
                 }
-                $target = $encodeDest('(' . $parts[2] . ')');
+                $target = $encodeDest('(' . $parts[2] . ')', reference: true);
 
                 return $target === null ? $match[1] . $protect($match[2]) : $match[1] . $protect($parts[1] . substr($target, 1, -1), $source);
             },
@@ -7282,7 +7290,7 @@ class MarkdownToCarve
                         }
                     }
                     if ($target !== null) {
-                        return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')');
+                        return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')', reference: true);
                     }
                     if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
                         return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
@@ -8090,7 +8098,7 @@ class MarkdownToCarve
                 && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
                 && $this->collectFootnoteDefinition($lines, $i)
             ) {
-                if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix)) {
+                if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, strspn(substr($line, strlen($quotePrefix)), ' '))) {
                     for ($blank = 0; $blank < 2; $blank++) {
                         $this->hardReferenceSeparators[count($kept)] = true;
                         $this->markdownSourceLines[count($kept)] = $i;
@@ -8130,7 +8138,7 @@ class MarkdownToCarve
                         $defined[$rawKey] = true;
                     }
                     $i += $parsed['lines'] - 1;
-                    if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix)) {
+                    if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, strspn(substr($line, strlen($quotePrefix)), ' '))) {
                         for ($blank = 0; $blank < 2; $blank++) {
                             $this->hardReferenceSeparators[count($kept)] = true;
                             $this->markdownSourceLines[count($kept)] = $i;
@@ -8178,7 +8186,10 @@ class MarkdownToCarve
                 if (preg_match('/^[ \t]*<>(?:[ \t]+' . $title . ')?[ \t]*$/', $definition[2], $empty) !== 1) {
                     $target = trim($definition[2]);
                     // One with no destination is no definition at all, but paragraph text.
-                    if ($target === '') {
+                    if (
+                        $target === ''
+                        || (!str_starts_with($definition[1], '^') && MarkdownReferenceDefinition::read('[' . $definition[1] . ']: ' . $target, 0) === null)
+                    ) {
                         $continuedCount = count($continued);
                         for ($at = 0; $at <= $continuedCount; $at++) {
                             $this->markdownSourceLines[count($kept) + $at] = $i - $continuedCount + $at;
@@ -8278,8 +8289,7 @@ class MarkdownToCarve
                 if (
                     !$opensItem && $definitionColumn !== false
                     && trim(substr($line, strlen($quotePrefix), $definitionColumn - strlen($quotePrefix))) === ''
-                    && (($lineDepth === 0 && $listIndent === 0) || $definitionColumn === strlen($quotePrefix))
-                    && $this->partsTwoLists($lines, $i, $kept, $quotePrefix)
+                    && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, strspn(substr($line, strlen($quotePrefix)), ' '))
                 ) {
                     for ($blank = 0; $blank < 2; $blank++) {
                         $this->hardReferenceSeparators[count($kept)] = true;
@@ -8447,11 +8457,27 @@ class MarkdownToCarve
      * @param int $index
      * @param array<string> $kept
      * @param string $quotePrefix
+     * @param int|null $definitionIndent
      */
-    protected function partsTwoLists(array $lines, int $index, array $kept, string $quotePrefix): bool
+    protected function partsTwoLists(array $lines, int $index, array $kept, string $quotePrefix, ?int $definitionIndent = null): bool
     {
         $marker = rtrim($quotePrefix);
         $item = '/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)/';
+        $below = null;
+        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
+            if (!str_starts_with($lines[$at], $marker)) {
+                return false;
+            }
+            $text = (string)substr($lines[$at], strlen($quotePrefix));
+            if (trim($text) !== '') {
+                $below = $text;
+
+                break;
+            }
+        }
+        if ($below === null || preg_match($item, $below) !== 1) {
+            return false;
+        }
         $above = null;
         for ($at = count($kept) - 1; $at >= 0 && $above === null; $at--) {
             if (!str_starts_with($kept[$at], $marker)) {
@@ -8463,17 +8489,37 @@ class MarkdownToCarve
         if ($above === null || (preg_match($item, $above) !== 1 && preg_match('/^[ \t]+\S/', $above) !== 1)) {
             return false;
         }
-        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
-            if (!str_starts_with($lines[$at], $marker)) {
-                return false;
+        if ($definitionIndent === null) {
+            return true;
+        }
+        $ancestorIndent = PHP_INT_MAX;
+        $found = false;
+        for ($at++; $at >= 0; $at--) {
+            if (!str_starts_with($kept[$at], $marker)) {
+                return $found;
             }
-            $below = (string)substr($lines[$at], strlen($quotePrefix));
-            if (trim($below) !== '') {
-                return preg_match($item, $below) === 1;
+            $text = (string)substr($kept[$at], strlen($quotePrefix));
+            if (preg_match('/^( {0,3})(?:[-*+]|[0-9]{1,9}[.)])([ \t]+|$)/', $text, $head) === 1) {
+                $indent = strlen($head[1]);
+                if ($indent >= $ancestorIndent) {
+                    continue;
+                }
+                $ancestorIndent = $indent;
+                $prefix = $quotePrefix . $head[0] . ($head[2] === '' ? ' ' : '');
+                $contentColumn = $this->itemContentColumn($prefix) - $this->columnWidth($quotePrefix);
+                if ($definitionIndent >= $contentColumn) {
+                    return false;
+                }
+                $found = true;
+                if ($indent === 0) {
+                    return true;
+                }
+            } elseif (trim($text) !== '' && strspn($text, ' ') === 0) {
+                return $found;
             }
         }
 
-        return false;
+        return $found;
     }
 
     /**

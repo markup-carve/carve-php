@@ -110,18 +110,13 @@ final class MarkdownGfmAutolinksTest extends TestCase
             };
             $literal = $literal || $name === 'pre' || $name === 'code';
             $structural = in_array($name, ['body', 'blockquote', 'ul', 'ol', 'dl', 'table', 'thead', 'tbody', 'tr'], true);
-            if ($name === 'li') {
-                foreach ($node->childNodes as $child) {
-                    if ($child instanceof DOMElement && in_array($child->tagName, ['p', 'ul', 'ol', 'blockquote', 'pre'], true)) {
-                        $structural = true;
-
-                        break;
-                    }
-                }
-            }
+            $blockSibling = static fn (?DOMNode $sibling): bool => $sibling instanceof DOMElement
+                && in_array($sibling->tagName, ['p', 'ul', 'ol', 'blockquote', 'pre'], true);
             $children = [];
             foreach ($node->childNodes as $child) {
-                if ($structural && $child instanceof DOMText && preg_match('/^[\t\n\r\f ]*$/', $child->data) === 1) {
+                $listWhitespace = $name === 'li' && ($child->previousSibling === null || $child->nextSibling === null
+                    || $blockSibling($child->previousSibling) || $blockSibling($child->nextSibling));
+                if (($structural || $listWhitespace) && $child instanceof DOMText && preg_match('/^[\t\n\r\f ]*$/', $child->data) === 1) {
                     continue;
                 }
                 $part = $visit($child, $literal);
