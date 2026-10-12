@@ -82,6 +82,7 @@ use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\Util\TableWidth;
+use ReflectionMethod;
 
 /**
  * Renders AST to HTML
@@ -1465,14 +1466,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        // Add data-carve-src for round-trip support
-        $djotSrcAttr = '';
-        if ($this->roundTripMode) {
-            $djotSrc = $this->reconstructCodeBlockSource($node);
-            $djotSrcAttr = ' data-carve-src="' . $this->escapeAttribute($djotSrc) . '"';
-        }
-
-        return $this->renderPreCode($node, $node->getContent(), $node->getLanguage(), $djotSrcAttr);
+        return $this->renderPreCode($node, $node->getContent(), $node->getLanguage());
     }
 
     /**
@@ -1480,7 +1474,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function renderPreCode(Node $node, string $content, ?string $language, string $djotSrcAttr = ''): string
     {
-        $attrs = $this->renderAttributesBesideCarriers($node, $djotSrcAttr === '' ? [] : ['data-carve-src']);
+        $carriers = $node instanceof CodeBlock || $djotSrcAttr !== '' ? ['data-carve-src'] : [];
+        if ($this->roundTripMode && $node instanceof CodeBlock && $node->getLabel() !== null) {
+            $djotSrcAttr .= ' data-carve-label="' . $this->escapeAttribute($node->getLabel()) . '"';
+            $carriers[] = 'data-carve-label';
+        }
+        $attrs = $this->renderAttributesBesideCarriers($node, $carriers);
 
         $code = $this->escape($content);
 
@@ -2219,12 +2218,49 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
+     * @var bool|null
+     */
+    private ?bool $customNoteScan = null;
+
+    /**
+     * @var int
+     */
+    private const NOTE_SCAN_RECURSION_LIMIT = 32;
+
+    /**
      * Whether the tree holds a note the endnotes section will carry: a resolved
      * `[^label]` reference or an inline `^[...]` note. A definition nobody
      * references renders no section, and neither does an unresolved reference.
+     * Custom overrides retain recursive descendant dispatch for compatibility.
      */
     protected function holdsANote(Node $node): bool
     {
+        $customScan = $this->customNoteScan ??= (new ReflectionMethod($this, __FUNCTION__))
+            ->getDeclaringClass()->getName() !== self::class;
+        if ($customScan) {
+            if ($node instanceof FootnoteRef) {
+                return !$node->isUnresolved();
+            }
+            if ($node instanceof InlineFootnote) {
+                return true;
+            }
+            foreach ($node->getChildren() as $child) {
+                if (!$child instanceof Footnote && $this->holdsANote($child)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        return $this->holdsANoteBounded($node, 0);
+    }
+
+    private function holdsANoteBounded(Node $node, int $depth): bool
+    {
+        if ($depth >= self::NOTE_SCAN_RECURSION_LIMIT) {
+            return $this->holdsANoteIteratively($node);
+        }
         if ($node instanceof FootnoteRef) {
             return !$node->isUnresolved();
         }
@@ -2232,18 +2268,44 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return true;
         }
         foreach ($node->getChildren() as $child) {
-            // A DEFINITION'S OWN BODY DOES NOT COUNT. An unreferenced definition
-            // renders nothing, so a note inside one cannot put a section in the
-            // document; reading it would send the marker down the placement path
-            // for a section that never arrives, and its title and label would go
-            // with the swept sentinel. A note inside a REFERENCED definition is
-            // already covered by the reference that reaches it.
-            if ($child instanceof Footnote) {
-                continue;
-            }
-            if ($this->holdsANote($child)) {
+            if (!$child instanceof Footnote && $this->holdsANoteBounded($child, $depth + 1)) {
                 return true;
             }
+        }
+
+        return false;
+    }
+
+    private function holdsANoteIteratively(Node $node): bool
+    {
+        $stack = [];
+        $current = $node;
+        while ($current !== null) {
+            if ($current instanceof FootnoteRef) {
+                if (!$current->isUnresolved()) {
+                    return true;
+                }
+            } elseif ($current instanceof InlineFootnote) {
+                return true;
+            } else {
+                $children = $current->getChildren();
+                if (count($children) === 1) {
+                    $child = reset($children);
+                    if (!$child instanceof Footnote) {
+                        $current = $child;
+
+                        continue;
+                    }
+                } elseif ($children !== []) {
+                    foreach (array_reverse($children) as $child) {
+                        // A definition only contributes through a reachable reference.
+                        if (!$child instanceof Footnote) {
+                            $stack[] = $child;
+                        }
+                    }
+                }
+            }
+            $current = array_pop($stack);
         }
 
         return false;
@@ -3595,7 +3657,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * precedence used to vary by carrier.
      *
      * CALLED WITH THE CARRIERS THIS NODE WILL ACTUALLY WRITE, never with the
-     * whole inventory: an authored `data-carve-ref` on a link that resolved no
+     * whole inventory. Core code blocks also reserve `data-carve-src` without
+     * writing stored source. An authored `data-carve-ref` on a link that resolved no
      * reference collides with nothing and reaches the document.
      *
      * @param \MarkupCarve\Carve\Node\Node $node

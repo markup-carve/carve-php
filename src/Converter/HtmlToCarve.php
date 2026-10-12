@@ -2474,6 +2474,8 @@ class HtmlToCarve
                 continue;
             } elseif ($name === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid footnote carrier label on <' . $tag . '>', 'warning', $path);
+            } elseif ($name === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid code block label on <' . $tag . '>', 'warning', $path);
             } elseif ($name === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
             } elseif ($name === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
@@ -3471,6 +3473,9 @@ class HtmlToCarve
         $tokens = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $survived = true;
         foreach ($tokens as $token) {
+            if ($token === 'mermaid' && $this->inspectedElement !== null && HtmlAstBuilder::isMermaidFenceElement($this->inspectedElement)) {
+                continue;
+            }
             if (!$this->consumeSurvivingAttribute($this->importSurvivorKey('class', $token))) {
                 $survived = false;
             }
@@ -3868,7 +3873,7 @@ class HtmlToCarve
             $element = $child;
         }
 
-        return $element instanceof DOMElement && $element->hasAttribute('data-carve-src')
+        return $element instanceof DOMElement && !HtmlDomLoader::isCoreCodeBlock($element) && $element->hasAttribute('data-carve-src')
             ? $this->reconstructStoredSource(html_entity_decode(
                 $element->getAttribute('data-carve-src'),
                 ENT_QUOTES | ENT_HTML5,

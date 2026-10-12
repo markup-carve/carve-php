@@ -954,6 +954,10 @@ final class HtmlAstBuilder
         if ($roundTripBlocks !== null) {
             return $roundTripBlocks;
         }
+        $extension = $this->extensionBlock($node);
+        if ($extension !== null) {
+            return [$extension];
+        }
         if ($tag === 'p') {
             $children = $this->blockInlines($node);
             $attrs = $this->attrs($node, []);
@@ -1693,6 +1697,221 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @return list<\DOMElement>|null
+     */
+    private function extensionElements(DOMElement $node): ?array
+    {
+        $elements = [];
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                $elements[] = $child;
+            } elseif (!$child instanceof DOMText || trim($child->textContent) !== '') {
+                return null;
+            }
+        }
+
+        return $elements;
+    }
+
+    private function calloutCodeText(DOMNode $node): string
+    {
+        if (
+            $node instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node)) === 'b'
+            && $node->getAttribute('class') === 'callout'
+            && preg_match('/^[0-9]+$/D', $node->getAttribute('data-callout')) === 1
+            && $node->textContent === $node->getAttribute('data-callout')
+            && $node->childNodes->length === 1 && $node->firstChild instanceof DOMText
+            && $node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'code'
+            && ($node->nextSibling === null || ($node->nextSibling instanceof DOMText && str_starts_with($node->nextSibling->textContent, "\n")))
+        ) {
+            return '<' . $node->textContent . '>';
+        }
+        if ($node instanceof DOMText) {
+            return $node->textContent;
+        }
+        if ($node instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($node)), ['script', 'style', 'template', 'noscript'], true)) {
+            return '';
+        }
+        $text = '';
+        foreach ($node->childNodes as $child) {
+            $text .= $this->calloutCodeText($child);
+        }
+
+        return $text;
+    }
+
+    /**
+     * @return Attrs
+     */
+    private function fencedExtensionAttrs(DOMElement $node): array
+    {
+        $base = $this->codeLanguageClasses($node)[0] ?? '';
+        $skip = ['role'];
+        if ($node->getAttribute('aria-label') === $base) {
+            $skip[] = 'aria-label';
+        }
+        $attrs = $this->attrs($node, $skip);
+        $classes = $attrs['classes'] ?? [];
+        array_shift($classes);
+        if ($classes === []) {
+            unset($attrs['classes']);
+            $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $slot): bool => $slot !== '.class'));
+            if ($attrs['order'] === []) {
+                unset($attrs['order']);
+            }
+        } else {
+            $attrs['classes'] = $classes;
+        }
+
+        return $attrs;
+    }
+
+    public static function isMermaidFenceElement(DOMElement $node): bool
+    {
+        $classes = preg_split('/[\t\n\f\r ]+/', trim($node->getAttribute('class'))) ?: [];
+
+        return strtolower(HtmlDomLoader::elementName($node)) === 'pre'
+            && ($classes[0] ?? null) === 'mermaid'
+            && $node->getAttribute('role') === 'img'
+            && $node->getAttribute('aria-label') !== ''
+            && self::every(iterator_to_array($node->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
+    }
+
+    /**
+     * @return ImportedNode|null
+     */
+    private function extensionBlock(DOMElement $node): ?array
+    {
+        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $classes = $this->codeLanguageClasses($node);
+        if (self::isMermaidFenceElement($node)) {
+            $block = $this->codeBlock($node);
+            $block['lang'] = 'mermaid';
+            $block['attrs'] = $this->fencedExtensionAttrs($node);
+
+            return $block;
+        }
+        if (
+            $tag === 'div' && $node->getAttribute('role') === 'img'
+            && $node->getAttribute('aria-label') !== ''
+            && $node->hasAttribute('data-carve-fence-content')
+            && $this->validCodeLanguage($node->getAttribute('data-carve-fence-language'))
+            && $classes !== [] && $classes[0] !== ''
+            && preg_match('//u', $node->getAttribute('data-carve-fence-content')) === 1
+            && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $node->getAttribute('data-carve-fence-content')) === 0
+        ) {
+            $elements = $this->extensionElements($node);
+            if ($elements !== null && count($elements) === 1 && in_array(strtolower(HtmlDomLoader::elementName($elements[0])), ['svg', 'img'], true)) {
+                $block = ['type' => 'code_block', 'lang' => $node->getAttribute('data-carve-fence-language'), 'content' => $node->getAttribute('data-carve-fence-content')];
+                $block['attrs'] = $this->fencedExtensionAttrs($node);
+                if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+                    $block['label'] = $node->getAttribute('data-carve-label');
+                }
+
+                return $block;
+            }
+        }
+        if ($tag !== 'div' || !in_array('code-group', $classes, true) || !in_array($node->getAttribute('role'), ['group', 'tablist'], true) || $node->getAttribute('aria-label') === '') {
+            return null;
+        }
+        $elements = $this->extensionElements($node);
+        if ($elements === null || $elements === []) {
+            return null;
+        }
+        $aria = $node->getAttribute('role') === 'tablist';
+        $controls = [];
+        $index = 0;
+        $name = null;
+        while (isset($elements[$index]) && strtolower(HtmlDomLoader::elementName($elements[$index])) === ($aria ? 'button' : 'input')) {
+            $control = $elements[$index++];
+            $id = $control->getAttribute('id');
+            if ($id === '' || isset($controls[$id])) {
+                return null;
+            }
+            if ($aria) {
+                if (
+                    $control->getAttribute('class') !== 'code-group-label' || $control->getAttribute('type') !== 'button' || $control->getAttribute('role') !== 'tab'
+                    || !in_array($control->getAttribute('aria-selected'), ['true', 'false'], true) || $control->getAttribute('aria-controls') === ''
+                ) {
+                    return null;
+                }
+                $label = $control;
+            } else {
+                $label = $elements[$index++] ?? null;
+                $name ??= $control->getAttribute('name');
+                if (
+                    $control->getAttribute('class') !== 'code-group-radio' || $control->getAttribute('type') !== 'radio' || $name === '' || $control->getAttribute('name') !== $name
+                    || $label === null || strtolower(HtmlDomLoader::elementName($label)) !== 'label' || $label->getAttribute('class') !== 'code-group-label' || $label->getAttribute('for') !== $id
+                ) {
+                    return null;
+                }
+            }
+            $controls[$id] = ['control' => $control, 'label' => $label];
+        }
+        if ($controls === [] || count($elements) - $index !== count($controls)) {
+            return null;
+        }
+        $selectedCount = 0;
+        foreach ($controls as $entry) {
+            $selectedCount += (int)($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked'));
+        }
+        if ($selectedCount !== 1) {
+            return null;
+        }
+        $blocks = [];
+        foreach ($controls as $id => $entry) {
+            $panel = $elements[$index++];
+            if (
+                strtolower(HtmlDomLoader::elementName($panel)) !== 'div' || $panel->getAttribute('class') !== 'code-group-panel'
+                || $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group')
+                || ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : $panel->getAttribute('aria-label') !== $entry['label']->textContent)
+            ) {
+                return null;
+            }
+            $children = $this->extensionElements($panel);
+            if ($children === null || count($children) !== 1 || strtolower(HtmlDomLoader::elementName($children[0])) !== 'pre') {
+                return null;
+            }
+            $code = $this->extensionElements($children[0]);
+            if ($code === null || count($code) !== 1 || strtolower(HtmlDomLoader::elementName($code[0])) !== 'code') {
+                return null;
+            }
+            if (!self::every(iterator_to_array($entry['label']->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText)) {
+                return null;
+            }
+            $block = $this->codeBlock($children[0]);
+            $selected = $aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked');
+            if ($selected && $blocks !== []) {
+                $block['attrs']['keyValues']['selected'] = '';
+                $block['attrs']['order'][] = 'selected';
+            }
+            $blocks[] = $block;
+        }
+        $group = ['type' => 'admonition', 'kind' => 'code-group', 'children' => $blocks];
+        $attrs = $this->attrs($node, ['role', 'aria-label']);
+        $classes = array_values(array_filter($attrs['classes'] ?? [], static fn (string $class): bool => $class !== 'code-group'));
+        if ($classes === []) {
+            unset($attrs['classes']);
+            $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $slot): bool => $slot !== '.class'));
+            if ($attrs['order'] === []) {
+                unset($attrs['order']);
+            }
+        } else {
+            $attrs['classes'] = $classes;
+        }
+        if ($attrs !== []) {
+            $group['attrs'] = $attrs;
+        }
+
+        return $group;
+    }
+
+    public static function isValidCodeLabel(string $value): bool
+    {
+        return $value !== '' && strpbrk($value, "]\r\n") === false;
+    }
+
+    /**
      * @return CodeBlockNode
      */
     private function codeBlock(DOMElement $node): array
@@ -1706,7 +1925,7 @@ final class HtmlAstBuilder
             }
         }
         $source = $code ?? $node;
-        $content = self::codeSpanText($node);
+        $content = $this->calloutCodeText($node);
         if (!HtmlDomLoader::usesHtml5() && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
             $content = substr($content, 1);
         }
@@ -1716,6 +1935,9 @@ final class HtmlAstBuilder
         // every all-blank payload, this engine's own output included
         // (carve-php#2726).
         $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
+        if ($code !== null && self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+            $block['label'] = $node->getAttribute('data-carve-label');
+        }
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
         $this->session->nativeCodeBlocks[$node] = ['code' => $code, 'lang' => $language];
@@ -4625,6 +4847,7 @@ final class HtmlAstBuilder
             || $this->importMode !== 'roundtrip'
             || $this->session->inCaption
             || !$node->hasAttribute('data-carve-src')
+            || HtmlDomLoader::isCoreCodeBlock($node)
         ) {
             return null;
         }

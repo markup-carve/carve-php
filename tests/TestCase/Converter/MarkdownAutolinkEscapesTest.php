@@ -20,7 +20,7 @@ class MarkdownAutolinkEscapesTest extends TestCase
   ],
   [
     "<foo\\+@bar.example.com>",
-    "<p>&lt;foo+@bar.example.com&gt;</p>"
+    "<p>&lt;<a href=\"mailto:foo+@bar.example.com\">foo+@bar.example.com</a>&gt;</p>"
   ],
   [
     "<foo+@bar.example.com>",

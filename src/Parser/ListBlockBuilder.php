@@ -340,7 +340,9 @@ final class ListBlockBuilder
                                 $subMarkerComment = $markerContent;
                             }
                         }
-                        $subOpenCommentLength = $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
+                        $subOpenCommentLength = $subTrailingState->hasLiteralDiv()
+                            ? null
+                            : $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
                         $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
                         $subWasOpenParagraph = $subTrailingState->openParagraph;
                         $subWasAfterComment = $subTrailingState->afterComment;
@@ -428,7 +430,9 @@ final class ListBlockBuilder
                                 }
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $subMarkerComment ?? $stripped, true);
+                                $subTrailingState = $subTrailingState->hasLiteralDiv()
+                                    ? $this->continuations->advanceLiteralStateWithSourceFenceLookahead($subTrailingState, $subMarkerComment ?? $stripped, $lines, $i, $subIndent)
+                                    : $this->advanceTrailingState($subTrailingState, $subMarkerComment ?? $stripped, true);
                                 if ($wasSubInFence && $subTrailingState->fence === null) {
                                     $subInterruptedParagraphFence = false;
                                 }
@@ -542,7 +546,7 @@ final class ListBlockBuilder
                             }
                             if (
                                 !$subTrailingState->openParagraph
-                                && !$subTrailingState->inDiv
+                                && (!$subTrailingState->inDiv || $subTrailingState->hasLiteralDiv())
                             ) {
                                 break;
                             }
@@ -1351,6 +1355,77 @@ final class ListBlockBuilder
         // those with a byte-level opener probe before asking the visual-column
         // gate about every line; the latter is deliberately instrumented by the
         // scaling suite and must not be repeated at every nesting depth.
+        // A marker-led chunk delegates openers at its content floor to the
+        // descendant. Only an opener inside the parent band needs this pass.
+        $firstVisible = null;
+        foreach ($lines as $probeLine) {
+            if (!IndentationHelper::isBlankLine($probeLine)) {
+                $firstVisible = $probeLine;
+
+                break;
+            }
+        }
+        $firstMarker = $firstVisible === null ? null : ($this->getListParser)()->parseListItemMarker($firstVisible);
+        if ($firstVisible !== null && $firstMarker !== null && IndentationHelper::getLeadingColumns($firstVisible) === 0) {
+            $floor = $this->listMarkerWidth($firstVisible, $firstMarker);
+            $parentCandidate = false;
+            foreach ($lines as $index => $line) {
+                if ($eligible !== null && !isset($eligible[$index])) {
+                    if (
+                        ($line[0] ?? '') === ' '
+                        && strspn($line, " \t", 0, $floor) < $floor
+                        && !IndentationHelper::isBlankLine($line)
+                    ) {
+                        $parentCandidate = true;
+
+                        break;
+                    }
+
+                    continue;
+                }
+                // A retained TAB may depend on its source column. Let the
+                // existing extent walk decide instead of rejecting this chunk.
+                if (str_contains($line, "\t")) {
+                    $parentCandidate = true;
+
+                    break;
+                }
+                if (($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t") {
+                    // A definition at the parent's minimum releases the child.
+                    if (
+                        preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
+                        || ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) !== null
+                        || ($this->getFencedBlockParser)()->parseFencedCommentOpener($line) !== null
+                    ) {
+                        $parentCandidate = true;
+
+                        break;
+                    }
+
+                    continue;
+                }
+                $leadingBytes = strspn($line, " \t", 0, $floor);
+                if ($leadingBytes >= $floor) {
+                    continue;
+                }
+                $column = IndentationHelper::getLeadingColumns($line, $floor);
+                if ($column <= 0 || $column >= $floor) {
+                    continue;
+                }
+                $local = IndentationHelper::stripLeadingColumns($line, $column);
+                if (
+                    ($this->getListParser)()->parseListItemMarker($local) === null
+                    && $this->lineOpensBlockForLooseness($local, true)
+                ) {
+                    $parentCandidate = true;
+
+                    break;
+                }
+            }
+            if (!$parentCandidate) {
+                return false;
+            }
+        }
         $probeNestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
         $probeAfterBlank = false;
         $skipUntil = -1;

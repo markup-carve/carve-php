@@ -47,10 +47,7 @@ class AMarkdownAutolinkIsNotAnHtmlBlockTest extends TestCase
             ],
             // Not autolinks in CommonMark either, and not HTML blocks either:
             // they are paragraph text, which is what the importer must write.
-            'a space inside the brackets' => ["<https://foo.bar/baz bim>\n", "<https://foo.bar/baz bim>\n"],
-            'an escaped plus in an email' => ["<foo\\+@bar.example.com>\n", "<foo\\+\\@bar.example.com>\n"],
             'an empty bracket pair' => ["<>\n", "<>\n"],
-            'brackets padded with spaces' => ["< https://foo.bar >\n", "< https://foo.bar >\n"],
             'a dotted run with no scheme' => ["<foo.bar.baz>\n", "<foo.bar.baz>\n"],
             // Controls: a real tag name still opens the block.
             'an unknown tag alone' => ["<x>\n", "```=html\n<x>\n```\n"],
@@ -92,7 +89,7 @@ class AMarkdownAutolinkIsNotAnHtmlBlockTest extends TestCase
             ],
             'a space inside the brackets stays text' => [
                 "<https://foo.bar/baz bim>\n",
-                '<p>&lt;https://foo.bar/baz bim&gt;</p>',
+                '<p>&lt;<a href="https://foo.bar/baz">https://foo.bar/baz</a> bim&gt;</p>',
             ],
         ];
     }

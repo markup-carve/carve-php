@@ -95,9 +95,15 @@ final class MarkdownAssessment
     private function inline(string $text, int $line, bool $linkLabel = false): string
     {
         $result = '';
+        $bareLinks = $linkLabel ? [] : MarkdownBareLinks::ranges($text);
+        $bareAt = 0;
         $m = [];
         $run = [];
         for ($i = 0, $length = strlen($text); $i < $length;) {
+            while (isset($bareLinks[$bareAt]) && $bareLinks[$bareAt]['end'] <= $i) {
+                $bareAt++;
+            }
+            $bare = $bareLinks[$bareAt] ?? null;
             if ($text[$i] === '`' && self::match('/^`+/', $text, $i, $run) && strlen($run[0]) > 64) {
                 $this->complete = false;
 
@@ -113,6 +119,12 @@ final class MarkdownAssessment
             } elseif (self::match('/^\\\\([!"#$%&\'()*+,\-.\/:;<=>?@\[\]\\\\^_`{|}~])/', $text, $i, $m)) {
                 $this->emit('escape', $line, 'normalized');
                 $result .= self::escape($m[1]);
+            } elseif ($bare !== null && $bare['start'] === $i) {
+                $body = substr($text, $bare['start'], $bare['end'] - $bare['start']);
+                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $bare['prefix'] . $body) ?? $bare['prefix'] . $body;
+                $this->emit('bare-autolink', $line, 'normalized');
+                $result .= '<a href="' . self::escape($href) . '">' . self::escape($body) . '</a>';
+                $m = [$body];
             } elseif (self::match('/^&(?:#[xX][\da-fA-F]+|#\d+|[A-Za-z][A-Za-z\d]+);/', $text, $i, $m)) {
                 if (html_entity_decode($m[0], ENT_QUOTES | ENT_HTML5, 'UTF-8') !== $m[0]) {
                     $this->emit('entity', $line, 'normalized');
@@ -162,6 +174,9 @@ final class MarkdownAssessment
                     return $result . self::escape(substr($text, $i));
                 }
                 if (self::match('~^[^*_\~`\\\\[<&\n]+~', $text, $i, $m)) {
+                    if ($bare !== null && $bare['start'] > $i && $bare['start'] < $i + strlen($m[0])) {
+                        $m[0] = substr($m[0], 0, $bare['start'] - $i);
+                    }
                     $next = $text[$i + strlen($m[0])] ?? '';
                     if ($next === '[' && str_ends_with($m[0], '!')) {
                         $m[0] = substr($m[0], 0, -1);

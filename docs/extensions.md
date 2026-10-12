@@ -995,6 +995,15 @@ preset of this client-hydration shape, generalized so D2, Graphviz, WaveDrom,
 ABC, Vega-Lite, Chart.js, etc. need no new code. HTML output only. Tier-3
 (opt-in, never corpus-pinned).
 
+Roundtrip static export with a build renderer writes `data-carve-fence-content`
+with the AST's `code_block.content` and `data-carve-fence-language` with its
+language word. These carry fields, without fence delimiters or attribute syntax.
+A bracketed label uses `data-carve-label`. The default HTML importer reads these
+carriers in every import mode on a named image wrapper containing one SVG or
+image. It validates the language token and UTF-8 content, rejecting control
+characters other than tabs and line endings. Interactive Mermaid imports from
+its named `<pre>` text; a `<pre><code>` with class `mermaid` remains ordinary code.
+
 Constructor options:
 
 - `language` (`string|array<string>`, required) - fence info word(s) claimed.
