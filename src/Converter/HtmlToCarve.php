@@ -418,6 +418,7 @@ class HtmlToCarve
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
         $this->droppedReferenceCarriers = null;
+        $this->contradictoryLinkCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -445,6 +446,7 @@ class HtmlToCarve
     {
         $this->droppedFootnoteLabelCarriers = $session->droppedFootnoteLabelCarriers;
         $this->droppedReferenceCarriers = $session->droppedReferenceCarriers;
+        $this->contradictoryLinkCarriers = $session->contradictoryLinkCarriers;
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
         $this->retainedListTypes = $session->retainedListTypes;
@@ -2090,6 +2092,10 @@ class HtmlToCarve
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting footnote label and inline footnote carriers on <' . $tag . '>', 'warning', $path);
         }
 
+        if (isset($this->contradictoryLinkCarriers[$node])) {
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped contradictory autolink and reference carriers on <' . $tag . '>', 'warning', $path);
+        }
+
         if (isset($this->droppedReferenceCarriers[$node])) {
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting or unspellable reference carrier on <' . $tag . '>', 'info', $path);
         }
@@ -2473,6 +2479,12 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
             } elseif ($name === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid raw format carrier on <' . $tag . '>', 'warning', $path);
+            } elseif ($name === 'data-carve-tight' && in_array($tag, ['ul', 'ol'], true) && !in_array($attribute->value, ['true', 'false'], true)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid list tightness carrier on <' . $tag . '>', 'warning', $path);
+            } elseif ($name === 'data-carve-id-slot' && $tag === 'section' && !ctype_digit($attribute->value)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid heading id slot carrier on <' . $tag . '>', 'warning', $path);
+            } elseif ($name === 'data-carve-ext' && !in_array($attribute->value, HtmlAstBuilder::EXTENSION_CARRIER_VALUES, true)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unknown generated element carrier on <' . $tag . '>', 'warning', $path);
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
                 // attribute - so asking the output for it is the wrong
@@ -3800,6 +3812,7 @@ class HtmlToCarve
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
         $this->droppedReferenceCarriers = null;
+        $this->contradictoryLinkCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -5018,6 +5031,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
     private ?SplObjectStorage $droppedReferenceCarriers = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $contradictoryLinkCarriers = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, string|null>|null

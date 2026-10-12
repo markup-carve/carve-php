@@ -89,4 +89,105 @@ class EveryImportModeConsumesTheCarrierInventoryTest extends TestCase
             }
         }
     }
+
+    /**
+     * PART 10 section 13d: two contradictory carriers restore neither meaning,
+     * and the pair is reported once. An invalid value is not a carrier and
+     * contradicts nothing.
+     */
+    public function testContradictoryLinkCarriersRestoreNeitherMeaning(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['data-carve-', 'data-djot-'] as $prefix) {
+                $importer = new HtmlToCarve(importMode: $mode);
+                $pair = '<p><a href="https://e.com" ' . $prefix . 'autolink ' . $prefix . 'ref="r">https://e.com</a></p>';
+                $result = $importer->convertWithReport($pair);
+                $this->assertSame("[https://e.com](https://e.com)\n", $result->value, $mode);
+                $this->assertCount(1, $result->diagnostics);
+                $this->assertSame('attribute-dropped', $result->diagnostics[0]->code);
+                $this->assertSame('warning', $result->diagnostics[0]->severity);
+
+                $autolink = $importer->convertWithReport('<p><a href="https://e.com" ' . $prefix . 'autolink>https://e.com</a></p>');
+                $this->assertSame("<https://e.com>\n", $autolink->value, $mode);
+                $this->assertSame([], $autolink->diagnostics);
+
+                $reference = $importer->convertWithReport('<p><a href="https://e.com" ' . $prefix . 'ref="r">https://e.com</a></p>');
+                $this->assertSame("[https://e.com][r]\n\n[r]: https://e.com\n", $reference->value, $mode);
+                $this->assertSame([], $reference->diagnostics);
+
+                $invalid = $importer->convertWithReport('<p><a href="https://e.com" ' . $prefix . 'autolink ' . $prefix . 'ref="a]b">https://e.com</a></p>');
+                $this->assertSame("<https://e.com>\n", $invalid->value, $mode);
+                $this->assertCount(1, $invalid->diagnostics);
+                $this->assertSame('attribute-dropped', $invalid->diagnostics[0]->code);
+            }
+        }
+    }
+
+    /**
+     * PART 10 section 13e: a value outside its grammar is not a carrier, and
+     * the drop is reported.
+     *
+     * @return array<string, array{string, string, string, string}>
+     */
+    public static function invalidValueProvider(): array
+    {
+        return [
+            'a tight value' => [
+                '<ul data-carve-tight="yes"><li>a</li></ul>',
+                "- a\n",
+                '<ul data-carve-tight="false"><li>a</li></ul>',
+                "{loose}\n- a\n",
+            ],
+            'an empty tight value' => [
+                '<ol data-carve-tight=""><li><p>a</p></li></ol>',
+                "{loose}\n1. a\n",
+                '<ol data-carve-tight="true"><li><p>a</p></li></ol>',
+                "1. a\n",
+            ],
+            'an id slot' => [
+                '<section id="mine" data-carve-explicit-id data-carve-id-slot="x"><h1 class="c">H</h1></section>',
+                "{#mine .c}\n# H\n",
+                '<section id="mine" data-carve-explicit-id data-carve-id-slot="1"><h1 class="c">H</h1></section>',
+                "{.c #mine}\n# H\n",
+            ],
+            'a signed id slot' => [
+                '<section id="mine" data-carve-explicit-id data-carve-id-slot="-1"><h1 class="c">H</h1></section>',
+                "{#mine .c}\n# H\n",
+                '<section id="mine" data-carve-explicit-id data-carve-id-slot="9"><h1 class="c">H</h1></section>',
+                "{.c #mine}\n# H\n",
+            ],
+            'a link reference label' => [
+                '<p><a href="/u" data-carve-ref="a]b">t</a></p>',
+                "[t](/u)\n",
+                '<p><a href="/u" data-carve-ref="r">t</a></p>',
+                "[t][r]\n\n[r]: /u\n",
+            ],
+            'a generated element name' => [
+                '<section id="mine" data-carve-explicit-id data-carve-ext="zz"><h1>H</h1></section>',
+                "{#mine}\n# H\n",
+                '<section id="mine" data-carve-explicit-id><h1>H</h1></section>',
+                "{#mine}\n# H\n",
+            ],
+        ];
+    }
+
+    #[DataProvider('invalidValueProvider')]
+    public function testAnInvalidCarrierValueIsDroppedWithOneDiagnostic(
+        string $invalid,
+        string $invalidCarve,
+        string $valid,
+        string $validCarve,
+    ): void {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            $importer = new HtmlToCarve(importMode: $mode);
+            $control = $importer->convertWithReport($valid);
+            $this->assertSame($validCarve, $control->value, $mode);
+            $result = $importer->convertWithReport($invalid);
+            $this->assertSame($invalidCarve, $result->value, $mode);
+            $dropped = static fn (array $rows): int => count(array_filter($rows, static fn ($row): bool => $row->code === 'attribute-dropped'));
+            $this->assertSame(0, $dropped($control->diagnostics), $mode);
+            $this->assertSame(1, $dropped($result->diagnostics), $mode);
+            $this->assertCount(count($control->diagnostics) + 1, $result->diagnostics);
+        }
+    }
 }

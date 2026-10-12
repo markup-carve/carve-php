@@ -41,6 +41,9 @@ trait ExtensionAttributesTrait
         ?string $tag = null,
         bool $trackGenerated = false,
     ): string {
+        if ($renderer->isRoundTripMode()) {
+            $excludeAttrs[] = HtmlRenderer::RETIRED_SOURCE_CARRIER;
+        }
         $carriers = array_values(array_filter($excludeAttrs, static fn (string $name): bool => str_starts_with($name, 'data-carve-')));
         $renderer->attributesBesideCarriers($node, $carriers);
         $stored = $node->getAttributes();

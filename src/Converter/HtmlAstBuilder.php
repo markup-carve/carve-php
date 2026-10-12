@@ -2412,6 +2412,11 @@ final class HtmlAstBuilder
         return $items;
     }
 
+    public static function isReferenceCarrierLabel(string $label): bool
+    {
+        return preg_match('/\A[^\]@^\r\n][^\]\r\n]*\z/u', $label) === 1;
+    }
+
     public static function hasConflictingEndnoteCarriers(DOMElement $node): bool
     {
         $list = $node->parentNode;
@@ -2931,6 +2936,14 @@ final class HtmlAstBuilder
      * @var int
      */
     private const MAX_CARRIER_WIDTH = 1000;
+
+    /**
+     * The `data-carve-ext` values this engine writes: the core section wrapper
+     * and the bundled extensions' own. Any other value is not a carrier.
+     *
+     * @var list<string>
+     */
+    public const EXTENSION_CARRIER_VALUES = ['section', 'tabs', 'code-group', 'code-block'];
 
     public static function isValidSeparatorWidthCarrier(string $carrier): bool
     {
@@ -4690,7 +4703,7 @@ final class HtmlAstBuilder
     private function claimReference(DOMElement $node, string $label, string $href, ?string $title): bool
     {
         if (
-            preg_match('/\A[^\]@^\r\n][^\]\r\n]*\z/u', $label) !== 1
+            !self::isReferenceCarrierLabel($label)
             || ($title !== null && strpbrk($title, "\r\n") !== false)
             || preg_match('/[\s<>]/u', $href) === 1
             || ($this->isInsideTableCell($node) && str_contains($label, '|'))
@@ -4842,23 +4855,35 @@ final class HtmlAstBuilder
         if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
             return [];
         }
-        if ($node->hasAttribute('data-carve-autolink')) {
-            $autolink = [
-                'type' => 'autolink',
-                'href' => $node->getAttribute('href'),
-                'text' => trim($node->textContent),
-            ];
-            $this->attachAttrs($autolink, $node, ['href', 'data-carve-autolink']);
-
-            return [$autolink];
-        }
-        $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
+        $labelText = '';
+        $ref = '';
         if ($node->hasAttribute('data-carve-ref')) {
             $labelText = $this->plainInlineText(self::nodeList($children));
             $ref = $node->getAttribute('data-carve-ref');
             if ($ref === '') {
                 $ref = trim($labelText);
             }
+        }
+        // An invalid label is not a carrier and contradicts nothing (PART 10 section 13d).
+        $contradictory = $node->hasAttribute('data-carve-autolink') && $node->hasAttribute('data-carve-ref')
+            && self::isReferenceCarrierLabel($ref);
+        if ($contradictory) {
+            $this->session->contradictoryLinkCarriers[$node] = null;
+        } elseif ($node->hasAttribute('data-carve-autolink')) {
+            $autolink = [
+                'type' => 'autolink',
+                'href' => $node->getAttribute('href'),
+                'text' => trim($node->textContent),
+            ];
+            if ($node->hasAttribute('data-carve-ref')) {
+                $this->session->droppedReferenceCarriers[$node] = null;
+            }
+            $this->attachAttrs($autolink, $node, ['href', 'data-carve-autolink', 'data-carve-ref']);
+
+            return [$autolink];
+        }
+        $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
+        if ($node->hasAttribute('data-carve-ref') && !$contradictory) {
             if (
                 $ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')
                 && $this->claimReference($node, $ref, $node->getAttribute('href'), $node->hasAttribute('title') ? $node->getAttribute('title') : null)
@@ -4867,6 +4892,8 @@ final class HtmlAstBuilder
                 $collapsed = $labelText === $ref;
                 $link['rawRef'] = '[' . $labelText . ']'
                     . ($collapsed ? '[]' : '[' . $ref . ']');
+            } else {
+                $this->session->droppedReferenceCarriers[$node] = null;
             }
         }
         if ($node->hasAttribute('title')) {
