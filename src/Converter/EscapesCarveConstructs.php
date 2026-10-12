@@ -268,32 +268,10 @@ trait EscapesCarveConstructs
             }
         }
 
-        // The `/` in the lookbehind is not symmetry with the rules below, it is
-        // load-bearing: without it the SECOND slash of `ftp://x/` matched, and
-        // escaping it freed the first one to open emphasis - `ftp:/\/x/`
-        // rendering as `ftp:<em>/x</em>`. Only `http`/`https` URLs are protected
-        // upstream in Markdown, so every other scheme reached this rule.
-        if (!str_contains($bareHandled, '/')) {
-            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9\/])\/(?!\s)([^\/]+?)(?<!\s)\/(?![A-Za-z0-9])/', $line);
-        }
-        if (!str_contains($bareHandled, '=')) {
-            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9=])(?<!(?<!\\\\)\{)=(?![=\s])([^=]+?)(?<!\s)=(?![A-Za-z0-9=])/', $line);
-        }
-        if (!str_contains($bareHandled, '~')) {
-            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9~])(?<!(?<!\\\\)\{)~(?![~\s])([^~]+?)(?<!\s)~(?![A-Za-z0-9~])/', $line);
-        }
-
-        // `*` is a strong and `_` an underline, and both are word-bounded: the
-        // lookarounds are the same ones the parser opens on, so `a*b*c`,
-        // `feature_flag_company` and `5 * 4 * 3` stay bare - escaping those
-        // would put a backslash in front of a character the reader typed as
-        // itself. Doubling is excluded because `**x**` and `__x__` are already
-        // literal to the parser.
-        if (!str_contains($bareHandled, '*')) {
-            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9*])(?<!(?<!\\\\)\{)\*(?![*\s])([^*\n]+?)(?<!\s)\*(?![A-Za-z0-9*])/', $line);
-        }
-        if (!str_contains($bareHandled, '_')) {
-            $line = $this->escapeUnlessAlreadyEscaped('/(?<![A-Za-z0-9_])(?<!(?<!\\\\)\{)_(?![_\s])([^_\n]+?)(?<!\s)_(?![A-Za-z0-9_])/', $line);
+        foreach (str_split('/=~*_') as $delimiter) {
+            if (!str_contains($bareHandled, $delimiter)) {
+                $line = $this->escapeBareOpeners($line, $delimiter, $delimiter === '/');
+            }
         }
 
         if (!str_contains($bareHandled, '#')) {
@@ -330,6 +308,56 @@ trait EscapesCarveConstructs
         }
 
         return $line;
+    }
+
+    private function escapeBareOpeners(string $subject, string $delimiter, bool $behindBrace): string
+    {
+        if (!str_contains($subject, $delimiter)) {
+            return $subject;
+        }
+        $alnum = static fn (?string $char): bool => $char !== null && str_contains('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', $char);
+        $blank = static fn (?string $char): bool => $char !== null && str_contains(" \t\r\n", $char);
+        $offsets = [];
+        $closer = -1;
+        $lineIsBlank = false;
+        for ($i = strlen($subject) - 1; $i >= 0; $i--) {
+            $char = $subject[$i];
+            if ($char === "\n") {
+                // A pair never spans a blank line.
+                if ($lineIsBlank) {
+                    $closer = -1;
+                }
+                $lineIsBlank = true;
+
+                continue;
+            }
+            if (!str_contains(" \t\r", $char)) {
+                $lineIsBlank = false;
+            }
+            if ($char !== $delimiter || $this->isEscapedAt($subject, $i)) {
+                continue;
+            }
+            $before = $i > 0 ? $subject[$i - 1] : null;
+            $after = $subject[$i + 1] ?? null;
+            if (
+                $before !== $delimiter && !$alnum($before) && $after !== $delimiter && $after !== null && !$blank($after)
+                && $closer > $i + 1 && ($behindBrace || $before !== '{' || $this->isEscapedAt($subject, $i - 1))
+            ) {
+                $offsets[] = $i;
+            }
+            if ($before !== null && !$blank($before) && !$alnum($after)) {
+                $closer = $i;
+            }
+        }
+        $parts = [];
+        $start = 0;
+        foreach (array_reverse($offsets) as $offset) {
+            $parts[] = substr($subject, $start, $offset - $start) . '\\';
+            $start = $offset;
+        }
+        $parts[] = substr($subject, $start);
+
+        return implode('', $parts);
     }
 
     protected function restoreNumericReferenceHashes(string $text): string
