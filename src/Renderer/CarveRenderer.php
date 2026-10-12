@@ -79,6 +79,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
@@ -1069,6 +1070,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected array $definitionAttributes = [];
 
     /**
+     * @var array<string, array{href: string, title: string|null}>
+     */
+    private array $imageReferenceDefinitions = [];
+
+    /**
      * Collected definitions, by the source line the author wrote them on.
      *
      * @var array<int, \MarkupCarve\Carve\Node\Block\LinkReferenceDefinition|\MarkupCarve\Carve\Node\Block\Footnote>
@@ -1104,6 +1110,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // both wrote `{.x}` twice and broke PART 11 §1 (carve#642), so the
         // definition's own keys are subtracted at the reference site.
         $this->definitionAttributes = [];
+        $this->imageReferenceDefinitions = [];
         // A definition COLLECTED from a description is written back on that
         // description's line, so the emptied `dd` is not a bare `:` that
         // re-parses into the term above it (carve#805, carve-php#903). Indexed
@@ -1112,6 +1119,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->definitionsByLine = [];
         $this->definitionsWrittenInPlace = [];
         foreach ($document->getChildren() as $child) {
+            if ($child instanceof LinkReferenceDefinition) {
+                $this->imageReferenceDefinitions['label:' . LabelKey::normalize($child->getLabel())] = [
+                    'href' => $child->getHref(),
+                    'title' => $child->getTitle(),
+                ];
+            }
             if ($child instanceof LinkReferenceDefinition && $child->getAttributeEntries() !== []) {
                 $this->definitionAttributes[$child->getLabel()] = $child->getAttributeEntries();
             }
@@ -3202,7 +3215,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * The href is re-escaped the way the inline tail's is: the reader resolves
      * `\(`, `\)` and `\\`, so writing the resolved value bare would hand back a
-     * line whose parentheses no longer balance. The title is emitted verbatim;
+     * line whose parentheses no longer balance. The title uses quoted-string escaping;
      * the trailing attribute block is the node's own attributes (PART 9 §15
      * A2b), which transfer to every link or image resolving the label rather
      * than styling this line.
@@ -3212,7 +3225,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $out = '[' . $node->getLabel() . ']: ' . $this->escapeDestinationEscapes($node->getHref());
         $title = $node->getTitle();
         if ($title !== null) {
-            $out .= ' "' . str_replace('"', '\\"', $title) . '"';
+            $out .= ' "' . $this->escapeQuoted($title) . '"';
         }
         $attrs = $this->renderAttrs($node);
         if ($attrs !== '') {
@@ -3837,7 +3850,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // author's escape, so `\*x\*` came back as `*x*`, re-parsed with a
             // Strong, and W4 escalated the whole document to conservative
             // (carve#374).
-            $node instanceof EscapedText => '\\' . $node->getContent(),
+            $node instanceof EscapedText => $this->renderEscapedText($node),
             $node instanceof Emphasis => $withAttrs($this->spellSameKind($node, '/', $this->renderEmphasis('/', $this->renderMarked('emphasis', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
             $node instanceof Strong => $withAttrs($this->spellSameKind($node, '*', $this->renderStrongNode($node, $prevChar, $nextChar))),
             $node instanceof Underline => $withAttrs($this->spellSameKind($node, '_', $this->renderEmphasis('_', $this->renderMarked('underline', $node), $prevChar, $nextChar, self::endsInEmptyCodeSpan($node), self::holdsLineComment($node)))),
@@ -4353,11 +4366,56 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 return $rawRef;
             }
 
-            return '![' . $this->escapeImageAlt($node->getAlt()) . '][' . $referenceLabel . ']'
-                . $this->renderAttrsExcept($node, $this->definitionAttributes[$referenceLabel] ?? []);
+            if ($this->imageReferenceCanBeWritten($node, $referenceLabel)) {
+                return '![' . $this->escapeImageAlt($node->getAlt()) . '][' . $referenceLabel . ']'
+                    . $this->renderAttrsExcept($node, $this->definitionAttributes[$referenceLabel] ?? []);
+            }
+        }
+
+        if ($referenceLabel !== null && $referenceLabel !== '') {
+            $this->recordUnspellableField($node, 'ref', 'The image reference cannot be written in this source slot; wrote its destination inline');
         }
 
         return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Inline\EscapedText $node
+     *
+     * @return string
+     */
+    private function renderEscapedText(EscapedText $node): string
+    {
+        $value = $node->getContent();
+        if (strlen($value) === 1 && str_contains(AttributeParser::ESCAPABLE_PUNCTUATION, $value)) {
+            return '\\' . $value;
+        }
+        $this->recordUnspellableField($node, 'value', 'Carve source cannot spell this character as escaped text; wrote its text value');
+
+        return $this->escapeText($value);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Inline\Image $node
+     * @param string $label
+     *
+     * @return bool
+     */
+    private function imageReferenceCanBeWritten(Image $node, string $label): bool
+    {
+        if (
+            preg_match('/\A[^\]@^\r\n][^\]\r\n]*\z/u', $label) !== 1
+            || ($this->tableCellDepth > 0 && str_contains($label, '|'))
+            || ($node->getTitle() !== null && strpbrk($node->getTitle(), "\r\n") !== false)
+            || preg_match('/[\s<>]/u', $node->getSource()) === 1
+        ) {
+            return false;
+        }
+        $definition = $this->imageReferenceDefinitions['label:' . LabelKey::normalize($label)] ?? null;
+
+        return $definition !== null
+            && $definition['href'] === $node->getSource()
+            && $definition['title'] === $node->getTitle();
     }
 
     /**
@@ -6069,6 +6127,29 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function quotedTitleToken(Node $node, string $title): string
     {
+        if ($node instanceof Div) {
+            $pending = $node->getHeaderNodes();
+            $seen = [];
+            while ($pending !== []) {
+                $inline = array_pop($pending);
+                $id = spl_object_id($inline);
+                if (isset($seen[$id])) {
+                    continue;
+                }
+                $seen[$id] = true;
+                if ($inline instanceof Image && $inline->getReferenceLabel() !== null && $inline->getRawReferenceLabel() === null) {
+                    $this->recordUnspellableField($inline, 'ref', 'A quoted title writes the image destination inline instead of its reference');
+                } elseif ($inline instanceof EscapedText) {
+                    $value = $inline->getContent();
+                    if (strlen($value) !== 1 || !str_contains(AttributeParser::ESCAPABLE_PUNCTUATION, $value)) {
+                        $this->recordUnspellableField($inline, 'value', 'Carve source cannot spell this character as escaped text; wrote its text value');
+                    }
+                }
+                foreach ($inline->getChildren() as $child) {
+                    $pending[] = $child;
+                }
+            }
+        }
         if (str_contains($title, '"')) {
             $this->recordUnspellableField(
                 $node,

@@ -21,6 +21,7 @@ use PHPUnit\Framework\TestCase;
  * construct that emits the attribute this class therefore proves the SIDECAR
  * SURVIVES A RENDER - a real property, and a much narrower one than "the
  * document round-trips" (markup-carve/carve-php#1603).
+ * Core code blocks reconstruct from `<pre><code>` and `data-carve-label`.
  *
  * The reconstruction claim - the same source coming back out of the rendered
  * HTML with no sidecar to read - is a different question, and it lives in
@@ -84,7 +85,7 @@ class RoundTripThroughTheSidecarTest extends TestCase
     public function testSimpleCodeBlock(): void
     {
         $carve = <<<'CARVE'
-``` php
+```php
 echo "Hello";
 ```
 CARVE;
@@ -94,7 +95,7 @@ CARVE;
     public function testCodeBlockWithBackticks(): void
     {
         $carve = <<<'CARVE'
-```` markdown
+````markdown
 Here is a code block:
 
 ```javascript
@@ -105,15 +106,15 @@ End of example.
 ````
 CARVE;
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html);
-        $this->assertStringContainsString('````', $html, 'Should preserve 4-backtick fence in data-carve-src');
+        $this->assertStringNotContainsString('data-carve-src=', $html);
+        $this->assertStringContainsString('```javascript', $html);
         $this->assertRoundTrip($carve);
     }
 
     public function testCodeBlockWithManyBackticks(): void
     {
         $carve = <<<'CARVE'
-`````` text
+``````text
 Here are some backticks: ``` and ```` and `````
 ``````
 CARVE;
@@ -124,7 +125,7 @@ CARVE;
     {
         $carve = <<<'CARVE'
 {#my-code .highlight}
-``` python
+```python
 def hello():
     print("world")
 ```
@@ -301,14 +302,14 @@ CARVE;
 ::: tab
 ### Sync
 
-``` php
+```php
 $result = fetch();
 ```
 :::
 ::: tab
 ### Async
 
-``` php
+```php
 $promise = fetchAsync();
 ```
 :::
@@ -325,11 +326,11 @@ CARVE;
 {label=Install}
 :::: tab
 ::: code-group
-``` php
+```php
 composer require pkg
 ```
 
-``` bash
+```bash
 npm install pkg
 ```
 :::
@@ -388,7 +389,7 @@ CARVE;
 
 Paragraph with *bold* and _italic_.
 
-``` php
+```php
 echo "code";
 ```
 
@@ -418,11 +419,11 @@ CARVE;
 Introduction text.
 
 ::: code-group
-``` php [PHP]
+```php [PHP]
 $x = 1;
 ```
 
-``` js [JS]
+```js [JS]
 let x = 1;
 ```
 :::
@@ -441,7 +442,7 @@ CARVE;
 ::: tab
 ### Code
 
-``` php
+```php
 $x = 1;
 ```
 :::
@@ -485,7 +486,7 @@ CARVE;
     public function testCodeBlockWithTrailingSpaces(): void
     {
         $carve = <<<'CARVE'
-``` php
+```php
 echo "test";
 ```
 CARVE;
@@ -497,7 +498,7 @@ CARVE;
         $carve = <<<'CARVE'
 First block:
 
-```` md
+````md
 ```
 nested
 ```
@@ -505,7 +506,7 @@ nested
 
 Second block:
 
-````` text
+`````text
 ````
 more nested
 ````
@@ -518,11 +519,11 @@ CARVE;
     // Verify data-carve-src presence
     // =========================================================================
 
-    public function testCodeBlockHasDjotSrc(): void
+    public function testCodeBlockHasNoStoredSource(): void
     {
-        $carve = "``` php\necho 1;\n```";
+        $carve = "```php\necho 1;\n```";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Code block should have data-carve-src');
+        $this->assertStringNotContainsString('data-carve-src=', $html);
     }
 
     public function testMermaidHasDjotSrc(): void

@@ -600,7 +600,7 @@ class HtmlRendererTest extends TestCase
         $this->assertNull($this->renderer->getCodeBlockTabWidth());
     }
 
-    public function testRoundTripModeAddsDjotSrcToCodeBlock(): void
+    public function testRoundTripModeOmitsStoredSourceOnCodeBlock(): void
     {
         $this->renderer->setRoundTripMode(true);
 
@@ -611,8 +611,8 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertStringContainsString('data-carve-src="', $result);
-        $this->assertStringContainsString('``` php', $result);
+        $this->assertStringNotContainsString('data-carve-src=', $result);
+        $this->assertStringContainsString('class="language-php"', $result);
     }
 
     public function testNonRoundTripModeNoDjotSrcOnCodeBlock(): void
@@ -640,9 +640,8 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertStringContainsString('data-carve-src="', $result);
-        // Should use 4+ backticks to avoid conflict
-        $this->assertStringContainsString('````', $result);
+        $this->assertStringNotContainsString('data-carve-src=', $result);
+        $this->assertStringContainsString('Example with ```backticks```', $result);
     }
 
     public function testRoundTripCodeBlockWithoutLanguage(): void
@@ -655,8 +654,7 @@ class HtmlRendererTest extends TestCase
 
         $result = $this->renderer->render($doc);
 
-        $this->assertStringContainsString('data-carve-src="', $result);
-        // Should have fence without trailing space when no language
-        $this->assertStringContainsString("```\nplain code", $result);
+        $this->assertStringNotContainsString('data-carve-src=', $result);
+        $this->assertStringContainsString('<code>plain code</code>', $result);
     }
 }

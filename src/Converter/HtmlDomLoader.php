@@ -32,6 +32,20 @@ final class HtmlDomLoader
      */
     private const ENCODED_NAME = 'CARVE-N-';
 
+    public static function isCoreCodeBlock(DOMElement $node): bool
+    {
+        if (strtolower($node->tagName) !== 'pre') {
+            return false;
+        }
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement && strtolower($child->tagName) === 'code') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public static function usesHtml5(): bool
     {
         return class_exists(HTMLDocument::class);

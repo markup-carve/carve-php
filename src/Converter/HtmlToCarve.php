@@ -437,6 +437,7 @@ class HtmlToCarve
         $this->emittedHasRawHtml = null;
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
+        $this->droppedReferenceCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -460,6 +461,7 @@ class HtmlToCarve
     private function captureBuiltImport(HtmlImportSession $session): void
     {
         $this->droppedFootnoteLabelCarriers = $session->droppedFootnoteLabelCarriers;
+        $this->droppedReferenceCarriers = $session->droppedReferenceCarriers;
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
         $this->retainedListTypes = $session->retainedListTypes;
@@ -2124,6 +2126,10 @@ class HtmlToCarve
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting footnote label and inline footnote carriers on <' . $tag . '>', 'warning', $path);
         }
 
+        if (isset($this->droppedReferenceCarriers[$node])) {
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting or unspellable reference carrier on <' . $tag . '>', 'info', $path);
+        }
+
         if (isset($this->droppedFootnoteLabelCarriers[$node])) {
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped colliding footnote carrier label on <' . $tag . '>', 'warning', $path);
         }
@@ -2468,6 +2474,8 @@ class HtmlToCarve
                 continue;
             } elseif ($name === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid footnote carrier label on <' . $tag . '>', 'warning', $path);
+            } elseif ($name === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid code block label on <' . $tag . '>', 'warning', $path);
             } elseif ($name === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
             } elseif ($name === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
@@ -3465,6 +3473,9 @@ class HtmlToCarve
         $tokens = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $survived = true;
         foreach ($tokens as $token) {
+            if ($token === 'mermaid' && $this->inspectedElement !== null && HtmlAstBuilder::isMermaidFenceElement($this->inspectedElement)) {
+                continue;
+            }
             if (!$this->consumeSurvivingAttribute($this->importSurvivorKey('class', $token))) {
                 $survived = false;
             }
@@ -3793,6 +3804,7 @@ class HtmlToCarve
         $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
+        $this->droppedReferenceCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
@@ -3861,7 +3873,7 @@ class HtmlToCarve
             $element = $child;
         }
 
-        return $element instanceof DOMElement && $element->hasAttribute('data-carve-src')
+        return $element instanceof DOMElement && !HtmlDomLoader::isCoreCodeBlock($element) && $element->hasAttribute('data-carve-src')
             ? $this->reconstructStoredSource(html_entity_decode(
                 $element->getAttribute('data-carve-src'),
                 ENT_QUOTES | ENT_HTML5,
@@ -5061,6 +5073,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, true>|null
      */
     private ?SplObjectStorage $droppedFootnoteLabelCarriers = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $droppedReferenceCarriers = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, string|null>|null
