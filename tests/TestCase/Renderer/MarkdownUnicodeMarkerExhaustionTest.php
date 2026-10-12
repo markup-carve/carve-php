@@ -183,7 +183,206 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertSame("a\n", $renderer->render($document));
     }
 
-    public function testFallbackReplaysRenderEventsWithoutDispatchingTwice(): void
+    public function testListenerAppendingAParentChildKeepsFirstPassOutput(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $calls = 0;
+        $renderer->on('render.paragraph', static function (RenderEvent $event) use (&$calls): void {
+            $calls++;
+            $document = $event->getNode()->getParent();
+            if ($document !== null) {
+                $paragraph = new Paragraph();
+                $paragraph->appendChild(new Text('note'));
+                $document->appendChild($paragraph);
+            }
+        });
+        self::assertSame("a\n", $renderer->render((new CarveConverter())->parse("a\n")));
+        self::assertSame(1, $calls);
+    }
+
+    public function testListenerCollisionAndParentAppendKeepFirstPassOutput(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $replacement = "\u{E009}m1x0\u{E00A}";
+        $calls = 0;
+        $renderer->on('render.paragraph', static function (RenderEvent $event) use (&$calls, $replacement): void {
+            $calls++;
+            $event->setHtml($replacement);
+            $document = $event->getNode()->getParent();
+            if ($document !== null) {
+                $paragraph = new Paragraph();
+                $paragraph->appendChild(new Text('note'));
+                $document->appendChild($paragraph);
+            }
+        });
+        self::assertSame($replacement . "\n", $renderer->render((new CarveConverter())->parse("a\n")));
+        self::assertSame(1, $calls);
+    }
+
+    public function testListenerAssemblingMarkerAcrossTextNodesKeepsItsContent(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $renderer->on('render.paragraph', static function (RenderEvent $event): void {
+            $event->getNode()->setChildren([new Text("\u{E009}"), new Text('m0x0'), new Text("\u{E00A}")]);
+        });
+        self::assertSame("\u{E009}m0x0\u{E00A}\n", $renderer->render((new CarveConverter())->parse("a\n")));
+    }
+
+    public function testListenerCollisionAndSelfRemovalKeepFirstPassOutput(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $replacement = "\u{E009}m1x0\u{E00A}";
+        $renderer->on('render.paragraph', static function (RenderEvent $event) use ($replacement): void {
+            $event->setHtml($replacement);
+            $node = $event->getNode();
+            $node->getParent()?->removeChild($node);
+        });
+        self::assertSame($replacement . "\n", $renderer->render((new CarveConverter())->parse("a\n")));
+    }
+
+    public function testListenerCollisionKeepsAnAlreadyRenderedTextValue(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $document = (new CarveConverter())->parse("first\n\nsecond\n");
+        $first = $document->getChildren()[0]->getChildren()[0];
+        $replacement = "\u{E009}m1x0\u{E00A}";
+        $calls = 0;
+        $renderer->on('render.paragraph', static function (RenderEvent $event) use (&$calls, $first, $replacement): void {
+            $calls++;
+            if ($calls === 2 && $first instanceof Text) {
+                $first->setContent('changed');
+                $event->setHtml($replacement);
+            }
+        });
+        self::assertSame("first\n\n" . $replacement . "\n", $renderer->render($document));
+        self::assertSame(2, $calls);
+    }
+
+    public function testTableMutationKeepsTheSameShapeWithCollidingOutput(): void
+    {
+        $render = static function (string $replacement): string {
+            $document = new Document();
+            $table = new Table();
+            $row = new TableRow(true);
+            $cell = new TableCell();
+            $first = new Text('head');
+            $cell->appendChild($first);
+            $row->appendChild($cell);
+            $table->appendChild($row);
+            $document->appendChild($table);
+            $renderer = new MarkdownRenderer();
+            $renderer->on('render.text', static function (RenderEvent $event) use ($first, $row, $replacement): void {
+                if ($event->getNode() === $first) {
+                    $added = new TableCell();
+                    $added->appendChild(new Text('added'));
+                    $row->appendChild($added);
+                    $event->setHtml($replacement);
+                }
+            });
+
+            return $renderer->render($document);
+        };
+        $replacement = "\u{E009}m1x0\u{E00A}";
+        self::assertSame(str_replace('REPLACEMENT', $replacement, $render('REPLACEMENT')), $render($replacement));
+    }
+
+    public function testCollisionKeepsAnAlreadyRenderedHeadingLevel(): void
+    {
+        $document = (new CarveConverter())->parse("# heading\n\nsecond\n");
+        $heading = $document->getChildren()[0];
+        $renderer = new MarkdownRenderer();
+        $replacement = "\u{E009}m1x0\u{E00A}";
+        $renderer->on('render.paragraph', static function (RenderEvent $event) use ($heading, $replacement): void {
+            if ($heading instanceof Heading) {
+                $heading->setLevel(2);
+            }
+            $event->setHtml($replacement);
+        });
+        self::assertSame("# heading\n\n" . $replacement . "\n", $renderer->render($document));
+    }
+
+    public function testCallbackLiteralMarkersUseTheirActualLabelByteCost(): void
+    {
+        $renderer = new class extends MarkdownRenderer {
+            protected function resetAbbreviationBudget(int $sourceLength): void
+            {
+                parent::resetAbbreviationBudget($sourceLength);
+                $this->abbreviationBudget = 6;
+            }
+        };
+        $document = new Document();
+        $heading = new Heading(1);
+        $heading->setAttribute('id', 'target');
+        $heading->appendChild(new Text('label'));
+        $paragraph = new Paragraph();
+        $paragraph->appendChild(new HeadingRef('target'));
+        $document->setChildren([$heading, $paragraph]);
+        $renderer->on('render.text', static function (RenderEvent $event): void {
+            $event->setHtml(str_repeat("\u{E004}", 3));
+        });
+        self::assertStringContainsString('[target](#', $renderer->render($document));
+    }
+
+    public function testLateInsertedInlineLiteralsMatchPreexistingLiterals(): void
+    {
+        $converter = new CarveConverter();
+        $markers = "\u{E004}\u{E009}\u{E00A}\u{E014}\u{E015}\u{E100}\u{E101}";
+        foreach (
+            [
+                'MARKER', '`MARKER`', '[label](https://x.test/MARKER)',
+                '[label](https://x.test/ "MARKER")', '![MARKER](https://x.test/image)',
+                '![alt](https://x.test/MARKER "MARKER")', '`MARKER`{=html}',
+                '</#MARKER>', '\\MARKER', ':MARKER:',
+            ] as $source
+        ) {
+            $literal = 'a ' . str_replace('MARKER', $markers, $source) . ' b';
+            $expected = (new MarkdownRenderer())->render($converter->parse($literal));
+            $document = $converter->parse("placeholder\n");
+            $replacement = $converter->parse($literal)->getChildren()[0];
+            self::assertInstanceOf(Paragraph::class, $replacement);
+            $renderer = new MarkdownRenderer();
+            $renderer->on('render.paragraph', static function (RenderEvent $event) use ($replacement): void {
+                $paragraph = $event->getNode();
+                foreach ($paragraph->getChildren() as $child) {
+                    $paragraph->removeChild($child);
+                }
+                foreach ($replacement->getChildren() as $child) {
+                    $paragraph->appendChild($child);
+                }
+            });
+            self::assertSame($expected, $renderer->render($document), $source);
+        }
+    }
+
+    public function testNoOpListenersKeepOrdinaryMarkdownOutput(): void
+    {
+        foreach (["a /word/ here\n", "a *word* here\n", "# Heading\n\ntext\n", "> a\n> b\n", "- a\n- b\n", "```\na\n```\n", "a [label](/url) b\n", "a `code` b\n", "a {_ word _} b\n"] as $source) {
+            $document = (new CarveConverter())->parse($source);
+            $plain = (new MarkdownRenderer())->render($document);
+            $observed = new MarkdownRenderer();
+            $observed->on('render.*', static function (): void {
+            });
+            self::assertSame($plain, $observed->render($document), $source);
+        }
+    }
+
+    public function testListenerMutatingTextToMarkersKeepsItsContent(): void
+    {
+        $renderer = new MarkdownRenderer();
+        $replacement = "\u{E004}\u{E009}\u{E00A}\u{E00E}";
+        $calls = 0;
+        $renderer->on('render.text', static function (RenderEvent $event) use (&$calls, $replacement): void {
+            $calls++;
+            $node = $event->getNode();
+            if ($node instanceof Text) {
+                $node->setContent($replacement);
+            }
+        });
+        self::assertSame($replacement . "\n", $renderer->render((new CarveConverter())->parse("a\n")));
+        self::assertSame(1, $calls);
+    }
+
+    public function testFallbackDispatchesRenderEventsOnce(): void
     {
         $renderer = new MarkdownRenderer();
         $converter = new CarveConverter();
@@ -201,7 +400,7 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertSame(1, $calls);
     }
 
-    public function testFallbackReplaysExpansionBudgetDecisions(): void
+    public function testFallbackChargesLiteralLabelBytes(): void
     {
         $renderer = new class extends MarkdownRenderer {
             protected function resetAbbreviationBudget(int $sourceLength): void
@@ -225,12 +424,13 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         $paragraph->appendChild(new HeadingRef('target'));
         $document->setChildren([$heading, $paragraph, ...$document->getChildren()]);
         $output = $renderer->render($document);
-        self::assertSame(2, substr_count($output, str_repeat($token, 3)));
+        self::assertSame(1, substr_count($output, str_repeat($token, 3)));
+        self::assertStringContainsString('[target](#', $output);
         self::assertStringContainsString('[target](#', $output);
         self::assertStringContainsString(self::pool(), $output);
     }
 
-    public function testFallbackReplaysNodeEventsInOrder(): void
+    public function testFallbackDispatchesNodeEventsInOrder(): void
     {
         $renderer = new MarkdownRenderer();
         $document = (new CarveConverter())->parse("```\n" . self::pool() . "\n```\n");
@@ -257,7 +457,7 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
     }
 
     #[DataProvider('clonedEventSources')]
-    public function testFallbackReplaysEventsForClonedNodes(string $source): void
+    public function testFallbackDispatchesEventsForClonedNodes(string $source): void
     {
         $converter = new CarveConverter();
         $render = static function (string $input) use ($converter): array {
@@ -277,7 +477,7 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertStringStartsWith(rtrim($ordinary) . "\n\n```\n", $fallback);
     }
 
-    public function testFailedProbeClearsEventReplayState(): void
+    public function testFailedRenderDoesNotRetainEventState(): void
     {
         $renderer = new MarkdownRenderer();
         $converter = new CarveConverter();
@@ -294,7 +494,7 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertSame("a\n", $renderer->render($converter->parse("a\n")));
     }
 
-    public function testFallbackReplaysEventsForFlattenedBlockTableCells(): void
+    public function testFallbackDispatchesEventsForFlattenedBlockTableCells(): void
     {
         $render = static function (bool $fallback): array {
             $document = new Document();
@@ -328,7 +528,7 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         self::assertStringStartsWith(rtrim($ordinary) . "\n\n```\n", $fallback);
     }
 
-    public function testProbeDoesNotDuplicateDiagnosticsForTransientNodes(): void
+    public function testRenderDoesNotDuplicateDiagnosticsForTransientNodes(): void
     {
         $renderer = new class extends MarkdownRenderer {
             /**
@@ -356,7 +556,7 @@ class MarkdownUnicodeMarkerExhaustionTest extends TestCase
         }
     }
 
-    public function testFallbackReplaysAbbreviationsInsideCrossReferenceLabels(): void
+    public function testFallbackRendersAbbreviationsInsideCrossReferenceLabels(): void
     {
         $converter = new CarveConverter();
         $source = "# A ABB\n\n</#A-ABB> </#A-ABB>\n\n*[ABB]: expansion\n";
