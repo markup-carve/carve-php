@@ -340,6 +340,21 @@ class ExtensionHtmlStructureTest extends TestCase
         }
     }
 
+    public function testAMermaidClassWithoutTheCarrierIsACodeBlock(): void
+    {
+        $classed = "{.mermaid}\n```\ngraph TD; A-->B;\n```\n";
+        $pre = '<pre class="mermaid" role="img" aria-label="mermaid"%s>graph TD; A--&gt;B;</pre>';
+        foreach (['', ' data-carve-fence-language=""', ' data-carve-fence-language="bad language"', ' data-carve-ext="mermaid"'] as $foreign) {
+            $this->assertSameTree($classed, (new HtmlToCarve())->convert(sprintf($pre, $foreign)));
+        }
+
+        $fence = "```mermaid\ngraph TD; A-->B;\n```\n";
+        $this->assertSameTree($fence, (new HtmlToCarve())->convert($this->export($fence, FencedRenderExtension::mermaid())));
+        $plain = $this->export($fence, FencedRenderExtension::mermaid(), false, false);
+        $this->assertSame("<pre class=\"mermaid\" role=\"img\" aria-label=\"mermaid\">graph TD; A-->B;</pre>\n", $plain);
+        $this->assertSameTree($classed, (new HtmlToCarve())->convert($plain));
+    }
+
     public function testStaticMermaidContentIsReadInEveryMode(): void
     {
         $source = "```mermaid [Diagram]\ngraph TD;\nA-->B;\n```\n";

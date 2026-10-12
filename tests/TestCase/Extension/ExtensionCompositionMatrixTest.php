@@ -203,11 +203,12 @@ class ExtensionCompositionMatrixTest extends TestCase
         }
     }
 
-    public function testUnmarkedMermaidHtmlStillImportsItsLanguage(): void
+    public function testUnmarkedMermaidHtmlKeepsItsClass(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<pre class="mermaid" role="img" aria-label="Diagram">graph TD; A--&gt;B</pre>');
         $tree = (new AstCodec())->encode((new BlockParser())->parse($result->value));
-        $this->assertSame('mermaid', $tree['children'][0]['lang']);
+        $this->assertArrayNotHasKey('lang', $tree['children'][0]);
+        $this->assertSame(['mermaid'], $tree['children'][0]['attrs']['classes']);
         $this->assertSame([], $result->report()['diagnostics']);
     }
 

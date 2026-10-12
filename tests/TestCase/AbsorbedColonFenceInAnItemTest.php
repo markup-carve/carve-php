@@ -213,15 +213,9 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
     }
 
     /**
-     * A BOUNDED BLOCK inside the div, and the one row where the two container
-     * kinds answer differently.
-     *
      * A heading, a thematic break and a table row end at their own boundary and
-     * leave no open paragraph - inside a div as outside one. The exception is
-     * measured rather than tidy: the executable spec puts the flush-left line
-     * INSIDE the div after `- item` / `::: note` / `# h`, and at the TOP LEVEL
-     * for the same shape in a block quote. Both are reproduced as measured, and
-     * pinned here so that neither can be quietly "made consistent".
+     * leave no open paragraph - inside a div as outside one, in a list item as
+     * in a block quote.
      */
     public function testABoundedBlockInsideTheDivEndsLazyContinuation(): void
     {
@@ -233,9 +227,8 @@ class AbsorbedColonFenceInAnItemTest extends TestCase
             "</blockquote>\n<p>tail</p>",
             $this->html("> quote\n> ::: note\n> # h\ntail\n"),
         );
-        // The measured exception: a heading in a LIST-ITEM div keeps the line.
-        $this->assertStringContainsString(
-            "<h1 id=\"h\">h</h1>\n      <p>tail</p>",
+        $this->assertStringEndsWith(
+            "</ul>\n<p>tail</p>",
             $this->html("- item\n  ::: note\n  # h\ntail\n"),
         );
     }

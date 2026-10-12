@@ -651,6 +651,8 @@ final class BlockContinuationScanner
             $count,
             $contentIndent,
         ) ?? 1) - 1);
+        $noteCursor = 1;
+        $noteBroken = false;
         $openCommentLength = null;
         // Seeded over the lead for the same reason the comment fence is: the
         // item's `- :: t` / `  : d` spelling writes the body on a line this
@@ -658,6 +660,9 @@ final class BlockContinuationScanner
         $openDefinitionBody = null;
         $pendingDefinitionTerm = false;
         $pendingTermFence = null;
+        $termCodeTailEligible = true;
+        $termCodeTailFence = null;
+        $termCodeTailAfterBlank = false;
         foreach ($itemLines as $seedLine) {
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
@@ -689,11 +694,15 @@ final class BlockContinuationScanner
                         ) !== null
                     )
                     || $openCommentLength !== null
+                    || $termCodeTailFence !== null
                     || (
                         $openDefinitionBody !== null
                         && $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $openDefinitionBody)
                     )
                 ) {
+                    if ($termCodeTailFence !== null) {
+                        $termCodeTailAfterBlank = true;
+                    }
                     $itemLines[] = $this->blankLineResidue($nextLine, $authoredCodeColumn ?? $contentIndent, $trailingState);
                     $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingState($trailingState, '');
@@ -708,6 +717,12 @@ final class BlockContinuationScanner
 
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            if ($termCodeTailAfterBlank) {
+                if ($nextIndent < $contentIndent) {
+                    break;
+                }
+                $termCodeTailAfterBlank = false;
+            }
             $hadFloorInline = $floorInlineLength !== null;
             if ($floorInlineLength !== null) {
                 $runOffset = 0;
@@ -764,6 +779,25 @@ final class BlockContinuationScanner
                 break;
             }
 
+            if (
+                $termCodeTailFence !== null && $nextIndent >= $contentIndent && !$isBlockQuoteLazyLine
+                && !($nextIndent === $contentIndent
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        $nextTrimmed,
+                        $termCodeTailFence['char'] ?? $termCodeTailFence['fence'][0],
+                        $termCodeTailFence['length'],
+                    ))
+            ) {
+                $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                $itemLineMap[] = $this->sourceLineFor($i);
+                if ($trailingState->fence === null) {
+                    $trailingState->openParagraph = true;
+                }
+                $i++;
+
+                continue;
+            }
+
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
                 if (
                     $trailingState->fence === null
@@ -772,6 +806,14 @@ final class BlockContinuationScanner
                     && $openCommentLength === null
                     && !$trailingState->quoteParagraph
                     && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+                    // A marker at the body column of the marker-line note is the
+                    // note's own line (PART 9 §16).
+                    && !(
+                        $trailingState->inFootnoteBody
+                        && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
+                            >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                        && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken)
+                    )
                 ) {
                     break;
                 }
@@ -814,7 +856,28 @@ final class BlockContinuationScanner
                     && ($nextTrimmed[0] ?? '') === '%'
                     && $this->isCommentLineOrFence($nextTrimmed)
                 ) {
-                    $pendingDefinitionTerm = false;
+                    $termCodeTailEligible = false;
+                    if ($nextIndent === $contentIndent) {
+                        $pendingDefinitionTerm = false;
+                    }
+                }
+                if (
+                    $termCodeTailFence !== null && $nextIndent === $contentIndent
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        $nextTrimmed,
+                        $termCodeTailFence['char'] ?? $termCodeTailFence['fence'][0],
+                        $termCodeTailFence['length'],
+                    )
+                ) {
+                    $termCodeTailFence = null;
+                } elseif (
+                    $pendingDefinitionTerm && $termCodeTailEligible && $nextIndent === $contentIndent
+                    && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                    && $openCommentLength === null && $pendingTermFence === null
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                ) {
+                    $termCodeTailFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
+                        ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
                 }
                 if (
                     $nextIndent === $contentIndent
@@ -824,6 +887,7 @@ final class BlockContinuationScanner
                 ) {
                     if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed)) {
                         $pendingDefinitionTerm = true;
+                        $termCodeTailEligible = true;
                         $pendingTermFence = null;
                     } elseif (
                         $pendingDefinitionTerm && (
@@ -838,6 +902,7 @@ final class BlockContinuationScanner
                     }
                 }
                 $termContinuation = $pendingDefinitionTerm
+                    && !(($nextTrimmed[0] ?? '') === '%' && $this->isCommentLineOrFence($nextTrimmed))
                     && $nextIndent > $contentIndent
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
@@ -851,6 +916,14 @@ final class BlockContinuationScanner
                         $count,
                         $contentIndent,
                     ) !== null;
+                if (
+                    $attributeLine && $nextIndent === $contentIndent
+                    && $pendingDefinitionTerm && $termCodeTailFence === null
+                    && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                    && $openCommentLength === null
+                ) {
+                    $pendingDefinitionTerm = false;
+                }
                 if ($attributeLine && $trailingState->openParagraph && $trailingState->fence === null && !$trailingState->hasOpenDiv() && $openCommentLength === null) {
                     $pendingAttachedAttributes = true;
                     $metadataAttributeColumn = IndentationHelper::getLeadingColumns($nextLine);
@@ -1192,6 +1265,12 @@ final class BlockContinuationScanner
 
                     continue;
                 }
+                // A payload line that misses the item's prefix ends the item
+                // before the span is classified (`CARVE-P0-005`); only the
+                // closing run is free of the column.
+                if ($openCommentLength !== null) {
+                    break;
+                }
             }
 
             // A FRAMED LINE IS THE OPEN FENCE'S BODY, not the end of the item
@@ -1280,10 +1359,24 @@ final class BlockContinuationScanner
 
             // Retained markers below the content column stay text on reparse.
             if (
-                $openCommentLength === null
-                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+                ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
                 && ($trailingState->afterComment
                     || $this->isCommentLineOrFence($itemLines[count($itemLines) - 1] ?? ''))
+            ) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState->openParagraph = true;
+                $i++;
+
+                continue;
+            }
+
+            if (
+                $pendingDefinitionTerm && $termCodeTailFence === null
+                && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                && !$isBlockQuoteLazyLine
+                && ($nextTrimmed[0] ?? '') === '{'
+                && $this->wrappedItemAttributeLength($nextTrimmed, $lines, $i + 1, $count, $nextIndent) !== null
             ) {
                 $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
                 $itemLineMap[] = $this->sourceLineFor($i);
@@ -2581,6 +2674,19 @@ final class BlockContinuationScanner
                 return $state;
             }
 
+            // A comment closes the div's paragraph and leaves the div open
+            // (`CARVE-P0-005`).
+            if ($this->isCommentLineOrFence($line, $at)) {
+                if ($atContentColumn) {
+                    $state->openParagraph = false;
+                    $state->afterComment = true;
+                } else {
+                    $state->afterComment = $wasAfterComment;
+                }
+
+                return $state;
+            }
+
             if (($this->getFencedBlockParser)()->parseDivFenceOpener(BlockGrammar::subjectFrom($line, $at, $end)) !== null) {
                 $state->divDepth++;
                 $state->openParagraph = false;
@@ -2608,16 +2714,12 @@ final class BlockContinuationScanner
                 return $state;
             }
 
-            // A TABLE and a THEMATIC BREAK inside the div leave no open
-            // paragraph, exactly as they do outside one. A HEADING does NOT go
-            // with them here, and that is measured rather than tidy: the
-            // executable spec puts the flush-left line INSIDE the div after
-            // `- item` / `::: note` / `# h`, while it puts it at the top level
-            // for the same shape in a block quote. Both are reproduced as
-            // measured.
+            // A TABLE, a THEMATIC BREAK and a HEADING inside the div leave no
+            // open paragraph, exactly as they do outside one.
             $trimmedInDiv = ltrim(BlockGrammar::subjectFrom($line, $at, $end), " \t");
             if (
                 preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                || ($column === $state->divColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1)
                 || ($this->getTableParser)()->isTableRow($trimmedInDiv)
             ) {
                 $state->openParagraph = false;
@@ -3205,6 +3307,32 @@ final class BlockContinuationScanner
     private function entryOpensContainer(string $entry): bool
     {
         return ($this->entryOpensContainerCallback)($entry);
+    }
+
+    /**
+     * Do an item's collected lines still extend the note on its marker line?
+     * The tracker knows a note is open, not whose it is: a blank, a comment,
+     * another definition or a block start hands the next marker back to the
+     * item. The cursor makes the walk one pass per item.
+     *
+     * @param array<string> $itemLines
+     * @param int $cursor
+     * @param bool $broken
+     */
+    private function leadNoteExtendsThrough(array $itemLines, int &$cursor, bool &$broken): bool
+    {
+        for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
+            $text = ltrim($itemLines[$cursor], " \t");
+            $broken = $text === ''
+                || $this->isCommentLineOrFence($text)
+                || preg_match('/^\[[^\]]+\]:/', $text) === 1
+                || (
+                    ($this->getListParser)()->parseListItemMarker($text) === null
+                    && ($this->isBlockElementStart($text) || $this->startsNewBlock($text))
+                );
+        }
+
+        return !$broken;
     }
 
     /**
