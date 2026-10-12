@@ -1786,17 +1786,6 @@ final class HtmlAstBuilder
         return $attrs;
     }
 
-    public static function isMermaidFenceElement(DOMElement $node): bool
-    {
-        $classes = preg_split('/[\t\n\f\r ]+/', trim($node->getAttribute('class'))) ?: [];
-
-        return strtolower(HtmlDomLoader::elementName($node)) === 'pre'
-            && ($classes[0] ?? null) === 'mermaid'
-            && $node->getAttribute('role') === 'img'
-            && $node->getAttribute('aria-label') !== ''
-            && self::every(iterator_to_array($node->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
-    }
-
     /**
      * @return ImportedNode|null
      */
@@ -1915,16 +1904,6 @@ final class HtmlAstBuilder
 
                 return $block;
             }
-        }
-        if (self::isMermaidFenceElement($node)) {
-            $block = $this->codeBlock($node);
-            $block['lang'] = 'mermaid';
-            if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
-                $block['label'] = $node->getAttribute('data-carve-label');
-            }
-            $block['attrs'] = $this->fencedExtensionAttrs($node);
-
-            return $block;
         }
         $carrier = $node->getAttribute('data-carve-ext');
         $marked = in_array($carrier, ['tabs', 'code-group'], true);

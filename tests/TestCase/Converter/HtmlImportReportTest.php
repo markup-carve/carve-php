@@ -44,13 +44,7 @@ class HtmlImportReportTest extends TestCase
      *
      * @var array<string, array{reason: string, carve?: string, diagnostics?: list<string>, ast?: string}>
      */
-    private const AHEAD_OF_PIN = [
-        'derived-accessible-name' => [
-            'reason' => 'Named Mermaid text imports as a Mermaid fence under the extension HTML contract.',
-            'carve' => "```mermaid\ngraph TD; A-->B;\n```\n\n{aria-label=\"Architecture overview\"}\n```mermaid\ngraph TD; A-->B;\n```\n",
-            'ast' => '{"type":"document","children":[{"type":"code_block","lang":"mermaid","content":"graph TD; A-->B;"},{"type":"code_block","lang":"mermaid","content":"graph TD; A-->B;","attrs":{"keyValues":{"aria-label":"Architecture overview"}}}]}',
-        ],
-    ];
+    private const AHEAD_OF_PIN = [];
 
     /**
      * The other side of the same window: a fixture the pin states and this
