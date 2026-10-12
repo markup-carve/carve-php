@@ -627,6 +627,7 @@ final class BlockContinuationScanner
         $authoredCodeColumn = null;
         $inlineCodeParagraph = false;
         $inlineParagraphColumn = 0;
+        $inlineFenceColumn = 0;
         $authoredFenceMisses = [];
         $wrappedAttributeLinesRemaining = max(0, ($this->wrappedItemAttributeLength(
             $itemLines[0] ?? '',
@@ -746,10 +747,10 @@ final class BlockContinuationScanner
                     $inlineCodeParagraph = false;
                 }
                 if ($inlineCodeParagraph) {
-                    $column = IndentationHelper::getLeadingColumns($nextLine, $inlineParagraphColumn + 1);
-                    if ($column <= $inlineParagraphColumn) {
+                    $column = IndentationHelper::getLeadingColumns($nextLine, $inlineFenceColumn + 1);
+                    if ($column <= $inlineFenceColumn) {
                         if (($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)) {
-                            $inlineParagraphColumn = $column;
+                            $inlineFenceColumn = $column;
                             $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
                                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
                             if (
@@ -790,6 +791,7 @@ final class BlockContinuationScanner
                             if (($opener['char'] ?? $opener['fence'][0]) === '`') {
                                 $inlineCodeParagraph = true;
                                 $inlineParagraphColumn = $column;
+                                $inlineFenceColumn = $column;
                             }
                         }
                     }

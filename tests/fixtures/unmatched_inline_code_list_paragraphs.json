@@ -1243,5 +1243,20 @@
     "id": "10",
     "source": "> > - item\n> >     ```a\n> >   lazy text\n> >     # heading\n> > after\n",
     "html": "<blockquote><blockquote><ul><li>item\n<code>a\nlazy text</code><h1 id=\"heading\">heading</h1></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "code-ratchet-2",
+    "source": "- text\n    ```a\n  ```b\n    # heading\nafter\n",
+    "html": "<ul><li>text\n<code>a\n</code>b\n    <h1 id=\"heading\">heading</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "code-ratchet-5",
+    "source": "> - text\n>     ```a\n>   ```b\n>     # heading\n> after\n",
+    "html": "<blockquote><ul><li>text\n<code>a\n</code>b\n      <h1 id=\"heading\">heading</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "code-ratchet-8",
+    "source": "> > - text\n> >     ```a\n> >   ```b\n> >     # heading\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>text\n<code>a\n</code>b\n        <h1 id=\"heading\">heading</h1></li></ul><p>after</p></blockquote></blockquote>"
   }
 ]
