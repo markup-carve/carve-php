@@ -1373,7 +1373,13 @@ final class ListBlockBuilder
                 if ($eligible !== null && !isset($eligible[$index])) {
                     continue;
                 }
-                $column = IndentationHelper::getLeadingColumns($line);
+                if (
+                    (($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t")
+                    || strspn($line, " \t", 0, $floor) >= $floor
+                ) {
+                    continue;
+                }
+                $column = IndentationHelper::getLeadingColumns($line, $floor);
                 if ($column <= 0 || $column >= $floor) {
                     continue;
                 }
