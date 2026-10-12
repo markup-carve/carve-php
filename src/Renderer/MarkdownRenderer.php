@@ -25,6 +25,7 @@ use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -1688,6 +1689,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof CitationDefinition => '',
             $node instanceof AbbreviationDefinition
             => $this->renderAbbreviationDefinition($node),
+            $node instanceof LinkReferenceDefinition => $this->roundTripMode
+                ? $this->renderLinkReferenceDefinition($node) : '',
             $node instanceof RawBlock => $this->renderRawBlock($node),
             $node instanceof BlockQuote => $this->renderBlockQuote($node),
             $node instanceof ListBlock => $this->renderList($node),
@@ -2750,7 +2753,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function protectLineShape(string $line, bool $first, array $bare): string
     {
-        $line = (string)preg_replace('/^([-+])(?=[ \t])/', '\\\\$1', $line);
+        $line = preg_replace_callback(
+            '/^([-+])(?=[ \t])/',
+            fn (array $match): string => $this->roundTripMode && $this->carrierDepth > 0 && !$first
+                ? '&#' . ord($match[1]) . ';' : '\\' . $match[1],
+            $line,
+        ) ?? $line;
         // A text `.` may still be a §8i sentinel here; it opens a list all the same.
         $dot = preg_quote($this->lookaheadSentinels['.'], '/');
         $line = (string)preg_replace_callback(
@@ -3321,7 +3329,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $marker = $this->carriesDefinitionList($node) ? $this->literalCarrierLine(':') . "\n" : '';
 
-        return $content === '' ? '' : $marker . $content . "\n\n";
+        return $content === '' ? $marker : $marker . $content . "\n\n";
     }
 
     protected function renderDiv(Div $node): string
@@ -3992,8 +4000,22 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         return $title ?? (is_string($attribute) ? $attribute : null);
     }
 
+    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
+    {
+        $output = '[' . $node->getLabel() . ']: ' . $this->encodeMarkdownDestination($node->getHref());
+        $title = $node->getTitle();
+        if ($title !== null) {
+            $output .= ' "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $this->neutralizeCharacterReferences($title)) . '"';
+        }
+
+        return $output . "\n\n";
+    }
+
     protected function renderLink(Link $node): string
     {
+        if ($this->roundTripMode && $node->getReferenceLabel() !== null && !$node->isFromHeadingReference()) {
+            return $this->guardLiteralCharacters($node->getRawReferenceLabel() ?? '[' . $this->renderChildren($node) . '][' . $node->getReferenceLabel() . ']');
+        }
         $destination = (string)$node->getDestination();
         // A fragment naming a heading this target writes goes to its GFM slug
         // (PART 11 §11); any other destination keeps the authored one (§11a).

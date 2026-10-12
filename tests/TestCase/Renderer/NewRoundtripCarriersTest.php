@@ -251,7 +251,6 @@ class NewRoundtripCarriersTest extends TestCase
         return [
             'attribute without block' => ["<!-- carve: {.c} -->\n\nParagraph.\n"],
             'attribute above attribute' => ["<!-- carve: {.c} -->\n<!-- carve: {#id} -->\nParagraph.\n"],
-            'term without definition' => ["<!-- carve: :: Term -->\n**Term**\n\n<!-- carve: -->\n"],
             'definition without term' => ["<!-- carve: : -->\nBody.\n<!-- carve: -->\n"],
             'definition without closer' => ["<!-- carve: :: Term -->\n**Term**\n\n<!-- carve: : -->\nBody.\n"],
             'closing without list' => ["Paragraph.\n<!-- carve: -->\n"],
@@ -262,6 +261,15 @@ class NewRoundtripCarriersTest extends TestCase
             'unclosed line block' => ["<!-- carve: ::: | -->\nOne\\\nTwo\n"],
             'unclosed hard break block' => ["<!-- carve: ::: \\ -->\nOne\\\nTwo\n"],
         ];
+    }
+
+    public function testTermWithoutDefinitionIsNotDamaged(): void
+    {
+        $importer = new MarkdownToCarve();
+        $markdown = "<!-- carve: :: Term -->\n**Term**\n\n<!-- carve: -->\n";
+        $imported = $importer->convert($markdown);
+        $this->assertFalse($importer->hadDamagedCarrierMarkers());
+        $this->assertSame(":: Term\n", $imported);
     }
 
     #[DataProvider('damagedProvider')]
