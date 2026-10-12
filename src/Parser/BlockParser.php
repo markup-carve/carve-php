@@ -23,7 +23,6 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
-use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
@@ -1106,7 +1105,7 @@ class BlockParser
      * Classify the leading container context of a footnote definition line, so
      * the pre-pass collects a footnote defined inside one or more nested
      * containers (carve spec #115). Strips every leading container marker --
-     * blockquote `>` and any ordered/bullet (non-task) list marker, repeatedly
+     * blockquote `>` and any list marker, repeatedly
      * and at any depth -- mirroring the reference-definition pre-pass loop, so
      * `> [^a]:`, `- [^a]:`, `> > [^a]:` and `> - [^a]:` are all recognized.
      *
@@ -1152,7 +1151,7 @@ class BlockParser
             }
 
             $head = $this->listParser->markerHeadAt($line, IndentationHelper::pastLeadingWhitespace($line, $at));
-            if ($head !== null && $head['name'] !== 'task') {
+            if ($head !== null) {
                 $budget = max(0, $budget - ($head['content'] - $at));
                 $at = $head['content'];
                 $stripped = true;
@@ -1238,13 +1237,10 @@ class BlockParser
                 continue;
             }
 
-            // Ordered/bullet list marker (non-task). Use the canonical list
-            // parser so every accepted marker (bullet `-`/`*`/`+`, decimal /
-            // alpha / roman ordered) is recognized identically to the real
-            // parser; a task marker stops the loop (its content is not a def).
+            // Use the list parser to strip every accepted marker, including tasks.
             $trimmed = ltrim($rest, " \t");
             $info = $this->listParser->parseListItemMarker($trimmed);
-            if ($info !== null && $info['type'] !== 'task') {
+            if ($info !== null) {
                 $markerWidth = strlen($rest) - strlen((string)$info['content']);
                 $budget = max(0, $budget - $markerWidth);
                 $rest = substr($rest, $markerWidth);
@@ -5245,9 +5241,6 @@ class BlockParser
         $key = LabelKey::normalize($label);
         $content = $match[2];
         if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
-            return null;
-        }
-        if ($parent instanceof ListItem && $parent->isTask()) {
             return null;
         }
 
