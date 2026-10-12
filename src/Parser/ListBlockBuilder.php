@@ -1373,10 +1373,24 @@ final class ListBlockBuilder
                 if ($eligible !== null && !isset($eligible[$index])) {
                     continue;
                 }
-                if (
-                    (($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t")
-                    || strspn($line, " \t", 0, $floor) >= $floor
-                ) {
+                // A retained TAB may depend on its source column. Let the
+                // existing extent walk decide instead of rejecting this chunk.
+                if (str_contains($line, "\t")) {
+                    $parentCandidate = true;
+
+                    break;
+                }
+                if (($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t") {
+                    // A definition at the parent's minimum releases the child.
+                    if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1) {
+                        $parentCandidate = true;
+
+                        break;
+                    }
+                    continue;
+                }
+                $leadingBytes = strspn($line, " \t", 0, $floor);
+                if ($leadingBytes >= $floor) {
                     continue;
                 }
                 $column = IndentationHelper::getLeadingColumns($line, $floor);
