@@ -18,7 +18,7 @@ class DescendantLiteralCommentBoundaryTest extends TestCase
             true,
             flags: JSON_THROW_ON_ERROR,
         );
-        $this->assertCount(96, $rows);
+        $this->assertCount(99, $rows);
         $converter = new CarveConverter();
         $codec = new AstCodec();
         foreach ($rows as $row) {

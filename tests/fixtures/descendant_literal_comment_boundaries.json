@@ -478,5 +478,20 @@
     "id": "review-recovery-18",
     "source": "- - [x] b\n          [^n]: f\n  [^n]: f\n    ~~~\n",
     "html": "<ul>\n  <li>\n    <ul class=\"task-list\">\n      <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"b\"> b</li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "id": "review-parent-release-0",
+    "source": "* * 1) b\n     ```\n  ~~~\n    ---\n",
+    "html": "<ul><li><ul><li><ol data-delim=\")\"><li>b\n<code>\n~~~</code></li></ol><hr></li></ul></li></ul>"
+  },
+  {
+    "id": "review-parent-release-1",
+    "source": "* . * q\n    ```\n  %%%\n\t[n]: f\n",
+    "html": "<ul><li><ol><li><ul><li>q\n<code></code></li></ul></li></ol></li></ul>"
+  },
+  {
+    "id": "review-parent-release-2",
+    "source": "- * q\n\n    %%\n a\n    ~~~\n",
+    "html": "<ul><li><ul><li>q</li></ul>\n    a\n~~~\n  </li></ul>"
   }
 ]
