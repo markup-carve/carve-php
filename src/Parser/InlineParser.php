@@ -4425,7 +4425,7 @@ class InlineParser
         // Quoted key=values first, so `%`, dots and braces inside quotes are
         // protected from the shorthand patterns.
         $rest = preg_replace(
-            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*+(?:\\\\.[^"\\\\]*+)*+"|\'[^\'\\\\]*+(?:\\\\.[^\'\\\\]*+)*+\')/',
             ' ',
             $rest,
         ) ?? $rest;
@@ -4448,7 +4448,7 @@ class InlineParser
         // to the class and id patterns fixed `{.a.b}` and left `{.a#i}`
         // accepted, because by the time the id pattern ran, the class it
         // followed had already become a space.
-        $item = '(?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')';
+        $item = '(?:"[^"\\\\]*+(?:\\\\.[^"\\\\]*+)*+"|\'[^\'\\\\]*+(?:\\\\.[^\'\\\\]*+)*+\')';
         $item = '(?:[a-zA-Z_][a-zA-Z0-9_-]*=' . $item . ')'
             . '|(?::(?:[a-zA-Z0-9]{1,8}(?:-[a-zA-Z0-9]{1,8})*)?)'
             . '|(?:[a-zA-Z_][a-zA-Z0-9_-]*=[^ \t\r\n"\'}|\\\\]+)'
@@ -4458,7 +4458,7 @@ class InlineParser
         $ws = '[ \t\r\n]';
 
         return preg_match(
-            '/^' . $ws . '*(?:(?:' . $item . ')(?:' . $ws . '+(?:' . $item . '))*' . $ws . '*)?$/D',
+            '/^' . $ws . '*(?:(?:' . $item . ')(?:' . $ws . '+(?:' . $item . '))*+' . $ws . '*)?$/D',
             $rest,
         ) === 1;
     }

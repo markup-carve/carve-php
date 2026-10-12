@@ -142,9 +142,13 @@ trait NormalizesDjotStructure
             while ($noteOwner !== null && $fences[$n] === $original && ($text !== '' || $quoteDepth > $noteOwner->depth)) {
                 $ownerColumn = $quoteDepth > $noteOwner->depth ? ($quoteColumns[$noteOwner->depth] ?? 0) : $indent;
                 $outside = $quoteDepth < $noteOwner->depth || $ownerColumn <= $noteOwner->column;
-                $block = ($isBoundary !== null && $isBoundary($original)) || $noteHead !== null || $quoteDepth > $noteOwner->depth || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[|]|[`~]{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|\[[^\]\n]+\]:)/', $visible) === 1;
+                $block = ($isBoundary !== null && $isBoundary($original)) || $noteHead !== null || $quoteDepth > $noteOwner->depth || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[|]|[`~]{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|\[[^\]\n]+\]:)/', $visible) === 1
+                    || (str_starts_with($visible, '{') && ($this->readDjotWordAttributes($visible, 0)['end'] ?? -1) === strlen($visible));
                 if ($outside && !($paragraph && !$blank && !$block && $quoteDepth <= $noteOwner->depth)) {
                     $noteOwner = $endNote($notes);
+                    if ($noteOwner === null && str_starts_with($visible, '{') && ($this->readDjotWordAttributes($visible, 0)['end'] ?? -1) === strlen($visible) && $out !== [] && str_contains(end($out), $emptyNote)) {
+                        $out[] = $quote . str_repeat(' ', $indent);
+                    }
                 } else {
                     break;
                 }
@@ -1215,6 +1219,15 @@ trait NormalizesDjotStructure
         $sourceRows = str_contains($source, '|') ? $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false)) : [];
         $removed = [];
         $lines = explode("\n", $source);
+        $quoteOpenings = [];
+        $previousQuoteDepth = 0;
+        foreach ($lines as $index => $line) {
+            $depth = substr_count(substr($line, 0, $this->djotContentStart($line)), '>');
+            if ($depth > $previousQuoteDepth) {
+                $quoteOpenings[$index] = true;
+            }
+            $previousQuoteDepth = $depth;
+        }
         $offset = 0;
         foreach ($lines as $n => $line) {
             $start = $this->djotContentStart($line);
@@ -1228,6 +1241,8 @@ trait NormalizesDjotStructure
                 || ($previousStart > $start && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousStart)) === 1);
             if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
                 $attributeParts = [];
+                $attributeLines = [];
+                $attributeDepth = null;
                 for ($k = $n - 1; $k >= 0; $k--) {
                     $attributeStart = $this->djotContentStart($lines[$k]);
                     $attributePrefix = substr($lines[$k], 0, $attributeStart);
@@ -1236,14 +1251,55 @@ trait NormalizesDjotStructure
                         break;
                     }
                     $attributeContent = substr($lines[$k], $attributeStart);
+                    $depth = substr_count($attributePrefix, '>');
+                    if (trim($attributeContent) === '') {
+                        if (isset($quoteOpenings[$k])) {
+                            break;
+                        }
+                        if ($attributeDepth !== null && $depth < $attributeDepth) {
+                            break;
+                        }
+
+                        continue;
+                    }
+                    if ($attributeDepth !== null && $depth < $attributeDepth) {
+                        break;
+                    }
                     $parsed = $this->readDjotWordAttributes($attributeContent, 0, preserveShorthand: true);
                     if ($parsed === null || $parsed['end'] !== strlen($attributeContent)) {
                         break;
                     }
+                    $attributeDepth = $depth;
                     $attributeParts[] = $parsed['parts'];
-                    if ($parsed['parts'] !== []) {
-                        $removed[$k] = true;
+                    $attributeLines[] = $k;
+                    if (isset($quoteOpenings[$k])) {
+                        break;
                     }
+                }
+                if ($attributeLines !== []) {
+                    $first = $attributeLines[count($attributeLines) - 1];
+                    $beforeLine = $lines[$first - 1] ?? '';
+                    $beforeStart = $this->djotContentStart($beforeLine);
+                    $before = trim(substr($beforeLine, $beforeStart));
+                    $noteAt = strpos(substr($beforeLine, 0, $beforeStart), '[^');
+                    $ownerStart = $noteAt === false ? $beforeStart : $noteAt + 1;
+                    preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?/', $beforeLine, $beforeQuotes);
+                    preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?/', $lines[$first], $firstQuotes);
+                    $outdented = substr_count($firstQuotes[0] ?? '', '>') < substr_count($beforeQuotes[0] ?? '', '>') || $this->djotContentStart($lines[$first]) < $ownerStart && ($noteAt !== false || preg_match('/(?:[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($beforeLine, 0, $beforeStart)) === 1);
+                    if ($before !== '' && !$outdented && !isset($definitionLines[$first - 1]) && ($this->readDjotWordAttributes($before, 0)['end'] ?? null) !== strlen($before) && preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\||(?:[-*][ \t]*){3,}$)/', $before) !== 1) {
+                        $tail = null;
+                        foreach ($attributeLines as $index => $at) {
+                            $previous = $lines[$at - 1] ?? '';
+                            if (trim(substr($previous, $this->djotContentStart($previous))) === '') {
+                                $tail = $index;
+                            }
+                        }
+                        $attributeParts = $tail === null ? [] : array_slice($attributeParts, 0, $tail + 1);
+                        $attributeLines = $tail === null ? [] : array_slice($attributeLines, 0, $tail + 1);
+                    }
+                }
+                foreach ($attributeLines as $k) {
+                    $removed[$k] = true;
                 }
                 $attrs = $this->djotReferenceAttributeGroups(array_reverse($attributeParts));
                 $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $definition[2], 'attrs' => $attrs, 'inherited' => $attrs !== [], 'line' => $n];
