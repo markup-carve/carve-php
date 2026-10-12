@@ -309,10 +309,9 @@ final class BlockQuoteBuilder
                 // table, or other closed block there is no paragraph to fold
                 // into, so the list marker ENDS the quote and starts a sibling
                 // list (endsBlockQuote() handles this via paragraphOpen).
-                $innerLines[] = isset($lazyState['hosts']['initialMarkerColumn'])
-                    && $lazyState['hosts']['markers'] !== []
-                    && min($lazyState['hosts']['markers']) < $lazyState['hosts']['initialMarkerColumn']
-                    && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
+                // Framed, so a nested item's open paragraph takes it as text
+                // too (`CARVE-P0-009`).
+                $innerLines[] = ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")
                     : $currentLine;
                 $lazySourceLine = $this->sourceLineFor($i);
@@ -448,9 +447,18 @@ final class BlockQuoteBuilder
         if ($foldedText && $column < $host['columns'][array_key_last($host['columns'])] && ($text[0] === '`' || $text[0] === '~')) {
             $run = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
+            // The closer may also sit at the content column of the host the
+            // fence lands in.
+            $owner = 0;
+            foreach ($host['columns'] as $hostColumn) {
+                $owner = $hostColumn <= $column ? max($owner, $hostColumn) : $owner;
+            }
             if (
                 $run !== null
-                && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $column)
+                && (
+                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $column)
+                    || ($owner > 0 && $owner < $column && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $owner))
+                )
             ) {
                 $foldedText = false;
             }

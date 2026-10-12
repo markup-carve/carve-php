@@ -1044,7 +1044,7 @@ final class ListBlockBuilder
                     }
                 }
                 $itemLines = [
-                    implode("\n", array_slice($itemLines, 0, $split)),
+                    implode("\n", array_map(BlockGrammar::stripLazyFrame(...), array_slice($itemLines, 0, $split))),
                     ...array_slice($itemLines, $split),
                 ];
                 $itemLineMap = [
