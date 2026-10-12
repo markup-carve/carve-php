@@ -6775,12 +6775,12 @@ class MarkdownToCarve
                 ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
         };
 
-        $encodeDest = function (string $paren) use ($protected, $protectedSources, $table, $codeScalarTags): ?string {
+        $encodeDest = function (string $paren, bool $reference = false) use ($protected, $protectedSources, $table): ?string {
             $sourceParen = $this->referenceSourceText($paren, $protectedSources);
             if ($this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1) {
                 return null;
             }
-            $paren = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeScalarTags[$token[0]] ?? $token[0], $paren) ?? $paren;
+            $paren = $sourceParen;
             $inner = trim(substr($paren, 1, -1), " \t\n");
             if (str_starts_with($inner, '<')) {
                 preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
@@ -6814,7 +6814,7 @@ class MarkdownToCarve
                 $rest = ' ' . $quote . $escaped . $quote;
             }
 
-            return '(' . $this->writeMarkdownDestination($url, $protected) . $rest . ')';
+            return '(' . $this->writeMarkdownDestination($url, [], !$reference) . $rest . ')';
         };
 
         $protectDestination = function (string $alt, string $paren, ?string $source = null) use ($encodeDest, $protect): string {
@@ -7032,6 +7032,9 @@ class MarkdownToCarve
             '/(?<=\])\[([^\]]*)\]/',
             function (array $match) use ($subject, $protected, $protect, $protectDestination, $linkClosers, &$referenceClosers, $table, $writeLiteralReference): string {
                 $reference = $match[1][0];
+                if (str_starts_with($reference, '^')) {
+                    return $protect($match[0][0]);
+                }
                 $offset = $match[0][1];
                 if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
                     return $match[0][0];
@@ -7049,6 +7052,11 @@ class MarkdownToCarve
                     : null;
                 if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
                     $canonical = null;
+                }
+                $firstStart = $linkClosers[$offset - 1];
+                $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
+                if ($canonical === null && preg_match('/[\x00*_`\\\\<&~"\'=^]/', $firstLabel . $reference) === 1) {
+                    return $protect('\\[') . $reference . $protect('\\]');
                 }
                 $literal = $this->decodeLinkTitle($reference, $protected);
                 $raw = $reference;
@@ -7125,21 +7133,17 @@ class MarkdownToCarve
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
             '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
-            function (array $match) use ($protect, $protected, $codeScalarTags): string {
-                $match[2] = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeScalarTags[$token[0]] ?? $token[0], $match[2]) ?? $match[2];
+            function (array $match) use ($protect, $protected, $protectedSources, $encodeDest): string {
                 if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])) {
                     return $match[0];
                 }
-                $definition = preg_replace_callback(
-                    '/^(\[[^\]]*\]:[ \t]*)(<[^>\n]*>|[^ \t\n]+)(.*)$/s',
-                    fn (array $parts): string => $parts[1] . $this->writeMarkdownDestination(
-                        str_starts_with($parts[2], '<') ? substr($parts[2], 1, -1) : $parts[2],
-                        $protected,
-                    ) . $parts[3],
-                    $match[2],
-                ) ?? $match[2];
+                $source = $this->referenceSourceText($match[2], $protectedSources);
+                if (preg_match('/^(\[[^\]]*\]:[ \t]*)(.*)$/s', $source, $parts) !== 1) {
+                    return $match[0];
+                }
+                $target = $encodeDest('(' . $parts[2] . ')', true);
 
-                return $match[1] . $protect($definition);
+                return $target === null ? $match[0] : $match[1] . $protect($parts[1] . substr($target, 1, -1), $source);
             },
             $line,
         ) ?? $line;
@@ -8617,6 +8621,12 @@ class MarkdownToCarve
             $label = $written . substr($label, $cursor);
         } while ($label !== $previous);
 
+        $label = preg_replace_callback(
+            '/\x00P(\d+)\x00(?=>)/',
+            static fn (array $match): string => ($protected[(int)$match[1]] ?? '') === '\\' ? '' : $match[0],
+            $label,
+        ) ?? $label;
+
         $label = MarkdownEmphasis::convert($label, protectedSpans: $protected, plainText: true);
 
         return preg_replace_callback(
@@ -8647,14 +8657,15 @@ class MarkdownToCarve
     /**
      * @param string $url
      * @param array<string> $protected
+     * @param bool $escapeParentheses
      */
-    protected function writeMarkdownDestination(string $url, array $protected = []): string
+    protected function writeMarkdownDestination(string $url, array $protected = [], bool $escapeParentheses = true): string
     {
         $decoded = $this->decodeLinkTitle($url, $protected);
 
         $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
 
-        return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);
+        return $escapeParentheses ? str_replace(['(', ')'], ['\\(', '\\)'], $encoded) : $encoded;
     }
 
     /**

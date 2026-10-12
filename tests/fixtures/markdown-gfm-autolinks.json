@@ -10818,5 +10818,69 @@
   {
     "source": "<mark>a</mark><mark>b</mark> c@d.test",
     "html": "<p><mark>a</mark><mark>b</mark> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\>)",
+    "html": "<p><a href=\"http://a.b/a%3E\">a</a></p>\n"
+  },
+  {
+    "source": "[a]( http://a.b/a\\> )",
+    "html": "<p><a href=\"http://a.b/a%3E\">a</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\>  \"title\")",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\>\n\"title\")",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a](http://a.b/a\\> (title))",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/x \"http://a.b/a\\>\")",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/x 'http://a.b/a\\>')",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/x (http://a.b/a\\>))",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: http://a.b/a(b) \"title\"",
+    "html": "<p><a href=\"http://a.b/a(b)\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: http://a.b/a\\> \"title\"",
+    "html": "<p><a href=\"http://a.b/a%3E\" title=\"title\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /x \"http://a.b/`x\"",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/`x\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /x \"http://a.b/a\\>\"",
+    "html": "<p><a href=\"/x\" title=\"http://a.b/a&gt;\">a</a></p>\n"
+  },
+  {
+    "source": "[unknown http://a.b/`x][missing]",
+    "html": "<p>[unknown http://a.b/`x][missing]</p>\n"
+  },
+  {
+    "source": "[unknown http://a.b/a\\>][missing]",
+    "html": "<p>[unknown http://a.b/a&gt;][missing]</p>\n"
+  },
+  {
+    "source": "![a](http://a.b/a\\>)",
+    "html": "<p><img src=\"http://a.b/a%3E\" alt=\"a\" /></p>\n"
+  },
+  {
+    "source": "![http://a.b/a\\>](/x)",
+    "html": "<p><img src=\"/x\" alt=\"http://a.b/a&gt;\" /></p>\n"
   }
 ]
