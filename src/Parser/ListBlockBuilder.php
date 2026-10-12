@@ -654,7 +654,12 @@ final class ListBlockBuilder
                                 break;
                             }
                             if ($subInlineFenceParagraph && $subLines !== []) {
-                                $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
+                                if ($this->itemFenceOpenerAt($subLines[count($subLines) - 1]) !== null) {
+                                    $subLines[] = BlockGrammar::LAZY_FRAME . BlockGrammar::stripLazyFrame($trimmedLine);
+                                    $subLineMap[] = $this->sourceLineFor($i);
+                                } else {
+                                    $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
+                                }
                             } else {
                                 $subLines[] = $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);
