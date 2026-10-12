@@ -642,6 +642,8 @@ final class BlockContinuationScanner
             $count,
             $contentIndent,
         ) ?? 1) - 1);
+        $noteCursor = 1;
+        $noteBroken = false;
         $openCommentLength = null;
         // Seeded over the lead for the same reason the comment fence is: the
         // item's `- :: t` / `  : d` spelling writes the body on a line this
@@ -747,6 +749,14 @@ final class BlockContinuationScanner
                     && $openCommentLength === null
                     && !$trailingState->quoteParagraph
                     && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+                    // A marker at the body column of the marker-line note is the
+                    // note's own line (PART 9 §16).
+                    && !(
+                        $trailingState->inFootnoteBody
+                        && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
+                            >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                        && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken)
+                    )
                 ) {
                     break;
                 }
@@ -3020,6 +3030,32 @@ final class BlockContinuationScanner
     private function entryOpensContainer(string $entry): bool
     {
         return ($this->entryOpensContainerCallback)($entry);
+    }
+
+    /**
+     * Do an item's collected lines still extend the note on its marker line?
+     * The tracker knows a note is open, not whose it is: a blank, a comment,
+     * another definition or a block start hands the next marker back to the
+     * item. The cursor makes the walk one pass per item.
+     *
+     * @param array<string> $itemLines
+     * @param int $cursor
+     * @param bool $broken
+     */
+    private function leadNoteExtendsThrough(array $itemLines, int &$cursor, bool &$broken): bool
+    {
+        for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
+            $text = ltrim($itemLines[$cursor], " \t");
+            $broken = $text === ''
+                || $this->isCommentLineOrFence($text)
+                || preg_match('/^\[[^\]]+\]:/', $text) === 1
+                || (
+                    ($this->getListParser)()->parseListItemMarker($text) === null
+                    && ($this->isBlockElementStart($text) || $this->startsNewBlock($text))
+                );
+        }
+
+        return !$broken;
     }
 
     /**

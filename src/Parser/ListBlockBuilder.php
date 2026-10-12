@@ -1437,10 +1437,15 @@ final class ListBlockBuilder
                 return false;
             }
         }
+        $leadNoteTextEnd = $this->leadNoteTextEnd($lines);
+        $beforeLeadNote = null;
         $probeNestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
         $probeAfterBlank = false;
         $skipUntil = -1;
         foreach ($lines as $index => $line) {
+            if ($beforeLeadNote !== null && $index === $leadNoteTextEnd + 1) {
+                $probeNestedColumns = $beforeLeadNote;
+            }
             if ($index <= $skipUntil) {
                 continue;
             }
@@ -1471,11 +1476,18 @@ final class ListBlockBuilder
             }
             $local = ltrim($line, " \t");
             $marker = ($this->getListParser)()->parseListItemMarker($local);
+            $noteMarker = $marker !== null && $index <= $leadNoteTextEnd;
+            if ($noteMarker) {
+                $beforeLeadNote ??= $probeNestedColumns;
+            } elseif ($beforeLeadNote !== null && !$hasBlank && $index > $leadNoteTextEnd + 1) {
+                // Only the block right under the note's text is released.
+                return false;
+            }
             if ($marker !== null) {
                 if ($includeSublists && $base > 0 && $probeNestedColumns === []) {
                     return true;
                 }
-                if (!$hasBlank && $index > 0) {
+                if (!$hasBlank && $index > 0 && !$noteMarker) {
                     return false;
                 }
                 $probeNestedColumns[] = $base + $this->listMarkerWidth($local, $marker);
@@ -1755,6 +1767,44 @@ final class ListBlockBuilder
     }
 
     /**
+     * The last line a note leading the chunk owns before a blank, a comment,
+     * another definition or a block start, or -1. A marker line among them is
+     * the note's own, not a list level of the item (PART 9 §16).
+     *
+     * @param array<string> $lines
+     */
+    private function leadNoteTextEnd(array $lines): int
+    {
+        $end = -1;
+        $count = count($lines);
+        $lead = 0;
+        while ($lead < $count && IndentationHelper::isBlankLine($lines[$lead])) {
+            $lead++;
+        }
+        if ($lead >= $count || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $lines[$lead]) !== 1) {
+            return $end;
+        }
+        for ($j = $lead + 1; $j < $count; $j++) {
+            $text = ltrim($lines[$j], " \t");
+            if (
+                $text === ''
+                || IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN
+                || $this->isCommentLineOrFence($text)
+                || preg_match('/^\\[[^\\]]+\\]:/', $text) === 1
+                || (
+                    ($this->getListParser)()->parseListItemMarker($text) === null
+                    && ($this->isBlockElementStart($text, $lines, $j) || $this->startsNewBlock($text, $lines, $j))
+                )
+            ) {
+                break;
+            }
+            $end = $j;
+        }
+
+        return $end;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -1831,12 +1881,19 @@ final class ListBlockBuilder
                 break;
             }
         }
+        $leadNoteTextEnd = $this->leadNoteTextEnd($lines);
         $afterBlank = false;
         $blockState = new TrailingBlockState();
         $blockStateCursor = 0;
         $minimumColonEnd = -1;
+        $beforeLeadNote = null;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
+            if ($beforeLeadNote !== null && $i === $leadNoteTextEnd + 1) {
+                // The note's marker lines were text, so they opened no level.
+                $nestedColumns = $beforeLeadNote;
+                $beforeLeadNote = null;
+            }
             if (IndentationHelper::isBlankLine($line)) {
                 $afterBlank = true;
 
@@ -1899,6 +1956,9 @@ final class ListBlockBuilder
             }
             $trimmed = ltrim($line, " \t");
             $marker = ($this->getListParser)()->parseListItemMarker($trimmed);
+            if ($marker !== null && $i <= $leadNoteTextEnd) {
+                $beforeLeadNote ??= $nestedColumns;
+            }
             if ($marker !== null && (!$includeSublists || $base === 0 || $nestedColumns !== [])) {
                 $nestedColumns[] = $base + $this->listMarkerWidth($trimmed, $marker);
                 $afterBlank = false;
