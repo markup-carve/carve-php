@@ -7005,7 +7005,7 @@ class MarkdownToCarve
             ) ?? $line;
         }
         $literalReferenceOpeners = [];
-        if (str_contains($line, '][')) {
+        if (str_contains($line, '][') && preg_match('/\]\[[^\[\]\n]+\]\x00P\d+\x00/', $line) === 1) {
             $inlineChainMath = [];
             if ($this->convertMath && str_contains($line, '$')) {
                 preg_match_all('/\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d)/', $line, $mathRanges, PREG_OFFSET_CAPTURE);
@@ -7022,22 +7022,26 @@ class MarkdownToCarve
                 }
             }
             $inlineChainUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
+            $inlineChainMathAt = 0;
+            $inlineChainUrlAt = 0;
             $line = preg_replace_callback(
                 '/(?<!\\\\)\[((?!\^)[^\[\]\n]+)\]\[([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
-                function (array $match) use ($inlineChainUrls, $inlineChainMath, $resolvedReferenceTailOpeners, $protected, $protectedSources, $protect, &$literalReferenceOpeners): string {
+                function (array $match) use ($inlineChainUrls, $inlineChainMath, &$inlineChainMathAt, &$inlineChainUrlAt, $resolvedReferenceTailOpeners, $protected, $protectedSources, $protect, &$literalReferenceOpeners): string {
                     $offset = $match[0][1];
                     if (isset($resolvedReferenceTailOpeners[$offset])) {
                         return $match[0][0];
                     }
-                    foreach ($inlineChainMath as [$start, $end]) {
-                        if ($offset >= $start && $offset < $end) {
-                            return $match[0][0];
-                        }
+                    while (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][1] <= $offset) {
+                        $inlineChainMathAt++;
                     }
-                    foreach ($inlineChainUrls as $url) {
-                        if ($offset >= $url['start'] && $offset < $url['end']) {
-                            return $match[0][0];
-                        }
+                    if (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][0] <= $offset) {
+                        return $match[0][0];
+                    }
+                    while (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['end'] <= $offset) {
+                        $inlineChainUrlAt++;
+                    }
+                    if (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['start'] <= $offset) {
+                        return $match[0][0];
                     }
                     $tail = $protected[(int)$match[3][0]] ?? '';
                     $label = $match[2][0];
@@ -7198,12 +7202,12 @@ class MarkdownToCarve
                     return $match[0];
                 }
                 $source = $this->referenceSourceText($match[2], $protectedSources);
-                if (preg_match('/^(\[[^\]]*\]:[ \t]*)(.*)$/s', $source, $parts) !== 1) {
-                    return $match[0];
+                if (preg_match('/^(\[(?:[^\]\\\\]|\\\\.)*\]:[ \t]*)(.*)$/s', $source, $parts) !== 1) {
+                    return $match[1] . $protect($match[2]);
                 }
                 $target = $encodeDest('(' . $parts[2] . ')');
 
-                return $target === null ? $match[0] : $match[1] . $protect($parts[1] . substr($target, 1, -1), $source);
+                return $target === null ? $match[1] . $protect($match[2]) : $match[1] . $protect($parts[1] . substr($target, 1, -1), $source);
             },
             $line,
         ) ?? $line;

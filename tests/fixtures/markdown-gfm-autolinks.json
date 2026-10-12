@@ -10986,5 +10986,25 @@
   {
     "source": "[a^b][x](/u)",
     "html": "<p>[a^b]<a href=\"/u\">x</a></p>\n"
+  },
+  {
+    "source": "[t][x\\]y]\n\n[x\\]y]: http://a.b/c \"t\"",
+    "html": "<p><a href=\"http://a.b/c\" title=\"t\">t</a></p>\n"
+  },
+  {
+    "source": "<span title=\"[a][b](/u)\">x</span>",
+    "html": "<p><span title=\"[a][b](/u)\">x</span></p>\n"
+  },
+  {
+    "source": "[todo]: fix /path/ now",
+    "html": "<p>[todo]: fix /path/ now</p>\n"
+  },
+  {
+    "source": "[foo]: *bar* baz",
+    "html": "<p>[foo]: <em>bar</em> baz</p>\n"
+  },
+  {
+    "source": "- [see]: visit http://a.b/c now",
+    "html": "<ul>\n<li>[see]: visit <a href=\"http://a.b/c\">http://a.b/c</a> now</li>\n</ul>\n"
   }
 ]
