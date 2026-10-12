@@ -7913,6 +7913,20 @@ class MarkdownToCarve
         $blockIndent = 0;
         $count = count($lines);
         $outdent = 0;
+        $referenceListColumns = [];
+        $referenceQuoteDepth = 0;
+        $referenceDefinitionEnd = null;
+        $referenceDefinitionAbove = [];
+        $referenceEmptyColumns = [];
+        $referenceClosedEmptyLists = [];
+        $trackReferenceLists = false;
+        foreach ($lines as $candidate) {
+            if (str_contains($candidate, ']:')) {
+                $trackReferenceLists = true;
+
+                break;
+            }
+        }
         for ($i = 0; $i < $count; $i++) {
             // A definition that closed an item's fence closed the item too, so
             // what the item held below it stands at the top level now.
@@ -8048,6 +8062,93 @@ class MarkdownToCarve
 
                 continue;
             }
+            if ($trackReferenceLists && $lineDepth > 0) {
+                preg_match_all('/ {0,3}>[ \t]?/', $quotePrefix, $referenceQuotes);
+                $physicalColumn = 0;
+                $semanticColumn = 0;
+                foreach ($referenceQuotes[0] as $parentDepth => $referenceQuote) {
+                    $markerColumn = $physicalColumn + strspn($referenceQuote, ' ');
+                    $parentColumns = $referenceListColumns[$parentDepth] ?? [];
+                    while ($parentColumns !== [] && end($parentColumns) > $markerColumn - $semanticColumn) {
+                        array_pop($parentColumns);
+                    }
+                    $referenceListColumns[$parentDepth] = $parentColumns;
+                    if ($parentColumns === []) {
+                        unset($referenceDefinitionAbove[$parentDepth], $referenceEmptyColumns[$parentDepth], $referenceClosedEmptyLists[$parentDepth]);
+                    }
+                    $physicalColumn = $physicalColumn - $physicalColumn % 4
+                        + $this->columnWidth(str_repeat(' ', $physicalColumn % 4) . $referenceQuote);
+                    $semanticColumn = str_ends_with($referenceQuote, "\t") ? $markerColumn + 2 : $physicalColumn;
+                }
+            }
+            $referenceBody = substr($line, strlen($quotePrefix));
+            $referenceContinuesDefinition = $trackReferenceLists && $referenceDefinitionEnd === $i - 1
+                && trim($referenceBody) !== '' && !$this->opensMarkdownBlock($referenceBody);
+            $referenceListAbove = ($referenceListColumns[$lineDepth] ?? []) !== [] || isset($referenceClosedEmptyLists[$lineDepth])
+                || ($referenceDefinitionAbove[$lineDepth] ?? false);
+            if (trim($referenceBody) !== '' && preg_match('/^[ \t]*\[.*\]:/', $referenceBody) !== 1) {
+                unset($referenceDefinitionAbove[$lineDepth]);
+            }
+            $referenceLazyQuote = $trackReferenceLists && $lineDepth < $referenceQuoteDepth && !$canStart
+                && trim($referenceBody) !== '' && !$this->opensMarkdownBlock($referenceBody);
+            if ($trackReferenceLists && !$referenceLazyQuote) {
+                foreach (array_keys($referenceListColumns) as $quoteDepth) {
+                    if ($quoteDepth > $lineDepth) {
+                        unset($referenceListColumns[$quoteDepth], $referenceDefinitionAbove[$quoteDepth], $referenceEmptyColumns[$quoteDepth], $referenceClosedEmptyLists[$quoteDepth]);
+                    }
+                }
+                $physicalQuoteColumn = $this->columnWidth($quotePrefix);
+                $quoteRemainder = str_ends_with($quotePrefix, "\t")
+                    ? $physicalQuoteColumn - $this->columnWidth(substr($quotePrefix, 0, -1)) - 1 : 0;
+                $quoteColumn = $physicalQuoteColumn - $quoteRemainder;
+                $referencePadding = substr($referenceBody, 0, strspn($referenceBody, " \t"));
+                $referenceIndent = $this->columnWidth(str_repeat(' ', $physicalQuoteColumn % 4) . $referencePadding)
+                    - $physicalQuoteColumn % 4 + $quoteRemainder;
+                $columns = $referenceListColumns[$lineDepth] ?? [];
+                if (trim($referenceBody) === '' && isset($referenceEmptyColumns[$lineDepth])) {
+                    if (count($columns) === $referenceEmptyColumns[$lineDepth]) {
+                        array_pop($columns);
+                        $referenceClosedEmptyLists[$lineDepth] = true;
+                    }
+                    unset($referenceEmptyColumns[$lineDepth]);
+                } elseif (trim($referenceBody) !== '') {
+                    unset($referenceClosedEmptyLists[$lineDepth], $referenceEmptyColumns[$lineDepth]);
+                }
+                if (trim($referenceBody) !== '' && !$referenceContinuesDefinition && ($canStart || $opensItem || $lineDepth !== $referenceQuoteDepth || $this->opensMarkdownBlock($referenceBody))) {
+                    while ($columns !== [] && end($columns) > $referenceIndent) {
+                        array_pop($columns);
+                    }
+                }
+                $markerAt = 0;
+                $referenceColumn = $physicalQuoteColumn;
+                $referenceLength = strlen($referenceBody);
+                while (preg_match(self::THEMATIC_BREAK, $referenceBody) !== 1 && preg_match('/\G([ \t]*)(?:[-*+]|[0-9]{1,9}[.)])([ \t]+|$)/', $referenceBody, $referenceHead, offset: $markerAt) === 1) {
+                    $tabOffset = $referenceColumn % 4;
+                    $columnBase = $referenceColumn - $tabOffset;
+                    $paddingPrefix = str_repeat(' ', $tabOffset);
+                    $markerIndent = $columnBase + $this->columnWidth($paddingPrefix . $referenceHead[1]) - $quoteColumn;
+                    while ($columns !== [] && end($columns) > $markerIndent) {
+                        array_pop($columns);
+                    }
+                    if ($markerIndent - ($columns === [] ? 0 : (int)end($columns)) > 3) {
+                        break;
+                    }
+                    $referencePrefix = $paddingPrefix . $referenceHead[0];
+                    $markerAt += strlen($referenceHead[0]);
+                    if ($markerAt >= $referenceLength) {
+                        $referencePrefix = rtrim($referencePrefix, " \t") . ' ';
+                    }
+                    $columns[] = $columnBase + $this->itemContentColumn($referencePrefix) - $quoteColumn;
+                    $referenceColumn = $columnBase + $this->columnWidth($paddingPrefix . $referenceHead[0]);
+                    if ($markerAt >= $referenceLength) {
+                        $referenceEmptyColumns[$lineDepth] = count($columns);
+
+                        break;
+                    }
+                }
+                $referenceListColumns[$lineDepth] = $columns;
+                $referenceQuoteDepth = $lineDepth;
+            }
             if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $blockContent, $open) === 1) {
                 $fence = $open[1];
                 $blockDepth = $lineDepth;
@@ -8098,7 +8199,7 @@ class MarkdownToCarve
                 && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
                 && $this->collectFootnoteDefinition($lines, $i)
             ) {
-                if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, strspn(substr($line, strlen($quotePrefix)), ' '))) {
+                if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)) {
                     for ($blank = 0; $blank < 2; $blank++) {
                         $this->hardReferenceSeparators[count($kept)] = true;
                         $this->markdownSourceLines[count($kept)] = $i;
@@ -8138,7 +8239,9 @@ class MarkdownToCarve
                         $defined[$rawKey] = true;
                     }
                     $i += $parsed['lines'] - 1;
-                    if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, strspn(substr($line, strlen($quotePrefix)), ' '))) {
+                    $referenceDefinitionEnd = $i;
+                    $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
+                    if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)) {
                         for ($blank = 0; $blank < 2; $blank++) {
                             $this->hardReferenceSeparators[count($kept)] = true;
                             $this->markdownSourceLines[count($kept)] = $i;
@@ -8223,6 +8326,8 @@ class MarkdownToCarve
                     if (!$repeated && !str_starts_with($definition[1], '^') && strpbrk($definition[1], '|<&') !== false) {
                         $this->complexReferenceTargets[$rawKey] = $target;
                     }
+                    $referenceDefinitionEnd = $i;
+                    $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
                     $marker = substr($prefix, strlen($quotePrefix));
                     // A footnote is not a reference definition, so it stays put. So
                     // does one on a nested item's marker line, where fmt writes it,
@@ -8230,7 +8335,7 @@ class MarkdownToCarve
                     if (
                         str_starts_with($definition[1], '^')
                         || ($opensItem && strspn($marker, ' ') >= 2)
-                        || (!$opensItem && $this->partsTwoLists($lines, $i, $kept, $quotePrefix))
+                        || (!$opensItem && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove))
                     ) {
                         if (!str_starts_with($definition[1], '^')) {
                             $this->markdownSourceLines[count($kept)] = $i - count($continued);
@@ -8284,12 +8389,14 @@ class MarkdownToCarve
                     $this->emptyDestinationLabels[$key] = $raw === '' ? '' : $this->decodeLinkTitle(substr($raw, 1, -1));
                 }
                 $defined[$key] = true;
+                $referenceDefinitionEnd = $i;
+                $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
                 $canStart = true;
                 $definitionColumn = strpos($line, '[' . $definition[1] . ']:');
                 if (
                     !$opensItem && $definitionColumn !== false
                     && trim(substr($line, strlen($quotePrefix), $definitionColumn - strlen($quotePrefix))) === ''
-                    && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, strspn(substr($line, strlen($quotePrefix)), ' '))
+                    && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)
                 ) {
                     for ($blank = 0; $blank < 2; $blank++) {
                         $this->hardReferenceSeparators[count($kept)] = true;
@@ -8312,6 +8419,9 @@ class MarkdownToCarve
             }
             $this->markdownSourceLines[count($kept)] = $i;
             $kept[] = $line;
+            if (trim($content) !== '') {
+                unset($referenceDefinitionAbove[$lineDepth]);
+            }
             if ($canStart || $lineDepth >= $depth || trim($content) === '') {
                 $depth = $lineDepth;
             }
@@ -8457,69 +8567,48 @@ class MarkdownToCarve
      * @param int $index
      * @param array<string> $kept
      * @param string $quotePrefix
-     * @param int|null $definitionIndent
+     * @param array<int, int>|null $listOwners Content columns of the items holding the definition.
+     * @param bool $listAbove Whether a list precedes the definition.
      */
-    protected function partsTwoLists(array $lines, int $index, array $kept, string $quotePrefix, ?int $definitionIndent = null): bool
+    protected function partsTwoLists(array $lines, int $index, array $kept, string $quotePrefix, ?array $listOwners = null, bool $listAbove = false): bool
     {
-        $marker = rtrim($quotePrefix);
+        if ($listOwners !== null && $listOwners !== []) {
+            return false;
+        }
+        $depth = substr_count($quotePrefix, '>');
         $item = '/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)/';
         $below = null;
         for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
-            if (!str_starts_with($lines[$at], $marker)) {
+            $prefix = $this->quotePrefixOf($lines[$at]);
+            if (substr_count($prefix, '>') !== $depth) {
                 return false;
             }
-            $text = (string)substr($lines[$at], strlen($quotePrefix));
+            $text = (string)substr($lines[$at], strlen($prefix));
             if (trim($text) !== '') {
                 $below = $text;
 
                 break;
             }
         }
-        if ($below === null || preg_match($item, $below) !== 1) {
+        if ($below === null || preg_match(self::THEMATIC_BREAK, $below) === 1 || preg_match($item, $below) !== 1) {
             return false;
         }
-        $above = null;
-        for ($at = count($kept) - 1; $at >= 0 && $above === null; $at--) {
-            if (!str_starts_with($kept[$at], $marker)) {
-                return false;
-            }
-            $text = (string)substr($kept[$at], strlen($quotePrefix));
-            $above = trim($text) === '' ? null : $text;
-        }
-        if ($above === null || (preg_match($item, $above) !== 1 && preg_match('/^[ \t]+\S/', $above) !== 1)) {
-            return false;
-        }
-        if ($definitionIndent === null) {
+        if ($listAbove) {
             return true;
         }
-        $ancestorIndent = PHP_INT_MAX;
-        $found = false;
-        for ($at++; $at >= 0; $at--) {
-            if (!str_starts_with($kept[$at], $marker)) {
-                return $found;
+        for ($at = count($kept) - 1; $at >= 0; $at--) {
+            $prefix = $this->quotePrefixOf($kept[$at]);
+            if (substr_count($prefix, '>') !== $depth) {
+                return false;
             }
-            $text = (string)substr($kept[$at], strlen($quotePrefix));
-            if (preg_match('/^( {0,3})(?:[-*+]|[0-9]{1,9}[.)])([ \t]+|$)/', $text, $head) === 1) {
-                $indent = strlen($head[1]);
-                if ($indent >= $ancestorIndent) {
-                    continue;
-                }
-                $ancestorIndent = $indent;
-                $prefix = $quotePrefix . $head[0] . ($head[2] === '' ? ' ' : '');
-                $contentColumn = $this->itemContentColumn($prefix) - $this->columnWidth($quotePrefix);
-                if ($definitionIndent >= $contentColumn) {
-                    return false;
-                }
-                $found = true;
-                if ($indent === 0) {
-                    return true;
-                }
-            } elseif (trim($text) !== '' && strspn($text, ' ') === 0) {
-                return $found;
+            $text = (string)substr($kept[$at], strlen($prefix));
+            if (trim($text) !== '') {
+                return preg_match(self::THEMATIC_BREAK, $text) !== 1
+                    && (preg_match($item, $text) === 1 || preg_match('/^[ \t]+\S/', $text) === 1);
             }
         }
 
-        return $found;
+        return false;
     }
 
     /**

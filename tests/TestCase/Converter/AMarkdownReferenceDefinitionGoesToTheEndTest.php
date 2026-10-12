@@ -231,4 +231,109 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         self::assertStringContainsString($expected, (new CarveConverter())->convert($written));
         self::assertStringContainsString($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
+
+    public function testAnEmptyMarkerUsesOneColumnOfPadding(): void
+    {
+        $written = (new MarkdownToCarve())->convert("-   \n  x\n\n  [r]: <>\n\n- b\n\n[t][r]");
+        $expected = "<ul>\n  <li><p>x</p></li>\n  <li><p>b</p></li>\n</ul>\n<p>t</p>\n";
+        self::assertSame($expected, (new CarveConverter())->convert($written));
+        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+    }
+
+    public function testStaircaseMarkerIndentationDoesNotInventAnAncestor(): void
+    {
+        $written = (new MarkdownToCarve())->convert("- a\n - b\n\n  [r]: <>\n\n- c\n\n[t][r]");
+        $expected = "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n<p>t</p>\n";
+        self::assertSame($expected, (new CarveConverter())->convert($written));
+        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+    }
+
+    public function testCompactQuoteMarkersPreserveTheListBoundary(): void
+    {
+        $written = (new MarkdownToCarve())->convert(">- a\n>\n> [r]: <>\n>\n>- b");
+        $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n";
+        self::assertSame($expected, (new CarveConverter())->convert($written));
+        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+    }
+
+    public function testAnOrderedMarkerOutsideTheItemKeepsThreeLists(): void
+    {
+        $migration = (new MarkdownToCarve())->convertWithFidelityReport('- a
+2019. was a year
+
+  [r]: <>
+
+- b
+
+[t][r]');
+        $expected = '<ul>
+  <li>a</li>
+</ul>
+<ol start="2019">
+  <li>was a year</li>
+</ol>
+<ul>
+  <li>b</li>
+</ul>
+<p>t</p>
+';
+        self::assertSame($expected, (new CarveConverter())->convert($migration->value));
+        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+        $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
+        self::assertCount(1, $losses);
+        self::assertSame('exact', array_values($losses)[0]->confidence);
+    }
+
+    public function testLazyQuoteContinuationRetainsItsListOwner(): void
+    {
+        $migration = (new MarkdownToCarve())->convertWithFidelityReport('> - a
+lazy
+>   more
+>
+>   [r]: <>
+>
+> - b
+
+[t][r]');
+        $expected = '<blockquote>
+  <ul>
+    <li><p>a
+lazy
+more</p></li>
+    <li><p>b</p></li>
+  </ul>
+</blockquote>
+<p>t</p>
+';
+        self::assertSame($expected, (new CarveConverter())->convert($migration->value));
+        self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+        $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
+        self::assertCount(1, $losses);
+        self::assertSame('exact', array_values($losses)[0]->confidence);
+    }
+
+    public function testNativeListBoundariesWithLazyLinesEmptyMarkersAndQuoteTabs(): void
+    {
+        $cases = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/markdown_definition_list_boundaries.json'), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($cases as $case) {
+            $migration = (new MarkdownToCarve())->convertWithFidelityReport($case['source']);
+            self::assertSame($case['html'], (new CarveConverter())->convert($migration->value));
+            self::assertSame($case['html'], (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+            $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
+            self::assertCount(substr_count($case['nativeHtml'], 'href=""'), $losses);
+            foreach ($losses as $loss) {
+                self::assertSame('exact', $loss->confidence);
+            }
+        }
+    }
+
+    public function testBlocksBetweenListsDoNotHoldDefinitionsInPlace(): void
+    {
+        foreach (['# H', '> q', '* * *', "```\nx\n```", "<div>\nx\n</div>"] as $block) {
+            $source = "- a\n\n" . $block . "\n\n[r]: /u\n\n- b\n\n[t][r]";
+            $written = (new MarkdownToCarve())->convert($source);
+            self::assertStringEndsWith('[r]: /u', trim($written));
+            self::assertSame(1, substr_count($written, '[r]: /u'));
+        }
+    }
 }
