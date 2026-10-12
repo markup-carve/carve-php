@@ -133,6 +133,74 @@ class TabFenceColumnsTest extends TestCase
                 "- a\n  > q\n\t\t[^n]: f\n  # h\n\t  ```=html\n\t- s\n    ``` \n\t```make\n    \t```\t\nafter\n",
                 "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"h\">h</h1>\n      - s\n  ``` \n  ```make\n  </li>\n</ul>\n<p>after</p>\n",
             ],
+            'review3-p2-0' => [
+                "- a\n  \t  ```\n   \t x\n  \t  ```\n",
+                "<ul>\n  <li>a\n    <pre><code> \t x\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p2-1' => [
+                "- a\n  \t  ```\n   \t x\n  \t  ```\n\nafter\n",
+                "<ul>\n  <li>a\n    <pre><code> \t x\n</code></pre>\n  </li>\n</ul>\n<p>after</p>\n",
+            ],
+            'review3-p2-2' => [
+                "- a\n\n  \t  ```\n   \t x\n  \t  ```\n",
+                "<ul>\n  <li>a\n    <pre><code> \t x\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p2-3' => [
+                "- a\n  \t  ```\n  x\n  \t```\n  y\n  \t  ```\n",
+                "<ul>\n  <li>a\n    <pre><code>x\n\t```\ny\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p2-4' => [
+                "- a\n  \t  ```\n  \t```\n  \t  ```\n",
+                "<ul>\n  <li>a\n    <pre><code>\t```\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p2-5' => [
+                "- a\n  \t  ```\n  \t```\n  y\n  \t  ```\n\nafter\n",
+                "<ul>\n  <li>a\n    <pre><code>\t```\ny\n</code></pre>\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>after</p>\n",
+            ],
+            'review3-p2-6' => [
+                "1. a\n   \t  ```\n   \tx\n   \t  ```\n",
+                "<ol>\n  <li>a\n    <pre><code>\tx\n</code></pre>\n  </li>\n</ol>\n",
+            ],
+            'review3-p2-7' => [
+                "1. a\n    \t```\n   \t x\n    \t```\n",
+                "<ol>\n  <li>a\n    <pre><code> x\n</code></pre>\n  </li>\n</ol>\n",
+            ],
+            'review3-p2-8' => [
+                "- a\n  \t  ```=html\n   \t <b>\n  \t  ```\n",
+                "<ul>\n  <li>a\n     \t <b>\n  </li>\n</ul>\n",
+            ],
+            'review3-p2-9' => [
+                "- a\n  \t ```\n  \tx\n  \t ```\n",
+                "<ul>\n  <li>a\n    <pre><code>\tx\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p2-10' => [
+                "- a\n  \t ```\n   \tx\n  \t ```\n",
+                "<ul>\n  <li>a\n    <pre><code> \tx\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p5-0' => [
+                "- t\n  \t> q\n   \t{.c}\n\t\t%% c\n  \t ````\n \t{.c}\n \t```\n",
+                "<ul>\n  <li>t\n    <blockquote><p>q</p></blockquote>\n    <p class=\"c\"><code></code></p>\n    <pre class=\"c\"><code></code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p5-1' => [
+                "- t\n  \t> q\n\t\t%% c\n  \t ````\n \t```\n",
+                "<ul>\n  <li>t\n    <blockquote><p>q</p></blockquote>\n    <code>\n```</code>\n  </li>\n</ul>\n",
+            ],
+            'review3-p5-2' => [
+                "- t\n  > q\n  %% c\n  \t ````\n  x\n",
+                "<ul>\n  <li>t\n    <blockquote><p>q</p></blockquote>\n    <pre><code>x\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p5-3' => [
+                "- t\n  > q\n  \t ````\n  x\n",
+                "<ul>\n  <li>t\n    <blockquote><p>q\n<code>\nx</code></p></blockquote>\n  </li>\n</ul>\n",
+            ],
+            'review3-p5-4' => [
+                "- t\n  > q\n  {.c}\n  \t ````\n  x\n",
+                "<ul>\n  <li>t\n    <blockquote><p>q</p></blockquote>\n    <pre class=\"c\"><code>x\n</code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review3-p5-5' => [
+                "- t\n  \t> q\n   \t{.c}\n  \t ````\n  x\n",
+                "<ul>\n  <li>t\n    <blockquote><p>q</p></blockquote>\n    <p class=\"c\"><code>\nx</code></p>\n  </li>\n</ul>\n",
+            ],
             'below-fence-column' => [
                 "- a\n  # h\n      ```\n    x\n   ```\n      ```\nafter\n",
                 "<ul>\n  <li>a\n    <h1 id=\"h\">h</h1>\n    <pre><code>  x\n ```\n</code></pre>\n  </li>\n</ul>\n<p>after</p>",

@@ -751,6 +751,8 @@ final class BlockContinuationScanner
                     );
                 } else {
                     $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                    // Beyond the first tab stop, shallower payload tabs can
+                    // land at the rebased fence column. Preserve that view.
                     $structuralFence = $trailingState->fence === null
                         && !$this->state->frame->rebasedItemInput
                         && !$trailingState->hasOpenDiv()
@@ -760,7 +762,8 @@ final class BlockContinuationScanner
                         && $trailingState->nestedColumn === 0
                         && $openCommentLength === null
                         && $openDefinitionBody === null
-                        && $sourceFenceOpener !== null;
+                        && $sourceFenceOpener !== null
+                        && IndentationHelper::getLeadingColumns($nextLine) === IndentationHelper::TAB_STOP;
                     if ($structuralFence) {
                         $rebasedLine = IndentationHelper::rebaseLeadingColumns($nextLine, $contentIndent);
                         $fenceIndentationChanged = $rebasedLine !== $contentLine;
