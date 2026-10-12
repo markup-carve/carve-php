@@ -1,0 +1,27 @@
+[
+  {
+    "id": "559-a-tab-inside-a-line-is-content-in-a-label-and-after-a-definition-marker-2",
+    "source": "see [t][a\fb]\n\n[a b]: /u\n",
+    "html": "<p>see [t][a\fb]</p>\n"
+  },
+  {
+    "id": "559-a-tab-inside-a-line-is-content-in-a-label-and-after-a-definition-marker",
+    "source": "see [t][a\tb]\n\n[a b]: /u\n",
+    "html": "<p>see [t][a\tb]</p>\n"
+  },
+  {
+    "id": "565-a-tab-is-content-in-a-heading-key-and-in-a-cross-reference-id",
+    "source": "# A\tB\n\nsee [A B][]\n",
+    "html": "<section id=\"A-B\">\n  <h1>A\tB</h1>\n  <p>see [A B][]</p>\n</section>\n"
+  },
+  {
+    "id": "565-a-tab-is-content-in-a-heading-key-and-in-a-cross-reference-id-2",
+    "source": "# A\tB\n\nsee [A\tB][]\n",
+    "html": "<section id=\"A-B\">\n  <h1>A\tB</h1>\n  <p>see <a href=\"#A-B\">A\tB</a></p>\n</section>\n"
+  },
+  {
+    "id": "565-a-tab-is-content-in-a-heading-key-and-in-a-cross-reference-id-3",
+    "source": "# A  B\n\nsee [ A B ][]\n",
+    "html": "<section id=\"A-B\">\n  <h1>A  B</h1>\n  <p>see <a href=\"#A-B\"> A B </a></p>\n</section>\n"
+  }
+]

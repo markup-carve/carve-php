@@ -1371,7 +1371,7 @@ class BlockParser
             if ($child instanceof Heading) {
                 $id = $tracker->getIdForHeading($child);
                 $ids[$id] = true;
-                $label = preg_replace('/\s+/', ' ', trim($tracker->getPlainText($child))) ?? '';
+                $label = LabelKey::normalize($tracker->getPlainText($child));
                 if (!$inBlockquote && $label !== '' && !isset($index[$label])) {
                     $index[$label] = $id;
                 }
@@ -1511,7 +1511,7 @@ class BlockParser
                 // punctuation, which slugging collapses, so the id is identical.)
                 // Skips one of the two inline parses per heading.
                 if ($pendingId === null && $headingText !== '' && preg_match('/^[\p{L}\p{N} ]+$/u', $headingText) === 1) {
-                    $label = preg_replace('/\s+/', ' ', $headingText) ?? $headingText;
+                    $label = LabelKey::normalize($headingText);
                     $id = $headingIdTracker->getIdForText($label);
                     $this->state->session->headingIds[$id] = true;
                     $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
@@ -1554,7 +1554,7 @@ class BlockParser
 
                 // Register as reference if not already defined
                 // Use normalized plain text as the label (for [Heading][] style links)
-                $label = preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
+                $label = LabelKey::normalize($plainText);
                 $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
                 $this->registerHeadingReference($label, $reference);
             } else {
@@ -8167,7 +8167,7 @@ class BlockParser
      */
     public function headingIndexKey(Node $label): string
     {
-        return trim(preg_replace('/\s+/', ' ', $this->headingIndexLabel($label)) ?? '');
+        return LabelKey::normalize($this->headingIndexLabel($label));
     }
 
     /**
