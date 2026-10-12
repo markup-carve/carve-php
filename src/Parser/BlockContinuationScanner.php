@@ -786,6 +786,7 @@ final class BlockContinuationScanner
                     && $trailingState->divDepth === 0
                     && $pendingTermFence === null
                     && $openCommentLength === null
+                    && ($nextTrimmed[0] ?? '') === '%'
                     && $this->isCommentLineOrFence($nextTrimmed)
                 ) {
                     $pendingDefinitionTerm = false;
@@ -816,21 +817,6 @@ final class BlockContinuationScanner
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
                     && $openCommentLength === null;
-                if ($termContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)) {
-                    if (
-                        $pendingTermFence !== null
-                        && ($this->getFencedBlockParser)()->isCodeFenceCloser(
-                            $nextTrimmed,
-                            $pendingTermFence['char'] ?? $pendingTermFence['fence'][0],
-                            $pendingTermFence['length'],
-                        )
-                    ) {
-                        $pendingTermFence = null;
-                    } elseif ($pendingTermFence === null) {
-                        $pendingTermFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
-                            ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
-                    }
-                }
                 $attributeLine = $this->isBlockAttributeLine($nextTrimmed)
                     || $wrappedAttributeLinesRemaining > 0
                     || $this->wrappedItemAttributeLength(
@@ -1005,6 +991,21 @@ final class BlockContinuationScanner
                     $pendingAttachedAttributes = false;
                 }
                 if ($inlineAuthoredFence) {
+                    if ($termContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)) {
+                        if (
+                            $pendingTermFence !== null
+                            && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                                $nextTrimmed,
+                                $pendingTermFence['char'] ?? $pendingTermFence['fence'][0],
+                                $pendingTermFence['length'],
+                            )
+                        ) {
+                            $pendingTermFence = null;
+                        } elseif ($pendingTermFence === null) {
+                            $pendingTermFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
+                                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
+                        }
+                    }
                     $trailingState->fence = null;
                     $trailingState->openParagraph = true;
                 }
