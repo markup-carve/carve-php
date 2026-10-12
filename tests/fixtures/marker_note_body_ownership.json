@@ -1,0 +1,477 @@
+[
+  {
+    "id": "continued-marker-note-code-marker-note-076",
+    "source": "- [^n]: text\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-077",
+    "source": "- [^n]: text\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-084",
+    "source": "> - [^n]: text\n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-085",
+    "source": "> - [^n]: text\n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-092",
+    "source": "> > - [^n]: text\n> >     > quote\n> >       ```\n> >       code\n> >       ```\n> > after [^n]\n",
+    "html": "<blockquote><blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-093",
+    "source": "> > - [^n]: text\n> >     > quote\n> >         ```\n> >         code\n> >         ```\n> > after [^n]\n",
+    "html": "<blockquote><blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-127",
+    "source": "- [^n]: text\n\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-128",
+    "source": "> - [^n]: text\n> \n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-129",
+    "source": "- [^n]: text\n\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-130",
+    "source": "> - [^n]: text\n> \n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-247",
+    "source": "- [^n]: :: term\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-248",
+    "source": "> - [^n]: :: term\n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-249",
+    "source": "- [^n]: :: term\n\n    > quote\n      ```\n      code\n      ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-250",
+    "source": "> - [^n]: :: term\n> \n>     > quote\n>       ```\n>       code\n>       ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-251",
+    "source": "- [^n]: :: term\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-252",
+    "source": "> - [^n]: :: term\n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-253",
+    "source": "- [^n]: :: term\n\n    > quote\n        ```\n        code\n        ```\nafter [^n]\n",
+    "html": "<ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "continued-marker-note-code-marker-note-254",
+    "source": "> - [^n]: :: term\n> \n>     > quote\n>         ```\n>         code\n>         ```\n> after [^n]\n",
+    "html": "<blockquote><ul><li><blockquote><p>quote<code>code</code>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><dl><dt>term</dt></dl><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "nested-marker-note-closer-nested-176",
+    "source": "- [^a]: text\n    more\n    [^b]: \n      > q\n        ~~~\n        code\n        ~~~\nafter [^a] [^b]\n",
+    "html": "<ul><li><blockquote><p>q ~~~ code ~~~ after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "nested-marker-note-closer-nested-178",
+    "source": "- [^a]: text\n    more\n    [^b]: \n\n      > q\n        ~~~\n        code\n        ~~~\nafter [^a] [^b]\n",
+    "html": "<ul><li><blockquote><p>q ~~~ code ~~~ after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "nested-marker-note-closer-nested-368",
+    "source": "> - [^a]: text\n>     more\n>     [^b]: \n>       > q\n>         ~~~\n>         code\n>         ~~~\n> after [^a] [^b]\n> ",
+    "html": "<blockquote><ul><li><blockquote><p>q ~~~ code ~~~ after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "nested-marker-note-closer-nested-370",
+    "source": "> - [^a]: text\n>     more\n>     [^b]: \n> \n>       > q\n>         ~~~\n>         code\n>         ~~~\n> after [^a] [^b]\n> ",
+    "html": "<blockquote><ul><li><blockquote><p>q ~~~ code ~~~ after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[^b]</p></blockquote></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text more [^b]:<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-3",
+    "source": "- a\n    - child\n    b\n      - c2\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-4",
+    "source": "- a\n    - child\n    - b\n      - c2\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-9",
+    "source": "- a\n    - child\n    b\n\n      - c2\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-10",
+    "source": "- a\n    - child\n    - b\n\n      - c2\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-15",
+    "source": "- a\n    - child\n    b\n      - c2\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-16",
+    "source": "- a\n    - child\n    - b\n      - c2\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-21",
+    "source": "- a\n    - child\n    b\n\n      - c2\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-22",
+    "source": "- a\n    - child\n    - b\n\n      - c2\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-27",
+    "source": "- a\n    - child\n    b\n      - c2\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-28",
+    "source": "- a\n    - child\n    - b\n      - c2\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-33",
+    "source": "- a\n    - child\n    b\n\n      - c2\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-34",
+    "source": "- a\n    - child\n    - b\n\n      - c2\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-45",
+    "source": "- a\n    - child\n    b\n\n      more\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a<ul><li><p>child b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-46",
+    "source": "- a\n    - child\n    - b\n\n      more\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-57",
+    "source": "- a\n    - child\n    b\n\n      more\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li><p>child b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-58",
+    "source": "- a\n    - child\n    - b\n\n      more\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-69",
+    "source": "- a\n    - child\n    b\n\n      more\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li><p>child b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-70",
+    "source": "- a\n    - child\n    - b\n\n      more\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li><p>child</p></li><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-82",
+    "source": "- a\n    - child\n    - b\n\n      > q\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-93",
+    "source": "- a\n    - child\n    b\n\n      > q\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-94",
+    "source": "- a\n    - child\n    - b\n\n      > q\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-105",
+    "source": "- a\n    - child\n    b\n\n      > q\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-106",
+    "source": "- a\n    - child\n    - b\n\n      > q\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-141",
+    "source": "- a\n    - child\n    b\n\n      :: t\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child b<dl><dt>t ~~~ code after</dt></dl></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-142",
+    "source": "- a\n    - child\n    - b\n\n      :: t\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a<ul><li>child</li><li>b<dl><dt>t ~~~ code after</dt></dl></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-292",
+    "source": "- a\n    more\n    - b\n      - c2\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-298",
+    "source": "- a\n    more\n    - b\n\n      - c2\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-304",
+    "source": "- a\n    more\n    - b\n      - c2\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-310",
+    "source": "- a\n    more\n    - b\n\n      - c2\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-316",
+    "source": "- a\n    more\n    - b\n      - c2\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-322",
+    "source": "- a\n    more\n    - b\n\n      - c2\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-334",
+    "source": "- a\n    more\n    - b\n\n      more\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a more<ul><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-346",
+    "source": "- a\n    more\n    - b\n\n      more\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a more<ul><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-358",
+    "source": "- a\n    more\n    - b\n\n      more\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a more<ul><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-370",
+    "source": "- a\n    more\n    - b\n\n      > q\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-382",
+    "source": "- a\n    more\n    - b\n\n      > q\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-394",
+    "source": "- a\n    more\n    - b\n\n      > q\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-430",
+    "source": "- a\n    more\n    - b\n\n      :: t\n        ~~~\n        code\nafter\n",
+    "html": "<ul><li>a more<ul><li>b<dl><dt>t ~~~ code after</dt></dl></li></ul></li></ul>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-585",
+    "source": "> - a\n>     - child\n>     b\n> \n>       - c2\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-586",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       - c2\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-591",
+    "source": "> - a\n>     - child\n>     b\n>       - c2\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-592",
+    "source": "> - a\n>     - child\n>     - b\n>       - c2\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-597",
+    "source": "> - a\n>     - child\n>     b\n> \n>       - c2\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-598",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       - c2\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-603",
+    "source": "> - a\n>     - child\n>     b\n>       - c2\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-604",
+    "source": "> - a\n>     - child\n>     - b\n>       - c2\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-609",
+    "source": "> - a\n>     - child\n>     b\n> \n>       - c2\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-610",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       - c2\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-621",
+    "source": "> - a\n>     - child\n>     b\n> \n>       more\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-622",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       more\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-633",
+    "source": "> - a\n>     - child\n>     b\n> \n>       more\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-634",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       more\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-645",
+    "source": "> - a\n>     - child\n>     b\n> \n>       more\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li><p>child b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-646",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       more\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li><p>child</p></li><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-658",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       > q\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-669",
+    "source": "> - a\n>     - child\n>     b\n> \n>       > q\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-670",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       > q\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-681",
+    "source": "> - a\n>     - child\n>     b\n> \n>       > q\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-682",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       > q\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-717",
+    "source": "> - a\n>     - child\n>     b\n> \n>       :: t\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child b<dl><dt>t ~~~ code after</dt></dl></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-718",
+    "source": "> - a\n>     - child\n>     - b\n> \n>       :: t\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a<ul><li>child</li><li>b<dl><dt>t ~~~ code after</dt></dl></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-874",
+    "source": "> - a\n>     more\n>     - b\n> \n>       - c2\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-880",
+    "source": "> - a\n>     more\n>     - b\n>       - c2\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-886",
+    "source": "> - a\n>     more\n>     - b\n> \n>       - c2\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-892",
+    "source": "> - a\n>     more\n>     - b\n>       - c2\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-898",
+    "source": "> - a\n>     more\n>     - b\n> \n>       - c2\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<ul><li>c2 ~~~ code after</li></ul></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-910",
+    "source": "> - a\n>     more\n>     - b\n> \n>       more\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-922",
+    "source": "> - a\n>     more\n>     - b\n> \n>       more\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-934",
+    "source": "> - a\n>     more\n>     - b\n> \n>       more\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li><p>b</p><p>more ~~~ code after</p></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-946",
+    "source": "> - a\n>     more\n>     - b\n> \n>       > q\n>     ~~~\n>     code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-958",
+    "source": "> - a\n>     more\n>     - b\n> \n>       > q\n>       ~~~\n>       code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-970",
+    "source": "> - a\n>     more\n>     - b\n> \n>       > q\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<blockquote><p>q ~~~ code after</p></blockquote></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-marker-note-closer-generic-1006",
+    "source": "> - a\n>     more\n>     - b\n> \n>       :: t\n>         ~~~\n>         code\n> after\n> ",
+    "html": "<blockquote><ul><li>a more<ul><li>b<dl><dt>t ~~~ code after</dt></dl></li></ul></li></ul></blockquote>"
+  }
+]

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
-use DOMDocument;
+use DOMElement;
+use SplObjectStorage;
+use WeakMap;
 
 /**
  * The reserved roundtrip carrier names, and the deprecated spelling of each.
@@ -81,7 +83,7 @@ final class HtmlCarrierNames
 
     public static function isReserved(string $name): bool
     {
-        $lower = strtolower($name);
+        $lower = self::canonicalName($name);
 
         return str_starts_with($lower, self::PREFIX)
             && in_array(substr($lower, strlen(self::PREFIX)), self::SUFFIXES, true);
@@ -92,43 +94,101 @@ final class HtmlCarrierNames
         return in_array(strtolower($name), ['data-carve-src', 'data-djot-src'], true);
     }
 
-    /**
-     * Rename deprecated carriers except stored-source markers to the canonical spelling.
-     *
-     * The canonical name WINS where an element carries both, and the alias is
-     * removed either way (PART 10 section 13c). Stored-source markers keep their
-     * authored names. Only a name the enumeration lists moves;
-     * an unlisted `data-djot-` attribute is the author's and stays untouched.
-     */
-    public static function canonicalize(DOMDocument $document): void
+    public static function canonicalName(string $name): string
     {
-        /** @var list<\DOMElement> $elements */
-        $elements = iterator_to_array($document->getElementsByTagName('*'));
-        foreach ($elements as $element) {
-            if (!$element->hasAttributes()) {
-                continue;
-            }
-            /** @var list<\DOMAttr> $attributes */
-            $attributes = iterator_to_array($element->attributes);
-            foreach ($attributes as $attribute) {
-                $lower = strtolower($attribute->name);
-                if (self::isStoredSourceMarker($lower)) {
-                    continue;
-                }
-                if (!str_starts_with($lower, self::LEGACY_PREFIX)) {
-                    continue;
-                }
-                $canonical = self::PREFIX . substr($lower, strlen(self::LEGACY_PREFIX));
-                if (!self::isReserved($canonical)) {
-                    continue;
-                }
-                $value = $attribute->value;
-                $element->removeAttribute($attribute->name);
-                if ($element->hasAttribute($canonical)) {
-                    continue;
-                }
-                $element->setAttribute($canonical, $value);
+        $lower = strtolower($name);
+        if (str_starts_with($lower, self::LEGACY_PREFIX)) {
+            $canonical = self::PREFIX . substr($lower, strlen(self::LEGACY_PREFIX));
+            if (in_array(substr($canonical, strlen(self::PREFIX)), self::SUFFIXES, true)) {
+                return $canonical;
             }
         }
+
+        return $lower;
+    }
+
+    /**
+     * Keyed by element, not node path: a path costs a walk over the element's siblings.
+     * The storage holds each element, so its PHP wrapper and identity live as long as the document.
+     *
+     * @var \WeakMap<\DOMDocument, \SplObjectStorage<\DOMElement, array<string, true>>>|null
+     */
+    private static ?WeakMap $usedAttributes = null;
+
+    private static function markUsed(DOMElement $element, string $name): void
+    {
+        $name = self::readName($element, $name);
+        $document = $element->ownerDocument;
+        if ($document === null || !$element->hasAttribute($name)) {
+            return;
+        }
+        self::$usedAttributes ??= new WeakMap();
+        if (!isset(self::$usedAttributes[$document])) {
+            /** @var \SplObjectStorage<\DOMElement, array<string, true>> $storage */
+            $storage = new SplObjectStorage();
+            self::$usedAttributes[$document] = $storage;
+        }
+        $used = self::$usedAttributes[$document];
+        $names = $used[$element] ?? [];
+        $names[$name] = true;
+        $used[$element] = $names;
+    }
+
+    public static function wasUsed(DOMElement $element, string $name): bool
+    {
+        $document = $element->ownerDocument;
+        if ($document === null || !isset(self::$usedAttributes[$document])) {
+            return false;
+        }
+        $used = self::$usedAttributes[$document];
+
+        return isset($used[$element]) && isset($used[$element][$name]);
+    }
+
+    /**
+     * @param \DOMElement $element
+     * @param string $name
+     * @param (callable(string): bool)|null $accept
+     */
+    public static function consumeAttribute(DOMElement $element, string $name, ?callable $accept = null): string
+    {
+        $value = self::peekAttribute($element, $name);
+        if ($accept === null || $accept($value)) {
+            self::markUsed($element, $name);
+        }
+
+        return $value;
+    }
+
+    /**
+     * @param \DOMElement $element
+     * @param string $name
+     * @param (callable(string): bool)|null $accept
+     */
+    public static function consumePresence(DOMElement $element, string $name, ?callable $accept = null): bool
+    {
+        self::consumeAttribute($element, $name, $accept);
+
+        return self::peekPresence($element, $name);
+    }
+
+    public static function peekAttribute(DOMElement $element, string $name): string
+    {
+        return $element->getAttribute(self::readName($element, $name));
+    }
+
+    public static function peekPresence(DOMElement $element, string $name): bool
+    {
+        return $element->hasAttribute(self::readName($element, $name));
+    }
+
+    private static function readName(DOMElement $element, string $name): string
+    {
+        // Canonical carriers win without changing the attributes serialized as raw HTML.
+        if ($element->hasAttribute($name) || !self::isReserved($name)) {
+            return $name;
+        }
+
+        return self::LEGACY_PREFIX . substr($name, strlen(self::PREFIX));
     }
 }

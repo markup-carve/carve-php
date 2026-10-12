@@ -517,7 +517,7 @@ final class HtmlAstBuilder
         foreach ($root->getElementsByTagName('a') as $anchor) {
             if (
                 strtolower($anchor->getAttribute('role')) !== 'doc-noteref'
-                && !self::isValidFootnoteCarrierLabel($anchor->getAttribute('data-carve-footnote-label'))
+                && !self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($anchor, 'data-carve-footnote-label'))
             ) {
                 continue;
             }
@@ -534,7 +534,7 @@ final class HtmlAstBuilder
         }
         $reservedLabels = [];
         foreach ($allEndnoteItems as $item) {
-            $label = $item->getAttribute('data-carve-footnote-label');
+            $label = HtmlCarrierNames::consumeAttribute($item, 'data-carve-footnote-label');
             if (!self::isValidFootnoteCarrierLabel($label) || self::hasConflictingEndnoteCarriers($item)) {
                 continue;
             }
@@ -549,7 +549,7 @@ final class HtmlAstBuilder
         }
         $itemsByLabel = [];
         foreach ($allEndnoteItems as $item) {
-            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+            if (HtmlCarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
                 continue;
             }
             $label = $this->session->endnoteItemLabels[$item] ?? $this->footnoteLabel($item->getAttribute('id'));
@@ -569,7 +569,7 @@ final class HtmlAstBuilder
             }
         }
         foreach ($footnoteAnchors as $anchor) {
-            $label = $anchor->getAttribute('data-carve-footnote-label');
+            $label = HtmlCarrierNames::consumeAttribute($anchor, 'data-carve-footnote-label');
             if (!self::isValidFootnoteCarrierLabel($label)) {
                 continue;
             }
@@ -582,7 +582,7 @@ final class HtmlAstBuilder
         }
         $nextLabel = 1;
         foreach ($allEndnoteItems as $item) {
-            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+            if (HtmlCarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
                 continue;
             }
             $id = $item->getAttribute('id');
@@ -610,7 +610,7 @@ final class HtmlAstBuilder
             }
         }
         foreach ($root->getElementsByTagName('template') as $template) {
-            if (!$template->hasAttribute('data-carve-abbreviations')) {
+            if (!HtmlCarrierNames::consumePresence($template, 'data-carve-abbreviations')) {
                 continue;
             }
             if (preg_match_all('/^\*\[([^\]\n]+)\]: +(.+)$/m', $template->textContent, $matches, PREG_SET_ORDER) === false) {
@@ -950,7 +950,8 @@ final class HtmlAstBuilder
         }
         $extension = $this->extensionBlock($node);
         if ($extension !== null) {
-            if ($extension['type'] === 'code_block' && $node->hasAttribute('data-carve-fence-language')) {
+            HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext');
+            if ($extension['type'] === 'code_block' && HtmlCarrierNames::consumePresence($node, 'data-carve-fence-language')) {
                 $this->session->consumedExtensionElements[$node] = true;
                 $parent = $node->parentNode;
                 if (
@@ -1145,6 +1146,9 @@ final class HtmlAstBuilder
     private function section(DOMElement $node): array
     {
         $blocks = $this->blocks($this->children($node));
+        if ($node->hasAttribute('id')) {
+            HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id');
+        }
         // Only the id is the renderer's: it moves a heading's id onto the section
         // it opens (CARVE-P9-019). Anything else on a section has no carrier.
         $heading = $this->firstElementChild($node);
@@ -1156,7 +1160,9 @@ final class HtmlAstBuilder
         ) {
             return $blocks;
         }
-        if ($node->getAttribute('data-carve-ext') === 'section' || $node->getAttribute('data-carve-explicit-id') === '1') {
+        if (HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, self::EXTENSION_CARRIER_VALUES, true)) === 'section' || HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id') === '1') {
+            HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext');
+            HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id');
             $this->session->consumedExtensionElements[$node] = false;
         }
         foreach ($blocks as &$block) {
@@ -1164,12 +1170,12 @@ final class HtmlAstBuilder
                 $headingAttrs = self::attrsValue($block['attrs'] ?? null);
                 $headingAttrs['id'] = $node->getAttribute('id');
                 $order = array_values(array_diff($headingAttrs['order'] ?? [], ['#id']));
-                $idSlot = $node->getAttribute('data-carve-id-slot');
+                $idSlot = HtmlCarrierNames::consumeAttribute($node, 'data-carve-id-slot');
                 $position = ctype_digit($idSlot) ? min((int)$idSlot, count($order)) : 0;
                 array_splice($order, $position, 0, ['#id']);
                 $headingAttrs['order'] = $order;
                 $block['attrs'] = $headingAttrs;
-                if (!$node->hasAttribute('data-carve-explicit-id')) {
+                if (!HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id')) {
                     $block[self::SECTION_ID_KEY] = true;
                 }
 
@@ -1390,10 +1396,13 @@ final class HtmlAstBuilder
 
     private function headingIdWasGenerated(DOMElement $node): bool
     {
-        if ($node->getAttribute('data-carve-explicit-id') === '0') {
+        if (!$node->hasAttribute('id')) {
+            return false;
+        }
+        if (HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id') === '0') {
             return true;
         }
-        if ($this->importMode !== 'roundtrip' || !$node->hasAttribute('id') || $node->hasAttribute('data-carve-explicit-id')) {
+        if ($this->importMode !== 'roundtrip' || HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id')) {
             return false;
         }
         $names = [];
@@ -1767,8 +1776,8 @@ final class HtmlAstBuilder
         if ($node->getAttribute('aria-label') === $base) {
             $skip[] = 'aria-label';
         }
-        if ($node->hasAttribute('data-carve-fence-generated')) {
-            $skip = array_values(array_intersect(explode(' ', $node->getAttribute('data-carve-fence-generated')), ['role', 'aria-label']));
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated')) {
+            $skip = array_values(array_intersect(explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), ['role', 'aria-label']));
         }
         $attrs = $this->attrs($node, $skip);
         $classes = $attrs['classes'] ?? [];
@@ -1793,10 +1802,10 @@ final class HtmlAstBuilder
     {
         $tag = strtolower(HtmlDomLoader::elementName($node));
         $classes = $this->codeLanguageClasses($node);
-        if ($node->getAttribute('data-carve-ext') === 'code-block') {
-            $content = $node->getAttribute('data-carve-fence-content');
+        if (HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, self::EXTENSION_CARRIER_VALUES, true)) === 'code-block') {
+            $content = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
             if (
-                !$node->hasAttribute('data-carve-fence-content') || preg_match('//u', $content) !== 1
+                !HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content') || preg_match('//u', $content) !== 1
                 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $content) !== 0
             ) {
                 return null;
@@ -1809,30 +1818,30 @@ final class HtmlAstBuilder
             foreach ($node->getElementsByTagName('*') as $generated) {
                 $this->session->consumedExtensionElements[$generated] = true;
             }
-            $language = $node->getAttribute('data-carve-fence-language');
+            $language = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language');
             if ($this->validCodeLanguage($language)) {
                 $block['lang'] = $language;
             }
-            if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
-                $block['label'] = $node->getAttribute('data-carve-label');
+            if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+                $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
             }
 
             return $block;
         }
         if (
             $this->hasFencedExtensionBody($node)
-            && $node->hasAttribute('data-carve-fence-content')
-            && $this->validCodeLanguage($node->getAttribute('data-carve-fence-language'))
-            && preg_match('//u', $node->getAttribute('data-carve-fence-content')) === 1
-            && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $node->getAttribute('data-carve-fence-content')) === 0
+            && HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content')
+            && $this->validCodeLanguage(HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'))
+            && preg_match('//u', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 1
+            && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 0
         ) {
-            $block = ['type' => 'code_block', 'lang' => $node->getAttribute('data-carve-fence-language'), 'content' => $node->getAttribute('data-carve-fence-content')];
+            $block = ['type' => 'code_block', 'lang' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'), 'content' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')];
             $attrs = $this->fencedExtensionAttrs($node);
             if ($attrs !== []) {
                 $block['attrs'] = $attrs;
             }
-            if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
-                $block['label'] = $node->getAttribute('data-carve-label');
+            if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+                $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
             }
             foreach ($node->getElementsByTagName('*') as $generated) {
                 $this->session->consumedExtensionElements[$generated] = true;
@@ -1842,7 +1851,7 @@ final class HtmlAstBuilder
         }
         if ($tag === 'figure') {
             $elements = $this->extensionElements($node);
-            if ($elements !== null && count($elements) === 1 && $elements[0]->hasAttribute('data-carve-fence-language')) {
+            if ($elements !== null && count($elements) === 1 && HtmlCarrierNames::consumePresence($elements[0], 'data-carve-fence-language')) {
                 $block = $this->extensionBlock($elements[0]);
                 if (($block['type'] ?? null) === 'code_block') {
                     $this->session->consumedExtensionElements[$node] = false;
@@ -1853,7 +1862,7 @@ final class HtmlAstBuilder
             }
         }
 
-        if ($tag === 'pre' && $this->validCodeLanguage($node->getAttribute('data-carve-fence-language'))) {
+        if ($tag === 'pre' && $this->validCodeLanguage(HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'))) {
             $elements = $this->extensionElements($node);
             if (
                 $elements !== null && count($elements) === 1
@@ -1861,9 +1870,9 @@ final class HtmlAstBuilder
                 && self::every(iterator_to_array($elements[0]->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText)
             ) {
                 $block = $this->codeBlock($node);
-                $block['lang'] = $node->getAttribute('data-carve-fence-language');
-                if ($node->hasAttribute('data-carve-fence-content')) {
-                    $block['content'] = $node->getAttribute('data-carve-fence-content');
+                $block['lang'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language');
+                if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content')) {
+                    $block['content'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
                 }
                 $attrs = $this->fencedExtensionAttrs($node);
                 unset($block['attrs']);
@@ -1876,7 +1885,7 @@ final class HtmlAstBuilder
         }
         if (
             in_array($tag, ['pre', 'div'], true)
-            && $this->validCodeLanguage($node->getAttribute('data-carve-fence-language'))
+            && $this->validCodeLanguage(HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'))
         ) {
             $elements = $this->extensionElements($node);
             $textOnly = self::every(iterator_to_array($node->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
@@ -1886,16 +1895,16 @@ final class HtmlAstBuilder
                 && self::every(iterator_to_array($elements[0]->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
             if ($textOnly || $json) {
                 $content = $json ? $elements[0]->textContent : $node->textContent;
-                $block = ['type' => 'code_block', 'lang' => $node->getAttribute('data-carve-fence-language'), 'content' => CodePayload::contentFromCodeText($content)];
+                $block = ['type' => 'code_block', 'lang' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'), 'content' => CodePayload::contentFromCodeText($content)];
                 if (
-                    $node->hasAttribute('data-carve-fence-content')
-                    && preg_match('//u', $node->getAttribute('data-carve-fence-content')) === 1
-                    && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $node->getAttribute('data-carve-fence-content')) === 0
+                    HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content')
+                    && preg_match('//u', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 1
+                    && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 0
                 ) {
-                    $block['content'] = $node->getAttribute('data-carve-fence-content');
+                    $block['content'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
                 }
-                if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
-                    $block['label'] = $node->getAttribute('data-carve-label');
+                if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+                    $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
                 }
                 $attrs = $this->fencedExtensionAttrs($node);
                 if ($attrs !== []) {
@@ -1905,7 +1914,7 @@ final class HtmlAstBuilder
                 return $block;
             }
         }
-        $carrier = $node->getAttribute('data-carve-ext');
+        $carrier = HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, self::EXTENSION_CARRIER_VALUES, true));
         $marked = in_array($carrier, ['tabs', 'code-group'], true);
         $tabs = $marked ? $carrier === 'tabs' : in_array('tabs', $classes, true);
         $kind = $tabs ? 'tabs' : 'code-group';
@@ -1915,7 +1924,7 @@ final class HtmlAstBuilder
         if (
             !$marked && (
                 !in_array($kind, $classes, true)
-                || (!$node->hasAttribute('data-carve-group-generated') && !in_array($node->getAttribute('role'), ['group', 'tablist'], true))
+                || (!HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated') && !in_array($node->getAttribute('role'), ['group', 'tablist'], true))
                 || $node->getAttribute('aria-label') === ''
             )
         ) {
@@ -1970,7 +1979,7 @@ final class HtmlAstBuilder
         }
         $selectedCount = 0;
         foreach ($controls as $entry) {
-            $selectedCount += (int)($static ? $entry['control']->hasAttribute('data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked')));
+            $selectedCount += (int)($static ? HtmlCarrierNames::consumePresence($entry['control'], 'data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked')));
         }
         if ($selectedCount !== 1) {
             return null;
@@ -1979,8 +1988,8 @@ final class HtmlAstBuilder
             $panel = $elements[$index++];
             if (
                 strtolower(HtmlDomLoader::elementName($panel)) !== ($static ? 'section' : 'div') || (!$marked && !$this->hasClass($panel, $kind . '-panel'))
-                || (!$marked && (!$panel->hasAttribute('data-carve-group-generated') || in_array('role', explode(' ', $panel->getAttribute('data-carve-group-generated')), true)) && $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group'))
-                || (!$marked && ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : (!$panel->hasAttribute('data-carve-group-generated') && $panel->getAttribute('aria-label') !== $entry['label']->textContent)))
+                || (!$marked && (!HtmlCarrierNames::consumePresence($panel, 'data-carve-group-generated') || in_array('role', explode(' ', HtmlCarrierNames::consumeAttribute($panel, 'data-carve-group-generated')), true)) && $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group'))
+                || (!$marked && ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : (!HtmlCarrierNames::consumePresence($panel, 'data-carve-group-generated') && $panel->getAttribute('aria-label') !== $entry['label']->textContent)))
             ) {
                 return null;
             }
@@ -1990,10 +1999,10 @@ final class HtmlAstBuilder
             if ($tabs) {
                 $titleHeading = false;
                 foreach ($panel->childNodes as $child) {
-                    if (!$child instanceof DOMElement || !$child->hasAttribute('data-carve-tab-title')) {
+                    if (!$child instanceof DOMElement || !HtmlCarrierNames::consumePresence($child, 'data-carve-tab-title')) {
                         continue;
                     }
-                    if ($titleHeading || !$child->hasAttribute('hidden') || preg_match('/^h[1-6]$/D', strtolower(HtmlDomLoader::elementName($child))) !== 1 || $panel->hasAttribute('data-carve-label')) {
+                    if ($titleHeading || !$child->hasAttribute('hidden') || preg_match('/^h[1-6]$/D', strtolower(HtmlDomLoader::elementName($child))) !== 1 || HtmlCarrierNames::consumePresence($panel, 'data-carve-label')) {
                         return null;
                     }
                     $titleHeading = true;
@@ -2011,11 +2020,11 @@ final class HtmlAstBuilder
                     if (!$child instanceof DOMElement) {
                         continue;
                     }
-                    if ($child->hasAttribute('data-carve-tab-title')) {
-                        if ($child->getAttribute('data-carve-tab-title') !== 'authored-hidden') {
+                    if (HtmlCarrierNames::consumePresence($child, 'data-carve-tab-title')) {
+                        if (HtmlCarrierNames::consumeAttribute($child, 'data-carve-tab-title') !== 'authored-hidden') {
                             $child->removeAttribute('hidden');
                         }
-                        if (!$child->hasAttribute('data-carve-explicit-id') || $child->getAttribute('data-carve-explicit-id') === '0') {
+                        if (!HtmlCarrierNames::consumePresence($child, 'data-carve-explicit-id') || HtmlCarrierNames::consumeAttribute($child, 'data-carve-explicit-id') === '0') {
                             $child->removeAttribute('id');
                         }
                     }
@@ -2030,8 +2039,8 @@ final class HtmlAstBuilder
                 if ($title !== []) {
                     $block['title'] = $title;
                 }
-                $attrs = $this->attrs($panel, $panel->hasAttribute('data-carve-group-generated') ? explode(' ', $panel->getAttribute('data-carve-group-generated')) : array_merge(['role', 'aria-label', 'aria-labelledby'], $aria ? ['hidden'] : []));
-                if (!$panel->hasAttribute('data-carve-explicit-id')) {
+                $attrs = $this->attrs($panel, HtmlCarrierNames::consumePresence($panel, 'data-carve-group-generated') ? explode(' ', HtmlCarrierNames::consumeAttribute($panel, 'data-carve-group-generated')) : array_merge(['role', 'aria-label', 'aria-labelledby'], $aria ? ['hidden'] : []));
+                if (!HtmlCarrierNames::consumePresence($panel, 'data-carve-explicit-id')) {
                     unset($attrs['id']);
                     $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $slot): bool => $slot !== '#id'));
                 }
@@ -2043,15 +2052,15 @@ final class HtmlAstBuilder
                 if ($attrs !== []) {
                     $block['attrs'] = $attrs;
                 }
-                if (self::isValidCodeLabel($panel->getAttribute('data-carve-label'))) {
-                    $block['label'] = $panel->getAttribute('data-carve-label');
+                if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($panel, 'data-carve-label'))) {
+                    $block['label'] = HtmlCarrierNames::consumeAttribute($panel, 'data-carve-label');
                 }
             } else {
                 $children = $this->extensionElements($panel);
                 if ($static && $children !== null) {
                     array_shift($children);
                 }
-                if ($children === null || count($children) !== 1 || (strtolower(HtmlDomLoader::elementName($children[0])) !== 'pre' && $children[0]->getAttribute('data-carve-ext') !== 'code-block' && !$children[0]->hasAttribute('data-carve-fence-language') && strtolower(HtmlDomLoader::elementName($children[0])) !== 'figure')) {
+                if ($children === null || count($children) !== 1 || (strtolower(HtmlDomLoader::elementName($children[0])) !== 'pre' && HtmlCarrierNames::consumeAttribute($children[0], 'data-carve-ext') !== 'code-block' && !HtmlCarrierNames::consumePresence($children[0], 'data-carve-fence-language') && strtolower(HtmlDomLoader::elementName($children[0])) !== 'figure')) {
                     return null;
                 }
                 $fence = $this->extensionBlock($children[0]);
@@ -2066,7 +2075,7 @@ final class HtmlAstBuilder
                     $block = $this->codeBlock($children[0]);
                 }
             }
-            $selected = $static ? $entry['control']->hasAttribute('data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked'));
+            $selected = $static ? HtmlCarrierNames::consumePresence($entry['control'], 'data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked'));
             if ($selected && $blocks !== []) {
                 $block['attrs']['keyValues']['selected'] = '';
                 $block['attrs']['order'][] = 'selected';
@@ -2074,7 +2083,7 @@ final class HtmlAstBuilder
             $blocks[] = $block;
         }
         $group = ['type' => 'admonition', 'kind' => $kind, 'children' => $blocks];
-        $attrs = $this->attrs($node, $node->hasAttribute('data-carve-group-generated') ? explode(' ', $node->getAttribute('data-carve-group-generated')) : ['role', 'aria-label']);
+        $attrs = $this->attrs($node, HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated') ? explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-group-generated')) : ['role', 'aria-label']);
         $classes = array_values(array_filter($attrs['classes'] ?? [], static fn (string $class): bool => $class !== ($marked ? ($classes[0] ?? '') : $kind)));
         if ($classes === []) {
             unset($attrs['classes']);
@@ -2097,7 +2106,7 @@ final class HtmlAstBuilder
         foreach (array_slice($elements, count($elements) - count($controls)) as $panel) {
             $this->session->consumedExtensionElements[$panel] = false;
             foreach ($panel->childNodes as $child) {
-                if ($child instanceof DOMElement && $child->hasAttribute('data-carve-tab-title')) {
+                if ($child instanceof DOMElement && HtmlCarrierNames::consumePresence($child, 'data-carve-tab-title')) {
                     $this->session->consumedExtensionElements[$child] = false;
                 }
             }
@@ -2149,8 +2158,8 @@ final class HtmlAstBuilder
         // every all-blank payload, this engine's own output included
         // (carve-php#2726).
         $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
-        if ($code !== null && self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
-            $block['label'] = $node->getAttribute('data-carve-label');
+        if ($code !== null && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+            $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
         }
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
@@ -2252,8 +2261,8 @@ final class HtmlAstBuilder
                 break;
             }
         }
-        if (in_array($node->getAttribute('data-carve-tight'), ['true', 'false'], true)) {
-            $tight = $node->getAttribute('data-carve-tight') === 'true';
+        if (in_array(HtmlCarrierNames::consumeAttribute($node, 'data-carve-tight'), ['true', 'false'], true)) {
+            $tight = HtmlCarrierNames::consumeAttribute($node, 'data-carve-tight') === 'true';
         }
         $list = ['type' => 'list', 'ordered' => $ordered, 'tight' => $tight, 'items' => $items];
         if ($node->hasAttribute('data-marker')) {
@@ -2337,7 +2346,7 @@ final class HtmlAstBuilder
         $unreferenced = [];
         foreach ($this->directEndnoteItems($section) as $item) {
             $id = $item->getAttribute('id');
-            if ($item->hasAttribute('data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+            if (HtmlCarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
                 $found = true;
 
                 continue;
@@ -2426,8 +2435,8 @@ final class HtmlAstBuilder
             && $list instanceof DOMElement && strtolower(HtmlDomLoader::elementName($list)) === 'ol'
             && $section instanceof DOMElement && strtolower(HtmlDomLoader::elementName($section)) === 'section'
             && strtolower($section->getAttribute('role')) === 'doc-endnotes'
-            && self::isValidFootnoteCarrierLabel($node->getAttribute('data-carve-footnote-label'))
-            && $node->hasAttribute('data-carve-inline-footnote');
+            && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'))
+            && HtmlCarrierNames::consumePresence($node, 'data-carve-inline-footnote');
     }
 
     private function hasFollowingContent(DOMElement $node): bool
@@ -2582,6 +2591,7 @@ final class HtmlAstBuilder
      */
     private function table(DOMElement $node): ?array
     {
+        $separatorWidths = self::separatorWidths(HtmlCarrierNames::consumeAttribute($node, 'data-carve-col-widths'));
         $rows = [];
         $listForm = $this->listTableForBlockCells && $this->tableHasBlockCell($node);
         /** @var list<list<list<ImportedNode>|null>> $cellBlockGrid */
@@ -2910,9 +2920,9 @@ final class HtmlAstBuilder
         // the public AST carries them as well as the writer's tree.
         if (
             $headerRows > 0
-            && $node->hasAttribute('data-carve-col-widths')
+            && HtmlCarrierNames::consumePresence($node, 'data-carve-col-widths')
         ) {
-            $widths = self::separatorWidths($node->getAttribute('data-carve-col-widths'));
+            $widths = $separatorWidths;
             if ($widths !== []) {
                 $table['separatorWidths'] = $widths;
             }
@@ -3583,8 +3593,8 @@ final class HtmlAstBuilder
             && (
                 trim($titleNode->textContent) === $this->derivedAriaLabel($node)
                 || (
-                    $node->hasAttribute('data-carve-admonition-type')
-                    && trim($titleNode->textContent) === ucfirst($node->getAttribute('data-carve-admonition-type'))
+                    HtmlCarrierNames::consumePresence($node, 'data-carve-admonition-type')
+                    && trim($titleNode->textContent) === ucfirst(HtmlCarrierNames::consumeAttribute($node, 'data-carve-admonition-type'))
                 )
             )
         ) {
@@ -3638,7 +3648,7 @@ final class HtmlAstBuilder
         }
         $attrs = $this->attrs($node, $skipAttrs);
         $classes = $attrs['classes'] ?? [];
-        $structuralKind = trim($node->getAttribute('data-carve-admonition-type'));
+        $structuralKind = trim(HtmlCarrierNames::consumeAttribute($node, 'data-carve-admonition-type'));
         $tag = strtolower(HtmlDomLoader::elementName($node));
         $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
         $lineBlockIndex = array_search('line-block', $classes, true);
@@ -3766,8 +3776,8 @@ final class HtmlAstBuilder
 
     public static function isDerivedRole(DOMElement $node, string $value): bool
     {
-        if ($node->hasAttribute('data-carve-fence-generated')) {
-            return in_array('role', explode(' ', $node->getAttribute('data-carve-fence-generated')), true);
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated')) {
+            return in_array('role', explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true);
         }
         $tag = strtolower(HtmlDomLoader::elementName($node));
         $role = strtolower(trim($value));
@@ -3789,7 +3799,7 @@ final class HtmlAstBuilder
         if (array_intersect($classes, ['tabs-panel', 'code-group-panel']) !== []) {
             return in_array($role, ['group', 'tabpanel'], true);
         }
-        $kind = trim($node->getAttribute('data-carve-admonition-type'));
+        $kind = trim(HtmlCarrierNames::consumeAttribute($node, 'data-carve-admonition-type'));
         if ($kind === '' && ($classes[0] ?? null) === 'admonition') {
             $kind = $classes[1] ?? '';
         }
@@ -4302,7 +4312,7 @@ final class HtmlAstBuilder
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
             return [];
         }
-        if ($node->hasAttribute('data-carve-escaped')) {
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-escaped', static fn (string $value): bool => count(preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: []) === 1)) {
             // ONE ESCAPE PER ELEMENT (PART 10 section 13a). Splitting a longer
             // value into one escaped_text per character wrote `\a\b\c`, which
             // is not Carve, so a span carrying more than one character is
@@ -4312,7 +4322,7 @@ final class HtmlAstBuilder
                 return [['type' => 'escaped_text', 'value' => $characters[0]]];
             }
         }
-        $rawFormat = $node->getAttribute('data-carve-raw');
+        $rawFormat = HtmlCarrierNames::consumeAttribute($node, 'data-carve-raw', fn (string $value): bool => self::isValidRawCarrierFormat($value) && ($this->importMode === 'roundtrip' || strcasecmp($value, 'html') !== 0));
         // Only HTML payloads require roundtrip mode; other formats are inert in HTML output.
         if (
             self::isValidRawCarrierFormat($rawFormat)
@@ -4667,9 +4677,9 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $image['title'] = $node->getAttribute('title');
         }
-        if ($node->hasAttribute('data-carve-ref')) {
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref')) {
             $alt = $node->getAttribute('alt');
-            $ref = $node->getAttribute('data-carve-ref');
+            $ref = HtmlCarrierNames::consumeAttribute($node, 'data-carve-ref');
             if ($ref === '') {
                 $ref = trim($alt);
             }
@@ -4684,7 +4694,7 @@ final class HtmlAstBuilder
                 }
             }
         }
-        if ($node->hasAttribute('data-carve-ref') && !isset($image['ref'])) {
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref') && !isset($image['ref'])) {
             $this->session->droppedReferenceCarriers[$node] = null;
         }
         $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-carve-ref']);
@@ -4755,7 +4765,7 @@ final class HtmlAstBuilder
         $href = $node->getAttribute('href');
         $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
         $markedReference = strtolower($node->getAttribute('role')) === 'doc-noteref'
-            || self::isValidFootnoteCarrierLabel($node->getAttribute('data-carve-footnote-label'));
+            || self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));
         $endnote = $markedReference ? ($this->session->endnoteItems[$fragment] ?? null) : null;
         if ($endnote !== null && (self::hasConflictingEndnoteCarriers($endnote) || isset($this->session->droppedFootnoteLabelCarriers[$endnote]))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)]];
@@ -4795,9 +4805,9 @@ final class HtmlAstBuilder
             return $children;
         }
         $children = $this->bracketedChildren($node);
-        if ($node->hasAttribute('data-carve-inline-footnote-html')) {
-            $content = $this->inlineHtml($node->getAttribute('data-carve-inline-footnote-html'));
-            $class = $node->getAttribute('data-carve-inline-footnote-class');
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-inline-footnote-html')) {
+            $content = $this->inlineHtml(HtmlCarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-html'));
+            $class = HtmlCarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-class');
 
             return [
                 [
@@ -4811,18 +4821,18 @@ final class HtmlAstBuilder
             ];
         }
         if (
-            $node->hasAttribute('data-carve-footnote-label')
-            && self::isValidFootnoteCarrierLabel($node->getAttribute('data-carve-footnote-label'))
+            HtmlCarrierNames::consumePresence($node, 'data-carve-footnote-label')
+            && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'))
         ) {
             return [
                 [
                     'type' => 'footnote_ref',
-                    'label' => $node->getAttribute('data-carve-footnote-label'),
+                    'label' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'),
                 ],
             ];
         }
         if (
-            $endnote !== null && $endnote->hasAttribute('data-carve-inline-footnote')
+            $endnote !== null && HtmlCarrierNames::consumePresence($endnote, 'data-carve-inline-footnote')
             && !isset($this->session->activeInlineFootnotes[$fragment])
         ) {
             $this->session->activeInlineFootnotes[$fragment] = true;
@@ -4843,7 +4853,7 @@ final class HtmlAstBuilder
             return [['type' => 'inline_footnote', 'inline' => $inline]];
         }
 
-        if ($endnote !== null && self::isValidFootnoteCarrierLabel($endnote->getAttribute('data-carve-footnote-label'))) {
+        if ($endnote !== null && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($endnote, 'data-carve-footnote-label'))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
         }
         if (strtolower($node->getAttribute('role')) === 'doc-noteref') {
@@ -4857,25 +4867,25 @@ final class HtmlAstBuilder
         }
         $labelText = '';
         $ref = '';
-        if ($node->hasAttribute('data-carve-ref')) {
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref')) {
             $labelText = $this->plainInlineText(self::nodeList($children));
-            $ref = $node->getAttribute('data-carve-ref');
+            $ref = HtmlCarrierNames::consumeAttribute($node, 'data-carve-ref');
             if ($ref === '') {
                 $ref = trim($labelText);
             }
         }
         // An invalid label is not a carrier and contradicts nothing (PART 10 section 13d).
-        $contradictory = $node->hasAttribute('data-carve-autolink') && $node->hasAttribute('data-carve-ref')
+        $contradictory = HtmlCarrierNames::consumePresence($node, 'data-carve-autolink') && HtmlCarrierNames::consumePresence($node, 'data-carve-ref')
             && self::isReferenceCarrierLabel($ref);
         if ($contradictory) {
             $this->session->contradictoryLinkCarriers[$node] = null;
-        } elseif ($node->hasAttribute('data-carve-autolink')) {
+        } elseif (HtmlCarrierNames::consumePresence($node, 'data-carve-autolink')) {
             $autolink = [
                 'type' => 'autolink',
                 'href' => $node->getAttribute('href'),
                 'text' => trim($node->textContent),
             ];
-            if ($node->hasAttribute('data-carve-ref')) {
+            if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref')) {
                 $this->session->droppedReferenceCarriers[$node] = null;
             }
             $this->attachAttrs($autolink, $node, ['href', 'data-carve-autolink', 'data-carve-ref']);
@@ -4883,7 +4893,7 @@ final class HtmlAstBuilder
             return [$autolink];
         }
         $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
-        if ($node->hasAttribute('data-carve-ref') && !$contradictory) {
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref') && !$contradictory) {
             if (
                 $ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')
                 && $this->claimReference($node, $ref, $node->getAttribute('href'), $node->hasAttribute('title') ? $node->getAttribute('title') : null)
