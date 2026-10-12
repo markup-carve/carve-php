@@ -1371,6 +1371,16 @@ final class ListBlockBuilder
             $parentCandidate = false;
             foreach ($lines as $index => $line) {
                 if ($eligible !== null && !isset($eligible[$index])) {
+                    if (
+                        ($line[0] ?? '') === ' '
+                        && strspn($line, " \t", 0, $floor) < $floor
+                        && !IndentationHelper::isBlankLine($line)
+                    ) {
+                        $parentCandidate = true;
+
+                        break;
+                    }
+
                     continue;
                 }
                 // A retained TAB may depend on its source column. Let the
@@ -1382,11 +1392,16 @@ final class ListBlockBuilder
                 }
                 if (($line[0] ?? '') !== ' ' && ($line[0] ?? '') !== "\t") {
                     // A definition at the parent's minimum releases the child.
-                    if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1) {
+                    if (
+                        preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
+                        || ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) !== null
+                        || ($this->getFencedBlockParser)()->parseFencedCommentOpener($line) !== null
+                    ) {
                         $parentCandidate = true;
 
                         break;
                     }
+
                     continue;
                 }
                 $leadingBytes = strspn($line, " \t", 0, $floor);
