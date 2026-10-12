@@ -200,6 +200,7 @@ class DjotToCarve
         $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
+        $source = $this->carryDjotAttributesAcrossDivClosers($source);
         [$source, $inherited] = $this->escapeInvalidDjotAttributes($source);
         $source = $this->normalizeDjotFences($this->foldDjotReferences($this->normalizeDjotAttributeLines($source)));
         $emptyNote = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYNOTE\x00");
@@ -2708,10 +2709,11 @@ class DjotToCarve
      * @param string $mask
      * @param bool $codeScopes
      * @param array<int, list<int>>|null $divClosers
+     * @param array<int, array{column: int|null, depth: int}>|null $divOwners
      *
      * @return array<int, int>
      */
-    private function djotInlineBoundaries(string $source, string $mask, bool $codeScopes = false, ?array &$divClosers = null): array
+    private function djotInlineBoundaries(string $source, string $mask, bool $codeScopes = false, ?array &$divClosers = null, ?array &$divOwners = null): array
     {
         $boundaries = [];
         $rows = $this->djotTableRows($source, $mask);
@@ -2809,6 +2811,9 @@ class DjotToCarve
                         }
                         if ($divClosers !== null) {
                             $divClosers[$offset] = array_reverse(array_column(array_slice($divs, $low), 'start'));
+                        }
+                        if ($divOwners !== null) {
+                            $divOwners[$offset] = ['column' => $divs[$low]['itemColumn'], 'depth' => $divs[$low]['itemDepth']];
                         }
                         for ($remaining = count($divs) - $low; $remaining > 0; $remaining--) {
                             array_pop($divs);
@@ -3306,6 +3311,103 @@ class DjotToCarve
         }
 
         return $output;
+    }
+
+    private function carryDjotAttributesAcrossDivClosers(string $source): string
+    {
+        if (!str_contains($source, '{') || !str_contains($source, ':::')) {
+            return $source;
+        }
+        $mask = $this->maskCodeAndDestinations($source);
+        $closers = [];
+        $owners = [];
+        $this->djotInlineBoundaries($source, $mask, true, $closers, $owners);
+        if ($closers === []) {
+            return $source;
+        }
+        $lines = explode("\n", $source);
+        $removed = $moved = $pending = $residues = [];
+        $crossed = false;
+        $offset = $previousDepth = 0;
+        $previous = '';
+        $closedOwner = null;
+        foreach ($lines as $index => $line) {
+            preg_match('/^(?:[ \t]*>(?:[ \t]|$))*[ \t]*/', $line, $prefix);
+            $physical = $prefix[0] ?? '';
+            $start = strlen($physical);
+            $content = substr($line, $start);
+            $depth = substr_count($physical, '>');
+            $followsBlock = $pending !== [] || $previous === '' || preg_match('/^(?:#{1,6} |:{3,}|[`~]{3,}|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previous) === 1;
+            $comment = str_starts_with($content, '{') && ($followsBlock || ($mask[$offset + $start] ?? '') === '{') ? $this->readDjotWordAttributes($content, 0) : null;
+            if ($followsBlock && $depth === $previousDepth && $comment !== null && $comment['parts'] === [] && $comment['end'] === strlen(rtrim($content, " \t\r"))) {
+                $offset += strlen($line) + 1;
+
+                continue;
+            }
+            $attrs = ($mask[$offset + $start] ?? '') === '{' ? $comment : null;
+            $whole = $attrs !== null && $attrs['end'] === strlen(rtrim($content, " \t\r"));
+            if ($crossed && !isset($closers[$offset]) && trim($content, " \t\r") !== '' && (!$whole || $depth !== $previousDepth)) {
+                preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $quotePrefix);
+                $indent = strspn(substr($line, strlen($quotePrefix[0] ?? '')), " \t");
+                $peerItem = $closedOwner !== null && $closedOwner['column'] !== null && $depth === $closedOwner['depth'] && $indent < $closedOwner['column'] && preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))(?:[ \t]+|$)/', substr($line, strlen($physical))) === 1;
+                if (!$peerItem || preg_match('/^(?:[-*][ \t]*){3,}$/', $content) === 1) {
+                    $targetPrefix = $physical;
+                    if ($depth > $previousDepth) {
+                        preg_match_all('/>/', $physical, $markers, PREG_OFFSET_CAPTURE);
+                        $targetPrefix = substr($physical, 0, $markers[0][$previousDepth][1]);
+                    }
+                    foreach ($pending as $attr) {
+                        $removed[$attr['line']] = true;
+                        $moved[$index][] = $targetPrefix . $attr['value'];
+                    }
+                }
+                $pending = [];
+                $crossed = false;
+            }
+            if ($whole && $followsBlock) {
+                if (!$crossed && $depth > $previousDepth) {
+                    $pending = [];
+                }
+                $pending[] = ['line' => $index, 'value' => rtrim($content, " \t\r")];
+                if ($depth > $previousDepth) {
+                    $residues[$index] = rtrim($physical);
+                }
+            } elseif (isset($closers[$offset])) {
+                $crossed = $crossed || $pending !== [];
+                $closedOwner = $owners[$offset] ?? null;
+            } elseif (trim($content, " \t\r") !== '') {
+                $pending = [];
+            }
+            if (!$whole) {
+                $previous = trim($content, " \t\r");
+            }
+            $previousDepth = trim($content, " \t\r") === '' ? min($previousDepth, $depth) : $depth;
+            $offset += strlen($line) + 1;
+        }
+        if ($crossed) {
+            foreach ($pending as $attr) {
+                $removed[$attr['line']] = true;
+            }
+        }
+        if ($removed === []) {
+            return $source;
+        }
+        $out = [];
+        $lineCount = count($lines);
+        for ($index = 0; $index <= $lineCount; $index++) {
+            foreach ($moved[$index] ?? [] as $attr) {
+                $out[] = $attr;
+            }
+            if ($index < $lineCount) {
+                if (!isset($removed[$index])) {
+                    $out[] = $lines[$index];
+                } elseif (isset($residues[$index])) {
+                    $out[] = $residues[$index];
+                }
+            }
+        }
+
+        return implode("\n", $out);
     }
 
     private function normalizeDjotAttributeLines(string $source): string

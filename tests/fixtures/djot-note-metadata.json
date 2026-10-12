@@ -1246,5 +1246,335 @@
     "source": "***\n| a |",
     "lossLines": [],
     "html": "<hr><table><tr><td>a</td></tr></table>"
+  },
+  {
+    "name": "div pending direct 0",
+    "source": "::: box\n{.a}\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 1",
+    "source": "::: box\n{.a}\n:::\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 2",
+    "source": "::: box\n{.a}\n:::\n> next",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><blockquote class=\"a\"><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 3",
+    "source": "::: box\n{.a}\n:::\n\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 4",
+    "source": "::: box\n{.a}\n:::\n\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 5",
+    "source": "::: box\n{.a}\n:::\n\n> next",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><blockquote class=\"a\"><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 12",
+    "source": "::: box\nword\n\n{.a}\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"><p>word</p></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 13",
+    "source": "::: box\nword\n\n{.a}\n:::\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<div class=\"box\"><p>word</p></div><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 14",
+    "source": "::: box\nword\n\n{.a}\n:::\n> next",
+    "lossLines": [],
+    "html": "<div class=\"box\"><p>word</p></div><blockquote class=\"a\"><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 15",
+    "source": "::: box\nword\n\n{.a}\n:::\n\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"><p>word</p></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 16",
+    "source": "::: box\nword\n\n{.a}\n:::\n\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<div class=\"box\"><p>word</p></div><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 17",
+    "source": "::: box\nword\n\n{.a}\n:::\n\n> next",
+    "lossLines": [],
+    "html": "<div class=\"box\"><p>word</p></div><blockquote class=\"a\"><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 18",
+    "source": "> ::: box\n> {.a}\n> :::\nnext",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"></div></blockquote><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 19",
+    "source": "> ::: box\n> {.a}\n> :::\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"></div></blockquote><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 20",
+    "source": "> ::: box\n> {.a}\n> :::\n> next",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"></div><p class=\"a\">next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 21",
+    "source": "> ::: box\n> {.a}\n> :::\n\nnext",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"></div></blockquote><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 22",
+    "source": "> ::: box\n> {.a}\n> :::\n\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"></div></blockquote><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 23",
+    "source": "> ::: box\n> {.a}\n> :::\n\n> next",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"></div></blockquote><blockquote class=\"a\"><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 24",
+    "source": "> ::: box\n> word\n> {.a}\n> :::\nnext",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word\n</p></div></blockquote><p>next</p>"
+  },
+  {
+    "name": "div pending direct 25",
+    "source": "> ::: box\n> word\n> {.a}\n> :::\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word\n</p></div></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 26",
+    "source": "> ::: box\n> word\n> {.a}\n> :::\n> next",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word\n</p></div><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 27",
+    "source": "> ::: box\n> word\n> {.a}\n> :::\n\nnext",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word\n</p></div></blockquote><p>next</p>"
+  },
+  {
+    "name": "div pending direct 28",
+    "source": "> ::: box\n> word\n> {.a}\n> :::\n\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word\n</p></div></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 29",
+    "source": "> ::: box\n> word\n> {.a}\n> :::\n\n> next",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word\n</p></div></blockquote><blockquote><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 30",
+    "source": "> ::: box\n> word\n>\n> {.a}\n> :::\nnext",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word</p></div></blockquote><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 31",
+    "source": "> ::: box\n> word\n>\n> {.a}\n> :::\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word</p></div></blockquote><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 32",
+    "source": "> ::: box\n> word\n>\n> {.a}\n> :::\n> next",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word</p></div><p class=\"a\">next</p></blockquote>"
+  },
+  {
+    "name": "div pending direct 33",
+    "source": "> ::: box\n> word\n>\n> {.a}\n> :::\n\nnext",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word</p></div></blockquote><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div pending direct 34",
+    "source": "> ::: box\n> word\n>\n> {.a}\n> :::\n\n[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word</p></div></blockquote><p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "div pending direct 35",
+    "source": "> ::: box\n> word\n>\n> {.a}\n> :::\n\n> next",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"box\"><p>word</p></div></blockquote><blockquote class=\"a\"><p>next</p></blockquote>"
+  },
+  {
+    "name": "div pending extra 0",
+    "source": "::: box\n```\n{.a}\n:::\n```\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"><pre><code>{.a}\n:::\n</code></pre></div><p>next</p>"
+  },
+  {
+    "name": "div pending extra 2",
+    "source": "::: box\n\n{invalid ???}\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"><p>{invalid ???}</p></div><p>next</p>"
+  },
+  {
+    "name": "div pending extra 3",
+    "source": "::: outer\n::: inner\n\n{.a}\n:::\nnext\n:::",
+    "lossLines": [],
+    "html": "<div class=\"outer\"><div class=\"inner\"></div></div><p class=\"a\">next\n:::</p>"
+  },
+  {
+    "name": "div pending extra 4",
+    "source": "::: outer\n::: inner\n\n{.a}\n:::\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"outer\"><div class=\"inner\"></div></div><div class=\"a\"><p>next</p></div>"
+  },
+  {
+    "name": "div pending extra 5",
+    "source": "::: box\n\n{.a}\n:::\n",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div>"
+  },
+  {
+    "name": "div scope review 0",
+    "source": "::: box\n{.a}\n:::\n\n> {.b}\n> para",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><blockquote class=\"a\"><p class=\"b\">para</p></blockquote>"
+  },
+  {
+    "name": "div scope review 1",
+    "source": "::: box\n{.a}\n:::\n\n> {.b}\n\npara",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><blockquote class=\"a\"></blockquote><p class=\"b\">para</p>"
+  },
+  {
+    "name": "div scope review 2",
+    "source": ":::: outer\n::: inner\n\n{.a}\n:::\n{.b}\n::::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"outer\"><div class=\"inner\"></div></div><p class=\"a b\">next</p>"
+  },
+  {
+    "name": "div scope review 4",
+    "source": "::: box\n> {.a}\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"><blockquote></blockquote></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div scope review 9",
+    "source": "::: box\n\n{.a}\n:::\n\n[^n]: text",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div>"
+  },
+  {
+    "name": "div scope review 12",
+    "source": "::: box\n\n{.a}\n{% comment %}\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div ownership final 0",
+    "source": "::: box\n{.a}\n> {.b}\n:::\n\npara",
+    "lossLines": [],
+    "html": "<div class=\"box\"><blockquote class=\"a\"></blockquote></div><p class=\"b\">para</p>"
+  },
+  {
+    "name": "div ownership final 1",
+    "source": "::: box\n{% c %}\n{.a}\n:::\n\npara",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">para</p>"
+  },
+  {
+    "name": "div ownership final 2",
+    "source": "::: box\n  {.a}\n:::\n- - -",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><hr class=\"a\">"
+  },
+  {
+    "name": "div ownership final 3",
+    "source": "::: box\n  {.a}\n:::\n* * *",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><hr class=\"a\">"
+  },
+  {
+    "name": "div ownership final 4",
+    "source": "::: box\n> {.a}\n:::\n",
+    "lossLines": [],
+    "html": "<div class=\"box\"><blockquote></blockquote></div>"
+  },
+  {
+    "name": "div ownership final 5",
+    "source": "::: box\n  {.a}\n:::\n- next",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><ul class=\"a\"><li>next</li></ul>"
+  },
+  {
+    "name": "div attribute tail whitespace 0",
+    "source": "::: box\n{.a} \n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div attribute tail whitespace 1",
+    "source": "::: box\n{.a}\t\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div attribute tail whitespace 2",
+    "source": "::: box\n{.a}\r\n:::\nnext",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">next</p>"
+  },
+  {
+    "name": "div marker review 0",
+    "source": "- ::: w\n\n  {.c}\n  :::\nFig. 1 shows the result",
+    "lossLines": [],
+    "html": "<ul><li><div class=\"w\"></div></li></ul><p class=\"c\">Fig. 1 shows the result</p>"
+  },
+  {
+    "name": "div marker review 1",
+    "source": "- ::: w\n\n  {.c}\n  :::\nNote. text",
+    "lossLines": [],
+    "html": "<ul><li><div class=\"w\"></div></li></ul><p class=\"c\">Note. text</p>"
+  },
+  {
+    "name": "div marker review 2",
+    "source": "- ::: w\n\n  {.c}\n  :::\ne.g. text",
+    "lossLines": [],
+    "html": "<ul><li><div class=\"w\"></div></li></ul><p class=\"c\">e.g. text</p>"
+  },
+  {
+    "name": "div marker review 4",
+    "source": "::: box\n{ }\n{.a}\n:::\npara",
+    "lossLines": [],
+    "html": "<div class=\"box\"></div><p class=\"a\">para</p>"
+  },
+  {
+    "name": "div marker review 5",
+    "source": "::::: a\n{.x}\n:::",
+    "lossLines": [],
+    "html": "<div class=\"a\"><div class=\"x\"></div></div>"
   }
 ]
