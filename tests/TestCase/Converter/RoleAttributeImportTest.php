@@ -94,7 +94,7 @@ class RoleAttributeImportTest extends TestCase
             'extension warning' => ['<div class="admonition warning" role="alert"><p>x</p></div>', "{.warning}\n::: admonition\nx\n:::"],
             'extension custom type' => ['<div class="admonition custom" role="note"><p>x</p></div>', "{.custom}\n::: admonition\nx\n:::"],
             'extension custom sidecar' => ['<div data-carve-admonition-type="custom" role="note"><p>x</p></div>', "::: custom\nx\n:::"],
-            'named diagram' => ['<pre class="mermaid" role="img" aria-label="mermaid">x</pre>', "{.mermaid}\n```\nx\n```"],
+            'named diagram' => ['<pre class="mermaid" role="img" aria-label="mermaid">x</pre>', "```mermaid\nx\n```"],
             'math' => ['<span class="math inline" role="math">\\(x\\)</span>', '$`x`'],
         ];
     }

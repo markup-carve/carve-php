@@ -91,7 +91,7 @@ class ADerivedNameIsNotReportedAsDroppedTest extends TestCase
     {
         $html = '<pre class="mermaid" role="img" aria-label="Architecture overview">x</pre>';
 
-        $this->assertSame("{.mermaid aria-label=\"Architecture overview\"}\n```\nx\n```", $this->carve($html));
+        $this->assertSame("{aria-label=\"Architecture overview\"}\n```mermaid\nx\n```", $this->carve($html));
         $this->assertSame([], $this->diagnostics($html));
     }
 

@@ -50,7 +50,7 @@ class AnImportDropsADerivedAccessibleNameTest extends TestCase
         $carve = $this->import("<pre class=\"mermaid\" role=\"img\" aria-label=\"mermaid\">graph TD;</pre>\n");
 
         $this->assertStringNotContainsString('aria-label', $carve);
-        $this->assertStringContainsString('{.mermaid}', $carve);
+        $this->assertStringContainsString('```mermaid', $carve);
     }
 
     /**
