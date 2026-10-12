@@ -688,11 +688,11 @@ class CliTest extends TestCase
     {
         $result = $this->runCliInput(
             ['migrate', '--from', 'markdown', '--mode', 'raw', '--check-loss'],
-            "https://example.org\n",
+            "<code>http://example.org</code>\n",
         );
 
         $this->assertSame(1, $result['exit']);
-        $this->assertSame("https://example.org\n", $result['out']);
+        $this->assertSame("`<code>`{=html}[http://example.org](http://example.org)`</code>`{=html}\n", $result['out']);
     }
 
     public function testMigrateWritesTheVersionedReportForEveryImporter(): void
@@ -712,7 +712,7 @@ class CliTest extends TestCase
     public function testMigrateLossCheckUsesLiteralTextEvidence(): void
     {
         foreach (['markdown', 'djot', 'bbcode'] as $format) {
-            foreach ([['hello', 0], ['https://example.org', 1]] as [$source, $expected]) {
+            foreach ([['hello', 0], ['<code>http://example.org</code>', 1]] as [$source, $expected]) {
                 $result = $this->runCliInput(['migrate', '--from', $format, '--check-loss', '--report', '-'], $source);
                 $this->assertSame($expected, $result['exit']);
                 $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);

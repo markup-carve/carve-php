@@ -47,7 +47,8 @@
   {
     "example": 602,
     "source": "<https://foo.bar/baz bim>\n",
-    "html": "<p>&lt;https://foo.bar/baz bim&gt;</p>"
+    "html": "<p>&lt;https://foo.bar/baz bim&gt;</p>",
+    "gfmHtml": "<p>&lt;<a href=\"https://foo.bar/baz\">https://foo.bar/baz</a> bim&gt;</p>"
   },
   {
     "example": 603,
@@ -72,7 +73,8 @@
   {
     "example": 608,
     "source": "< https://foo.bar >\n",
-    "html": "<p>&lt; https://foo.bar &gt;</p>"
+    "html": "<p>&lt; https://foo.bar &gt;</p>",
+    "gfmHtml": "<p>&lt; <a href=\"https://foo.bar\">https://foo.bar</a> &gt;</p>"
   },
   {
     "example": 609,
@@ -87,11 +89,13 @@
   {
     "example": 611,
     "source": "https://example.com\n",
-    "html": "<p>https://example.com</p>"
+    "html": "<p>https://example.com</p>",
+    "gfmHtml": "<p><a href=\"https://example.com\">https://example.com</a></p>"
   },
   {
     "example": 612,
     "source": "foo@bar.example.com\n",
-    "html": "<p>foo@bar.example.com</p>"
+    "html": "<p>foo@bar.example.com</p>",
+    "gfmHtml": "<p><a href=\"mailto:foo@bar.example.com\">foo@bar.example.com</a></p>"
   }
 ]

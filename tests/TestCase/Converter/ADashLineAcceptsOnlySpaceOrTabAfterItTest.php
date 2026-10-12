@@ -39,11 +39,11 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
         // rejected closer leaves the whole block one paragraph, so the break
         // below it takes that separator.
         $this->assertSame(
-            '\\-\\-\\-yaml' . "\na: 1\n" . '\\-\\-\\-' . substr($closer, 3) . "\n...\n\n---\n\nu\n",
+            '\\-\\-\\-yaml' . "\na: 1\n" . '\\-\\-\\-' . substr($closer, 3) . "\n\\.\\.\\.\n\n---\n\nu\n",
             $carve,
         );
         $this->assertSame(
-            "<p>---yaml\na: 1\n" . $rendered . "\n\u{2026}</p>\n<hr>\n<p>u</p>\n",
+            "<p>---yaml\na: 1\n" . $rendered . "\n...</p>\n<hr>\n<p>u</p>\n",
             CarveConverter::create()->convert($carve),
         );
     }
@@ -56,8 +56,8 @@ class ADashLineAcceptsOnlySpaceOrTabAfterItTest extends TestCase
         // the render below holds. It is WRITTEN bare: the trailing run is a
         // reader's leniency, not a writer's license, so echoing it left the
         // import failing this engine's own `fmt --check` (carve-php#2998).
-        $this->assertSame("---yaml\na: 1\n---\n\n...\n\n---\n\nu\n", $carve);
-        $this->assertSame("<p>\u{2026}</p>\n<hr>\n<p>u</p>\n", CarveConverter::create()->convert($carve));
+        $this->assertSame("---yaml\na: 1\n---\n\n\\.\\.\\.\n\n---\n\nu\n", $carve);
+        $this->assertSame("<p>...</p>\n<hr>\n<p>u</p>\n", CarveConverter::create()->convert($carve));
     }
 
     /**
