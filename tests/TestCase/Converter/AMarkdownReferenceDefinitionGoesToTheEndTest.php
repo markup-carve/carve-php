@@ -208,6 +208,20 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         self::assertStringStartsWith("<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n", (new CarveConverter())->convert($written));
     }
 
+    public function testAFootnoteAfterAQuoteUsesItsOwnIndentToCloseTheList(): void
+    {
+        foreach ([1, 2, 3] as $padding) {
+            $source = "- a\n  > " . str_repeat(' ', $padding) . "x\n[^n]: note\n- b\n\nt[^n]";
+            $written = (new MarkdownToCarve())->convert($source);
+            foreach ([$written, CarveConverter::toCarve($written)] as $rendered) {
+                $html = (new CarveConverter())->convert($rendered);
+                self::assertSame(2, substr_count($html, '<ul>'));
+                self::assertStringContainsString('<blockquote>', $html);
+                self::assertStringContainsString('<p>x</p>', $html);
+            }
+        }
+    }
+
     public function testMovingAFootnoteDoesNotJoinTheListsAroundIt(): void
     {
         $written = (new MarkdownToCarve())->convert("- a\n\n[^n]: note\n\n- b\n\ntext[^n]");

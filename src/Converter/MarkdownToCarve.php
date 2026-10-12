@@ -8207,7 +8207,8 @@ class MarkdownToCarve
                 && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
                 && $this->collectFootnoteDefinition($lines, $i)
             ) {
-                while (($referenceListColumns[$lineDepth] ?? []) !== [] && end($referenceListColumns[$lineDepth]) > $referenceIndent) {
+                $footnoteIndent = strspn($line, ' ');
+                while (($referenceListColumns[$lineDepth] ?? []) !== [] && end($referenceListColumns[$lineDepth]) > $footnoteIndent) {
                     array_pop($referenceListColumns[$lineDepth]);
                 }
                 $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
