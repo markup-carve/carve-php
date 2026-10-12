@@ -68,7 +68,7 @@ final class MarkdownReferenceDefinition
                     }
                 }
             }
-            if ($depth !== 0 || $at === $destinationStart) {
+            if ($at === $destinationStart) {
                 return null;
             }
         }
