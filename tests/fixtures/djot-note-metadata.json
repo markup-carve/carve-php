@@ -2154,5 +2154,731 @@
     "source": "[^n]:\t\tword\n\nx[^n]",
     "lossLines": [],
     "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>word<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-word-root",
+    "source": "| word{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td>word{title=“a</td><td>b”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-word-quote",
+    "source": "> | word{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>word{title=“a</td><td>b”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-word-list",
+    "source": "- | word{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>word{title=“a</td><td>b”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-word-quoted-list",
+    "source": "> - | word{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>word{title=“a</td><td>b”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-span-root",
+    "source": "| [x]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><span>x</span>{title=“a</td><td>b”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-span-quote",
+    "source": "> | [x]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><span>x</span>{title=“a</td><td>b”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-span-list",
+    "source": "- | [x]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><span>x</span>{title=“a</td><td>b”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-span-quoted-list",
+    "source": "> - | [x]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><span>x</span>{title=“a</td><td>b”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-reference-root",
+    "source": "[r]: /u\n\n| [x][r]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-reference-quote",
+    "source": "[r]: /u\n\n> | [x][r]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-reference-list",
+    "source": "[r]: /u\n\n- | [x][r]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-reference-quoted-list",
+    "source": "[r]: /u\n\n> - | [x][r]{title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-link-root",
+    "source": "| [x](/u){title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-link-quote",
+    "source": "> | [x](/u){title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-link-list",
+    "source": "- | [x](/u){title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-link-quoted-list",
+    "source": "> - | [x](/u){title=\"a|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"/u\">x</a>{title=“a</td><td>b”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-escaped-root",
+    "source": "| [x]{title=\"a\\|b\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><span title=\"a|b\">x</span></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-escaped-quote",
+    "source": "> | [x]{title=\"a\\|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><span title=\"a|b\">x</span></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-escaped-list",
+    "source": "- | [x]{title=\"a\\|b\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><span title=\"a|b\">x</span></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-escaped-quoted-list",
+    "source": "> - | [x]{title=\"a\\|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><span title=\"a|b\">x</span></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-code-root",
+    "source": "| `word{title=\"a|b\"}` |",
+    "lossLines": [],
+    "html": "<table><tr><td><code>word{title=\"a|b\"}</code></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-code-quote",
+    "source": "> | `word{title=\"a|b\"}` |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><code>word{title=\"a|b\"}</code></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-code-list",
+    "source": "- | `word{title=\"a|b\"}` |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><code>word{title=\"a|b\"}</code></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-code-quoted-list",
+    "source": "> - | `word{title=\"a|b\"}` |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><code>word{title=\"a|b\"}</code></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-root",
+    "source": "| [x](u\\|v) |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"u|v\">x</a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-quote",
+    "source": "> | [x](u\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"u|v\">x</a></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-list",
+    "source": "- | [x](u\\|v) |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"u|v\">x</a></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-quoted-list",
+    "source": "> - | [x](u\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"u|v\">x</a></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-parens-root",
+    "source": "| [x](u(a)\\|v) |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-parens-quote",
+    "source": "> | [x](u(a)\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-parens-list",
+    "source": "- | [x](u(a)\\|v) |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-parens-quoted-list",
+    "source": "> - | [x](u(a)\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-escaped-parens-root",
+    "source": "| [x](u\\(a\\)\\|v) |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-escaped-parens-quote",
+    "source": "> | [x](u\\(a\\)\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-escaped-parens-list",
+    "source": "- | [x](u\\(a\\)\\|v) |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-escaped-parens-quoted-list",
+    "source": "> - | [x](u\\(a\\)\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"u(a)|v\">x</a></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-backslash-root",
+    "source": "| [x](u\\\\|v) |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"u\\|v\">x</a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-backslash-quote",
+    "source": "> | [x](u\\\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"u\\|v\">x</a></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-backslash-list",
+    "source": "- | [x](u\\\\|v) |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"u\\|v\">x</a></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-backslash-quoted-list",
+    "source": "> - | [x](u\\\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"u\\|v\">x</a></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-own-attrs-root",
+    "source": "| [x](u\\|v){.a} |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"u|v\" class=\"a\">x</a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-own-attrs-quote",
+    "source": "> | [x](u\\|v){.a} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"u|v\" class=\"a\">x</a></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-own-attrs-list",
+    "source": "- | [x](u\\|v){.a} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"u|v\" class=\"a\">x</a></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-pipe-target-own-attrs-quoted-list",
+    "source": "> - | [x](u\\|v){.a} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"u|v\" class=\"a\">x</a></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-comment-root",
+    "source": "| a {% b | c %} |",
+    "lossLines": [],
+    "html": "<table><tr><td>a {% b</td><td>c %}</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-comment-quote",
+    "source": "> | a {% b | c %} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>a {% b</td><td>c %}</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-comment-list",
+    "source": "- | a {% b | c %} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>a {% b</td><td>c %}</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-comment-quoted-list",
+    "source": "> - | a {% b | c %} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>a {% b</td><td>c %}</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-comment-root",
+    "source": "| {% a | {b=\"c | d\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td>{% a</td><td>{b=“c</td><td>d”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-comment-quote",
+    "source": "> | {% a | {b=\"c | d\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>{% a</td><td>{b=“c</td><td>d”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-comment-list",
+    "source": "- | {% a | {b=\"c | d\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>{% a</td><td>{b=“c</td><td>d”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-comment-quoted-list",
+    "source": "> - | {% a | {b=\"c | d\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>{% a</td><td>{b=“c</td><td>d”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-empty-pipe-link-root",
+    "source": "| [](u\\|v) |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"u|v\"></a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-empty-pipe-link-quote",
+    "source": "> | [](u\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"u|v\"></a></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-empty-pipe-link-list",
+    "source": "- | [](u\\|v) |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"u|v\"></a></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-empty-pipe-link-quoted-list",
+    "source": "> - | [](u\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"u|v\"></a></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-image-pipe-link-root",
+    "source": "| ![a [b](u\\|v)](i.png) |",
+    "lossLines": [],
+    "html": "<table><tr><td><img src=\"i.png\" alt=\"a b\"></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-image-pipe-link-quote",
+    "source": "> | ![a [b](u\\|v)](i.png) |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><img src=\"i.png\" alt=\"a b\"></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-image-pipe-link-list",
+    "source": "- | ![a [b](u\\|v)](i.png) |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><img src=\"i.png\" alt=\"a b\"></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-nested-image-pipe-link-quoted-list",
+    "source": "> - | ![a [b](u\\|v)](i.png) |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><img src=\"i.png\" alt=\"a b\"></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-pipe-root",
+    "source": "| a{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<p>| <span title=\"`x|y`\">a</span> |</p>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-pipe-quote",
+    "source": "> | a{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><p>| <span title=\"`x|y`\">a</span> |</p></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-pipe-list",
+    "source": "- | a{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<ul><li>| <span title=\"`x|y`\">a</span> |</li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-pipe-quoted-list",
+    "source": "> - | a{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>| <span title=\"`x|y`\">a</span> |</li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-span-pipe-root",
+    "source": "| [x]{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<p>| <span title=\"`x|y`\">x</span> |</p>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-span-pipe-quote",
+    "source": "> | [x]{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><p>| <span title=\"`x|y`\">x</span> |</p></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-span-pipe-list",
+    "source": "- | [x]{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<ul><li>| <span title=\"`x|y`\">x</span> |</li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-span-pipe-quoted-list",
+    "source": "> - | [x]{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>| <span title=\"`x|y`\">x</span> |</li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-row-earlier-attribute-root",
+    "source": "| a{title=\"a|b\"} | x{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<p>| <span title=\"a|b\">a</span> | <span title=\"`x|y`\">x</span> |</p>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-row-earlier-attribute-quote",
+    "source": "> | a{title=\"a|b\"} | x{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><p>| <span title=\"a|b\">a</span> | <span title=\"`x|y`\">x</span> |</p></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-row-earlier-attribute-list",
+    "source": "- | a{title=\"a|b\"} | x{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<ul><li>| <span title=\"a|b\">a</span> | <span title=\"`x|y`\">x</span> |</li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-row-earlier-attribute-quoted-list",
+    "source": "> - | a{title=\"a|b\"} | x{title=\"`x|y`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>| <span title=\"a|b\">a</span> | <span title=\"`x|y`\">x</span> |</li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-unclosed-code-root",
+    "source": "| a{title=\"x`|y\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td>a{title=“x<code></code></td><td>y”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-unclosed-code-quote",
+    "source": "> | a{title=\"x`|y\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>a{title=“x<code></code></td><td>y”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-unclosed-code-list",
+    "source": "- | a{title=\"x`|y\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>a{title=“x<code></code></td><td>y”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-unclosed-code-quoted-list",
+    "source": "> - | a{title=\"x`|y\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>a{title=“x<code></code></td><td>y”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-after-pipe-root",
+    "source": "| a{title=\"a|`b|c`\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td>a{title=“a</td><td><code>b|c</code>”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-after-pipe-quote",
+    "source": "> | a{title=\"a|`b|c`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>a{title=“a</td><td><code>b|c</code>”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-after-pipe-list",
+    "source": "- | a{title=\"a|`b|c`\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>a{title=“a</td><td><code>b|c</code>”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-after-pipe-quoted-list",
+    "source": "> - | a{title=\"a|`b|c`\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>a{title=“a</td><td><code>b|c</code>”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-before-pipe-root",
+    "source": "| a{title=\"`x`|y\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td>a{title=“<code>x</code></td><td>y”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-before-pipe-quote",
+    "source": "> | a{title=\"`x`|y\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>a{title=“<code>x</code></td><td>y”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-before-pipe-list",
+    "source": "- | a{title=\"`x`|y\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>a{title=“<code>x</code></td><td>y”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-before-pipe-quoted-list",
+    "source": "> - | a{title=\"`x`|y\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>a{title=“<code>x</code></td><td>y”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-and-outside-pipe-root",
+    "source": "| a{title=\"`x|y`|z\"} |",
+    "lossLines": [],
+    "html": "<p>| <span title=\"`x|y`|z\">a</span> |</p>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-and-outside-pipe-quote",
+    "source": "> | a{title=\"`x|y`|z\"} |",
+    "lossLines": [],
+    "html": "<blockquote><p>| <span title=\"`x|y`|z\">a</span> |</p></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-and-outside-pipe-list",
+    "source": "- | a{title=\"`x|y`|z\"} |",
+    "lossLines": [],
+    "html": "<ul><li>| <span title=\"`x|y`|z\">a</span> |</li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-code-and-outside-pipe-quoted-list",
+    "source": "> - | a{title=\"`x|y`|z\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>| <span title=\"`x|y`|z\">a</span> |</li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-destination-pipe-root",
+    "source": "| [a](u){title=\"see [x](a|b)\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"u\">a</a>{title=“see [x](a</td><td>b)”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-destination-pipe-quote",
+    "source": "> | [a](u){title=\"see [x](a|b)\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><a href=\"u\">a</a>{title=“see [x](a</td><td>b)”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-destination-pipe-list",
+    "source": "- | [a](u){title=\"see [x](a|b)\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><a href=\"u\">a</a>{title=“see [x](a</td><td>b)”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-destination-pipe-quoted-list",
+    "source": "> - | [a](u){title=\"see [x](a|b)\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><a href=\"u\">a</a>{title=“see [x](a</td><td>b)”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-valued-attribute-pipe-root",
+    "source": "| `c` [x]{title=\"<a:b|c>\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><code>c</code><span>x</span>{title=“&lt;a:b</td><td>c&gt;”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-valued-attribute-pipe-quote",
+    "source": "> | `c` [x]{title=\"<a:b|c>\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><code>c</code><span>x</span>{title=“&lt;a:b</td><td>c&gt;”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-valued-attribute-pipe-list",
+    "source": "- | `c` [x]{title=\"<a:b|c>\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><code>c</code><span>x</span>{title=“&lt;a:b</td><td>c&gt;”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-valued-attribute-pipe-quoted-list",
+    "source": "> - | `c` [x]{title=\"<a:b|c>\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><code>c</code><span>x</span>{title=“&lt;a:b</td><td>c&gt;”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-attribute-in-autolink-pipe-root",
+    "source": "| <a:b{title=\"x|y\"}> |",
+    "lossLines": [],
+    "html": "<table><tr><td>&lt;a:b{title=“x</td><td>y”&gt;</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-attribute-in-autolink-pipe-quote",
+    "source": "> | <a:b{title=\"x|y\"}> |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>&lt;a:b{title=“x</td><td>y”&gt;</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-attribute-in-autolink-pipe-list",
+    "source": "- | <a:b{title=\"x|y\"}> |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>&lt;a:b{title=“x</td><td>y”&gt;</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-attribute-in-autolink-pipe-quoted-list",
+    "source": "> - | <a:b{title=\"x|y\"}> |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>&lt;a:b{title=“x</td><td>y”&gt;</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-even-escaped-attribute-pipe-root",
+    "source": "| [x]{title=\"a\\\\|b\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><span title=\"a\\|b\">x</span></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-even-escaped-attribute-pipe-quote",
+    "source": "> | [x]{title=\"a\\\\|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td><span title=\"a\\|b\">x</span></td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-even-escaped-attribute-pipe-list",
+    "source": "- | [x]{title=\"a\\\\|b\"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td><span title=\"a\\|b\">x</span></td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-even-escaped-attribute-pipe-quoted-list",
+    "source": "> - | [x]{title=\"a\\\\|b\"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td><span title=\"a\\|b\">x</span></td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-brace-after-comment-root",
+    "source": "| {%c% t=\"} | \"} |",
+    "lossLines": [],
+    "html": "<table><tr><td>{%c% t=“}</td><td>”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-brace-after-comment-quote",
+    "source": "> | {%c% t=\"} | \"} |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>{%c% t=“}</td><td>”</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-brace-after-comment-list",
+    "source": "- | {%c% t=\"} | \"} |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>{%c% t=“}</td><td>”</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-quoted-brace-after-comment-quoted-list",
+    "source": "> - | {%c% t=\"} | \"} |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>{%c% t=“}</td><td>”</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-looking-emphasis-pipe-root",
+    "source": "| <a:_b_|c> |",
+    "lossLines": [],
+    "html": "<table><tr><td>&lt;a:<em>b</em></td><td>c&gt;</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-looking-emphasis-pipe-quote",
+    "source": "> | <a:_b_|c> |",
+    "lossLines": [],
+    "html": "<blockquote><table><tr><td>&lt;a:<em>b</em></td><td>c&gt;</td></tr></table></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-looking-emphasis-pipe-list",
+    "source": "- | <a:_b_|c> |",
+    "lossLines": [],
+    "html": "<ul><li><table><tr><td>&lt;a:<em>b</em></td><td>c&gt;</td></tr></table></li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-autolink-looking-emphasis-pipe-quoted-list",
+    "source": "> - | <a:_b_|c> |",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><table><tr><td>&lt;a:<em>b</em></td><td>c&gt;</td></tr></table></li></ul></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-row-followed-by-attribute",
+    "source": "| `a` {t=\"`|`\"} |\n| [y]{title=\"p | q\"} |",
+    "lossLines": [],
+    "html": "<p>| <code>a</code>  |\n| <span title=\"p | q\">y</span> |</p>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-quoted-row-followed-by-attribute",
+    "source": "> | `a` {t=\"`|`\"} |\n> | [y]{title=\"p | q\"} |",
+    "lossLines": [],
+    "html": "<blockquote><p>| <code>a</code>  |\n| <span title=\"p | q\">y</span> |</p></blockquote>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-list-row-followed-by-attribute",
+    "source": "- | `a` {t=\"`|`\"} |\n  | [y]{title=\"p | q\"} |",
+    "lossLines": [],
+    "html": "<ul><li>| <code>a</code>  |\n| <span title=\"p | q\">y</span> |</li></ul>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-quote-exits-to-table",
+    "source": "> | `a` {t=\"`|`\"} |\n| [y]{title=\"p | q\"} |",
+    "lossLines": [],
+    "html": "<blockquote><p>| <code>a</code>  |</p></blockquote><table><tr><td><span>y</span>{title=“p</td><td>q”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-list-exits-to-table",
+    "source": "- | `a` {t=\"`|`\"} |\n| [y]{title=\"p | q\"} |",
+    "lossLines": [],
+    "html": "<ul><li>| <code>a</code>  |</li></ul><table><tr><td><span>y</span>{title=“p</td><td>q”</td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-quote-exits-to-pipe-link-table",
+    "source": "> | `a` {t=\"`|`\"} |\n| [x](u\\|v) |",
+    "lossLines": [],
+    "html": "<blockquote><p>| <code>a</code>  |</p></blockquote><table><tr><td><a href=\"u|v\">x</a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-rejected-list-exits-to-pipe-link-table",
+    "source": "- | `a` {t=\"`|`\"} |\n| [x](u\\|v) |",
+    "lossLines": [],
+    "html": "<ul><li>| <code>a</code>  |</li></ul><table><tr><td><a href=\"u|v\">x</a></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-comment-code-after-brace",
+    "source": "| {%c% t=\"} | `x\"} | y` |",
+    "lossLines": [],
+    "html": "<table><tr><td>{%c% t=“}</td><td><code>x\"} | y</code></td></tr></table>"
+  },
+  {
+    "name": "table-attribute-cell-boundary-angle-with-nbsp",
+    "source": "| <a |b> |",
+    "lossLines": [],
+    "html": "<table><tr><td>&lt;a&nbsp;</td><td>b&gt;</td></tr></table>"
   }
 ]
