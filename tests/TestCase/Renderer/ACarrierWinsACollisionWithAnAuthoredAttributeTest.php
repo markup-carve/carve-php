@@ -211,19 +211,76 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
     }
 
     /**
-     * Where PART 9 section 13 wraps a heading, the carrier rides the
-     * `<section>` and the heading writes none - so the heading's authored
-     * attribute collides with nothing and survives on the `<h1>`.
+     * PART 10 section 13b: the carrier of a wrapped heading rides the
+     * `<section>`, and the authored attribute is still the heading's to lose.
+     * An importer consumes all three names on either element.
+     *
+     * @return array<string, array{string, string, string}>
      */
-    public function testAWrappedHeadingHasNoCollisionToReport(): void
+    public static function headingCarrierNames(): array
     {
-        $renderer = new HtmlRenderer();
-        $renderer->setRoundTripMode(true);
-        $report = (new CarveConverter(renderer: $renderer))
-            ->convertWithReport("{#h data-carve-explicit-id=x}\n# T\n");
+        $shapes = [
+            'wrapped, authored id' => ["{#h %s=x}\n# T\n", '<section id="h" data-carve-explicit-id="1">' . "\n  <h1>T</h1>"],
+            'wrapped, authored id in the second slot' => [
+                "{.c #h %s=x}\n# T\n",
+                '<section id="h" data-carve-explicit-id="1" data-carve-id-slot="1">' . "\n  <h1 class=\"c\">T</h1>",
+            ],
+            'wrapped, generated id' => ["{%s=x}\n# T\n", '<section id="T" data-carve-ext="section">' . "\n  <h1>T</h1>"],
+            'in a quote, authored id' => ["> {#h %s=x}\n> # T\n", '<h1 data-carve-explicit-id="1" id="h">T</h1>'],
+            'in a quote, generated id' => ["> {%s=x}\n> # T\n", '<h1 data-carve-explicit-id="0" id="T">T</h1>'],
+        ];
+        $cases = [];
+        foreach ($shapes as $label => [$carve, $html]) {
+            foreach (['data-carve-explicit-id', 'data-carve-id-slot', 'data-carve-ext'] as $name) {
+                $cases[$label . ', ' . $name] = [sprintf($carve, $name), $name, $html];
+            }
+        }
 
-        $this->assertStringContainsString('<section id="h" data-carve-explicit-id="1">', $report->value);
-        $this->assertStringContainsString('<h1 data-carve-explicit-id="x">', $report->value);
+        return $cases;
+    }
+
+    #[DataProvider('headingCarrierNames')]
+    public function testAHeadingDropsAndReportsAnAuthoredCarrierName(string $carve, string $name, string $html): void
+    {
+        $report = (new CarveConverter(roundTripMode: true))->convertWithReport($carve);
+
+        $this->assertStringContainsString($html, $report->value);
+        $this->assertStringNotContainsString($name . '="x"', $report->value);
+        $this->assertCount(1, $report->losses);
+        $this->assertSame('carrier-attribute-dropped', $report->losses[0]['code']);
+        $this->assertSame($name, $report->losses[0]['attribute']);
+        $this->assertSame(['carrier-attribute-dropped' => 1], $report->lossCounts);
+    }
+
+    #[DataProvider('headingCarrierNames')]
+    public function testDefaultExportPassesAHeadingsCarrierNameThrough(string $carve, string $name, string $html): void
+    {
+        unset($html);
+        $report = (new CarveConverter())->convertWithReport($carve);
+
+        $this->assertSame(1, substr_count($report->value, $name . '="x"'));
+        $this->assertStringContainsString('<h1 ', $report->value);
+        $this->assertSame([], $report->losses);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function unreservedHeadingNames(): array
+    {
+        return [
+            'wrapped' => ["{#h data-keep=x}\n# T\n", '<h1 data-keep="x">T</h1>'],
+            'in a quote' => ["> {#h data-keep=x}\n> # T\n", '<h1 data-carve-explicit-id="1" id="h" data-keep="x">T</h1>'],
+            'an unlisted prefixed name' => ["{#h data-carve-mine=x}\n# T\n", '<h1 data-carve-mine="x">T</h1>'],
+        ];
+    }
+
+    #[DataProvider('unreservedHeadingNames')]
+    public function testAHeadingKeepsANameTheInventoryDoesNotList(string $carve, string $html): void
+    {
+        $report = (new CarveConverter(roundTripMode: true))->convertWithReport($carve);
+
+        $this->assertStringContainsString($html, $report->value);
         $this->assertSame(0, $report->totalLosses);
     }
 

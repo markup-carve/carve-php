@@ -141,6 +141,10 @@ An authored attribute that has a carrier's name loses to the carrier. The render
 drops it and reports a `carrier-attribute-dropped` render loss naming the
 attribute.
 
+A heading loses an authored `data-carve-explicit-id`, `data-carve-id-slot` or
+`data-carve-ext` the same way, wrapped in a `<section>` or not. The section
+holds the carrier, and import consumes all three names on the heading too.
+
 Extensions write carriers of their own; see
 [Roundtrip carriers](extensions.md#roundtrip-carriers).
 

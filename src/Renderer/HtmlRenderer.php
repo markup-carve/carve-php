@@ -193,6 +193,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     public const RETIRED_SOURCE_CARRIER = 'data-carve-src';
 
     /**
+     * The PART 10 section 13a rows of a heading and its `<section>` wrapper. An
+     * importer consumes each of them on either element, whichever was written.
+     *
+     * @var list<string>
+     */
+    private const HEADING_CARRIERS = ['data-carve-explicit-id', 'data-carve-id-slot', 'data-carve-ext'];
+
+    /**
      * The English defaults, and the whole key set.
      *
      * @var array<string, string>
@@ -1054,8 +1062,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         $level = $node->getLevel();
 
-        // Don't render id on heading since it's on section
-        $attrs = $this->renderAttributesExcluding($node, ['id'], 'h' . $level);
+        // The id and the carriers ride the <section>, so an authored attribute
+        // of a carrier's name is displaced here although this tag writes none.
+        $attrs = $this->renderAttributeArray(
+            $this->attributesBesideCarriers($node, $this->roundTripMode ? self::HEADING_CARRIERS : [], ['id']),
+            'h' . $level,
+        );
 
         return '<h' . $level . $attrs . '>' . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
@@ -1448,7 +1460,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $carriesExplicitId = $this->roundTripMode;
         $attrs = $this->attributesBesideCarriers(
             $node,
-            $carriesExplicitId ? ['data-carve-explicit-id'] : [],
+            $carriesExplicitId ? self::HEADING_CARRIERS : [],
             $authoredId ? [] : ['id'],
         );
         $idAttr = $authoredId
