@@ -8714,6 +8714,8 @@ class BlockParser
             parseBlocksCallback: $this->parseBlocks(...),
             startsNewBlockCallback: $this->startsNewBlock(...),
             subContentHasLooseningBlankCallback: $this->subContentHasLooseningBlank(...),
+            wrappedBlockAttributeLengthCallback: $this->wrappedBlockAttributeLength(...),
+            isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             parseItemBlocksCallback: static::class !== self::class ? $this->parseItemBlocks(...) : null,
             canRepairParagraphLocallyCallback: fn (): bool => $this->blockMatchers === [],
         );
