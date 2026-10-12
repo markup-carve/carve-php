@@ -632,6 +632,9 @@ final class BlockContinuationScanner
             $contentIndent,
         ) ?? 1) - 1);
         $openCommentLength = null;
+        $rebasedFenceColumn = null;
+        // Keep earlier unadmitted runs in the paragraph's original source view.
+        $unadmittedFenceInParagraph = false;
         // Seeded over the lead for the same reason the comment fence is: the
         // item's `- :: t` / `  : d` spelling writes the body on a line this
         // collector never sees.
@@ -728,20 +731,40 @@ final class BlockContinuationScanner
                     break;
                 }
                 $structuralFence = false;
-                if ($trailingState->fence !== null && $trailingState->fence->column > 0) {
-                    $fenceColumn = $trailingState->fence->column;
-                    $contentLine = str_repeat(' ', $fenceColumn) . IndentationHelper::stripLeadingColumns(
+                $sourceFenceOpener = $trailingState->fence === null
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed)
+                    ? (($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed)
+                        ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed))
+                    : null;
+                if ($trailingState->fence === null) {
+                    $rebasedFenceColumn = null;
+                }
+                if (
+                    $rebasedFenceColumn !== null
+                    && $trailingState->fence !== null
+                    && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $rebasedFenceColumn + 1)
+                        >= $contentIndent + $rebasedFenceColumn
+                ) {
+                    $contentLine = str_repeat(' ', $rebasedFenceColumn) . IndentationHelper::stripLeadingColumns(
                         $nextLine,
-                        $contentIndent + $fenceColumn,
+                        $contentIndent + $rebasedFenceColumn,
                     );
                 } else {
-                    $structuralFence = $trailingState->fence === null && ($this->getFencedBlockParser)()->isCodeFenceHead(
-                        $nextLine,
-                        IndentationHelper::pastLeadingWhitespace($nextLine),
-                    );
-                    $contentLine = $structuralFence
-                        ? IndentationHelper::rebaseLeadingColumns($nextLine, $contentIndent)
-                        : IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                    $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                    $structuralFence = $trailingState->fence === null
+                        && !$trailingState->hasOpenDiv()
+                        && !$trailingState->inFootnoteBody
+                        && !$trailingState->quoteParagraph
+                        && !$unadmittedFenceInParagraph
+                        && $trailingState->nestedColumn === 0
+                        && $openCommentLength === null
+                        && $openDefinitionBody === null
+                        && $sourceFenceOpener !== null;
+                    if ($structuralFence) {
+                        $rebasedLine = IndentationHelper::rebaseLeadingColumns($nextLine, $contentIndent);
+                        $structuralFence = $rebasedLine !== $contentLine;
+                        $contentLine = $rebasedLine;
+                    }
                 }
                 if ($wrappedAttributeLinesRemaining === 0) {
                     $wrappedAttributeLinesRemaining = $this->wrappedItemAttributeLength(
@@ -811,9 +834,18 @@ final class BlockContinuationScanner
                             true,
                             $contentIndent,
                         ));
-                if ($structuralFence && $trailingState->fence === null) {
-                    // Failed fence admission leaves the original paragraph spelling.
-                    $itemLines[array_key_last($itemLines)] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                if ($structuralFence) {
+                    if ($trailingState->fence === null) {
+                        // Failed admission leaves the original paragraph spelling.
+                        $itemLines[array_key_last($itemLines)] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                    } elseif ($trailingState->fence->column > 0) {
+                        $rebasedFenceColumn = $trailingState->fence->column;
+                    }
+                }
+                if ($trailingState->fence !== null || !$trailingState->openParagraph) {
+                    $unadmittedFenceInParagraph = false;
+                } elseif (!$wasInFence && $sourceFenceOpener !== null) {
+                    $unadmittedFenceInParagraph = true;
                 }
                 if ($inCommentSpan) {
                     // The opener already closed the paragraph and set the

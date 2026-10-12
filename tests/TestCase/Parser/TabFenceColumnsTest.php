@@ -107,6 +107,60 @@ class TabFenceColumnsTest extends TestCase
         $this->assertSame("<b>payload</b>\n", $raw->getContent());
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function reviewedPreservationControls(): array
+    {
+        return [
+            'below-fence-column' => [
+                "- a\n  # h\n      ```\n    x\n   ```\n      ```\nafter\n",
+                "<ul>\n  <li>a\n    <h1 id=\"h\">h</h1>\n    <pre><code>  x\n ```\n</code></pre>\n  </li>\n</ul>\n<p>after</p>",
+            ],
+            'inside-tab-authored-div' => [
+                "* a\n    \t:::\n\n    \t```\t\n",
+                "<ul>\n  <li>a\n    <div>\n      <pre><code></code></pre>\n    </div>\n  </li>\n</ul>",
+            ],
+            'review-fuzz-0' => [
+                "> - [ ] t\n>   \t````\n>   \t\t```make\n>    ```\n> \t\t```\n> after\n",
+                "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"t ```make ``` ``` after\"> t\n<code>\n```make\n```\n```\nafter</code></li>\n  </ul>\n</blockquote>",
+            ],
+            'review-fuzz-1' => [
+                "> - a\n>   > q\n> \t ```\t\n>   \t\t``` \n> \t\t```\n>  : d\n>       ::: |\n>  \t: d\n> after\n",
+                "<blockquote>\n  <ul>\n    <li>a\n      <blockquote><p>q\n<code>\n</code>\n<code>\n: d\n::: |\n: d\nafter</code></p></blockquote>\n    </li>\n  </ul>\n</blockquote>",
+            ],
+            'review-fuzz-2' => [
+                "> - [ ] t\n>   ``` \n> \t\t```\t\n>     \t```\n> after\n",
+                "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"t after\"> t\n<code>\n</code>\n<code>\nafter</code></li>\n  </ul>\n</blockquote>",
+            ],
+            'review-fuzz-3' => [
+                "- a\n  - b\n\t```\n\t  ~~~~\n\t\t<b>r</b>\n\t\t```\n  \t1. n\n      ```\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\n~~~~\n&lt;b&gt;r&lt;/b&gt;\n</code>\n        <ol>\n          <li>n\n<code></code></li>\n        </ol>\n      </li>\n    </ul>\n  </li>\n</ul>",
+            ],
+            'review-fuzz-4' => [
+                "- a\n  > q\n    \t1. n\n   ```make\n    \t```=html\n  \t```\n    : d\n  \t````\n      ~~~~\nafter\n",
+                "<ul>\n  <li>a\n    <blockquote><p>q\n1. n\n<code>make\n</code>=html\n<code>\n: d\n````\n~~~~\nafter</code></p></blockquote>\n  </li>\n</ul>",
+            ],
+            'review-fuzz-5' => [
+                "1. a\n \t: d\n  \t\t~~~~\n\t\t```\n  \t\t```\n \t<b>r</b>\nafter\n",
+                "<ol>\n  <li>a\n: d\n~~~~\n    <pre><code></code></pre>\n    &lt;b&gt;r&lt;/b&gt;\nafter\n  </li>\n</ol>",
+            ],
+        ];
+    }
+
+    #[DataProvider('reviewedPreservationControls')]
+    public function testExistingFenceOwnershipIsPreserved(string $source, string $expected): void
+    {
+        $html = (new CarveConverter())->convert($source);
+        $this->assertSame(preg_replace('/>\s+</', '><', trim($expected)), preg_replace('/>\s+</', '><', trim($html)));
+    }
+
+    public function testDedentedFootnoteFollowerRemainsVisible(): void
+    {
+        $html = (new CarveConverter())->convert("- a\n  [^n]: f\n      ```\n  x\nafter\n");
+        $this->assertStringContainsString("\n    x\n", $html);
+    }
+
     public function testUnadmittedFenceKeepsItsPayloadColumns(): void
     {
         $source = "- a\n  \t```\n  \tcode\n  ```\t\nafter\n";
