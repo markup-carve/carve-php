@@ -1,0 +1,147 @@
+[
+  {
+    "id": "quote-1-heading-paragraph",
+    "source": "> - a\n>   # H\ntail\n",
+    "html": "<blockquote><ul><li>a\n      <h1 id=\"H\">H</h1></li></ul></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-1-heading-list",
+    "source": "> - a\n>   # H\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <h1 id=\"H\">H</h1></li></ul></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-1-break-paragraph",
+    "source": "> - a\n>   ---\ntail\n",
+    "html": "<blockquote><ul><li>a\n      <hr></li></ul></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-1-break-list",
+    "source": "> - a\n>   ---\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <hr></li></ul></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-1-table-paragraph",
+    "source": "> - a\n>   | t |\ntail\n",
+    "html": "<blockquote><ul><li>a\n      <table><tbody><tr><td>t</td></tr></tbody></table></li></ul></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-1-table-list",
+    "source": "> - a\n>   | t |\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <table><tbody><tr><td>t</td></tr></tbody></table></li></ul></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-1-attribute-paragraph",
+    "source": "> - a\n>   {.k}\ntail\n",
+    "html": "<blockquote><ul><li>a</li></ul></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-1-attribute-list",
+    "source": "> - a\n>   {.k}\n- next\n",
+    "html": "<blockquote><ul><li>a</li></ul></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-1-reference-paragraph",
+    "source": "> - a\n>   [r]: /u\ntail\n",
+    "html": "<blockquote><ul><li>a</li></ul></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-1-reference-list",
+    "source": "> - a\n>   [r]: /u\n- next\n",
+    "html": "<blockquote><ul><li>a</li></ul></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-1-text-control",
+    "source": "> - a\n>   text\ntail\n",
+    "html": "<blockquote><ul><li>a\ntext\ntail</li></ul></blockquote>"
+  },
+  {
+    "id": "quote-1-short-heading-control",
+    "source": "> - a\n>  # H\ntail\n",
+    "html": "<blockquote><ul><li>a\n# H\ntail</li></ul></blockquote>"
+  },
+  {
+    "id": "quote-2-heading-paragraph",
+    "source": "> > - a\n> >   # H\ntail\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <h1 id=\"H\">H</h1></li></ul></blockquote></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-2-heading-list",
+    "source": "> > - a\n> >   # H\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <h1 id=\"H\">H</h1></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-2-break-paragraph",
+    "source": "> > - a\n> >   ---\ntail\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <hr></li></ul></blockquote></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-2-break-list",
+    "source": "> > - a\n> >   ---\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <hr></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-2-table-paragraph",
+    "source": "> > - a\n> >   | t |\ntail\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <table><tbody><tr><td>t</td></tr></tbody></table></li></ul></blockquote></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-2-table-list",
+    "source": "> > - a\n> >   | t |\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <table><tbody><tr><td>t</td></tr></tbody></table></li></ul></blockquote></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-2-attribute-paragraph",
+    "source": "> > - a\n> >   {.k}\ntail\n",
+    "html": "<blockquote><blockquote><ul><li>a</li></ul></blockquote></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-2-attribute-list",
+    "source": "> > - a\n> >   {.k}\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a</li></ul></blockquote></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-2-reference-paragraph",
+    "source": "> > - a\n> >   [r]: /u\ntail\n",
+    "html": "<blockquote><blockquote><ul><li>a</li></ul></blockquote></blockquote><p>tail</p>"
+  },
+  {
+    "id": "quote-2-reference-list",
+    "source": "> > - a\n> >   [r]: /u\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a</li></ul></blockquote></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "quote-2-text-control",
+    "source": "> > - a\n> >   text\ntail\n",
+    "html": "<blockquote><blockquote><ul><li>a\ntext\ntail</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "quote-2-short-heading-control",
+    "source": "> > - a\n> >  # H\ntail\n",
+    "html": "<blockquote><blockquote><ul><li>a\n# H\ntail</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "backtick-sublist-paragraph",
+    "source": "- a\n  - ```\n    x\n    ```\ntail\n",
+    "html": "<ul><li>a\n    <ul><li><pre><code>x\n</code></pre></li></ul></li></ul><p>tail</p>"
+  },
+  {
+    "id": "backtick-sublist-sibling",
+    "source": "- a\n  - ```\n    x\n    ```\n- next\n",
+    "html": "<ul><li>a\n    <ul><li><pre><code>x\n</code></pre></li></ul></li><li>next</li></ul>"
+  },
+  {
+    "id": "tilde-sublist-paragraph",
+    "source": "- a\n  - ~~~\n    x\n    ~~~\ntail\n",
+    "html": "<ul><li>a\n    <ul><li><pre><code>x\n</code></pre></li></ul></li></ul><p>tail</p>"
+  },
+  {
+    "id": "tilde-sublist-sibling",
+    "source": "- a\n  - ~~~\n    x\n    ~~~\n- next\n",
+    "html": "<ul><li>a\n    <ul><li><pre><code>x\n</code></pre></li></ul></li><li>next</li></ul>"
+  },
+  {
+    "id": "sublist-paragraph-control",
+    "source": "- a\n  - child\ntail\n",
+    "html": "<ul><li>a\n    <ul><li>child\ntail</li></ul></li></ul>"
+  }
+]

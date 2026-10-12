@@ -97,7 +97,7 @@
   {
     "id": "unchanged-overindented-1-```",
     "source": "> - ::: box\n>   - ::: |\n>       ```\n>     :::\n>       ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-unmatched-1-~~~",
@@ -107,7 +107,7 @@
   {
     "id": "unchanged-overindented-1-~~~",
     "source": "> - ::: box\n>   - ::: |\n>       ~~~\n>     :::\n>       ~~~\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n:::<br>\n&nbsp;&nbsp;~~~</p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-unmatched-2-```",
@@ -117,7 +117,7 @@
   {
     "id": "unchanged-overindented-2-```",
     "source": "> > - ::: box\n> >   - ::: |\n> >       ```\n> >     :::\n> >       ```\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-unmatched-2-~~~",
@@ -127,7 +127,7 @@
   {
     "id": "unchanged-overindented-2-~~~",
     "source": "> > - ::: box\n> >   - ::: |\n> >       ~~~\n> >     :::\n> >       ~~~\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n:::<br>\n&nbsp;&nbsp;~~~</p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "M1 far closer after blank, same col",

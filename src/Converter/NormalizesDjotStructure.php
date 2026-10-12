@@ -60,7 +60,9 @@ trait NormalizesDjotStructure
         $definitionIndent = -1;
         $table = false;
         $fenceParser = new FencedBlockParser();
+        $emptyItemAt = null;
         foreach ($lines as $n => $original) {
+            $emptyItem = false;
             $masked = $mask[$n];
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $original, $quoteMatch);
             $quote = $quoteMatch[0] ?? '';
@@ -79,6 +81,7 @@ trait NormalizesDjotStructure
                 $headingMarker = '';
                 $blank = true;
                 $table = false;
+                $emptyItemAt = null;
 
                 continue;
             }
@@ -105,7 +108,31 @@ trait NormalizesDjotStructure
             $blockStart = $quoteDepth > $depth || $rows[$n] || $fences[$n] !== $original
                 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\|)/', $visible) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1;
+            if (
+                ($blank || !$paragraph || ($lists !== [] && $quoteDepth === $depth))
+                && preg_match('/^(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text) === 1
+                && $visible === $text
+                && $fences[$n] === $original
+            ) {
+                // Carve spells an empty item with a continuation marker. A lone
+                // `+` already is that marker and stays as written.
+                $text = rtrim($text, " \t") . ' +';
+                $visible = $text;
+                $paragraph = false;
+                $emptyItem = true;
+            }
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
+            // The marker would attach a flush-left block; a blank keeps it out.
+            if (
+                $emptyItemAt !== null && !$emptyItem
+                && (
+                    ($quoteDepth === $emptyItemAt[0] && !$item && $indent <= $emptyItemAt[1])
+                    || ($quoteDepth > $emptyItemAt[0] && $emptyItemAt[0] === $depth && strspn($original, " \t") <= $emptyItemAt[1])
+                )
+            ) {
+                $out[] = $emptyItemAt[2];
+            }
+            $emptyItemAt = $emptyItem ? [$quoteDepth, $indent, rtrim($quote)] : null;
             if ($quoteDepth < $depth && ($blockStart || $item || $this->rejectedDjotCommentStartsBlock($visible))) {
                 if ($item && !$blank) {
                     $out[] = rtrim($quote);

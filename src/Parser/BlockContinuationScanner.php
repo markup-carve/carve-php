@@ -306,6 +306,18 @@ final class BlockContinuationScanner
                 continue;
             }
             if (end($literal)) {
+                // An indented run pairs at any column in a literal body.
+                $text = ltrim($view, " \t");
+                if ($text !== '' && $text !== $view && ($text[0] === '`' || $text[0] === '~')) {
+                    $span = $this->opaqueSpanEnd(
+                        $lines,
+                        $j,
+                        $count,
+                        static fn (string $line): string => ltrim($transform === null ? $line : $transform($line), " \t"),
+                    );
+                    $j = $span === -1 ? $j : $span;
+                }
+
                 continue;
             }
             if (preg_match('/^(:{3,})[ \t]*$/', $view, $m) === 1 && strlen($m[1]) !== $top) {

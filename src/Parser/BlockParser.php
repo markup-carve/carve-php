@@ -3328,7 +3328,8 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
-            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap);
+            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap)
+                ?? (end($literal) ? $this->appendIndentedLiteralRunSpan($lines, $i, $innerLines, $innerLineMap) : null);
             if ($skippedTo !== null) {
                 $i = $skippedTo;
 
@@ -3469,6 +3470,42 @@ class BlockParser
             $innerLines[] = $lines[$i];
             $innerLineMap[] = $this->sourceLineFor($i);
             if ($i > $start && $this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$i], $commentInfo['length'])) {
+                return $i + 1;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * A fence-shaped run indented in a literal body pairs with the next run of
+     * its kind at any column, and the pair shields the colon runs between.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param list<string> $innerLines
+     * @param list<int> $innerLineMap
+     */
+    private function appendIndentedLiteralRunSpan(array $lines, int $start, array &$innerLines, array &$innerLineMap): ?int
+    {
+        $text = ltrim($lines[$start], " \t");
+        if ($text === $lines[$start]) {
+            return null;
+        }
+        $opener = $this->fencedBlockParser->parseRawBlockOpener($text)
+            ?? $this->fencedBlockParser->parseCodeFenceOpener($text);
+        if ($opener === null) {
+            return null;
+        }
+        $char = $opener['char'] ?? $opener['fence'][0];
+        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $start)) {
+            return null;
+        }
+        $count = count($lines);
+        for ($i = $start; $i < $count; $i++) {
+            $innerLines[] = $lines[$i];
+            $innerLineMap[] = $this->sourceLineFor($i);
+            if ($i > $start && $this->fencedBlockParser->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
                 return $i + 1;
             }
         }

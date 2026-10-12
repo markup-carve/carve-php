@@ -1526,6 +1526,12 @@ class DjotToCarve
             }
             $view = ltrim($view, " \t");
             $containerOffset = strlen($line) - strlen($view);
+            // Djot treats a bare period list marker as text.
+            if (preg_match('/^\.(?=[ \t]|$|\{)/', $view) === 1 && ($masked[$containerOffset] ?? '') === '.') {
+                $lines[$i] = substr($line, 0, $containerOffset) . '\\' . $view;
+
+                continue;
+            }
             if (str_starts_with($view, ':::') && str_starts_with(substr($masked, $containerOffset), ':::')) {
                 $content = substr($line, $containerOffset);
                 $opener = $fenceParser->parseDivFenceOpener($content);
@@ -2035,7 +2041,7 @@ class DjotToCarve
         $length = strlen($source);
 
         for ($i = 0; $i < $length; $i++) {
-            if ($masked[$i] === ' ' && $source[$i] !== "\n") {
+            if ($masked[$i] === ' ' && $source[$i] !== ' ' && $source[$i] !== "\n") {
                 if ($plain !== '') {
                     $result .= $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
                     $plain = '';

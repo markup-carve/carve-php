@@ -439,6 +439,13 @@ final class ListBlockBuilder
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
                                 $trackedLine = $subMarkerComment ?? $stripped;
+                                if (!$wasSubInFence && $strippedIsMarker) {
+                                    $markerOffset = ($this->getListParser)()->markerWalkOffset($stripped, 0);
+                                    if ($markerOffset !== null && $this->itemFenceOpenerAt(substr($stripped, $markerOffset)) !== null) {
+                                        $trackedLine = (string)preg_replace('/[^ \t]/', ' ', substr($stripped, 0, $markerOffset))
+                                            . substr($stripped, $markerOffset);
+                                    }
+                                }
                                 // A closer at the host column ends a fence opened past it, as the item's own parse reads it.
                                 if (
                                     $subInterruptedParagraphFence
@@ -1044,7 +1051,7 @@ final class ListBlockBuilder
                     }
                 }
                 $itemLines = [
-                    implode("\n", array_slice($itemLines, 0, $split)),
+                    implode("\n", array_map(BlockGrammar::stripLazyFrame(...), array_slice($itemLines, 0, $split))),
                     ...array_slice($itemLines, $split),
                 ];
                 $itemLineMap = [
@@ -1930,6 +1937,7 @@ final class ListBlockBuilder
         $blockState = new TrailingBlockState();
         $blockStateCursor = 0;
         $minimumColonEnd = -1;
+        $minimumColonIsLiteral = false;
         $beforeLeadNote = null;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
@@ -1948,9 +1956,15 @@ final class ListBlockBuilder
                 if ($minimumDiv !== null) {
                     $closer = $this->colonFenceEnd($lines, $i, $minimumDiv['length'], $count, null);
                     $minimumColonEnd = $closer === -1 ? $count - 1 : $closer;
+                    $minimumColonIsLiteral = $minimumDiv['className'] === '|';
                 }
             }
             if ($i <= $minimumColonEnd && preg_match('/^[ \t]+:{3,}[ \t]*$/', $line) === 1) {
+                continue;
+            }
+            // A line block's payload is inline content: an indented line in it
+            // opens no block, so it carries no authored base.
+            if ($i <= $minimumColonEnd && $minimumColonIsLiteral && ($line[0] === ' ' || $line[0] === "\t")) {
                 continue;
             }
             // A CODE-FENCE OPENER AT THE ITEM'S CONTENT COLUMN IS ALWAYS

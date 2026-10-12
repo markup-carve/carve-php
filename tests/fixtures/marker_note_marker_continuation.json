@@ -142,7 +142,7 @@
   {
     "id": "matrix-n2599",
     "source": "> - [^n]: text\n>     more\n>      - c5\n>     code\n>     | t |\nafter\n> after [^n]\n",
-    "html": "<blockquote><ul><li><table><tbody><tr><td>t</td></tr></tbody></table></li></ul><p>after\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\nmore\n- c5\ncode<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li><table><tbody><tr><td>t</td></tr></tbody></table></li></ul></blockquote><p>after</p><blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\nmore\n- c5\ncode<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n2778",
@@ -362,7 +362,7 @@
   {
     "id": "matrix-n7463",
     "source": "> - [^n]: text\n>     - child\n>     code\n>     :::\n>     # h\nafter\n>     1. o\nafter [^n]\n",
-    "html": "<blockquote><ul><li><div><h1 id=\"h\">h</h1></div></li></ul><p>after\n1. o\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child\ncode<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li><div><h1 id=\"h\">h</h1></div></li></ul></blockquote><p>after</p><blockquote><ol><li>o\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ol></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child\ncode<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n7491",

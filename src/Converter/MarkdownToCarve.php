@@ -1870,7 +1870,7 @@ class MarkdownToCarve
                     $line = $this->escapeTaskItemOpener($line);
                 }
                 $line = $this->normalizeHeldQuoteMarkers($line);
-                $inlineRun = strpbrk($line, '[`<') !== false ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
+                $inlineRun = strpbrk($line, '/=~[`<') !== false ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
                 if ($inlineRun !== null) {
                     $i = $inlineRun['end'];
                     $parts = explode("\n", $this->convertInlineFormatting($inlineRun['body']));
@@ -5752,7 +5752,7 @@ class MarkdownToCarve
     {
         preg_match('/^([ \t]*(?:(?:[-*+]|\d+[.)])[ \t]+|>[ \t]?)*)(.*)$/s', $body, $first);
         $text = $first[2] ?? $body;
-        if (strpbrk($text, '*_[`<') === false || !$this->isParagraphLine([$text], 0)) {
+        if (strpbrk($text, '/=~*_[`<') === false || !$this->isParagraphLine([$text], 0)) {
             return null;
         }
         $prefix = $first[1] ?? '';
