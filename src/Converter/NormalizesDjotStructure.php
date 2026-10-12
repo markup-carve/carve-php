@@ -1214,7 +1214,12 @@ trait NormalizesDjotStructure
         return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
     }
 
-    private function normalizeDjotReferenceUses(string $source): string
+    /**
+     * @param string $source
+     * @param bool $caretOnly
+     * @param array<int, array{label: string, target: string, end: int}> $accepted
+     */
+    private function normalizeDjotReferenceUses(string $source, bool $caretOnly = false, array $accepted = []): string
     {
         $mask = $this->maskCodeAndDestinations($source);
         $definitions = [];
@@ -1242,11 +1247,11 @@ trait NormalizesDjotStructure
                 || isset($definitionLines[$n - 1])
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previousContent) === 1
                 || ($previousStart > $start && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousStart)) === 1);
-            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
+            if (preg_match('/^\[(?!\^[^\]\n]+\]:(?:[ \t\r]|$))([^\]\n]+)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && ($caretOnly ? isset($accepted[$n]) && str_starts_with($definition[1], '^') : $boundary)) {
                 $attributeParts = [];
                 $attributeLines = [];
                 $attributeDepth = null;
-                for ($k = $n - 1; $k >= 0; $k--) {
+                for ($k = $n - 1; $k >= 0 && !$caretOnly; $k--) {
                     $attributeStart = $this->djotContentStart($lines[$k]);
                     $attributePrefix = substr($lines[$k], 0, $attributeStart);
                     $prefix = substr($line, 0, $start);
@@ -1394,6 +1399,9 @@ trait NormalizesDjotStructure
             }
             $explicit = substr($source, $close + 2, $labelEnd - $close - 2);
             $content = substr($source, $open + 1, $close - $open - 1);
+            if (str_starts_with($content, '^') && strlen($content) > 1) {
+                continue;
+            }
             $label = $explicit === '' ? $content : $explicit;
             $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
             $parsedLabel = $explicit === '' && (preg_match('/[_*`{~^]/', $label) === 1 || str_contains($label, '\\'));
@@ -1433,6 +1441,11 @@ trait NormalizesDjotStructure
             }
         }
         $occupied = array_fill_keys(array_keys($definitions), true);
+        if ($caretOnly) {
+            foreach ($accepted as $decision) {
+                $occupied[$this->djotReferenceDefinitionKey($decision['label'])] = true;
+            }
+        }
         foreach ($matches as $match) {
             $occupied[$match[6]] = true;
         }
@@ -1448,7 +1461,7 @@ trait NormalizesDjotStructure
         $aliases = [];
         $needsAliases = false;
         foreach ($definitions as $key => $definition) {
-            if ((str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
+            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
                 $needsAliases = true;
 
                 break;
@@ -1456,7 +1469,7 @@ trait NormalizesDjotStructure
         }
         if ($needsAliases) {
             foreach ($definitions as $key => $definition) {
-                if (!(str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
+                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
                     continue;
                 }
                 $aliases[$key] = $nextAlias();
@@ -1502,7 +1515,7 @@ trait NormalizesDjotStructure
             }
             $lineOffset = $lineEnd + 1;
         }
-        $rewrite = function (array $match) use ($definitions, $aliases, $classAliases, $mask, $source, $tableAt): string {
+        $rewrite = function (array $match) use ($definitions, $aliases, $classAliases, $mask, $source, $tableAt, $caretOnly): string {
             [$text, $at] = $match[0];
             if (($mask[$at] ?? '') === ' ' || $this->isDjotEscaped($source, $at)) {
                 return $text;
@@ -1511,6 +1524,9 @@ trait NormalizesDjotStructure
             $definition = $definitions[$key] ?? null;
             if ($definition === null) {
                 return $text;
+            }
+            if ($caretOnly) {
+                return $match[1][0] . '[' . ($aliases[$key] ?? $key) . ']' . $match[4][0];
             }
             if ($definition['url'] !== '' && ($definition['inherited'] || $match[4][0] !== '')) {
                 $referenceName = (isset($match[5]['class']) ? ($classAliases[$key] ?? null) : null) ?? $aliases[$key] ?? $key;

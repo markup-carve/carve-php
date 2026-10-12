@@ -224,10 +224,11 @@ trait ReportsDjotLosses
                 unset($depths[$start]);
                 $image = array_pop($images);
                 $innerLink = array_pop($innerLinks);
+                $footnote = ($source[$start + 1] ?? '') === '^' && $at > $start + 2;
                 $validForm = isset($destinations[$at + 1]) || ($source[$at + 1] ?? '') === '[' && ($referenceEnds[$at + 2] ?? -1) >= 0;
-                $isLink = !$image && ($source[$start + 1] ?? '') !== '^' && $validForm;
+                $isLink = !$image && !$footnote && $validForm;
                 $referenceEnd = $referenceEnds[$at + 2] ?? -1;
-                if (($source[$start + 1] ?? '') !== '^' && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
+                if (!$footnote && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
                     $label = substr($source, $at + 2, $referenceEnd - $at - 2);
                     if ($label === '' && $definitions !== []) {
                         $label = $this->djotReferenceDefinitionKey($this->djotReferenceRenderedLabel(substr($source, $start + 1, $at - $start - 1)));
@@ -240,7 +241,7 @@ trait ReportsDjotLosses
                         $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                     }
                 }
-                if (($source[$start + 1] ?? '') !== '^' && isset($destinations[$at + 1]) && $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth) === '') {
+                if (!$footnote && isset($destinations[$at + 1]) && $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth) === '') {
                     $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                 }
                 if ($isLink && $innerLink) {
@@ -249,7 +250,7 @@ trait ReportsDjotLosses
                 if ($starts !== [] && ($isLink || $innerLink && !($image && $validForm))) {
                     $innerLinks[count($starts) - 1] = true;
                 }
-                if (($source[$start + 1] ?? '') !== '^' && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
+                if (!$footnote && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
                     $at = $referenceEnd;
                 }
             }

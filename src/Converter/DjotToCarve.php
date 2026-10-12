@@ -200,6 +200,21 @@ class DjotToCarve
         $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
+        $hasCaretReference = false;
+        if (str_contains($source, '[^') && str_contains($source, ']:')) {
+            foreach (explode("\n", $source) as $line) {
+                if (preg_match('/^\[\^[^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1) {
+                    $hasCaretReference = true;
+
+                    break;
+                }
+            }
+        }
+        if ($hasCaretReference) {
+            $accepted = [];
+            $this->foldDjotReferences($source, $accepted);
+            $source = $this->normalizeDjotReferenceUses($source, true, $accepted ?? []);
+        }
         $source = $this->carryDjotAttributesAcrossDivClosers($source);
         [$source, $inherited] = $this->escapeInvalidDjotAttributes($source);
         $source = $this->normalizeDjotFences($this->foldDjotReferences($this->normalizeDjotAttributeLines($source)));
@@ -235,7 +250,7 @@ class DjotToCarve
                 $definitions[$definitionMatches[1][$index][0]] = true;
             }
         }
-        $source = preg_replace_callback('/(!?\[([^\[\]\n]*)\])\[\]/', static fn (array $match): string => $collapsedMask[$match[0][1]] !== ' ' && isset($definitions[$match[2][0]]) ? $match[1][0] . '[' . $match[2][0] . ']' : $match[0][0], $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
+        $source = preg_replace_callback('/(!?\[([^\[\]\n]*)\])\[\]/', static fn (array $match): string => $collapsedMask[$match[0][1]] !== ' ' && !(str_starts_with($match[2][0], '^') && strlen($match[2][0]) > 1) && isset($definitions[$match[2][0]]) ? $match[1][0] . '[' . $match[2][0] . ']' : $match[0][0], $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
         $source = $this->convertDjotBlockMarkers($source);
         $emptyTerm = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYTERM\x00");
         $source = $this->convertDefinitionLists($source, $emptyTerm);
@@ -3479,7 +3494,7 @@ class DjotToCarve
             [$depth] = $this->quoted($line);
             $at = $this->djotContentStart($line);
             $content = substr($line, $at);
-            $definition = preg_match('/^\[(?!\^)([^\]\n]*)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', $content, $match) === 1;
+            $definition = preg_match('/^\[(?!\^[^\]\n]+\]:(?:[ \t\r]|$))([^\]\n]*)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', $content, $match) === 1;
             $previousLine = $lines[$n - 1] ?? '';
             $previousAt = $this->djotContentStart($previousLine);
             $previousNote = strpos(substr($previousLine, 0, $previousAt), '[^');
@@ -3867,7 +3882,7 @@ class DjotToCarve
         }
         $imageEnds = [];
         foreach ($brackets as $at => $close) {
-            if ($at > 0 && $source[$at - 1] === '!' && str_contains('[(', $source[$close + 1] ?? "\0")) {
+            if ($at > 0 && $source[$at - 1] === '!' && (($source[$at + 1] ?? '') !== '^' || $close === $at + 2) && str_contains('[(', $source[$close + 1] ?? "\0")) {
                 $imageEnds[$at] = $close;
             }
         }
@@ -3915,7 +3930,7 @@ class DjotToCarve
             }
             $definition = $definitions[$i] ?? null;
             $end = $definition[1] ?? $brackets[$i] ?? null;
-            if (substr($source, $i, 2) === '[^' && ($definition !== null || $mask[$i] === '[') && $end !== null) {
+            if (substr($source, $i, 2) === '[^' && ($definition !== null || $mask[$i] === '[') && $end !== null && $end > $i + 2) {
                 $key = $definition[0] ?? $keyOf(substr($source, $i + 2, $end - $i - 2));
                 $rename = isset($labels[$key]) || $unsupported($key) || !isset($defined[$key]);
                 $name = $rename ? $alias($key) : $key;
@@ -3929,12 +3944,19 @@ class DjotToCarve
                     $output .= ': ' . $emptyNote;
                     $i++;
                 }
+                if ($definition !== null && ($source[$i] ?? '') === ':' && ($source[$i + 1] ?? '') === "\t") {
+                    $output .= ': ';
+                    $i += 2;
+                }
                 if ($definition === null && ($source[$i] ?? '') === ':' && isset($lineHeads[$at])) {
                     $output .= '\\:';
                     $i++;
                 }
 
                 continue;
+            }
+            if ($source[$i] === '!' && !$this->isDjotEscaped($source, $i) && substr($source, $i + 1, 2) === '[^' && ($brackets[$i + 1] ?? 0) > $i + 3 && ($mask[$i + 1] ?? '') === '[') {
+                $output .= '\\';
             }
             $output .= $source[$i++];
         }
@@ -4262,7 +4284,7 @@ class DjotToCarve
 
                 continue;
             }
-            if (preg_match('/\G(?:\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\)|:)[ \t]+)/', $line, $marker, offset: $at) !== 1) {
+            if (preg_match('/\G(?:\[\^[^\]\n]+\]:(?:[ \t]+|[\r\n]*$)|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\)|:)[ \t]+)/', $line, $marker, offset: $at) !== 1) {
                 break;
             }
             $at += strlen($marker[0]);

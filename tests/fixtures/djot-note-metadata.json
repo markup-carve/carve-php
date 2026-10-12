@@ -1810,5 +1810,349 @@
     "source": "[r]: /u\n> tail\n\n[x][r]",
     "lossLines": [],
     "html": "<blockquote><p>tail</p></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-0",
+    "source": "[^n]:/u\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-2",
+    "source": "[^n]:/u\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"/u\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-3",
+    "source": "[^n]:/u\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-4",
+    "source": "[^n]:/u_r`d\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-6",
+    "source": "[^n]:/u_r`d\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"/u_r`d\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-7",
+    "source": "[^n]:/u_r`d\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-8",
+    "source": "> [^n]:/u\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-10",
+    "source": "> [^n]:/u\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><table><tr><td><a href=\"/u\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-11",
+    "source": "> [^n]:/u\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-12",
+    "source": "> [^n]:/u_r`d\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-14",
+    "source": "> [^n]:/u_r`d\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><table><tr><td><a href=\"/u_r`d\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-15",
+    "source": "> [^n]:/u_r`d\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-16",
+    "source": "> > [^n]:/u\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-18",
+    "source": "> > [^n]:/u\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><table><tr><td><a href=\"/u\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-19",
+    "source": "> > [^n]:/u\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-20",
+    "source": "> > [^n]:/u_r`d\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-22",
+    "source": "> > [^n]:/u_r`d\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><table><tr><td><a href=\"/u_r`d\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-23",
+    "source": "> > [^n]:/u_r`d\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-24",
+    "source": "- [^n]:/u\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-26",
+    "source": "- [^n]:/u\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><table><tr><td><a href=\"/u\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-27",
+    "source": "- [^n]:/u\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-28",
+    "source": "- [^n]:/u_r`d\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-30",
+    "source": "- [^n]:/u_r`d\n\n| [x][^n] |",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><table><tr><td><a href=\"/u_r`d\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-reference-31",
+    "source": "- [^n]:/u_r`d\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-32",
+    "source": "{.a}\n[^n]:/u\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-33",
+    "source": "[^n]:/u\n\n[^n]: note\n\n[x][^n] x[^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-reference-34",
+    "source": "[^n]:/u\n[^n]:/v\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/v\">x</a></p>"
+  },
+  {
+    "name": "caret-reference-35",
+    "source": "[^n]:/u\n\n[carve-djot-reference-1]:/v\n\n[x][^n] [y][carve-djot-reference-1]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a><a href=\"/v\">y</a></p>"
+  },
+  {
+    "name": "caret-review-caret-reference-32",
+    "source": "[^n]:\n  note\n\nx[^n]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-review-caret-reference-33",
+    "source": "[^n]:\r\n  note\r\n\r\nx[^n]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-review-caret-reference-35",
+    "source": "[^n]:/u\r\n\r\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-review-caret-reference-36",
+    "source": "[^a b]:/u\n\n[x][^a\nb]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-review-caret-reference-40",
+    "source": "[^n]:/u\n  _tail\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_tail\">x</a></p>"
+  },
+  {
+    "name": "caret-review-caret-reference-34",
+    "source": "[^n]:\tword\n\nx[^n]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>word<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-review-caret-reference-38",
+    "source": "[^n]:/u\n\n[^n][]",
+    "lossLines": [],
+    "html": "<p><a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[]</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-followup-caret-reference-32",
+    "source": "[^n]:/u\n\n[carve-djot-reference-1]:/v\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-followup-caret-reference-33",
+    "source": "[carve-djot-reference-1]:/v\n\n[^n]:/u\n\n[x][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-followup-caret-reference-34",
+    "source": "[^a]: note\n[^n]:/u\n\n[x][^n] x[^a]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-followup-caret-reference-35",
+    "source": "[^n]:/u\n\n\\![^n][]",
+    "lossLines": [],
+    "html": "<p>!<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[]</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-followup-caret-reference-37",
+    "source": "[^n]:/u\n\n![^n][]",
+    "lossLines": [],
+    "html": "<p>!<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[]</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-followup-caret-reference-38",
+    "source": "[^n]:/u\n\n[\\^n][^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">^n</a></p>"
+  },
+  {
+    "name": "caret-footnote-suffix-1",
+    "source": "[r]: /u\n\n[^][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">^</a></p>"
+  },
+  {
+    "name": "caret-footnote-suffix-2",
+    "source": "[^]:/u\n\n[x][^]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-footnote-suffix-3",
+    "source": "[^]: /u\n\n[x][^]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "caret-footnote-suffix-4",
+    "source": "x[^n][](/u)",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a href=\"/u\"></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-footnote-suffix-5",
+    "source": "x[^n][]{.a}",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><span class=\"a\"></span></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-footnote-suffix-6",
+    "source": "[r]: /u\n\nx[^n][r]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>[r]</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-footnote-suffix-7",
+    "source": "x[^n](/u)",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>(/u)</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-footnote-suffix-8",
+    "source": "x![^n](/u)",
+    "lossLines": [],
+    "html": "<p>x!<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>(/u)</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-escaped-attribute-pipe",
+    "source": "[^n]:/u\n\n| [x][^n]{title=\"a\\|b\"} |",
+    "lossLines": [],
+    "html": "<table><tr><td><a href=\"/u\" title=\"a|b\">x</a></td></tr></table>"
+  },
+  {
+    "name": "caret-attribute-extra-34",
+    "source": "[^n]:/u\n\n[x][^n]{.a}",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\" class=\"a\">x</a></p>"
+  },
+  {
+    "name": "caret-attribute-extra-36",
+    "source": "{.a title=\"a|b\"}\n[^n]:/u\n\n[x][^n]{.b}",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\" title=\"a|b\" class=\"b\">x</a></p>"
+  },
+  {
+    "name": "caret-attribute-extra-37",
+    "source": "[^n]:/u\n\n[x][^n]{title=\"a\\\"b\"}",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\" title=\"a&quot;b\">x</a></p>"
+  },
+  {
+    "name": "caret-multiline-use-preserves-original-loss-line",
+    "source": "[^a b]:/u\n\n[x][^a\nb]\n\n{.c}\n[^n]: note\n\nx[^n]",
+    "lossLines": [
+      6
+    ],
+    "html": "<p><a href=\"/u\">x</a></p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-final-review-0",
+    "source": "[^]:/u\n\n[^][]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">^</a></p>"
+  },
+  {
+    "name": "caret-final-review-3",
+    "source": "[^n]:/u\n\nx[^n][x][^n]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a href=\"/u\">x</a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "caret-final-review-4",
+    "source": "[^n]:\t\tword\n\nx[^n]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>word<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   }
 ]

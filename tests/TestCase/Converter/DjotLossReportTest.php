@@ -215,4 +215,12 @@ class DjotLossReportTest extends TestCase
         $losses = array_filter($converter->convertWithFidelityReport($source)->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference'));
         self::assertCount(1, $losses);
     }
+
+    public function testAdjacentFootnotesRemainFootnotesBesideCaretReference(): void
+    {
+        $source = "[^n]:/u\n\n[^n][^n]";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+        self::assertSame(2, substr_count($html, 'role="doc-noteref"'));
+        self::assertStringNotContainsString('carve-djot-reference', $html);
+    }
 }
