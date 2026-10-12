@@ -1080,6 +1080,12 @@ final class BlockContinuationScanner
 
                     continue;
                 }
+                // A payload line that misses the item's prefix ends the item
+                // before the span is classified (`CARVE-P0-005`); only the
+                // closing run is free of the column.
+                if ($openCommentLength !== null) {
+                    break;
+                }
             }
 
             // A FRAMED LINE IS THE OPEN FENCE'S BODY, not the end of the item
@@ -1168,8 +1174,7 @@ final class BlockContinuationScanner
 
             // Retained markers below the content column stay text on reparse.
             if (
-                $openCommentLength === null
-                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+                ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
                 && ($trailingState->afterComment
                     || $this->isCommentLineOrFence($itemLines[count($itemLines) - 1] ?? ''))
             ) {
@@ -2382,6 +2387,19 @@ final class BlockContinuationScanner
                 return $state;
             }
 
+            // A comment closes the div's paragraph and leaves the div open
+            // (`CARVE-P0-005`).
+            if ($this->isCommentLineOrFence($line, $at)) {
+                if ($atContentColumn) {
+                    $state->openParagraph = false;
+                    $state->afterComment = true;
+                } else {
+                    $state->afterComment = $wasAfterComment;
+                }
+
+                return $state;
+            }
+
             if (($this->getFencedBlockParser)()->parseDivFenceOpener(BlockGrammar::subjectFrom($line, $at, $end)) !== null) {
                 $state->divDepth++;
                 $state->openParagraph = false;
@@ -2409,16 +2427,12 @@ final class BlockContinuationScanner
                 return $state;
             }
 
-            // A TABLE and a THEMATIC BREAK inside the div leave no open
-            // paragraph, exactly as they do outside one. A HEADING does NOT go
-            // with them here, and that is measured rather than tidy: the
-            // executable spec puts the flush-left line INSIDE the div after
-            // `- item` / `::: note` / `# h`, while it puts it at the top level
-            // for the same shape in a block quote. Both are reproduced as
-            // measured.
+            // A TABLE, a THEMATIC BREAK and a HEADING inside the div leave no
+            // open paragraph, exactly as they do outside one.
             $trimmedInDiv = ltrim(BlockGrammar::subjectFrom($line, $at, $end), " \t");
             if (
                 preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                || ($column === $state->divColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1)
                 || ($this->getTableParser)()->isTableRow($trimmedInDiv)
             ) {
                 $state->openParagraph = false;
