@@ -260,38 +260,10 @@ class DjotToCarve
         $strongSpans = [];
         $altPrefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTALT\x00");
         $imageParagraph = DjotPlaceholderPrefix::choose($source, "\x00DJOTIMAGEPARAGRAPH\x00");
-        $imageStarts = [];
-        $imageLines = [];
-        $imageLine = 0;
-        $imageOffset = 0;
-        $imageItemColumn = 0;
-        $imageItemQuote = 0;
-        $imageDivs = [];
-        $imageOwnerMarker = '/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+/';
         $imageMask = $this->maskCodeAndDestinations($source);
-        foreach (explode("\n", $source) as $line) {
-            $contentStart = $this->djotContentStart($line);
-            $imageStarts[$imageOffset + $contentStart] = true;
-            [$depth, $body] = $this->quoted($line);
-            $text = ltrim($body, " \t");
-            $indent = strlen($body) - strlen($text);
-            if (preg_match($imageOwnerMarker, $text) === 1) {
-                $imageItemColumn = $indent + 1;
-                $imageItemQuote = $depth;
-            } elseif ($text !== '' && ($depth < $imageItemQuote || $depth === $imageItemQuote && $indent < $imageItemColumn && preg_match('/^(?:#{1,6} |:{3,}|[-*+] |\{|\|)/', $text) === 1)) {
-                $imageItemColumn = 0;
-            }
-            if (preg_match('/^(:{3,})(?:[ \t]+\S.*)?[ \t]*$/', substr($line, $contentStart), $delimiter) === 1 && $imageMask[$imageOffset + $contentStart] !== ' ') {
-                $owner = $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)];
-                if ($owner !== null && substr_count(substr($line, 0, $contentStart), '>') === $owner['depth'] && preg_match('/^:{3,}[ \t]*$/', substr($line, $contentStart)) === 1 && strlen($delimiter[1]) >= $owner['width']) {
-                    array_pop($imageDivs);
-                } else {
-                    $imageDivs[] = ['width' => strlen($delimiter[1]), 'depth' => substr_count(substr($line, 0, $contentStart), '>'), 'column' => $contentStart];
-                }
-            }
-            $imageLines[] = ['end' => $imageOffset + strlen($line) + 1, 'quotes' => substr_count(substr($line, 0, $contentStart), '>'), 'itemColumn' => $imageItemColumn, 'itemQuote' => $imageItemQuote, 'table' => ($line[$contentStart] ?? '') === '|', 'div' => $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)]];
-            $imageOffset += strlen($line) + 1;
-        }
+        $imageLines = $this->djotImageLineOwners($source, $imageMask);
+        $imageStarts = array_fill_keys(array_column($imageLines, 'start'), true);
+        $imageLine = 0;
         $source = $this->replaceImageLabels($source, $imageMask, function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask, $imageParagraph, $imageStarts, $imageLines, &$imageLine, $inherited): string {
             [$image, $at] = $match[0];
             if ($imageMask[$at] !== '!' || $imageMask[$at + strlen($image) - 1] !== ']' || preg_match('/\n[ \t]*\n/', $match[1][0]) === 1 || $this->isDjotEscaped($source, $at)) {
@@ -3023,6 +2995,43 @@ class DjotToCarve
     }
 
     /**
+     * @return list<array{start: int, end: int, quotes: int, itemColumn: int, itemQuote: int, table: bool, div: ?array{width: int, depth: int, column: int}}>
+     */
+    private function djotImageLineOwners(string $source, string $mask): array
+    {
+        $imageLines = [];
+        $imageOffset = 0;
+        $imageItemColumn = 0;
+        $imageItemQuote = 0;
+        $imageDivs = [];
+        $imageOwnerMarker = '/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+/';
+        foreach (explode("\n", $source) as $line) {
+            $contentStart = $this->djotContentStart($line);
+            [$depth, $body] = $this->quoted($line);
+            $text = ltrim($body, " \t");
+            $indent = strlen($body) - strlen($text);
+            if (preg_match($imageOwnerMarker, $text) === 1) {
+                $imageItemColumn = $indent + 1;
+                $imageItemQuote = $depth;
+            } elseif ($text !== '' && ($depth < $imageItemQuote || $depth === $imageItemQuote && $indent < $imageItemColumn && preg_match('/^(?:#{1,6} |:{3,}|[-*+] |\{|\|)/', $text) === 1)) {
+                $imageItemColumn = 0;
+            }
+            if (preg_match('/^(:{3,})(?:[ \t]+\S.*)?[ \t]*$/', substr($line, $contentStart), $delimiter) === 1 && $mask[$imageOffset + $contentStart] !== ' ') {
+                $owner = $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)];
+                if ($owner !== null && substr_count(substr($line, 0, $contentStart), '>') === $owner['depth'] && preg_match('/^:{3,}[ \t]*$/', substr($line, $contentStart)) === 1 && strlen($delimiter[1]) >= $owner['width']) {
+                    array_pop($imageDivs);
+                } else {
+                    $imageDivs[] = ['width' => strlen($delimiter[1]), 'depth' => substr_count(substr($line, 0, $contentStart), '>'), 'column' => $contentStart];
+                }
+            }
+            $imageLines[] = ['start' => $imageOffset + $contentStart, 'end' => $imageOffset + strlen($line) + 1, 'quotes' => substr_count(substr($line, 0, $contentStart), '>'), 'itemColumn' => $imageItemColumn, 'itemQuote' => $imageItemQuote, 'table' => ($line[$contentStart] ?? '') === '|', 'div' => $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)]];
+            $imageOffset += strlen($line) + 1;
+        }
+
+        return $imageLines;
+    }
+
+    /**
      * @return \Closure(int, int, int, int, int, ?int): bool
      */
     private function djotImageBoundaryIndex(string $source, string $mask): Closure
@@ -3666,6 +3675,7 @@ class DjotToCarve
         }
         $mask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false]);
         $rows = $this->djotTableRows($source, $mask);
+        $imageLines = null;
         preg_match_all('/<[^<>\s]+>/', $source, $angleMatches, PREG_OFFSET_CAPTURE);
         $angles = [];
         foreach ($angleMatches[0] as [$value, $at]) {
@@ -3685,6 +3695,13 @@ class DjotToCarve
         $pipeSerial = 0;
         $line = 0;
         $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask), true);
+        if (str_contains($source, ':::')) {
+            $divClosers = [];
+            $this->djotInlineBoundaries($source, $mask, true, $divClosers);
+            foreach ($divClosers ?? [] as $at => $_) {
+                $boundaries[$at] = true;
+            }
+        }
         $destinationOwner = null;
         $length = strlen($source);
         for ($i = 0; $i < $length; $i++) {
@@ -3835,6 +3852,27 @@ class DjotToCarve
                 $pendingNotes = [];
 
                 continue;
+            }
+            $authoredLabel = $owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) ? substr($source, $owner['at'] + 1, $owner['labelEnd'] - $owner['at'] - 1) : '';
+            if (str_contains($authoredLabel, "\n")) {
+                $imageLines ??= $this->djotImageLineOwners($source, $mask);
+                $left = 0;
+                $right = count($imageLines);
+                while ($left < $right) {
+                    $middle = intdiv($left + $right, 2);
+                    if ($imageLines[$middle]['end'] <= $owner['at']) {
+                        $left = $middle + 1;
+                    } else {
+                        $right = $middle;
+                    }
+                }
+                $imageOwner = $imageLines[$left];
+                if (!$this->djotImageAltLayout($authoredLabel, $imageOwner['quotes'], $imageOwner['itemColumn'], $imageOwner['itemQuote'])['valid']) {
+                    array_pop($stack);
+                    $destinationOwner = null;
+
+                    continue;
+                }
             }
             $label = $this->djotLinkLabel($source, $mask, $angles, $edits, $owner['at'] + 1, $owner['labelEnd']);
             $rawDestination = '';

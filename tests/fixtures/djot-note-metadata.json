@@ -4668,5 +4668,47 @@
     "source": "> `a\n> ::: |\n> b`",
     "lossLines": [],
     "html": "<blockquote><p><code>a\n&#58;&#58;&#58; &#124;\nb</code></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-owner-heading-from-quote",
+    "source": "> ![bad\n# H\n![*inner*](v)\n](u)",
+    "lossLines": [],
+    "html": "<blockquote><p>![bad</p></blockquote><section id=\"H-inner-u\"><h1>H <img src=\"v\" alt=\"inner\"> ](u)</h1></section>"
+  },
+  {
+    "name": "image-paragraph-owner-heading-from-quoted-list",
+    "source": "> - ![bad\n> # H\n> ![*inner*](v)\n> ](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![bad</li></ul><h1 id=\"H-inner-u\">H <img src=\"v\" alt=\"inner\"> ](u)</h1></blockquote>"
+  },
+  {
+    "name": "image-paragraph-owner-quote-from-list",
+    "source": "- ![bad\n> ![*inner*](v)\n](u)",
+    "lossLines": [],
+    "html": "<ul><li>![bad</li></ul><blockquote><p><img src=\"v\" alt=\"inner\">\n](u)</p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-owner-div-close",
+    "source": "::: c\n![bad\n:::\n![*inner*](v)\n](u)",
+    "lossLines": [],
+    "html": "<div class=\"c\"><p>![bad</p></div><p><img src=\"v\" alt=\"inner\">\n](u)</p>"
+  },
+  {
+    "name": "image-paragraph-owner-quoted-div-close",
+    "source": "> ::: c\n> ![bad\n> :::\n> ![*inner*](v)\n> ](u)",
+    "lossLines": [],
+    "html": "<blockquote><div class=\"c\"><p>![bad</p></div><p><img src=\"v\" alt=\"inner\">\n](u)</p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-owner-heading-after-hard-break",
+    "source": "before\\\nword\n\n> ![bad\n# H\n![*inner*](v)\n](u)",
+    "lossLines": [],
+    "html": "<p>before<br>\nword</p><blockquote><p>![bad</p></blockquote><section id=\"H-inner-u\"><h1>H <img src=\"v\" alt=\"inner\"> ](u)</h1></section>"
+  },
+  {
+    "name": "image-paragraph-owner-outer-div-closes-inner",
+    "source": ":::\n::::: x\n![a [x](v)\n:::\nb](u)",
+    "lossLines": [],
+    "html": "<div><div class=\"x\"><p>![a <a href=\"v\">x</a></p></div></div><p>b](u)</p>"
   }
 ]
