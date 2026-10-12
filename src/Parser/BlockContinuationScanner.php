@@ -893,8 +893,10 @@ final class BlockContinuationScanner
                             || $this->isCommentLineOrFence($nextTrimmed)
                         )
                     ) {
+                        // A non-null tracker here was opened on this line; its opener already parsed.
                         if (
-                            !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                            $termCodeTailFence !== null
+                            || !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
                             || ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) !== null
                             || ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed) !== null
                         ) {
