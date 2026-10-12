@@ -1874,9 +1874,17 @@ final class ListBlockBuilder
         }
         for ($j = $lead + 1; $j < $count; $j++) {
             $text = ltrim($lines[$j], " \t");
+            if ($text === '') {
+                $resumes = $this->footnoteBodyResumesAfter($lines, $j, $count, BlockGrammar::FOOTNOTE_BODY_COLUMN, false);
+                if ($resumes === null) {
+                    break;
+                }
+                $j = $resumes - 1;
+
+                continue;
+            }
             if (
-                $text === ''
-                || IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN
+                IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN
                 || $this->isCommentLineOrFence($text)
                 || preg_match('/^\\[[^\\]]+\\]:/', $text) === 1
                 || (

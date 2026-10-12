@@ -1206,6 +1206,19 @@ final class BlockContinuationScanner
                                 $authoredCodeColumn !== null,
                             ))));
                 if (
+                    $nestedNoteBodyColumn !== null
+                    && IndentationHelper::getLeadingColumns($nextLine, $nestedNoteBodyColumn) >= $nestedNoteBodyColumn
+                    && !$wasInFence
+                    && $trailingState->fence === null
+                    && !$inlineAuthoredFence
+                    && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null
+                    && !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                ) {
+                    $trailingState->openParagraph = false;
+                    $trailingState->afterInvisible = true;
+                    $trailingState->inFootnoteBody = true;
+                }
+                if (
                     $i > $metadataCodeIndex && $metadataCodeColumn !== null && $metadataCodeOpener !== null
                     && IndentationHelper::getLeadingColumns($nextLine) === $metadataCodeColumn
                     && ($this->getFencedBlockParser)()->isCodeFenceCloser($nextTrimmed, $metadataCodeOpener['char'] ?? $metadataCodeOpener['fence'][0], $metadataCodeOpener['length'])
@@ -3382,8 +3395,7 @@ final class BlockContinuationScanner
     {
         for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
             $text = ltrim($itemLines[$cursor], " \t");
-            $broken = $text === ''
-                || $this->isCommentLineOrFence($text)
+            $broken = $this->isCommentLineOrFence($text)
                 || preg_match('/^\[[^\]]+\]:/', $text) === 1
                 || (
                     ($this->getListParser)()->parseListItemMarker($text) === null
