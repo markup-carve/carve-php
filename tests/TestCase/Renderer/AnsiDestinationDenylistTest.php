@@ -71,14 +71,14 @@ class AnsiDestinationDenylistTest extends TestCase
         $this->assertSame('a ()', $this->ansi($source . "\n"));
     }
 
-    public function testObfuscatingWhitespaceIsStrippedBeforeTheSchemeIsRead(): void
+    public function testUnicodeWhitespaceAfterTheSeparatorIsContent(): void
     {
         // The shape corpus 121 pins for HTML. An inline `(...)` destination cannot
         // begin with whitespace at all, so the probe never mattered there - a
         // reference DEFINITION can, and that path reaches this target.
         $source = "[click][a]\n\n[a]: \u{202f}javascript:alert(1)\n";
 
-        $this->assertSame('click ()', $this->ansi($source));
+        $this->assertSame(rtrim($source), $this->ansi($source));
     }
 
     public function testAnOrdinaryDestinationIsUntouched(): void

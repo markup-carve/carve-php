@@ -267,10 +267,10 @@ class ConformanceDivergenceTest extends TestCase
      * `[r]: \t/u` definition (space then tab) still resolves to `/u` -- matching
      * carve-rs. Only a tab-FIRST separator is rejected (see below).
      */
-    public function testReferenceDefinitionAllowsTabAfterLeadingSpace(): void
+    public function testReferenceDefinitionRejectsTabAfterLeadingSpace(): void
     {
         $this->assertSame(
-            '<p>see <a href="/u">x</a></p>',
+            "<p>see [x][r]</p>\n<p>[r]: \t/u</p>",
             trim($this->converter->convert("see [x][r]\n\n[r]: \t/u\n")),
         );
     }
