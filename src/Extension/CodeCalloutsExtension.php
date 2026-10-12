@@ -145,7 +145,7 @@ class CodeCalloutsExtension implements ExtensionInterface
             $body .= "\n";
         }
 
-        $attrs = $renderer->renderAttributesExcluding($node, []);
+        $attrs = $renderer->renderAttributesExcluding($node, $renderer->isRoundTripMode() && $node->getLabel() !== null ? ['data-carve-label'] : []);
         // Preserve round-trip source exactly like core renderCodeBlock: the
         // data-carve-src carries the ORIGINAL fence + literal `<n>` markers so a
         // marked block round-trips identically to an unmarked one.
@@ -153,6 +153,9 @@ class CodeCalloutsExtension implements ExtensionInterface
         if ($renderer->isRoundTripMode()) {
             $djotSrc = $renderer->reconstructCodeBlockSource($node);
             $djotSrcAttr = ' data-carve-src="' . $renderer->escapeAttribute($djotSrc) . '"';
+            if ($node->getLabel() !== null) {
+                $djotSrcAttr .= ' data-carve-label="' . $renderer->escapeAttribute($node->getLabel()) . '"';
+            }
         }
         $language = $node->getLanguage();
         if ($language !== null) {

@@ -49,6 +49,8 @@ final class HtmlCarrierNames
         'col-widths',
         'escaped',
         'explicit-id',
+        'fence-content',
+        'fence-language',
         'footnote-label',
         'heading-ref',
         'heading-ref-display',

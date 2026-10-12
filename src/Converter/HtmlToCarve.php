@@ -3473,6 +3473,9 @@ class HtmlToCarve
         $tokens = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $survived = true;
         foreach ($tokens as $token) {
+            if ($token === 'mermaid' && $this->inspectedElement !== null && HtmlAstBuilder::isMermaidFenceElement($this->inspectedElement)) {
+                continue;
+            }
             if (!$this->consumeSurvivingAttribute($this->importSurvivorKey('class', $token))) {
                 $survived = false;
             }
