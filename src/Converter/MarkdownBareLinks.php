@@ -4,12 +4,15 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+/**
+ * @internal
+ */
 final class MarkdownBareLinks
 {
     private static function hostCharacter(string $text, int $at): bool
     {
-        return isset($text[$at])
-            && preg_match('/\G[^\s\p{P}!\x22-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/u', $text, $match, 0, $at) === 1;
+        return isset($text[$at]) && $text[$at] !== "\0"
+            && preg_match('/\G[^\x09\x0a\x0c\x0d \x{00a0}\x{1680}\x{2000}-\x{200a}\x{202f}\x{205f}\x{3000}\p{P}!\x22-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/u', $text, $match, 0, $at) === 1;
     }
 
     private static function domainAllowed(string $text, int $start, bool $short): bool
@@ -27,7 +30,7 @@ final class MarkdownBareLinks
                 $i++;
             }
             $char = $text[$i];
-            if (ord($char) > 0x7f) {
+            if ($char === "\0" || ord($char) > 0x7f) {
                 break;
             }
             if ($char === '_') {
@@ -71,12 +74,56 @@ final class MarkdownBareLinks
     }
 
     /**
+     * @param string $text
+     * @param string $mode
+     * @param bool $raw
+     * @param callable(int): ?int|null $opaqueEnd
+     * @param callable(int): ?int|null $destinationEnd
+     *
      * @return list<array{start: int, end: int, prefix: string}>
      */
-    private static function scan(string $text, string $mode): array
+    private static function scan(string $text, string $mode, bool $raw = false, ?callable $opaqueEnd = null, ?callable $destinationEnd = null): array
     {
+        if ($mode === 'all') {
+            $result = [];
+            $cursor = 0;
+            foreach (self::scan($text, 'url') as $url) {
+                foreach (self::scan(substr($text, $cursor, $url['start'] - $cursor), 'email') as $email) {
+                    $email['start'] += $cursor;
+                    $email['end'] += $cursor;
+                    $result[] = $email;
+                }
+                $result[] = $url;
+                $cursor = $url['end'];
+            }
+            foreach (self::scan(substr($text, $cursor), 'email') as $email) {
+                $email['start'] += $cursor;
+                $email['end'] += $cursor;
+                $result[] = $email;
+            }
+
+            return $result;
+        }
+        $codeClosers = [];
+        if ($raw) {
+            preg_match_all('/`+/', $text, $runs, PREG_OFFSET_CAPTURE);
+            $next = [];
+            foreach (array_reverse($runs[0]) as [$run, $at]) {
+                $width = strlen($run);
+                if (isset($next[$width])) {
+                    $codeClosers[$at] = $next[$width] + $width;
+                }
+                if ($width > 1 && isset($next[$width - 1])) {
+                    $codeClosers[$at + 1] = $next[$width - 1] + $width - 1;
+                }
+                $next[$width] = $at;
+            }
+        }
         $links = [];
-        $search = $contextAt = $bracketDepth = $chunkEnd = 0;
+        $search = $contextAt = $chunkEnd = 0;
+        $brackets = [];
+        $generation = $activeLinks = $activeImages = 0;
+        $escapedBang = -1;
         $length = strlen($text);
         $retry = null;
         $emailFloor = 0;
@@ -85,18 +132,63 @@ final class MarkdownBareLinks
             $search = $end = $start + strlen($trigger);
             while ($contextAt < $start) {
                 if ($text[$contextAt] === '\\' && preg_match('/[!\x22-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]/', $text[$contextAt + 1] ?? '') === 1) {
+                    if ($text[$contextAt + 1] === '!') {
+                        $escapedBang = $contextAt + 1;
+                    }
                     $contextAt += 2;
 
                     continue;
                 }
+                if ($raw && $text[$contextAt] === '`') {
+                    if (isset($codeClosers[$contextAt])) {
+                        $contextAt = $codeClosers[$contextAt];
+                    } else {
+                        $contextAt += strspn($text, '`', $contextAt);
+                    }
+
+                    continue;
+                }
+                if ($raw && $text[$contextAt] === '<') {
+                    $opaqueThrough = $opaqueEnd !== null ? $opaqueEnd($contextAt) : null;
+                    if ($opaqueThrough !== null) {
+                        $contextAt = $opaqueThrough;
+
+                        continue;
+                    }
+                }
                 if ($text[$contextAt] === '[') {
-                    $bracketDepth++;
-                } elseif ($text[$contextAt] === ']' && $bracketDepth > 0) {
-                    $bracketDepth--;
+                    $image = $contextAt > 0 && $text[$contextAt - 1] === '!' && $escapedBang !== $contextAt - 1;
+                    $brackets[] = [$generation, $image];
+                    if ($image) {
+                        $activeImages++;
+                    } else {
+                        $activeLinks++;
+                    }
+                } elseif ($text[$contextAt] === ']' && $brackets !== []) {
+                    [$opened, $image] = array_pop($brackets);
+                    $active = $image || $opened === $generation;
+                    if ($image) {
+                        $activeImages--;
+                    } elseif ($active) {
+                        $activeLinks--;
+                    }
+                    $destinationThrough = $raw && $active && $destinationEnd !== null ? $destinationEnd($contextAt + 1) : null;
+                    if ($destinationThrough !== null) {
+                        if (!$image) {
+                            $generation++;
+                            $activeLinks = 0;
+                        }
+                        $contextAt = $destinationThrough + 1;
+
+                        continue;
+                    }
                 }
                 $contextAt++;
             }
-            if (($bracketDepth > 0 && $trigger !== '@') || (strtolower($trigger) === 'www.' && $trigger !== 'www.')) {
+            if ($contextAt > $start) {
+                continue;
+            }
+            if (($brackets !== [] && $trigger !== '@') || (strtolower($trigger) === 'www.' && $trigger !== 'www.')) {
                 continue;
             }
             $prefix = '';
@@ -163,7 +255,7 @@ final class MarkdownBareLinks
                     continue;
                 }
                 $www = $trigger === 'www.';
-                if ($www && $start > 0 && preg_match('/[ \t\r\n\f\v*_~(]/', $text[$start - 1]) !== 1) {
+                if ($www && $start > 0 && preg_match('/[ \t\r\n*_~(]/', $text[$start - 1]) !== 1) {
                     continue;
                 }
                 if (!$www && preg_match('/[A-Za-z]/', $start > 0 ? $text[$start - 1] : '') === 1) {
@@ -171,7 +263,7 @@ final class MarkdownBareLinks
                 }
                 if ($end >= $chunkEnd) {
                     $chunkEnd = $end;
-                    while ($chunkEnd < $length && preg_match('/[ \t\r\n\f\v<\x00]/', $text[$chunkEnd]) !== 1) {
+                    while ($chunkEnd < $length && preg_match('/[ \t\r\n<\x00]/', $text[$chunkEnd]) !== 1) {
                         $chunkEnd++;
                     }
                 }
@@ -190,7 +282,7 @@ final class MarkdownBareLinks
 
     /**
      * @param string $text
-     * @param callable(string): ?string|null $escapedSource
+     * @param (callable(string): (string|array{source: string, opaque: bool}|null))|null $escapedSource
      * @param string $mode
      *
      * @return list<array{start: int, end: int, prefix: string, body?: string, tail?: string}>
@@ -203,8 +295,8 @@ final class MarkdownBareLinks
         preg_match_all('/\x00P\d+\x00/', $text, $tokens, PREG_OFFSET_CAPTURE);
         $pieces = [];
         $cursor = $offset = 0;
-        $append = static function (string $value, int $start, int $end, bool $escaped = false) use (&$pieces, &$offset): void {
-            $pieces[] = compact('value', 'start', 'end', 'offset', 'escaped');
+        $append = static function (string $value, int $start, int $end, bool $escaped = false, bool $opaque = false) use (&$pieces, &$offset): void {
+            $pieces[] = compact('value', 'start', 'end', 'offset', 'escaped', 'opaque');
             $offset += strlen($value);
         };
         foreach ($tokens[0] as [$token, $at]) {
@@ -212,7 +304,7 @@ final class MarkdownBareLinks
                 $append(substr($text, $cursor, $at - $cursor), $cursor, $at);
             }
             $restored = $escapedSource($token);
-            $append($restored ?? $token, $at, $at + strlen($token), $restored !== null);
+            $append(is_array($restored) ? $restored['source'] : ($restored ?? $token), $at, $at + strlen($token), $restored !== null, is_array($restored) && $restored['opaque']);
             $cursor = $at + strlen($token);
         }
         if ($cursor < strlen($text)) {
@@ -235,6 +327,9 @@ final class MarkdownBareLinks
         $links = [];
         foreach (self::scan($expanded, $mode) as $link) {
             $first = $locate($link['start']);
+            if ($first['opaque']) {
+                continue;
+            }
             $start = $first['escaped'] ? $first['start'] : $first['start'] + $link['start'] - $first['offset'];
             $last = $locate($link['end']);
             $inside = $link['end'] - $last['offset'];
@@ -243,5 +338,21 @@ final class MarkdownBareLinks
         }
 
         return $links;
+    }
+
+    /**
+     * @param string $text
+     * @param callable(int): ?int|null $opaqueEnd
+     * @param callable(int): ?int|null $destinationEnd
+     *
+     * @return list<array{start: int, end: int, prefix: string}>
+     */
+    public static function rawUrls(string $text, ?callable $opaqueEnd = null, ?callable $destinationEnd = null): array
+    {
+        if (preg_match('~https?://|ftp://|www\.~i', $text) !== 1) {
+            return [];
+        }
+
+        return self::scan($text, 'url', true, $opaqueEnd, $destinationEnd);
     }
 }

@@ -340,10 +340,6 @@ bar
                 '[wiki](https://host/Titan_(moon))',
                 '[wiki](https://host/Titan_\\(moon\\))',
             ],
-            'does not rewrite delimiters inside a bare URL' => [
-                'see https://example.com/api/_v1_/index here',
-                'see https://example.com/api/_v1_/index here',
-            ],
             'does not rewrite delimiters inside a reference-link definition' => [
                 '[docs]: /api/_v1_/index',
                 '[docs]: /api/_v1_/index',
@@ -766,10 +762,10 @@ bar
                 'a \/it// b',
                 '<p>a /it// b</p>',
             ],
-            'escapes emphasis while leaving a neighbouring url alone' => [
+            'escapes emphasis beside a GFM URL' => [
                 'a /it/ and ftp://h/f',
-                'a \/it/ and ftp://h/f',
-                '<p>a /it/ and ftp://h/f</p>',
+                'a \/it/ and [ftp://h/f](ftp://h/f)',
+                '<p>a /it/ and <a href="ftp://h/f">ftp://h/f</a></p>',
             ],
             // MOVED from the negative provider by carve-php#2365. A closed pipe
             // row answers no delimiter row, so cmark-gfm reads `<p>|x|</p>` where
@@ -830,7 +826,6 @@ bar
             // reaches the slash rule. Escaping the second slash of `//` would
             // free the first one to open emphasis - `ftp:/\/x/` renders as
             // `ftp:<em>/x</em>`, markup the input never had.
-            'ftp url' => ['ftp://x/'],
             'protocol-relative url' => ['//host/path'],
             'git url' => ['git://h/r/'],
             'file url' => ['file:///etc/hosts'],
@@ -871,7 +866,6 @@ bar
             'fenced code' => ["```php\n*x*\n```", "```php\n*x*\n```"],
             'inline code' => ['`*x*`', '`*x*`'],
             'links' => ['[*x*](/u)', '[/x/](/u)'],
-            'bare URLs' => ['see https://example.com/a_b/c', 'see https://example.com/a_b/c'],
             'reference definitions' => ['[id]: /a_b/c', '[id]: /a_b/c'],
             'GFM tables' => ["| a | b |\n|---|---|\n| c | d |", "|= a |= b |\n| c | d |"],
         ];

@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
@@ -1821,7 +1822,7 @@ class MarkdownToCarve
                     $line = $this->escapeTaskItemOpener($line);
                 }
                 $line = $this->normalizeHeldQuoteMarkers($line);
-                $inlineRun = strpbrk($line, '`<') !== false ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
+                $inlineRun = strpbrk($line, '[`<') !== false ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
                 if ($inlineRun !== null) {
                     $i = $inlineRun['end'];
                     $parts = explode("\n", $this->convertInlineFormatting($inlineRun['body']));
@@ -2312,9 +2313,9 @@ class MarkdownToCarve
 
             return $carve;
         }
-        if (str_contains($carve, '@')) {
-            $converter = new CarveConverter(renderer: new CarveRenderer());
-            $document = $converter->parse($carve);
+        if (!$this->importingFootnoteBody && str_contains($carve, '@')) {
+            $converter = CarveConverter::carve();
+            $document = $converter->parse($frontmatter === [] ? $carve : "\n" . $carve);
             if (MarkdownEmailText::link($document)) {
                 $trailingNewline = str_ends_with($carve, "\n");
                 $rendered = $converter->renderWithReport($document, maxRenderLosses: PHP_INT_MAX);
@@ -2324,7 +2325,8 @@ class MarkdownToCarve
                     if (!is_string($message)) {
                         throw new LogicException('Render loss requires a message.');
                     }
-                    $this->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', $message, 'warning', 'dropped', 'exact');
+                    $fidelity = in_array($loss['code'] ?? null, ['ruby-flattened', 'editorial-comment-flattened'], true) ? 'degraded' : 'dropped';
+                    $this->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', $message, 'warning', $fidelity, 'exact', 'document');
                 }
             }
         }
@@ -5013,7 +5015,7 @@ class MarkdownToCarve
                 $out .= $match[0];
             } else {
                 $label = preg_replace('/([!-\/:-@\[-`{-~])/', '\\\\$1', $body) ?? $body;
-                $url = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`{|}]/', static fn (array $part): string => rawurlencode($part[0]), $body) ?? $body;
+                $url = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $part): string => rawurlencode($part[0]), $body) ?? $body;
                 $url = str_replace(['&', '(', ')'], ['\\&', '\\(', '\\)'], $url);
                 $out .= '[' . $label . '](' . $url . ')' . substr($match[0], strlen($body));
             }
@@ -5783,6 +5785,95 @@ class MarkdownToCarve
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
 
+        $rawDefinition = preg_match('/^\s*\[([^^\]][^\]]*)\]:/', $sourceInput, $definition) === 1;
+        $guardBareLinkPrefix = function (string $before) use ($protect): string {
+            if ($before === '') {
+                return $before;
+            }
+            $last = $before[strlen($before) - 1];
+            if ($last === ']') {
+                $depth = 1;
+                for ($open = strlen($before) - 2; $open >= 0; $open--) {
+                    if ($before[$open] !== '[' && $before[$open] !== ']') {
+                        continue;
+                    }
+                    $slashes = 0;
+                    for ($escape = $open - 1; $escape >= 0 && $before[$escape] === '\\'; $escape--) {
+                        $slashes++;
+                    }
+                    if ($slashes % 2 !== 0) {
+                        continue;
+                    }
+                    $depth += $before[$open] === '[' ? -1 : 1;
+                    if ($depth === 0) {
+                        $label = substr($before, $open + 1, strlen($before) - $open - 2);
+                        $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($label));
+                        $canonical = $this->referenceDefinitionLabels[$key] ?? null;
+                        if (
+                            ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($label))
+                            || isset($this->emptyDestinationLabels[$key])
+                        ) {
+                            return $before;
+                        }
+
+                        break;
+                    }
+                }
+            }
+            if (!in_array($last, ['!', '^', ']', '\\'], true)) {
+                return $before;
+            }
+            $at = strlen($before) - ($last === '\\' ? 1 : 2);
+            while ($at >= 0 && $before[$at] === '\\') {
+                $at--;
+            }
+            $source = substr($before, $at + 1);
+            $slashes = strlen($source) - ($last === '\\' ? 0 : 1);
+            $written = $last === '\\'
+                ? str_repeat('\\', 2 * intdiv($slashes + 1, 2))
+                : str_repeat('\\', 2 * intdiv($slashes, 2)) . '\\' . $last;
+
+            return substr($before, 0, $at + 1) . $protect($written, $source);
+        };
+        $isReferenceDefinition = $rawDefinition && isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]))]);
+        if (!$isReferenceDefinition && (str_contains($sourceInput, ':') || str_contains($sourceInput, 'www.'))) {
+            $cursor = 0;
+            $captured = '';
+            $rawOpaqueEnds = [];
+            $rawUrls = MarkdownBareLinks::rawUrls($sourceInput, function (int $at) use ($sourceInput, &$rawOpaqueEnds): ?int {
+                $end = $this->opaqueHtmlEnd($sourceInput, $at, $rawOpaqueEnds) ?? ($this->htmlTagAt($sourceInput, $at)['end'] ?? null);
+                if ($end !== null) {
+                    return $end;
+                }
+                if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $sourceInput, $angle, 0, $at) === 1) {
+                    return $at + strlen($angle[0]);
+                }
+
+                return null;
+            }, fn (int $at): ?int => $this->markdownActivationTailEnd($sourceInput, $at));
+            foreach ($rawUrls as $candidate) {
+                $body = substr($sourceInput, $candidate['start'], $candidate['end'] - $candidate['start']);
+                $href = preg_replace_callback('/[^\x21-\x7e]|["<>\\\\`^{|}\[\]]/u', static fn (array $match): string => rawurlencode($match[0]), $candidate['prefix'] . $body) ?? $candidate['prefix'] . $body;
+                $document = new Document();
+                $paragraph = new Paragraph();
+                $link = new Link($href);
+                foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
+                    if ($piece !== '') {
+                        $link->appendChild(in_array($piece, ['[', ']'], true) ? new EscapedText($piece) : new Text($piece));
+                    }
+                }
+                $paragraph->appendChild($link);
+                $document->appendChild($paragraph);
+                $written = rtrim((new CarveRenderer())->render($document), "\n");
+                if ($table) {
+                    $written = $this->escapeTablePipes($written);
+                }
+                $captured .= $guardBareLinkPrefix(substr($sourceInput, $cursor, $candidate['start'] - $cursor)) . $protect($written, $body);
+                $cursor = $candidate['end'];
+            }
+            $line = $this->escapeCarveOnlyMarker($captured . substr($sourceInput, $cursor));
+        }
+
         $preserveReferenceAutolinks = static function (string $value) use ($protect): string {
             return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect): string {
                 $body = substr($match[0], 1, -1);
@@ -5808,10 +5899,17 @@ class MarkdownToCarve
             }, preg_split('/(\x00P\d+\x00|<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>)/', $value, flags: PREG_SPLIT_DELIM_CAPTURE) ?: []));
         };
 
-        $line = $this->protectCodeSpans($line, function (string $span) use ($protect): string {
+        $codeTokens = [];
+        $protectCode = function (string $value, ?string $source = null) use ($protect, &$codeTokens): string {
+            $token = $protect($value, $source);
+            $codeTokens[$token] = $source ?? $value;
+
+            return $token;
+        };
+        $writeCodeSpan = function (string $span, int $offset = 0, ?string $raw = null) use ($protectCode): string {
             $fence = strspn($span, '`');
             if ($fence === 0 || $fence > 2 || !str_contains($span, "\n")) {
-                return $protect($span);
+                return $protectCode($span, $raw);
             }
             $value = preg_replace('/\n[ \t]*/', ' ', substr($span, $fence, -$fence)) ?? '';
             if (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '') {
@@ -5822,8 +5920,9 @@ class MarkdownToCarve
             $paragraph->appendChild(new Code($value));
             $document->appendChild($paragraph);
 
-            return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $span);
-        });
+            return $protectCode(rtrim((new CarveRenderer())->render($document), "\n"), $span);
+        };
+        $line = $this->protectCodeSpans($line, $writeCodeSpan);
 
         $validateCodeScalar = function (string $paren) use ($protected, $table): ?string {
             $inner = trim(substr($paren, 1, -1), " \t\n");
@@ -6098,6 +6197,9 @@ class MarkdownToCarve
 
                 return str_replace(["\r\n", "\r"], "\n", $decoded);
             }, $parts));
+            if (str_contains($value, '@') && MarkdownBareLinks::ranges($value, null, 'email') !== []) {
+                return null;
+            }
             if ($this->nativeCodeSlot && $terminal && !$table && $standaloneCodeSource === $match[0]) {
                 $document = new Document();
                 $paragraph = new Paragraph();
@@ -6240,7 +6342,7 @@ class MarkdownToCarve
             }
         }
         $line = $escaped;
-        if (str_contains($line, '/') && preg_match('/[*_]|<(?:em|i)\\b/i', $line) === 1) {
+        if (!$isReferenceDefinition && str_contains($line, '/') && preg_match('/[*_]|<(?:em|i)\\b/i', $line) === 1) {
             $authored = $line;
             $guarded = '';
             $opaqueEnds = [];
@@ -6252,9 +6354,21 @@ class MarkdownToCarve
 
                     continue;
                 }
+                if ($this->convertMath && $authored[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $authored, $math, 0, $at) === 1) {
+                    $guarded .= $math[0];
+                    $at += strlen($math[0]);
+
+                    continue;
+                }
                 if ($authored[$at] === '\\') {
                     $guarded .= substr($authored, $at, 2);
                     $at += 2;
+
+                    continue;
+                }
+                if ($authored[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $authored, $autolink, 0, $at) === 1) {
+                    $guarded .= $autolink[0];
+                    $at += strlen($autolink[0]);
 
                     continue;
                 }
@@ -6269,6 +6383,13 @@ class MarkdownToCarve
                     $bracketDepth++;
                 } elseif ($authored[$at] === ']' && $bracketDepth > 0) {
                     $bracketDepth--;
+                    $end = $this->markdownActivationTailEnd($authored, $at + 1);
+                    if ($end !== null) {
+                        $guarded .= substr($authored, $at, $end - $at + 1);
+                        $at = $end + 1;
+
+                        continue;
+                    }
                 }
                 $guarded .= $authored[$at] === '/' && $bracketDepth === 0 ? $protect('\\/', '/') : $authored[$at];
                 $at++;
@@ -6287,12 +6408,28 @@ class MarkdownToCarve
         if (!$this->convertRawHtml) {
             $line = preg_replace_callback(
                 '/<span[ \t]+class[ \t]*=[ \t]*"critic-comment"[ \t]*>([^<]*)<\/span[ \t]*>/i',
-                function (array $match) use ($protect): string {
-                    // CARVE-P3-016 makes a comment's content literal, so the
-                    // whole construct is protected from every later inline pass.
-                    $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                function (array $match) use ($protect, $protectedSources): string {
+                    // CARVE-P3-016 keeps comment content literal.
+                    $rawHtml = false;
+                    $value = preg_replace_callback(
+                        '~\x00P(\d+)\x00|\\\\([!-/:-@\[-\x60{-\x7e])|&(?:#[0-9]{1,8}|#[xX][0-9a-fA-F]{1,8}|[A-Za-z][A-Za-z0-9]{0,31});~',
+                        function (array $part) use ($protectedSources, &$rawHtml): string {
+                            if (($part[1] ?? '') !== '') {
+                                $source = $this->referenceSourceText($part[0], $protectedSources);
+                                if (preg_match('~^\\\\[!-/:-@\[-\x60{-\x7e]$~', $source) === 1) {
+                                    return substr($source, 1);
+                                }
+                                $rawHtml = $rawHtml || str_contains($source, '<');
 
-                    return preg_match('/[#{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}', $match[0]);
+                                return $source;
+                            }
+
+                            return ($part[2] ?? '') !== '' ? $part[2] : html_entity_decode($part[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        },
+                        $match[1],
+                    ) ?? $match[1];
+
+                    return $rawHtml || preg_match('/[{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}', $match[0]);
                 },
                 $line,
             ) ?? $line;
@@ -6621,7 +6758,11 @@ class MarkdownToCarve
                 ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
         };
 
-        $encodeDest = function (string $paren) use ($protected, $table, $codeScalarTags): ?string {
+        $encodeDest = function (string $paren) use ($protected, $protectedSources, $table, $codeScalarTags): ?string {
+            $sourceParen = $this->referenceSourceText($paren, $protectedSources);
+            if ($this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1) {
+                return null;
+            }
             $paren = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeScalarTags[$token[0]] ?? $token[0], $paren) ?? $paren;
             $inner = trim(substr($paren, 1, -1), " \t\n");
             if (str_starts_with($inner, '<')) {
@@ -6849,7 +6990,7 @@ class MarkdownToCarve
         $linkClosers = [];
         $openLabels = [];
         for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-            if ($this->convertMath && $line[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$[^$\s][^$]*\$(?!\d))/', $line, $math, 0, $at) === 1) {
+            if ($this->convertMath && $line[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $line, $math, 0, $at) === 1) {
                 $at += strlen($math[0]) - 1;
 
                 continue;
@@ -6952,7 +7093,7 @@ class MarkdownToCarve
             if (str_contains($match[0], "\0") || str_contains($match[0], '\\')) {
                 return $match[0];
             }
-            if ((!$table || !str_contains($match[0], '|')) && !str_contains($match[0], '`')) {
+            if ((!$table || !str_contains($match[0], '|')) && !str_contains($match[0], '`') && !str_contains($match[0], '/')) {
                 return $protect($match[0]);
             }
             $body = substr($match[0], 1, -1);
@@ -7047,11 +7188,12 @@ class MarkdownToCarve
             $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
             $labelAt = $urlCursor = 0;
             $protectedUrls = '';
+            $reparseCode = false;
             foreach (
-                MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): ?string {
+                MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): string|array|null {
                     $index = (int)substr($token, 2, -1);
 
-                    return $this->isPlainMarkdownUrlToken($index, $protected, $protectedSources) ? $protectedSources[$index] : null;
+                    return $this->markdownUrlTokenSource($index, $protected, $protectedSources);
                 }, 'url') as $candidate
             ) {
                 $offset = $candidate['start'];
@@ -7063,21 +7205,35 @@ class MarkdownToCarve
                     continue;
                 }
                 $body = $candidate['body'] ?? substr($line, $offset, $candidate['end'] - $offset);
-                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $candidate['prefix'] . $body) ?? $candidate['prefix'] . $body;
+                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $candidate['prefix'] . $body) ?? $candidate['prefix'] . $body;
                 $document = new Document();
                 $paragraph = new Paragraph();
                 $link = new Link($href);
-                $link->appendChild(new Text($body));
+                foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
+                    if ($piece !== '') {
+                        $link->appendChild(in_array($piece, ['[', ']'], true) ? new EscapedText($piece) : new Text($piece));
+                    }
+                }
                 $paragraph->appendChild($link);
                 $document->appendChild($paragraph);
                 $written = rtrim((new CarveRenderer())->render($document), "\n");
                 if ($table) {
                     $written = $this->escapeTablePipes($written);
                 }
-                $protectedUrls .= substr($line, $urlCursor, $offset - $urlCursor) . $protect($written) . ($candidate['tail'] ?? '');
+                preg_match_all('/\x00P\d+\x00/', substr($line, $offset, $candidate['end'] - $offset), $consumedTokens);
+                foreach ($consumedTokens[0] as $token) {
+                    if (isset($codeTokens[$token])) {
+                        $reparseCode = true;
+                    }
+                }
+                $protectedUrls .= $guardBareLinkPrefix(substr($line, $urlCursor, $offset - $urlCursor)) . $protect($written) . ($candidate['tail'] ?? '');
                 $urlCursor = $candidate['end'];
             }
             $line = $protectedUrls . substr($line, $urlCursor);
+            if ($reparseCode) {
+                $line = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeTokens[$token[0]] ?? $token[0], $line) ?? $line;
+                $line = $this->protectCodeSpans($line, $writeCodeSpan);
+            }
         }
 
         if ($this->convertMath) {
@@ -8225,11 +8381,21 @@ class MarkdownToCarve
      * @param int $index
      * @param array<string> $protected
      * @param array<string> $sources
+     *
+     * @return array{source: string, opaque: bool}|string|null
      */
-    private function isPlainMarkdownUrlToken(int $index, array $protected, array $sources): bool
+    private function markdownUrlTokenSource(int $index, array $protected, array $sources): array|string|null
     {
-        return preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $protected[$index] ?? '') === 1
-            || preg_match('/^&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});$/', $sources[$index] ?? '') === 1;
+        $span = $protected[$index] ?? '';
+        $source = $sources[$index] ?? $span;
+        if (preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $span) === 1 || $span === '\\' || preg_match('/^&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});$/', $source) === 1) {
+            return $source;
+        }
+        if (preg_match('/^!?`/', $span) === 1 || str_starts_with($span, '(') || str_starts_with($span, '![') || str_starts_with($span, '[')) {
+            return ['source' => $source, 'opaque' => true];
+        }
+
+        return null;
     }
 
     /**
@@ -8241,10 +8407,10 @@ class MarkdownToCarve
      */
     private function plainMarkdownUrlRanges(string $line, array $protected, array $protectedSources): array
     {
-        return MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): ?string {
+        return MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): string|array|null {
             $index = (int)substr($token, 2, -1);
 
-            return $this->isPlainMarkdownUrlToken($index, $protected, $protectedSources) ? $protectedSources[$index] : null;
+            return $this->markdownUrlTokenSource($index, $protected, $protectedSources);
         }, 'url');
     }
 
@@ -8395,7 +8561,7 @@ class MarkdownToCarve
     {
         $decoded = $this->decodeLinkTitle($url, $protected);
 
-        $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
+        $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
 
         return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);
     }
@@ -8971,7 +9137,7 @@ class MarkdownToCarve
 
         $out = '';
         $i = 0;
-        $commentEnd = strpos($line, '-->');
+        $opaqueEnds = [];
         $length = strlen($line);
         $nextRuns = [];
         $lastRuns = [];
@@ -8992,13 +9158,11 @@ class MarkdownToCarve
 
                 continue;
             }
-            if (substr($line, $i, 4) === '<!--') {
-                if ($commentEnd !== false && $commentEnd < $i + 2) {
-                    $commentEnd = strpos($line, '-->', $i + 2);
-                }
-                if ($commentEnd !== false) {
-                    $out .= substr($line, $i, $commentEnd + 3 - $i);
-                    $i = $commentEnd + 3;
+            if ($line[$i] === '<') {
+                $opaque = $this->opaqueHtmlEnd($line, $i, $opaqueEnds);
+                if ($opaque !== null) {
+                    $out .= substr($line, $i, $opaque - $i);
+                    $i = $opaque;
 
                     continue;
                 }
@@ -9027,7 +9191,7 @@ class MarkdownToCarve
             $closed = $nextRuns[$i] ?? -1;
 
             if ($closed === -1) {
-                $out .= $replace(str_repeat('\\`', $runLength));
+                $out .= $replace(str_repeat('\\`', $runLength), $i, str_repeat('`', $runLength));
                 $i += $runLength;
 
                 continue;

@@ -121,7 +121,7 @@ final class MarkdownAssessment
                 $result .= self::escape($m[1]);
             } elseif ($bare !== null && $bare['start'] === $i) {
                 $body = substr($text, $bare['start'], $bare['end'] - $bare['start']);
-                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $bare['prefix'] . $body) ?? $bare['prefix'] . $body;
+                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $bare['prefix'] . $body) ?? $bare['prefix'] . $body;
                 $this->emit('bare-autolink', $line, 'normalized');
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($body) . '</a>';
                 $m = [$body];

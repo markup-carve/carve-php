@@ -692,7 +692,7 @@ class CliTest extends TestCase
         );
 
         $this->assertSame(1, $result['exit']);
-        $this->assertSame("`http://example.org`\n", $result['out']);
+        $this->assertSame("`<code>`{=html}[http://example.org](http://example.org)`</code>`{=html}\n", $result['out']);
     }
 
     public function testMigrateWritesTheVersionedReportForEveryImporter(): void

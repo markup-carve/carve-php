@@ -14,6 +14,9 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use SplObjectStorage;
 
+/**
+ * @internal
+ */
 final class MarkdownEmailText
 {
     /**
@@ -59,6 +62,7 @@ final class MarkdownEmailText
                         continue;
                     }
                     $last = $at;
+                    $textNodes = [$child];
                     $text = $child->getContent();
                     $attrs = $child->getAttributes();
                     if ($attrs === []) {
@@ -68,6 +72,7 @@ final class MarkdownEmailText
                                 break;
                             }
                             $text .= $next->getContent();
+                            $textNodes[] = $next;
                             $last++;
                         }
                     }
@@ -81,10 +86,50 @@ final class MarkdownEmailText
                         continue;
                     }
                     $parts = [];
+                    $sliceNodeAt = 0;
+                    $sliceNodeCount = count($textNodes);
+                    $sliceOffset = 0;
+                    $appendSlice = static function (int $start, int $end) use (&$parts, &$sliceNodeAt, &$sliceOffset, $textNodes, $sliceNodeCount, $attrs, $text): void {
+                        if ($attrs !== []) {
+                            $parts[] = new Text(substr($text, $start, $end - $start));
+
+                            return;
+                        }
+                        while ($sliceNodeAt < $sliceNodeCount) {
+                            $original = $textNodes[$sliceNodeAt];
+                            $value = $original->getContent();
+                            $nextOffset = $sliceOffset + strlen($value);
+                            if ($nextOffset <= $start) {
+                                $sliceOffset = $nextOffset;
+                                $sliceNodeAt++;
+
+                                continue;
+                            }
+                            if ($sliceOffset >= $end) {
+                                break;
+                            }
+                            $from = max(0, $start - $sliceOffset);
+                            $width = min($end, $nextOffset) - $sliceOffset - $from;
+                            if ($original instanceof SmartPunctuation) {
+                                $parts[] = new Text(substr($value, $from, $width));
+                            } elseif ($from === 0 && $width === strlen($value)) {
+                                $parts[] = $original;
+                            } else {
+                                $part = clone $original;
+                                $part->setContent(substr($value, $from, $width));
+                                $parts[] = $part;
+                            }
+                            if ($nextOffset > $end) {
+                                break;
+                            }
+                            $sliceOffset = $nextOffset;
+                            $sliceNodeAt++;
+                        }
+                    };
                     $cursor = 0;
                     foreach ($links as $link) {
                         if ($link['start'] > $cursor) {
-                            $parts[] = new Text(substr($text, $cursor, $link['start'] - $cursor));
+                            $appendSlice($cursor, $link['start']);
                         }
                         $label = substr($text, $link['start'], $link['end'] - $link['start']);
                         $node = new Link($link['prefix'] . $label);
@@ -93,7 +138,7 @@ final class MarkdownEmailText
                         $cursor = $link['end'];
                     }
                     if ($cursor < strlen($text)) {
-                        $parts[] = new Text(substr($text, $cursor));
+                        $appendSlice($cursor, strlen($text));
                     }
                     if ($attrs !== []) {
                         $span = new Span();

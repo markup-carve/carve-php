@@ -116,6 +116,62 @@ final class MarkdownGfmAutolinksTest extends TestCase
         }
     }
 
+    public function testSlashGuardsKeepMathBodiesLiteral(): void
+    {
+        foreach (['$a/b$', '$$a/b$$'] as $math) {
+            $carve = (new MarkdownToCarve(convertMath: true))->convert('*Note:* ' . $math);
+            self::assertStringContainsString('`a/b`', $carve);
+            self::assertStringNotContainsString('a\\/b', $carve);
+        }
+    }
+
+    public function testSlashInAnAngleEmailKeepsTheWholeAddress(): void
+    {
+        $carve = (new MarkdownToCarve())->convert('*x* <a/b@example.test>');
+        self::assertSame(self::htmlShape('<p><em>x</em> <a href="mailto:a/b@example.test">a/b@example.test</a></p>'), self::htmlShape((new CarveConverter())->convert($carve)));
+    }
+
+    public function testEmailPassKeepsBreaksAfterFrontmatter(): void
+    {
+        $markdown = "---\ntitle: x\n---\n---\n\nmail a@example.test\n\n---\n\nmore b@example.test\n";
+        $carve = (new MarkdownToCarve())->convert($markdown);
+        $html = (new CarveConverter())->convert($carve);
+        self::assertSame(2, substr_count($html, '<hr>'));
+        self::assertStringContainsString('<a href="mailto:a@example.test">a@example.test</a>', $html);
+        self::assertStringContainsString('<a href="mailto:b@example.test">b@example.test</a>', $html);
+        self::assertStringNotContainsString('---yaml', $html);
+    }
+
+    public function testEditorialCommentsKeepLiteralExportedText(): void
+    {
+        foreach (['see http://example.com', 'x <b> & *y* b', 'x &lt; y', 'x &#92;* y'] as $text) {
+            $carve = 'a {#' . $text . "#} b\n";
+            $markdown = CarveConverter::markdown()->convert($carve);
+            self::assertSame($carve, (new MarkdownToCarve())->convert($markdown));
+        }
+        self::assertSame("{#see http://example.com#}\n", (new MarkdownToCarve())->convert("<span class=\"critic-comment\">see http://example.com</span>\n"));
+    }
+
+    public function testEditorialCommentsKeepProtectedHtmlRaw(): void
+    {
+        foreach (['a <!-- c --> b', '<code>x</code>'] as $body) {
+            $carve = (new MarkdownToCarve())->convert('<span class="critic-comment">' . $body . "</span>\n");
+            self::assertStringContainsString('{=html}', $carve);
+            self::assertStringNotContainsString('{#', $carve);
+        }
+    }
+
+    public function testEmailPassKeepsBreaksInsideFootnotes(): void
+    {
+        $markdown = "note[^n]\n\n[^n]: ---\n\n    mail a@example.test\n\n    ---\n\n    more b@example.test\n";
+        $carve = (new MarkdownToCarve())->convert($markdown);
+        $html = (new CarveConverter())->convert($carve);
+        self::assertStringNotContainsString('---yaml', $html);
+        self::assertSame(3, substr_count($html, '<hr>'));
+        self::assertStringContainsString('<a href="mailto:a@example.test">a@example.test</a>', $html);
+        self::assertStringContainsString('<a href="mailto:b@example.test">b@example.test</a>', $html);
+    }
+
     public function testBasicBareLinksHaveExactReports(): void
     {
         foreach (['http://example.test', 'https://example.test/a', 'FTP://example.test/a', 'www.example.test', 'a@example.test'] as $source) {
