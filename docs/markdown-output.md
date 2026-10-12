@@ -1,6 +1,5 @@
 # Markdown output options
 
-
 `MarkdownRenderer` has four fluent setters. Build the renderer yourself and hand
 it to `CarveConverter::create()` to use them:
 
@@ -73,10 +72,6 @@ Value 42
 </div>
 ~~~
 
----
-
-[Back to the README](https://github.com/markup-carve/carve-php/blob/main/README.md)
-
 ## Carrying a dropped container
 
 Markdown has no container block, so a tab set, an admonition, a columns block, a
@@ -85,8 +80,9 @@ as its children alone. Nothing left in the file says the container was there, so
 an import cannot return it however good it gets.
 
 `setRoundTripMode(true)` turns on the carrier mode (`--roundtrip` on the CLI),
-the same option that adds the carrier attributes to HTML output. The mode brackets each dropped container with HTML comments holding its Carve
-opener and closer verbatim.
+the same option that adds the carrier attributes to HTML output. The mode brackets
+supported dropped containers outside pipe-table cells with HTML comments holding
+their Carve opener and closer verbatim.
 
 ~~~ php
 $renderer = (new MarkdownRenderer())->setRoundTripMode(true);
@@ -140,15 +136,16 @@ as ordinary Markdown, comments and all, and the migration report carries one
 `carrier-markers-damaged` row with `degraded` fidelity and `fallback` confidence.
 There is no partial reconstruction and no per-marker recovery.
 
-### What the mode does not promise
+### What the mode carries
 
-The container comes back: its kind, its title, its attributes and the nesting its
-fence widths record. A composite figure's caption is not part of that - the
-caption slot hangs outside the closing fence and degrades as it does today. A
-construct with no Carve opener to carry (`small_caps`, `ruby`) is untouched by
-this mode.
+The markers preserve the container's kind, title, attributes and nesting. A
+composite figure's caption travels in a separate marker after its closing fence.
+Containers in list items and block quotes use markers at the host's content
+column, with the list indentation or quote prefix preserved.
 
-A container inside a host that prefixes its lines - a list item, a block quote, a
-table cell - takes no marker yet, and degrades there as it does with the mode
-off. The comment would sit at the host's content column or behind its `>`, where
-the import does not read it.
+Containers in pipe-table cells receive no markers. A construct with no Carve
+opener to carry (`small_caps`, `ruby`) is untouched by this mode.
+
+---
+
+[Back to the README](https://github.com/markup-carve/carve-php/blob/main/README.md)
