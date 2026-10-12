@@ -2345,7 +2345,7 @@ final class BlockContinuationScanner
      * @param string $contentLine
      * @param int $index
      */
-    private function itemFenceRunOutlivesAtSource(
+    public function itemFenceRunOutlivesAtSource(
         array $lines,
         int $index,
         string $contentLine,

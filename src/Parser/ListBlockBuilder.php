@@ -481,6 +481,20 @@ final class ListBlockBuilder
                                     $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
                                     $subInterruptedParagraphFence = $subTrailingState->fence !== null;
                                 } else {
+                                    if (
+                                        !$afterSubTerm && !$subTrailingState->nestedIsQuote && $subOpenCommentLength === null
+                                        && !$subTrailingState->hasOpenDiv() && !$subTrailingState->inFootnoteBody
+                                        && $subTrailingState->nestedColumn > 0
+                                        && $subFenceColumns >= $subIndent + $subTrailingState->nestedColumn
+                                        && $this->continuations->itemFenceRunOutlivesAtSource(
+                                            $lines,
+                                            $i,
+                                            IndentationHelper::stripLeadingColumns($subLine, $subIndent + $subTrailingState->nestedColumn),
+                                            $subIndent + $subTrailingState->nestedColumn,
+                                        )
+                                    ) {
+                                        $unclosedFenceBase ??= $subFenceColumns - $subIndent;
+                                    }
                                     $subInlineFenceParagraph = true;
                                     if (!$afterSubTerm && !$subTrailingState->nestedIsQuote && IndentationHelper::getLeadingColumns($stripped, $subTrailingState->nestedColumn) < $subTrailingState->nestedColumn) {
                                         $subLines[count($subLines) - 1] = BlockGrammar::LAZY_FRAME . ltrim($stripped, " \t");
@@ -2389,6 +2403,14 @@ final class ListBlockBuilder
 
             $commentClose = null;
             if ($code !== null) {
+                if (
+                    $unclosedFenceBase !== null && $i > $unclosedFenceStart
+                    && !$this->itemFenceCloserAhead($lines, $i, $code, $base, 0)
+                ) {
+                    $lines[$i] = BlockGrammar::LAZY_FRAME . $opener;
+
+                    continue;
+                }
                 $end = $this->rebasedCodeFenceEnd($lines, $i, $count, $base, $code['fence']);
             } elseif ($comment !== null) {
                 $commentClose = $this->rebasedCommentFenceCloser($lines, $i, $count, strlen($comment['fence']));
