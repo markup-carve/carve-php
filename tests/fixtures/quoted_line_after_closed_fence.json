@@ -37,7 +37,7 @@
   {
     "id": "successive-k128",
     "source": "> - a\n>     ```\n>\n>       ```=html\n>       code\n>       ```\nafter\n",
-    "html": "<blockquote><ul><li>a\n<code></code>\n      code\n    </li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\n<code></code><code>=html\ncode\n</code></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "successive-k152",
@@ -47,7 +47,7 @@
   {
     "id": "successive-k176",
     "source": "> - a\n> \t```\n>\n>       ```=html\n>       code\n>       ```\nafter\n",
-    "html": "<blockquote><ul><li>a\n<code></code>\n      code\n    </li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\n<code></code><code>=html\ncode\n</code></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "successive-k200",
@@ -57,7 +57,7 @@
   {
     "id": "successive-k224",
     "source": "> > - a\n> >     ```\n> >\n> >       ```=html\n> >       code\n> >       ```\nafter\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code>\n        code\n      </li></ul></blockquote></blockquote><p>after</p>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><code>=html\ncode\n</code></li></ul></blockquote></blockquote><p>after</p>"
   },
   {
     "id": "successive-k248",
@@ -67,7 +67,7 @@
   {
     "id": "successive-k272",
     "source": "> > - a\n> > \t```\n> >\n> >       ```=html\n> >       code\n> >       ```\nafter\n",
-    "html": "<blockquote><blockquote><ul><li>a\n<code></code>\n        code\n      </li></ul></blockquote></blockquote><p>after</p>"
+    "html": "<blockquote><blockquote><ul><li>a\n<code></code><code>=html\ncode\n</code></li></ul></blockquote></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q194",
@@ -97,7 +97,7 @@
   {
     "id": "matrix-q972",
     "source": "> - a\n>     ~~~\n>       ```\n>   ```\n>     ```\nafter\n",
-    "html": "<blockquote><ul><li>a\n~~~\n      <pre><code></code></pre><pre><code></code></pre></li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\n~~~\n<code></code><code></code></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q1019",
@@ -212,7 +212,7 @@
   {
     "id": "matrix-q5078",
     "source": "> - a\n>   b\n>       ```\n>     ```\n>       ~~~\n>   ~~~\nafter\n",
-    "html": "<blockquote><ul><li>a\nb\n<code></code>\n~~~\n~~~</li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\nb\n<code></code><pre><code></code></pre></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q5189",

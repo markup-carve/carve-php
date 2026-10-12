@@ -1,0 +1,3897 @@
+[
+  {
+    "id": "closed-no-lead-quotehr-deep-code-flush-nn",
+    "source": "- a\n  > ---\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-none-tilde-code-flush-nn",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-none-raw-code-flush-nn",
+    "source": "- a\n    ```\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-none-deep-code-flush-nn",
+    "source": "- a\n    ```\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-heading-tilde-code-flush-nn",
+    "source": "- a\n    ```\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-heading-raw-code-flush-nn",
+    "source": "- a\n    ```\n  # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-heading-deep-code-flush-nn",
+    "source": "- a\n    ```\n  # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-comment-tilde-code-flush-nn",
+    "source": "- a\n    ```\n  %% c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-comment-raw-code-flush-nn",
+    "source": "- a\n    ```\n  %% c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-comment-deep-code-flush-nn",
+    "source": "- a\n    ```\n  %% c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublist-tilde-code-flush-nn",
+    "source": "- a\n    ```\n  - c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublist-raw-code-flush-nn",
+    "source": "- a\n    ```\n  - c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublist-deep-code-flush-nn",
+    "source": "- a\n    ```\n  - c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-no-code-flush-nn",
+    "source": "- a\n    ```\n  - c\n    ~~~\n    y\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-tilde-code-flush-nn",
+    "source": "- a\n    ```\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-raw-code-flush-nn",
+    "source": "- a\n    ```\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-deep-code-flush-nn",
+    "source": "- a\n    ```\n  - c\n    ~~~\n    y\n    ~~~\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-no-code-flush-nn",
+    "source": "- a\n    ```\n    # h\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-tilde-code-flush-nn",
+    "source": "- a\n    ```\n    # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-raw-code-flush-nn",
+    "source": "- a\n    ```\n    # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-deep-code-flush-nn",
+    "source": "- a\n    ```\n    # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quote-tilde-code-flush-nn",
+    "source": "- a\n    ```\n  > q\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quote-raw-code-flush-nn",
+    "source": "- a\n    ```\n  > q\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quote-deep-code-flush-nn",
+    "source": "- a\n    ```\n  > q\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-no-code-flush-nn",
+    "source": "- a\n    ```\n  > ---\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-tilde-code-flush-nn",
+    "source": "- a\n    ```\n  > ---\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-raw-code-flush-nn",
+    "source": "- a\n    ```\n  > ---\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-deep-code-flush-nn",
+    "source": "- a\n    ```\n  > ---\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-none-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-none-raw-code-flush-nn",
+    "source": "- a\n  \t```\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-none-deep-code-flush-nn",
+    "source": "- a\n  \t```\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-heading-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-heading-raw-code-flush-nn",
+    "source": "- a\n  \t```\n  # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-heading-deep-code-flush-nn",
+    "source": "- a\n  \t```\n  # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-comment-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n  %% c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-comment-raw-code-flush-nn",
+    "source": "- a\n  \t```\n  %% c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-comment-deep-code-flush-nn",
+    "source": "- a\n  \t```\n  %% c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublist-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n  - c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublist-raw-code-flush-nn",
+    "source": "- a\n  \t```\n  - c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublist-deep-code-flush-nn",
+    "source": "- a\n  \t```\n  - c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-no-code-flush-nn",
+    "source": "- a\n  \t```\n  - c\n    ~~~\n    y\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-raw-code-flush-nn",
+    "source": "- a\n  \t```\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-deep-code-flush-nn",
+    "source": "- a\n  \t```\n  - c\n    ~~~\n    y\n    ~~~\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-no-code-flush-nn",
+    "source": "- a\n  \t```\n    # h\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n    # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-raw-code-flush-nn",
+    "source": "- a\n  \t```\n    # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-deep-code-flush-nn",
+    "source": "- a\n  \t```\n    # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quote-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n  > q\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quote-raw-code-flush-nn",
+    "source": "- a\n  \t```\n  > q\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quote-deep-code-flush-nn",
+    "source": "- a\n  \t```\n  > q\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-no-code-flush-nn",
+    "source": "- a\n  \t```\n  > ---\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-tilde-code-flush-nn",
+    "source": "- a\n  \t```\n  > ---\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-raw-code-flush-nn",
+    "source": "- a\n  \t```\n  > ---\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-deep-code-flush-nn",
+    "source": "- a\n  \t```\n  > ---\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-none-back-code-flush-nn",
+    "source": "- a\n    ~~~\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-heading-back-code-flush-nn",
+    "source": "- a\n    ~~~\n  # h\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a ~~~<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-comment-back-code-flush-nn",
+    "source": "- a\n    ~~~\n  %% c\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-sublist-back-code-flush-nn",
+    "source": "- a\n    ~~~\n  - c\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a ~~~<ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-sublistcode-back-code-flush-nn",
+    "source": "- a\n    ~~~\n  - c\n    ~~~\n    y\n    ~~~\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a<pre><code>- c</code></pre>y ~~~<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-deepheading-no-code-flush-nn",
+    "source": "- a\n    ~~~\n    # h\nafter\n",
+    "html": "<ul><li>a ~~~<h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-deepheading-back-code-flush-nn",
+    "source": "- a\n    ~~~\n    # h\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a ~~~<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-quote-back-code-flush-nn",
+    "source": "- a\n    ~~~\n  > q\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a ~~~<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-quotehr-no-code-flush-nn",
+    "source": "- a\n    ~~~\n  > ---\nafter\n",
+    "html": "<ul><li>a ~~~<blockquote><hr></blockquote></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-tilde-lead-quotehr-back-code-flush-nn",
+    "source": "- a\n    ~~~\n  > ---\n  ````\n  code\n  ````\nafter\n",
+    "html": "<ul><li>a ~~~<blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-none-tilde-code-flush-nn",
+    "source": "- a\n  ```\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-none-raw-code-flush-nn",
+    "source": "- a\n  ```\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-heading-tilde-code-flush-nn",
+    "source": "- a\n  ```\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-heading-raw-code-flush-nn",
+    "source": "- a\n  ```\n  # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-hr-deep-code-flush-nn",
+    "source": "- a\n  ```\n  ---\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><hr>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-table-deep-code-flush-nn",
+    "source": "- a\n  ```\n  | a |\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><table><tbody><tr><td>a</td></tr></tbody></table>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-comment-tilde-code-flush-nn",
+    "source": "- a\n  ```\n  %% c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-comment-raw-code-flush-nn",
+    "source": "- a\n  ```\n  %% c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-attrs-deep-code-flush-nn",
+    "source": "- a\n  ```\n  {.k}\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><p class=\"k\">~~~ code ~~~ after</p></li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-div-deep-code-flush-nn",
+    "source": "- a\n  ```\n  ::: box\n  x\n  :::\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><div class=\"box\"><p>x</p></div>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-emptydiv-deep-code-flush-nn",
+    "source": "- a\n  ```\n  :::\n  :::\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><div></div>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublist-tilde-code-flush-nn",
+    "source": "- a\n  ```\n  - c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublist-raw-code-flush-nn",
+    "source": "- a\n  ```\n  - c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublist-deep-code-flush-nn",
+    "source": "- a\n  ```\n  - c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c<pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-no-code-flush-nn",
+    "source": "- a\n  ```\n  - c\n    ~~~\n    y\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c<pre><code>y</code></pre></li></ul></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-tilde-code-flush-nn",
+    "source": "- a\n  ```\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c<pre><code>y</code></pre></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-raw-code-flush-nn",
+    "source": "- a\n  ```\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c<pre><code>y</code></pre></li></ul>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-deep-code-flush-nn",
+    "source": "- a\n  ```\n  - c\n    ~~~\n    y\n    ~~~\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c<pre><code>y</code></pre><pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-tilde-code-flush-nn",
+    "source": "- a\n  ```\n    # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code># h</code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-raw-code-flush-nn",
+    "source": "- a\n  ```\n    # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code># h</code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quote-tilde-code-flush-nn",
+    "source": "- a\n  ```\n  > q\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quote-raw-code-flush-nn",
+    "source": "- a\n  ```\n  > q\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-no-code-flush-nn",
+    "source": "- a\n  ```\n  > ---\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-tilde-code-flush-nn",
+    "source": "- a\n  ```\n  > ---\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-raw-code-flush-nn",
+    "source": "- a\n  ```\n  > ---\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-column-backtick-lead-comment-deep-code-flush-bn",
+    "source": "- a\n  ```\n\n  %% c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-no-code-flush-bn",
+    "source": "- a\n  ```\n\n    # h\nafter\n",
+    "html": "<ul><li>a<code></code># h after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-deep-code-flush-bn",
+    "source": "- a\n  ```\n\n    # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code># h ~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quote-deep-code-flush-bb",
+    "source": "- a\n  ```\n\n  > q\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><p>q</p></blockquote>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-deep-code-flush-bb",
+    "source": "- a\n  ```\n\n  > ---\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><blockquote><hr></blockquote>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-none-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-none-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-none-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-heading-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-heading-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n  # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><h1 id=\"h\">h</h1>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-heading-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n  # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-comment-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n  %% c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-comment-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n  %% c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-comment-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n  %% c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublist-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n  - c\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublist-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n  - c\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><ul><li>c</li></ul>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublist-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n  - c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-no-code-flush-nn",
+    "source": "- a\n    ``` x\n  - c\n    ~~~\n    y\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n  - c\n    ~~~\n    y\n    ~~~\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n  - c\n    ~~~\n    y\n    ~~~\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-no-code-flush-nn",
+    "source": "- a\n    ``` x\n    # h\nafter\n",
+    "html": "<ul><li>a<code>x</code><h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n    # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n    # h\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><h1 id=\"h\">h</h1>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n    # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quote-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n  > q\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quote-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n  > q\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quote-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n  > q\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-no-code-flush-nn",
+    "source": "- a\n    ``` x\n  > ---\nafter\n",
+    "html": "<ul><li>a<code>x</code><blockquote><hr></blockquote></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-tilde-code-flush-nn",
+    "source": "- a\n    ``` x\n  > ---\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-raw-code-flush-nn",
+    "source": "- a\n    ``` x\n  > ---\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><blockquote><hr></blockquote>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-deep-code-flush-nn",
+    "source": "- a\n    ``` x\n  > ---\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code>x</code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-text-lead-quotehr-deep-code-flush-nn",
+    "source": "- a\n  text\n  > ---\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a text<blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-quote-lead-quotehr-deep-code-flush-nn",
+    "source": "- a\n    > q\n  > ---\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<blockquote><p>q</p><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "closed-no-lead-quotehr-deep-code-quoted-nn",
+    "source": "> - a\n>   > ---\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-none-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-none-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-none-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-heading-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-heading-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-heading-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   # h\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-comment-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   %% c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-comment-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   %% c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-comment-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   %% c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublist-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   - c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublist-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   - c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublist-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   - c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-no-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-sublistcode-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-no-code-quoted-nn",
+    "source": "> - a\n>     ```\n>     # h\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>     # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>     # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-deepheading-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>     # h\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quote-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   > q\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quote-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   > q\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quote-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   > q\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-no-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   > ---\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-tilde-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   > ---\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-raw-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   > ---\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-space-backtick-lead-quotehr-deep-code-quoted-nn",
+    "source": "> - a\n>     ```\n>   > ---\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-none-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-none-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-none-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-heading-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-heading-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-heading-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   # h\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-comment-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   %% c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-comment-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   %% c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-comment-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   %% c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublist-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   - c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublist-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   - c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublist-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   - c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-no-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-sublistcode-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-no-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>     # h\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>     # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>     # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-deepheading-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>     # h\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quote-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   > q\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quote-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   > q\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quote-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   > q\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-no-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   > ---\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-tilde-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   > ---\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-raw-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   > ---\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tab-backtick-lead-quotehr-deep-code-quoted-nn",
+    "source": "> - a\n>   \t```\n>   > ---\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-none-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-heading-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   # h\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-comment-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   %% c\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-sublist-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   - c\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-sublistcode-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a<pre><code>- c</code></pre>y ~~~<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-deepheading-no-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>     # h\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-deepheading-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>     # h\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-quote-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   > q\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-quotehr-no-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   > ---\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<blockquote><hr></blockquote></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-tilde-lead-quotehr-back-code-quoted-nn",
+    "source": "> - a\n>     ~~~\n>   > ---\n>   ````\n>   code\n>   ````\n>  after\n",
+    "html": "<blockquote><ul><li>a ~~~<blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-none-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-none-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-heading-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-heading-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-hr-deep-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   ---\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><hr>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-table-deep-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   | a |\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><table><tbody><tr><td>a</td></tr></tbody></table>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-comment-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   %% c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-comment-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   %% c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-attrs-deep-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   {.k}\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><p class=\"k\">~~~ code ~~~ after</p></li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-div-deep-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   ::: box\n>   x\n>   :::\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><div class=\"box\"><p>x</p></div>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-emptydiv-deep-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   :::\n>   :::\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><div></div>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublist-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   - c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublist-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   - c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c</li></ul>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublist-deep-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   - c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c<pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-no-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c<pre><code>y</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c<pre><code>y</code></pre></li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c<pre><code>y</code></pre></li></ul>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-sublistcode-deep-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><ul><li>c<pre><code>y</code></pre><pre><code>code</code></pre></li></ul></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>     # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code># h</code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>     # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code># h</code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quote-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   > q\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quote-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   > q\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-no-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   > ---\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-tilde-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   > ---\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-raw-code-quoted-nn",
+    "source": "> - a\n>   ```\n>   > ---\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-comment-deep-code-quoted-bn",
+    "source": "> - a\n>   ```\n>\n>   %% c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-no-code-quoted-bn",
+    "source": "> - a\n>   ```\n>\n>     # h\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code># h after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-deepheading-deep-code-quoted-bn",
+    "source": "> - a\n>   ```\n>\n>     # h\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code># h ~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quote-deep-code-quoted-bb",
+    "source": "> - a\n>   ```\n>\n>   > q\n>\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><p>q</p></blockquote>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-column-backtick-lead-quotehr-deep-code-quoted-bb",
+    "source": "> - a\n>   ```\n>\n>   > ---\n>\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code></code><blockquote><hr></blockquote>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-none-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-none-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-none-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-heading-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-heading-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><h1 id=\"h\">h</h1>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-heading-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   # h\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-comment-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   %% c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-comment-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   %% c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-comment-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   %% c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublist-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   - c\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublist-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   - c\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><ul><li>c</li></ul>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublist-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   - c\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-no-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-sublistcode-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   - c\n>     ~~~\n>     y\n>     ~~~\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><ul><li>c</li></ul><pre><code>y</code></pre><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-no-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>     # h\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>     # h\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>     # h\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><h1 id=\"h\">h</h1>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-deepheading-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>     # h\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quote-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   > q\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quote-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   > q\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><blockquote><p>q</p></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quote-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   > q\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><blockquote><p>q</p></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-no-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   > ---\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><blockquote><hr></blockquote></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-tilde-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   > ---\n>   ~~~\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-raw-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   > ---\n>   ~~~ =html\n>   code\n>   ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><blockquote><hr></blockquote>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-labeled-backtick-lead-quotehr-deep-code-quoted-nn",
+    "source": "> - a\n>     ``` x\n>   > ---\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<code>x</code><blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-text-lead-quotehr-deep-code-quoted-nn",
+    "source": "> - a\n>   text\n>   > ---\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a text<blockquote><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "closed-quote-lead-quotehr-deep-code-quoted-nn",
+    "source": "> - a\n>     > q\n>   > ---\n>     ~~~\n>     code\n>     ~~~\n>  after\n",
+    "html": "<blockquote><ul><li>a<blockquote><p>q</p><hr></blockquote><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-16",
+    "source": "- a\n    ```\n\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-24",
+    "source": "- a\n    ```\n\n  # h\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-48",
+    "source": "- a\n    ```\n\n  ## h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-56",
+    "source": "- a\n    ```\n\n  ## h\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-80",
+    "source": "- a\n    ```\n\n  # h\n  # second\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-88",
+    "source": "- a\n    ```\n\n  # h\n  # second\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-400",
+    "source": "> - a\n>     ```\n> \n>   # h\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-408",
+    "source": "> - a\n>     ```\n> \n>   # h\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-432",
+    "source": "> - a\n>     ```\n> \n>   ## h\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-440",
+    "source": "> - a\n>     ```\n> \n>   ## h\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-464",
+    "source": "> - a\n>     ```\n> \n>   # h\n>   # second\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-472",
+    "source": "> - a\n>     ```\n> \n>   # h\n>   # second\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-784",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-792",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-816",
+    "source": "> > - a\n> >     ```\n> > \n> >   ## h\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-824",
+    "source": "> > - a\n> >     ```\n> > \n> >   ## h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-848",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> >   # second\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-856",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> >   # second\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-1",
+    "source": "- a\n    ```\n  # h\n  ~~~\n  code\n  ~~~\n\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-23",
+    "source": "- a\n    ```\n\n  # h\n  ```\n  code\n  ```\n  after\n",
+    "html": "<ul><li>a<pre><code># h</code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "heading-heading-resume-46",
+    "source": "- a\n    ```\n  ## h\n\n  ```\n  code\n  ```\n- next\n",
+    "html": "<ul><li>a<pre><code>## h</code></pre>code<code></code></li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-resume-69",
+    "source": "- a\n    ```\n  # h\n  # second\n  ```\n  code\n  ```\n\nafter\n",
+    "html": "<ul><li>a<pre><code># h # second</code></pre>code<code></code></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-92",
+    "source": "- a\n    ```\n\n  # h\n  # second\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code># h # second</code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "heading-heading-resume-112",
+    "source": "- a\n\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-132",
+    "source": "- a\n  ## h\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-152",
+    "source": "- a\n\n  ## h\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-172",
+    "source": "- a\n  # h\n  # second\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-192",
+    "source": "- ```\n  first\n  ```\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-212",
+    "source": "- ```\n  first\n  ```\n\n  # h\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-232",
+    "source": "- ```\n  first\n  ```\n  ## h\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-252",
+    "source": "- ```\n  first\n  ```\n\n  ## h\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-272",
+    "source": "- ```\n  first\n  ```\n\n  # h\n  # second\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-292",
+    "source": "- a\n  ```\n  first\n  ```\n  # h\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-312",
+    "source": "- a\n  ```\n  first\n  ```\n\n  # h\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-332",
+    "source": "- a\n  ```\n  first\n  ```\n  ## h\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-352",
+    "source": "- a\n  ```\n  first\n  ```\n  # h\n  # second\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-372",
+    "source": "- a\n  ```\n  first\n  ```\n\n  # h\n  # second\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-resume-394",
+    "source": "> - a\n>     ```\n>   # h\n> \n>   ~~~\n>   code\n>   ~~~\n> - next\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li><li>next</li></ul></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-417",
+    "source": "> - a\n>     ```\n>   ## h\n>   ~~~\n>   code\n>   ~~~\n> \n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-439",
+    "source": "> - a\n>     ```\n> \n>   ## h\n>   ```\n>   code\n>   ```\n>   after\n",
+    "html": "<blockquote><ul><li>a<pre><code>## h</code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-462",
+    "source": "> - a\n>     ```\n>   # h\n>   # second\n> \n>   ```\n>   code\n>   ```\n> - next\n",
+    "html": "<blockquote><ul><li>a<pre><code># h # second</code></pre>code<code></code></li><li>next</li></ul></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-484",
+    "source": "> - a\n>   # h\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-504",
+    "source": "> - a\n> \n>   # h\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-524",
+    "source": "> - a\n>   ## h\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-544",
+    "source": "> - a\n>   # h\n>   # second\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-564",
+    "source": "> - a\n> \n>   # h\n>   # second\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-584",
+    "source": "> - ```\n>   first\n>   ```\n>   # h\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-604",
+    "source": "> - ```\n>   first\n>   ```\n> \n>   # h\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-624",
+    "source": "> - ```\n>   first\n>   ```\n> \n>   ## h\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-644",
+    "source": "> - ```\n>   first\n>   ```\n>   # h\n>   # second\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-664",
+    "source": "> - ```\n>   first\n>   ```\n> \n>   # h\n>   # second\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-684",
+    "source": "> - a\n>   ```\n>   first\n>   ```\n>   # h\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-704",
+    "source": "> - a\n>   ```\n>   first\n>   ```\n>   ## h\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-724",
+    "source": "> - a\n>   ```\n>   first\n>   ```\n> \n>   ## h\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-744",
+    "source": "> - a\n>   ```\n>   first\n>   ```\n>   # h\n>   # second\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-764",
+    "source": "> - a\n>   ```\n>   first\n>   ```\n> \n>   # h\n>   # second\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-787",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> >   ~~~\n> >   code\n> >   ~~~\n> >   after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre>after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-810",
+    "source": "> > - a\n> >     ```\n> >   ## h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > - next\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li><li>next</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-833",
+    "source": "> > - a\n> >     ```\n> >   # h\n> >   # second\n> >   ~~~\n> >   code\n> >   ~~~\n> > \n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-855",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> >   # second\n> >   ```\n> >   code\n> >   ```\n> >   after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code># h # second</code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-876",
+    "source": "> > - a\n> >   # h\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-896",
+    "source": "> > - a\n> >   ## h\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-916",
+    "source": "> > - a\n> > \n> >   ## h\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-936",
+    "source": "> > - a\n> >   # h\n> >   # second\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-956",
+    "source": "> > - a\n> > \n> >   # h\n> >   # second\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-976",
+    "source": "> > - ```\n> >   first\n> >   ```\n> > \n> >   # h\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-996",
+    "source": "> > - ```\n> >   first\n> >   ```\n> >   ## h\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-1016",
+    "source": "> > - ```\n> >   first\n> >   ```\n> > \n> >   ## h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-1036",
+    "source": "> > - ```\n> >   first\n> >   ```\n> >   # h\n> >   # second\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><pre><code>first</code></pre><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-1056",
+    "source": "> > - a\n> >   ```\n> >   first\n> >   ```\n> >   # h\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-1076",
+    "source": "> > - a\n> >   ```\n> >   first\n> >   ```\n> > \n> >   # h\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>first</code></pre><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-resume-1096",
+    "source": "> > - a\n> >   ```\n> >   first\n> >   ```\n> >   ## h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>first</code></pre><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-0",
+    "source": "- a\n    ```\n\n  # h\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-1",
+    "source": "- a\n    ```\n\n  # h\n\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-2",
+    "source": "- a\n\n  # h\nafter\n",
+    "html": "<ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-3",
+    "source": "- a\n\n  # h\n\nafter\n",
+    "html": "<ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-4",
+    "source": "> - a\n>     ```\n> \n>   # h\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-5",
+    "source": "> - a\n>     ```\n> \n>   # h\n> \n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-6",
+    "source": "> - a\n> \n>   # h\n> after\n",
+    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-7",
+    "source": "> - a\n> \n>   # h\n> \n> after\n",
+    "html": "<blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-8",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-9",
+    "source": "> > - a\n> >     ```\n> > \n> >   # h\n> > \n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-10",
+    "source": "> > - a\n> > \n> >   # h\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-without-resumed-code-11",
+    "source": "> > - a\n> > \n> >   # h\n> > \n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<h1 id=\"h\">h</h1></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-0",
+    "source": "- a\n    ```\n  # h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-direct-1",
+    "source": "- a\n    ```\n  # h\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-direct-2",
+    "source": "- a\n    ```\n  ## h\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-direct-3",
+    "source": "- a\n    ```\n  ## h\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-direct-4",
+    "source": "- a\n    ```\n  # h\n  # second\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-direct-5",
+    "source": "- a\n    ```\n  # h\n  # second\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-direct-6",
+    "source": "> - a\n>     ```\n>   # h\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-7",
+    "source": "> - a\n>     ```\n>   # h\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-8",
+    "source": "> - a\n>     ```\n>   ## h\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-9",
+    "source": "> - a\n>     ```\n>   ## h\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-10",
+    "source": "> - a\n>     ```\n>   # h\n>   # second\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-11",
+    "source": "> - a\n>     ```\n>   # h\n>   # second\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-12",
+    "source": "> > - a\n> >     ```\n> >   # h\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-13",
+    "source": "> > - a\n> >     ```\n> >   # h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-14",
+    "source": "> > - a\n> >     ```\n> >   ## h\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-15",
+    "source": "> > - a\n> >     ```\n> >   ## h\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-16",
+    "source": "> > - a\n> >     ```\n> >   # h\n> >   # second\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-direct-17",
+    "source": "> > - a\n> >     ```\n> >   # h\n> >   # second\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><h1 id=\"h\">h</h1><h1 id=\"second\">second</h1><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "heading-heading-child-negative-0",
+    "source": "- a\n    ```\n\n  # h\n  ~~~\n  code\n  ~~~\n- next\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-1",
+    "source": "- a\n    ```\n\n  ## h\n  ~~~\n  code\n  ~~~\n- next\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-2",
+    "source": "- a\n    ```\n\n  # h\n\n  ~~~\n  code\n  ~~~\n- next\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-3",
+    "source": "- a\n    ```\n\n  ## h\n\n  ~~~\n  code\n  ~~~\n- next\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-4",
+    "source": "- a\n      ```\n\n    # h\n    ~~~\n    code\n    ~~~\n- next\n",
+    "html": "<ul><li>a<code></code># h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-5",
+    "source": "- a\n      ```\n\n    ## h\n    ~~~\n    code\n    ~~~\n- next\n",
+    "html": "<ul><li>a<code></code>## h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-6",
+    "source": "- a\n      ```\n\n    # h\n\n    ~~~\n    code\n    ~~~\n- next\n",
+    "html": "<ul><li>a<code></code># h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-7",
+    "source": "- a\n      ```\n\n    ## h\n\n    ~~~\n    code\n    ~~~\n- next\n",
+    "html": "<ul><li>a<code></code>## h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-8",
+    "source": "- a\n        ```\n\n      # h\n      ~~~\n      code\n      ~~~\n- next\n",
+    "html": "<ul><li>a<code></code># h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-9",
+    "source": "- a\n        ```\n\n      ## h\n      ~~~\n      code\n      ~~~\n- next\n",
+    "html": "<ul><li>a<code></code>## h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-10",
+    "source": "- a\n        ```\n\n      # h\n\n      ~~~\n      code\n      ~~~\n- next\n",
+    "html": "<ul><li>a<code></code># h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-child-negative-11",
+    "source": "- a\n        ```\n\n      ## h\n\n      ~~~\n      code\n      ~~~\n- next\n",
+    "html": "<ul><li>a<code></code>## h ~~~ code ~~~</li><li>next</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-0",
+    "source": "- a\n    ```\n  # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-1",
+    "source": "- a\n    ```\n  # h\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-2",
+    "source": "- a\n    ```\n  # h\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-3",
+    "source": "- a\n    ```\n  # h\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-4",
+    "source": "- a\n    ```\n  # h\n\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-5",
+    "source": "- a\n    ```\n  # h\n\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-6",
+    "source": "- a\n    ```\n  # h\n  text\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>text<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-7",
+    "source": "- a\n    ```\n  # h\n  text\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>text<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-8",
+    "source": "- a\n    ```\n  # h\n  text\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>text<code>code</code>after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-9",
+    "source": "- a\n    ```\n  # h\n  text\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>text ~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-10",
+    "source": "- a\n    ```\n  ## h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-11",
+    "source": "- a\n    ```\n  ## h\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-12",
+    "source": "- a\n    ```\n  ## h\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-13",
+    "source": "- a\n    ```\n  ## h\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-14",
+    "source": "- a\n    ```\n  ## h\n\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-15",
+    "source": "- a\n    ```\n  ## h\n\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-16",
+    "source": "- a\n    ```\n  ## h\n  text\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2>text<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-17",
+    "source": "- a\n    ```\n  ## h\n  text\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2>text<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-18",
+    "source": "- a\n    ```\n  ## h\n  text\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2>text<code>code</code>after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-19",
+    "source": "- a\n    ```\n  ## h\n  text\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h2 id=\"h\">h</h2>text ~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-20",
+    "source": "- a\n    ```\n\n  # h\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "heading-heading-text-band-21",
+    "source": "- a\n    ```\n\n  # h\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-22",
+    "source": "- a\n    ```\n\n  # h\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "heading-heading-text-band-23",
+    "source": "- a\n    ```\n\n  # h\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><h1 id=\"h\">h</h1><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-0",
+    "source": "- a\n    ```\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-1",
+    "source": "- a\n    ```\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-2",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-3",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-4",
+    "source": "- a\n    ```\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-5",
+    "source": "- a\n    ```\n\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-6",
+    "source": "- a\n    ```\n    ```\n    code\n    ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-7",
+    "source": "- a\n    ```\n\n    ```\n    code\n    ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-8",
+    "source": "- a\n    ```\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-9",
+    "source": "- a\n    ```\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-10",
+    "source": "- a\n    ```\n    ~~~ =html\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-11",
+    "source": "- a\n    ```\n\n    ~~~ =html\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-12",
+    "source": "- a\n    ```\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-13",
+    "source": "- a\n    ```\n\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-14",
+    "source": "- a\n    ```\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-15",
+    "source": "- a\n    ```\n\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-16",
+    "source": "- a\n    ```\n      ~~~ =html\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ =html code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-17",
+    "source": "- a\n    ```\n\n      ~~~ =html\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ =html code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-18",
+    "source": "- a\n    ```\n        ```\n        code\n        ```\nafter\n",
+    "html": "<ul><li>a<code></code>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-19",
+    "source": "- a\n    ```\n\n        ```\n        code\n        ```\nafter\n",
+    "html": "<ul><li>a<code></code><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-20",
+    "source": "- a\n    ```\n        ~~~\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-21",
+    "source": "- a\n    ```\n\n        ~~~\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-22",
+    "source": "- a\n    ```\n        ~~~ =html\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ =html code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-23",
+    "source": "- a\n    ```\n\n        ~~~ =html\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ =html code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-24",
+    "source": "- a\n  \t```\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-25",
+    "source": "- a\n  \t```\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-26",
+    "source": "- a\n  \t```\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-27",
+    "source": "- a\n  \t```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-28",
+    "source": "- a\n  \t```\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-29",
+    "source": "- a\n  \t```\n\n  ~~~ =html\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-30",
+    "source": "- a\n  \t```\n    ```\n    code\n    ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-31",
+    "source": "- a\n  \t```\n\n    ```\n    code\n    ```\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-32",
+    "source": "- a\n  \t```\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-33",
+    "source": "- a\n  \t```\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-34",
+    "source": "- a\n  \t```\n    ~~~ =html\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-35",
+    "source": "- a\n  \t```\n\n    ~~~ =html\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>code</li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-inline-following-code-36",
+    "source": "- a\n  \t```\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-37",
+    "source": "- a\n  \t```\n\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li>a<code></code><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-38",
+    "source": "- a\n  \t```\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-39",
+    "source": "- a\n  \t```\n\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-40",
+    "source": "- a\n  \t```\n      ~~~ =html\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ =html code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-41",
+    "source": "- a\n  \t```\n\n      ~~~ =html\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ =html code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-42",
+    "source": "- a\n  \t```\n        ```\n        code\n        ```\nafter\n",
+    "html": "<ul><li>a<code></code>code<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-43",
+    "source": "- a\n  \t```\n\n        ```\n        code\n        ```\nafter\n",
+    "html": "<ul><li>a<code></code><code>code</code>after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-44",
+    "source": "- a\n  \t```\n        ~~~\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-45",
+    "source": "- a\n  \t```\n\n        ~~~\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-46",
+    "source": "- a\n  \t```\n        ~~~ =html\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code>~~~ =html code ~~~ after</code></li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-47",
+    "source": "- a\n  \t```\n\n        ~~~ =html\n        code\n        ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>~~~ =html code ~~~ after</li></ul>"
+  },
+  {
+    "id": "resume-inline-following-code-48",
+    "source": "> - a\n>     ```\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-49",
+    "source": "> - a\n>     ```\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-50",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-51",
+    "source": "> - a\n>     ```\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-52",
+    "source": "> - a\n>     ```\n>   ~~~ =html\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-53",
+    "source": "> - a\n>     ```\n> \n>   ~~~ =html\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-54",
+    "source": "> - a\n>     ```\n>     ```\n>     code\n>     ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-55",
+    "source": "> - a\n>     ```\n> \n>     ```\n>     code\n>     ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-56",
+    "source": "> - a\n>     ```\n>     ~~~\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-57",
+    "source": "> - a\n>     ```\n> \n>     ~~~\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-58",
+    "source": "> - a\n>     ```\n>     ~~~ =html\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-59",
+    "source": "> - a\n>     ```\n> \n>     ~~~ =html\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-60",
+    "source": "> - a\n>     ```\n>       ```\n>       code\n>       ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-61",
+    "source": "> - a\n>     ```\n> \n>       ```\n>       code\n>       ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-62",
+    "source": "> - a\n>     ```\n>       ~~~\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-63",
+    "source": "> - a\n>     ```\n> \n>       ~~~\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-64",
+    "source": "> - a\n>     ```\n>       ~~~ =html\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-65",
+    "source": "> - a\n>     ```\n> \n>       ~~~ =html\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-66",
+    "source": "> - a\n>     ```\n>         ```\n>         code\n>         ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-67",
+    "source": "> - a\n>     ```\n> \n>         ```\n>         code\n>         ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-68",
+    "source": "> - a\n>     ```\n>         ~~~\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-69",
+    "source": "> - a\n>     ```\n> \n>         ~~~\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-70",
+    "source": "> - a\n>     ```\n>         ~~~ =html\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-71",
+    "source": "> - a\n>     ```\n> \n>         ~~~ =html\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-72",
+    "source": "> - a\n>   \t```\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-73",
+    "source": "> - a\n>   \t```\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-74",
+    "source": "> - a\n>   \t```\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-75",
+    "source": "> - a\n>   \t```\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-76",
+    "source": "> - a\n>   \t```\n>   ~~~ =html\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-77",
+    "source": "> - a\n>   \t```\n> \n>   ~~~ =html\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-78",
+    "source": "> - a\n>   \t```\n>     ```\n>     code\n>     ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-79",
+    "source": "> - a\n>   \t```\n> \n>     ```\n>     code\n>     ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-80",
+    "source": "> - a\n>   \t```\n>     ~~~\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-81",
+    "source": "> - a\n>   \t```\n> \n>     ~~~\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-82",
+    "source": "> - a\n>   \t```\n>     ~~~ =html\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-83",
+    "source": "> - a\n>   \t```\n> \n>     ~~~ =html\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-84",
+    "source": "> - a\n>   \t```\n>       ```\n>       code\n>       ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-85",
+    "source": "> - a\n>   \t```\n> \n>       ```\n>       code\n>       ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-86",
+    "source": "> - a\n>   \t```\n>       ~~~\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-87",
+    "source": "> - a\n>   \t```\n> \n>       ~~~\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-88",
+    "source": "> - a\n>   \t```\n>       ~~~ =html\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-89",
+    "source": "> - a\n>   \t```\n> \n>       ~~~ =html\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-90",
+    "source": "> - a\n>   \t```\n>         ```\n>         code\n>         ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-91",
+    "source": "> - a\n>   \t```\n> \n>         ```\n>         code\n>         ```\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-92",
+    "source": "> - a\n>   \t```\n>         ~~~\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-93",
+    "source": "> - a\n>   \t```\n> \n>         ~~~\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-94",
+    "source": "> - a\n>   \t```\n>         ~~~ =html\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-95",
+    "source": "> - a\n>   \t```\n> \n>         ~~~ =html\n>         code\n>         ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-96",
+    "source": "> > - a\n> >     ```\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-97",
+    "source": "> > - a\n> >     ```\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-98",
+    "source": "> > - a\n> >     ```\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-99",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-100",
+    "source": "> > - a\n> >     ```\n> >   ~~~ =html\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-101",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~ =html\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-102",
+    "source": "> > - a\n> >     ```\n> >     ```\n> >     code\n> >     ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-103",
+    "source": "> > - a\n> >     ```\n> > \n> >     ```\n> >     code\n> >     ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-104",
+    "source": "> > - a\n> >     ```\n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-105",
+    "source": "> > - a\n> >     ```\n> > \n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-106",
+    "source": "> > - a\n> >     ```\n> >     ~~~ =html\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-107",
+    "source": "> > - a\n> >     ```\n> > \n> >     ~~~ =html\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-108",
+    "source": "> > - a\n> >     ```\n> >       ```\n> >       code\n> >       ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-109",
+    "source": "> > - a\n> >     ```\n> > \n> >       ```\n> >       code\n> >       ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-110",
+    "source": "> > - a\n> >     ```\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-111",
+    "source": "> > - a\n> >     ```\n> > \n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-112",
+    "source": "> > - a\n> >     ```\n> >       ~~~ =html\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-113",
+    "source": "> > - a\n> >     ```\n> > \n> >       ~~~ =html\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-114",
+    "source": "> > - a\n> >     ```\n> >         ```\n> >         code\n> >         ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-115",
+    "source": "> > - a\n> >     ```\n> > \n> >         ```\n> >         code\n> >         ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-116",
+    "source": "> > - a\n> >     ```\n> >         ~~~\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-117",
+    "source": "> > - a\n> >     ```\n> > \n> >         ~~~\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-118",
+    "source": "> > - a\n> >     ```\n> >         ~~~ =html\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-119",
+    "source": "> > - a\n> >     ```\n> > \n> >         ~~~ =html\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-120",
+    "source": "> > - a\n> >   \t```\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-121",
+    "source": "> > - a\n> >   \t```\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-122",
+    "source": "> > - a\n> >   \t```\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-123",
+    "source": "> > - a\n> >   \t```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-124",
+    "source": "> > - a\n> >   \t```\n> >   ~~~ =html\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-125",
+    "source": "> > - a\n> >   \t```\n> > \n> >   ~~~ =html\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-126",
+    "source": "> > - a\n> >   \t```\n> >     ```\n> >     code\n> >     ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-127",
+    "source": "> > - a\n> >   \t```\n> > \n> >     ```\n> >     code\n> >     ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code></code></pre>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-128",
+    "source": "> > - a\n> >   \t```\n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-129",
+    "source": "> > - a\n> >   \t```\n> > \n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-130",
+    "source": "> > - a\n> >   \t```\n> >     ~~~ =html\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-131",
+    "source": "> > - a\n> >   \t```\n> > \n> >     ~~~ =html\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code</li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-132",
+    "source": "> > - a\n> >   \t```\n> >       ```\n> >       code\n> >       ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-133",
+    "source": "> > - a\n> >   \t```\n> > \n> >       ```\n> >       code\n> >       ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-134",
+    "source": "> > - a\n> >   \t```\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-135",
+    "source": "> > - a\n> >   \t```\n> > \n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-136",
+    "source": "> > - a\n> >   \t```\n> >       ~~~ =html\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-137",
+    "source": "> > - a\n> >   \t```\n> > \n> >       ~~~ =html\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-138",
+    "source": "> > - a\n> >   \t```\n> >         ```\n> >         code\n> >         ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>code<code>after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-139",
+    "source": "> > - a\n> >   \t```\n> > \n> >         ```\n> >         code\n> >         ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><code>code</code>after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-140",
+    "source": "> > - a\n> >   \t```\n> >         ~~~\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-141",
+    "source": "> > - a\n> >   \t```\n> > \n> >         ~~~\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-142",
+    "source": "> > - a\n> >   \t```\n> >         ~~~ =html\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code>~~~ =html code ~~~ after</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-inline-following-code-143",
+    "source": "> > - a\n> >   \t```\n> > \n> >         ~~~ =html\n> >         code\n> >         ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code>~~~ =html code ~~~ after</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q0-`-blankfalse",
+    "source": "- a\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q0-`-blanktrue",
+    "source": "- a\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q0-~-blankfalse",
+    "source": "- a\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q0-~-blanktrue",
+    "source": "- a\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q1-`-blankfalse",
+    "source": "> - a\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q1-`-blanktrue",
+    "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q1-~-blankfalse",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q1-~-blanktrue",
+    "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q2-`-blankfalse",
+    "source": "> > - a\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q2-`-blanktrue",
+    "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q2-~-blankfalse",
+    "source": "> > - a\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-ordinary-closed-code-q2-~-blanktrue",
+    "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-156",
+    "source": "- a\n  ```\n  code\n  ```\n---\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-157",
+    "source": "- a\n  ```\n  code\n  ```\n| a |\n| - |\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-158",
+    "source": "- a\n  ```\n  code\n  ```\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-159",
+    "source": "- a\n  ```\n  code\n  ```\n- sibling\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-160",
+    "source": "- a\n  ```\n  code\n  ```\n:: t\n: body\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-161",
+    "source": "- a\n  ```\n  code\n  ```\n  ```\n  unclosed\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+  },
+  {
+    "id": "resume-preservation-162",
+    "source": "- a\n\n  ```\n  code\n  ```\n---\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-163",
+    "source": "- a\n\n  ```\n  code\n  ```\n| a |\n| - |\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-164",
+    "source": "- a\n\n  ```\n  code\n  ```\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-165",
+    "source": "- a\n\n  ```\n  code\n  ```\n- sibling\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-166",
+    "source": "- a\n\n  ```\n  code\n  ```\n:: t\n: body\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-167",
+    "source": "- a\n\n  ```\n  code\n  ```\n  ```\n  unclosed\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+  },
+  {
+    "id": "resume-preservation-168",
+    "source": "- a\n    ~~~\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-169",
+    "source": "- a\n    ~~~\n  ```\n  code\n  ```\n---\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-170",
+    "source": "- a\n    ~~~\n  ```\n  code\n  ```\n| a |\n| - |\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-171",
+    "source": "- a\n    ~~~\n  ```\n  code\n  ```\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-172",
+    "source": "- a\n    ~~~\n  ```\n  code\n  ```\n- sibling\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-173",
+    "source": "- a\n    ~~~\n  ```\n  code\n  ```\n:: t\n: body\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-174",
+    "source": "- a\n    ~~~\n  ```\n  code\n  ```\n  ```\n  unclosed\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+  },
+  {
+    "id": "resume-preservation-175",
+    "source": "- a\n    ~~~\n\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-176",
+    "source": "- a\n    ~~~\n\n  ```\n  code\n  ```\n---\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-177",
+    "source": "- a\n    ~~~\n\n  ```\n  code\n  ```\n| a |\n| - |\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-178",
+    "source": "- a\n    ~~~\n\n  ```\n  code\n  ```\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-179",
+    "source": "- a\n    ~~~\n\n  ```\n  code\n  ```\n- sibling\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-180",
+    "source": "- a\n    ~~~\n\n  ```\n  code\n  ```\n:: t\n: body\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-181",
+    "source": "- a\n    ~~~\n\n  ```\n  code\n  ```\n  ```\n  unclosed\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+  },
+  {
+    "id": "resume-preservation-182",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n---\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-183",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n| a |\n| - |\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-184",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-185",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n- sibling\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-186",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n:: t\n: body\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-187",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  ```\n  unclosed\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+  },
+  {
+    "id": "resume-preservation-188",
+    "source": "- a\n\n  ~~~\n  code\n  ~~~\n---\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-189",
+    "source": "- a\n\n  ~~~\n  code\n  ~~~\n| a |\n| - |\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-190",
+    "source": "- a\n\n  ~~~\n  code\n  ~~~\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-191",
+    "source": "- a\n\n  ~~~\n  code\n  ~~~\n- sibling\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-192",
+    "source": "- a\n\n  ~~~\n  code\n  ~~~\n:: t\n: body\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-193",
+    "source": "- a\n\n  ~~~\n  code\n  ~~~\n  ```\n  unclosed\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul>"
+  },
+  {
+    "id": "resume-preservation-194",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n---\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-195",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n| a |\n| - |\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-196",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-197",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n- sibling\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-198",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n:: t\n: body\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-199",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  ```\n  unclosed\n",
+    "html": "<ul><li>a<pre><code>~~~ code ~~~</code></pre>unclosed</li></ul>"
+  },
+  {
+    "id": "resume-preservation-200",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n---\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><hr>"
+  },
+  {
+    "id": "resume-preservation-201",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n| a |\n| - |\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table>"
+  },
+  {
+    "id": "resume-preservation-202",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n[r]: /u\n\n[r][]\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p>"
+  },
+  {
+    "id": "resume-preservation-203",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n- sibling\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li><li>sibling</li></ul>"
+  },
+  {
+    "id": "resume-preservation-204",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n:: t\n: body\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl>"
+  },
+  {
+    "id": "resume-preservation-205",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n  ```\n  unclosed\n",
+    "html": "<ul><li>a<pre><code>~~~ code ~~~</code></pre>unclosed</li></ul>"
+  },
+  {
+    "id": "resume-preservation-206",
+    "source": "> - a\n>   ```\n>   code\n>   ```\n> ---\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-207",
+    "source": "> - a\n>   ```\n>   code\n>   ```\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-208",
+    "source": "> - a\n>   ```\n>   code\n>   ```\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-209",
+    "source": "> - a\n>   ```\n>   code\n>   ```\n> - sibling\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-210",
+    "source": "> - a\n>   ```\n>   code\n>   ```\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-211",
+    "source": "> - a\n>   ```\n>   code\n>   ```\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-212",
+    "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> ---\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-213",
+    "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-214",
+    "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-215",
+    "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> - sibling\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-216",
+    "source": "> - a\n> \n>   ```\n>   code\n>   ```\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-217",
+    "source": "> - a\n> \n>   ```\n>   code\n>   ```\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-218",
+    "source": "> - a\n>     ~~~\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-219",
+    "source": "> - a\n>     ~~~\n>   ```\n>   code\n>   ```\n> ---\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-220",
+    "source": "> - a\n>     ~~~\n>   ```\n>   code\n>   ```\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-221",
+    "source": "> - a\n>     ~~~\n>   ```\n>   code\n>   ```\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-222",
+    "source": "> - a\n>     ~~~\n>   ```\n>   code\n>   ```\n> - sibling\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-223",
+    "source": "> - a\n>     ~~~\n>   ```\n>   code\n>   ```\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-224",
+    "source": "> - a\n>     ~~~\n>   ```\n>   code\n>   ```\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-225",
+    "source": "> - a\n>     ~~~\n> \n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-226",
+    "source": "> - a\n>     ~~~\n> \n>   ```\n>   code\n>   ```\n> ---\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-227",
+    "source": "> - a\n>     ~~~\n> \n>   ```\n>   code\n>   ```\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-228",
+    "source": "> - a\n>     ~~~\n> \n>   ```\n>   code\n>   ```\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-229",
+    "source": "> - a\n>     ~~~\n> \n>   ```\n>   code\n>   ```\n> - sibling\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-230",
+    "source": "> - a\n>     ~~~\n> \n>   ```\n>   code\n>   ```\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-231",
+    "source": "> - a\n>     ~~~\n> \n>   ```\n>   code\n>   ```\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-232",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n> ---\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-233",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-234",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-235",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n> - sibling\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-236",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-237",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-238",
+    "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> ---\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-239",
+    "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-240",
+    "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-241",
+    "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> - sibling\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-242",
+    "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-243",
+    "source": "> - a\n> \n>   ~~~\n>   code\n>   ~~~\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-244",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n> ---\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-245",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-246",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-247",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n> - sibling\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-248",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-249",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a<pre><code>~~~ code ~~~</code></pre>unclosed</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-250",
+    "source": "> - a\n>     ```\n> \n>   ~~~\n>   code\n>   ~~~\n> ---\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><hr></blockquote>"
+  },
+  {
+    "id": "resume-preservation-251",
+    "source": "> - a\n>     ```\n> \n>   ~~~\n>   code\n>   ~~~\n> | a |\n> | - |\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote>"
+  },
+  {
+    "id": "resume-preservation-252",
+    "source": "> - a\n>     ```\n> \n>   ~~~\n>   code\n>   ~~~\n> [r]: /u\n> \n> [r][]\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-253",
+    "source": "> - a\n>     ```\n> \n>   ~~~\n>   code\n>   ~~~\n> - sibling\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li><li>sibling</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-254",
+    "source": "> - a\n>     ```\n> \n>   ~~~\n>   code\n>   ~~~\n> :: t\n> : body\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote>"
+  },
+  {
+    "id": "resume-preservation-255",
+    "source": "> - a\n>     ```\n> \n>   ~~~\n>   code\n>   ~~~\n>   ```\n>   unclosed\n",
+    "html": "<blockquote><ul><li>a<pre><code>~~~ code ~~~</code></pre>unclosed</li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-256",
+    "source": "> > - a\n> >   ```\n> >   code\n> >   ```\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-257",
+    "source": "> > - a\n> >   ```\n> >   code\n> >   ```\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-258",
+    "source": "> > - a\n> >   ```\n> >   code\n> >   ```\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-259",
+    "source": "> > - a\n> >   ```\n> >   code\n> >   ```\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-260",
+    "source": "> > - a\n> >   ```\n> >   code\n> >   ```\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-261",
+    "source": "> > - a\n> >   ```\n> >   code\n> >   ```\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-262",
+    "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-263",
+    "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-264",
+    "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-265",
+    "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-266",
+    "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-267",
+    "source": "> > - a\n> > \n> >   ```\n> >   code\n> >   ```\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-268",
+    "source": "> > - a\n> >     ~~~\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-269",
+    "source": "> > - a\n> >     ~~~\n> >   ```\n> >   code\n> >   ```\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-270",
+    "source": "> > - a\n> >     ~~~\n> >   ```\n> >   code\n> >   ```\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-271",
+    "source": "> > - a\n> >     ~~~\n> >   ```\n> >   code\n> >   ```\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-272",
+    "source": "> > - a\n> >     ~~~\n> >   ```\n> >   code\n> >   ```\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-273",
+    "source": "> > - a\n> >     ~~~\n> >   ```\n> >   code\n> >   ```\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-274",
+    "source": "> > - a\n> >     ~~~\n> >   ```\n> >   code\n> >   ```\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-275",
+    "source": "> > - a\n> >     ~~~\n> > \n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p>after</p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-276",
+    "source": "> > - a\n> >     ~~~\n> > \n> >   ```\n> >   code\n> >   ```\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-277",
+    "source": "> > - a\n> >     ~~~\n> > \n> >   ```\n> >   code\n> >   ```\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-278",
+    "source": "> > - a\n> >     ~~~\n> > \n> >   ```\n> >   code\n> >   ```\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-279",
+    "source": "> > - a\n> >     ~~~\n> > \n> >   ```\n> >   code\n> >   ```\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-280",
+    "source": "> > - a\n> >     ~~~\n> > \n> >   ```\n> >   code\n> >   ```\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-281",
+    "source": "> > - a\n> >     ~~~\n> > \n> >   ```\n> >   code\n> >   ```\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a ~~~<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-282",
+    "source": "> > - a\n> >   ~~~\n> >   code\n> >   ~~~\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-283",
+    "source": "> > - a\n> >   ~~~\n> >   code\n> >   ~~~\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-284",
+    "source": "> > - a\n> >   ~~~\n> >   code\n> >   ~~~\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-285",
+    "source": "> > - a\n> >   ~~~\n> >   code\n> >   ~~~\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-286",
+    "source": "> > - a\n> >   ~~~\n> >   code\n> >   ~~~\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-287",
+    "source": "> > - a\n> >   ~~~\n> >   code\n> >   ~~~\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-288",
+    "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-289",
+    "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-290",
+    "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-291",
+    "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-292",
+    "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-293",
+    "source": "> > - a\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>code</code></pre><pre><code>unclosed</code></pre></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-294",
+    "source": "> > - a\n> >     ```\n> >   ~~~\n> >   code\n> >   ~~~\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-295",
+    "source": "> > - a\n> >     ```\n> >   ~~~\n> >   code\n> >   ~~~\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-296",
+    "source": "> > - a\n> >     ```\n> >   ~~~\n> >   code\n> >   ~~~\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-297",
+    "source": "> > - a\n> >     ```\n> >   ~~~\n> >   code\n> >   ~~~\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-298",
+    "source": "> > - a\n> >     ```\n> >   ~~~\n> >   code\n> >   ~~~\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-299",
+    "source": "> > - a\n> >     ```\n> >   ~~~\n> >   code\n> >   ~~~\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>~~~ code ~~~</code></pre>unclosed</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-300",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > ---\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><hr></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-301",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > | a |\n> > | - |\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-302",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > [r]: /u\n> > \n> > [r][]\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p><a href=\"/u\">r</a></p></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-303",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > - sibling\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li><li>sibling</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-304",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> > :: t\n> > : body\n",
+    "html": "<blockquote><blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>body</dd></dl></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-305",
+    "source": "> > - a\n> >     ```\n> > \n> >   ~~~\n> >   code\n> >   ~~~\n> >   ```\n> >   unclosed\n",
+    "html": "<blockquote><blockquote><ul><li>a<pre><code>~~~ code ~~~</code></pre>unclosed</li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "resume-preservation-306",
+    "source": "- a\n\n  x\n  ```\n\nafter\n",
+    "html": "<ul><li><p>a</p><p>x<code></code></p></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-307",
+    "source": "- a\n  ---\n  x\n  ```\n\nafter\n",
+    "html": "<ul><li>a<hr>x<code></code></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-308",
+    "source": "- a\n    ```\n  ```\n  code\n  ```\n\n\nafter\n",
+    "html": "<ul><li>a<pre><code></code></pre>code<code></code></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-309",
+    "source": "- a\n    ~~~\n    ```\n    code\n    ```\n # h\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p># h</p>"
+  },
+  {
+    "id": "resume-preservation-310",
+    "source": "- a\n    ~~~\n    ```\n    code\n    ```\n ```\n x\n ```\n",
+    "html": "<ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><code>x</code></p>"
+  },
+  {
+    "id": "resume-preservation-311",
+    "source": "> - a\n>     ~~~\n>     ```\n>     code\n>     ```\n>  # h\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p># h</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-312",
+    "source": "> - a\n>     ~~~\n>     ```\n>     code\n>     ```\n>  ```\n>  x\n>  ```\n",
+    "html": "<blockquote><ul><li>a ~~~<pre><code>code</code></pre></li></ul><p><code>x</code></p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-313",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  ---\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><hr></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-314",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  | a |\n  | - |\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-315",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  [r]: /u\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-316",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  :: t\n  : body\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><dl><dt>t</dt><dd>body after</dd></dl></li></ul>"
+  },
+  {
+    "id": "resume-preservation-317",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  - sibling\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><ul><li>sibling after</li></ul></li></ul>"
+  },
+  {
+    "id": "resume-preservation-318",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  %% comment\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-319",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n  ```\n  x\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><pre><code>x</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-320",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  ---\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><hr></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-321",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  | a |\n  | - |\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-322",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  [r]: /u\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-323",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  :: t\n  : body\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><dl><dt>t</dt><dd>body after</dd></dl></li></ul>"
+  },
+  {
+    "id": "resume-preservation-324",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  - sibling\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><ul><li>sibling after</li></ul></li></ul>"
+  },
+  {
+    "id": "resume-preservation-325",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  %% comment\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-preservation-326",
+    "source": "- a\n    ```\n  ~~~\n  code\n  ~~~\n  ```\n  x\n  ```\nafter\n",
+    "html": "<ul><li>a<pre><code>~~~ code ~~~</code></pre>x<code>after</code></li></ul>"
+  },
+  {
+    "id": "resume-preservation-327",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   ---\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><hr></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-328",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   | a |\n>   | - |\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-329",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   [r]: /u\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-330",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   :: t\n>   : body\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><dl><dt>t</dt><dd>body after</dd></dl></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-331",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   - sibling\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><ul><li>sibling after</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-332",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   %% comment\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-333",
+    "source": "> - a\n>   ~~~\n>   code\n>   ~~~\n>   ```\n>   x\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>code</code></pre><pre><code>x</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-334",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   ---\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre><hr></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-335",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   | a |\n>   | - |\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre><table><thead><tr><th scope=\"col\">a</th></tr></thead></table></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-336",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   [r]: /u\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-337",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   :: t\n>   : body\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre><dl><dt>t</dt><dd>body after</dd></dl></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-338",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   - sibling\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre><ul><li>sibling after</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-preservation-339",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   %% comment\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-preservation-340",
+    "source": "> - a\n>     ```\n>   ~~~\n>   code\n>   ~~~\n>   ```\n>   x\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li>a<pre><code>~~~ code ~~~</code></pre>x<code>after</code></li></ul></blockquote>"
+  },
+  {
+    "id": "resume-review-boundary-1",
+    "source": "- a\n    ```\n\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-6",
+    "source": "- a\n    ```\n- b\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code></li><li>b<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-7",
+    "source": "- a\n    ```\n\n- b\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li><p>a<code></code></p></li><li><p>b</p><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-8",
+    "source": "- a\n    ```\n\nafter\n",
+    "html": "<ul><li>a<code></code></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-9",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-10",
+    "source": "- a\n    ```\n\n  ~~~\n  c\n  ~~~\n\n  ~~~\n  d\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>c</code></pre><pre><code>d</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-11",
+    "source": "- a\n    ```\n\n  ~~~\n  c\n  ~~~\n  b\n\n  ~~~\n  d\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>c</code></pre>b<pre><code>d</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-13",
+    "source": "- a\n    ```\n\n  %%%\n  x\n  %%%\nafter\n",
+    "html": "<ul><li>a<code></code></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-14",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n````\nx\n````\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><pre><code>x</code></pre>"
+  },
+  {
+    "id": "resume-review-boundary-15",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n> q\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><blockquote><p>q</p></blockquote>"
+  },
+  {
+    "id": "resume-review-boundary-16",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n::: note\nx\n:::\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside>"
+  },
+  {
+    "id": "resume-review-boundary-17",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n%% c\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-18",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n:: t\n: d\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><dl><dt>t</dt><dd>d</dd></dl>"
+  },
+  {
+    "id": "resume-review-boundary-19",
+    "source": "- a\n    ```\n\n  ::: note\n  x\n  :::\nafter\n",
+    "html": "<ul><li>a<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-20",
+    "source": "- a\n    ```\n\n    ::: note\n    x\n    :::\nafter\n",
+    "html": "<ul><li>a<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-21",
+    "source": "- a\n    ```\n\n  ::: note\n  ~~~\n  code\n  ~~~\n  :::\nafter\n",
+    "html": "<ul><li>a<code></code><aside class=\"admonition note\" aria-label=\"Note\"><pre><code>code</code></pre></aside></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-25",
+    "source": "- a\n    ```\n\n    ::: box\n    x\n    :::\n\n  tail\n",
+    "html": "<ul><li>a<code></code><div class=\"box\"><p>x</p></div>tail</li></ul>"
+  },
+  {
+    "id": "resume-review-boundary-26",
+    "source": "> - a\n>     ```\n>\n>     ::: note\n>     x\n>     :::\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-review-boundary-27",
+    "source": "- o\n  - a\n      ```\n\n      ::: note\n      x\n      :::\n  after\n",
+    "html": "<ul><li>o<ul><li>a<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></li></ul>after</li></ul>"
+  },
+  {
+    "id": "resume-review-boundary-28",
+    "source": "- a\n    ```\n\n    :::\n    x\n    :::\nafter\n",
+    "html": "<ul><li>a<code></code><div><p>x</p></div></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-29",
+    "source": "- a\n    ```\n\n    ::: note\n    x\n    :::\n  in\n",
+    "html": "<ul><li>a<code></code><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside>in</li></ul>"
+  },
+  {
+    "id": "resume-review-boundary-30",
+    "source": "- a\n    ```\n\n  - c\n\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-32",
+    "source": "- o\n  - a\n      ```\n\n    ~~~\n    code\n    ~~~\n  after\n",
+    "html": "<ul><li>o<ul><li>a<code></code><pre><code>code</code></pre></li></ul>after</li></ul>"
+  },
+  {
+    "id": "resume-review-boundary-33",
+    "source": "- o\n  - a\n      ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>o<ul><li>a<code></code></li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-34",
+    "source": "> - a\n>     ```\n>\n>   ~~~\n>   code\n>   ~~~\nafter\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul></blockquote><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-35",
+    "source": "- > a\n  >   ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li><blockquote><p>a<code></code></p></blockquote><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-36",
+    "source": "1. a\n     ```\n\n   ~~~\n   code\n   ~~~\nafter\n",
+    "html": "<ol><li>a<code></code><pre><code>code</code></pre></li></ol><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-37",
+    "source": "- a\n  ~~~\n  code\n  ~~~\n    ```\nafter\n",
+    "html": "<ul><li>a<pre><code>code</code></pre><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-38",
+    "source": "- a\n  ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-42",
+    "source": "- a\n    ```\n\n~~~\ncode\n~~~\nafter\n",
+    "html": "<ul><li>a<code></code></li></ul><pre><code>code</code></pre><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-44",
+    "source": "- a\n    ```\n\n  %%%\n  x\nafter\n",
+    "html": "<ul><li>a<code></code>x after</li></ul>"
+  },
+  {
+    "id": "resume-review-boundary-46",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n- b\n  ~~~\n  c2\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li><li>b<pre><code>c2</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-boundary-47",
+    "source": "- a\n    ```\n    x\n    ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<pre><code>x</code></pre><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-2",
+    "source": "- a\n    ```\n\n  b\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code>b<pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-49",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n    ::: note\n    x\n    :::\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-50",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n  ::: note\n  x\n  :::\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-51",
+    "source": "- a\n    ```\n\n    ~~~\n    ::: note\n    x\n    :::\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>::: note x :::</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-54",
+    "source": "- a\n\n    ~~~~\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li>a<pre><code>~~~ code ~~~</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-56",
+    "source": "- a\n    ```\n\n  - c\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c</li></ul><pre><code>code</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-57",
+    "source": "- a\n    ```\n\n  - c\n\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><ul><li>c<pre><code>code</code></pre></li></ul></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-61",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n    ~~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-63",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n  - c\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><ul><li>c after</li></ul></li></ul>"
+  },
+  {
+    "id": "resume-review-resume-64",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n  | x |\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><table><tbody><tr><td>x</td></tr></tbody></table></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-65",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n  b\n::: note\nx\n:::\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre>b</li></ul><aside class=\"admonition note\" aria-label=\"Note\"><p>x</p></aside>"
+  },
+  {
+    "id": "resume-review-resume-66",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n- b\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li><li>b after</li></ul>"
+  },
+  {
+    "id": "resume-review-resume-67",
+    "source": ": t\n    ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<p>: t<code></code></p><p>~~~ code ~~~ after</p>"
+  },
+  {
+    "id": "resume-review-resume-68",
+    "source": "> - a\n>     ```\n>\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li>a<code></code><pre><code>code</code></pre></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "resume-review-resume-71",
+    "source": "- a\n    ```\n\n  ~~~ =html\n  <b>\n  ~~~\nafter\n",
+    "html": "<ul><li>a<code></code><b></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-72",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n- b\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre></li><li>b after</li></ul>"
+  },
+  {
+    "id": "resume-review-resume-73",
+    "source": "- a\n    ```\n\n  ~~~\n  code\n  ~~~\n    ~~~~\n    d\n    ~~~~\nafter\n",
+    "html": "<ul><li>a<code></code><pre><code>code</code></pre><pre><code>d</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "resume-review-resume-75",
+    "source": "- o\n  - a\n      ```\n\n    ~~~\n    code\n    ~~~\n    after\n",
+    "html": "<ul><li>o<ul><li>a<code></code><pre><code>code</code></pre>after</li></ul></li></ul>"
+  },
+  {
+    "id": "resume-review-resume-76",
+    "source": "- [ ] a\n    ```\n\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul class=\"task-list\"><li><input type=\"checkbox\" disabled aria-label=\"a\">a<code></code><pre><code>code</code></pre></li></ul><p>after</p>"
+  }
+]
