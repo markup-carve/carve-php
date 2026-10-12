@@ -675,7 +675,6 @@ final class BlockContinuationScanner
         $termCodeTailEligible = true;
         $termCodeTailFence = null;
         $termCodeTailAfterBlank = false;
-        $leadIsDefinitionTerm = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($itemLines[0] ?? '', " \t")) === 1;
         // Whether the open `: ` body follows a term; without one the line is paragraph text.
         $definitionBodyHasTerm = false;
         foreach ($itemLines as $seedLine) {
@@ -1070,7 +1069,6 @@ final class BlockContinuationScanner
                             if (
                                 $openDefinitionBody === null
                                 || !$definitionBodyHasTerm
-                                || $leadIsDefinitionTerm
                                 || $column < $contentIndent + $openDefinitionBody
                             ) {
                                 $authoredCodeColumn = $column;

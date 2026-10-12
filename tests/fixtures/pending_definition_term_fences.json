@@ -1412,7 +1412,7 @@
   {
     "id": "pending-term-boundary-30",
     "source": "- :: term\n  : desc\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1420,7 +1420,7 @@
   {
     "id": "pending-term-boundary-31",
     "source": "- :: term\n  : desc\n      ~~~\n      code\n      ~~~\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -1428,7 +1428,7 @@
   {
     "id": "pending-term-boundary-32",
     "source": "- :: term\n  : desc\n      ```=txt\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>desc</dd></dl></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt><dd><p>desc</p></dd></dl></li></ul><p>after</p>",
     "codePayloads": []
   },
   {
@@ -1724,7 +1724,7 @@
   {
     "id": "pending-term-boundary-84",
     "source": "> - :: term\n>   : desc\n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -1732,7 +1732,7 @@
   {
     "id": "pending-term-boundary-85",
     "source": "> - :: term\n>   : desc\n>       ~~~\n>       code\n>       ~~~\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -1740,7 +1740,7 @@
   {
     "id": "pending-term-boundary-86",
     "source": "> - :: term\n>   : desc\n>       ```=txt\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p></dd></dl></li></ul><p>after</p></blockquote>",
     "codePayloads": []
   },
   {
@@ -2036,7 +2036,7 @@
   {
     "id": "pending-term-boundary-138",
     "source": "> > - :: term\n> >   : desc\n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2044,7 +2044,7 @@
   {
     "id": "pending-term-boundary-139",
     "source": "> > - :: term\n> >   : desc\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -2052,7 +2052,7 @@
   {
     "id": "pending-term-boundary-140",
     "source": "> > - :: term\n> >   : desc\n> >       ```=txt\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>desc</dd></dl></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>desc</p></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": []
   },
   {
