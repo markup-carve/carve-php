@@ -1262,7 +1262,7 @@ final class BlockContinuationScanner
             if (
                 $pendingDefinitionTerm && $termCodeTailFence === null
                 && $trailingState->fence === null && !$trailingState->hasOpenDiv()
-                && $openCommentLength === null && !$isBlockQuoteLazyLine
+                && !$isBlockQuoteLazyLine
                 && ($nextTrimmed[0] ?? '') === '{'
                 && $this->wrappedItemAttributeLength($nextTrimmed, $lines, $i + 1, $count, $nextIndent) !== null
             ) {
