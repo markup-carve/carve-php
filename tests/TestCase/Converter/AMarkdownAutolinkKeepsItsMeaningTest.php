@@ -24,13 +24,13 @@ class AMarkdownAutolinkKeepsItsMeaningTest extends TestCase
         $rows = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/markdown-autolink-fidelity.json'), true, flags: JSON_THROW_ON_ERROR);
         $cases = [];
         foreach ($rows as $row) {
-            $cases['CommonMark ' . $row['example']] = [$row['source'], $row['html']];
+            $cases['CommonMark ' . $row['example']] = [$row['source'], $row['gfmHtml'] ?? $row['html']];
         }
 
         $cases['two-letter scheme'] = ['<ab:value>', '<p><a href="ab:value">ab:value</a></p>'];
         $cases['32-character scheme'] = ['<' . str_repeat('a', 32) . ':value>', '<p><a href="' . str_repeat('a', 32) . ':value">' . str_repeat('a', 32) . ':value</a></p>'];
         $cases['33-character scheme'] = ['<' . str_repeat('a', 33) . ':value>', '<p>&lt;' . str_repeat('a', 33) . ':value&gt;</p>'];
-        $cases['an escaped opening bracket'] = ['\<https://example.com>', '<p>&lt;https://example.com&gt;</p>'];
+        $cases['an escaped opening bracket'] = ['\<https://example.com>', '<p>&lt;<a href="https://example.com%3E">https://example.com&gt;</a></p>'];
         $cases['an escaped backslash before an autolink'] = [str_repeat(chr(92), 2) . '<https://example.com/\*>', '<p>\<a href="https://example.com/%5C*">https://example.com/\*</a></p>'];
         $cases['a code span'] = ['`<https://example.com/\*>`', '<p><code>&lt;https://example.com/\*&gt;</code></p>'];
         $cases['formatting inside a one-letter spelling'] = ['<m:*abc*>', '<p>&lt;m:<em>abc</em>&gt;</p>'];

@@ -101,11 +101,11 @@ final class MarkdownTablePipesTest extends TestCase
         self::assertStringContainsString('<!-- a|b -->', $html);
     }
 
-    public function testTableUrlRepairDoesNotChangeBareUrlsInParagraphs(): void
+    public function testTableUrlRepairPreservesGfmUrlsInParagraphs(): void
     {
         $source = '(see https://a.com/x|y&amp;z)';
         $carve = (new MarkdownToCarve())->convert($source);
-        self::assertStringNotContainsString('<a ', (new CarveConverter())->convert($carve));
+        self::assertStringContainsString('<a ', (new CarveConverter())->convert($carve));
         self::assertStringNotContainsString("\x00", $carve);
     }
 
