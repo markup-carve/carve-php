@@ -3462,8 +3462,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     ) {
                         $out = substr($out, 0, -1) . '\\^';
                     }
+                    // A bare highlight opener after `!` would form the `!=` smart symbol.
                     if (
-                        $node instanceof Highlight && str_starts_with($rendered, '=')
+                        str_starts_with($rendered, '=')
                         && str_ends_with($out, '!')
                         && self::backslashRunBefore($out, strlen($out) - 1) % 2 === 0
                     ) {
