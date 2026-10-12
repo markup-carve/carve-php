@@ -4780,7 +4780,7 @@ final class HtmlAstBuilder
         if (self::carriesNoDestination($node->getAttribute('href'))) {
             $skip = ['href'];
             foreach ($node->attributes as $attribute) {
-                if (HtmlCarrierNames::isReserved(HtmlDomLoader::attributeName($attribute))) {
+                if (HtmlCarrierNames::isReserved(HtmlDomLoader::attributeName($attribute)) || HtmlCarrierNames::isStoredSourceMarker(HtmlDomLoader::attributeName($attribute))) {
                     $skip[] = strtolower(HtmlDomLoader::attributeName($attribute));
                 }
             }
@@ -5045,6 +5045,7 @@ final class HtmlAstBuilder
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
             if (
                 HtmlCarrierNames::isReserved($name)
+                || HtmlCarrierNames::isStoredSourceMarker($name)
                 || str_starts_with($name, 'on')
             ) {
                 $remove[] = $attribute->nodeName;

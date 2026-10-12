@@ -2195,6 +2195,9 @@ class HtmlToCarve
      */
     protected function importWouldRefuseAttribute(string $tag, string $name): bool
     {
+        if (HtmlCarrierNames::isStoredSourceMarker($name)) {
+            return true;
+        }
         if (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
             return true;
         }
@@ -2260,6 +2263,8 @@ class HtmlToCarve
                 $subject = 'event-handler attribute ' . $name;
             } elseif ($sink) {
                 $subject = 'injection-sink attribute ' . $name;
+            } elseif (HtmlCarrierNames::isStoredSourceMarker($name)) {
+                $subject = 'round-trip marker attribute ' . $name;
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $subject = $name;
                 $reason = ": the semantic span's marker owns that key";
@@ -2464,6 +2469,8 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' with a denied URL scheme on <' . $tag . '>', 'warning', $path);
             } elseif (str_starts_with($name, 'on')) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
+            } elseif (HtmlCarrierNames::isStoredSourceMarker($name)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             } elseif ($tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
                 continue;
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
@@ -3318,6 +3325,7 @@ class HtmlToCarve
     protected function importAttributeIsReadNotWritten(string $tag, string $name): bool
     {
         return HtmlCarrierNames::isReserved($name)
+            || HtmlCarrierNames::isStoredSourceMarker($name)
             || ($tag === 'math' && in_array($name, ['display', 'alttext', 'xmlns'], true));
     }
 

@@ -167,8 +167,11 @@ arrives with it leaves without it.
 
 `data-carve-src` is reserved without a row. No renderer writes it, and import
 consumes it and its `data-djot-src` alias in every mode without reading Carve
-source from the value. Default export passes an authored one through. Roundtrip
-export drops it and reports `carrier-attribute-dropped`.
+source from the value. The import report names each one: `attribute-dropped`
+at `info` on an element the importer rewrites, and `attribute-preserved` on an
+element `roundtrip` mode keeps as raw HTML, whose bytes keep the attribute as
+written. Default export passes an authored one through. Roundtrip export drops
+it and reports `carrier-attribute-dropped`.
 
 The reserved set is an enumeration, not a prefix. A `data-carve-` or
 `data-djot-` name the enumeration does not list is an ordinary authored

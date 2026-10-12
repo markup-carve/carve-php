@@ -24,6 +24,7 @@ final class HtmlAttributePolicy
             || $lower === 'srcdoc'
             || $lower === 'formaction'
             || HtmlCarrierNames::isReserved($lower)
+            || HtmlCarrierNames::isStoredSourceMarker($lower)
             || in_array($name, $skip, true)
             || in_array($lower, $skip, true);
     }

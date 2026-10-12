@@ -87,12 +87,17 @@ final class HtmlCarrierNames
             && in_array(substr($lower, strlen(self::PREFIX)), self::SUFFIXES, true);
     }
 
+    public static function isStoredSourceMarker(string $name): bool
+    {
+        return in_array(strtolower($name), ['data-carve-src', 'data-djot-src'], true);
+    }
+
     /**
-     * Rename every deprecated carrier spelling to the canonical one.
+     * Rename deprecated carriers except stored-source markers to the canonical spelling.
      *
      * The canonical name WINS where an element carries both, and the alias is
-     * removed either way, so a document that arrives with `data-djot-` leaves
-     * without it (PART 10 section 13c). Only a name the enumeration lists moves;
+     * removed either way (PART 10 section 13c). Stored-source markers keep their
+     * authored names. Only a name the enumeration lists moves;
      * an unlisted `data-djot-` attribute is the author's and stays untouched.
      */
     public static function canonicalize(DOMDocument $document): void
@@ -107,9 +112,7 @@ final class HtmlCarrierNames
             $attributes = iterator_to_array($element->attributes);
             foreach ($attributes as $attribute) {
                 $lower = strtolower($attribute->name);
-                if (in_array($lower, ['data-carve-src', 'data-djot-src'], true)) {
-                    $element->removeAttribute($attribute->name);
-
+                if (self::isStoredSourceMarker($lower)) {
                     continue;
                 }
                 if (!str_starts_with($lower, self::LEGACY_PREFIX)) {
