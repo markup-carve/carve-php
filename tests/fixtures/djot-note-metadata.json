@@ -1576,5 +1576,239 @@
     "source": "::::: a\n{.x}\n:::",
     "lossLines": [],
     "html": "<div class=\"a\"><div class=\"x\"></div></div>"
+  },
+  {
+    "name": "no-space reference-after 0",
+    "source": "[r]:/u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 1",
+    "source": "[r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 2",
+    "source": "[r]:/u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 3",
+    "source": "[r]: /u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 4",
+    "source": "> [r]:/u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 5",
+    "source": "> [r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 6",
+    "source": "> [r]:/u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 7",
+    "source": "> [r]: /u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 8",
+    "source": "> > [r]:/u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 9",
+    "source": "> > [r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 10",
+    "source": "> > [r]:/u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 11",
+    "source": "> > [r]: /u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><blockquote></blockquote></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 12",
+    "source": "- [r]:/u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 13",
+    "source": "- [r]: /u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 14",
+    "source": "- [r]:/u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 15",
+    "source": "- [r]: /u_r`d\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space reference-after 16",
+    "source": "[^n]: note\n[r]:/u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 0",
+    "source": "[r]:/u_r`d\n  _tail\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d_tail\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 1",
+    "source": "[r]:/u_r`d\n  - word\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li>word</li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 2",
+    "source": "[r]:/u_r`d\n[^n]: note\n\n[x][r] x[^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "no-space continuation 3",
+    "source": "[r]: /u_r`d\n  _tail\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d_tail\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 4",
+    "source": "[r]: /u_r`d\n  - word\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li>word</li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 5",
+    "source": "[r]: /u_r`d\n[^n]: note\n\n[x][r] x[^n]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "no-space continuation 6",
+    "source": "> [r]:/u_r`d\n>   _tail\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d_tail\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 7",
+    "source": "> [r]:/u_r`d\n>   - word\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>word</li></ul></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 8",
+    "source": "> [r]:/u_r`d\n> [^n]: note\n\n[x][r] x[^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "no-space continuation 9",
+    "source": "> [r]: /u_r`d\n>   _tail\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d_tail\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 10",
+    "source": "> [r]: /u_r`d\n>   - word\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>word</li></ul></blockquote><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 11",
+    "source": "> [r]: /u_r`d\n> [^n]: note\n\n[x][r] x[^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "no-space continuation 12",
+    "source": "- [r]:/u_r`d\n  _tail\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li>_tail</li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 13",
+    "source": "- [r]:/u_r`d\n  - word\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li><ul><li>word</li></ul></li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 14",
+    "source": "- [r]:/u_r`d\n[^n]: note\n\n[x][r] x[^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "no-space continuation 15",
+    "source": "- [r]: /u_r`d\n  _tail\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li>_tail</li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 16",
+    "source": "- [r]: /u_r`d\n  - word\n\n[x][r]",
+    "lossLines": [],
+    "html": "<ul><li><ul><li>word</li></ul></li></ul><p><a href=\"/u_r`d\">x</a></p>"
+  },
+  {
+    "name": "no-space continuation 17",
+    "source": "- [r]: /u_r`d\n[^n]: note\n\n[x][r] x[^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p><a href=\"/u_r`d\">x</a> x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "reference-entry-review-control-0",
+    "source": "[r]:\t/u\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "reference-entry-review-control-1",
+    "source": "[r]:/u\r\n  _tail\r\n\r\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"/u_tail\">x</a></p>"
+  },
+  {
+    "name": "reference-entry-review-control-2",
+    "source": "[^n]: [a]: x y\n\nx[^n]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>[a]: x y<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "reference-entry-review-control-3",
+    "source": "[r]: /u\n> tail\n\n[x][r]",
+    "lossLines": [],
+    "html": "<blockquote><p>tail</p></blockquote><p><a href=\"/u\">x</a></p>"
   }
 ]

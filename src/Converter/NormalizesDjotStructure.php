@@ -1242,7 +1242,7 @@ trait NormalizesDjotStructure
                 || isset($definitionLines[$n - 1])
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previousContent) === 1
                 || ($previousStart > $start && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousStart)) === 1);
-            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
+            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', substr($line, $start), $definition) === 1 && ($mask[$offset + $start] ?? '') === '[' && $boundary) {
                 $attributeParts = [];
                 $attributeLines = [];
                 $attributeDepth = null;

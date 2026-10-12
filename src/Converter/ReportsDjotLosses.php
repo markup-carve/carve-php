@@ -72,6 +72,9 @@ trait ReportsDjotLosses
             $offset += strlen($line) + 1;
         }
         foreach ($lines as $n => $line) {
+            if (isset($definitionLines[$n])) {
+                continue;
+            }
             $at = $this->djotContentStart($line);
             $content = substr($line, $at);
             $contentMask = substr($visible[$n], $at);
@@ -83,10 +86,20 @@ trait ReportsDjotLosses
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:)/', $previousContent) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $previousContent) === 1
                 || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', $this->djotItemPrefix($previous, $previousAt)) === 1);
-            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
+            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
                 $destination = $definition[2];
-                for ($next = $n + 1; $next < $lineCount && $this->djotContentStart($lines[$next]) > $at && preg_match('/^\S+$/', substr($lines[$next], $this->djotContentStart($lines[$next]))) === 1; $next++) {
-                    $destination .= substr($lines[$next], $this->djotContentStart($lines[$next]));
+                for ($next = $n + 1; $next < $lineCount; $next++) {
+                    $nextAt = $this->djotContentStart($lines[$next]);
+                    $prefix = substr($lines[$next], 0, $nextAt);
+                    $token = preg_replace('/\r$/', '', substr($lines[$next], $nextAt)) ?? '';
+                    if (
+                        $quoteDepths[$next] !== $quoteDepths[$n] || $nextAt <= $at || str_contains($prefix, '[^')
+                        || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', $prefix) === 1
+                        || preg_match('/^[^ \t\r\n]+$/', $token) !== 1
+                    ) {
+                        break;
+                    }
+                    $destination .= $token;
                     $definitionLines[$next] = true;
                 }
                 $definitions[$this->djotReferenceDefinitionKey($definition[1])] = $destination;

@@ -3475,7 +3475,7 @@ class DjotToCarve
             [$depth] = $this->quoted($line);
             $at = $this->djotContentStart($line);
             $content = substr($line, $at);
-            $definition = preg_match('/^\[(?!\^)([^\]\n]*)\]:(?:[ \t]+(\S*)[ \t]*|)$/', $content, $match) === 1;
+            $definition = preg_match('/^\[(?!\^)([^\]\n]*)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', $content, $match) === 1;
             $previousLine = $lines[$n - 1] ?? '';
             $previousAt = $this->djotContentStart($previousLine);
             $previousNote = strpos(substr($previousLine, 0, $previousAt), '[^');
@@ -3524,20 +3524,25 @@ class DjotToCarve
                 $lines[$n] = $separator . $line;
             }
             if ($definition && ($mask[$offset + $at] ?? '') === '[' && ($boundary || $marker)) {
-                $target = $match[2] ?? '';
+                $target = $match[2];
                 $end = $n;
                 while ($end + 1 < $count) {
                     $next = $lines[$end + 1];
                     [$nextDepth] = $this->quoted($next);
                     $nextAt = $this->djotContentStart($next);
-                    if ($nextDepth !== $depth || $nextAt <= $at || preg_match('/^\S+$/', substr($next, $nextAt)) !== 1) {
+                    $nextPrefix = substr($next, 0, $nextAt);
+                    $nextToken = str_ends_with($next, "\r") ? substr($next, $nextAt, -1) : substr($next, $nextAt);
+                    if ($nextDepth !== $depth || $nextAt <= $at || str_contains($nextPrefix, '[^') || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', $nextPrefix) === 1 || preg_match('/^[^ \t\r\n]+$/', $nextToken) !== 1) {
                         break;
                     }
-                    $target .= substr($next, $nextAt);
+                    $target .= $nextToken;
                     $end++;
                 }
+                $nextByte = $content[strlen($match[1]) + 3] ?? '';
+                if ($end > $n || $target !== '' && $nextByte !== ' ') {
+                    $lines[$n] = $separator . substr($line, 0, $at) . '[' . $match[1] . ']:' . ($target !== '' ? ' ' . $target : '');
+                }
                 if ($end > $n) {
-                    $lines[$n] = $separator . substr($line, 0, $at) . '[' . $match[1] . ']: ' . $target;
                     for ($k = $n + 1; $k <= $end; $k++) {
                         $offset += strlen($lines[$k]) + 1;
                         $removed[$k] = true;
@@ -3545,7 +3550,8 @@ class DjotToCarve
                     $n = $end;
                 }
             }
-            if ($definition && ($mask[$offset + $at] ?? '') === '[' && !($boundary || $marker)) {
+            $invalidDefinition = !$definition && preg_match('/^\[(?!\^)[^\]\n]*\]:/', $content) === 1;
+            if (($invalidDefinition || $definition && !($boundary || $marker)) && ($mask[$offset + $at] ?? '') === '[') {
                 $colon = strpos($line, ']:', $at) + 1;
                 $lines[$n] = substr($line, 0, $colon) . '\\' . substr($line, $colon);
             }
@@ -4969,7 +4975,7 @@ class DjotToCarve
         $definitions = [];
         foreach ($lines as $n => $line) {
             $at = $this->djotContentStart($line);
-            if (($mask[$offsets[$n] + $at] ?? '') !== '[' || preg_match('/^\[([^\[\]\n^][^\[\]\n]*)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $at), $definition) !== 1 || !str_contains($definition[1], '|')) {
+            if (($mask[$offsets[$n] + $at] ?? '') !== '[' || preg_match('/^\[([^\[\]\n^][^\[\]\n]*)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', substr($line, $at), $definition) !== 1 || !str_contains($definition[1], '|')) {
                 continue;
             }
             $previousLine = $lines[$n - 1] ?? '';
