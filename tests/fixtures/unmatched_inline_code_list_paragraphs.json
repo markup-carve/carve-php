@@ -1228,5 +1228,20 @@
     "id": "inline-following-code-142",
     "source": "> > - a\n> >   \t```\n> >         ~~~ =html\n> >         code\n> >         ~~~\n> > after\n",
     "html": "<blockquote><blockquote><ul><li>a\n<code>\n~~~ =html\ncode\n~~~\nafter</code></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "2",
+    "source": "- item\n    ```a\n  lazy text\n    # heading\nafter\n",
+    "html": "<ul><li>item\n<code>a\nlazy text</code><h1 id=\"heading\">heading</h1></li></ul><p>after</p>"
+  },
+  {
+    "id": "6",
+    "source": "> - item\n>     ```a\n>   lazy text\n>     # heading\n> after\n",
+    "html": "<blockquote><ul><li>item\n<code>a\nlazy text</code><h1 id=\"heading\">heading</h1></li></ul><p>after</p></blockquote>"
+  },
+  {
+    "id": "10",
+    "source": "> > - item\n> >     ```a\n> >   lazy text\n> >     # heading\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li>item\n<code>a\nlazy text</code><h1 id=\"heading\">heading</h1></li></ul><p>after</p></blockquote></blockquote>"
   }
 ]

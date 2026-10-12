@@ -745,6 +745,22 @@ final class BlockContinuationScanner
                 ) {
                     $inlineCodeParagraph = false;
                 }
+                if ($inlineCodeParagraph) {
+                    $column = IndentationHelper::getLeadingColumns($nextLine, $inlineParagraphColumn + 1);
+                    if ($column <= $inlineParagraphColumn) {
+                        if (($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)) {
+                            $inlineParagraphColumn = $column;
+                            $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
+                                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
+                            if (
+                                $opener !== null
+                                && $this->listAuthoredFenceCloserAhead($lines, $i, $opener, $column, $contentIndent, $baseIndent, $authoredFenceMisses)
+                            ) {
+                                $inlineCodeParagraph = false;
+                            }
+                        }
+                    }
+                }
                 $inlineAuthoredFence = $inlineCodeParagraph;
                 if (
                     $authoredCodeColumn === null
