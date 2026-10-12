@@ -201,6 +201,18 @@ class TabFenceColumnsTest extends TestCase
                 "- t\n  \t> q\n   \t{.c}\n  \t ````\n  x\n",
                 "<ul>\n  <li>t\n    <blockquote><p>q</p></blockquote>\n    <p class=\"c\"><code>\nx</code></p>\n  </li>\n</ul>\n",
             ],
+            'failed-admission-0' => [
+                "- t\n  \t~~~~\n\n    x\n  \t  ~~~~\n",
+                "<ul>\n  <li>t\n~~~~\n    x\n~~~~\n  </li>\n</ul>\n",
+            ],
+            'failed-admission-1' => [
+                "- t\n  \t```\n\n    x\n  \t  ```\n",
+                "<ul>\n  <li>t\n<code></code>\n    x\n<code></code>\n  </li>\n</ul>\n",
+            ],
+            'failed-admission-2' => [
+                "- t\n  \t```=html\n\n    <b>\n  \t  ```\n",
+                "<ul>\n  <li>t\n<code>=html</code>\n    &lt;b&gt;\n<code></code>\n  </li>\n</ul>\n",
+            ],
             'below-fence-column' => [
                 "- a\n  # h\n      ```\n    x\n   ```\n      ```\nafter\n",
                 "<ul>\n  <li>a\n    <h1 id=\"h\">h</h1>\n    <pre><code>  x\n ```\n</code></pre>\n  </li>\n</ul>\n<p>after</p>",

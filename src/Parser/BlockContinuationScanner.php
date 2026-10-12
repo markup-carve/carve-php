@@ -816,6 +816,7 @@ final class BlockContinuationScanner
                 $wasOpenParagraph = $trailingState->openParagraph;
                 $wasAfterComment = $trailingState->afterComment;
                 $wasInFence = $trailingState->fence !== null;
+                $fenceFallbackState = $structuralFence ? clone $trailingState : null;
                 // A CLOSER PAST THE BLANK THAT ENDS THIS ITEM IS NOT THIS
                 // FENCE'S (§10 I4 over carve#1379, markup-carve/carve#2509).
                 // The general lookahead reads to end of source, so a run whose
@@ -840,8 +841,22 @@ final class BlockContinuationScanner
                         ));
                 if ($structuralFence) {
                     if ($trailingState->fence === null) {
-                        // Failed admission leaves the original paragraph spelling.
-                        $itemLines[array_key_last($itemLines)] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                        // Restore both the collected spelling and its admission state.
+                        $fallbackLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                        $itemLines[array_key_last($itemLines)] = $fallbackLine;
+                        if ($fenceFallbackState !== null) {
+                            $trailingState = $wasOpenParagraph
+                                && $this->itemFenceRunOutlivesTheItem($lines, $i, $fallbackLine, $contentIndent)
+                                ? $this->advanceTrailingState($fenceFallbackState, 'text', true)
+                                : $this->advanceTrailingStateWithFenceLookahead(
+                                    $fenceFallbackState,
+                                    $fallbackLine,
+                                    $lines,
+                                    $i,
+                                    true,
+                                    $contentIndent,
+                                );
+                        }
                     } elseif (
                         $trailingState->fence->column > 0
                         && ($fenceIndentationChanged
