@@ -91,6 +91,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
         $this->assertStringNotContainsString('data-carve-src="x"', $open);
         $this->assertStringNotContainsString('data-carve-src', $report->value);
         $this->assertSame('data-carve-src', $report->losses[0]['attribute']);
+        $this->assertSame(['carrier-attribute-dropped' => 1], $report->lossCounts);
     }
 
     /**
@@ -147,6 +148,22 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
             ->convertWithReport("{data-char=x}\n***\n");
 
         $this->assertStringContainsString('data-char="x"', $report->value);
+        $this->assertSame(0, $report->totalLosses);
+    }
+
+    /**
+     * Default export reserves no carrier name, `data-carve-src` included.
+     */
+    public function testWithoutRoundtripModeACodeBlockKeepsAuthoredStoredSource(): void
+    {
+        $report = (new CarveConverter(renderer: new HtmlRenderer()))
+            ->convertWithReport("{data-carve-src=\"x\"}\n```php\necho 1;\n```\n");
+
+        $this->assertSame(
+            "<pre data-carve-src=\"x\"><code class=\"language-php\">echo 1;\n</code></pre>\n",
+            $report->value,
+        );
+        $this->assertSame([], $report->losses);
         $this->assertSame(0, $report->totalLosses);
     }
 }

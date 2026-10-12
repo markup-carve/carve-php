@@ -1479,8 +1479,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function renderPreCode(Node $node, string $content, ?string $language): string
     {
-        // A code block reserves data-carve-src: no longer written, but an authored one must not pass through.
-        $carriers = $node instanceof CodeBlock ? ['data-carve-src'] : [];
+        // Roundtrip export reserves data-carve-src on a code block without writing it.
+        $carriers = $this->roundTripMode && $node instanceof CodeBlock ? ['data-carve-src'] : [];
         $carrierAttrs = '';
         if ($this->roundTripMode && $node instanceof CodeBlock && $node->getLabel() !== null) {
             $carrierAttrs = ' data-carve-label="' . $this->escapeAttribute($node->getLabel()) . '"';
@@ -3679,8 +3679,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * precedence used to vary by carrier.
      *
      * CALLED WITH THE CARRIERS THIS NODE WILL ACTUALLY WRITE, never with the
-     * whole inventory. Core code blocks also reserve `data-carve-src` without
-     * writing stored source. An authored `data-carve-ref` on a link that resolved no
+     * whole inventory. In roundtrip mode core code blocks also reserve
+     * `data-carve-src` without writing stored source. An authored `data-carve-ref` on a link that resolved no
      * reference collides with nothing and reaches the document.
      *
      * @param \MarkupCarve\Carve\Node\Node $node
