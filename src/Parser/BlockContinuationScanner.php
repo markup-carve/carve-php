@@ -1448,6 +1448,9 @@ final class BlockContinuationScanner
             }
             $literal->openParagraph = false;
             $state->openParagraph = false;
+            if ($offset > 0) {
+                $state->afterComment = true;
+            }
 
             return $state;
         }
