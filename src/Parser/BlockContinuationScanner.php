@@ -651,6 +651,9 @@ final class BlockContinuationScanner
         $openDefinitionBody = null;
         $pendingDefinitionTerm = false;
         $pendingTermFence = null;
+        $termCodeTailEligible = true;
+        $termCodeTailFence = null;
+        $termCodeTailAfterBlank = false;
         foreach ($itemLines as $seedLine) {
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
@@ -680,11 +683,15 @@ final class BlockContinuationScanner
                         ) !== null
                     )
                     || $openCommentLength !== null
+                    || $termCodeTailFence !== null
                     || (
                         $openDefinitionBody !== null
                         && $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $openDefinitionBody)
                     )
                 ) {
+                    if ($termCodeTailFence !== null) {
+                        $termCodeTailAfterBlank = true;
+                    }
                     $itemLines[] = $this->blankLineResidue($nextLine, $authoredCodeColumn ?? $contentIndent, $trailingState);
                     $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingState($trailingState, '');
@@ -699,6 +706,12 @@ final class BlockContinuationScanner
 
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            if ($termCodeTailAfterBlank) {
+                if ($nextIndent < $contentIndent) {
+                    break;
+                }
+                $termCodeTailAfterBlank = false;
+            }
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
 
             // A MARKER THAT ATTACHES NOTHING DOES NOT END THE ITEM (SS17 L3,
@@ -739,6 +752,25 @@ final class BlockContinuationScanner
                 }
 
                 break;
+            }
+
+            if (
+                $termCodeTailFence !== null && $nextIndent >= $contentIndent && !$isBlockQuoteLazyLine
+                && !($nextIndent === $contentIndent
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        $nextTrimmed,
+                        $termCodeTailFence['char'] ?? $termCodeTailFence['fence'][0],
+                        $termCodeTailFence['length'],
+                    ))
+            ) {
+                $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                $itemLineMap[] = $this->sourceLineFor($i);
+                if ($trailingState->fence === null) {
+                    $trailingState->openParagraph = true;
+                }
+                $i++;
+
+                continue;
             }
 
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
@@ -799,7 +831,28 @@ final class BlockContinuationScanner
                     && ($nextTrimmed[0] ?? '') === '%'
                     && $this->isCommentLineOrFence($nextTrimmed)
                 ) {
-                    $pendingDefinitionTerm = false;
+                    $termCodeTailEligible = false;
+                    if ($nextIndent === $contentIndent) {
+                        $pendingDefinitionTerm = false;
+                    }
+                }
+                if (
+                    $termCodeTailFence !== null && $nextIndent === $contentIndent
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        $nextTrimmed,
+                        $termCodeTailFence['char'] ?? $termCodeTailFence['fence'][0],
+                        $termCodeTailFence['length'],
+                    )
+                ) {
+                    $termCodeTailFence = null;
+                } elseif (
+                    $pendingDefinitionTerm && $termCodeTailEligible && $nextIndent === $contentIndent
+                    && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                    && $openCommentLength === null && $pendingTermFence === null
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                ) {
+                    $termCodeTailFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
+                        ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
                 }
                 if (
                     $nextIndent === $contentIndent
@@ -809,6 +862,7 @@ final class BlockContinuationScanner
                 ) {
                     if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed)) {
                         $pendingDefinitionTerm = true;
+                        $termCodeTailEligible = true;
                         $pendingTermFence = null;
                     } elseif (
                         $pendingDefinitionTerm && (
@@ -823,6 +877,7 @@ final class BlockContinuationScanner
                     }
                 }
                 $termContinuation = $pendingDefinitionTerm
+                    && !(($nextTrimmed[0] ?? '') === '%' && $this->isCommentLineOrFence($nextTrimmed))
                     && $nextIndent > $contentIndent
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
@@ -836,6 +891,14 @@ final class BlockContinuationScanner
                         $count,
                         $contentIndent,
                     ) !== null;
+                if (
+                    $attributeLine && $nextIndent === $contentIndent
+                    && $pendingDefinitionTerm && $termCodeTailFence === null
+                    && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                    && $openCommentLength === null
+                ) {
+                    $pendingDefinitionTerm = false;
+                }
                 if ($attributeLine && $trailingState->openParagraph && $trailingState->fence === null && !$trailingState->hasOpenDiv() && $openCommentLength === null) {
                     $pendingAttachedAttributes = true;
                     $metadataAttributeColumn = IndentationHelper::getLeadingColumns($nextLine);
@@ -1187,6 +1250,21 @@ final class BlockContinuationScanner
                 ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
                 && ($trailingState->afterComment
                     || $this->isCommentLineOrFence($itemLines[count($itemLines) - 1] ?? ''))
+            ) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState->openParagraph = true;
+                $i++;
+
+                continue;
+            }
+
+            if (
+                $pendingDefinitionTerm && $termCodeTailFence === null
+                && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                && !$isBlockQuoteLazyLine
+                && ($nextTrimmed[0] ?? '') === '{'
+                && $this->wrappedItemAttributeLength($nextTrimmed, $lines, $i + 1, $count, $nextIndent) !== null
             ) {
                 $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
                 $itemLineMap[] = $this->sourceLineFor($i);
