@@ -626,6 +626,7 @@ final class BlockContinuationScanner
         $interruptedParagraphFence = false;
         $authoredCodeColumn = null;
         $inlineCodeParagraph = false;
+        $inlineParagraphColumn = 0;
         $authoredFenceMisses = [];
         $wrappedAttributeLinesRemaining = max(0, ($this->wrappedItemAttributeLength(
             $itemLines[0] ?? '',
@@ -731,23 +732,33 @@ final class BlockContinuationScanner
                 ) {
                     break;
                 }
-                if ($inlineCodeParagraph && $this->isCommentLineOrFence($nextTrimmed)) {
+                if (
+                    $inlineCodeParagraph
+                    && (
+                        $this->isCommentLineOrFence($nextTrimmed)
+                        || (
+                            IndentationHelper::getLeadingColumns($nextLine, $inlineParagraphColumn + 1) <= $inlineParagraphColumn
+                            && !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                            && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
+                        )
+                    )
+                ) {
                     $inlineCodeParagraph = false;
                 }
-                $inlineAuthoredFence = false;
+                $inlineAuthoredFence = $inlineCodeParagraph;
                 if (
                     $authoredCodeColumn === null
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
                     && !$trailingState->quoteParagraph
                     && $openCommentLength === null
-                    && !$inlineCodeParagraph
                     && !(
                         $openDefinitionBody !== null
                         && $i > 0
                         && IndentationHelper::isBlankLine($lines[$i - 1])
                     )
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                    && !$inlineCodeParagraph
                 ) {
                     $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
                         ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
@@ -762,15 +773,15 @@ final class BlockContinuationScanner
                             $inlineAuthoredFence = true;
                             if (($opener['char'] ?? $opener['fence'][0]) === '`') {
                                 $inlineCodeParagraph = true;
+                                $inlineParagraphColumn = $column;
                             }
                         }
                     }
                 }
-                $inInlineCode = $inlineCodeParagraph;
                 $stripColumn = $authoredCodeColumn !== null
                     && IndentationHelper::getLeadingColumns($nextLine, $authoredCodeColumn) >= $authoredCodeColumn
                     ? $authoredCodeColumn : $contentIndent;
-                $contentLine = $inInlineCode
+                $contentLine = $inlineAuthoredFence
                     ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                     : IndentationHelper::stripLeadingColumns($nextLine, $stripColumn);
                 if ($wrappedAttributeLinesRemaining === 0) {
@@ -786,8 +797,8 @@ final class BlockContinuationScanner
                 // and its closer travels with its opener (`CARVE-P9-053`), so
                 // neither may move the paragraph or the after-comment state.
                 $inCommentSpan = $openCommentLength !== null;
-                $trackedContent = $inInlineCode ? 'text' : $contentLine;
-                if (!$inInlineCode && !$inCommentSpan && $trailingState->fence === null) {
+                $trackedContent = $contentLine;
+                if (!$inCommentSpan && $trailingState->fence === null) {
                     $markerContent = $this->markerFreeContent(ltrim($contentLine, " \t"));
                     if ($this->markerCommentSpanFits($markerContent, $lines[$i], $lines, $i)) {
                         $trackedContent = $markerContent;
@@ -843,7 +854,7 @@ final class BlockContinuationScanner
                             $authoredCodeColumn ?? $contentIndent,
                             $authoredCodeColumn !== null,
                         ));
-                if ($inInlineCode) {
+                if ($inlineAuthoredFence) {
                     $trailingState->fence = null;
                     $trailingState->openParagraph = true;
                 }
