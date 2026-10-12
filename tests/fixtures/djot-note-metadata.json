@@ -4614,5 +4614,59 @@
     "source": "- <https://x> ---",
     "lossLines": [],
     "html": "<ul><li><a href=\"https://x\">https://x</a> —</li></ul>"
+  },
+  {
+    "name": "image-paragraph-code-div-unindented-list",
+    "source": "- ![a `b\n::: c` d](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a b\n::: c d\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-code-div-unindented-quoted-list",
+    "source": "> - ![a `b\n> ::: c` d](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"u\" alt=\"a b\n::: c d\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-code-div-unindented-wide-list",
+    "source": "- ![a ``b\n:::: c`` d](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a b\n:::: c d\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-code-div-unindented-dot-list",
+    "source": "- ![a `b\n::: a.b` d](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a b\n::: a.b d\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-real-div-exits-image-list",
+    "source": "> - ![a\n> ::: c\n> b](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![a</li></ul><div class=\"c\"><p>b](u)</p></div></blockquote>"
+  },
+  {
+    "name": "image-paragraph-real-div-closes-image",
+    "source": "::: c\n![a\n:::\nb](u)",
+    "lossLines": [],
+    "html": "<div class=\"c\"><p>![a</p></div><p>b](u)</p>"
+  },
+  {
+    "name": "image-paragraph-code-native-div-title",
+    "source": "> `a\n> ::: note \"T\"\n> b`",
+    "lossLines": [],
+    "html": "<blockquote><p><code>a\n&#58;&#58;&#58; note &#34;T&#34;\nb</code></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-code-native-div-label",
+    "source": "> `a\n> :::[x]\n> b`",
+    "lossLines": [],
+    "html": "<blockquote><p><code>a\n&#58;&#58;&#58;&#91;x&#93;\nb</code></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-code-native-line-block",
+    "source": "> `a\n> ::: |\n> b`",
+    "lossLines": [],
+    "html": "<blockquote><p><code>a\n&#58;&#58;&#58; &#124;\nb</code></p></blockquote>"
   }
 ]

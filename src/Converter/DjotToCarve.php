@@ -3034,7 +3034,7 @@ class DjotToCarve
         $divClosers = [];
         $divs = [];
         $offset = 0;
-        $block = '/^(?:[-*+](?:[ \t]|$)|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}|\||\^ |\[[^\]]+\]:)/';
+        $block = '/^(?:[-*+](?:[ \t]|$)|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|\||\^ |\[[^\]]+\]:)/';
         foreach (explode("\n", $source) as $line) {
             [$depth, $body] = $this->quoted($line);
             $blank = trim($body, " \t") === '';
@@ -3212,7 +3212,7 @@ class DjotToCarve
             if ($div !== null && $depth === $div['depth'] && preg_match('/^[ \t]*:{3,}[ \t]*$/', $body) === 1 && strlen(trim($body)) >= $div['width'] && strlen($body) - strlen($text) <= $div['column'] + 3) {
                 $valid = false;
             }
-            if (($depth < $quotes || $itemColumn > 0 && $ownerIndent < $itemColumn) && preg_match('/^(?:[-*+](?:[ \t]|$)|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}|\||\^ |\[[^\]]+\]:)/', ltrim($body, " \t")) === 1) {
+            if (($depth < $quotes || $itemColumn > 0 && $ownerIndent < $itemColumn) && preg_match('/^(?:[-*+](?:[ \t]|$)|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|\||\^ |\[[^\]]+\]:)/', ltrim($body, " \t")) === 1) {
                 $valid = false;
             }
             $start = 0;
@@ -3359,7 +3359,7 @@ class DjotToCarve
                     $codeFence = ['ch' => $ticks[1][0], 'width' => strlen($ticks[1]), 'depth' => $bodyDepth, 'itemColumn' => $startsItem ? $indent + strlen($marker[0]) : (($active !== null && $depth === $active['depth'] && $indent >= $active['column']) ? $active['column'] : null)];
                     $previousBlock = false;
                 } else {
-                    preg_match('/^(:{3,})[ \t]*[A-Za-z0-9_-]*[ \t]*$/', $body, $fence);
+                    preg_match('/^(:{3,})(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$/', $body, $fence);
                     $owner = $divs !== [] ? $divs[array_key_last($divs)] : null;
                     $visible = ($mask[$offset + strlen($line) - strlen($body)] ?? '') === ':';
                     if (
@@ -5275,7 +5275,7 @@ class DjotToCarve
                 $labels[array_pop($bracketStack)] = $at;
             }
         }
-        $block = '/^(?:[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}|>(?:[ \t]|$)|\||\^ |\[[^\]]+\]:)/';
+        $block = '/^(?:[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|>(?:[ \t]|$)|\||\^ |\[[^\]]+\]:)/';
         $marker = '/^(?:\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+)/';
         $prefixMarker = '/\G' . substr($marker, 2);
         $itemKindOf = static fn (string $item): string => trim(preg_replace(['/^[0-9]+/', '/^[A-Za-z]+/'], ['1', 'a'], $item) ?? $item);
@@ -5531,7 +5531,7 @@ class DjotToCarve
                 }
                 $rawCode = $itemColumn > 0 && str_starts_with($itemKind, '[^') && count($normalized) > 1;
                 foreach (array_slice($normalized, 1) as $value) {
-                    if ((preg_match($block, $value) === 1 || str_starts_with($value, '{')) && (preg_match('/^\|[ \t:|-]*\|$/', $value) !== 1 || ($line[$at] ?? '') !== '|')) {
+                    if ((preg_match($block, $value) === 1 || str_starts_with($value, ':::') || str_starts_with($value, '{')) && (preg_match('/^\|[ \t:|-]*\|$/', $value) !== 1 || ($line[$at] ?? '') !== '|')) {
                         $rawCode = true;
 
                         break;
@@ -5569,7 +5569,7 @@ class DjotToCarve
                 }
                 $i = $consumed;
             }
-            $previousBlock = !$beganInside && $consumed <= $lineEnd && ($trimmed === '' || preg_match('/^(?:#{1,6} |:{3,}|\[[^\]]+\]:)/', $trimmed) === 1 || $blockAttributes($trimmed) || (($line[$at] ?? '') === '|' && str_ends_with(rtrim($line), '|') && !str_ends_with(rtrim($line), '\\|')));
+            $previousBlock = !$beganInside && $consumed <= $lineEnd && ($trimmed === '' || preg_match('/^(?:#{1,6} |:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|\[[^\]]+\]:)/', $trimmed) === 1 || $blockAttributes($trimmed) || (($line[$at] ?? '') === '|' && str_ends_with(rtrim($line), '|') && !str_ends_with(rtrim($line), '\\|')));
             $offset = $lineEnd + 1;
         }
         $output[] = substr($source, $cursor);
