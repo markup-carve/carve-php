@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -43,5 +44,18 @@ class ListCodeBeforeDedentedBlockTest extends TestCase
             preg_match_all('@<pre><code[^>]*>(.*?)</code></pre>@s', $html, $payloads);
             $this->assertSame($expectedPayloads, $payloads[1]);
         }
+    }
+
+    public function testTheSyntheticCloserDoesNotExtendSourcePositions(): void
+    {
+        $source = "- para\n    ```\n    code\n# heading\n    ```\n";
+        $tree = (new AstCodec())->encode((new BlockParser(false, false, false, true))->parse($source));
+        $item = $tree['children'][0]['items'][0];
+        $code = $item['children'][1];
+        $this->assertSame('code_block', $code['type']);
+        $pos = $code['pos'];
+        $this->assertSame("```\n    code", substr($source, $pos['startOffset'], $pos['endOffset'] - $pos['startOffset']));
+        $this->assertSame(3, $item['pos']['endLine']);
+        $this->assertSame($pos['endOffset'], $item['pos']['endOffset']);
     }
 }
