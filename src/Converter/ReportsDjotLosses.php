@@ -78,11 +78,11 @@ trait ReportsDjotLosses
             $previous = $lines[$n - 1] ?? '';
             $previousAt = $this->djotContentStart($previous);
             $previousContent = trim(substr($previous, $previousAt));
-            $item = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', substr($line, 0, $at)) === 1;
+            $item = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $this->djotItemPrefix($line, $at)) === 1;
             $boundary = $previousContent === '' || ($tableRows[$n - 1] ?? false) || $item || isset($definitionLines[$n - 1])
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:)/', $previousContent) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $previousContent) === 1
-                || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousAt)) === 1);
+                || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', $this->djotItemPrefix($previous, $previousAt)) === 1);
             if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*(\S*)[ \t]*$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
                 $destination = $definition[2];
                 for ($next = $n + 1; $next < $lineCount && $this->djotContentStart($lines[$next]) > $at && preg_match('/^\S+$/', substr($lines[$next], $this->djotContentStart($lines[$next]))) === 1; $next++) {
@@ -104,7 +104,7 @@ trait ReportsDjotLosses
                     $following = $lines[$next];
                     $nextAt = $this->djotContentStart($following);
                     $prefix = substr($following, 0, $nextAt);
-                    if (substr_count($prefix, '>') !== substr_count(substr($line, 0, $at), '>') || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $prefix) === 1) {
+                    if (substr_count($prefix, '>') !== substr_count(substr($line, 0, $at), '>') || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $this->djotItemPrefix($following, $nextAt)) === 1) {
                         break;
                     }
                     $part = substr($following, $nextAt);

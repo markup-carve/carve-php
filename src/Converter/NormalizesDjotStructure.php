@@ -235,6 +235,9 @@ trait NormalizesDjotStructure
 
                 return $quoteForCarve() . ($noteOwner !== null && $text !== '' && $quoteDepth === $noteOwner->depth && $noteHead === null ? ($fences[$n] === $original ? str_repeat(' ', $noteColumn) . $text : substr($remainder, min($indent, $noteOwner->column))) : $remainder);
             };
+            if (preg_match('/^\[(?!\^)[^\]\n]*\]:/', $text) === 1 && $out !== [] && str_contains(end($out), $emptyNote)) {
+                $out[] = $quoteForCarve() . str_repeat(' ', max(0, $indent));
+            }
             $embeddedParent = $lists !== [] ? $lists[array_key_last($lists)] : null;
             if ($text !== '' && $fences[$n] === $original && $embeddedOwners->last() !== null && $embeddedParent !== null && $quoteDepth > $embeddedParent->depth && $listColumn($embeddedParent) <= $embeddedParent->column) {
                 if ($paragraph && !$blank) {

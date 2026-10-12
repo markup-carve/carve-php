@@ -27,11 +27,12 @@ class DjotNoteMetadataTest extends TestCase
             if (isset($row['html'])) {
                 $html = trim($converter->convert($result->value));
                 $html = preg_replace('/ aria-label="[^"]*"/', '', $html);
-                $html = str_replace('↩︎', '↩', $html);
+                $html = str_replace(['↩︎', '&#10;'], ['↩', "\n"], $html);
                 $html = preg_replace('/(<li>)\n/', '$1', $html);
                 $html = preg_replace('/\n(<\/li>)/', '$1', $html);
                 $html = preg_replace('/<\/?tbody>/', '', $html);
                 $html = preg_replace('/<ol type="([^"]+)" start="([^"]+)">/', '<ol start="$2" type="$1">', $html);
+                $html = preg_replace('/\n[ \t]+(?=<(?:ul|ol|dl)>)/', "\n", $html);
                 $html = preg_replace('/>\s+</', '><', $html);
                 self::assertSame($row['html'], $html, $row['name']);
             }
