@@ -18,7 +18,7 @@ class LiteralCommentDedentOwnershipTest extends TestCase
             true,
             flags: JSON_THROW_ON_ERROR,
         );
-        $this->assertCount(40, $rows);
+        $this->assertCount(42, $rows);
         $converter = new CarveConverter();
         $codec = new AstCodec();
         foreach ($rows as $row) {

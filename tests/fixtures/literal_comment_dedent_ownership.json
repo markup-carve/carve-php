@@ -198,5 +198,15 @@
     "id": "dedent-47",
     "source": "> - a\n>   - b\n>\n>     ::: |\n>     %%%%\n> \tpayload\n>     %%%%\n>     :::\n",
     "html": "<blockquote><ul><li>a\n      <ul><li>b\n          <div class=\"line-block\"><p><br>\npayload<br></p></div></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "review-item-comment-literal",
+    "source": "- item\n  %%%\n  ::: |\n  still comment\n  %%%\n  after\n",
+    "html": "<ul><li>item\n    after\n  </li></ul>"
+  },
+  {
+    "id": "review-literal-unpaired-after-paragraph",
+    "source": "- item\n\n  ::: |\n  line one\n  %%%\nlazy\n",
+    "html": "<ul><li>item\n    <div class=\"line-block\"><p>line one<br></p></div></li></ul><p>lazy</p>"
   }
 ]
