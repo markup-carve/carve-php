@@ -1234,5 +1234,17 @@
     "source": "- | x |\n  [r]: /u\n- b\n\n[x][r]",
     "lossLines": [],
     "html": "<ul><li><table><tr><td>x</td></tr></table></li><li>b</li></ul><p><a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "table after thematic ---",
+    "source": "---\n| a |",
+    "lossLines": [],
+    "html": "<hr><table><tr><td>a</td></tr></table>"
+  },
+  {
+    "name": "table after thematic ***",
+    "source": "***\n| a |",
+    "lossLines": [],
+    "html": "<hr><table><tr><td>a</td></tr></table>"
   }
 ]
