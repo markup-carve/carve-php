@@ -63,7 +63,7 @@
             "@test-scaling"
         ],
         "test-coverage": "@php vendor/bin/phpunit --coverage-clover coverage.xml",
-        "test-coverage-parallel": "@php vendor/bin/paratest --coverage-clover coverage.xml",
+        "test-coverage-parallel": "@php scripts/coverage-shards.php",
         "test-scaling": "@php -d pcov.enabled=0 vendor/bin/phpunit --group scaling"
     },
     "config": {
