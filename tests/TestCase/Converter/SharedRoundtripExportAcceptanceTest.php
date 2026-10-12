@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @phpstan-type Fixture array{id: string, source: string, html: string, attribute: string, value: string, carriers: array<string, string|null>, ordinaryAttributes: array<string, string|null>, carrierText: array<string, string|list<string>>, expectedNodes: list<array<string, mixed>>, fallbackNodes: list<array<string, mixed>>, fallbackHtml: string, carrierHosts: list<array{attribute: string, element: string}>, importModes: list<string>, forbiddenExportAttributes: list<string>, carrierFragments: list<string>, forbiddenTypes: list<string>, forbiddenSourceSubstrings: list<string>, forbiddenAstSubstrings: list<string>, forbiddenRenderedSubstrings: list<string>, requiresDiagnostic: bool, diagnosticControlHtml: string|null, expectedAbsentFields: list<array{type: string, field: string}>, forbiddenFieldValues: list<array{type: string, field: string, value: mixed}>}
+ * @phpstan-type Fixture array{id: string, source: string, html: string, attribute: string, value: string|null, defaultValue: string|null, lossCodes: list<string>, carriers: array<string, string|null>, ordinaryAttributes: array<string, string|null>, carrierText: array<string, string|list<string>>, expectedNodes: list<array<string, mixed>>, fallbackNodes: list<array<string, mixed>>, fallbackHtml: string, carrierHosts: list<array{attribute: string, element: string}>, importModes: list<string>, forbiddenExportAttributes: list<string>, carrierFragments: list<string>, forbiddenTypes: list<string>, forbiddenSourceSubstrings: list<string>, forbiddenAstSubstrings: list<string>, forbiddenRenderedSubstrings: list<string>, requiresDiagnostic: bool, diagnosticControlHtml: string|null, expectedAbsentFields: list<array{type: string, field: string}>, forbiddenFieldValues: list<array{type: string, field: string, value: mixed}>}
  */
 class SharedRoundtripExportAcceptanceTest extends TestCase
 {
@@ -51,7 +51,14 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     /**
      * @var list<string>
      */
-    private const INVENTORY = ['explicit-id', 'ref', 'autolink', 'footnote-label', 'inline-footnote', 'raw', 'escaped', 'abbreviations', 'col-widths', 'label'];
+    private const INVENTORY = ['explicit-id', 'ref', 'autolink', 'footnote-label', 'inline-footnote', 'raw', 'escaped', 'abbreviations', 'col-widths', 'label', 'ext', 'id-slot', 'tight'];
+
+    /**
+     * Reserved without an inventory row: no core writer emits it, every importer consumes it.
+     *
+     * @var list<string>
+     */
+    private const RETIRED = ['data-carve-src', 'data-djot-src'];
 
     /**
      * @phpstan-param Fixture $fixture
@@ -385,6 +392,12 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                 self::assertSame($text, $hosts[0]->textContent);
             }
         }
+        foreach ([false, true] as $roundtrip) {
+            $losses = (new CarveConverter(roundTripMode: $roundtrip))->convertWithReport($fixture['source'])->losses;
+            foreach ($fixture['lossCodes'] as $code) {
+                self::assertContains($code, array_column($losses, 'code'), $code . ($roundtrip ? ' under roundtrip export' : ' under default export'));
+            }
+        }
         foreach ($fixture['importModes'] as $mode) {
             $importer = new HtmlToCarve(importMode: $mode);
             $imported = $importer->convertToAstWithReport($exported)->value;
@@ -445,10 +458,21 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
      */
     private function assertCollisionExport(array $fixture): void
     {
+        // Read off the bytes: the DOM loader consumes a retired name before a test could see it.
+        $named = static function (string $html) use ($fixture): array {
+            preg_match_all('/\s' . preg_quote($fixture['attribute'], '/') . '="([^"]*)"/', $html, $matches);
+
+            return $matches[1];
+        };
         $result = (new CarveConverter(roundTripMode: true))->convertWithReport($fixture['source']);
-        $values = array_values(array_map(static fn ($attr) => $attr['value'], array_filter(self::attributes($result->value), static fn ($attr): bool => $attr['name'] === $fixture['attribute'])));
-        self::assertSame([$fixture['value']], $values);
-        self::assertNotEmpty(array_filter($result->losses, static fn ($row): bool => $row['code'] === 'carrier-attribute-dropped' && ($row['attribute'] ?? null) === $fixture['attribute']));
+        self::assertSame($fixture['value'] === null ? [] : [$fixture['value']], $named($result->value));
+        self::assertCount(1, array_filter($result->losses, static fn ($row): bool => $row['code'] === 'carrier-attribute-dropped' && ($row['attribute'] ?? null) === $fixture['attribute']));
+        if ($fixture['defaultValue'] === null) {
+            return;
+        }
+        $ordinary = (new CarveConverter())->convertWithReport($fixture['source']);
+        self::assertSame([$fixture['defaultValue']], $named($ordinary->value));
+        self::assertNotContains('carrier-attribute-dropped', array_column($ordinary->losses, 'code'));
     }
 
     /**
@@ -515,7 +539,9 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                 'source' => self::text($row['source'] ?? ''),
                 'html' => self::text($row['html'] ?? ''),
                 'attribute' => self::text($row['attribute'] ?? ''),
-                'value' => self::text($row['value'] ?? ''),
+                'value' => array_key_exists('value', $row) && $row['value'] === null ? null : self::text($row['value'] ?? ''),
+                'defaultValue' => isset($row['defaultValue']) ? self::text($row['defaultValue']) : null,
+                'lossCodes' => self::strings($row['lossCodes'] ?? []),
                 'carriers' => self::stringMap($row['carriers'] ?? []),
                 'ordinaryAttributes' => self::stringMap($row['ordinaryAttributes'] ?? []),
                 'carrierText' => self::carrierText($row['carrierText'] ?? []),
@@ -665,7 +691,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
 
     private static function reserved(string $name): bool
     {
-        if (in_array($name, ['data-marker', 'data-char'], true)) {
+        if (in_array($name, ['data-marker', 'data-char', ...self::RETIRED], true)) {
             return true;
         }
         foreach (['data-carve-', 'data-djot-'] as $prefix) {

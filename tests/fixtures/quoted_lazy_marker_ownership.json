@@ -657,7 +657,7 @@
   {
     "id": "audit-131",
     "source": ">  - ::: box\n>    body\n> - next\n>    :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><p>body</p></div></li></ul><ul><li>next\n      <div></div></li></ul><p>- tail</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><p>body</p></div></li></ul><ul><li>next\n      <div></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "audit-132",

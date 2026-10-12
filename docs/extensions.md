@@ -1075,8 +1075,10 @@ single `<script type="application/json">` child. JSON export also carries the
 original content so escaping a script terminator preserves the fence body. Without a build renderer, roundtrip static export keeps
 the source in `<pre><code>` and carries its language and bracketed label on
 `<pre>`. The importer consumes the generated wrapper class when the language
-carrier and code element match this fallback structure. A `<pre><code>` with
-class `mermaid` alone remains ordinary code.
+carrier and code element match this fallback structure. The class alone is not
+a carrier: without a valid language carrier, `<pre class="mermaid" role="img">`
+and a `<pre><code>` with class `mermaid` import as code blocks carrying the
+class, so default export of a fence does not import as one.
 
 Constructor options:
 

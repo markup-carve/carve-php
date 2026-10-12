@@ -399,6 +399,11 @@ final class BlockQuoteBuilder
             if ($host['markers'] === []) {
                 unset($host['initialMarkerColumn']);
             }
+            // An inline run does not reach across a blank. A colon body
+            // keeps its own reading of an over-indented run.
+            if ($state['colonClaims'] === []) {
+                $host['pending'] = null;
+            }
 
             return false;
         }
@@ -438,6 +443,18 @@ final class BlockQuoteBuilder
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
+        // A fence with a closer at its own column interrupts the paragraph of
+        // a deeper host it no longer reaches (`CARVE-P0-014`); it is not text.
+        if ($foldedText && $column < $host['columns'][array_key_last($host['columns'])] && ($text[0] === '`' || $text[0] === '~')) {
+            $run = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
+                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
+            if (
+                $run !== null
+                && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $column)
+            ) {
+                $foldedText = false;
+            }
+        }
         $lazyMarker = $lazyMarker && $foldedText;
         while (
             $state['colonClaims'] !== []
@@ -462,6 +479,20 @@ final class BlockQuoteBuilder
             return true;
         }
         if ($colon !== null && $colon['literal']) {
+            // A paired comment in the literal body shields the colon runs
+            // between its delimiters, as it does in the item's own parse.
+            $literalComment = $column === $colon['column']
+                ? ($this->getFencedBlockParser)()->parseFencedCommentOpener($text)
+                : null;
+            if (
+                $literalComment !== null
+                && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, '%', $literalComment['length'], $memo, $column)
+            ) {
+                $host['fence'] = ['char' => '%', 'length' => $literalComment['length'], 'column' => $column, 'base' => $colon['base'] ?? $colon['column']];
+                $state['paragraphOpen'] = false;
+
+                return true;
+            }
             $open = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
             if ($open !== null && $column === $colon['column']) {
@@ -484,6 +515,19 @@ final class BlockQuoteBuilder
             }
             $state['colonClaims'][] = $colon;
             $state['paragraphOpen'] = true;
+
+            return true;
+        }
+        // A bare run at a nested host's own floor opens that host's container;
+        // only a run off every column is the colon body's text.
+        $hostFloor = $host['columns'][array_key_last($host['columns'])];
+        if (
+            $colon !== null && !$paragraph && !($host['absorbing'] ?? false)
+            && $column === $hostFloor && $hostFloor > ($colon['base'] ?? $colon['column'])
+            && preg_match('/^:{3,}[ \t]*$/', $text) === 1
+        ) {
+            $state['colonClaims'][] = ['length' => strspn($text, ':'), 'column' => $column, 'body' => false, 'literal' => false, 'base' => $hostFloor];
+            $state['paragraphOpen'] = false;
 
             return true;
         }
@@ -558,16 +602,6 @@ final class BlockQuoteBuilder
         }
         $host['absorbing'] = !$blockStart && $paragraph && ($host['absorbing'] ?? false);
         $div = ($this->getFencedBlockParser)()->parseDivFenceOpener($inner);
-        if (
-            $floor > 0 && $colon === null && $at > $floor
-            && isset($host['initialMarkerColumn'])
-            && ($host['markers'][array_key_last($host['markers']) ?? 0] ?? $host['initialMarkerColumn']) < $host['initialMarkerColumn']
-            && preg_match('/^:{3,}[ \t]*$/', $inner) === 1
-        ) {
-            $state['paragraphOpen'] = true;
-
-            return true;
-        }
         if ($floor > 0 && $div === null && preg_match('/^:{3,}/', $inner) === 1) {
             $host['absorbing'] = true;
         }
@@ -616,13 +650,25 @@ final class BlockQuoteBuilder
 
             return true;
         }
-        if ($host['pending'] !== null && $char === $host['pending']['char'] && $length >= $host['pending']['length']) {
+        if (
+            $host['pending'] !== null && $char === $host['pending']['char'] && $length >= $host['pending']['length']
+            // A tilde run has no inline pairing: one that opens a fence of its
+            // own is not the pending run's end.
+            && !($char === '~' && $at > $host['pending']['column'] && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at))
+        ) {
             $host['pending'] = null;
 
             return false;
         }
         $fence = ['char' => $char, 'length' => $length, 'column' => $floor];
-        if ($at >= $floor && ($blockStart || !$paragraph || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at))) {
+        if (
+            $at >= $floor
+            && (
+                $blockStart || !$paragraph
+                || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at)
+                || ($at > $floor && $colon === null && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $floor))
+            )
+        ) {
             $host['fence'] = ['char' => $char, 'length' => $length, 'column' => $at, 'base' => $floor];
             $state['paragraphOpen'] = false;
 

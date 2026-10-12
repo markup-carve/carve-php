@@ -48,7 +48,7 @@ class AnEmptyMarkdownDestinationIsNotALinkTest extends TestCase
             'a definition after a multi-line HTML comment' => ["<!--\nx\n-->\n[r]: <>\n\n[r]", "```=html\n<!--\nx\n-->\n```\n\nr"],
             'a definition after a quote ends its open fence' => ["> ```\n> code\n\n[r]: <>\n\n[r]", "> ```\n> code\n> ```\n\nr"],
             'a definition after a quote ends its open HTML block' => ["> <script>\n> x\n\n[r]: <>\n\n[r]", "> ```=html\n> <script>\n> x\n> ```\n\nr"],
-            'a definition after a list item ends its open fence' => ["- ```\n  code\n\n[r]: <>\n\n[r]", "- ```\n  code\n\n  ```\nr"],
+            'a definition after a list item ends its open fence' => ["- ```\n  code\n\n[r]: <>\n\n[r]", "- ```\n  code\n\n  ```\n\nr"],
             'a definition opening a later list item' => ["- one\n- [r]: <>\n\n[r]", "- one\n- %%\n\nr"],
             'a definition after a starred thematic break' => ["* * *\n[r]: <>\n\n[r]", "---\n\nr"],
             'a definition opening a list item' => ["- [r]: <>\n- two\n\n[r]", "- %%\n- two\n\nr"],

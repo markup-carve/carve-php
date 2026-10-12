@@ -180,6 +180,13 @@ final class HtmlImportSession
     public SplObjectStorage $droppedReferenceCarriers;
 
     /**
+     * Links whose autolink and reference carriers contradict each other.
+     *
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $contradictoryLinkCarriers;
+
+    /**
      * The bracket text an ordered task item's checkbox is written as, keyed by
      * the `<input>` element's object id.
      *
@@ -224,6 +231,7 @@ final class HtmlImportSession
         $this->consumedExtensionElements = new SplObjectStorage();
         $this->droppedFootnoteLabelCarriers = new SplObjectStorage();
         $this->droppedReferenceCarriers = new SplObjectStorage();
+        $this->contradictoryLinkCarriers = new SplObjectStorage();
         $this->endnoteItemLabels = new SplObjectStorage();
         $this->referencedEndnoteItems = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();

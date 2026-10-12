@@ -748,5 +748,115 @@
     "id": "metadata-deeper-attributes-intermediate-closer",
     "source": "- a\n      {.x}\n  \t```\n  code\n   ```\n  b\n    ```\n    x\n",
     "html": "<ul>\n  <li>a\n    <pre class=\"x\"><code>code\n ```\nb\n  ```\n  x\n</code></pre>\n  </li>\n</ul>"
+  },
+  {
+    "id": "review-fuzz-2",
+    "source": "> - [ ] t\n>   ``` \n> \t\t```\t\n>     \t```\n> after\n",
+    "html": "<blockquote>\n  <ul class=\"task-list\">\n    <li><input type=\"checkbox\" disabled aria-label=\"t after\"> t\n<code>\n</code>\n<code>\nafter</code></li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "review-fuzz-3",
+    "source": "- a\n  - b\n\t```\n\t  ~~~~\n\t\t<b>r</b>\n\t\t```\n  \t1. n\n      ```\n",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>\n~~~~\n&lt;b&gt;r&lt;/b&gt;\n</code>\n        <ol>\n          <li>n\n<code></code></li>\n        </ol>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "id": "floor-claim-preservation-13964",
+    "source": "- a\n  ```\n  c\n        \tz\ncode\n     ````\n  \t\t# h\n\t ```=html\n :: t\n- next\n",
+    "html": "<ul>\n  <li>a\n<code>\nc\nz\ncode\n````\n# h\n</code>=html\n:: t</li>\n  <li>next</li>\n</ul>"
+  },
+  {
+    "id": "floor-claim-preservation-16216",
+    "source": "- a\n  ```\n  c\n \t ```\n \t[^n]: f\n \t ```=html\n\t  1. n\n\nafter\n",
+    "html": "<ul>\n  <li>a\n<code>\nc\n</code>\n[^n]: f\n<code>=html</code>\n    <ol>\n      <li>n</li>\n    </ol>\n  </li>\n</ul>\n<p>after</p>"
+  },
+  {
+    "id": "existing-div-floor-0-3-0",
+    "source": "- a\n  ::: note\n  text\n  ```\n  - x\n  :::\n",
+    "html": "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>text\n<code>\n- x</code></p>\n    </aside>\n  </li>\n</ul>"
+  },
+  {
+    "id": "existing-div-floor-0-3-1",
+    "source": "- a\n  ::: note\n  text\n  ```\n  - x\n  :::\n    ```\n    body\n    ```\n",
+    "html": "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>text\n<code>\n- x</code></p>\n    </aside>\n    <code>\nbody\n</code>\n  </li>\n</ul>"
+  },
+  {
+    "id": "existing-div-floor-0-4-0",
+    "source": "- a\n  ::: note\n  text\n  ````\n  - x\n  :::\n",
+    "html": "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>text\n<code>\n- x</code></p>\n    </aside>\n  </li>\n</ul>"
+  },
+  {
+    "id": "existing-div-floor-0-4-1",
+    "source": "- a\n  ::: note\n  text\n  ````\n  - x\n  :::\n    ````\n    body\n    ````\n",
+    "html": "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>text\n<code>\n- x</code></p>\n    </aside>\n    <code>\nbody\n</code>\n  </li>\n</ul>"
+  },
+  {
+    "id": "existing-div-floor-0-5-0",
+    "source": "- a\n  ::: note\n  text\n  `````\n  - x\n  :::\n",
+    "html": "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>text\n<code>\n- x</code></p>\n    </aside>\n  </li>\n</ul>"
+  },
+  {
+    "id": "existing-div-floor-0-5-1",
+    "source": "- a\n  ::: note\n  text\n  `````\n  - x\n  :::\n    `````\n    body\n    `````\n",
+    "html": "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>text\n<code>\n- x</code></p>\n    </aside>\n    <code>\nbody\n</code>\n  </li>\n</ul>"
+  },
+  {
+    "id": "existing-div-floor-1-3-0",
+    "source": "> - a\n>   ::: note\n>   text\n>   ```\n>   - x\n>   :::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>text\n<code>\n- x</code></p>\n      </aside>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-1-3-1",
+    "source": "> - a\n>   ::: note\n>   text\n>   ```\n>   - x\n>   :::\n>     ```\n>     body\n>     ```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>text\n<code>\n- x</code></p>\n      </aside>\n      <code>\nbody\n</code>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-1-4-0",
+    "source": "> - a\n>   ::: note\n>   text\n>   ````\n>   - x\n>   :::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>text\n<code>\n- x</code></p>\n      </aside>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-1-4-1",
+    "source": "> - a\n>   ::: note\n>   text\n>   ````\n>   - x\n>   :::\n>     ````\n>     body\n>     ````\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>text\n<code>\n- x</code></p>\n      </aside>\n      <code>\nbody\n</code>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-1-5-0",
+    "source": "> - a\n>   ::: note\n>   text\n>   `````\n>   - x\n>   :::\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>text\n<code>\n- x</code></p>\n      </aside>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-1-5-1",
+    "source": "> - a\n>   ::: note\n>   text\n>   `````\n>   - x\n>   :::\n>     `````\n>     body\n>     `````\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>text\n<code>\n- x</code></p>\n      </aside>\n      <code>\nbody\n</code>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-2-3-0",
+    "source": "> > - a\n> >   ::: note\n> >   text\n> >   ```\n> >   - x\n> >   :::\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>text\n<code>\n- x</code></p>\n        </aside>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-2-3-1",
+    "source": "> > - a\n> >   ::: note\n> >   text\n> >   ```\n> >   - x\n> >   :::\n> >     ```\n> >     body\n> >     ```\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>text\n<code>\n- x</code></p>\n        </aside>\n        <code>\nbody\n</code>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-2-4-0",
+    "source": "> > - a\n> >   ::: note\n> >   text\n> >   ````\n> >   - x\n> >   :::\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>text\n<code>\n- x</code></p>\n        </aside>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-2-4-1",
+    "source": "> > - a\n> >   ::: note\n> >   text\n> >   ````\n> >   - x\n> >   :::\n> >     ````\n> >     body\n> >     ````\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>text\n<code>\n- x</code></p>\n        </aside>\n        <code>\nbody\n</code>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-2-5-0",
+    "source": "> > - a\n> >   ::: note\n> >   text\n> >   `````\n> >   - x\n> >   :::\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>text\n<code>\n- x</code></p>\n        </aside>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
+  },
+  {
+    "id": "existing-div-floor-2-5-1",
+    "source": "> > - a\n> >   ::: note\n> >   text\n> >   `````\n> >   - x\n> >   :::\n> >     `````\n> >     body\n> >     `````\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>a\n        <aside class=\"admonition note\" aria-label=\"Note\">\n          <p>text\n<code>\n- x</code></p>\n        </aside>\n        <code>\nbody\n</code>\n      </li>\n    </ul>\n  </blockquote>\n</blockquote>"
   }
 ]
