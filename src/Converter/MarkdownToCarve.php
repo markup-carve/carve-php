@@ -8201,6 +8201,7 @@ class MarkdownToCarve
             if (preg_match('/^ {0,3}\[\^((?:[^[\]\\\\]|\\\\.)+)\]:/', $content, $footnoteHead) === 1) {
                 $this->markdownFootnoteLabels[] = $footnoteHead[1];
             }
+            $footnoteStart = $i;
             if (
                 $prefix === ''
                 && $listIndent === 0
@@ -8208,7 +8209,7 @@ class MarkdownToCarve
                 && $this->collectFootnoteDefinition($lines, $i)
             ) {
                 if ($fenceCloser !== null) {
-                    $this->markdownSourceLines[count($kept)] = $i;
+                    $this->markdownSourceLines[count($kept)] = $footnoteStart;
                     $kept[] = $fenceCloser;
                     $outdent = strspn($fenceCloser, ' ');
                 }
@@ -8421,7 +8422,9 @@ class MarkdownToCarve
                 if ($fenceCloser !== null) {
                     $this->markdownSourceLines[count($kept)] = $i;
                     $kept[] = $fenceCloser;
-                    $outdent = strspn($fenceCloser, ' ');
+                    if (!$opensItem) {
+                        $outdent = strspn($fenceCloser, ' ');
+                    }
                 }
                 $definitionColumn = strpos($line, '[' . $definition[1] . ']:');
                 if (
