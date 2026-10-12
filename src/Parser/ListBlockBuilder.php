@@ -1996,7 +1996,7 @@ final class ListBlockBuilder
 
                 continue;
             }
-            if ($i > $minimumColonEnd && $eligible !== null && !isset($eligible[$i]) && ($line[0] ?? '') === ':') {
+            if ($i > $minimumColonEnd && $eligible !== null && ($line[0] ?? '') === ':') {
                 $minimumDiv = ($this->getFencedBlockParser)()->parseDivFenceOpener($line);
                 if ($minimumDiv !== null) {
                     $closer = $this->colonFenceEnd($lines, $i, $minimumDiv['length'], $count, null);
@@ -2244,6 +2244,23 @@ final class ListBlockBuilder
             $colon = ($code === null && $comment === null)
                 ? ($this->getFencedBlockParser)()->parseDivFenceOpener($opener)
                 : null;
+
+            if ($colon !== null && $i <= $minimumColonEnd) {
+                for (; $blockStateCursor < $i; $blockStateCursor++) {
+                    $blockState = $this->advanceTrailingStateWithFenceLookahead(
+                        $blockState,
+                        $lines[$blockStateCursor],
+                        $lines,
+                        $blockStateCursor,
+                        true,
+                    );
+                }
+                if ($colon['className'] === '|' || $blockState->openParagraph) {
+                    $afterBlank = false;
+
+                    continue;
+                }
+            }
 
             $commentClose = null;
             if ($code !== null) {
