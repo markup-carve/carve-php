@@ -123,6 +123,8 @@ final class DefinitionListBuilder
                     || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $nextLine)
                     || $this->endsDefinitionTerm($nextLine, $lines, $i)
+                    || (($nextLine[0] ?? '') === '{'
+                        && $this->wrappedBlockAttributeLength($lines, $i) !== null)
                     // A construct that renders nothing is not term text. The
                     // term was folding a comment, a reference / footnote
                     // definition and a block-attribute line in as continuation,
@@ -151,6 +153,9 @@ final class DefinitionListBuilder
                 // trailing space from one a construct produced - trimming
                 // rendered output instead would eat the content of an
                 // all-space verbatim span (markup-carve/carve#926).
+                if (str_starts_with($nextLine, BlockGrammar::LAZY_FRAME)) {
+                    $nextLine = substr($nextLine, strlen(BlockGrammar::LAZY_FRAME));
+                }
                 $nextLine = rtrim($nextLine, " \t");
                 $last = count($parts) - 1;
                 if ($parts[$last] instanceof Comment) {
