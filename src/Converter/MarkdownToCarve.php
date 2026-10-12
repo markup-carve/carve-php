@@ -4093,6 +4093,10 @@ class MarkdownToCarve
         if (preg_match('/\n[ \t>]*\n/', $source) !== 1) {
             return $source;
         }
+        // Punctuation after letters can start an alphabetic or Roman list.
+        if (!str_contains($source, "\r") && preg_match('/(?:^|\n)[ \t]*+(?![A-Za-z]++(?:[ \t]|\n|$))[^ \t\r\n]/', $source) === 0) {
+            return $source;
+        }
         try {
             $document = CarveConverter::carve()->parse($source);
         } catch (Throwable) {
