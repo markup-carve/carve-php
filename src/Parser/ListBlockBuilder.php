@@ -452,7 +452,12 @@ final class ListBlockBuilder
                                     // A neutral prose line advances every
                                     // non-fence flag exactly as this failed
                                     // opener must; only its literal bytes differ.
-                                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text', true);
+                                    // A line block reads its own payload.
+                                    $subTrailingState = $this->advanceTrailingState(
+                                        $subTrailingState,
+                                        $subTrailingState->hasLiteralDiv() ? $stripped : 'text',
+                                        true,
+                                    );
                                 }
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
