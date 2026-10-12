@@ -184,6 +184,30 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         }
     }
 
+    public function testConsecutiveDefinitionsAfterALazyListLineKeepTheListsSeparate(): void
+    {
+        foreach (["[^n]: note\n\n[r]: <>", "[^n]: note\n\n[^m]: other", "[r]: <>\n\n[^n]: note"] as $definitions) {
+            $source = "- a\nlazy\n\n" . $definitions . "\n\n- b\n\nx[^n] y[^m] [t][r]";
+            $written = (new MarkdownToCarve())->convert($source);
+            $expected = "<ul>\n  <li>a\nlazy</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n";
+            self::assertStringStartsWith($expected, (new CarveConverter())->convert($written));
+            self::assertStringStartsWith($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        }
+    }
+
+    public function testMovingFootnotesKeepsOrderedStartsAndParagraphBoundaries(): void
+    {
+        foreach ([1, 5] as $start) {
+            $written = (new MarkdownToCarve())->convert("1. a\n\n[^n]: note\n\n" . $start . ". b\n\ntext[^n]");
+            $second = $start === 1 ? '<ol>' : '<ol start="5">';
+            $expected = "<ol>\n  <li>a</li>\n</ol>\n" . $second . "\n  <li>b</li>\n</ol>\n";
+            self::assertStringStartsWith($expected, (new CarveConverter())->convert($written));
+            self::assertStringStartsWith($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
+        }
+        $written = (new MarkdownToCarve())->convert("- a\n[^n]: note\n\n- b\n\nx[^n]");
+        self::assertStringStartsWith("<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n", (new CarveConverter())->convert($written));
+    }
+
     public function testMovingAFootnoteDoesNotJoinTheListsAroundIt(): void
     {
         $written = (new MarkdownToCarve())->convert("- a\n\n[^n]: note\n\n- b\n\ntext[^n]");

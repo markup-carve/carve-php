@@ -1609,6 +1609,8 @@ class MarkdownToCarve
                 $tableWidth = 0;
                 $sourceBlanks[count($result)] = true;
                 if (isset($this->hardReferenceSeparators[$i])) {
+                    $listMarkers->end(0);
+                    $listCols = [];
                     $hardListBlanks[count($result)] = true;
                 }
                 $result[] = $line;
@@ -3149,6 +3151,9 @@ class MarkdownToCarve
             }
         }
         $list = $markers[$prefix] ??= new MarkdownListMarkers();
+        if ($blank && isset($this->hardReferenceSeparators[$index])) {
+            $list->end(0);
+        }
         $written = $text;
         // Four columns past the column the open paragraph's content starts at,
         // a line opens nothing whatever its shape: indented code cannot
@@ -3359,7 +3364,7 @@ class MarkdownToCarve
         if (preg_match('/^(\d{1,9})([.)])(?=[ \t]|$)/', $text, $ordered) === 1) {
             return $ordered[1] . '\\' . substr($text, strlen($ordered[1]));
         }
-        if (preg_match(self::THEMATIC_BREAK, $text) === 1) {
+        if (preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $text) ?? $text) === 1) {
             return preg_replace('/[^ \t]/', '\\\\${0}', $text) ?? $text;
         }
         // A closed pipe row IS a table at column 0 and interrupts a paragraph
@@ -3708,7 +3713,7 @@ class MarkdownToCarve
             return ['lines' => $code['lines'], 'end' => $code['end'] - 1, 'table' => 0, 'closes' => true];
         }
 
-        if (preg_match(self::THEMATIC_BREAK, $text) === 1) {
+        if (preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $text) ?? $text) === 1) {
             return ['lines' => [$lead . '---'], 'end' => $index, 'table' => 0, 'closes' => true];
         }
 
@@ -8082,6 +8087,7 @@ class MarkdownToCarve
                 }
             }
             $referenceBody = substr($line, strlen($quotePrefix));
+            $referenceNestedListAbove = false;
             $referenceContinuesDefinition = $trackReferenceLists && $referenceDefinitionEnd === $i - 1
                 && trim($referenceBody) !== '' && !$this->opensMarkdownBlock($referenceBody);
             $referenceListAbove = ($referenceListColumns[$lineDepth] ?? []) !== [] || isset($referenceClosedEmptyLists[$lineDepth])
@@ -8122,7 +8128,8 @@ class MarkdownToCarve
                 $markerAt = 0;
                 $referenceColumn = $physicalQuoteColumn;
                 $referenceLength = strlen($referenceBody);
-                while (preg_match(self::THEMATIC_BREAK, $referenceBody) !== 1 && preg_match('/\G([ \t]*)(?:[-*+]|[0-9]{1,9}[.)])([ \t]+|$)/', $referenceBody, $referenceHead, offset: $markerAt) === 1) {
+                $referenceThematic = preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $referenceBody) ?? $referenceBody) === 1;
+                while (!$referenceThematic && preg_match('/\G([ \t]*)(?:[-*+]|[0-9]{1,9}[.)])([ \t]+|$)/', $referenceBody, $referenceHead, offset: $markerAt) === 1) {
                     $tabOffset = $referenceColumn % 4;
                     $columnBase = $referenceColumn - $tabOffset;
                     $paddingPrefix = str_repeat(' ', $tabOffset);
@@ -8146,6 +8153,7 @@ class MarkdownToCarve
                         break;
                     }
                 }
+                $referenceNestedListAbove = count($referenceListColumns[$lineDepth] ?? []) > count($columns) && $columns !== [];
                 $referenceListColumns[$lineDepth] = $columns;
                 $referenceQuoteDepth = $lineDepth;
             }
@@ -8199,6 +8207,10 @@ class MarkdownToCarve
                 && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
                 && $this->collectFootnoteDefinition($lines, $i)
             ) {
+                while (($referenceListColumns[$lineDepth] ?? []) !== [] && end($referenceListColumns[$lineDepth]) > $referenceIndent) {
+                    array_pop($referenceListColumns[$lineDepth]);
+                }
+                $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
                 if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)) {
                     for ($blank = 0; $blank < 2; $blank++) {
                         $this->hardReferenceSeparators[count($kept)] = true;
@@ -8263,6 +8275,7 @@ class MarkdownToCarve
                     $this->markdownSourceLines[count($kept)] = $i;
                     $kept[] = $line;
                     $canStart = false;
+                    unset($referenceDefinitionAbove[$lineDepth]);
 
                     continue;
                 }
@@ -8299,6 +8312,7 @@ class MarkdownToCarve
                         }
                         array_push($kept, $line, ...$continued);
                         $canStart = false;
+                        unset($referenceDefinitionAbove[$lineDepth]);
 
                         continue;
                     }
@@ -8336,6 +8350,7 @@ class MarkdownToCarve
                         str_starts_with($definition[1], '^')
                         || ($opensItem && strspn($marker, ' ') >= 2)
                         || (!$opensItem && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove))
+                        || (!$opensItem && $referenceNestedListAbove && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, null, $referenceListAbove))
                     ) {
                         if (!str_starts_with($definition[1], '^')) {
                             $this->markdownSourceLines[count($kept)] = $i - count($continued);
@@ -8590,11 +8605,14 @@ class MarkdownToCarve
                 break;
             }
         }
-        if ($below === null || preg_match(self::THEMATIC_BREAK, $below) === 1 || preg_match($item, $below) !== 1) {
+        if ($below === null || preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $below) ?? $below) === 1 || preg_match($item, $below) !== 1) {
             return false;
         }
         if ($listAbove) {
             return true;
+        }
+        if ($listOwners !== null) {
+            return false;
         }
         for ($at = count($kept) - 1; $at >= 0; $at--) {
             $prefix = $this->quotePrefixOf($kept[$at]);
@@ -8603,7 +8621,7 @@ class MarkdownToCarve
             }
             $text = (string)substr($kept[$at], strlen($prefix));
             if (trim($text) !== '') {
-                return preg_match(self::THEMATIC_BREAK, $text) !== 1
+                return preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $text) ?? $text) !== 1
                     && (preg_match($item, $text) === 1 || preg_match('/^[ \t]+\S/', $text) === 1);
             }
         }
