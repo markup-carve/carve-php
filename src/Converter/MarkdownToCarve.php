@@ -340,6 +340,16 @@ class MarkdownToCarve
     protected array $carrierSlots = [];
 
     /**
+     * @var array<string, string>
+     */
+    protected array $carrierLiteralText = [];
+
+    /**
+     * @var array<int, true>
+     */
+    protected array $carrierParagraphLines = [];
+
+    /**
      * Whether the source carried a damaged marker set. The conversion then
      * reads the file as ordinary Markdown, comments and all (PART 11 §10s).
      */
@@ -382,7 +392,12 @@ class MarkdownToCarve
         $sourceLines = $this->markdownSourceLines;
         $htmlSourceLines = $this->markdownHtmlSourceLines;
         $found = [];
-        $this->extractReferenceDefinitions(array_slice($all, $offset), $found);
+        $paragraphLines = [];
+        $this->extractReferenceDefinitions(array_slice($all, $offset), $found, $paragraphLines);
+        $this->carrierParagraphLines = [];
+        foreach (array_keys($paragraphLines ?? []) as $at) {
+            $this->carrierParagraphLines[$at + $offset] = true;
+        }
         // The pass is run for its block reading alone, so everything else it
         // touched goes back to what the conversion proper will reset anyway.
         $this->markdownSourceLines = $sourceLines;
@@ -441,6 +456,7 @@ class MarkdownToCarve
     protected function prepareCarrierMarkers(string $markdown, array $htmlLines = []): string
     {
         $this->carrierSlots = [];
+        $this->carrierLiteralText = [];
         $this->carrierDamaged = false;
         $this->carrierToken = '';
         if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::PREFIX)) {
@@ -490,8 +506,22 @@ class MarkdownToCarve
         $skipBlank = false;
         $host = '';
         $last = count($lines) - 1;
+        $open = [];
         foreach ($lines as $at => $line) {
             if (!isset($payloads[$at])) {
+                // Keep entity-spelled paragraph markers as text until their Carve host is restored.
+                if ($open !== [] && isset($this->carrierParagraphLines[$at])) {
+                    $line = preg_replace_callback(
+                        '/^([ \t>]*)(?:&#(43|45);)(?=[ \t])/',
+                        function (array $match) use ($token): string {
+                            $literal = $token . 'LITERAL' . count($this->carrierLiteralText) . 'Z';
+                            $this->carrierLiteralText[$literal] = chr((int)$match[2]);
+
+                            return $match[1] . $literal;
+                        },
+                        $line,
+                    ) ?? $line;
+                }
                 $body = $this->withoutCarrierHost($line, $host);
                 if ($drop > 0 && ($replaceParagraph || preg_match('/^\*\*.+\*\*$/D', $body) === 1) && $body !== '') {
                     if (!$replaceParagraph) {
@@ -522,7 +552,17 @@ class MarkdownToCarve
             }
             $payload = $payloads[$at];
             $host = $hosts[$at];
-            $closer = CarrierMarkers::isCloser($payload) || $payload === '';
+            $width = CarrierMarkers::fenceWidth($payload);
+            // A bare fence opens a plain div unless it matches the active fence.
+            $closer = $payload === '';
+            if ($width > 0) {
+                $closer = CarrierMarkers::isCloser($payload) && $open !== [] && $open[count($open) - 1] === $width;
+                if ($closer) {
+                    array_pop($open);
+                } else {
+                    $open[] = $width;
+                }
+            }
             $out[] = $host . $token . count($this->carrierSlots) . 'Z';
             $equation = null;
             if (CarrierMarkers::isCaption($payload)) {
@@ -643,11 +683,7 @@ class MarkdownToCarve
                 $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
                 $last = count($definitions) - 1;
                 if ($last < 0 || $definitions[$last]['key'] !== $key || $nestedTerm) {
-                    $definitions[] = ['key' => $key, 'defined' => false];
-                } elseif (!$definitions[$last]['defined']) {
-                    return false;
-                } else {
-                    $definitions[$last]['defined'] = false;
+                    $definitions[] = ['key' => $key];
                 }
                 if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
                     return false;
@@ -658,16 +694,13 @@ class MarkdownToCarve
             if ($payload === ':' || $payload === '') {
                 $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
                 $last = count($definitions) - 1;
-                if ($last < 0 || $definitions[$last]['key'] !== $key || ($payload === '' && !$definitions[$last]['defined'])) {
+                if ($last < 0 || $definitions[$last]['key'] !== $key) {
                     return false;
                 }
                 if ($payload === '') {
                     array_pop($definitions);
                 } else {
                     $definitions[$last]['defined'] = true;
-                    if ($next === '' || (isset($payloads[$at + 1]) && in_array($payloads[$at + 1], ['', ':'], true))) {
-                        return false;
-                    }
                 }
 
                 continue;
@@ -683,8 +716,8 @@ class MarkdownToCarve
             if ($width === 0) {
                 return false;
             }
-            if (CarrierMarkers::isCloser($payload)) {
-                if ($open === [] || array_pop($open) !== $width) {
+            if (CarrierMarkers::isCloser($payload) && $open !== [] && $width <= $open[count($open) - 1]) {
+                if (array_pop($open) !== $width) {
                     return false;
                 }
 
@@ -783,6 +816,10 @@ class MarkdownToCarve
                 continue;
             }
             if ($item['kind'] !== null && $item['text'] === '') {
+                if ($definitions[$last]->pending && $definitions[$last]->marker !== null) {
+                    $marker = $definitions[$last]->marker;
+                    $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => ': {empty}', 'kind' => 'open'];
+                }
                 $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close'];
                 array_pop($definitions);
 
@@ -2301,7 +2338,7 @@ class MarkdownToCarve
 
         $captionMarkers = count(array_filter($this->carrierSlots, static fn (array $slot): bool => $slot['caption']));
         $beforeCaptions = $captionMarkers === 0 ? 0 : $this->attachedCaptionCount(CarveConverter::create()->parse($carve));
-        $carve = $this->restoreCarrierMarkers($carve);
+        $carve = strtr($this->restoreCarrierMarkers($carve), $this->carrierLiteralText);
         if ($captionMarkers > 0 && $this->attachedCaptionCount(CarveConverter::create()->parse($carve)) !== $beforeCaptions + $captionMarkers) {
             $this->carrierFallbackMode = true;
             try {
@@ -7841,10 +7878,11 @@ class MarkdownToCarve
      *   of every line this pass reads as HTML BLOCK content - a carrier marker
      *   standing behind a task box included, since `[ ] ` is inline content and
      *   no HTML block can begin after it (markup-carve/carve#2850).
+     * @param array<int, true>|null $paragraphLines Paragraph continuation lines.
      *
      * @return array<string>
      */
-    protected function extractReferenceDefinitions(array $lines, ?array &$blockHtml = null): array
+    protected function extractReferenceDefinitions(array $lines, ?array &$blockHtml = null, ?array &$paragraphLines = null): array
     {
         if (!$this->importingFootnoteBody) {
             $this->markdownFootnoteLabels = [];
@@ -8231,6 +8269,9 @@ class MarkdownToCarve
                 }
 
                 continue;
+            }
+            if ($paragraphLines !== null && !$canStart && !$opensItem && preg_match('/^[ \t]*&#(?:43|45);(?=[ \t])/', $blockContent) === 1) {
+                $paragraphLines[$i] = true;
             }
             $this->markdownSourceLines[count($kept)] = $i;
             $kept[] = $line;
