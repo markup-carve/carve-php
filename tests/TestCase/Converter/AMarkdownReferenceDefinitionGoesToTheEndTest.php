@@ -67,7 +67,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("[x]:\n\n[x]: /v\n\n[x]\n");
 
-        $this->assertSame("<p>[x]:</p>\n<p><a href=\"/v\">x</a></p>\n", (new CarveConverter())->convert($imported));
+        $this->assertSame("<p><a href=\"/v\">x</a>:</p>\n<p><a href=\"/v\">x</a></p>\n", (new CarveConverter())->convert($imported));
     }
 
     public function testADefinitionOnANestedItemsMarkerLineStaysADefinition(): void
@@ -165,5 +165,30 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
             "a[^1][^2]\n\n[^1]: one\n\n[^2]: two\n",
             (new MarkdownToCarve())->convert("a[^1][^2]\n\n[^1]: one\n[^2]: two\n"),
         );
+    }
+
+    public function testEmptyDefinitionsRetainListBoundariesAndReportTheLinkLoss(): void
+    {
+        foreach (['', '> '] as $prefix) {
+            $markdown = $prefix . "- a\n" . rtrim($prefix) . "\n" . $prefix . "[r]: <>\n" . rtrim($prefix) . "\n" . $prefix . "- b\n\n[t][r]";
+            $migration = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+            $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>t</p>\n";
+            if ($prefix !== '') {
+                $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p>t</p>\n";
+            }
+            self::assertSame($expected, (new CarveConverter())->convert($migration->value));
+            self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
+            $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
+            self::assertCount(1, $losses);
+            self::assertSame('exact', array_values($losses)[0]->confidence);
+        }
+    }
+
+    public function testMovingAFootnoteDoesNotJoinTheListsAroundIt(): void
+    {
+        $written = (new MarkdownToCarve())->convert("- a\n\n[^n]: note\n\n- b\n\ntext[^n]");
+        $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n";
+        self::assertStringStartsWith($expected, (new CarveConverter())->convert($written));
+        self::assertStringStartsWith($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
 }

@@ -110,6 +110,15 @@ final class MarkdownGfmAutolinksTest extends TestCase
             };
             $literal = $literal || $name === 'pre' || $name === 'code';
             $structural = in_array($name, ['body', 'blockquote', 'ul', 'ol', 'dl', 'table', 'thead', 'tbody', 'tr'], true);
+            if ($name === 'li') {
+                foreach ($node->childNodes as $child) {
+                    if ($child instanceof DOMElement && in_array($child->tagName, ['p', 'ul', 'ol', 'blockquote', 'pre'], true)) {
+                        $structural = true;
+
+                        break;
+                    }
+                }
+            }
             $children = [];
             foreach ($node->childNodes as $child) {
                 if ($structural && $child instanceof DOMText && preg_match('/^[\t\n\r\f ]*$/', $child->data) === 1) {

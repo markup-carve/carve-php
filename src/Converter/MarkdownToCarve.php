@@ -144,6 +144,11 @@ class MarkdownToCarve
     protected array $referenceDefinitionLabels = [];
 
     /**
+     * @var array<int, true>
+     */
+    protected array $hardReferenceSeparators = [];
+
+    /**
      * @var array<string, string>
      */
     protected array $complexReferenceTargets = [];
@@ -1082,6 +1087,7 @@ class MarkdownToCarve
         // Where $result holds a blank line of the source, as opposed to one the
         // conversion put in to separate two blocks.
         $sourceBlanks = [];
+        $hardListBlanks = [];
         // Top-level quote runs: the list markers each quote prefix holds, the
         // previous quote line as prefix and text (null once the run breaks),
         // and the prefix a lazy line of the open quote paragraph takes ('' when
@@ -1602,6 +1608,9 @@ class MarkdownToCarve
             if ($isBlank) {
                 $tableWidth = 0;
                 $sourceBlanks[count($result)] = true;
+                if (isset($this->hardReferenceSeparators[$i])) {
+                    $hardListBlanks[count($result)] = true;
+                }
                 $result[] = $line;
                 $prevLineType = 'blank';
 
@@ -2257,11 +2266,15 @@ class MarkdownToCarve
         }
 
         $fromSource = [];
+        $hardSeparators = [];
         foreach (array_keys($result) as $at) {
+            if (isset($hardListBlanks[$at])) {
+                $hardSeparators[count($fromSource)] = true;
+            }
             $fromSource[] = isset($sourceBlanks[$at]);
         }
-        $assemble = function () use (&$result, $fromSource, $markdown): string {
-            [$carve, $writtenBlanks] = $this->joinOutput(array_values($result), $fromSource);
+        $assemble = function () use (&$result, $fromSource, $hardSeparators, $markdown): string {
+            [$carve, $writtenBlanks] = $this->joinOutput(array_values($result), $fromSource, $hardSeparators);
             $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
             $carve = $this->separateLooseItems($carve, $writtenBlanks);
             $carve = $this->applyHeadingIdPreservation($carve, $markdown);
@@ -3983,21 +3996,26 @@ class MarkdownToCarve
     }
 
     /**
-     * The written lines joined, 3+ consecutive newlines collapsed to 2, and
-     * which lines of the result are blank lines of the source.
+     * Join written lines, keeping generated list boundaries, and return the
+     * indexes of source blank lines.
      *
      * @param array<int, string|null> $result
      * @param array<int, bool> $fromSource
+     * @param array<int, true> $hardSeparators
      *
      * @return array{string, array<int, true>}
      */
-    protected function joinOutput(array $result, array $fromSource): array
+    protected function joinOutput(array $result, array $fromSource, array $hardSeparators = []): array
     {
         $lines = [];
         $flags = [];
+        $hardFlags = [];
         foreach ($result as $index => $entry) {
             foreach (explode("\n", (string)$entry) as $line) {
                 $lines[] = $line;
+                if ($line === '' && isset($hardSeparators[$index])) {
+                    $hardFlags[count($lines) - 1] = true;
+                }
                 $flags[] = ($fromSource[$index] ?? false) && preg_match('/^[ \t>]*$/', $line) === 1;
             }
         }
@@ -4015,8 +4033,10 @@ class MarkdownToCarve
                 continue;
             }
             $flagged = false;
+            $hard = false;
             for ($end = $at; $end < $count && $lines[$end] === ''; $end++) {
                 $flagged = $flagged || $flags[$end];
+                $hard = $hard || isset($hardFlags[$end]);
             }
             // A run of empty lines is that many newlines, one more between two
             // lines, and a run of 3+ newlines keeps 2. Inside a code or raw
@@ -4024,6 +4044,9 @@ class MarkdownToCarve
             $inner = $at > 0 && $end < $count;
             $newlines = $end - $at + ($inner ? 1 : 0);
             $keep = $newlines < 3 || ($verbatim[$at] ?? false) ? $end - $at : ($inner ? 1 : 2);
+            if ($hard && $inner && !($verbatim[$at] ?? false)) {
+                $keep = 3;
+            }
             for ($k = 0; $k < $keep; $k++) {
                 if ($flagged) {
                     $sourceBlanks[count($text)] = true;
@@ -5789,7 +5812,8 @@ class MarkdownToCarve
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
 
-        $rawDefinition = preg_match('/^[ \t]*' . self::DEFINITION_MARKER . '\[((?!\^)(?:[^\]\\\\]|\\\\.)+)\]:/', $sourceInput, $definition) === 1;
+        $definitionPrefix = '[ \t]*(?:>[ \t]*)*' . self::DEFINITION_MARKER;
+        $rawDefinition = preg_match('/^' . $definitionPrefix . '\[((?!\^)(?:[^\]\\\\]|\\\\.)+)\]:/', $sourceInput, $definition) === 1;
         $guardBareLinkPrefix = function (string $before) use ($protect): string {
             if ($before === '') {
                 return $before;
@@ -5839,7 +5863,12 @@ class MarkdownToCarve
 
             return substr($before, 0, $at + 1) . $protect($written, $source);
         };
-        $isReferenceDefinition = $rawDefinition && isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]))]);
+        $definitionBody = $rawDefinition
+            ? (preg_replace('/^' . $definitionPrefix . '(?=\[)/', '', $sourceInput) ?? $sourceInput)
+            : '';
+        $isReferenceDefinition = $rawDefinition
+            && MarkdownReferenceDefinition::read($definitionBody, 0) !== null
+            && isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]))]);
         if (!$isReferenceDefinition && (str_contains($sourceInput, ':') || str_contains($sourceInput, 'www.'))) {
             $cursor = 0;
             $captured = '';
@@ -6071,9 +6100,9 @@ class MarkdownToCarve
             flags: PREG_OFFSET_CAPTURE,
         ) ?? $line;
         $line = preg_replace_callback(
-            '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
-            function (array $match) use ($protectCodeTags, $protected): string {
-                return isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])
+            '/^(' . $definitionPrefix . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
+            function (array $match) use ($protectCodeTags, $protected, $isReferenceDefinition): string {
+                return $isReferenceDefinition && isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])
                     ? $match[1] . $protectCodeTags($match[2]) : $match[0];
             },
             $line,
@@ -7196,9 +7225,9 @@ class MarkdownToCarve
         // A definition kept where it stands is a definition, not link text -
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
-            '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
-            function (array $match) use ($protect, $protected, $protectedSources, $encodeDest): string {
-                if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])) {
+            '/^(' . $definitionPrefix . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
+            function (array $match) use ($protect, $protected, $protectedSources, $encodeDest, $isReferenceDefinition): string {
+                if (!$isReferenceDefinition || !isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])) {
                     return $match[0];
                 }
                 $source = $this->referenceSourceText($match[2], $protectedSources);
@@ -7221,7 +7250,7 @@ class MarkdownToCarve
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, &$referenceUrls, &$referenceUrlAt): string {
+                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, $isReferenceDefinition, &$referenceUrls, &$referenceUrlAt): string {
                     $offset = $match[0][1];
                     while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
                         $referenceUrlAt++;
@@ -7238,7 +7267,7 @@ class MarkdownToCarve
                             return $match[0][0];
                         }
                     }
-                    if (($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
+                    if ($isReferenceDefinition && ($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
                         return $match[0][0];
                     }
                     // A task checkbox, whose label the reader never resolves.
@@ -7851,6 +7880,7 @@ class MarkdownToCarve
             $this->emptyDestinationLabels = [];
             $this->complexReferenceTargets = [];
         }
+        $this->hardReferenceSeparators = [];
         $authoredDefinitions = [];
         $invalidDefinitionPrefixes = [];
         $referenceChunk = null;
@@ -8060,6 +8090,13 @@ class MarkdownToCarve
                 && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
                 && $this->collectFootnoteDefinition($lines, $i)
             ) {
+                if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix)) {
+                    for ($blank = 0; $blank < 2; $blank++) {
+                        $this->hardReferenceSeparators[count($kept)] = true;
+                        $this->markdownSourceLines[count($kept)] = $i;
+                        $kept[] = $quotePrefix;
+                    }
+                }
                 $depth = 0;
 
                 continue;
@@ -8093,6 +8130,13 @@ class MarkdownToCarve
                         $defined[$rawKey] = true;
                     }
                     $i += $parsed['lines'] - 1;
+                    if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix)) {
+                        for ($blank = 0; $blank < 2; $blank++) {
+                            $this->hardReferenceSeparators[count($kept)] = true;
+                            $this->markdownSourceLines[count($kept)] = $i;
+                            $kept[] = $quotePrefix;
+                        }
+                    }
                     $depth = 0;
                     $canStart = true;
 
@@ -8155,6 +8199,16 @@ class MarkdownToCarve
                     if (str_starts_with($definition[1], '^')) {
                         $this->markdownFootnoteLabels[] = substr($definition[1], 1);
                     }
+                    if (
+                        !str_starts_with($definition[1], '^')
+                        && preg_match('/[ \t]' . $title . '$/', $target) !== 1
+                        && $i + 1 < $count
+                        && str_starts_with($lines[$i + 1], $quotePrefix)
+                        && preg_match('/^[ \t]*' . $title . '[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix)), $next) === 1
+                    ) {
+                        $target .= ' ' . $next[1];
+                        $continued[] = $lines[++$i];
+                    }
                     if (!$repeated && !str_starts_with($definition[1], '^') && strpbrk($definition[1], '|<&') !== false) {
                         $this->complexReferenceTargets[$rawKey] = $target;
                     }
@@ -8167,6 +8221,14 @@ class MarkdownToCarve
                         || ($opensItem && strspn($marker, ' ') >= 2)
                         || (!$opensItem && $this->partsTwoLists($lines, $i, $kept, $quotePrefix))
                     ) {
+                        if (!str_starts_with($definition[1], '^')) {
+                            $this->markdownSourceLines[count($kept)] = $i - count($continued);
+                            $head = strpos($line, '[' . $definition[1] . ']:');
+                            $kept[] = $continued === [] || $head === false
+                                ? $line : substr($line, 0, $head) . '[' . $definition[1] . ']: ' . $target;
+
+                            continue;
+                        }
                         $continuedCount = count($continued);
                         for ($at = 0; $at <= $continuedCount; $at++) {
                             $this->markdownSourceLines[count($kept) + $at] = $i - $continuedCount + $at;
@@ -8174,15 +8236,6 @@ class MarkdownToCarve
                         array_push($kept, $line, ...$continued);
 
                         continue;
-                    }
-                    if (
-                        preg_match('/[ \t]' . $title . '$/', $target) !== 1
-                        && $i + 1 < $count
-                        && str_starts_with($lines[$i + 1], $quotePrefix)
-                        && preg_match('/^[ \t]*' . $title . '[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix)), $next) === 1
-                    ) {
-                        $target .= ' ' . $next[1];
-                        $i++;
                     }
                     // The first definition of a label wins, so a later one says nothing.
                     if (!$repeated && (strpbrk($definition[1], '|<&') !== false)) {
@@ -8221,6 +8274,21 @@ class MarkdownToCarve
                 }
                 $defined[$key] = true;
                 $canStart = true;
+                $definitionColumn = strpos($line, '[' . $definition[1] . ']:');
+                if (
+                    !$opensItem && $definitionColumn !== false
+                    && trim(substr($line, strlen($quotePrefix), $definitionColumn - strlen($quotePrefix))) === ''
+                    && (($lineDepth === 0 && $listIndent === 0) || $definitionColumn === strlen($quotePrefix))
+                    && $this->partsTwoLists($lines, $i, $kept, $quotePrefix)
+                ) {
+                    for ($blank = 0; $blank < 2; $blank++) {
+                        $this->hardReferenceSeparators[count($kept)] = true;
+                        $this->markdownSourceLines[count($kept)] = $i;
+                        $kept[] = $quotePrefix;
+                    }
+
+                    continue;
+                }
                 if ($opensItem) {
                     $this->emptyDefinitionItem($lines, $i, $prefix, $quotePrefix, $kept);
 
