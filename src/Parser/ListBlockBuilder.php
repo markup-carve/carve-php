@@ -340,7 +340,9 @@ final class ListBlockBuilder
                                 $subMarkerComment = $markerContent;
                             }
                         }
-                        $subOpenCommentLength = $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
+                        $subOpenCommentLength = $subTrailingState->hasLiteralDiv()
+                            ? null
+                            : $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
                         $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
                         $subWasOpenParagraph = $subTrailingState->openParagraph;
                         $subWasAfterComment = $subTrailingState->afterComment;
@@ -428,7 +430,9 @@ final class ListBlockBuilder
                                 }
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $subMarkerComment ?? $stripped, true);
+                                $subTrailingState = $subTrailingState->hasLiteralDiv()
+                                    ? $this->continuations->advanceLiteralStateWithSourceFenceLookahead($subTrailingState, $subMarkerComment ?? $stripped, $lines, $i, $subIndent)
+                                    : $this->advanceTrailingState($subTrailingState, $subMarkerComment ?? $stripped, true);
                                 if ($wasSubInFence && $subTrailingState->fence === null) {
                                     $subInterruptedParagraphFence = false;
                                 }
@@ -542,7 +546,7 @@ final class ListBlockBuilder
                             }
                             if (
                                 !$subTrailingState->openParagraph
-                                && !$subTrailingState->inDiv
+                                && (!$subTrailingState->inDiv || $subTrailingState->hasLiteralDiv())
                             ) {
                                 break;
                             }
