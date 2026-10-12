@@ -151,10 +151,10 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         $this->assertSame($imported, CarveConverter::toCarve($imported));
     }
 
-    public function testAFootnoteWhoseBodyHoldsABlockStaysWhereItIs(): void
+    public function testAFootnoteWhoseBodyHoldsABlockMovesAsOneBlock(): void
     {
         $this->assertSame(
-            "a[^1]\n\n[^1]: note\n\n```\ncode\n```\n\nb\n",
+            "a[^1]\n\nb\n\n[^1]: note\n\n  code\n",
             (new MarkdownToCarve())->convert("a[^1]\n\n[^1]: note\n\n    code\n\nb\n"),
         );
     }

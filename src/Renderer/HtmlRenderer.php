@@ -1466,14 +1466,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderCodeBlock(CodeBlock $node): string
     {
-        // Add data-carve-src for round-trip support
-        $djotSrcAttr = '';
-        if ($this->roundTripMode) {
-            $djotSrc = $this->reconstructCodeBlockSource($node);
-            $djotSrcAttr = ' data-carve-src="' . $this->escapeAttribute($djotSrc) . '"';
-        }
-
-        return $this->renderPreCode($node, $node->getContent(), $node->getLanguage(), $djotSrcAttr);
+        return $this->renderPreCode($node, $node->getContent(), $node->getLanguage());
     }
 
     /**
@@ -1481,7 +1474,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function renderPreCode(Node $node, string $content, ?string $language, string $djotSrcAttr = ''): string
     {
-        $attrs = $this->renderAttributesBesideCarriers($node, $djotSrcAttr === '' ? [] : ['data-carve-src']);
+        $carriers = $node instanceof CodeBlock || $djotSrcAttr !== '' ? ['data-carve-src'] : [];
+        if ($this->roundTripMode && $node instanceof CodeBlock && $node->getLabel() !== null) {
+            $djotSrcAttr .= ' data-carve-label="' . $this->escapeAttribute($node->getLabel()) . '"';
+            $carriers[] = 'data-carve-label';
+        }
+        $attrs = $this->renderAttributesBesideCarriers($node, $carriers);
 
         $code = $this->escape($content);
 
@@ -3628,7 +3626,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * precedence used to vary by carrier.
      *
      * CALLED WITH THE CARRIERS THIS NODE WILL ACTUALLY WRITE, never with the
-     * whole inventory: an authored `data-carve-ref` on a link that resolved no
+     * whole inventory. Core code blocks also reserve `data-carve-src` without
+     * writing stored source. An authored `data-carve-ref` on a link that resolved no
      * reference collides with nothing and reaches the document.
      *
      * @param \MarkupCarve\Carve\Node\Node $node

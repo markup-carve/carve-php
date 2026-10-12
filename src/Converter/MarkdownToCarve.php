@@ -10,9 +10,12 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Comment;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -247,13 +250,19 @@ class MarkdownToCarve
     protected array $movedDefinitions = [];
 
     /**
-     * Footnote definitions taken out of the body, each already written the way
-     * `carve fmt` writes it: the label line, then its continuation lines two
-     * columns in. They precede the reference definitions at the end.
+     * Footnote definitions taken out of the body. Paragraph continuations use
+     * two columns; block bodies retain their four-column Markdown prefix.
      *
      * @var array<array<string>>
      */
     protected array $movedFootnotes = [];
+
+    private bool $importingFootnoteBody = false;
+
+    /**
+     * @var array<int, true>
+     */
+    private array $movedFootnoteBlockBodies = [];
 
     /**
      * @var list<int>
@@ -323,7 +332,7 @@ class MarkdownToCarve
      * The carrier payloads this conversion lifted out of the source, in the
      * order their marker lines appeared.
      *
-     * @var list<array{payload: string, closer: bool, caption: bool}>
+     * @var list<array{payload: string, closer: bool, caption: bool, equation: string|null}>
      */
     protected array $carrierSlots = [];
 
@@ -332,6 +341,8 @@ class MarkdownToCarve
      * reads the file as ordinary Markdown, comments and all (PART 11 §10s).
      */
     protected bool $carrierDamaged = false;
+
+    protected bool $carrierFallbackMode = false;
 
     /**
      * The placeholder a lifted marker line stands in as, unique in the source.
@@ -364,7 +375,7 @@ class MarkdownToCarve
             return [];
         }
         $all = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
-        $offset = count($this->splitFrontmatter($all));
+        $offset = $this->importingFootnoteBody ? 0 : count($this->splitFrontmatter($all));
         $sourceLines = $this->markdownSourceLines;
         $htmlSourceLines = $this->markdownHtmlSourceLines;
         $found = [];
@@ -429,7 +440,7 @@ class MarkdownToCarve
         $this->carrierSlots = [];
         $this->carrierDamaged = false;
         $this->carrierToken = '';
-        if (!str_contains($markdown, CarrierMarkers::PREFIX)) {
+        if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::PREFIX)) {
             return $markdown;
         }
 
@@ -458,7 +469,7 @@ class MarkdownToCarve
         if (!$seen) {
             return $markdown;
         }
-        if (!$this->carrierSetBalances($payloads)) {
+        if (!$this->carrierSetBalances($payloads, $lines, $hosts)) {
             $this->carrierDamaged = true;
 
             return $markdown;
@@ -472,14 +483,17 @@ class MarkdownToCarve
 
         $out = [];
         $drop = 0;
+        $replaceParagraph = false;
         $skipBlank = false;
         $host = '';
         $last = count($lines) - 1;
         foreach ($lines as $at => $line) {
             if (!isset($payloads[$at])) {
                 $body = $this->withoutCarrierHost($line, $host);
-                if ($drop > 0 && preg_match('/^\*\*.+\*\*$/D', $body) === 1) {
-                    $drop--;
+                if ($drop > 0 && ($replaceParagraph || preg_match('/^\*\*.+\*\*$/D', $body) === 1) && $body !== '') {
+                    if (!$replaceParagraph) {
+                        $drop--;
+                    }
                     $skipBlank = true;
 
                     continue;
@@ -489,29 +503,51 @@ class MarkdownToCarve
                 // would leave the Carve output without its own final newline.
                 if ($skipBlank && $at !== $last && $body === '') {
                     $skipBlank = false;
+                    $drop = 0;
+                    $replaceParagraph = false;
 
                     continue;
                 }
                 $skipBlank = false;
+                if ($body === '') {
+                    $drop = 0;
+                    $replaceParagraph = false;
+                }
                 $out[] = $line;
 
                 continue;
             }
             $payload = $payloads[$at];
             $host = $hosts[$at];
-            $closer = CarrierMarkers::isCloser($payload);
+            $closer = CarrierMarkers::isCloser($payload) || $payload === '';
             $out[] = $host . $token . count($this->carrierSlots) . 'Z';
+            $equation = null;
+            if (CarrierMarkers::isCaption($payload)) {
+                $before = $at - 1;
+                while ($before >= 0 && trim($lines[$before], " \t>") === '') {
+                    $before--;
+                }
+                $previous = $this->withoutCarrierHost($lines[$before] ?? '', $host);
+                if (preg_match('/^(?:(?:[-+*]|\d+[.)])[ \t]+)?(\$\$[^$]+\$\$)[ \t]*$/D', $previous, $math) === 1) {
+                    $equation = rtrim((new self(convertMath: true))->convert($math[1]), "\n");
+                }
+            }
             $this->carrierSlots[] = [
                 'payload' => $payload,
                 'closer' => $closer,
                 'caption' => CarrierMarkers::isCaption($payload),
+                'equation' => $equation,
             ];
             // The writer emitted the opener's title and label, and a group
             // caption, as bold lines of their own; the payload carries them
             // now, so the fallback would be the same text twice. A CAPTION
             // MARKER REPLACES ITS RENDERED PARAGRAPH rather than adding a
             // second copy of it (PART 11 §10s).
-            $drop = $closer ? 0 : $this->carrierFallbackLines($payload);
+            $replaceParagraph = CarrierMarkers::isCaption($payload) || str_starts_with($payload, ':: ');
+            $drop = $replaceParagraph ? 1 : ($closer ? 0 : $this->carrierFallbackLines($payload));
+            if ($replaceParagraph || str_starts_with($payload, '{')) {
+                $out[] = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
+            }
         }
 
         return implode("\n", $out);
@@ -544,53 +580,133 @@ class MarkdownToCarve
     }
 
     /**
+     * @param list<string> $lines
+     * @param array<int, string> $payloads
+     * @param string $host
+     * @param int $start
+     */
+    protected function carrierParagraphFollows(array $lines, array $payloads, string $host, int $start): bool
+    {
+        $paragraph = [];
+        $count = count($lines);
+        for ($at = $start; $at < $count && !isset($payloads[$at]); $at++) {
+            $line = $this->withoutCarrierHost($lines[$at], $host);
+            if ($line === '') {
+                break;
+            }
+            $paragraph[] = $line;
+        }
+        $source = (new self())->convert(implode("\n", $paragraph));
+        $blocks = CarveConverter::create()->parse($source)->getChildren();
+
+        return count($blocks) === 1 && $blocks[0] instanceof Paragraph;
+    }
+
+    /**
      * Whether a marker set records a structure at all: every opener closed by a
      * bare fence of its own width, every attribute line against an opener, and
      * nothing left open.
      *
      * @param array<int, string> $payloads
+     * @param list<string> $lines
+     * @param array<int, string> $hosts
      */
-    protected function carrierSetBalances(array $payloads): bool
+    protected function carrierSetBalances(array $payloads, array $lines, array $hosts): bool
     {
         $open = [];
-        $prelude = false;
-        $closed = false;
-        foreach ($payloads as $payload) {
-            if (CarrierMarkers::isCaption($payload)) {
-                // A caption line belongs to the container the marker before it
-                // closed, so one standing anywhere else records nothing.
-                if ($prelude || !$closed) {
+        $definitions = [];
+        $previousAt = null;
+        $previousPayload = null;
+        foreach ($payloads as $at => $payload) {
+            $next = $this->withoutCarrierHost($lines[$at + 1] ?? '', $hosts[$at]);
+            $nestedTerm = $previousAt === $at - 1 && $previousPayload === ':';
+            $previousAt = $at;
+            $previousPayload = $payload;
+            if (str_starts_with($payload, '{')) {
+                $nextMarker = $payloads[$at + 1] ?? null;
+                $sameHost = $nextMarker !== null
+                    && (preg_replace('/[^>\t]/', ' ', $hosts[$at + 1]) ?? $hosts[$at + 1])
+                === (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]);
+                $lostBlock = $sameHost
+                    && !str_starts_with($nextMarker, ':: ')
+                    && (CarrierMarkers::fenceWidth($nextMarker) === 0 || CarrierMarkers::isCloser($nextMarker));
+                if (!str_ends_with($payload, '}') || !AttributeParser::isValidPayload(substr($payload, 1, -1)) || $next === '' || $lostBlock) {
                     return false;
                 }
-                $closed = false;
+
+                continue;
+            }
+            if (str_starts_with($payload, ':: ')) {
+                $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
+                $last = count($definitions) - 1;
+                if ($last < 0 || $definitions[$last]['key'] !== $key || $nestedTerm) {
+                    $definitions[] = ['key' => $key, 'defined' => false];
+                } elseif (!$definitions[$last]['defined']) {
+                    return false;
+                } else {
+                    $definitions[$last]['defined'] = false;
+                }
+                if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
+                    return false;
+                }
+
+                continue;
+            }
+            if ($payload === ':' || $payload === '') {
+                $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
+                $last = count($definitions) - 1;
+                if ($last < 0 || $definitions[$last]['key'] !== $key || ($payload === '' && !$definitions[$last]['defined'])) {
+                    return false;
+                }
+                if ($payload === '') {
+                    array_pop($definitions);
+                } else {
+                    $definitions[$last]['defined'] = true;
+                    if ($next === '' || (isset($payloads[$at + 1]) && in_array($payloads[$at + 1], ['', ':'], true))) {
+                        return false;
+                    }
+                }
+
+                continue;
+            }
+            if (CarrierMarkers::isCaption($payload)) {
+                if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
+                    return false;
+                }
 
                 continue;
             }
             $width = CarrierMarkers::fenceWidth($payload);
             if ($width === 0) {
-                // An attribute line belongs to the opener on the next marker.
-                $prelude = true;
-                $closed = false;
-
-                continue;
+                return false;
             }
             if (CarrierMarkers::isCloser($payload)) {
-                if ($prelude || $open === [] || array_pop($open) !== $width) {
+                if ($open === [] || array_pop($open) !== $width) {
                     return false;
                 }
-                $closed = true;
 
                 continue;
             }
-            $prelude = false;
-            $closed = false;
             if ($open !== [] && $width <= $open[count($open) - 1]) {
                 return false;
             }
             $open[] = $width;
         }
 
-        return !$prelude && $open === [];
+        return $open === [] && $definitions === [];
+    }
+
+    protected function attachedCaptionCount(Node $node): int
+    {
+        $count = $node instanceof Figure && $node->getCaption() !== null ? 1 : 0;
+        if ($node instanceof Table || $node instanceof FigureGroup) {
+            $count += $node->getCaption() === null ? 0 : 1;
+        }
+        foreach ($node->getChildren() as $child) {
+            $count += $this->attachedCaptionCount($child);
+        }
+
+        return $count;
     }
 
     /**
@@ -624,16 +740,80 @@ class MarkdownToCarve
                 continue;
             }
             $slot = $this->carrierSlots[(int)$match[1]];
+            if ($slot['equation'] !== null) {
+                // Restore the equation alone, preserving attributes and the item opener.
+                $before = count($items) - 1;
+                while ($before >= 0 && $items[$before]['text'] === '' && $items[$before]['kind'] === null) {
+                    $before--;
+                }
+                if ($before >= 0 && $items[$before]['kind'] === null) {
+                    if (preg_match('/^(?:(?:[-+*]|\d+[.)])[ \t]+)?/', $items[$before]['text'], $prefix) === 1) {
+                        $items[$before]['text'] = $prefix[0] . $slot['equation'];
+                    }
+                }
+            }
             $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
             $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind];
         }
         $items = $this->anchorCarrierClosers($items);
+        $definitions = [];
+        foreach ($items as $at => $item) {
+            $last = count($definitions) - 1;
+            if ($item['kind'] !== null && str_starts_with($item['text'], ':: ')) {
+                if ($last < 0 || $definitions[$last]->pending) {
+                    $original = preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead'];
+                    $base = $last < 0 ? $original : $definitions[$last]->base . '  ';
+                    if ($last >= 0 && $definitions[$last]->marker !== null) {
+                        $items[$at] = ['lead' => $definitions[$last]->base . ': ', 'text' => $item['text'], 'kind' => $item['kind']];
+                        $marker = $definitions[$last]->marker;
+                        $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
+                        $definitions[$last]->pending = false;
+                    }
+                    $definitions[] = new MarkdownCarrierDefinition($base, $original);
+                } else {
+                    $items[$at] = ['lead' => $definitions[$last]->base, 'text' => $item['text'], 'kind' => $item['kind']];
+                }
+
+                continue;
+            }
+            if ($last < 0) {
+                continue;
+            }
+            if ($item['kind'] !== null && $item['text'] === '') {
+                $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close'];
+                array_pop($definitions);
+
+                continue;
+            }
+            if ($item['kind'] !== null && $item['text'] === ':') {
+                $definitions[$last]->pending = true;
+                $definitions[$last]->marker = $at;
+
+                continue;
+            }
+            if ($definitions[$last]->marker !== null) {
+                $lead = $item['text'] === '' ? $definitions[$last]->base
+                    : $definitions[$last]->base . '  ' . substr($item['lead'], strlen($definitions[$last]->original));
+                if ($definitions[$last]->pending && $item['text'] !== '') {
+                    $lead = $definitions[$last]->base . ': ' . substr($item['lead'], strlen($definitions[$last]->original));
+                    $marker = $definitions[$last]->marker;
+                    $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
+                    $definitions[$last]->pending = false;
+                }
+                $items[$at] = ['lead' => $lead, 'text' => $item['text'], 'kind' => $item['kind']];
+            }
+        }
         $spelled = [];
+        $emptyCloser = false;
         foreach ($this->separateCarrierLines($items) as $item) {
+            if ($emptyCloser && $item['text'] === '') {
+                continue;
+            }
+            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '';
             $spelled[] = $item['lead'] . $item['text'];
         }
 
-        return implode("\n", $spelled);
+        return rtrim(implode("\n", $spelled), " \t\n") . "\n";
     }
 
     /**
@@ -665,7 +845,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($item['kind'] === 'close' && $open !== []) {
+            if ($item['kind'] === 'close' && CarrierMarkers::isCloser($item['text']) && $open !== []) {
                 $closed = array_pop($open);
                 $items[$at]['lead'] = $closed;
 
@@ -726,7 +906,7 @@ class MarkdownToCarve
             // quote of its own.
             if ($marker !== null) {
                 for ($drop = $at; $drop < $end; $drop++) {
-                    if (rtrim($items[$drop]['lead']) !== rtrim($marker['lead'])) {
+                    if (rtrim($items[$drop]['lead']) !== rtrim($marker['kind'] === 'open' ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead'])) {
                         $marker = null;
 
                         break;
@@ -781,6 +961,7 @@ class MarkdownToCarve
         // the verbatim run or refuses the nesting a document most often has
         // (markup-carve/carve#2850). Everything this probe dirties is reset
         // below, before the conversion proper reads any of it.
+        $carrierOriginal = $markdown;
         $markdown = $this->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
         $this->unspellableOrderedTasks = [];
         $this->flattenedEmphasis = false;
@@ -809,11 +990,13 @@ class MarkdownToCarve
         // body is transformed. Run through the line loop it would be destroyed:
         // the opening `---` becomes a thematic break and the closing one a
         // setext underline, turning `description: y` into an `##` heading.
-        $frontmatter = $this->splitFrontmatter($allLines);
+        $frontmatter = $this->importingFootnoteBody ? [] : $this->splitFrontmatter($allLines);
         $this->markdownFrontmatterLines = count($frontmatter);
         $this->frontmatterSynthesized = $frontmatter !== [];
         $lines = $this->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
-        $this->importedFootnoteLabels = [];
+        if (!$this->importingFootnoteBody) {
+            $this->importedFootnoteLabels = [];
+        }
         $reservedFootnotes = [];
         preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
         foreach ($candidates[1] as $label) {
@@ -2033,6 +2216,27 @@ class MarkdownToCarve
                 if ($result !== []) {
                     $result[] = '';
                 }
+                if (
+                    isset($this->movedFootnoteBlockBodies[$index])
+                    && preg_match('/^(\[\^(?:[^\]\\\\]|\\\\.)+\]:)[ \t]*(.*)$/', $footnote[0], $head) === 1
+                ) {
+                    $body = [$head[2]];
+                    foreach (array_slice($footnote, 1) as $line) {
+                        $body[] = $line === '' ? '' : substr($line, 4);
+                    }
+                    $importer = clone $this;
+                    $importer->importingFootnoteBody = true;
+                    $converted = rtrim($importer->convert(implode("\n", $body)), "\n");
+                    $this->mergeFootnoteDiagnostics($importer, ($this->movedFootnoteSourceLines[$index] ?? 1) - 1);
+                    $body = explode("\n", $converted);
+                    $firstLine = array_shift($body);
+                    $result[] = $this->convertInlineFormatting($head[1]) . ' ' . ($firstLine === '' ? '{empty}' : $firstLine);
+                    foreach ($body as $line) {
+                        $result[] = $line === '' ? '' : '  ' . $line;
+                    }
+
+                    continue;
+                }
                 array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
             }
             foreach ($this->movedDefinitions as $definition) {
@@ -2073,7 +2277,7 @@ class MarkdownToCarve
         // - so the import takes the same answer, through the writer's own
         // parser test, marker and formatter, rather than a leading blank that
         // moved line 0 off `---` and lost the round trip (carve-php#2977).
-        if ($frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
+        if (!$this->importingFootnoteBody && $frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
             foreach ($breakLines as $at) {
                 $line = (string)($result[$at] ?? '');
                 if (str_ends_with($line, '---')) {
@@ -2090,7 +2294,20 @@ class MarkdownToCarve
             $carve = $this->writeWithoutOmittedTableComments($carve);
         }
 
+        $captionMarkers = count(array_filter($this->carrierSlots, static fn (array $slot): bool => $slot['caption']));
+        $beforeCaptions = $captionMarkers === 0 ? 0 : $this->attachedCaptionCount(CarveConverter::create()->parse($carve));
         $carve = $this->restoreCarrierMarkers($carve);
+        if ($captionMarkers > 0 && $this->attachedCaptionCount(CarveConverter::create()->parse($carve)) !== $beforeCaptions + $captionMarkers) {
+            $this->carrierFallbackMode = true;
+            try {
+                $carve = $this->convert($carrierOriginal);
+            } finally {
+                $this->carrierFallbackMode = false;
+            }
+            $this->carrierDamaged = true;
+
+            return $carve;
+        }
 
         if ($frontmatter === []) {
             return $carve;
@@ -2106,6 +2323,24 @@ class MarkdownToCarve
         return $body === ''
             ? $prefix . "\n"
             : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body;
+    }
+
+    private function mergeFootnoteDiagnostics(self $importer, int $offset): void
+    {
+        $this->flattenedEmphasis = $this->flattenedEmphasis || $importer->flattenedEmphasis;
+        $this->carrierDamaged = $this->carrierDamaged || $importer->carrierDamaged;
+        foreach (['tableDiagnostics', 'rawSpanWhitespaceDiagnostics', 'boundaryDiagnostics', 'leadingWhitespaceDiagnostics', 'codeFallbackDiagnostics'] as $property) {
+            foreach ($importer->{$property} as $diagnostic) {
+                $path = $diagnostic->path;
+                if ($path !== null && preg_match('/^line:(\d+)$/', $path, $line) === 1) {
+                    $path = 'line:' . ((int)$line[1] + $offset);
+                }
+                $this->{$property}[] = new MigrationDiagnostic($diagnostic->code, $diagnostic->message, $diagnostic->severity, $diagnostic->fidelity, $diagnostic->confidence, $path);
+            }
+        }
+        foreach ($importer->unspellableOrderedTasks as $line) {
+            $this->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', self::ORDERED_TASK_ITEM_UNSPELLABLE, 'warning', 'dropped', 'exact', 'line:' . ($importer->sourceLine($line) + $offset));
+        }
     }
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
@@ -7263,19 +7498,22 @@ class MarkdownToCarve
      */
     protected function extractReferenceDefinitions(array $lines, ?array &$blockHtml = null): array
     {
-        $this->markdownFootnoteLabels = [];
-        $this->emptyDestinationLabels = [];
-        $this->complexReferenceTargets = [];
+        if (!$this->importingFootnoteBody) {
+            $this->markdownFootnoteLabels = [];
+            $this->emptyDestinationLabels = [];
+            $this->complexReferenceTargets = [];
+        }
         $authoredDefinitions = [];
         $invalidDefinitionPrefixes = [];
         $referenceChunk = null;
         $this->movedDefinitions = [];
         $this->movedFootnotes = [];
+        $this->movedFootnoteBlockBodies = [];
         $this->movedFootnoteSourceLines = [];
         $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
         $quote = '/^((?: {0,3}>[ \t]?)*)/';
-        $defined = [];
-        $labels = [];
+        $defined = $this->importingFootnoteBody ? $this->definedReferenceLabels : [];
+        $labels = $this->importingFootnoteBody ? $this->referenceDefinitionLabels : [];
         $kept = [];
         $fence = null;
         $htmlCloser = null;
@@ -7671,12 +7909,8 @@ class MarkdownToCarve
      * reporting whether it was taken. `carve fmt` writes footnotes there, ahead
      * of the reference definitions.
      *
-     * A footnote body can run over several lines, and it moves as one block, so
-     * only a body of paragraph text moves: every continuation line reaches the
-     * footnote's paragraph, and none of them is a block of its own. Each is
-     * written two columns in, which is the formatter's spelling. A footnote
-     * whose body holds a blank line, a block, or indented code stays where the
-     * source had it, and so does one inside a quote or a list item.
+     * Paragraph continuations use Carve's two-column prefix. A body with later
+     * blocks retains its Markdown prefix until block conversion removes it.
      *
      * @param array<string> $lines
      * @param int $index Advanced past the block taken.
@@ -7685,13 +7919,16 @@ class MarkdownToCarve
     {
         $count = count($lines);
         $end = $index;
+        preg_match('/^ {0,3}\[\^(?:[^\]\\\\]|\\\\.)+\]:[ \t]*(.*)$/', $lines[$index], $opening);
+        $paragraphOpen = isset($opening[1]) && trim($opening[1]) !== '' && !$this->opensMarkdownBlock($opening[1]);
         for ($at = $index + 1; $at < $count; $at++) {
             $line = $this->expandLeadingTabs($lines[$at], 8);
             if (
-                trim($line) === ''
+                !$paragraphOpen
+                || trim($line) === ''
                 || strspn($line, ' ') >= 8
                 || $this->opensMarkdownBlock(ltrim($line, ' '))
-                || preg_match('/^ *\[(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
+                || preg_match('/^ *\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
             ) {
                 break;
             }
@@ -7702,7 +7939,23 @@ class MarkdownToCarve
         for ($at = $end + 1; $at < $count; $at++) {
             if (trim($lines[$at]) !== '') {
                 if (strspn($this->expandLeadingTabs($lines[$at], 4), ' ') >= 4) {
-                    return false;
+                    $block = [ltrim($lines[$index], ' ')];
+                    for ($next = $index + 1; $next < $count; $next++) {
+                        $line = $this->expandLeadingTabs($lines[$next], 4);
+                        if ($next > $end && trim($line) !== '' && strspn($line, ' ') < 4) {
+                            break;
+                        }
+                        $block[] = trim($line) === '' ? '' : ($next <= $end ? '    ' . ltrim($line, ' ') : $line);
+                    }
+                    while (end($block) === '') {
+                        array_pop($block);
+                    }
+                    $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
+                    $this->movedFootnoteBlockBodies[count($this->movedFootnotes)] = true;
+                    $this->movedFootnotes[] = $block;
+                    $index = $next - 1;
+
+                    return true;
                 }
 
                 break;
@@ -7717,7 +7970,8 @@ class MarkdownToCarve
             $block[0] .= " \x00FNEMPTY\x00";
         }
         for ($at = $index + 1; $at <= $end; $at++) {
-            $block[] = '  ' . ltrim($this->expandLeadingTabs($lines[$at], 8), ' ');
+            // Reference definitions cannot interrupt the Markdown paragraph, but can in Carve.
+            $block[] = '  ' . $this->escapeBlockOpener(ltrim($this->expandLeadingTabs($lines[$at], 8), ' '));
         }
         $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
         $this->movedFootnotes[] = $block;

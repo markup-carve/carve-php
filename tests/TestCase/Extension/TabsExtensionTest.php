@@ -1064,7 +1064,7 @@ DJOT;
 
         $this->assertStringContainsString('data-carve-src="', $html);
         // The reconstructed djot should contain the code fence
-        $this->assertStringContainsString('``` php', $html);
+        $this->assertStringContainsString('```php', $html);
     }
 
     public function testRoundTripWithTable(): void

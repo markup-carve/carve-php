@@ -497,7 +497,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             return ($this->highlighter)($code, $language);
         }
 
-        $renderBlock = new CodeBlock($block->getContent(), $language);
+        $renderBlock = new CodeBlock($block->getContent(), $language, $block->getLabel());
 
         foreach ($block->getAttributes() as $name => $value) {
             if ($name === 'selected') {

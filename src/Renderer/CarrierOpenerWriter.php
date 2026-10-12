@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer;
 
+use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Node;
 
 /**
@@ -23,6 +26,19 @@ final class CarrierOpenerWriter extends CarveRenderer
     public function spell(Node $node, int $depth): ?array
     {
         $this->colonFenceDepth = $depth;
+        if ($node instanceof Div && !$node->isTyped() && $node->getLabel() === null && $node->hasClass('hardbreaks')) {
+            $attributesNode = clone $node;
+            $classes = $node->getClassEntries();
+            $hardbreaks = array_keys($classes, 'hardbreaks', true);
+            if (count($hardbreaks) === 1) {
+                unset($classes[$hardbreaks[0]]);
+            }
+            $attributesNode->setClassList(array_values($classes));
+            $attributes = $this->renderAttrs($attributesNode);
+            $fence = str_repeat(':', 3 + $depth);
+
+            return ['prelude' => $attributes === '' ? [] : [$attributes], 'opener' => $fence . ' \\', 'closer' => $fence, 'postlude' => []];
+        }
         $lines = explode("\n", $this->renderBlock($node));
         $open = null;
         $close = null;
@@ -55,6 +71,29 @@ final class CarrierOpenerWriter extends CarveRenderer
             'closer' => $lines[$close],
             'postlude' => $postlude,
         ];
+    }
+
+    public function attributes(Node $node): string
+    {
+        if ($node instanceof CodeBlock) {
+            $first = explode("\n", $this->renderBlock($node))[0];
+
+            return str_starts_with($first, '{') ? $first : '';
+        }
+
+        return $this->renderAttrs($node);
+    }
+
+    public function inlinePayload(Node $node, string $prefix): string
+    {
+        if ($prefix === ':: ') {
+            $list = new DefinitionList();
+            $list->appendChild(clone $node);
+
+            return trim($this->renderDefinitionList($list), "\n");
+        }
+
+        return $prefix . $this->renderInlines($node->getChildren());
     }
 
     protected function renderColonFenceBody(Node $node): string
