@@ -336,6 +336,13 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         $defaults = [];
         if ($this->roundTripMode) {
             $defaults['data-carve-src'] = $this->reconstructCodeBlockSource($node);
+            if ($build !== null) {
+                $defaults['data-carve-fence-content'] = $node->getContent();
+                $defaults['data-carve-fence-language'] = $node->getLanguage();
+                if ($node->getLabel() !== null) {
+                    $defaults['data-carve-label'] = $node->getLabel();
+                }
+            }
         }
         // ONLY the rendered image is named. The no-renderer path really is
         // SOURCE TEXT in a `<pre><code>` - calling that an image would hide the
@@ -348,7 +355,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // `align` may become: HTML maps `align` to `text-align` on a `div` and
         // to nothing at all on a `pre` (markup-carve/carve#1755).
         $tag = $build !== null ? 'div' : 'pre';
-        $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], [], [], $defaults, $tag);
+        $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], ['data-carve-fence-content', 'data-carve-fence-language', 'data-carve-label'], [], $defaults, $tag);
         $element = $build !== null
             // The build-time renderer owns its escaping (it emits SVG / <img>).
             ? '<div' . $attrs . '>' . $build($source) . "</div>\n"
