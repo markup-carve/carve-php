@@ -10882,5 +10882,65 @@
   {
     "source": "![http://a.b/a\\>](/x)",
     "html": "<p><img src=\"/x\" alt=\"http://a.b/a&gt;\" /></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /a\\(b",
+    "html": "<p><a href=\"/a(b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: </a(b>",
+    "html": "<p><a href=\"/a(b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: /a&#40;b",
+    "html": "<p><a href=\"/a(b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][`x`]\n\n[`x`]: /u",
+    "html": "<p><a href=\"/u\">a</a></p>\n"
+  },
+  {
+    "source": "[a][x\\*y]\n\n[x\\*y]: /u",
+    "html": "<p><a href=\"/u\">a</a></p>\n"
+  },
+  {
+    "source": "[a][x&amp;y]\n\n[x&amp;y]: /u",
+    "html": "<p><a href=\"/u\">a</a></p>\n"
+  },
+  {
+    "source": "[foo][*x*]\n\n[foo]: /u",
+    "html": "<p>[foo][<em>x</em>]</p>\n"
+  },
+  {
+    "source": "[a*b*][x](/u)",
+    "html": "<p>[a<em>b</em>]<a href=\"/u\">x</a></p>\n"
+  },
+  {
+    "source": "[link][_id_]",
+    "html": "<p>[link][<em>id</em>]</p>\n"
+  },
+  {
+    "source": "[a](<a\\&lt;b>)",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
+  },
+  {
+    "source": "[a](<a&amp;lt;b>)",
+    "html": "<p><a href=\"a&amp;lt;b\">a</a></p>\n"
+  },
+  {
+    "source": "[a](<a&#92;&lt;b>)",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
+  },
+  {
+    "source": "[a](a\\&lt;b)",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
+  },
+  {
+    "source": "[a](/u \"a\\&lt;b\")",
+    "html": "<p><a href=\"/u\" title=\"a&lt;b\">a</a></p>\n"
+  },
+  {
+    "source": "[a][r]\n\n[r]: <a\\&lt;b>",
+    "html": "<p><a href=\"a%3Cb\">a</a></p>\n"
   }
 ]

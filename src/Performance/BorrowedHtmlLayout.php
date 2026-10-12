@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Performance;
 
 use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\LabelKey;
+use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -242,7 +243,12 @@ final class BorrowedHtmlLayout
             ) {
                 return null;
             }
-            $definitions[LabelKey::normalize($match[1])] = ['href' => $match[2], 'title' => $match[3] ?? null];
+            $reader ??= new ReferenceDefinitionExtractor();
+            $definition = $reader->matchDefinitionLine($line);
+            if ($definition === null) {
+                return null;
+            }
+            $definitions[LabelKey::normalize($match[1])] = ['href' => $definition['url'], 'title' => $definition['title']];
             $this->accept($stats, 'linkDefinitions', $index, $index + 1, true);
         }
 

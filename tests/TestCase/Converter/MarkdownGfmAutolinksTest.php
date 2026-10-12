@@ -65,6 +65,17 @@ final class MarkdownGfmAutolinksTest extends TestCase
         yield 'intraword even runs' => ['**a**b** /x/', '<p><strong>a</strong>b** /x/</p>'];
     }
 
+    public function testOptInMathKeepsReferenceChainsLiteral(): void
+    {
+        foreach (['$', '$$'] as $delimiter) {
+            $written = (new MarkdownToCarve(convertMath: true))->convert($delimiter . '[a*b*][x](/u)' . $delimiter);
+            $document = (new CarveConverter())->parse($written);
+            $math = $document->getChildren()[0]->getChildren()[0];
+            self::assertInstanceOf(\MarkupCarve\Carve\Node\Inline\Math::class, $math);
+            self::assertSame('[a*b*][x](/u)', $math->getContent());
+        }
+    }
+
     public function testOptInHighlightKeepsGeneratedDelimitersSeparateFromLiteralSymbols(): void
     {
         $written = (new MarkdownToCarve(convertHighlight: true))->convert('==Done!==');
