@@ -2882,6 +2882,132 @@
     "html": "<table><tr><td>&lt;a&nbsp;</td><td>b&gt;</td></tr></table>"
   },
   {
+    "name": "quote-list-after-nested-thematic",
+    "source": "> > ***\n> - x",
+    "lossLines": [],
+    "html": "<blockquote><blockquote><hr></blockquote><ul><li>x</li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-newline-formatted-root",
+    "source": "![\n*a*](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"\na\"></p>"
+  },
+  {
+    "name": "image-paragraph-leading-newline-formatted-quote",
+    "source": "> ![\n> *a*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"\na\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-newline-formatted-list",
+    "source": "- ![\n  *a*](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"\na\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-leading-newline-formatted-quoted-list",
+    "source": "> - ![\n> *a*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"\na\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-trailing-newline-formatted-root",
+    "source": "![*a*\n](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n\"></p>"
+  },
+  {
+    "name": "image-paragraph-trailing-newline-formatted-quote",
+    "source": "> ![*a*\n> ](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-trailing-newline-formatted-list",
+    "source": "- ![*a*\n  ](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-trailing-newline-formatted-quoted-list",
+    "source": "> - ![*a*\n> ](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\n\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-multiline-strong-root",
+    "source": "![a\n*b*](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-multiline-strong-quote",
+    "source": "> ![a\n> *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-multiline-strong-list",
+    "source": "- ![a\n  *b*](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-multiline-strong-quoted-list",
+    "source": "> - ![a\n> *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\nb\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-multiline-emphasis-span-root",
+    "source": "![_a\nb_](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-multiline-emphasis-span-quote",
+    "source": "> ![_a\n> b_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-multiline-emphasis-span-list",
+    "source": "- ![_a\n  b_](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-multiline-emphasis-span-quoted-list",
+    "source": "> - ![_a\n> b_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\nb\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-multiline-code-root",
+    "source": "![a `b\nc`](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a b\nc\"></p>"
+  },
+  {
+    "name": "image-paragraph-multiline-code-quote",
+    "source": "> ![a `b\n> c`](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a b\nc\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-multiline-code-list",
+    "source": "- ![a `b\n  c`](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a b\nc\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-multiline-code-quoted-list",
+    "source": "> - ![a `b\n> c`](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a b\nc\"></li></ul></blockquote>"
+  },
+  {
     "name": "image-paragraph-multiline-alt-root",
     "source": "![a\nb](/u)",
     "lossLines": [],
@@ -3170,6 +3296,402 @@
     "html": "<blockquote><ul><li>before <img src=\"/u\" alt=\"x\"> after</li></ul></blockquote>"
   },
   {
+    "name": "image-paragraph-escaped-mixed-emphasis-root",
+    "source": "![a\\*b _x_](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a*b x\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-mixed-emphasis-quote",
+    "source": "> ![a\\*b _x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a*b x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-mixed-emphasis-list",
+    "source": "- ![a\\*b _x_](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a*b x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-mixed-emphasis-quoted-list",
+    "source": "> - ![a\\*b _x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a*b x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-backticks-mixed-root",
+    "source": "![\\`a\\` *b*](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"`a` b\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-backticks-mixed-quote",
+    "source": "> ![\\`a\\` *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"`a` b\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-backticks-mixed-list",
+    "source": "- ![\\`a\\` *b*](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"`a` b\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-backticks-mixed-quoted-list",
+    "source": "> - ![\\`a\\` *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"`a` b\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-backslash-mixed-root",
+    "source": "![a\\\\b _x_](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\\b x\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-backslash-mixed-quote",
+    "source": "> ![a\\\\b _x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\\b x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-backslash-mixed-list",
+    "source": "- ![a\\\\b _x_](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\\b x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-backslash-mixed-quoted-list",
+    "source": "> - ![a\\\\b _x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\\b x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-pipe-mixed-root",
+    "source": "![a\\|b _x_](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a|b x\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-pipe-mixed-quote",
+    "source": "> ![a\\|b _x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a|b x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-pipe-mixed-list",
+    "source": "- ![a\\|b _x_](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a|b x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-pipe-mixed-quoted-list",
+    "source": "> - ![a\\|b _x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a|b x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-heading-mixed-root",
+    "source": "![a\n# *b*](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n# b\"></p>"
+  },
+  {
+    "name": "image-paragraph-leading-heading-mixed-quote",
+    "source": "> ![a\n> # *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n# b\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-heading-mixed-list",
+    "source": "- ![a\n  # *b*](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n# b\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-leading-heading-mixed-quoted-list",
+    "source": "> - ![a\n> # *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![a</li></ul><h1 id=\"b-u\"><strong>b</strong>](/u)</h1></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-thematic-mixed-root",
+    "source": "![*a*\n---\nb](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n---\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-leading-thematic-mixed-quote",
+    "source": "> ![*a*\n> ---\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n---\nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-thematic-mixed-list",
+    "source": "- ![*a*\n  ---\n  b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n---\nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-leading-thematic-mixed-quoted-list",
+    "source": "> - ![*a*\n> ---\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![<strong>a</strong></li></ul><hr><p>b](/u)</p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-quote-mixed-root",
+    "source": "![*a*\n> b](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n&gt; b\"></p>"
+  },
+  {
+    "name": "image-paragraph-leading-quote-mixed-quote",
+    "source": "> ![*a*\n> > b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n&gt; b\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-quote-mixed-list",
+    "source": "- ![*a*\n  > b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n&gt; b\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-leading-quote-mixed-quoted-list",
+    "source": "> - ![*a*\n> > b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![<strong>a</strong></li></ul><blockquote><p>b](/u)</p></blockquote></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-div-mixed-root",
+    "source": "![*a*\n:::\nb](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n:::\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-leading-div-mixed-quote",
+    "source": "> ![*a*\n> :::\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n:::\nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-leading-div-mixed-list",
+    "source": "- ![*a*\n  :::\n  b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n:::\nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-leading-div-mixed-quoted-list",
+    "source": "> - ![*a*\n> :::\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![<strong>a</strong></li></ul><div><p>b](/u)</p></div></blockquote>"
+  },
+  {
+    "name": "image-paragraph-unicode-nel-line-root",
+    "source": "![*a*\n\nb](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-unicode-nel-line-quote",
+    "source": "> ![*a*\n> \n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n\nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-unicode-nel-line-list",
+    "source": "- ![*a*\n  \n  b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n\nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-unicode-nel-line-quoted-list",
+    "source": "> - ![*a*\n> \n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\n\nb\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-unicode-nbsp-line-root",
+    "source": "![*a*\n \nb](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n \nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-unicode-nbsp-line-quote",
+    "source": "> ![*a*\n>  \n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n \nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-unicode-nbsp-line-list",
+    "source": "- ![*a*\n   \n  b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n \nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-unicode-nbsp-line-quoted-list",
+    "source": "> - ![*a*\n>  \n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\n \nb\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-unicode-form-feed-line-root",
+    "source": "![*a*\n\f\nb](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n\f\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-unicode-form-feed-line-quote",
+    "source": "> ![*a*\n> \f\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\n\f\nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-unicode-form-feed-line-list",
+    "source": "- ![*a*\n  \f\n  b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\n\f\nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-unicode-form-feed-line-quoted-list",
+    "source": "> - ![*a*\n> \f\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\n\f\nb\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-followed-by-parenthesis",
+    "source": "![a\\](b](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a](b\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-followed-by-reference",
+    "source": "[r]: u\n\n![a\\][b][r]",
+    "lossLines": [],
+    "html": "<p>![a]<a href=\"u\">b</a></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-closing-bracket-not-image",
+    "source": "![a\\](u)",
+    "lossLines": [],
+    "html": "<p>![a](u)</p>"
+  },
+  {
+    "name": "image-paragraph-final-ordered-marker-alt",
+    "source": "![*a*\n1.](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a\n1.\"></p>"
+  },
+  {
+    "name": "image-paragraph-punctuation-adjacent-emphasis-alt",
+    "source": "![a\n|_b_|](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a\n|b|\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-formatted-table-alt",
+    "source": "| ![a\\|b _x_](/u) |",
+    "lossLines": [],
+    "html": "<table><tr><td><img src=\"/u\" alt=\"a|b x\"></td></tr></table>"
+  },
+  {
+    "name": "image-paragraph-quoted-code-alt-escape",
+    "source": "> ![a\\_ `b\n> c` d](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a_ b\nc d\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-item-quote-exit-alt",
+    "source": "- ![*a*\n> b](u)",
+    "lossLines": [],
+    "html": "<ul><li>![<strong>a</strong></li></ul><blockquote><p>b](u)</p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-quoted-item-heading-exit-alt",
+    "source": "> - ![*a*\n> # b](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![<strong>a</strong></li></ul><h1 id=\"b-u\">b](u)</h1></blockquote>"
+  },
+  {
+    "name": "image-paragraph-unfinished-alt-peer-item",
+    "source": "- ![*a*\n- b](x)",
+    "lossLines": [],
+    "html": "<ul><li>![<strong>a</strong></li><li>b](x)</li></ul>"
+  },
+  {
+    "name": "image-paragraph-unfinished-alt-div-close",
+    "source": ":::\n![*a*\n:::\nb](x)",
+    "lossLines": [],
+    "html": "<div><p>![<strong>a</strong></p></div><p>b](x)</p>"
+  },
+  {
+    "name": "image-paragraph-unfinished-code-alt-peer-item",
+    "source": "- ![a `b\n- c` d](x)",
+    "lossLines": [],
+    "html": "<ul><li>![a <code>b</code></li><li>c<code> d](x)</code></li></ul>"
+  },
+  {
+    "name": "image-paragraph-unfinished-alt-quote-thematic-exit",
+    "source": "> ![*a*\n---\nb](x)",
+    "lossLines": [],
+    "html": "<blockquote><p>![<strong>a</strong></p></blockquote><hr><p>b](x)</p>"
+  },
+  {
+    "name": "image-paragraph-unfinished-alt-quote-attribute-exit",
+    "source": "> ![*a*\n{.a}\nb](x)",
+    "lossLines": [],
+    "html": "<blockquote><p>![<strong>a</strong></p></blockquote><p class=\"a\">b](x)</p>"
+  },
+  {
+    "name": "image-paragraph-quoted-lazy-word-marker",
+    "source": "> ![*a*\ntext. More](x)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"x\" alt=\"a\ntext. More\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-quoted-parenthesized-list-exit",
+    "source": "> ![*a*\n(1) next](x)",
+    "lossLines": [],
+    "html": "<blockquote><p>![<strong>a</strong></p></blockquote><ol><li>next](x)</li></ol>"
+  },
+  {
+    "name": "image-paragraph-quoted-code-lazy-continuation",
+    "source": "> ![a `b\nc`](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a b\nc\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-quoted-blank-owner-exit",
+    "source": "> ![a `b\n>\nc`](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p>![a <code>b</code></p></blockquote><p>c<code>](/u)</code></p>"
+  },
+  {
+    "name": "image-paragraph-quoted-blank-line-alt",
+    "source": "> ![a\n>\n> *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p>![a</p><p><strong>b</strong>](/u)</p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-quoted-blank-code-alt",
+    "source": "> ![a `b\n>\n> c`](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p>![a <code>b</code></p><p>c<code>](/u)</code></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-literal-quote-line-alt",
+    "source": "![a\n>\nb](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n&gt;\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-midline-quoted-formatted-alt",
+    "source": "> before ![a\n> *b*](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p>before <img src=\"/u\" alt=\"a\nb\"></p></blockquote>"
+  },
+  {
     "name": "image-paragraph-blank-line-alt",
     "source": "![a\n\nb](/u)",
     "lossLines": [],
@@ -3282,11 +3804,5 @@
     "source": "[r]: ![x](/u)\n\n[x][r]",
     "lossLines": [],
     "html": "<p><a href=\"![x](/u)\">x</a></p>"
-  },
-  {
-    "name": "quote-list-after-nested-thematic",
-    "source": "> > ***\n> - x",
-    "lossLines": [],
-    "html": "<blockquote><blockquote><hr></blockquote><ul><li>x</li></ul></blockquote>"
   }
 ]

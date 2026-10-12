@@ -6017,6 +6017,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function escapeImageAlt(string $text): string
     {
+        $text = QuotedSlotEscaper::escapeImageAlt($text, $this->tableCellDepth > 0);
         // A comment-only verse line is removed before an image's scalar ALT is
         // built, leaving an empty line with no comment node to carry it.  Spell
         // that loss the same way §7c spells an emptied verbatim line, and the
@@ -6031,13 +6032,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $text = implode("\n", $lines);
         }
 
-        if (BracketScanner::rawRunCloses($text) && AttributeParser::processEscapes($text) === $text) {
-            return $this->tableCellDepth > 0 ? str_replace('|', '\\|', $text) : $text;
-        }
-
-        $escaped = str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $text);
-
-        return $this->tableCellDepth > 0 ? str_replace('|', '\\|', $escaped) : $escaped;
+        return $text;
     }
 
     protected function escapeDestination(string $text): string
