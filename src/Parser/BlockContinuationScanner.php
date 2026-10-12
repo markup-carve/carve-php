@@ -651,6 +651,7 @@ final class BlockContinuationScanner
         $openDefinitionBody = null;
         $pendingDefinitionTerm = false;
         $pendingTermFence = null;
+        $termCodeTailEligible = true;
         $termCodeTailFence = null;
         $termCodeTailAfterBlank = false;
         foreach ($itemLines as $seedLine) {
@@ -830,7 +831,10 @@ final class BlockContinuationScanner
                     && ($nextTrimmed[0] ?? '') === '%'
                     && $this->isCommentLineOrFence($nextTrimmed)
                 ) {
-                    $pendingDefinitionTerm = false;
+                    $termCodeTailEligible = false;
+                    if ($nextIndent === $contentIndent) {
+                        $pendingDefinitionTerm = false;
+                    }
                 }
                 if (
                     $termCodeTailFence !== null && $nextIndent === $contentIndent
@@ -842,7 +846,7 @@ final class BlockContinuationScanner
                 ) {
                     $termCodeTailFence = null;
                 } elseif (
-                    $pendingDefinitionTerm && $nextIndent === $contentIndent
+                    $pendingDefinitionTerm && $termCodeTailEligible && $nextIndent === $contentIndent
                     && $trailingState->fence === null && !$trailingState->hasOpenDiv()
                     && $openCommentLength === null && $pendingTermFence === null
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
@@ -858,6 +862,7 @@ final class BlockContinuationScanner
                 ) {
                     if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed)) {
                         $pendingDefinitionTerm = true;
+                        $termCodeTailEligible = true;
                         $pendingTermFence = null;
                     } elseif (
                         $pendingDefinitionTerm && (
@@ -872,6 +877,7 @@ final class BlockContinuationScanner
                     }
                 }
                 $termContinuation = $pendingDefinitionTerm
+                    && !(($nextTrimmed[0] ?? '') === '%' && $this->isCommentLineOrFence($nextTrimmed))
                     && $nextIndent > $contentIndent
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()

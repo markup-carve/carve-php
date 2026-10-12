@@ -17044,5 +17044,629 @@
     "source": "> > - :: term\n> >   ```=html\n> >   a\n\n> >   b\n> >     ~~~\n> >   ```\n> > tail\n",
     "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl>\n        a\n      </li></ul></blockquote></blockquote><blockquote><blockquote><p>b\n~~~\n<code>\ntail</code></p></blockquote></blockquote>",
     "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-0",
+    "source": "- :: term\n     %% hidden\n  ```\n  code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-1",
+    "source": "- :: term\n     %% hidden\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-2",
+    "source": "- :: term\n     %% hidden\n  ~~~\n  code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-3",
+    "source": "- :: term\n     %% hidden\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-4",
+    "source": "- :: term\n     %% hidden\n   ```\n   code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n <code>\n code\nafter</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-5",
+    "source": "- :: term\n     %% hidden\n   ```\n   code\n   ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n <code>\n code\n </code>\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-6",
+    "source": "- :: term\n     %% hidden\n   ~~~\n   code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n ~~~\n code\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-7",
+    "source": "- :: term\n     %% hidden\n   ~~~\n   code\n   ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n ~~~\n code\n ~~~\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-8",
+    "source": "- :: term\n     %% hidden\n    ```\n    code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  <code>\n  code\nafter</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-9",
+    "source": "- :: term\n     %% hidden\n    ```\n    code\n    ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  <code>\n  code\n  </code>\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-10",
+    "source": "- :: term\n     %% hidden\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  ~~~\n  code\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-11",
+    "source": "- :: term\n     %% hidden\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  ~~~\n  code\n  ~~~\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-12",
+    "source": "- :: term\n     %% hidden\n      ```\n      code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    <code>\n    code\nafter</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-13",
+    "source": "- :: term\n     %% hidden\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    <code>\n    code\n    </code>\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-14",
+    "source": "- :: term\n     %% hidden\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    ~~~\n    code\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-15",
+    "source": "- :: term\n     %% hidden\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    ~~~\n    code\n    ~~~\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-16",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n  ```\n  code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-17",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n  ```\n  code\n  ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-18",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n  ~~~\n  code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-19",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n  ~~~\n  code\n  ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-20",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n   ```\n   code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n <code>\n code\nafter</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-21",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n   ```\n   code\n   ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n <code>\n code\n </code>\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-22",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n   ~~~\n   code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n ~~~\n code\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-23",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n   ~~~\n   code\n   ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n ~~~\n code\n ~~~\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-24",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n    ```\n    code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  <code>\n  code\nafter</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-25",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n    ```\n    code\n    ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  <code>\n  code\n  </code>\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-26",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n    ~~~\n    code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  ~~~\n  code\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-27",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n    ~~~\n    code\n    ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n  ~~~\n  code\n  ~~~\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-28",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n      ```\n      code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    <code>\n    code\nafter</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-29",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    <code>\n    code\n    </code>\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-30",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n      ~~~\n      code\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    ~~~\n    code\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-31",
+    "source": "- :: term\n     %%%\n     hidden\n     %%%\n      ~~~\n      code\n      ~~~\nafter\n",
+    "html": "<ul><li><dl><dt>term\n\n    ~~~\n    code\n    ~~~\nafter</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-32",
+    "source": "> - :: term\n>      %% hidden\n>   ```\n>   code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-33",
+    "source": "> - :: term\n>      %% hidden\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-34",
+    "source": "> - :: term\n>      %% hidden\n>   ~~~\n>   code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-35",
+    "source": "> - :: term\n>      %% hidden\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-36",
+    "source": "> - :: term\n>      %% hidden\n>    ```\n>    code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n <code>\n code\nafter</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-37",
+    "source": "> - :: term\n>      %% hidden\n>    ```\n>    code\n>    ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n <code>\n code\n </code>\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-38",
+    "source": "> - :: term\n>      %% hidden\n>    ~~~\n>    code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n ~~~\n code\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-39",
+    "source": "> - :: term\n>      %% hidden\n>    ~~~\n>    code\n>    ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n ~~~\n code\n ~~~\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-40",
+    "source": "> - :: term\n>      %% hidden\n>     ```\n>     code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-41",
+    "source": "> - :: term\n>      %% hidden\n>     ```\n>     code\n>     ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\n  </code>\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-42",
+    "source": "> - :: term\n>      %% hidden\n>     ~~~\n>     code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-43",
+    "source": "> - :: term\n>      %% hidden\n>     ~~~\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\n  ~~~\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-44",
+    "source": "> - :: term\n>      %% hidden\n>       ```\n>       code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-45",
+    "source": "> - :: term\n>      %% hidden\n>       ```\n>       code\n>       ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\n    </code>\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-46",
+    "source": "> - :: term\n>      %% hidden\n>       ~~~\n>       code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-47",
+    "source": "> - :: term\n>      %% hidden\n>       ~~~\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\n    ~~~\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-48",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>   ```\n>   code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-49",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>   ```\n>   code\n>   ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-50",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>   ~~~\n>   code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-51",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>   ~~~\n>   code\n>   ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-52",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>    ```\n>    code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n <code>\n code\nafter</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-53",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>    ```\n>    code\n>    ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n <code>\n code\n </code>\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-54",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>    ~~~\n>    code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n ~~~\n code\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-55",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>    ~~~\n>    code\n>    ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n ~~~\n code\n ~~~\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-56",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>     ```\n>     code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-57",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>     ```\n>     code\n>     ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\n  </code>\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-58",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>     ~~~\n>     code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-59",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>     ~~~\n>     code\n>     ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\n  ~~~\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-60",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>       ```\n>       code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-61",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>       ```\n>       code\n>       ```\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\n    </code>\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-62",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>       ~~~\n>       code\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-63",
+    "source": "> - :: term\n>      %%%\n>      hidden\n>      %%%\n>       ~~~\n>       code\n>       ~~~\n> after\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\n    ~~~\nafter</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-64",
+    "source": "> > - :: term\n> >      %% hidden\n> >   ```\n> >   code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-65",
+    "source": "> > - :: term\n> >      %% hidden\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-66",
+    "source": "> > - :: term\n> >      %% hidden\n> >   ~~~\n> >   code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-67",
+    "source": "> > - :: term\n> >      %% hidden\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-68",
+    "source": "> > - :: term\n> >      %% hidden\n> >    ```\n> >    code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n <code>\n code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-69",
+    "source": "> > - :: term\n> >      %% hidden\n> >    ```\n> >    code\n> >    ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n <code>\n code\n </code>\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-70",
+    "source": "> > - :: term\n> >      %% hidden\n> >    ~~~\n> >    code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n ~~~\n code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-71",
+    "source": "> > - :: term\n> >      %% hidden\n> >    ~~~\n> >    code\n> >    ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n ~~~\n code\n ~~~\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-72",
+    "source": "> > - :: term\n> >      %% hidden\n> >     ```\n> >     code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-73",
+    "source": "> > - :: term\n> >      %% hidden\n> >     ```\n> >     code\n> >     ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\n  </code>\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-74",
+    "source": "> > - :: term\n> >      %% hidden\n> >     ~~~\n> >     code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-75",
+    "source": "> > - :: term\n> >      %% hidden\n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\n  ~~~\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-76",
+    "source": "> > - :: term\n> >      %% hidden\n> >       ```\n> >       code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-77",
+    "source": "> > - :: term\n> >      %% hidden\n> >       ```\n> >       code\n> >       ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\n    </code>\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-78",
+    "source": "> > - :: term\n> >      %% hidden\n> >       ~~~\n> >       code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-79",
+    "source": "> > - :: term\n> >      %% hidden\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\n    ~~~\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-80",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >   ```\n> >   code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-81",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >   ```\n> >   code\n> >   ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-82",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >   ~~~\n> >   code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-83",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >   ~~~\n> >   code\n> >   ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "term-comment-code-column-84",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >    ```\n> >    code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n <code>\n code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-85",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >    ```\n> >    code\n> >    ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n <code>\n code\n </code>\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-86",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >    ~~~\n> >    code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n ~~~\n code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-87",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >    ~~~\n> >    code\n> >    ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n ~~~\n code\n ~~~\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-88",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >     ```\n> >     code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-89",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >     ```\n> >     code\n> >     ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  <code>\n  code\n  </code>\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-90",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >     ~~~\n> >     code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-91",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >     ~~~\n> >     code\n> >     ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n  ~~~\n  code\n  ~~~\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-92",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >       ```\n> >       code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\nafter</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-93",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >       ```\n> >       code\n> >       ```\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    <code>\n    code\n    </code>\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-94",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >       ~~~\n> >       code\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "term-comment-code-column-95",
+    "source": "> > - :: term\n> >      %%%\n> >      hidden\n> >      %%%\n> >       ~~~\n> >       code\n> >       ~~~\n> > after\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n\n    ~~~\n    code\n    ~~~\nafter</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   }
 ]
