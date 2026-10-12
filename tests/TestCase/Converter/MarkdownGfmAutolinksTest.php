@@ -39,6 +39,32 @@ final class MarkdownGfmAutolinksTest extends TestCase
         }
     }
 
+    #[DataProvider('slashPreflightControls')]
+    public function testDelimiterRunsPreserveSlashMeaning(string $markdown, string $html): void
+    {
+        $written = (new MarkdownToCarve())->convert($markdown);
+        self::assertSame($html . "\n", (new CarveConverter())->convert($written));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function slashPreflightControls(): iterable
+    {
+        yield 'strong with destination' => ['A **strong** phrase with [link](/target).', '<p>A <strong>strong</strong> phrase with <a href="/target">link</a>.</p>'];
+        yield 'underscore strong with slashes' => ['__strong__ /literal/', '<p><strong>strong</strong> /literal/</p>'];
+        yield 'even nested runs' => ['****strong**** /literal/', '<p><strong><strong>strong</strong></strong> /literal/</p>'];
+        yield 'odd nested runs' => ['***strong*** /literal/', '<p><em><strong>strong</strong></em> /literal/</p>'];
+        yield 'single emphasis' => ['*em* /literal/', '<p><em>em</em> /literal/</p>'];
+        yield 'html emphasis' => ['<em>em</em> /literal/', '<p><em>em</em> /literal/</p>'];
+        yield 'unmatched odd run' => ['***unclosed /literal/', '<p>***unclosed /literal/</p>'];
+        yield 'mixed even runs' => ['**outer __inner__** /literal/', '<p><strong>outer <strong>inner</strong></strong> /literal/</p>'];
+        yield 'mixed odd and even runs' => ['**a** _b_ /x/', '<p><strong>a</strong> <em>b</em> /x/</p>'];
+        yield 'escaped even run' => ['\\** a ** /x/', '<p>** a ** /x/</p>'];
+        yield 'even runs in label' => ['[**a**](/t) __b__', '<p><a href="/t"><strong>a</strong></a> <strong>b</strong></p>'];
+        yield 'intraword even runs' => ['**a**b** /x/', '<p><strong>a</strong>b** /x/</p>'];
+    }
+
     public function testOptInHighlightKeepsGeneratedDelimitersSeparateFromLiteralSymbols(): void
     {
         $written = (new MarkdownToCarve(convertHighlight: true))->convert('==Done!==');
