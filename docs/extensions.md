@@ -149,6 +149,41 @@ graceful-degradation guarantee is met by the core caption floor (step 3).
 The CLI exposes the mode via `bin/carve --static` (HTML format only); see
 `examples/static-render-demo.php` for a runnable interactive-vs-static demo.
 
+## Roundtrip carriers
+
+Under roundtrip export (`roundTripMode: true`, `--roundtrip`) these extensions
+write carriers beside the core ones listed in
+[Roundtrip carrier names](html-import.md#roundtrip-carrier-names). Default
+export writes none of them, and the HTML importer consumes each in every mode.
+
+| Extension | Attribute | Element | Value |
+| --- | --- | --- | --- |
+| `AdmonitionExtension` | `data-carve-admonition-type` | Container | The div's type word. |
+| `AdmonitionExtension` | `data-carve-admonition-title` | Container | The quoted header, when one is written. |
+| `HeadingReferenceExtension` | `data-carve-heading-ref` | `<a>` | The target heading text. |
+| `HeadingReferenceExtension` | `data-carve-heading-ref-display` | `<a>` | The display text, when it differs from the target. |
+| `HeadingLevelShiftExtension` | `data-carve-source-level` | `<h1>`-`<h6>` | The heading's level before the shift. |
+| `InlineFootnotesExtension` | `data-carve-inline-footnote-html` | Reference `<a>` | The note's rendered HTML. |
+| `InlineFootnotesExtension` | `data-carve-inline-footnote-class` | Reference `<a>` | The configured `cssClass`, when it is not `fn`. |
+| `TabsExtension` | `data-carve-ext` | Wrapper | `tabs`. |
+| `TabsExtension` | `data-carve-group-generated` | Wrapper, panel | Names of the attributes the extension generated, space-separated. |
+| `TabsExtension` | `data-carve-label` | Panel | The tab's opener label. |
+| `TabsExtension` | `data-carve-tab-title` | Title heading | No value, or `authored-hidden` where the heading has its own `hidden`. |
+| `TabsExtension` | `data-carve-explicit-id` | Panel | `1`: the tab has an authored id. |
+| `TabsExtension` | `data-carve-selected` | Panel, static mode | No value. Marks the selected tab. |
+| `CodeGroupExtension` | `data-carve-ext` | Wrapper | `code-group`. |
+| `CodeGroupExtension` | `data-carve-group-generated` | Wrapper | Names of the attributes the extension generated, space-separated. |
+| `CodeGroupExtension` | `data-carve-selected` | Panel, static mode | No value. Marks the selected block. |
+| `CodeGroupExtension` | `data-carve-ext` | `<div>` around `highlighter` output | `code-block`. |
+| `CodeGroupExtension` | `data-carve-fence-content` | `<div>` around `highlighter` output | The code block's content. |
+| `CodeGroupExtension` | `data-carve-fence-language` | `<div>` around `highlighter` output | The language word. |
+| `CodeGroupExtension` | `data-carve-label` | `<div>` around `highlighter` output | The bracketed label, when one is written. |
+| `CodeCalloutsExtension` | `data-carve-label` | `<pre>` | The bracketed label, when one is written. |
+| `FencedRenderExtension` | `data-carve-fence-language` | Rendered element | The language word. |
+| `FencedRenderExtension` | `data-carve-fence-content` | Rendered element | The code block's content. |
+| `FencedRenderExtension` | `data-carve-fence-generated` | Rendered element | Names of the attributes the extension generated, space-separated. |
+| `FencedRenderExtension` | `data-carve-label` | Rendered element | The bracketed label, when one is written. |
+
 ## Links and references
 
 ### AutolinkExtension
