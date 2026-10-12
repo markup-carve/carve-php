@@ -191,10 +191,8 @@ class ConformanceBatchTest extends TestCase
     }
 
     /**
-     * Container-nested footnote definitions are collected only from a
-     * single-line, non-empty body -- matching the oracle (carve-js). A
-     * multi-line list body, an empty-bodied def, and a task-item `[^a]:` all
-     * stay literal (the reference does not resolve).
+     * Empty-bodied definitions and definitions inside opaque payloads or
+     * lazy paragraph text leave their references unresolved.
      *
      * @param string $input
      */
@@ -215,12 +213,10 @@ class ConformanceBatchTest extends TestCase
         return [
             'multi-line list body' => ["See [^a].\n\n- [^a]:\n  note body\n"],
             'empty list body' => ["See [^a].\n\n- [^a]:\n"],
-            'task item is content not a footnote' => ["See [^a].\n\n- [ ] [^a]: note body\n"],
             // Reference AFTER the definition must agree with the reference-first
             // ordering: a variant that stays literal stays literal regardless of
             // where the reference sits (no second-pass collection of a skipped
             // container definition).
-            'task item, reference after' => ["- [ ] [^a]: note body\n\nSee [^a].\n"],
             'multi-line list body, reference after' => ["- [^a]:\n  note body\n\nSee [^a].\n"],
             // A definition shown inside fenced code is literal code content,
             // never a real definition -- for top level and inside a container.

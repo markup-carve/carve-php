@@ -274,6 +274,8 @@ final class ListBlockBuilder
                     // `lazy` out of an item that plainly still holds `text`.
                     $subTrailingState = new TrailingBlockState(isLead: false);
                     $subTermColumn = null;
+                    $subTermOwnsText = false;
+                    $subListMarkerLine = null;
                     // The width of the block comment open over these lines, or
                     // null. PART 9 §28 gives the fence a body that recognizes no
                     // block construct, so the shared trailing tracker cannot
@@ -418,6 +420,8 @@ final class ListBlockBuilder
                             }
                             if ($strippedIsMarker) {
                                 $subSawListMarker = true;
+                                $subListMarkerLine = $stripped;
+                                $subTermColumn = null;
                             }
                             // REACHED the item's content column, and was
                             // dedented by it. A line that reached nothing is
@@ -450,9 +454,20 @@ final class ListBlockBuilder
                             $subSubject = ltrim($stripped, " \t");
                             $afterSubTerm = $subTermColumn !== null && !$sawBlankLine;
                             if (str_starts_with($subSubject, '::') && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $subSubject) === 1) {
-                                $subTermColumn = IndentationHelper::getLeadingColumns($stripped);
+                                if (!$afterSubTerm) {
+                                    $subTermColumn = IndentationHelper::getLeadingColumns($stripped);
+                                    $subMarker = $subListMarkerLine === null
+                                        ? null
+                                        : ($this->getListParser)()->parseListItemMarker(ltrim($subListMarkerLine, " \t"));
+                                    $subListContentColumn = $subMarker === null
+                                        ? null
+                                        : IndentationHelper::getLeadingColumns($subListMarkerLine)
+                                            + $this->listMarkerWidth(ltrim($subListMarkerLine, " \t"), $subMarker);
+                                    $subTermOwnsText = $subListContentColumn === null || $subTermColumn < $subListContentColumn;
+                                }
                             } elseif (
                                 !$afterSubTerm
+                                || $this->isCommentLineOrFence($subSubject)
                                 || (
                                     IndentationHelper::getLeadingColumns($stripped, $subTermColumn + 1) <= $subTermColumn
                                     && $this->startsNewBlock($subSubject, $lines, $i)
@@ -470,6 +485,18 @@ final class ListBlockBuilder
                                 if ($subTermCodeFence !== null) {
                                     $subTrailingState->openParagraph = false;
                                 }
+                            }
+                            if (
+                                $afterSubTerm && $subTermColumn !== null
+                                && $subTermOwnsText
+                                && IndentationHelper::getLeadingColumns($stripped) > $subTermColumn
+                                && ($this->getFencedBlockParser)()->isCodeFenceHead($subSubject, 0)
+                            ) {
+                                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text', true);
+                                $sawBlankLine = false;
+                                $i++;
+
+                                continue;
                             }
                             $subFenceOpener = $sawBlankLine || $subTrailingState->fence !== null
                                 || !$subTrailingState->openParagraph
@@ -654,7 +681,12 @@ final class ListBlockBuilder
                                 break;
                             }
                             if ($subInlineFenceParagraph && $subLines !== []) {
-                                $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
+                                if ($this->itemFenceOpenerAt($subLines[count($subLines) - 1]) !== null) {
+                                    $subLines[] = BlockGrammar::LAZY_FRAME . BlockGrammar::stripLazyFrame($trimmedLine);
+                                    $subLineMap[] = $this->sourceLineFor($i);
+                                } else {
+                                    $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
+                                }
                             } else {
                                 $subLines[] = $trimmedLine;
                                 $subLineMap[] = $this->sourceLineFor($i);

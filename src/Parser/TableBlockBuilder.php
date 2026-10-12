@@ -210,7 +210,12 @@ final class TableBlockBuilder
                         $cellIndex = 0;
                         foreach ($lastRow->getChildren() as $cell) {
                             if ($cell instanceof TableCell) {
-                                $alignment = $alignments[$cellIndex] ?? $cell->getAlignment();
+                                if ($cell->hasExplicitAlignment()) {
+                                    $columnAligns[$cellIndex] = $cell->getAlignment();
+                                }
+                                $alignment = $columnAligns[$cellIndex]
+                                    ?? $alignments[$cellIndex]
+                                    ?? $cell->getAlignment();
                                 // The delimiter row is where a GFM table
                                 // DECLARES its column alignment, so a header
                                 // cell promoted here carries alignment of its

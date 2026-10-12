@@ -676,12 +676,15 @@ final class BlockContinuationScanner
         $inBlankRun = false;
         $noteCursor = 1;
         $noteBroken = false;
+        $leadNoteHadBlank = false;
         $openCommentLength = null;
         // Seeded over the lead for the same reason the comment fence is: the
         // item's `- :: t` / `  : d` spelling writes the body on a line this
         // collector never sees.
         $openDefinitionBody = null;
         $pendingDefinitionTerm = false;
+        // A term keeps its authored base until a blank or a sibling opener (CARVE-P0-004).
+        $authoredTermColumn = null;
         $pendingTermFence = null;
         $termCodeTailEligible = true;
         $termCodeTailFence = null;
@@ -694,6 +697,7 @@ final class BlockContinuationScanner
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
             if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($seedLine, " \t"))) {
                 $pendingDefinitionTerm = true;
+                $authoredTermColumn = $contentIndent + IndentationHelper::getLeadingColumns($seedLine);
             }
         }
         // A span opened on the MARKER LINE is the item's first block
@@ -710,6 +714,7 @@ final class BlockContinuationScanner
                     $inBlankRun = true;
                 }
                 $floorParagraphWitness = false;
+                $authoredTermColumn = null;
                 $floorInlineLength = null;
                 $inlineCodeParagraph = false;
                 if (
@@ -737,6 +742,7 @@ final class BlockContinuationScanner
                     if ($termCodeTailFence !== null) {
                         $termCodeTailAfterBlank = true;
                     }
+                    $leadNoteHadBlank = $leadNoteHadBlank || ($markerNoteItem && !$sawNestedNote);
                     $itemLines[] = $this->blankLineResidue($nextLine, $authoredCodeColumn ?? $contentIndent, $trailingState);
                     $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState = $this->advanceTrailingState($trailingState, '');
@@ -1005,12 +1011,36 @@ final class BlockContinuationScanner
                         }
                     }
                 }
+                $authoredTermBoundary = $authoredTermColumn !== null
+                    && IndentationHelper::getLeadingColumns($nextLine) <= $authoredTermColumn;
+                if (
+                    $nestedNoteBodyColumn === null
+                    && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                    && !$trailingState->quoteParagraph && $openCommentLength === null
+                    && ($authoredTermColumn === null || $authoredTermBoundary)
+                    && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed) === 1
+                ) {
+                    $authoredTermColumn = IndentationHelper::getLeadingColumns($nextLine);
+                } elseif (
+                    $authoredTermColumn !== null
+                    && (IndentationHelper::getLeadingColumns($nextLine) <= $authoredTermColumn
+                        || ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+                        || $this->isCommentLineOrFence($nextTrimmed))
+                ) {
+                    $authoredTermColumn = null;
+                }
+                $authoredTermContinuation = $authoredTermColumn !== null
+                    && IndentationHelper::getLeadingColumns($nextLine) > $authoredTermColumn
+                    && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                    && $openCommentLength === null
+                    && !$this->isCommentLineOrFence($nextTrimmed);
                 $termContinuation = $pendingDefinitionTerm
                     && !(($nextTrimmed[0] ?? '') === '%' && $this->isCommentLineOrFence($nextTrimmed))
                     && $nextIndent > $contentIndent
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
                     && $openCommentLength === null;
+                $termContinuation = !$authoredTermBoundary && ($termContinuation || $authoredTermContinuation);
                 $attributeLine = $this->isBlockAttributeLine($nextTrimmed)
                     || $wrappedAttributeLinesRemaining > 0
                     || $this->wrappedItemAttributeLength(
@@ -1159,6 +1189,9 @@ final class BlockContinuationScanner
                             // A fence reaching a note or description body stays with that body (CARVE-P0-004).
                             if (
                                 ($nestedNoteBodyColumn === null || $column < $nestedNoteBodyColumn)
+                                && !($markerNoteItem && $leadNoteHadBlank
+                                    && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                                    && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken))
                                 && (
                                     $openDefinitionBody === null
                                     || !$definitionBodyHasTerm
@@ -1274,6 +1307,7 @@ final class BlockContinuationScanner
                     && $trailingState->quoteParagraph && $column > $contentIndent
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
                 $trailingState = $failedReplayFence || $descendantParagraphFence
+                    || ($authoredTermContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0))
                     ? $this->advanceTrailingState($trailingState, 'text', true)
                     : ($wasOpenParagraph
                     && !$wasInFence
@@ -1361,6 +1395,15 @@ final class BlockContinuationScanner
                     && !$trailingState->afterComment
                     && !$trailingState->inFootnoteBody
                     && !$trailingState->inTable;
+                if (
+                    $markerNoteItem && $leadNoteHadBlank && !$sawNestedNote
+                    && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                    && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+                    && $trailingState->fence === null && !$trailingState->hasOpenDiv()
+                    && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken)
+                ) {
+                    $trailingState->openParagraph = true;
+                }
                 if ($trailingState->fence === null) {
                     $authoredCodeColumn = null;
                 }
