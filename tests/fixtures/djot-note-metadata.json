@@ -496,5 +496,83 @@
     "source": "- [^n]: note\n    more\n  {.a}\n  [r]: /u\n\nx[^n] [x][r]",
     "lossLines": [],
     "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a href=\"/u\" class=\"a\">x</a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\nmore<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control root-1-True",
+    "source": "[^n]: note\n | a |\n\nx[^n]\n\n{.x}\n\nword",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"x\">word</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control root-2-False",
+    "source": "[^n]: note\n | a |\n | b |\n\nx[^n]",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |\n| b |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control root-2-True",
+    "source": "[^n]: note\n | a |\n | b |\n\nx[^n]\n\n{.x}\n\nword",
+    "lossLines": [],
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"x\">word</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |\n| b |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control quote-1-False",
+    "source": "> [^n]: note\n>  | a |\n\nx[^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control quote-1-True",
+    "source": "> [^n]: note\n>  | a |\n\nx[^n]\n\n{.x}\n\nword",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"x\">word</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control quote-2-False",
+    "source": "> [^n]: note\n>  | a |\n>  | b |\n\nx[^n]",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |\n| b |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control quote-2-True",
+    "source": "> [^n]: note\n>  | a |\n>  | b |\n\nx[^n]\n\n{.x}\n\nword",
+    "lossLines": [],
+    "html": "<blockquote></blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"x\">word</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |\n| b |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control list-1-False",
+    "source": "- [^n]: note\n   | a |\n\nx[^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control list-1-True",
+    "source": "- [^n]: note\n   | a |\n\nx[^n]\n\n{.x}\n\nword",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"x\">word</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control list-2-False",
+    "source": "- [^n]: note\n   | a |\n   | b |\n\nx[^n]",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |\n| b |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control list-2-True",
+    "source": "- [^n]: note\n   | a |\n   | b |\n\nx[^n]\n\n{.x}\n\nword",
+    "lossLines": [],
+    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"x\">word</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\n| a |\n| b |<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "review control fence-tight",
+    "source": "- [^n]: q\n  ```\n  y\n  ```\n- b",
+    "lossLines": [],
+    "html": "<ul><li><pre><code>y\n</code></pre></li><li>b</li></ul>"
+  },
+  {
+    "name": "review control fence-blank",
+    "source": "- [^n]: q\n\n  ```\n  y\n  ```\n- b",
+    "lossLines": [],
+    "html": "<ul><li><pre><code>y\n</code></pre></li><li>b</li></ul>"
   }
 ]

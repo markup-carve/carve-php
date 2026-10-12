@@ -278,5 +278,9 @@
   {
     "source": "{.md:flex}\n\nword",
     "html": "<p class=\"md:flex\">word</p>\n"
+  },
+  {
+    "source": "> a\n>\n> [r]: /u_b_c`d\n\n[x][r]",
+    "html": "<blockquote>\n<p>a</p>\n</blockquote>\n<p><a href=\"/u_b_c`d\">x</a></p>\n"
   }
 ]

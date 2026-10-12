@@ -28,7 +28,7 @@ trait MasksDjotOpaque
         if (str_contains($source, ']:')) {
             foreach (explode("\n", $source) as $line) {
                 if (preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\[(?!\^)[^\]\n]+\](?=:)/', $line, $definition) === 1) {
-                    $definitionLines[$lineOffset + strlen($definition[0]) - 1] = [$lineOffset, trim($previousLine)];
+                    $definitionLines[$lineOffset + strlen($definition[0]) - 1] = [$lineOffset, trim(substr($previousLine, $this->djotContentStart($previousLine)))];
                 }
                 $lineOffset += strlen($line) + 1;
                 $previousLine = $line;
