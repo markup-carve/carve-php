@@ -711,14 +711,20 @@ final class BlockContinuationScanner
                 continue;
             }
 
-            if (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)) {
-                break;
-            }
-
             if (
                 !$isBlockQuoteLazyLine
-                && $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
+                && ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
+                    || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
             ) {
+                if (
+                    $trailingState->fence !== null
+                    && $interruptedParagraphFence
+                    && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null
+                ) {
+                    $itemLines[] = str_repeat($trailingState->fence->char, $trailingState->fence->length);
+                    $itemLineMap[] = -1;
+                }
+
                 break;
             }
 
