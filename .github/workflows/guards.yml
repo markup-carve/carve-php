@@ -66,7 +66,9 @@ jobs:
 
       # PHP 8.5 resolves PHPUnit 13, whose coverage files are a tenth the size
       # of PHPUnit 12's. On 8.3 paratest's merge of them peaked at 14.9 GB on a
-      # 16 GB runner, and the runner killed the job with exit 143 (#2156).
+      # 16 GB runner, and the runner killed the job with exit 143 (#2156). The
+      # suite then grew until 8.5 reached the same ceiling (#3195), so the run
+      # is also split into shards: see scripts/coverage-shards.php.
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -76,7 +78,8 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
-      # pcov collects per process and paratest merges the reports.
+      # pcov collects per process and paratest merges the reports, one merge
+      # and one Clover file per shard. The log prints the peak memory.
       - name: Run tests with coverage
         run: composer test-coverage-parallel
 
@@ -91,15 +94,16 @@ jobs:
       # step is reported `conclusion: success`, so the verdict job below, which
       # escalates on failed steps, does not file on an upload flake.
       #
-      # `disable_search` is what restricts the upload to the clover report:
+      # `disable_search` is what restricts the upload to the clover reports:
       # `files` only ADDS to the action's own search, which otherwise sweeps up
-      # spec fixtures whose names merely contain "coverage".
+      # spec fixtures whose names merely contain "coverage". Codecov merges the
+      # shard reports. The list must name every shard the script writes.
       - name: Upload coverage to Codecov
         continue-on-error: true
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage.xml
+          files: ./coverage-shard-1.xml,./coverage-shard-2.xml,./coverage-shard-3.xml,./coverage-shard-4.xml
           disable_search: true
           fail_ci_if_error: false
 
@@ -247,7 +251,9 @@ jobs:
             echo
             echo "\`Run tests with coverage\` failing is usually not a coverage number at all:"
             echo "paratest merging pcov reports has run a 16 GB runner out of memory before"
-            echo "(exit 143, #2156), which is why this leg is pinned to PHP 8.5."
+            echo "(exit 143, #2156, #3195), which is why this leg is pinned to PHP 8.5 and"
+            echo "runs in shards. The step prints its peak resident memory after each shard:"
+            echo "if that is near 16 GB again, raise SHARDS in \`scripts/coverage-shards.php\`."
             echo
             echo "To measure a candidate fix before it merges:"
             echo "\`gh workflow run guards.yml -R $REPO --ref <branch>\`."
