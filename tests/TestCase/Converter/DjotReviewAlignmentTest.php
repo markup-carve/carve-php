@@ -351,9 +351,9 @@ class DjotReviewAlignmentTest extends TestCase
     public function testKeepsCodePaddingOutOfDestinationsAndOpaqueSpans(): void
     {
         foreach (['[x]', '![x]'] as $label) {
-            self::assertSame($label . "(a%60%20b%20%60c)\n", (new DjotToCarve())->convert($label . "(a` b `c)\n"));
-            self::assertSame($label . "(a%60%20b%20%60c) and `  code  `\n", (new DjotToCarve())->convert($label . "(a` b `c) and ` code `\n"));
-            self::assertSame($label . "(a%28b{}c%29)\n", (new DjotToCarve())->convert($label . "(a(b{}c))\n"));
+            self::assertSame((str_starts_with($label, '!') ? '{%%}' : '') . $label . "(a%60%20b%20%60c)\n", (new DjotToCarve())->convert($label . "(a` b `c)\n"));
+            self::assertSame((str_starts_with($label, '!') ? '{%%}' : '') . $label . "(a%60%20b%20%60c) and `  code  `\n", (new DjotToCarve())->convert($label . "(a` b `c) and ` code `\n"));
+            self::assertSame((str_starts_with($label, '!') ? '{%%}' : '') . $label . "(a%28b{}c%29)\n", (new DjotToCarve())->convert($label . "(a(b{}c))\n"));
         }
         foreach (["`` x ``{=html}\n", "$`` x ``\n"] as $source) {
             self::assertSame($source, (new DjotToCarve())->convert($source));

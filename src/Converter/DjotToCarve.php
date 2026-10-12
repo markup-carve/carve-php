@@ -258,23 +258,37 @@ class DjotToCarve
         $djotBody = $source;
         $strongSpans = [];
         $altPrefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTALT\x00");
+        $imageParagraph = DjotPlaceholderPrefix::choose($source, "\x00DJOTIMAGEPARAGRAPH\x00");
+        $imageStarts = [];
+        $imageOffset = 0;
+        foreach (explode("\n", $source) as $line) {
+            $imageStarts[$imageOffset + $this->djotContentStart($line)] = true;
+            $imageOffset += strlen($line) + 1;
+        }
         $imageMask = $this->maskCodeAndDestinations($source);
-        $source = preg_replace_callback('/!\[([^\[\]\n]*)\](?=[([])/', function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask): string {
+        $source = preg_replace_callback('/!\[([^\[\]]*)\](?=[([])/', function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask, $imageParagraph, $imageStarts): string {
             [$image, $at] = $match[0];
-            if ($imageMask[$at] !== '!' || $this->isDjotEscaped($source, $at) || str_contains($match[1][0], '\\') || str_starts_with($match[1][0], '^')) {
+            if ($imageMask[$at] !== '!' || $imageMask[$at + strlen($image) - 1] !== ']' || preg_match('/\n[ \t]*\n/', $match[1][0]) === 1 || $this->isDjotEscaped($source, $at)) {
                 return $image;
+            }
+            $paragraph = isset($imageStarts[$at]) ? $imageParagraph : '';
+            if (str_starts_with($match[1][0], '^')) {
+                return $image;
+            }
+            if (str_contains($match[1][0], '\\') || str_contains($match[1][0], "\n")) {
+                return $paragraph . $image;
             }
             if (preg_match('/[_*`{^~]/', $match[1][0]) !== 1) {
                 $token = $altPrefix . count($strongSpans) . "\x00";
                 $strongSpans[$token] = $match[1][0];
 
-                return '![' . $token . ']';
+                return $paragraph . '![' . $token . ']';
             }
             $label = preg_replace_callback('/(\\\\+)$/', static fn (array $tail): string => strlen($tail[0]) % 2 !== 0 ? $tail[0] . '\\' : $tail[0], $match[1][0]) ?? $match[1][0];
             $token = $altPrefix . count($strongSpans) . "\x00";
             $strongSpans[$token] = substr(rtrim((new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert('DJOTALT ' . $label . ' DJOTEND'))), "\n"), 8, -8);
 
-            return '![' . $token . ']';
+            return $paragraph . '![' . $token . ']';
         }, $source, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $source;
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
@@ -283,7 +297,7 @@ class DjotToCarve
         $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source));
 
         $carve = str_replace($emptyTerm, '%%', $carve);
-        $carve = str_replace($emptyNote, '%%%%', $carve);
+        $carve = str_replace([$emptyNote, $imageParagraph], ['%%%%', '{%%}'], $carve);
         $carve = strtr($carve, $orphanSpans + $strongSpans);
         $dropInherited = array_fill_keys(array_keys($inherited), '');
         $carve = strtr($carve, $dropInherited);

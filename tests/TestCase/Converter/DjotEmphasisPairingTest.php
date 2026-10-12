@@ -33,7 +33,7 @@ class DjotEmphasisPairingTest extends TestCase
                 ['_a {.c}_', '<p><em>a </em></p>'],
                 ['*a {.c}*', '<p><strong>a </strong></p>'],
                 ["[r]: /u_v\n\n[x][r]", '<p><a href="/u_v">x</a></p>'],
-                ['![alt_x](u.png)', '<img src="u.png" alt="alt_x">'],
+                ['![alt_x](u.png)', '<p><img src="u.png" alt="alt_x"></p>'],
                 ['a' . "\n{.c}\n" . 'b', '<p>a' . "\n\n" . 'b</p>'],
                 ['_emph_{.a}', '<p><em class="a">emph</em></p>'],
                 ['{+ins+}{.a}', '<p><ins class="a">ins</ins></p>'],

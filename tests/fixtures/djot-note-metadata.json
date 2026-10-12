@@ -2880,5 +2880,407 @@
     "source": "| <a |b> |",
     "lossLines": [],
     "html": "<table><tr><td>&lt;a&nbsp;</td><td>b&gt;</td></tr></table>"
+  },
+  {
+    "name": "image-paragraph-multiline-alt-root",
+    "source": "![a\nb](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\nb\"></p>"
+  },
+  {
+    "name": "image-paragraph-multiline-alt-quote",
+    "source": "> ![a\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a\nb\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-multiline-alt-list",
+    "source": "- ![a\n  b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a\nb\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-multiline-alt-quoted-list",
+    "source": "> - ![a\n> b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\nb\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-nested-alt-root",
+    "source": "![a [b](u)](i.png)",
+    "lossLines": [],
+    "html": "<p><img src=\"i.png\" alt=\"a b\"></p>"
+  },
+  {
+    "name": "image-paragraph-nested-alt-quote",
+    "source": "> ![a [b](u)](i.png)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"i.png\" alt=\"a b\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-nested-alt-list",
+    "source": "- ![a [b](u)](i.png)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"i.png\" alt=\"a b\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-nested-alt-quoted-list",
+    "source": "> - ![a [b](u)](i.png)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"i.png\" alt=\"a b\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-plain-root",
+    "source": "![x](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\"></p>"
+  },
+  {
+    "name": "image-paragraph-plain-quote",
+    "source": "> ![x](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-plain-list",
+    "source": "- ![x](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-plain-quoted-list",
+    "source": "> - ![x](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-own-attribute-root",
+    "source": "![x](/u){.a}",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\" class=\"a\"></p>"
+  },
+  {
+    "name": "image-paragraph-own-attribute-quote",
+    "source": "> ![x](/u){.a}",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"x\" class=\"a\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-own-attribute-list",
+    "source": "- ![x](/u){.a}",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"x\" class=\"a\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-own-attribute-quoted-list",
+    "source": "> - ![x](/u){.a}",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"x\" class=\"a\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-code-alt-root",
+    "source": "![`x`](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\"></p>"
+  },
+  {
+    "name": "image-paragraph-code-alt-quote",
+    "source": "> ![`x`](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-code-alt-list",
+    "source": "- ![`x`](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-code-alt-quoted-list",
+    "source": "> - ![`x`](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-emphasis-alt-root",
+    "source": "![_x_](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\"></p>"
+  },
+  {
+    "name": "image-paragraph-emphasis-alt-quote",
+    "source": "> ![_x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-emphasis-alt-list",
+    "source": "- ![_x_](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-emphasis-alt-quoted-list",
+    "source": "> - ![_x_](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-alt-root",
+    "source": "![a\\*b](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a*b\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-alt-quote",
+    "source": "> ![a\\*b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"a*b\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-alt-list",
+    "source": "- ![a\\*b](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"a*b\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-alt-quoted-list",
+    "source": "> - ![a\\*b](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a*b\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-empty-alt-root",
+    "source": "![](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"\"></p>"
+  },
+  {
+    "name": "image-paragraph-empty-alt-quote",
+    "source": "> ![](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-empty-alt-list",
+    "source": "- ![](/u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-empty-alt-quoted-list",
+    "source": "> - ![](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-caret-alt-root",
+    "source": "![^x](/u)",
+    "lossLines": [],
+    "html": "<p>!<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>(/u)</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "image-paragraph-caret-alt-quote",
+    "source": "> ![^x](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p>!<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>(/u)</p></blockquote><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "image-paragraph-caret-alt-list",
+    "source": "- ![^x](/u)",
+    "lossLines": [],
+    "html": "<ul><li>!<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>(/u)</li></ul><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "image-paragraph-caret-alt-quoted-list",
+    "source": "> - ![^x](/u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>!<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>(/u)</li></ul></blockquote><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "name": "image-paragraph-reference-root",
+    "source": "[r]: /u\n\n![x][r]",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\"></p>"
+  },
+  {
+    "name": "image-paragraph-reference-quote",
+    "source": "[r]: /u\n\n> ![x][r]",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-reference-list",
+    "source": "[r]: /u\n\n- ![x][r]",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-reference-quoted-list",
+    "source": "[r]: /u\n\n> - ![x][r]",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-collapsed-reference-root",
+    "source": "[x]: /u\n\n![x][]",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\"></p>"
+  },
+  {
+    "name": "image-paragraph-collapsed-reference-quote",
+    "source": "[x]: /u\n\n> ![x][]",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"/u\" alt=\"x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-collapsed-reference-list",
+    "source": "[x]: /u\n\n- ![x][]",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"/u\" alt=\"x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-collapsed-reference-quoted-list",
+    "source": "[x]: /u\n\n> - ![x][]",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"/u\" alt=\"x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-surrounded-root",
+    "source": "before ![x](/u) after",
+    "lossLines": [],
+    "html": "<p>before <img src=\"/u\" alt=\"x\"> after</p>"
+  },
+  {
+    "name": "image-paragraph-surrounded-quote",
+    "source": "> before ![x](/u) after",
+    "lossLines": [],
+    "html": "<blockquote><p>before <img src=\"/u\" alt=\"x\"> after</p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-surrounded-list",
+    "source": "- before ![x](/u) after",
+    "lossLines": [],
+    "html": "<ul><li>before <img src=\"/u\" alt=\"x\"> after</li></ul>"
+  },
+  {
+    "name": "image-paragraph-surrounded-quoted-list",
+    "source": "> - before ![x](/u) after",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>before <img src=\"/u\" alt=\"x\"> after</li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-blank-line-alt",
+    "source": "![a\n\nb](/u)",
+    "lossLines": [],
+    "html": "<p>![a</p><p>b](/u)</p>"
+  },
+  {
+    "name": "image-paragraph-heading-looking-alt",
+    "source": "![a\n# b](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n# b\"></p>"
+  },
+  {
+    "name": "image-paragraph-list-looking-alt",
+    "source": "![a\n- b](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\n- b\"></p>"
+  },
+  {
+    "name": "image-paragraph-unclosed-code-alt",
+    "source": "![a\n```\nb](/u)",
+    "lossLines": [],
+    "html": "<p>![a\n<code>\nb](/u)</code></p>"
+  },
+  {
+    "name": "image-paragraph-paragraph-attrs",
+    "source": "{.p}\n![x](/u)",
+    "lossLines": [],
+    "html": "<p class=\"p\"><img src=\"/u\" alt=\"x\"></p>"
+  },
+  {
+    "name": "image-paragraph-quoted-paragraph-attrs",
+    "source": "> {.p}\n> ![x](/u)",
+    "lossLines": [],
+    "html": "<blockquote><p class=\"p\"><img src=\"/u\" alt=\"x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-loose-list",
+    "source": "- a\n\n  ![x](/u)",
+    "lossLines": [],
+    "html": "<ul><li><p>a</p><p><img src=\"/u\" alt=\"x\"></p></li></ul>"
+  },
+  {
+    "name": "image-paragraph-two-images",
+    "source": "![x](/u) ![y](/v)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\"><img src=\"/v\" alt=\"y\"></p>"
+  },
+  {
+    "name": "image-paragraph-image-and-continuation",
+    "source": "![x](/u)\ntext",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\">\ntext</p>"
+  },
+  {
+    "name": "image-paragraph-image-in-link",
+    "source": "[![x](/u)](/v)",
+    "lossLines": [],
+    "html": "<p><a href=\"/v\"><img src=\"/u\" alt=\"x\"></a></p>"
+  },
+  {
+    "name": "image-paragraph-image-in-span",
+    "source": "[![x](/u)]{.a}",
+    "lossLines": [],
+    "html": "<p><span class=\"a\"><img src=\"/u\" alt=\"x\"></span></p>"
+  },
+  {
+    "name": "image-paragraph-image-in-table",
+    "source": "| ![x](/u) |",
+    "lossLines": [],
+    "html": "<table><tr><td><img src=\"/u\" alt=\"x\"></td></tr></table>"
+  },
+  {
+    "name": "image-paragraph-fenced-code",
+    "source": "```\n![x](/u)\n```",
+    "lossLines": [],
+    "html": "<pre><code>![x](/u)\n</code></pre>"
+  },
+  {
+    "name": "image-paragraph-inline-code",
+    "source": "`![x](/u)`",
+    "lossLines": [],
+    "html": "<p><code>![x](/u)</code></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-bang",
+    "source": "\\![x](/u)",
+    "lossLines": [],
+    "html": "<p>!<a href=\"/u\">x</a></p>"
+  },
+  {
+    "name": "image-paragraph-plain-caret-label",
+    "source": "![\\^x](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"^x\"></p>"
+  },
+  {
+    "name": "image-paragraph-image-with-label-attrs",
+    "source": "![a{.a}](/u)",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"a\"></p>"
+  },
+  {
+    "name": "image-paragraph-two-reference-images",
+    "source": "[r]: /u\n\n![x][r] ![y][r]",
+    "lossLines": [],
+    "html": "<p><img src=\"/u\" alt=\"x\"><img src=\"/u\" alt=\"y\"></p>"
+  },
+  {
+    "name": "image-paragraph-image-looking-reference-target",
+    "source": "[r]: ![x](/u)\n\n[x][r]",
+    "lossLines": [],
+    "html": "<p><a href=\"![x](/u)\">x</a></p>"
   }
 ]
