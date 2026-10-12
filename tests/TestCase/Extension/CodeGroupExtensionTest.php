@@ -538,7 +538,7 @@ DJOT;
         $this->assertStringContainsString('class="code-group extra-class another-class"', $html);
     }
 
-    public function testRoundTripModeAddsDjotSrc(): void
+    public function testRoundTripModeUsesHtmlStructure(): void
     {
         $renderer = new HtmlRenderer();
         $renderer->setRoundTripMode(true);
@@ -559,8 +559,8 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-carve-src="', $html);
-        $this->assertStringContainsString('::: code-group', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        $this->assertStringContainsString('class="code-group-panel"', $html);
     }
 
     public function testNonRoundTripModeNoDjotSrc(): void
@@ -602,10 +602,10 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-carve-src="', $html);
-        // Labels should be preserved in the reconstructed source
-        $this->assertStringContainsString('[Composer]', $html);
-        $this->assertStringContainsString('[NPM]', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        // Explicit labels have their own carriers.
+        $this->assertStringContainsString('data-carve-label="Composer"', $html);
+        $this->assertStringContainsString('data-carve-label="NPM"', $html);
     }
 
     public function testWrapperAttributesUseHtmlHardening(): void

@@ -334,16 +334,15 @@ class StaticRenderModeTest extends TestCase
         );
     }
 
-    public function testMermaidStaticPreservesRoundTripSource(): void
+    public function testMermaidStaticKeepsTextWithoutStoredSource(): void
     {
-        // Round-trip mode + static mode: the data-carve-src the interactive path
-        // emits must survive so Djot -> static HTML -> Djot still reconstructs.
         $converter = new CarveConverter(roundTripMode: true, mode: RenderMode::STATIC);
         $converter->addExtension(FencedRenderExtension::mermaid());
 
         $html = $converter->convert("```mermaid\ngraph TD\n```\n");
 
-        $this->assertStringContainsString('data-carve-src="``` mermaid', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        $this->assertStringContainsString('graph TD', $html);
     }
 
     public function testGraphvizStaticFallsBackToSourceWithoutRenderer(): void

@@ -392,7 +392,7 @@ DJOT;
         $this->assertStringContainsString('</figure>', $html);
     }
 
-    public function testRoundTripModeAddsDjotSrc(): void
+    public function testRoundTripModeUsesHtmlStructure(): void
     {
         $renderer = new HtmlRenderer();
         $renderer->setRoundTripMode(true);
@@ -408,8 +408,8 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-carve-src="', $html);
-        $this->assertStringContainsString('``` mermaid', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        $this->assertStringContainsString('graph TD;', $html);
     }
 
     public function testNonRoundTripModeNoDjotSrc(): void

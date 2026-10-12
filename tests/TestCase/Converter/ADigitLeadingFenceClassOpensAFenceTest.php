@@ -30,7 +30,7 @@ class ADigitLeadingFenceClassOpensAFenceTest extends TestCase
     #[DataProvider('modeProvider')]
     public function testADigitLeadingDivClassOpensAFence(string $mode): void
     {
-        $converter = new HtmlToCarve(false, [], false, $mode);
+        $converter = new HtmlToCarve(importMode: $mode);
 
         self::assertSame(
             "::: 2col\ny\n:::",

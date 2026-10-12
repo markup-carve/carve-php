@@ -6,21 +6,10 @@ namespace MarkupCarve\Carve\Extension;
 
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Event\RenderEvent;
-use MarkupCarve\Carve\Node\Block\DefinitionDescription;
-use MarkupCarve\Carve\Node\Block\DefinitionList;
-use MarkupCarve\Carve\Node\Block\DefinitionTerm;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Heading;
-use MarkupCarve\Carve\Node\Block\Paragraph;
-use MarkupCarve\Carve\Node\Block\Table;
-use MarkupCarve\Carve\Node\Block\TableCell;
-use MarkupCarve\Carve\Node\Block\TableRow;
-use MarkupCarve\Carve\Node\Inline\Text;
-use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -153,7 +142,10 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         $html = '<div' . $attrs . ">\n";
         foreach ($tabs as $tab) {
             $body = rtrim($tab['content'], "\n");
-            $html .= '  <section class="' . StringUtil::escapeHtml($this->tabClass) . "\">\n"
+            $panelAttrs = $renderer->isRoundTripMode()
+                ? $this->panelAttributes($tab['node'], $renderer, []) . ($tab['selected'] ? ' data-carve-selected' : '')
+                : ' class="' . StringUtil::escapeHtml($this->tabClass) . '"';
+            $html .= '  <section' . $panelAttrs . ">\n"
                 . '  <h3 class="' . StringUtil::escapeHtml($this->labelClass) . '">'
                 . $renderer->escapeText($tab['label']) . "</h3>\n"
                 . ($body !== '' ? $body . "\n" : '')
@@ -288,6 +280,18 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             // Skip the first heading if we're using it as the label
             if ($skipFirstHeading && !$skippedHeading && $child instanceof Heading) {
                 $skippedHeading = true;
+                if ($renderer->isRoundTripMode()) {
+                    $renderer->attributesBesideCarriers($child, ['data-carve-tab-title']);
+                    $headingNode = clone $child;
+                    foreach (array_keys($headingNode->getAttributeEntries()) as $name) {
+                        if (in_array(strtolower((string)$name), ['data-carve-tab-title'], true)) {
+                            $headingNode->removeAttribute((string)$name);
+                        }
+                    }
+                    $heading = $renderer->renderNodeFragment($headingNode);
+                    $marker = $child->hasAttribute('hidden') ? ' data-carve-tab-title="authored-hidden"' : ' hidden data-carve-tab-title';
+                    $html .= preg_replace('/^(<h[1-6])/', '$1' . $marker, $heading);
+                }
 
                 continue;
             }
@@ -314,18 +318,12 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Build wrapper attributes
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer);
 
-        // Add data-carve-src for round-trip support
-        if ($renderer->isRoundTripMode()) {
-            $djotSrc = $this->reconstructDjotSource($wrapper, $tabs, $renderer);
-            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
-        }
-
         $html = '<div' . $attrs . ">\n";
 
         // Render all radio inputs and labels first
         foreach ($tabs as $index => $tab) {
             $tabNum = $index + 1;
-            $inputId = $tab['id'] ?? $tracker->uniqueId($setId . '-tab-' . $tabNum);
+            $inputId = (!$renderer->isRoundTripMode() ? $tab['id'] : null) ?? $tracker->uniqueId($setId . '-tab-' . $tabNum);
             $checked = $tab['selected'] ? ' checked' : '';
 
             $html .= '<input type="radio" name="' . StringUtil::escapeHtml($setId) . '" ';
@@ -350,8 +348,10 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // so per §1.5 it takes no `labels` key, exactly as an admonition title
         // does not: a translated document translates it once, in the document.
         foreach ($tabs as $tab) {
-            $html .= '<div class="' . StringUtil::escapeHtml($this->tabClass) . '"'
-                . ' role="group" aria-label="' . $renderer->escapeAttribute($tab['label']) . '">';
+            $attrs = $renderer->isRoundTripMode()
+                ? $this->panelAttributes($tab['node'], $renderer, ['role' => 'group', 'aria-label' => $tab['label']])
+                : ' class="' . StringUtil::escapeHtml($this->tabClass) . '" role="group" aria-label="' . $renderer->escapeAttribute($tab['label']) . '"';
+            $html .= '<div' . $attrs . '>';
             $html .= "\n" . $tab['content'];
             $html .= "</div>\n";
         }
@@ -377,12 +377,6 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         // Build wrapper attributes with tablist role
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer, 'tablist');
 
-        // Add data-carve-src for round-trip support
-        if ($renderer->isRoundTripMode()) {
-            $djotSrc = $this->reconstructDjotSource($wrapper, $tabs, $renderer);
-            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
-        }
-
         $html = '<div' . $attrs . ">\n";
 
         $tabIds = [];
@@ -390,7 +384,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $tabNum = $index + 1;
             $tabIds[$index] = [
                 'tab' => $tab['id'] ? StringUtil::escapeHtmlAttribute($tab['id']) . '-tab' : $tracker->uniqueId($setId . '-tab-' . $tabNum),
-                'panel' => $tab['id'] ? StringUtil::escapeHtmlAttribute($tab['id']) . '-panel' : $tracker->uniqueId($setId . '-panel-' . $tabNum),
+                'panel' => $tab['id'] ? StringUtil::escapeHtmlAttribute($tab['id']) . ($renderer->isRoundTripMode() ? '' : '-panel') : $tracker->uniqueId($setId . '-panel-' . $tabNum),
             ];
         }
 
@@ -424,9 +418,14 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $panelId = $tabIds[$index]['panel'];
             $hidden = $tab['selected'] ? '' : ' hidden';
 
-            $html .= '<div role="tabpanel" id="' . $panelId . '" ';
-            $html .= 'aria-labelledby="' . $tabId . '" ';
-            $html .= 'class="' . StringUtil::escapeHtml($this->tabClass) . '"' . $hidden . '>';
+            if ($renderer->isRoundTripMode()) {
+                $attrs = $this->panelAttributes($tab['node'], $renderer, ['role' => 'tabpanel', 'id' => html_entity_decode($panelId, ENT_QUOTES | ENT_HTML5, 'UTF-8'), 'aria-labelledby' => html_entity_decode($tabId, ENT_QUOTES | ENT_HTML5, 'UTF-8')] + ($tab['selected'] ? [] : ['hidden' => '']));
+                $html .= '<div' . $attrs . '>';
+            } else {
+                $html .= '<div role="tabpanel" id="' . $panelId . '" ';
+                $html .= 'aria-labelledby="' . $tabId . '" ';
+                $html .= 'class="' . StringUtil::escapeHtml($this->tabClass) . '"' . $hidden . '>';
+            }
             $html .= "\n" . $tab['content'];
             $html .= "</div>\n";
         }
@@ -434,6 +433,31 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
         $html .= "</div>\n";
 
         return $html;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Div $tab
+     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
+     * @param array<string, string> $defaults
+     */
+    protected function panelAttributes(Div $tab, HtmlRenderer $renderer, array $defaults): string
+    {
+        $attrs = $this->renderExtensionAttributes($tab, $renderer, [$this->tabClass], array_merge(['selected'], $tab->getLabel() !== null ? ['data-carve-label'] : [], $tab->hasAttribute('id') ? ['data-carve-explicit-id'] : []), ['tab'], $defaults, 'div', true);
+        if ($tab->hasAttribute('id')) {
+            $attrs .= ' data-carve-explicit-id="1"';
+        }
+
+        return $attrs . $this->panelCarriers($tab, $renderer);
+    }
+
+    protected function panelCarriers(Div $tab, HtmlRenderer $renderer): string
+    {
+        $label = $tab->getLabel();
+        if (!$renderer->isRoundTripMode() || $label === null) {
+            return '';
+        }
+
+        return ' data-carve-label="' . $renderer->escapeAttribute($label) . '"';
     }
 
     /**
@@ -449,7 +473,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
             $wrapper,
             $renderer,
             [$this->wrapperClass],
-            [],
+            $renderer->isRoundTripMode() ? ['data-carve-ext'] : [],
             ['tabs'],
             $this->groupNameAttributes(
                 $wrapper,
@@ -458,306 +482,7 @@ class TabsExtension implements ResettableExtensionInterface, StaticRenderExtensi
                 $this->groupLabel ?? $renderer->label('tabsGroup'),
             ),
             'div',
-        );
-    }
-
-    /**
-     * Reconstruct the original Carve source for round-trip support
-     *
-     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
-     * @param array<array{label: string, content: string, selected: bool, id: string|null, node: \MarkupCarve\Carve\Node\Block\Div}> $tabs
-     * @param \MarkupCarve\Carve\Renderer\HtmlRenderer $renderer
-     */
-    protected function reconstructDjotSource(Div $wrapper, array $tabs, HtmlRenderer $renderer): string
-    {
-        // Build each `tab` block with a fence longer than any colon-fence in
-        // its own content (a nested `code-group` etc.), then the outer `tabs`
-        // fence longer than any tab fence. A same-length inner fence would
-        // close its parent (grammar §12), so nested divs must use increasing
-        // lengths from the inside out.
-        $tabBlocks = '';
-        foreach ($tabs as $tab) {
-            $node = $tab['node'];
-            $hasHeadingLabel = $this->hasHeadingLabel($node);
-            $skipAttrs = $hasHeadingLabel ? ['label'] : [];
-
-            $inner = '';
-            if ($hasHeadingLabel) {
-                $inner .= '### ' . $tab['label'] . "\n\n";
-            }
-            $content = $this->reconstructTabContent($node, $renderer);
-            if ($content !== '') {
-                $inner .= $content . "\n";
-            }
-
-            // The opener metadata must survive the round-trip: the quoted
-            // title (content, cannot contain a `"` per the grammar) and the
-            // canonical opener `[label]`. A `{label="..."}` attribute is
-            // re-emitted by the attribute block instead.
-            $header = $node->getHeader();
-            $titlePart = $header === null ? '' : ' "' . $header . '"';
-            $openerLabel = $node->getLabel() ?? '';
-            $labelPart = $openerLabel === '' ? '' : ' [' . $openerLabel . ']';
-
-            $tabFence = $this->colonFenceFor($inner);
-            $tabBlocks .= $this->renderDjotAttributeBlock($node, skipAttrs: $skipAttrs, skipClasses: ['tab']);
-            $tabBlocks .= $tabFence . ' tab' . $titlePart . $labelPart . "\n" . $inner . $tabFence . "\n";
-        }
-
-        $tabsFence = $this->colonFenceFor($tabBlocks);
-        $djot = $this->renderDjotAttributeBlock($wrapper, skipClasses: ['tabs']);
-        $djot .= $tabsFence . " tabs\n\n";
-        $djot .= rtrim($tabBlocks) . "\n";
-        $djot .= $tabsFence . "\n";
-
-        return $djot;
-    }
-
-    /**
-     * A colon-fence string at least one longer than any colon-only line in
-     * `$content`, so a nested div's `:::` closer cannot close this fence.
-     */
-    protected function colonFenceFor(string $content): string
-    {
-        $fenceLength = 3;
-        foreach (explode("\n", $content) as $line) {
-            if (preg_match('/^(:{3,})\s*$/', trim($line), $m) === 1) {
-                $fenceLength = max($fenceLength, strlen($m[1]) + 1);
-            }
-        }
-
-        return str_repeat(':', $fenceLength);
-    }
-
-    protected function reconstructTabContent(Div $tab, HtmlRenderer $renderer): string
-    {
-        $parts = [];
-        // The first heading is consumed as the label ONLY when no explicit
-        // label was given. An opener `[label]` or a `{label="..."}` attribute
-        // takes priority (see extractLabel), so a real content heading must be
-        // preserved in those cases.
-        $hasExplicitLabel = ($tab->getLabel() ?? '') !== '' || $tab->hasAttribute('label');
-        $skipFirstHeading = !$hasExplicitLabel;
-        $skippedHeading = false;
-
-        foreach ($tab->getChildren() as $child) {
-            if ($skipFirstHeading && !$skippedHeading && $child instanceof Heading) {
-                $skippedHeading = true;
-
-                continue;
-            }
-
-            $parts[] = rtrim($this->reconstructChildToDjot($child, $renderer), "\n");
-        }
-
-        return rtrim(implode("\n\n", array_filter($parts, static fn (string $part): bool => $part !== '')), "\n");
-    }
-
-    protected function hasHeadingLabel(Div $tab): bool
-    {
-        if ($tab->hasAttribute('label')) {
-            return false;
-        }
-
-        foreach ($tab->getChildren() as $child) {
-            if ($child instanceof Heading) {
-                return true;
-            }
-
-            if ($child instanceof Paragraph || $child instanceof Div || !$child instanceof Text) {
-                return false;
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Build an HtmlToCarve converter for reconstructing round-trip source.
-     *
-     * The HTML reconstructed here is carve's OWN rendered output (from
-     * `HtmlRenderer::renderNodeFragment`), so it is trusted and may carry
-     * faithful `data-carve-src` round-trip attributes (e.g. a code fence's
-     * `` ``` php `` info string). Pass `trustStoredSource: true` so those inner
-     * sources are honored; the default converter ignores `data-carve-src` to stay
-     * safe against untrusted external HTML.
-     */
-    protected function trustedHtmlToCarve(): HtmlToCarve
-    {
-        return new HtmlToCarve(trustStoredSource: true);
-    }
-
-    protected function reconstructChildToDjot(Node $child, HtmlRenderer $renderer): string
-    {
-        return match (true) {
-            $child instanceof DefinitionList => $this->renderDefinitionListToDjot($child, $renderer),
-            $child instanceof Div => $this->renderDivToDjot($child, $renderer),
-            $child instanceof Table => $this->renderTableToDjot($child, $renderer),
-            default => rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($child)), "\n"),
-        };
-    }
-
-    protected function renderDefinitionListToDjot(DefinitionList $list, HtmlRenderer $renderer): string
-    {
-        $lines = [];
-
-        foreach ($list->getChildren() as $child) {
-            if ($child instanceof DefinitionTerm) {
-                $lines[] = rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($child)), "\n");
-            } elseif ($child instanceof DefinitionDescription) {
-                $content = rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($child)), "\n");
-                $lines[] = ': ' . $content;
-            }
-        }
-
-        return implode("\n", array_filter($lines, static fn (string $line): bool => $line !== ''));
-    }
-
-    protected function renderDivToDjot(Div $div, HtmlRenderer $renderer): string
-    {
-        $djotSrc = $div->getAttribute('data-carve-src');
-        if ($djotSrc !== null && $djotSrc !== '') {
-            return rtrim($djotSrc, "\n");
-        }
-
-        $classes = $div->getClassEntries();
-        $fenceClass = array_shift($classes) ?? 'div';
-
-        $djot = '';
-        if ($div->getAttribute('id') !== null || $classes !== [] || count($div->getAttributes()) > ($div->hasAttribute('class') ? 1 : 0)) {
-            $clone = clone $div;
-            if ($clone->hasAttribute('class')) {
-                $clone->setClassList($classes);
-            }
-            $djot .= $this->renderDjotAttributeBlock($clone);
-        }
-
-        $djot .= '::: ' . $fenceClass . "\n";
-
-        $parts = [];
-        foreach ($div->getChildren() as $child) {
-            $parts[] = rtrim($this->reconstructChildToDjot($child, $renderer), "\n");
-        }
-        $content = rtrim(implode("\n\n", array_filter($parts, static fn (string $part): bool => $part !== '')), "\n");
-        if ($content !== '') {
-            $djot .= $content . "\n";
-        }
-
-        $djot .= ':::';
-
-        return $djot;
-    }
-
-    protected function renderTableToDjot(Table $table, HtmlRenderer $renderer): string
-    {
-        $rows = [];
-        $alignments = [];
-
-        foreach ($table->getChildren() as $row) {
-            if (!$row instanceof TableRow) {
-                continue;
-            }
-
-            $cells = [];
-            $cellIndex = 0;
-
-            foreach ($row->getChildren() as $cell) {
-                if (!$cell instanceof TableCell) {
-                    continue;
-                }
-
-                $cells[] = rtrim($this->trustedHtmlToCarve()->convert($renderer->renderNodeFragment($cell)), "\n");
-                if ($row->isHeader() || !isset($alignments[$cellIndex])) {
-                    $alignments[$cellIndex] = $cell->getAlignment();
-                }
-                $cellIndex++;
-            }
-
-            $rows[] = $cells;
-        }
-
-        if ($rows === []) {
-            return '';
-        }
-
-        $widths = $table->getSeparatorWidths();
-        $lines = [];
-
-        foreach ($rows as $rowIndex => $row) {
-            $lines[] = '| ' . implode(' | ', $row) . ' |';
-
-            if ($rowIndex === 0) {
-                $separators = [];
-                foreach ($row as $index => $_cell) {
-                    $width = $widths[$index] ?? 3;
-                    $separators[] = $this->renderAlignedSeparator($alignments[$index] ?? TableCell::ALIGN_DEFAULT, $width);
-                }
-                $lines[] = '|' . implode('|', $separators) . '|';
-            }
-        }
-
-        return implode("\n", $lines);
-    }
-
-    protected function renderAlignedSeparator(string $alignment, int $width): string
-    {
-        $width = max(3, $width);
-
-        return match ($alignment) {
-            TableCell::ALIGN_LEFT => ':' . str_repeat('-', $width),
-            TableCell::ALIGN_RIGHT => str_repeat('-', $width) . ':',
-            TableCell::ALIGN_CENTER => ':' . str_repeat('-', $width) . ':',
-            default => str_repeat('-', $width),
-        };
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Block\Div $node
-     * @param array<string> $skipAttrs
-     * @param array<string> $skipClasses
-     */
-    protected function renderDjotAttributeBlock(Div $node, array $skipAttrs = [], array $skipClasses = []): string
-    {
-        $parts = [];
-
-        $id = $node->getAttribute('id');
-        if ($id !== null && $id !== '' && !in_array('id', $skipAttrs, true)) {
-            $parts[] = '#' . $id;
-        }
-
-        if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassEntries() as $class) {
-                if (!in_array($class, $skipClasses, true)) {
-                    $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
-                        ? '.' . $class
-                        : 'class=' . $this->quoteDjotAttributeValue($class);
-                }
-            }
-        }
-
-        foreach ($node->getAttributes() as $name => $value) {
-            if ($name === 'id' || $name === 'class' || in_array($name, $skipAttrs, true)) {
-                continue;
-            }
-
-            $parts[] = $value === ''
-                ? $name
-                : $name . '=' . $this->quoteDjotAttributeValue($value);
-        }
-
-        if ($parts === []) {
-            return '';
-        }
-
-        return '{' . implode(' ', $parts) . "}\n";
-    }
-
-    protected function quoteDjotAttributeValue(string $value): string
-    {
-        if ($value !== '' && preg_match('/^[A-Za-z0-9._:-]+$/', $value) === 1) {
-            return $value;
-        }
-
-        return '"' . QuotedSlotEscaper::escape($value) . '"';
+            true,
+        ) . ($renderer->isRoundTripMode() ? ' data-carve-ext="tabs"' : '');
     }
 }

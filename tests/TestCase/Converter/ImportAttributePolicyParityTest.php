@@ -65,15 +65,16 @@ class ImportAttributePolicyParityTest extends TestCase
         }
     }
 
-    public function testIgnoredNestedSourceMarkersAreReported(): void
+    public function testLegacyNestedSourceMarkersAreConsumedWithoutReportRows(): void
     {
-        foreach (['safe', 'semantic'] as $mode) {
-            foreach (['data-carve-src', 'data-carve-src'] as $name) {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['data-carve-src', 'data-djot-src'] as $name) {
                 $result = (new HtmlToCarve(importMode: $mode))->convertWithReport("<form><p {$name}=\"stored\">text</p></form>");
                 $rows = array_values(array_filter($result->report()['diagnostics'], fn (array $row): bool => $row['code'] === 'attribute-dropped'));
-                $this->assertCount(1, $rows);
-                $this->assertSame('info', $rows[0]['severity']);
-                $this->assertSame('/form[1]/p[1]', $rows[0]['path']);
+                $this->assertSame([], $rows);
+                $this->assertStringNotContainsString($name, $result->value);
+                $this->assertStringNotContainsString('stored', $result->value);
+                $this->assertStringContainsString('text', $result->value);
             }
         }
     }
