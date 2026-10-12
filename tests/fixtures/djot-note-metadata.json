@@ -3560,6 +3560,150 @@
     "html": "<blockquote><ul><li><img src=\"/u\" alt=\"a\n\f\nb\"></li></ul></blockquote>"
   },
   {
+    "name": "image-paragraph-escaped-close-formatted-root",
+    "source": "![a\\]b *x*](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a]b x\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-formatted-quote",
+    "source": "> ![a\\]b *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"u\" alt=\"a]b x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-formatted-list",
+    "source": "- ![a\\]b *x*](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a]b x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-formatted-quoted-list",
+    "source": "> - ![a\\]b *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"u\" alt=\"a]b x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-open-formatted-root",
+    "source": "![a\\[b _x_](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a[b x\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-open-formatted-quote",
+    "source": "> ![a\\[b _x_](u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"u\" alt=\"a[b x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-open-formatted-list",
+    "source": "- ![a\\[b _x_](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a[b x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-open-formatted-quoted-list",
+    "source": "> - ![a\\[b _x_](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"u\" alt=\"a[b x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-parenthesis-formatted-root",
+    "source": "![*a*\\](b](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a](b\"></p>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-parenthesis-formatted-quote",
+    "source": "> ![*a*\\](b](u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"u\" alt=\"a](b\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-parenthesis-formatted-list",
+    "source": "- ![*a*\\](b](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a](b\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-escaped-close-parenthesis-formatted-quoted-list",
+    "source": "> - ![*a*\\](b](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"u\" alt=\"a](b\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-code-brackets-formatted-root",
+    "source": "![`a[b]` *x*](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a[b] x\"></p>"
+  },
+  {
+    "name": "image-paragraph-code-brackets-formatted-quote",
+    "source": "> ![`a[b]` *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"u\" alt=\"a[b] x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-code-brackets-formatted-list",
+    "source": "- ![`a[b]` *x*](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a[b] x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-code-brackets-formatted-quoted-list",
+    "source": "> - ![`a[b]` *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"u\" alt=\"a[b] x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-nested-image-formatted-root",
+    "source": "![a ![b](v) *x*](u)",
+    "lossLines": [],
+    "html": "<p><img src=\"u\" alt=\"a b x\"></p>"
+  },
+  {
+    "name": "image-paragraph-nested-image-formatted-quote",
+    "source": "> ![a ![b](v) *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><p><img src=\"u\" alt=\"a b x\"></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-nested-image-formatted-list",
+    "source": "- ![a ![b](v) *x*](u)",
+    "lossLines": [],
+    "html": "<ul><li><img src=\"u\" alt=\"a b x\"></li></ul>"
+  },
+  {
+    "name": "image-paragraph-nested-image-formatted-quoted-list",
+    "source": "> - ![a ![b](v) *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li><img src=\"u\" alt=\"a b x\"></li></ul></blockquote>"
+  },
+  {
+    "name": "image-paragraph-literal-inner-bracket-link-root",
+    "source": "![a [b] *x*](u)",
+    "lossLines": [],
+    "html": "<p>![a <a href=\"u\">b] <strong>x</strong></a></p>"
+  },
+  {
+    "name": "image-paragraph-literal-inner-bracket-link-quote",
+    "source": "> ![a [b] *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><p>![a <a href=\"u\">b] <strong>x</strong></a></p></blockquote>"
+  },
+  {
+    "name": "image-paragraph-literal-inner-bracket-link-list",
+    "source": "- ![a [b] *x*](u)",
+    "lossLines": [],
+    "html": "<ul><li>![a <a href=\"u\">b] <strong>x</strong></a></li></ul>"
+  },
+  {
+    "name": "image-paragraph-literal-inner-bracket-link-quoted-list",
+    "source": "> - ![a [b] *x*](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![a <a href=\"u\">b] <strong>x</strong></a></li></ul></blockquote>"
+  },
+  {
     "name": "image-paragraph-escaped-close-followed-by-parenthesis",
     "source": "![a\\](b](u)",
     "lossLines": [],
@@ -3804,5 +3948,29 @@
     "source": "[r]: ![x](/u)\n\n[x][r]",
     "lossLines": [],
     "html": "<p><a href=\"![x](/u)\">x</a></p>"
+  },
+  {
+    "name": "image-paragraph-unfinished-outer-before-image-paragraph",
+    "source": "![bad\n\n![*inner*](v)\n](u)",
+    "lossLines": [],
+    "html": "<p>![bad</p><p><img src=\"v\" alt=\"inner\">\n](u)</p>"
+  },
+  {
+    "name": "image-paragraph-quoted-unfinished-outer-before-image-paragraph",
+    "source": "> ![bad\n\n![*inner*](v)\n](u)",
+    "lossLines": [],
+    "html": "<blockquote><p>![bad</p></blockquote><p><img src=\"v\" alt=\"inner\">\n](u)</p>"
+  },
+  {
+    "name": "image-paragraph-unfinished-outer-before-peer-image",
+    "source": "- ![bad\n- ![*inner*](v)\n](u)",
+    "lossLines": [],
+    "html": "<ul><li>![bad</li><li><img src=\"v\" alt=\"inner\">\n](u)</li></ul>"
+  },
+  {
+    "name": "image-paragraph-quoted-unfinished-outer-before-peer-image",
+    "source": "> - ![bad\n> - ![*inner*](v)\n> ](u)",
+    "lossLines": [],
+    "html": "<blockquote><ul><li>![bad</li><li><img src=\"v\" alt=\"inner\">\n](u)</li></ul></blockquote>"
   }
 ]

@@ -292,25 +292,22 @@ class DjotToCarve
             $imageLines[] = ['end' => $imageOffset + strlen($line) + 1, 'quotes' => substr_count(substr($line, 0, $contentStart), '>'), 'itemColumn' => $imageItemColumn, 'itemQuote' => $imageItemQuote, 'table' => ($line[$contentStart] ?? '') === '|', 'div' => $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)]];
             $imageOffset += strlen($line) + 1;
         }
-        $source = preg_replace_callback('/!\[([^\[\]]*)\](?=[([])/', function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask, $imageParagraph, $imageStarts, $imageLines, &$imageLine): string {
+        $source = $this->replaceImageLabels($source, $imageMask, function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask, $imageParagraph, $imageStarts, $imageLines, &$imageLine): string {
             [$image, $at] = $match[0];
             if ($imageMask[$at] !== '!' || $imageMask[$at + strlen($image) - 1] !== ']' || preg_match('/\n[ \t]*\n/', $match[1][0]) === 1 || $this->isDjotEscaped($source, $at)) {
                 return $image;
             }
             $paragraph = isset($imageStarts[$at]) ? $imageParagraph : '';
-            if ($this->isDjotEscaped($source, $at + strlen($image) - 1)) {
-                return $paragraph . $image;
-            }
             if (str_starts_with($match[1][0], '^')) {
                 return $image;
             }
-            if (!str_contains($match[1][0], "\n") && preg_match('/[_*`{^~]/', $match[1][0]) !== 1 && preg_match('/(?<!\\\\)(?:\\\\\\\\)*\\\\[ \t]/', $match[1][0]) !== 1) {
+            if (!str_contains($match[1][0], "\n") && preg_match('/[_*`{^~\[\]]/', $match[1][0]) !== 1 && preg_match('/(?<!\\\\)(?:\\\\\\\\)*\\\\[ \t]/', $match[1][0]) !== 1) {
                 $token = $altPrefix . count($strongSpans) . "\x00";
                 $strongSpans[$token] = $match[1][0];
 
                 return $paragraph . '![' . $token . ']';
             }
-            $label = preg_replace_callback('/(\\\\+)$/', static fn (array $tail): string => strlen($tail[0]) % 2 !== 0 ? $tail[0] . '\\' : $tail[0], $match[1][0]) ?? $match[1][0];
+            $label = $match[1][0];
             while ($imageLines[$imageLine]['end'] <= $at) {
                 $imageLine++;
             }
@@ -334,7 +331,7 @@ class DjotToCarve
             }, $alt) ?? $alt;
 
             return $paragraph . '![' . $token . ']';
-        }, $source, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $source;
+        });
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
         $wire = [];
@@ -3071,6 +3068,63 @@ class DjotToCarve
 
             return true;
         };
+    }
+
+    /**
+     * @param string $source
+     * @param string $mask
+     * @param \Closure(array<int, array{string, int}>): string $replace
+     *
+     * @return string
+     */
+    private function replaceImageLabels(string $source, string $mask, Closure $replace): string
+    {
+        if (!str_contains($source, '![')) {
+            return $source;
+        }
+        $opens = [];
+        $closes = [];
+        $length = strlen($source);
+        $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask), true);
+        preg_match_all('/\n[ \t]*\n/', $source, $blankLines, PREG_OFFSET_CAPTURE);
+        foreach ($blankLines[0] as $blank) {
+            $boundaries[$blank[1]] = true;
+        }
+        for ($at = 0; $at < $length; $at++) {
+            if (isset($boundaries[$at])) {
+                $opens = [];
+            }
+            if ($mask[$at] === '[' && !$this->isDjotEscaped($source, $at)) {
+                $parent = array_key_last($opens);
+                if ($parent !== null) {
+                    $opens[$parent]['nested'] = true;
+                }
+                $opens[] = ['at' => $at, 'nested' => false];
+            } elseif ($mask[$at] === ']' && !$this->isDjotEscaped($source, $at)) {
+                $open = array_pop($opens);
+                if ($open !== null && !$open['nested'] && $open['at'] > 0 && $source[$open['at'] - 1] === '!' && $mask[$open['at'] - 1] === '!' && !$this->isDjotEscaped($source, $open['at'] - 1) && in_array($source[$at + 1] ?? '', ['(', '['], true)) {
+                    $closes[$open['at'] - 1] = $at;
+                }
+            }
+        }
+        if (!$closes) {
+            return $source;
+        }
+        $chunks = [];
+        $cursor = 0;
+        for ($at = 0; $at < $length; $at++) {
+            if (!isset($closes[$at])) {
+                continue;
+            }
+            $end = $closes[$at];
+            $chunks[] = substr($source, $cursor, $at - $cursor);
+            $chunks[] = $replace([[substr($source, $at, $end + 1 - $at), $at], [substr($source, $at + 2, $end - $at - 2), $at + 2]]);
+            $cursor = $end + 1;
+            $at = $end;
+        }
+        $chunks[] = substr($source, $cursor);
+
+        return implode('', $chunks);
     }
 
     /**
