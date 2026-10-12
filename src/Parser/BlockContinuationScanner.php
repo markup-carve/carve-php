@@ -308,7 +308,7 @@ final class BlockContinuationScanner
             if (end($literal)) {
                 // An indented run pairs at any column in a literal body.
                 $text = ltrim($view, " \t");
-                if ($text !== $view && ($text[0] === '`' || $text[0] === '~')) {
+                if ($text !== '' && $text !== $view && ($text[0] === '`' || $text[0] === '~')) {
                     $span = $this->opaqueSpanEnd(
                         $lines,
                         $j,

@@ -98,5 +98,10 @@
     "id": "at-column-opener-indented-run-control",
     "source": "- ::: |\n  ```\n  :::\n    ```\n  :::\n",
     "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div><code></code><div></div></li></ul>"
+  },
+  {
+    "id": "whitespace-only-payload-line",
+    "source": "- +\n::: |\n   \n:::\n",
+    "html": "<ul><li><div class=\"line-block\"></div></li></ul>"
   }
 ]
