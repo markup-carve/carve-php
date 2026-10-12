@@ -10,6 +10,7 @@ use DOMNode;
 use DOMText;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Node\Inline\Math;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -63,6 +64,17 @@ final class MarkdownGfmAutolinksTest extends TestCase
         yield 'escaped even run' => ['\\** a ** /x/', '<p>** a ** /x/</p>'];
         yield 'even runs in label' => ['[**a**](/t) __b__', '<p><a href="/t"><strong>a</strong></a> <strong>b</strong></p>'];
         yield 'intraword even runs' => ['**a**b** /x/', '<p><strong>a</strong>b** /x/</p>'];
+    }
+
+    public function testOptInMathKeepsReferenceChainsLiteral(): void
+    {
+        foreach (['$', '$$'] as $delimiter) {
+            $written = (new MarkdownToCarve(convertMath: true))->convert($delimiter . '[a*b*][x](/u)' . $delimiter);
+            $document = (new CarveConverter())->parse($written);
+            $math = $document->getChildren()[0]->getChildren()[0];
+            self::assertInstanceOf(Math::class, $math);
+            self::assertSame('[a*b*][x](/u)', $math->getContent());
+        }
     }
 
     public function testOptInHighlightKeepsGeneratedDelimitersSeparateFromLiteralSymbols(): void

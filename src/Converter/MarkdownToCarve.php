@@ -5020,7 +5020,7 @@ class MarkdownToCarve
             } else {
                 $label = preg_replace('/([!-\/:-@\[-`{-~])/', '\\\\$1', $body) ?? $body;
                 $url = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $part): string => rawurlencode($part[0]), $body) ?? $body;
-                $url = str_replace(['&', '(', ')'], ['\\&', '\\(', '\\)'], $url);
+                $url = str_replace(['&', '(', ')'], ['&amp;', '\\(', '\\)'], $url);
                 $out .= '[' . $label . '](' . $url . ')' . substr($match[0], strlen($body));
             }
             $at += strlen($match[0]);
@@ -6775,12 +6775,12 @@ class MarkdownToCarve
                 ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
         };
 
-        $encodeDest = function (string $paren) use ($protected, $protectedSources, $table, $codeScalarTags): ?string {
+        $encodeDest = function (string $paren) use ($protected, &$protectedSources, $table): ?string {
             $sourceParen = $this->referenceSourceText($paren, $protectedSources);
             if ($this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1) {
                 return null;
             }
-            $paren = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeScalarTags[$token[0]] ?? $token[0], $paren) ?? $paren;
+            $paren = $sourceParen;
             $inner = trim(substr($paren, 1, -1), " \t\n");
             if (str_starts_with($inner, '<')) {
                 preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
@@ -6806,7 +6806,7 @@ class MarkdownToCarve
                     return null;
                 }
                 $quote = $title[1][0] === '(' ? '"' : $title[1][0];
-                $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
+                $decoded = $this->decodeMarkdownScalar($this->referenceSourceText(substr($title[1], 1, -1), $protected));
                 $escaped = QuotedSlotEscaper::escape($decoded, $quote);
                 if ($table) {
                     $escaped = str_replace('`', '\\`', $escaped);
@@ -6814,7 +6814,7 @@ class MarkdownToCarve
                 $rest = ' ' . $quote . $escaped . $quote;
             }
 
-            return '(' . $this->writeMarkdownDestination($url, $protected) . $rest . ')';
+            return '(' . $this->writeMarkdownDestination($url, originalSource: true) . $rest . ')';
         };
 
         $protectDestination = function (string $alt, string $paren, ?string $source = null) use ($encodeDest, $protect): string {
@@ -6870,7 +6870,7 @@ class MarkdownToCarve
         $chainCursor = 0;
         $line = preg_replace_callback(
             '/(?<![\\\\\]])\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]/u',
-            function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectDestination): string {
+            function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectedSources, $protectDestination): string {
                 $offset = $match[0][1];
                 while ($chainCursor < $offset) {
                     if ($chainSubject[$chainCursor] === '<') {
@@ -6898,8 +6898,8 @@ class MarkdownToCarve
                     return $match[0][0];
                 }
                 [$first, $second, $third] = [$match[1][0], $match[2][0], $match[3][0]];
-                $middleTarget = $this->complexReferenceTarget($second, $protected);
-                $lastTarget = $this->complexReferenceTarget($third, $protected);
+                $middleTarget = $this->complexReferenceTarget($second, $protectedSources);
+                $lastTarget = $this->complexReferenceTarget($third, $protectedSources);
                 $middle = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($second)] ?? null;
                 $last = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($third)] ?? null;
                 $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')') : ($middle !== null ? $protect('[' . $middle . ']') : null);
@@ -6922,9 +6922,9 @@ class MarkdownToCarve
         ) ?? $line;
         $line = preg_replace_callback(
             '/!\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\[([^\]\n]*)\])?/',
-            function (array $match) use ($protected, $protect, $protectDestination, $imageLabel, $table): string {
+            function (array $match) use ($protected, $protectedSources, $protect, $protectDestination, $imageLabel, $table): string {
                 $label = ($match[2] ?? '') !== '' ? $match[2] : $match[1];
-                $target = $this->complexReferenceTarget($label, $protected);
+                $target = $this->complexReferenceTarget($label, $protectedSources);
                 if ($target !== null) {
                     return $protectDestination($imageLabel('![' . $match[1] . ']'), '(' . $target . ')');
                 }
@@ -6977,8 +6977,8 @@ class MarkdownToCarve
         }, $line, flags: PREG_OFFSET_CAPTURE) ?? $line;
 
         if ($table) {
-            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protect, $writeLiteralReference): string {
-                if (!str_contains($match[1], '|') || $this->complexReferenceTarget($match[2], $protected) !== null) {
+            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
+                if (!str_contains($match[1], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
                     return $match[0];
                 }
                 $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
@@ -6990,8 +6990,8 @@ class MarkdownToCarve
             }, $line) ?? $line;
             $line = preg_replace_callback(
                 '/(?<!\\\\)(!?)\[([^[\]\n^][^[\]\n]*)\]\[\]/',
-                function (array $match) use ($protected, $protect, $writeLiteralReference): string {
-                    if (!str_contains($match[2], '|') || $this->complexReferenceTarget($match[2], $protected) !== null) {
+                function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
+                    if (!str_contains($match[2], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
                         return $match[0];
                     }
                     $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
@@ -7002,6 +7002,62 @@ class MarkdownToCarve
                     return $protect($writeLiteralReference($match[0]));
                 },
                 $line,
+            ) ?? $line;
+        }
+        $literalReferenceOpeners = [];
+        if (str_contains($line, '][') && preg_match('/\]\[[^\[\]\n]+\]\x00P\d+\x00/', $line) === 1) {
+            $inlineChainMath = [];
+            if ($this->convertMath && str_contains($line, '$')) {
+                preg_match_all('/\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d)/', $line, $mathRanges, PREG_OFFSET_CAPTURE);
+                foreach ($mathRanges[0] as [$body, $start]) {
+                    $inlineChainMath[] = [$start, $start + strlen($body)];
+                }
+            }
+            $resolvedReferenceTailOpeners = [];
+            $referenceScopes = $this->markdownLinkScopes($line, $protected, scopeOnly: true)['active'];
+            for ($at = 1, $count = count($referenceScopes); $at < $count; $at += 2) {
+                $tailAt = $referenceScopes[$at] + 1;
+                if (($line[$tailAt] ?? '') === '[') {
+                    $resolvedReferenceTailOpeners[$tailAt] = true;
+                }
+            }
+            $inlineChainUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
+            $inlineChainMathAt = 0;
+            $inlineChainUrlAt = 0;
+            $line = preg_replace_callback(
+                '/(?<!\\\\)\[((?!\^)[^\[\]\n]+)\]\[([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
+                function (array $match) use ($inlineChainUrls, $inlineChainMath, &$inlineChainMathAt, &$inlineChainUrlAt, $resolvedReferenceTailOpeners, $protected, $protectedSources, $protect, &$literalReferenceOpeners): string {
+                    $offset = $match[0][1];
+                    if (isset($resolvedReferenceTailOpeners[$offset])) {
+                        return $match[0][0];
+                    }
+                    while (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][1] <= $offset) {
+                        $inlineChainMathAt++;
+                    }
+                    if (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][0] <= $offset) {
+                        return $match[0][0];
+                    }
+                    while (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['end'] <= $offset) {
+                        $inlineChainUrlAt++;
+                    }
+                    if (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['start'] <= $offset) {
+                        return $match[0][0];
+                    }
+                    $tail = $protected[(int)$match[3][0]] ?? '';
+                    $label = $match[2][0];
+                    $defined = isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
+                        || $this->complexReferenceTarget($label, $protectedSources) !== null;
+                    if (!str_starts_with($tail, '(') || $defined) {
+                        return $match[0][0];
+                    }
+
+                    $opener = $protect('\\[', '[');
+                    $literalReferenceOpeners[$opener] = true;
+
+                    return $opener . $match[1][0] . $protect('\\]', ']') . '[' . $label . ']';
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
             ) ?? $line;
         }
         $linkClosers = [];
@@ -7030,8 +7086,11 @@ class MarkdownToCarve
         $subject = $line;
         $line = preg_replace_callback(
             '/(?<=\])\[([^\]]*)\]/',
-            function (array $match) use ($subject, $protected, $protect, $protectDestination, $linkClosers, &$referenceClosers, $table, $writeLiteralReference): string {
+            function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $linkClosers, &$referenceClosers, &$literalReferenceOpeners, $table, $writeLiteralReference): string {
                 $reference = $match[1][0];
+                if (str_starts_with($reference, '^')) {
+                    return $protect($match[0][0]);
+                }
                 $offset = $match[0][1];
                 if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
                     return $match[0][0];
@@ -7040,7 +7099,7 @@ class MarkdownToCarve
                 $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
                 $preceding = $labelStart === false ? '' : substr($subject, $labelStart + 1, $offset - $labelStart - 2);
                 $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
-                $target = $label !== null ? $this->complexReferenceTarget($label, $protected) : null;
+                $target = $label !== null ? $this->complexReferenceTarget($label, $protectedSources) : null;
                 if ($target !== null) {
                     return $protectDestination('', '(' . $target . ')');
                 }
@@ -7050,6 +7109,8 @@ class MarkdownToCarve
                 if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
                     $canonical = null;
                 }
+                $firstStart = $linkClosers[$offset - 1];
+                $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
                 $literal = $this->decodeLinkTitle($reference, $protected);
                 $raw = $reference;
                 $protectedCount = count($protected);
@@ -7072,6 +7133,17 @@ class MarkdownToCarve
                 }
                 if ($canonical === null && str_contains($raw, '|')) {
                     return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
+                }
+                $definedReference = isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)])
+                    || isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->referenceSourceText($reference, $protectedSources))]);
+                $end = $offset + strlen($match[0][0]);
+                $inlineTail = preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1
+                    && str_starts_with($protected[(int)$next[1]] ?? '', '(');
+                if ($canonical === null && !$definedReference && !$inlineTail && preg_match('/[\x00*_`\\\\<&~"\'=^]/', $firstLabel . $reference) === 1) {
+                    $opener = $protect('\\[', '[');
+                    $literalReferenceOpeners[$opener] = true;
+
+                    return $opener . $reference . $protect('\\]', ']');
                 }
                 $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1
                     && preg_match('/(?:\.{3,}|--)/', $label ?? '') !== 1;
@@ -7125,21 +7197,17 @@ class MarkdownToCarve
         // on a nested item's marker line too, which is where fmt writes it.
         $line = preg_replace_callback(
             '/^([ \t]*' . self::DEFINITION_MARKER . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
-            function (array $match) use ($protect, $protected, $codeScalarTags): string {
-                $match[2] = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeScalarTags[$token[0]] ?? $token[0], $match[2]) ?? $match[2];
+            function (array $match) use ($protect, $protected, $protectedSources, $encodeDest): string {
                 if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])) {
                     return $match[0];
                 }
-                $definition = preg_replace_callback(
-                    '/^(\[[^\]]*\]:[ \t]*)(<[^>\n]*>|[^ \t\n]+)(.*)$/s',
-                    fn (array $parts): string => $parts[1] . $this->writeMarkdownDestination(
-                        str_starts_with($parts[2], '<') ? substr($parts[2], 1, -1) : $parts[2],
-                        $protected,
-                    ) . $parts[3],
-                    $match[2],
-                ) ?? $match[2];
+                $source = $this->referenceSourceText($match[2], $protectedSources);
+                if (preg_match('/^(\[(?:[^\]\\\\]|\\\\.)*\]:[ \t]*)(.*)$/s', $source, $parts) !== 1) {
+                    return $match[1] . $protect($match[2]);
+                }
+                $target = $encodeDest('(' . $parts[2] . ')');
 
-                return $match[1] . $protect($definition);
+                return $target === null ? $match[1] . $protect($match[2]) : $match[1] . $protect($parts[1] . substr($target, 1, -1), $source);
             },
             $line,
         ) ?? $line;
@@ -7153,7 +7221,7 @@ class MarkdownToCarve
             // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
             $line = preg_replace_callback(
                 '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $table, &$referenceUrls, &$referenceUrlAt): string {
+                function (array $match) use ($subject, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, &$referenceUrls, &$referenceUrlAt): string {
                     $offset = $match[0][1];
                     while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
                         $referenceUrlAt++;
@@ -7166,7 +7234,7 @@ class MarkdownToCarve
                     $end = $match[0][1] + strlen($match[0][0]);
                     if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
                         $tail = $protectedSources[(int)$next[1]] ?? '';
-                        if (str_starts_with($tail, '(') || str_starts_with($tail, '{title=') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
+                        if (isset($literalReferenceOpeners[$next[0]]) || str_starts_with($tail, '(') || str_starts_with($tail, '{title=') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
                             return $match[0][0];
                         }
                     }
@@ -8087,6 +8155,9 @@ class MarkdownToCarve
                     if (str_starts_with($definition[1], '^')) {
                         $this->markdownFootnoteLabels[] = substr($definition[1], 1);
                     }
+                    if (!$repeated && !str_starts_with($definition[1], '^') && strpbrk($definition[1], '|<&') !== false) {
+                        $this->complexReferenceTargets[$rawKey] = $target;
+                    }
                     $marker = substr($prefix, strlen($quotePrefix));
                     // A footnote is not a reference definition, so it stays put. So
                     // does one on a nested item's marker line, where fmt writes it,
@@ -8114,7 +8185,7 @@ class MarkdownToCarve
                         $i++;
                     }
                     // The first definition of a label wins, so a later one says nothing.
-                    if (!$repeated && (str_contains($definition[1], '|') || str_contains($definition[1], '<'))) {
+                    if (!$repeated && (strpbrk($definition[1], '|<&') !== false)) {
                         $this->complexReferenceTargets[$rawKey] = $target;
                     }
                     if (!$repeated) {
@@ -8617,6 +8688,12 @@ class MarkdownToCarve
             $label = $written . substr($label, $cursor);
         } while ($label !== $previous);
 
+        $label = preg_replace_callback(
+            '/\x00P(\d+)\x00(?=>)/',
+            static fn (array $match): string => ($protected[(int)$match[1]] ?? '') === '\\' ? '' : $match[0],
+            $label,
+        ) ?? $label;
+
         $label = MarkdownEmphasis::convert($label, protectedSpans: $protected, plainText: true);
 
         return preg_replace_callback(
@@ -8644,13 +8721,23 @@ class MarkdownToCarve
         return preg_replace_callback('/[\s()<>\\\\]/', static fn (array $match): string => in_array($match[0], ['(', ')'], true) ? '\\' . $match[0] : rawurlencode($match[0]), $url) ?? $url;
     }
 
+    private function decodeMarkdownScalar(string $text): string
+    {
+        $decoded = $this->decodeHtmlReferenceText($text);
+
+        return preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $decoded) ?? $decoded;
+    }
+
     /**
      * @param string $url
      * @param array<string> $protected
+     * @param bool $originalSource
      */
-    protected function writeMarkdownDestination(string $url, array $protected = []): string
+    protected function writeMarkdownDestination(string $url, array $protected = [], bool $originalSource = false): string
     {
-        $decoded = $this->decodeLinkTitle($url, $protected);
+        $decoded = $originalSource
+            ? $this->decodeMarkdownScalar($this->referenceSourceText($url, $protected))
+            : $this->decodeLinkTitle($url, $protected);
 
         $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
 
