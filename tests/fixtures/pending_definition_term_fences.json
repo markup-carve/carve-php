@@ -2848,5 +2848,1865 @@
     "codePayloads": [
       "code\n"
     ]
+  },
+  {
+    "id": "comment-history-0-0-0",
+    "source": "- :: term\n%% note\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "code\ntail\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-0-1",
+    "source": "- :: term\n%%%\nnote\n%%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl></li></ul><p><code>\ncode\ntail</code></p>",
+    "codePayloads": []
+  },
+  {
+    "id": "comment-history-0-0-2",
+    "source": "- :: term\n%%%\n:: fake\n: fake\n%%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl></li></ul><p><code>\ncode\ntail</code></p>",
+    "codePayloads": []
+  },
+  {
+    "id": "comment-history-0-2-6",
+    "source": "- :: term\n  %% note\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-2-7",
+    "source": "- :: term\n  %%%\n  note\n  %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-2-8",
+    "source": "- :: term\n  %%%\n  :: fake\n  : fake\n  %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-3-9",
+    "source": "- :: term\n   %% note\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-3-10",
+    "source": "- :: term\n   %%%\n   note\n   %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-3-11",
+    "source": "- :: term\n   %%%\n   :: fake\n   : fake\n   %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-4-12",
+    "source": "- :: term\n    %% note\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-4-13",
+    "source": "- :: term\n    %%%\n    note\n    %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-4-14",
+    "source": "- :: term\n    %%%\n    :: fake\n    : fake\n    %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-5-15",
+    "source": "- :: term\n     %% note\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-5-16",
+    "source": "- :: term\n     %%%\n     note\n     %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-5-17",
+    "source": "- :: term\n     %%%\n     :: fake\n     : fake\n     %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-8-18",
+    "source": "- :: term\n        %% note\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-8-19",
+    "source": "- :: term\n        %%%\n        note\n        %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-0-8-20",
+    "source": "- :: term\n        %%%\n        :: fake\n        : fake\n        %%%\n  ```\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-0-37",
+    "source": "> - :: term\n> %% note\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "code\ntail\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-0-38",
+    "source": "> - :: term\n> %%%\n> note\n> %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl></li></ul><p><code>\ncode\ntail</code></p></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "comment-history-1-0-39",
+    "source": "> - :: term\n> %%%\n> :: fake\n> : fake\n> %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl></li></ul><p><code>\ncode\ntail</code></p></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "comment-history-1-2-43",
+    "source": "> - :: term\n>   %% note\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-2-44",
+    "source": "> - :: term\n>   %%%\n>   note\n>   %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-2-45",
+    "source": "> - :: term\n>   %%%\n>   :: fake\n>   : fake\n>   %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-3-46",
+    "source": "> - :: term\n>    %% note\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-3-47",
+    "source": "> - :: term\n>    %%%\n>    note\n>    %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-3-48",
+    "source": "> - :: term\n>    %%%\n>    :: fake\n>    : fake\n>    %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-4-49",
+    "source": "> - :: term\n>     %% note\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-4-50",
+    "source": "> - :: term\n>     %%%\n>     note\n>     %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-4-51",
+    "source": "> - :: term\n>     %%%\n>     :: fake\n>     : fake\n>     %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-5-52",
+    "source": "> - :: term\n>      %% note\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-5-53",
+    "source": "> - :: term\n>      %%%\n>      note\n>      %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-5-54",
+    "source": "> - :: term\n>      %%%\n>      :: fake\n>      : fake\n>      %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-8-55",
+    "source": "> - :: term\n>         %% note\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-8-56",
+    "source": "> - :: term\n>         %%%\n>         note\n>         %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-1-8-57",
+    "source": "> - :: term\n>         %%%\n>         :: fake\n>         : fake\n>         %%%\n>   ```\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-0-74",
+    "source": "> > - :: term\n> > %% note\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "code\ntail\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-0-75",
+    "source": "> > - :: term\n> > %%%\n> > note\n> > %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl></li></ul><p><code>\ncode\ntail</code></p></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "comment-history-2-0-76",
+    "source": "> > - :: term\n> > %%%\n> > :: fake\n> > : fake\n> > %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl></li></ul><p><code>\ncode\ntail</code></p></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "comment-history-2-2-80",
+    "source": "> > - :: term\n> >   %% note\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-2-81",
+    "source": "> > - :: term\n> >   %%%\n> >   note\n> >   %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-2-82",
+    "source": "> > - :: term\n> >   %%%\n> >   :: fake\n> >   : fake\n> >   %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-3-83",
+    "source": "> > - :: term\n> >    %% note\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-3-84",
+    "source": "> > - :: term\n> >    %%%\n> >    note\n> >    %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-3-85",
+    "source": "> > - :: term\n> >    %%%\n> >    :: fake\n> >    : fake\n> >    %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-4-86",
+    "source": "> > - :: term\n> >     %% note\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-4-87",
+    "source": "> > - :: term\n> >     %%%\n> >     note\n> >     %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-4-88",
+    "source": "> > - :: term\n> >     %%%\n> >     :: fake\n> >     : fake\n> >     %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-5-89",
+    "source": "> > - :: term\n> >      %% note\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-5-90",
+    "source": "> > - :: term\n> >      %%%\n> >      note\n> >      %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-5-91",
+    "source": "> > - :: term\n> >      %%%\n> >      :: fake\n> >      : fake\n> >      %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-8-92",
+    "source": "> > - :: term\n> >         %% note\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-8-93",
+    "source": "> > - :: term\n> >         %%%\n> >         note\n> >         %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "comment-history-2-8-94",
+    "source": "> > - :: term\n> >         %%%\n> >         :: fake\n> >         : fake\n> >         %%%\n> >   ```\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n</dt></dl><pre><code>code\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "code\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-0",
+    "source": "- :: term\n  ```\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-1",
+    "source": "- :: term\n  ```\n  %%%\n  :: fake\n  %%%\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-2",
+    "source": "- :: term\n  ```\n  :: other\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-3",
+    "source": "- :: term\n  ```\n  {.k\n  #x}\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-4",
+    "source": "- :: term\n  ```\n  %% literal\n  code\n  ```\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-5",
+    "source": "- :: term\n  ```\n  %%%\n  :: fake\n  %%%\n  code\n  ```\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-6",
+    "source": "- :: term\n  ```\n  :: other\n  %% literal\n  code\n  ```\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-7",
+    "source": "- :: term\n  ```\n  {.k\n  #x}\n  %% literal\n  code\n  ```\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-8",
+    "source": "- :: term\n  ~~~\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-9",
+    "source": "- :: term\n  ~~~\n  %%%\n  :: fake\n  %%%\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-10",
+    "source": "- :: term\n  ~~~\n  :: other\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-11",
+    "source": "- :: term\n  ~~~\n  {.k\n  #x}\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-12",
+    "source": "- :: term\n  ~~~\n  %% literal\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-13",
+    "source": "- :: term\n  ~~~\n  %%%\n  :: fake\n  %%%\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-14",
+    "source": "- :: term\n  ~~~\n  :: other\n  %% literal\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-15",
+    "source": "- :: term\n  ~~~\n  {.k\n  #x}\n  %% literal\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-16",
+    "source": "- :: term\n  ~~~ raw\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-17",
+    "source": "- :: term\n  ~~~ raw\n  %%%\n  :: fake\n  %%%\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-18",
+    "source": "- :: term\n  ~~~ raw\n  :: other\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-19",
+    "source": "- :: term\n  ~~~ raw\n  {.k\n  #x}\n  %% literal\n  code\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-20",
+    "source": "- :: term\n  ~~~ raw\n  %% literal\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-21",
+    "source": "- :: term\n  ~~~ raw\n  %%%\n  :: fake\n  %%%\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-22",
+    "source": "- :: term\n  ~~~ raw\n  :: other\n  %% literal\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-23",
+    "source": "- :: term\n  ~~~ raw\n  {.k\n  #x}\n  %% literal\n  code\n  ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-24",
+    "source": "- :: term\n    ```\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code></code>\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-25",
+    "source": "- :: term\n    ```\n    %%%\n    :: fake\n    %%%\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code></code>\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-26",
+    "source": "- :: term\n    ```\n    :: other\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code>\n  :: other</code>\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-27",
+    "source": "- :: term\n    ```\n    {.k\n    #x}\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code>\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-28",
+    "source": "- :: term\n    ```\n    %% literal\n    code\n    ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code></code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-29",
+    "source": "- :: term\n    ```\n    %%%\n    :: fake\n    %%%\n    code\n    ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code></code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-30",
+    "source": "- :: term\n    ```\n    :: other\n    %% literal\n    code\n    ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code>\n  :: other</code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-31",
+    "source": "- :: term\n    ```\n    {.k\n    #x}\n    %% literal\n    code\n    ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-32",
+    "source": "- :: term\n    ~~~\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-33",
+    "source": "- :: term\n    ~~~\n    %%%\n    :: fake\n    %%%\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-34",
+    "source": "- :: term\n    ~~~\n    :: other\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n  :: other\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-35",
+    "source": "- :: term\n    ~~~\n    {.k\n    #x}\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-36",
+    "source": "- :: term\n    ~~~\n    %% literal\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-37",
+    "source": "- :: term\n    ~~~\n    %%%\n    :: fake\n    %%%\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-38",
+    "source": "- :: term\n    ~~~\n    :: other\n    %% literal\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n  :: other\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-39",
+    "source": "- :: term\n    ~~~\n    {.k\n    #x}\n    %% literal\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-40",
+    "source": "- :: term\n    ~~~ raw\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-41",
+    "source": "- :: term\n    ~~~ raw\n    %%%\n    :: fake\n    %%%\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-42",
+    "source": "- :: term\n    ~~~ raw\n    :: other\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n  :: other\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-43",
+    "source": "- :: term\n    ~~~ raw\n    {.k\n    #x}\n    %% literal\n    code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-44",
+    "source": "- :: term\n    ~~~ raw\n    %% literal\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-45",
+    "source": "- :: term\n    ~~~ raw\n    %%%\n    :: fake\n    %%%\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-46",
+    "source": "- :: term\n    ~~~ raw\n    :: other\n    %% literal\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n  :: other\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-47",
+    "source": "- :: term\n    ~~~ raw\n    {.k\n    #x}\n    %% literal\n    code\n    ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\n  ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-48",
+    "source": "- :: term\n      ```\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code></code>\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-49",
+    "source": "- :: term\n      ```\n      %%%\n      :: fake\n      %%%\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code></code>\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-50",
+    "source": "- :: term\n      ```\n      :: other\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code>\n    :: other</code>\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-51",
+    "source": "- :: term\n      ```\n      {.k\n      #x}\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code>\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-52",
+    "source": "- :: term\n      ```\n      %% literal\n      code\n      ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code></code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-53",
+    "source": "- :: term\n      ```\n      %%%\n      :: fake\n      %%%\n      code\n      ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code></code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-54",
+    "source": "- :: term\n      ```\n      :: other\n      %% literal\n      code\n      ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code>\n    :: other</code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-55",
+    "source": "- :: term\n      ```\n      {.k\n      #x}\n      %% literal\n      code\n      ```\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-56",
+    "source": "- :: term\n      ~~~\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-57",
+    "source": "- :: term\n      ~~~\n      %%%\n      :: fake\n      %%%\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-58",
+    "source": "- :: term\n      ~~~\n      :: other\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n    :: other\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-59",
+    "source": "- :: term\n      ~~~\n      {.k\n      #x}\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-60",
+    "source": "- :: term\n      ~~~\n      %% literal\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-61",
+    "source": "- :: term\n      ~~~\n      %%%\n      :: fake\n      %%%\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-62",
+    "source": "- :: term\n      ~~~\n      :: other\n      %% literal\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n    :: other\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-63",
+    "source": "- :: term\n      ~~~\n      {.k\n      #x}\n      %% literal\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-64",
+    "source": "- :: term\n      ~~~ raw\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-65",
+    "source": "- :: term\n      ~~~ raw\n      %%%\n      :: fake\n      %%%\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-66",
+    "source": "- :: term\n      ~~~ raw\n      :: other\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n    :: other\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-67",
+    "source": "- :: term\n      ~~~ raw\n      {.k\n      #x}\n      %% literal\n      code\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-68",
+    "source": "- :: term\n      ~~~ raw\n      %% literal\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-69",
+    "source": "- :: term\n      ~~~ raw\n      %%%\n      :: fake\n      %%%\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-70",
+    "source": "- :: term\n      ~~~ raw\n      :: other\n      %% literal\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n    :: other\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-71",
+    "source": "- :: term\n      ~~~ raw\n      {.k\n      #x}\n      %% literal\n      code\n      ~~~\ntail\n",
+    "html": "<ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\n    ~~~\ntail</dt></dl></li></ul>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-72",
+    "source": "> - :: term\n>   ```\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-73",
+    "source": "> - :: term\n>   ```\n>   %%%\n>   :: fake\n>   %%%\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-74",
+    "source": "> - :: term\n>   ```\n>   :: other\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-75",
+    "source": "> - :: term\n>   ```\n>   {.k\n>   #x}\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-76",
+    "source": "> - :: term\n>   ```\n>   %% literal\n>   code\n>   ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-77",
+    "source": "> - :: term\n>   ```\n>   %%%\n>   :: fake\n>   %%%\n>   code\n>   ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-78",
+    "source": "> - :: term\n>   ```\n>   :: other\n>   %% literal\n>   code\n>   ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-79",
+    "source": "> - :: term\n>   ```\n>   {.k\n>   #x}\n>   %% literal\n>   code\n>   ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-80",
+    "source": "> - :: term\n>   ~~~\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-81",
+    "source": "> - :: term\n>   ~~~\n>   %%%\n>   :: fake\n>   %%%\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-82",
+    "source": "> - :: term\n>   ~~~\n>   :: other\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-83",
+    "source": "> - :: term\n>   ~~~\n>   {.k\n>   #x}\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-84",
+    "source": "> - :: term\n>   ~~~\n>   %% literal\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-85",
+    "source": "> - :: term\n>   ~~~\n>   %%%\n>   :: fake\n>   %%%\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-86",
+    "source": "> - :: term\n>   ~~~\n>   :: other\n>   %% literal\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-87",
+    "source": "> - :: term\n>   ~~~\n>   {.k\n>   #x}\n>   %% literal\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-88",
+    "source": "> - :: term\n>   ~~~ raw\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-89",
+    "source": "> - :: term\n>   ~~~ raw\n>   %%%\n>   :: fake\n>   %%%\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-90",
+    "source": "> - :: term\n>   ~~~ raw\n>   :: other\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-91",
+    "source": "> - :: term\n>   ~~~ raw\n>   {.k\n>   #x}\n>   %% literal\n>   code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-92",
+    "source": "> - :: term\n>   ~~~ raw\n>   %% literal\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-93",
+    "source": "> - :: term\n>   ~~~ raw\n>   %%%\n>   :: fake\n>   %%%\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-94",
+    "source": "> - :: term\n>   ~~~ raw\n>   :: other\n>   %% literal\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-95",
+    "source": "> - :: term\n>   ~~~ raw\n>   {.k\n>   #x}\n>   %% literal\n>   code\n>   ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-96",
+    "source": "> - :: term\n>     ```\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-97",
+    "source": "> - :: term\n>     ```\n>     %%%\n>     :: fake\n>     %%%\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-98",
+    "source": "> - :: term\n>     ```\n>     :: other\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code>\n  :: other</code>\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-99",
+    "source": "> - :: term\n>     ```\n>     {.k\n>     #x}\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code>\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-100",
+    "source": "> - :: term\n>     ```\n>     %% literal\n>     code\n>     ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-101",
+    "source": "> - :: term\n>     ```\n>     %%%\n>     :: fake\n>     %%%\n>     code\n>     ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-102",
+    "source": "> - :: term\n>     ```\n>     :: other\n>     %% literal\n>     code\n>     ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code>\n  :: other</code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-103",
+    "source": "> - :: term\n>     ```\n>     {.k\n>     #x}\n>     %% literal\n>     code\n>     ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-104",
+    "source": "> - :: term\n>     ~~~\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-105",
+    "source": "> - :: term\n>     ~~~\n>     %%%\n>     :: fake\n>     %%%\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-106",
+    "source": "> - :: term\n>     ~~~\n>     :: other\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n  :: other\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-107",
+    "source": "> - :: term\n>     ~~~\n>     {.k\n>     #x}\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-108",
+    "source": "> - :: term\n>     ~~~\n>     %% literal\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-109",
+    "source": "> - :: term\n>     ~~~\n>     %%%\n>     :: fake\n>     %%%\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-110",
+    "source": "> - :: term\n>     ~~~\n>     :: other\n>     %% literal\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n  :: other\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-111",
+    "source": "> - :: term\n>     ~~~\n>     {.k\n>     #x}\n>     %% literal\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-112",
+    "source": "> - :: term\n>     ~~~ raw\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-113",
+    "source": "> - :: term\n>     ~~~ raw\n>     %%%\n>     :: fake\n>     %%%\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-114",
+    "source": "> - :: term\n>     ~~~ raw\n>     :: other\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  :: other\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-115",
+    "source": "> - :: term\n>     ~~~ raw\n>     {.k\n>     #x}\n>     %% literal\n>     code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-116",
+    "source": "> - :: term\n>     ~~~ raw\n>     %% literal\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-117",
+    "source": "> - :: term\n>     ~~~ raw\n>     %%%\n>     :: fake\n>     %%%\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-118",
+    "source": "> - :: term\n>     ~~~ raw\n>     :: other\n>     %% literal\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  :: other\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-119",
+    "source": "> - :: term\n>     ~~~ raw\n>     {.k\n>     #x}\n>     %% literal\n>     code\n>     ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-120",
+    "source": "> - :: term\n>       ```\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-121",
+    "source": "> - :: term\n>       ```\n>       %%%\n>       :: fake\n>       %%%\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-122",
+    "source": "> - :: term\n>       ```\n>       :: other\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code>\n    :: other</code>\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-123",
+    "source": "> - :: term\n>       ```\n>       {.k\n>       #x}\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code>\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-124",
+    "source": "> - :: term\n>       ```\n>       %% literal\n>       code\n>       ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-125",
+    "source": "> - :: term\n>       ```\n>       %%%\n>       :: fake\n>       %%%\n>       code\n>       ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-126",
+    "source": "> - :: term\n>       ```\n>       :: other\n>       %% literal\n>       code\n>       ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code>\n    :: other</code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-127",
+    "source": "> - :: term\n>       ```\n>       {.k\n>       #x}\n>       %% literal\n>       code\n>       ```\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-128",
+    "source": "> - :: term\n>       ~~~\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-129",
+    "source": "> - :: term\n>       ~~~\n>       %%%\n>       :: fake\n>       %%%\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-130",
+    "source": "> - :: term\n>       ~~~\n>       :: other\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n    :: other\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-131",
+    "source": "> - :: term\n>       ~~~\n>       {.k\n>       #x}\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-132",
+    "source": "> - :: term\n>       ~~~\n>       %% literal\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-133",
+    "source": "> - :: term\n>       ~~~\n>       %%%\n>       :: fake\n>       %%%\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-134",
+    "source": "> - :: term\n>       ~~~\n>       :: other\n>       %% literal\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n    :: other\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-135",
+    "source": "> - :: term\n>       ~~~\n>       {.k\n>       #x}\n>       %% literal\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-136",
+    "source": "> - :: term\n>       ~~~ raw\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-137",
+    "source": "> - :: term\n>       ~~~ raw\n>       %%%\n>       :: fake\n>       %%%\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-138",
+    "source": "> - :: term\n>       ~~~ raw\n>       :: other\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    :: other\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-139",
+    "source": "> - :: term\n>       ~~~ raw\n>       {.k\n>       #x}\n>       %% literal\n>       code\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-140",
+    "source": "> - :: term\n>       ~~~ raw\n>       %% literal\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-141",
+    "source": "> - :: term\n>       ~~~ raw\n>       %%%\n>       :: fake\n>       %%%\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-142",
+    "source": "> - :: term\n>       ~~~ raw\n>       :: other\n>       %% literal\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    :: other\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-143",
+    "source": "> - :: term\n>       ~~~ raw\n>       {.k\n>       #x}\n>       %% literal\n>       code\n>       ~~~\n> tail\n",
+    "html": "<blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-144",
+    "source": "> > - :: term\n> >   ```\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-145",
+    "source": "> > - :: term\n> >   ```\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-146",
+    "source": "> > - :: term\n> >   ```\n> >   :: other\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-147",
+    "source": "> > - :: term\n> >   ```\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-148",
+    "source": "> > - :: term\n> >   ```\n> >   %% literal\n> >   code\n> >   ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-149",
+    "source": "> > - :: term\n> >   ```\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> >   ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-150",
+    "source": "> > - :: term\n> >   ```\n> >   :: other\n> >   %% literal\n> >   code\n> >   ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-151",
+    "source": "> > - :: term\n> >   ```\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> >   ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-152",
+    "source": "> > - :: term\n> >   ~~~\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-153",
+    "source": "> > - :: term\n> >   ~~~\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-154",
+    "source": "> > - :: term\n> >   ~~~\n> >   :: other\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-155",
+    "source": "> > - :: term\n> >   ~~~\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-156",
+    "source": "> > - :: term\n> >   ~~~\n> >   %% literal\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-157",
+    "source": "> > - :: term\n> >   ~~~\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-158",
+    "source": "> > - :: term\n> >   ~~~\n> >   :: other\n> >   %% literal\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-159",
+    "source": "> > - :: term\n> >   ~~~\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code>{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-160",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-161",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-162",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   :: other\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-163",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\ntail\n</code></pre></li></ul></blockquote></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\ntail\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-164",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   %% literal\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-165",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   %%%\n> >   :: fake\n> >   %%%\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">%%%\n:: fake\n%%%\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "%%%\n:: fake\n%%%\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-166",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   :: other\n> >   %% literal\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">:: other\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      ":: other\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-167",
+    "source": "> > - :: term\n> >   ~~~ raw\n> >   {.k\n> >   #x}\n> >   %% literal\n> >   code\n> >   ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt></dl><pre><code class=\"language-raw\">{.k\n#x}\n%% literal\ncode\n</code></pre></li></ul><p>tail</p></blockquote></blockquote>",
+    "codePayloads": [
+      "{.k\n#x}\n%% literal\ncode\n"
+    ]
+  },
+  {
+    "id": "opaque-comment-168",
+    "source": "> > - :: term\n> >     ```\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-169",
+    "source": "> > - :: term\n> >     ```\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-170",
+    "source": "> > - :: term\n> >     ```\n> >     :: other\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code>\n  :: other</code>\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-171",
+    "source": "> > - :: term\n> >     ```\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code>\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-172",
+    "source": "> > - :: term\n> >     ```\n> >     %% literal\n> >     code\n> >     ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-173",
+    "source": "> > - :: term\n> >     ```\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> >     ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code></code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-174",
+    "source": "> > - :: term\n> >     ```\n> >     :: other\n> >     %% literal\n> >     code\n> >     ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code>\n  :: other</code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-175",
+    "source": "> > - :: term\n> >     ```\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> >     ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  <code>\n  {.k\n  #x}</code>\n\n  code\n  <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-176",
+    "source": "> > - :: term\n> >     ~~~\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-177",
+    "source": "> > - :: term\n> >     ~~~\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-178",
+    "source": "> > - :: term\n> >     ~~~\n> >     :: other\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n  :: other\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-179",
+    "source": "> > - :: term\n> >     ~~~\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-180",
+    "source": "> > - :: term\n> >     ~~~\n> >     %% literal\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-181",
+    "source": "> > - :: term\n> >     ~~~\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-182",
+    "source": "> > - :: term\n> >     ~~~\n> >     :: other\n> >     %% literal\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n  :: other\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-183",
+    "source": "> > - :: term\n> >     ~~~\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-184",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-185",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-186",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     :: other\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  :: other\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-187",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-188",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     %% literal\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-189",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     %%%\n> >     :: fake\n> >     %%%\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-190",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     :: other\n> >     %% literal\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  :: other\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-191",
+    "source": "> > - :: term\n> >     ~~~ raw\n> >     {.k\n> >     #x}\n> >     %% literal\n> >     code\n> >     ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n  ~~~ raw\n  {.k\n  <span class=\"tag\"><strong>#x</strong></span>}\n\n  code\n  ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-192",
+    "source": "> > - :: term\n> >       ```\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-193",
+    "source": "> > - :: term\n> >       ```\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-194",
+    "source": "> > - :: term\n> >       ```\n> >       :: other\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code>\n    :: other</code>\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-195",
+    "source": "> > - :: term\n> >       ```\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code>\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-196",
+    "source": "> > - :: term\n> >       ```\n> >       %% literal\n> >       code\n> >       ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-197",
+    "source": "> > - :: term\n> >       ```\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> >       ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code></code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-198",
+    "source": "> > - :: term\n> >       ```\n> >       :: other\n> >       %% literal\n> >       code\n> >       ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code>\n    :: other</code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-199",
+    "source": "> > - :: term\n> >       ```\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> >       ```\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    <code>\n    {.k\n    #x}</code>\n\n    code\n    <code>\ntail</code></dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-200",
+    "source": "> > - :: term\n> >       ~~~\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-201",
+    "source": "> > - :: term\n> >       ~~~\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-202",
+    "source": "> > - :: term\n> >       ~~~\n> >       :: other\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n    :: other\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-203",
+    "source": "> > - :: term\n> >       ~~~\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-204",
+    "source": "> > - :: term\n> >       ~~~\n> >       %% literal\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-205",
+    "source": "> > - :: term\n> >       ~~~\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-206",
+    "source": "> > - :: term\n> >       ~~~\n> >       :: other\n> >       %% literal\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n    :: other\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-207",
+    "source": "> > - :: term\n> >       ~~~\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-208",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-209",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-210",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       :: other\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    :: other\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-211",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-212",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       %% literal\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-213",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       %%%\n> >       :: fake\n> >       %%%\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-214",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       :: other\n> >       %% literal\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    :: other\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
+  },
+  {
+    "id": "opaque-comment-215",
+    "source": "> > - :: term\n> >       ~~~ raw\n> >       {.k\n> >       #x}\n> >       %% literal\n> >       code\n> >       ~~~\n> > tail\n",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term\n    ~~~ raw\n    {.k\n    <span class=\"tag\"><strong>#x</strong></span>}\n\n    code\n    ~~~\ntail</dt></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   }
 ]
