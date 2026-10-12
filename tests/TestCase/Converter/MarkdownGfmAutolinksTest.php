@@ -10,6 +10,7 @@ use DOMNode;
 use DOMText;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
+use MarkupCarve\Carve\Node\Inline\Math;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -71,7 +72,7 @@ final class MarkdownGfmAutolinksTest extends TestCase
             $written = (new MarkdownToCarve(convertMath: true))->convert($delimiter . '[a*b*][x](/u)' . $delimiter);
             $document = (new CarveConverter())->parse($written);
             $math = $document->getChildren()[0]->getChildren()[0];
-            self::assertInstanceOf(\MarkupCarve\Carve\Node\Inline\Math::class, $math);
+            self::assertInstanceOf(Math::class, $math);
             self::assertSame('[a*b*][x](/u)', $math->getContent());
         }
     }

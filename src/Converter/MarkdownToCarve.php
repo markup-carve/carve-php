@@ -5020,7 +5020,7 @@ class MarkdownToCarve
             } else {
                 $label = preg_replace('/([!-\/:-@\[-`{-~])/', '\\\\$1', $body) ?? $body;
                 $url = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $part): string => rawurlencode($part[0]), $body) ?? $body;
-                $url = str_replace(['&', '(', ')'], ['\\&', '\\(', '\\)'], $url);
+                $url = str_replace(['&', '(', ')'], ['&amp;', '\\(', '\\)'], $url);
                 $out .= '[' . $label . '](' . $url . ')' . substr($match[0], strlen($body));
             }
             $at += strlen($match[0]);
@@ -5954,7 +5954,7 @@ class MarkdownToCarve
                     return null;
                 }
                 $quote = $title[1][0] === '(' ? '"' : $title[1][0];
-                $decoded = $this->decodeMarkdownScalar($this->referenceSourceText(substr($title[1], 1, -1), $protected));
+                $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
                 $escaped = QuotedSlotEscaper::escape($decoded, $quote);
                 if ($table) {
                     $escaped = str_replace('`', '\\`', $escaped);
@@ -6814,7 +6814,7 @@ class MarkdownToCarve
                 $rest = ' ' . $quote . $escaped . $quote;
             }
 
-            return '(' . $this->writeMarkdownDestination($url) . $rest . ')';
+            return '(' . $this->writeMarkdownDestination($url, originalSource: true) . $rest . ')';
         };
 
         $protectDestination = function (string $alt, string $paren, ?string $source = null) use ($encodeDest, $protect): string {
@@ -6870,7 +6870,7 @@ class MarkdownToCarve
         $chainCursor = 0;
         $line = preg_replace_callback(
             '/(?<![\\\\\]])\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]/u',
-            function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectDestination): string {
+            function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectedSources, $protectDestination): string {
                 $offset = $match[0][1];
                 while ($chainCursor < $offset) {
                     if ($chainSubject[$chainCursor] === '<') {
@@ -6898,8 +6898,8 @@ class MarkdownToCarve
                     return $match[0][0];
                 }
                 [$first, $second, $third] = [$match[1][0], $match[2][0], $match[3][0]];
-                $middleTarget = $this->complexReferenceTarget($second, $protected);
-                $lastTarget = $this->complexReferenceTarget($third, $protected);
+                $middleTarget = $this->complexReferenceTarget($second, $protectedSources);
+                $lastTarget = $this->complexReferenceTarget($third, $protectedSources);
                 $middle = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($second)] ?? null;
                 $last = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($third)] ?? null;
                 $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')') : ($middle !== null ? $protect('[' . $middle . ']') : null);
@@ -7004,41 +7004,58 @@ class MarkdownToCarve
                 $line,
             ) ?? $line;
         }
-        $inlineChainMath = [];
-        if ($this->convertMath && str_contains($line, '$')) {
-            preg_match_all('/\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d)/', $line, $mathRanges, PREG_OFFSET_CAPTURE);
-            foreach ($mathRanges[0] as [$body, $start]) {
-                $inlineChainMath[] = [$start, $start + strlen($body)];
+        $literalReferenceOpeners = [];
+        if (str_contains($line, '][')) {
+            $inlineChainMath = [];
+            if ($this->convertMath && str_contains($line, '$')) {
+                preg_match_all('/\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d)/', $line, $mathRanges, PREG_OFFSET_CAPTURE);
+                foreach ($mathRanges[0] as [$body, $start]) {
+                    $inlineChainMath[] = [$start, $start + strlen($body)];
+                }
             }
-        }
-        $inlineChainUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
-        $line = preg_replace_callback(
-            '/(?<!\\\\)\[([^\[\]\n^]+)\]\[([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
-            function (array $match) use ($inlineChainUrls, $inlineChainMath, $protected, $protectedSources, $protect): string {
-                $offset = $match[0][1];
-                foreach ($inlineChainMath as [$start, $end]) {
-                    if ($offset >= $start && $offset < $end) {
+            $resolvedReferenceTailOpeners = [];
+            $referenceScopes = $this->markdownLinkScopes($line, $protected, scopeOnly: true)['active'];
+            for ($at = 1, $count = count($referenceScopes); $at < $count; $at += 2) {
+                $tailAt = $referenceScopes[$at] + 1;
+                if (($line[$tailAt] ?? '') === '[') {
+                    $resolvedReferenceTailOpeners[$tailAt] = true;
+                }
+            }
+            $inlineChainUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
+            $line = preg_replace_callback(
+                '/(?<!\\\\)\[((?!\^)[^\[\]\n]+)\]\[([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
+                function (array $match) use ($inlineChainUrls, $inlineChainMath, $resolvedReferenceTailOpeners, $protected, $protectedSources, $protect, &$literalReferenceOpeners): string {
+                    $offset = $match[0][1];
+                    if (isset($resolvedReferenceTailOpeners[$offset])) {
                         return $match[0][0];
                     }
-                }
-                foreach ($inlineChainUrls as $url) {
-                    if ($offset >= $url['start'] && $offset < $url['end']) {
+                    foreach ($inlineChainMath as [$start, $end]) {
+                        if ($offset >= $start && $offset < $end) {
+                            return $match[0][0];
+                        }
+                    }
+                    foreach ($inlineChainUrls as $url) {
+                        if ($offset >= $url['start'] && $offset < $url['end']) {
+                            return $match[0][0];
+                        }
+                    }
+                    $tail = $protected[(int)$match[3][0]] ?? '';
+                    $label = $match[2][0];
+                    $defined = isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
+                        || $this->complexReferenceTarget($label, $protectedSources) !== null;
+                    if (!str_starts_with($tail, '(') || $defined) {
                         return $match[0][0];
                     }
-                }
-                $tail = $protected[(int)$match[3][0]] ?? '';
-                $label = $match[2][0];
-                $defined = isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
-                    || $this->complexReferenceTarget($label, $protectedSources) !== null;
-                if (!str_starts_with($tail, '(') || $defined) {
-                    return $match[0][0];
-                }
 
-                return $protect('\\[', '[') . $match[1][0] . $protect('\\]', ']') . '[' . $label . ']';
-            },
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
+                    $opener = $protect('\\[', '[');
+                    $literalReferenceOpeners[$opener] = true;
+
+                    return $opener . $match[1][0] . $protect('\\]', ']') . '[' . $label . ']';
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
         $linkClosers = [];
         $openLabels = [];
         for ($at = 0, $length = strlen($line); $at < $length; $at++) {
@@ -7062,7 +7079,6 @@ class MarkdownToCarve
             }
         }
         $referenceClosers = [];
-        $literalReferenceOpeners = [];
         $subject = $line;
         $line = preg_replace_callback(
             '/(?<=\])\[([^\]]*)\]/',
@@ -8135,6 +8151,9 @@ class MarkdownToCarve
                     if (str_starts_with($definition[1], '^')) {
                         $this->markdownFootnoteLabels[] = substr($definition[1], 1);
                     }
+                    if (!$repeated && !str_starts_with($definition[1], '^') && strpbrk($definition[1], '|<&') !== false) {
+                        $this->complexReferenceTargets[$rawKey] = $target;
+                    }
                     $marker = substr($prefix, strlen($quotePrefix));
                     // A footnote is not a reference definition, so it stays put. So
                     // does one on a nested item's marker line, where fmt writes it,
@@ -8162,7 +8181,7 @@ class MarkdownToCarve
                         $i++;
                     }
                     // The first definition of a label wins, so a later one says nothing.
-                    if (!$repeated && (strpbrk($definition[1], "|<&\\") !== false)) {
+                    if (!$repeated && (strpbrk($definition[1], '|<&') !== false)) {
                         $this->complexReferenceTargets[$rawKey] = $target;
                     }
                     if (!$repeated) {
@@ -8708,10 +8727,13 @@ class MarkdownToCarve
     /**
      * @param string $url
      * @param array<string> $protected
+     * @param bool $originalSource
      */
-    protected function writeMarkdownDestination(string $url, array $protected = []): string
+    protected function writeMarkdownDestination(string $url, array $protected = [], bool $originalSource = false): string
     {
-        $decoded = $this->decodeMarkdownScalar($this->referenceSourceText($url, $protected));
+        $decoded = $originalSource
+            ? $this->decodeMarkdownScalar($this->referenceSourceText($url, $protected))
+            : $this->decodeLinkTitle($url, $protected);
 
         $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
 

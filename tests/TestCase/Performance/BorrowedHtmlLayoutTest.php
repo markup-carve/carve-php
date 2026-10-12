@@ -37,7 +37,7 @@ CRV;
     public function testEscapedReferenceScalarsMatchTheAuthoritativeParser(): void
     {
         foreach (['/a\\(b\\)', '/a\\(b', '/a\\)b', '/a\\\\b'] as $destination) {
-            $source = "[a][r]\n\n[r]: " . $destination . " \"title\"";
+            $source = "[a][r]\n\n[r]: " . $destination . ' "title"';
             $converter = new CarveConverter();
             $expected = $converter->render($converter->parse($source));
             $attempt = (new BorrowedHtmlLayout())->render($source);
