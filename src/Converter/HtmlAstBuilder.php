@@ -2000,8 +2000,8 @@ final class HtmlAstBuilder
             $panel = $elements[$index++];
             if (
                 strtolower(HtmlDomLoader::elementName($panel)) !== ($static ? 'section' : 'div') || (!$marked && !$this->hasClass($panel, $kind . '-panel'))
-                || (!$marked && !$static && (!$panel->hasAttribute('data-carve-group-generated') || in_array('role', explode(' ', $panel->getAttribute('data-carve-group-generated')), true)) && $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group'))
-                || (!$marked && !$static && ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : (!$panel->hasAttribute('data-carve-group-generated') && $panel->getAttribute('aria-label') !== $entry['label']->textContent)))
+                || (!$marked && (!$panel->hasAttribute('data-carve-group-generated') || in_array('role', explode(' ', $panel->getAttribute('data-carve-group-generated')), true)) && $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group'))
+                || (!$marked && ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : (!$panel->hasAttribute('data-carve-group-generated') && $panel->getAttribute('aria-label') !== $entry['label']->textContent)))
             ) {
                 return null;
             }
