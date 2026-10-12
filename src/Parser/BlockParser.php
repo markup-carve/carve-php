@@ -4677,6 +4677,8 @@ class BlockParser
         $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
             || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
             || $this->usesLegacyTrailingHook('nestedLeadParagraphOpenBelowAClosedFence');
+        $openCommentLength = null;
+        $openCommentColumn = 0;
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -4704,6 +4706,21 @@ class BlockParser
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             if ($nextIndent < $contentIndent || $isBlockQuoteLazyLine) {
                 $nextTrimmed = ltrim($nextLine, " \t");
+                // A comment span's closing run is free of the column; a payload
+                // line that misses the item's prefix ends the item before the
+                // span is classified (`CARVE-P0-005`).
+                if ($openCommentLength !== null) {
+                    if (!$this->fencedBlockParser->isFencedCommentCloserAnyColumn($nextTrimmed, $openCommentLength)) {
+                        break;
+                    }
+                    $openCommentLength = null;
+                    $itemLines[] = $this->keptCommentDelimiter($nextLine);
+                    $itemLineMap[] = $this->sourceLineFor($i);
+                    $trailingState->openParagraph = false;
+                    $i++;
+
+                    continue;
+                }
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
@@ -4728,7 +4745,7 @@ class BlockParser
                 if (
                     ((!$trailingState->openParagraph || $closedNestedFence)
                         && !$nestedLeadParagraphOpen
-                        && !($trailingState->afterComment && $trailingState->nestedColumn > 0 && $nextIndent > $baseIndent))
+                        && !($trailingState->afterComment && ($trailingState->nestedColumn > 0 || $trailingState->hasOpenDiv()) && $nextIndent > $baseIndent))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
                 ) {
@@ -4835,7 +4852,26 @@ class BlockParser
             // AT OR PAST the content column, the same reading the plain-lead
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
-            if (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
+            $inCommentSpan = $openCommentLength !== null;
+            if ($inCommentSpan || $trailingState->fence === null) {
+                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $stripped, $lines, $i);
+                if (!$inCommentSpan) {
+                    if ($openCommentLength !== null) {
+                        $openCommentColumn = IndentationHelper::getLeadingColumns($stripped);
+                    }
+                } elseif (
+                    $openCommentLength !== null
+                    && IndentationHelper::getLeadingColumns($stripped, $openCommentColumn + 1) < $openCommentColumn
+                ) {
+                    // Payload below the opener's own column: no span formed.
+                    $openCommentLength = null;
+                    $inCommentSpan = false;
+                }
+            }
+            if ($inCommentSpan && !$trailingState->hasLiteralDiv()) {
+                // Opaque payload, or the closer that travels with its opener.
+                $trailingState->openParagraph = false;
+            } elseif (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
                 $trailingState = $this->advanceTrailingState($trailingState, 'x', true);
             } else {
                 $trailingState = $trailingState->hasLiteralDiv()

@@ -130,6 +130,10 @@ final class ListBlockBuilder
         if ($listInfo === null) {
             return null;
         }
+        // A quote's lazy line supplies no prefix, so it opens no list.
+        if (isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($start)])) {
+            return null;
+        }
 
         // Disambiguate roman vs alphabetical for single-letter markers
         // by looking at subsequent items
@@ -546,7 +550,11 @@ final class ListBlockBuilder
                             }
                             if (
                                 !$subTrailingState->openParagraph
-                                && (!$subTrailingState->inDiv || $subTrailingState->hasLiteralDiv())
+                                && (
+                                    !$subTrailingState->inDiv
+                                    || $subTrailingState->hasLiteralDiv()
+                                    || ($subTrailingState->fence === null && $subTrailingState->divColumn === 0)
+                                )
                             ) {
                                 break;
                             }
@@ -770,6 +778,9 @@ final class ListBlockBuilder
 
                 // Check if this is a list item of the same type, marker, and style
                 if ($itemInfo === null || !($this->getListParser)()->itemMatchesList($listInfo, $itemInfo)) {
+                    break;
+                }
+                if (isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])) {
                     break;
                 }
 
