@@ -275,7 +275,7 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @return array<string, string>
+     * @return array<array-key, string>
      */
     private function collectedReferences(): array
     {
@@ -636,11 +636,15 @@ final class HtmlAstBuilder
             $children[] = $definition;
         }
         foreach ($this->collectedReferences() as $label => $href) {
-            $children[] = [
+            $definition = [
                 'type' => 'link_reference_definition',
-                'label' => $label,
+                'label' => (string)$label,
                 'href' => $href,
             ];
+            if (isset($this->session->referenceTitles[$label])) {
+                $definition['title'] = $this->session->referenceTitles[$label];
+            }
+            $children[] = $definition;
         }
 
         $tree = [
@@ -659,7 +663,7 @@ final class HtmlAstBuilder
 
         $tree['children'] = self::nodeList($tree['children']);
 
-        return new HtmlAstBuildResult($tree, $this->session, $this->sourceSafe);
+        return new HtmlAstBuildResult($tree, $this->session, $this->sourceSafe, !$this->sourceSafe);
     }
 
     /**
@@ -1688,6 +1692,11 @@ final class HtmlAstBuilder
         return $this->session->codeLanguageWrappers[$parent] === $child;
     }
 
+    public static function isValidCodeLabel(string $value): bool
+    {
+        return $value !== '' && strpbrk($value, "]\r\n") === false;
+    }
+
     /**
      * @return CodeBlockNode
      */
@@ -1712,6 +1721,9 @@ final class HtmlAstBuilder
         // every all-blank payload, this engine's own output included
         // (carve-php#2726).
         $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
+        if ($code !== null && self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+            $block['label'] = $node->getAttribute('data-carve-label');
+        }
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
         $this->session->nativeCodeBlocks[$node] = ['code' => $code, 'lang' => $language];
@@ -2649,7 +2661,8 @@ final class HtmlAstBuilder
                 }
                 $children = $cellBlockGrid[$r][$c] ?? [];
                 if (
-                    count($children) === 1
+                    $this->sourceSafe
+                    && count($children) === 1
                     && $children[0]['type'] === 'paragraph'
                     && !isset($children[0]['attrs'])
                     && count(self::nodeList($children[0]['children'] ?? null)) === 1
@@ -4215,16 +4228,68 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $image['title'] = $node->getAttribute('title');
         }
-        if ($this->sourceSafe && $node->hasAttribute('data-carve-ref')) {
+        if ($node->hasAttribute('data-carve-ref')) {
+            $alt = $node->getAttribute('alt');
             $ref = $node->getAttribute('data-carve-ref');
-            $image['ref'] = $ref;
-            $image['rawRef'] = '![' . $node->getAttribute('alt') . ']'
-                . ($ref === $node->getAttribute('alt') ? '[]' : '[' . $ref . ']');
-            $this->session->referenceDefinitions[$ref] = $node->getAttribute('src');
+            if ($ref === '') {
+                $ref = trim($alt);
+            }
+            if (
+                $ref !== '' && !str_contains($alt, ']') && strpbrk($ref, "]\r\n") === false
+                && $this->claimReference($node, $ref, $node->getAttribute('src'), $node->hasAttribute('title') ? $node->getAttribute('title') : null)
+            ) {
+                $image['ref'] = $ref;
+                if ($this->sourceSafe) {
+                    $image['rawRef'] = '![' . $alt . ']'
+                        . ($ref === $alt ? '[]' : '[' . $ref . ']');
+                }
+            }
+        }
+        if ($node->hasAttribute('data-carve-ref') && !isset($image['ref'])) {
+            $this->session->droppedReferenceCarriers[$node] = null;
         }
         $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-carve-ref']);
 
         return [$image];
+    }
+
+    /**
+     * @param \DOMElement $node
+     * @param string $label
+     * @param string $href
+     * @param string|null $title
+     *
+     * @return bool
+     */
+    private function claimReference(DOMElement $node, string $label, string $href, ?string $title): bool
+    {
+        if (
+            preg_match('/\A[^\]@^\r\n][^\]\r\n]*\z/u', $label) !== 1
+            || ($title !== null && strpbrk($title, "\r\n") !== false)
+            || preg_match('/[\s<>]/u', $href) === 1
+            || ($this->isInsideTableCell($node) && str_contains($label, '|'))
+        ) {
+            $this->session->droppedReferenceCarriers[$node] = null;
+
+            return false;
+        }
+        $key = 'label:' . LabelKey::normalize($label);
+        $existing = $this->session->referenceClaims[$key] ?? null;
+        if ($existing !== null) {
+            $matches = $existing['href'] === $href && $existing['title'] === $title;
+            if (!$matches) {
+                $this->session->droppedReferenceCarriers[$node] = null;
+            }
+
+            return $matches;
+        }
+        $this->session->referenceClaims[$key] = ['href' => $href, 'title' => $title];
+        $this->session->referenceDefinitions[$label] = $href;
+        if ($title !== null) {
+            $this->session->referenceTitles[$label] = $title;
+        }
+
+        return true;
     }
 
     /**
@@ -4368,12 +4433,14 @@ final class HtmlAstBuilder
             if ($ref === '') {
                 $ref = trim($labelText);
             }
-            if ($ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')) {
+            if (
+                $ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')
+                && $this->claimReference($node, $ref, $node->getAttribute('href'), $node->hasAttribute('title') ? $node->getAttribute('title') : null)
+            ) {
                 $link['ref'] = $ref;
                 $collapsed = $labelText === $ref;
                 $link['rawRef'] = '[' . $labelText . ']'
                     . ($collapsed ? '[]' : '[' . $ref . ']');
-                $this->session->referenceDefinitions[$ref] = $node->getAttribute('href');
             }
         }
         if ($node->hasAttribute('title')) {
@@ -4566,6 +4633,7 @@ final class HtmlAstBuilder
             || $this->importMode !== 'roundtrip'
             || $this->session->inCaption
             || !$node->hasAttribute('data-carve-src')
+            || HtmlDomLoader::isCoreCodeBlock($node)
         ) {
             return null;
         }
