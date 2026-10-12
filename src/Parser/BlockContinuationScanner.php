@@ -635,11 +635,15 @@ final class BlockContinuationScanner
         $rebasedFenceColumn = null;
         // Keep earlier unadmitted runs in the paragraph's original source view.
         $unadmittedFenceInParagraph = false;
+        $hasEarlierItemAttributes = $wrappedAttributeLinesRemaining > 0;
         // Seeded over the lead for the same reason the comment fence is: the
         // item's `- :: t` / `  : d` spelling writes the body on a line this
         // collector never sees.
         $openDefinitionBody = null;
         foreach ($itemLines as $seedLine) {
+            $trimmedSeed = ltrim($seedLine, " \t");
+            $hasEarlierItemAttributes = $hasEarlierItemAttributes
+                || (str_starts_with($trimmedSeed, '{') && $this->isBlockAttributeLine($trimmedSeed));
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
         }
@@ -759,6 +763,7 @@ final class BlockContinuationScanner
                         && !$trailingState->inFootnoteBody
                         && !$trailingState->quoteParagraph
                         && !$unadmittedFenceInParagraph
+                        && !$hasEarlierItemAttributes
                         && $trailingState->nestedColumn === 0
                         && $openCommentLength === null
                         && $openDefinitionBody === null
@@ -778,6 +783,10 @@ final class BlockContinuationScanner
                         $count,
                         $contentIndent,
                     ) ?? 0;
+                }
+                if (!$hasEarlierItemAttributes && $trailingState->fence === null) {
+                    $hasEarlierItemAttributes = $wrappedAttributeLinesRemaining > 0
+                        || (str_starts_with($nextTrimmed, '{') && $this->isBlockAttributeLine($nextTrimmed));
                 }
                 // Did this line ARRIVE inside an open span? Its payload is opaque
                 // and its closer travels with its opener (`CARVE-P9-053`), so

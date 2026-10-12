@@ -213,6 +213,14 @@ class TabFenceColumnsTest extends TestCase
                 "- t\n  \t```=html\n\n    <b>\n  \t  ```\n",
                 "<ul>\n  <li>t\n<code>=html</code>\n    &lt;b&gt;\n<code></code>\n  </li>\n</ul>\n",
             ],
+            'earlier-attributes-0' => [
+                "> 1. a\n> \t  {.c}\n>    \t````\n>  \t~~\n>     ````\n",
+                "<blockquote>\n  <ol>\n    <li>a\n      <pre class=\"c\"><code> ~~\n ````\n</code></pre>\n    </li>\n  </ol>\n</blockquote>\n",
+            ],
+            'earlier-attributes-1' => [
+                "1. a\n   - \n \t\t{.c}\n \t%% c\n   \t```\n\t````\n  y\n",
+                "<ol>\n  <li>a\n-\n    <pre class=\"c\"><code> ````\n</code></pre>\n  </li>\n</ol>\n<p>y</p>\n",
+            ],
             'below-fence-column' => [
                 "- a\n  # h\n      ```\n    x\n   ```\n      ```\nafter\n",
                 "<ul>\n  <li>a\n    <h1 id=\"h\">h</h1>\n    <pre><code>  x\n ```\n</code></pre>\n  </li>\n</ul>\n<p>after</p>",
