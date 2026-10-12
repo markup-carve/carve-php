@@ -288,6 +288,7 @@ final class ListBlockBuilder
                     // shows. See the hand-down below the loop.
                     $subInterruptedParagraphFence = false;
                     $subTermCodeFence = null;
+                    $subInlineFenceParagraph = false;
                     // Entries this loop DEDENTED by the item's content column,
                     // by index - the same proof collectMarkerLeadItem() records
                     // and for the same reader (markup-carve/carve#1896).
@@ -480,6 +481,7 @@ final class ListBlockBuilder
                                     $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
                                     $subInterruptedParagraphFence = $subTrailingState->fence !== null;
                                 } else {
+                                    $subInlineFenceParagraph = true;
                                     if (!$afterSubTerm && !$subTrailingState->nestedIsQuote && IndentationHelper::getLeadingColumns($stripped, $subTrailingState->nestedColumn) < $subTrailingState->nestedColumn) {
                                         $subLines[count($subLines) - 1] = BlockGrammar::LAZY_FRAME . ltrim($stripped, " \t");
                                     }
@@ -637,8 +639,12 @@ final class ListBlockBuilder
                             ) {
                                 break;
                             }
-                            $subLines[] = $trimmedLine;
-                            $subLineMap[] = $this->sourceLineFor($i);
+                            if ($subInlineFenceParagraph && $subLines !== []) {
+                                $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
+                            } else {
+                                $subLines[] = $trimmedLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
+                            }
                             $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
                             $sawBlankLine = false;
                             $i++;
@@ -2041,6 +2047,8 @@ final class ListBlockBuilder
         $minimumColonEnd = -1;
         $minimumColonIsLiteral = false;
         $beforeLeadNote = null;
+        $seenBlank = false;
+        $descendantFenceClosers = null;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
             if ($beforeLeadNote !== null && $i === $leadNoteTextEnd + 1) {
@@ -2050,6 +2058,7 @@ final class ListBlockBuilder
             }
             if (IndentationHelper::isBlankLine($line)) {
                 $afterBlank = true;
+                $seenBlank = true;
 
                 continue;
             }
@@ -2113,6 +2122,45 @@ final class ListBlockBuilder
                 && ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($line) === null
             ) {
                 continue;
+            }
+            if (
+                $seenBlank && $nestedColumns !== [] && $base < end($nestedColumns)
+                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
+            ) {
+                for (; $blockStateCursor < $i; $blockStateCursor++) {
+                    $blockState = $this->advanceTrailingStateWithFenceLookahead(
+                        $blockState,
+                        $lines[$blockStateCursor],
+                        $lines,
+                        $blockStateCursor,
+                        true,
+                    );
+                }
+                if ($descendantFenceClosers === null) {
+                    $descendantFenceClosers = [];
+                    $runs = [];
+                    for ($j = $count - 1; $j >= 0; $j--) {
+                        $subject = ltrim($lines[$j], " \t");
+                        $column = IndentationHelper::getLeadingColumns($lines[$j]);
+                        $candidate = ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
+                        if ($candidate !== null) {
+                            $char = $candidate['fence'][0];
+                            $descendantFenceClosers[$j] = max($runs[$column][$char] ?? 0, $runs[0][$char] ?? 0) >= strlen($candidate['fence']);
+                        }
+                        if (preg_match('/^(`{3,}|~{3,})[ \t]*$/', $subject, $match) === 1) {
+                            $char = $match[1][0];
+                            $runs[$column][$char] = max($runs[$column][$char] ?? 0, strlen($match[1]));
+                        }
+                    }
+                }
+                $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"));
+                if (
+                    $blockState->openParagraph && $blockState->fence === null && !$blockState->hasOpenDiv() && $fence !== null && !($descendantFenceClosers[$i] ?? false)
+                ) {
+                    $afterBlank = false;
+
+                    continue;
+                }
             }
             while ($nestedColumns !== [] && $base < end($nestedColumns)) {
                 array_pop($nestedColumns);

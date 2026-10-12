@@ -671,6 +671,7 @@ final class BlockContinuationScanner
             && !$this->isBlockAttributeLine(ltrim($itemLines[0] ?? '', " \t"));
         $markerNoteItem = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $itemLines[0] ?? '') === 1;
         $nestedNoteBodyColumn = null;
+        $sawNestedNote = false;
         $nestedNoteBlankContinues = false;
         $inBlankRun = false;
         $noteCursor = 1;
@@ -766,6 +767,7 @@ final class BlockContinuationScanner
                 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $nextTrimmed) === 1
             ) {
                 $nestedNoteBodyColumn = IndentationHelper::getLeadingColumns($nextLine) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                $sawNestedNote = true;
             }
             if ($termCodeTailAfterBlank) {
                 if ($nextIndent < $contentIndent) {
@@ -1268,7 +1270,10 @@ final class BlockContinuationScanner
                     : null;
                 $floorLookaheadRejected = $floorLookaheadOpener !== null
                     && !$this->sourceFenceCloserInView($lines, $i, $floorLookaheadOpener, $contentIndent + IndentationHelper::getLeadingColumns($contentLine));
-                $trailingState = $failedReplayFence
+                $descendantParagraphFence = $markerNoteItem && !$sawNestedNote
+                    && $trailingState->quoteParagraph && $column > $contentIndent
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
+                $trailingState = $failedReplayFence || $descendantParagraphFence
                     ? $this->advanceTrailingState($trailingState, 'text', true)
                     : ($wasOpenParagraph
                     && !$wasInFence
