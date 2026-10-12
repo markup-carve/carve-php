@@ -893,7 +893,13 @@ final class BlockContinuationScanner
                             || $this->isCommentLineOrFence($nextTrimmed)
                         )
                     ) {
-                        $pendingDefinitionTerm = false;
+                        if (
+                            !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) !== null
+                            || ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed) !== null
+                        ) {
+                            $pendingDefinitionTerm = false;
+                        }
                     }
                 }
                 $termContinuation = $pendingDefinitionTerm
