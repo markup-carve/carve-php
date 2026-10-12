@@ -727,7 +727,22 @@ final class BlockContinuationScanner
                 ) {
                     break;
                 }
-                $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                $structuralFence = false;
+                if ($trailingState->fence !== null && $trailingState->fence->column > 0) {
+                    $fenceColumn = $trailingState->fence->column;
+                    $contentLine = str_repeat(' ', $fenceColumn) . IndentationHelper::stripLeadingColumns(
+                        $nextLine,
+                        $contentIndent + $fenceColumn,
+                    );
+                } else {
+                    $structuralFence = $trailingState->fence === null && ($this->getFencedBlockParser)()->isCodeFenceHead(
+                        $nextLine,
+                        IndentationHelper::pastLeadingWhitespace($nextLine),
+                    );
+                    $contentLine = $structuralFence
+                        ? IndentationHelper::rebaseLeadingColumns($nextLine, $contentIndent)
+                        : IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                }
                 if ($wrappedAttributeLinesRemaining === 0) {
                     $wrappedAttributeLinesRemaining = $this->wrappedItemAttributeLength(
                         $contentLine,
@@ -796,6 +811,10 @@ final class BlockContinuationScanner
                             true,
                             $contentIndent,
                         ));
+                if ($structuralFence && $trailingState->fence === null) {
+                    // Failed fence admission leaves the original paragraph spelling.
+                    $itemLines[array_key_last($itemLines)] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                }
                 if ($inCommentSpan) {
                     // The opener already closed the paragraph and set the
                     // retention flag; a payload line that reopened the paragraph

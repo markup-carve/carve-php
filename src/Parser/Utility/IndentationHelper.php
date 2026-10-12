@@ -170,15 +170,9 @@ class IndentationHelper
      * Strip leading whitespace up to the given column amount, using CommonMark
      * tab stops (the column model of getLeadingColumns()).
      *
-     * This is the dedent counterpart of getLeadingColumns(); the two must agree
-     * so nested list content keeps the correct relative indentation. A tab that
-     * straddles the strip boundary is consumed whole rather than re-emitting its
-     * unconsumed columns as spaces: Carve has no indent-sensitive block (no
-     * four-space code block) where residual columns would change meaning, and
-     * getLeadingColumns() re-measures the remainder on each nested parse, so a
-     * clean dedent keeps tab-indented blocks (sub-lists, quotes) nesting instead
-     * of folding behind a leftover leading space. For space-only indentation it
-     * behaves identically to stripLeadingIndent().
+     * Preserve the columns left by a partial tab while retaining payload tabs.
+     * Structural lines use rebaseLeadingColumns() when their local tab stops
+     * differ from the source origin.
      *
      * @param string $line The line to strip
      * @param int $amount Column amount to strip
@@ -228,6 +222,23 @@ class IndentationHelper
         }
 
         return substr($line, $i);
+    }
+
+    /**
+     * Remove container columns from a structural line at its new local origin.
+     *
+     * Leading tabs become spaces so equal source columns remain equal after
+     * rebasing. Payload lines use stripLeadingColumns() to preserve tab bytes.
+     */
+    public static function rebaseLeadingColumns(string $line, int $amount): string
+    {
+        $columns = self::getLeadingColumns($line);
+        $offset = self::pastLeadingWhitespace($line);
+        if (LayoutWork::$on) {
+            LayoutWork::$strip += strlen($line);
+        }
+
+        return str_repeat(' ', max(0, $columns - $amount)) . substr($line, $offset);
     }
 
     /**
