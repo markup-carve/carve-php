@@ -28,7 +28,7 @@ trait MasksDjotOpaque
         if (str_contains($source, ']:')) {
             foreach (explode("\n", $source) as $line) {
                 if (preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\[(?!\^)[^\]\n]+\](?=:)/', $line, $definition) === 1) {
-                    $definitionLines[$lineOffset + strlen($definition[0]) - 1] = [$lineOffset, trim(substr($previousLine, $this->djotContentStart($previousLine)))];
+                    $definitionLines[$lineOffset + strlen($definition[0]) - 1] = [$lineOffset, $previousLine];
                 }
                 $lineOffset += strlen($line) + 1;
                 $previousLine = $line;
@@ -153,7 +153,10 @@ trait MasksDjotOpaque
                 array_pop($brackets);
                 if (isset($definitionLines[$at])) {
                     [$lineStart, $previous] = $definitionLines[$at];
-                    if ($lineStart > 0 && $previous !== '' && preg_match('/^(?:#{1,6} |:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previous) !== 1) {
+                    $content = trim(substr($previous, $this->djotContentStart($previous)));
+                    $block = trim((string)preg_replace('/^(?:[ \t]*+>(?:[ \t]|$))*+[ \t]*+/', '', $previous));
+                    $definitionBoundary = '/^(?:#{1,6} |:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/';
+                    if ($lineStart > 0 && $content !== '' && preg_match($definitionBoundary, $content) !== 1 && preg_match($definitionBoundary, $block) !== 1) {
                         continue;
                     }
                     $newline = strpos($source, "\n", $at);

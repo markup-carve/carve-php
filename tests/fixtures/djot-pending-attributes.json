@@ -282,5 +282,66 @@
   {
     "source": "> a\n>\n> [r]: /u_b_c`d\n\n[x][r]",
     "html": "<blockquote>\n<p>a</p>\n</blockquote>\n<p><a href=\"/u_b_c`d\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after * * *",
+    "source": "* * *\n[r]: /a`b\n\n[x][r]",
+    "html": "<hr>\n<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after - - -",
+    "source": "- - -\n[r]: /a`b\n\n[x][r]",
+    "html": "<hr>\n<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after * * * *",
+    "source": "* * * *\n[r]: /a`b\n\n[x][r]",
+    "html": "<hr>\n<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after *\t*\t*",
+    "source": "*\t*\t*\n[r]: /a`b\n\n[x][r]",
+    "html": "<hr>\n<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after > * * *",
+    "source": "> * * *\n> [r]: /a`b\n\n[x][r]",
+    "html": "<blockquote>\n<hr>\n</blockquote>\n<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after [^a]: note",
+    "source": "[^a]: note\n[r]: /a`b\n\n[x][r]",
+    "html": "<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after - [a]: /x",
+    "source": "- [a]: /x\n[r]: /a`b\n\n[x][r]",
+    "html": "<ul>\n<li>\n</li>\n</ul>\n<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after > # Heading",
+    "source": "> # Heading\n> [r]: /a`b\n\n[x][r]",
+    "html": "<blockquote>\n<h1 id=\"Heading\">Heading</h1>\n</blockquote>\n<p><a href=\"/a`b\">x</a></p>\n"
+  },
+  {
+    "name": "opaque destination after - {.c}",
+    "source": "- {.c}\n[r]: /a`b\n\n[x][r]",
+    "html": "<ul>\n<li>\n</li>\n</ul>\n<p><a href=\"/a`b\" class=\"c\">x</a></p>\n"
+  },
+  {
+    "source": "- # H\n[r]: /a`b\n[s]: /c`d\n\n[x][r] [y][s]",
+    "html": "<ul>\n<li>\n<h1 id=\"H\">H</h1>\n</li>\n</ul>\n<p><a href=\"/a`b\">x</a> <a href=\"/c`d\">y</a></p>\n"
+  },
+  {
+    "source": "- [a]: /x\n[r]: /a`b\n[s]: /c`d\n\n[x][r] [y][s]",
+    "html": "<ul>\n<li>\n</li>\n</ul>\n<p><a href=\"/a`b\">x</a> <a href=\"/c`d\">y</a></p>\n"
+  },
+  {
+    "source": "- {.c}\n[r]: /a`b\n[s]: /c`d\n\n[x][r] [y][s]",
+    "html": "<ul>\n<li>\n</li>\n</ul>\n<p><a href=\"/a`b\" class=\"c\">x</a> <a href=\"/c`d\">y</a></p>\n"
+  },
+  {
+    "source": "- :::\n[r]: /a`b\n[s]: /c`d\n\n[x][r] [y][s]",
+    "html": "<ul>\n<li>\n<div>\n</div>\n</li>\n</ul>\n<p><a href=\"/a`b\">x</a> <a href=\"/c`d\">y</a></p>\n"
   }
 ]
