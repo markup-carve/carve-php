@@ -2223,9 +2223,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     private ?bool $customNoteScan = null;
 
     /**
+     * @var int
+     */
+    private const NOTE_SCAN_RECURSION_LIMIT = 32;
+
+    /**
      * Whether the tree holds a note the endnotes section will carry: a resolved
      * `[^label]` reference or an inline `^[...]` note. A definition nobody
      * references renders no section, and neither does an unresolved reference.
+     * Custom overrides retain recursive descendant dispatch for compatibility.
      */
     protected function holdsANote(Node $node): bool
     {
@@ -2247,6 +2253,31 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return false;
         }
 
+        return $this->holdsANoteBounded($node, 0);
+    }
+
+    private function holdsANoteBounded(Node $node, int $depth): bool
+    {
+        if ($depth >= self::NOTE_SCAN_RECURSION_LIMIT) {
+            return $this->holdsANoteIteratively($node);
+        }
+        if ($node instanceof FootnoteRef) {
+            return !$node->isUnresolved();
+        }
+        if ($node instanceof InlineFootnote) {
+            return true;
+        }
+        foreach ($node->getChildren() as $child) {
+            if (!$child instanceof Footnote && $this->holdsANoteBounded($child, $depth + 1)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function holdsANoteIteratively(Node $node): bool
+    {
         $stack = [];
         $current = $node;
         while ($current !== null) {
