@@ -62,6 +62,72 @@ The attributes a roundtrip export writes so an import can recover a distinction
 the HTML has no spelling for are the `data-carve-*` names PART 10 section 13a
 reserves. The renderer writes that spelling only.
 
+The export option is off by default. `CarveConverter` takes it as a constructor
+argument, a renderer through `setRoundTripMode()`, and the CLI as `--roundtrip`:
+
+~~~ php
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+
+$html = (new CarveConverter(roundTripMode: true))->convert($source);
+
+$renderer = (new HtmlRenderer())->setRoundTripMode(true);
+$html = (new CarveConverter(renderer: $renderer))->convert($source);
+~~~
+
+~~~
+bin/carve --roundtrip input.crv
+~~~
+
+This source:
+
+~~~
+* item
+
+```php [Example]
+echo 1;
+```
+~~~
+
+renders under the option to:
+
+~~~ html
+<ul data-marker="*">
+  <li>item</li>
+</ul>
+<pre data-carve-label="Example"><code class="language-php">echo 1;
+</code></pre>
+~~~
+
+The core renderer writes the rows of PART 10 section 13a, under the option only:
+
+| Attribute | Element | Value |
+| --- | --- | --- |
+| `data-marker` | `<ul>` | The bullet marker, where it is not `-`. |
+| `data-char` | `<hr>` | The thematic-break character, where it is not `-`. |
+| `data-carve-explicit-id` | `<section>`, `<h1>`-`<h6>` | `1`: the id was authored. It rides the heading where no section wraps it. |
+| `data-carve-ref` | `<a>`, `<img>` | The reference label the link or image resolved by. |
+| `data-carve-autolink` | `<a>` | `1`: the link was written as an autolink. |
+| `data-carve-footnote-label` | `<a>`, `<li>` | The footnote label, on the reference and on the endnote item. |
+| `data-carve-inline-footnote` | `<li>` | `1`: the endnote came from an inline footnote. |
+| `data-carve-raw` | `<span>` | The raw inline's format. The span's text holds its content. |
+| `data-carve-escaped` | `<span>` | No value. The span holds one escaped character. |
+| `data-carve-abbreviations` | `<template>` | No value. The text holds the abbreviation definitions, one per line. |
+| `data-carve-col-widths` | `<table>` | The separator row's dash widths, comma-joined. |
+| `data-carve-label` | `<pre>` | The code block's bracketed label. |
+
+Extensions write carriers of their own; see
+[Roundtrip carriers](extensions.md#roundtrip-carriers).
+
+An import recovers the distinctions in these tables. It does not return
+byte-identical source:
+
+- A raw block has no carrier. One whose format HTML cannot write is dropped with
+  a `raw-format-dropped` render loss, with or without the option.
+- A task marker `[X]` returns as `[x]`.
+- A collapsed reference `[r][]` and a full reference `[r][r]` both return as
+  `[r][]`.
+
 Documents exported by earlier versions carry the same names under a
 `data-djot-*` prefix. The importer accepts that spelling as a **deprecated
 alias**: it is canonicalized on load, the `data-carve-` name wins where an

@@ -51,7 +51,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     /**
      * @var list<string>
      */
-    private const INVENTORY = ['explicit-id', 'ref', 'autolink', 'footnote-label', 'inline-footnote', 'raw', 'escaped', 'abbreviations', 'col-widths'];
+    private const INVENTORY = ['explicit-id', 'ref', 'autolink', 'footnote-label', 'inline-footnote', 'raw', 'escaped', 'abbreviations', 'col-widths', 'label'];
 
     /**
      * @phpstan-param Fixture $fixture
