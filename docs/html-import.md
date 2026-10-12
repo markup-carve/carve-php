@@ -161,9 +161,16 @@ byte-identical source:
 
 Documents exported by earlier versions carry the same names under a
 `data-djot-*` prefix. The importer accepts that spelling as a **deprecated
-alias**: it is canonicalized on load, the `data-carve-` name wins where an
-element carries both, and the alias is consumed either way, so a document that
-arrives with it leaves without it.
+alias**: it reads the alias as the `data-carve-` name, the `data-carve-` name
+wins where an element carries both, and the alias is consumed either way, so a
+document that arrives with it leaves without it.
+
+Every reserved carrier that import consumes without reading it, including an
+alias that lost to the `data-carve-` name, gets a report row:
+`attribute-dropped` at `info` on an element the importer rewrites, and
+`attribute-preserved` on an element `roundtrip` mode keeps as raw HTML. Kept raw
+HTML is never rewritten: its carriers keep their authored names, values and
+order.
 
 `data-carve-src` is reserved without a row. No renderer writes it, and import
 consumes it and its `data-djot-src` alias in every mode without reading Carve
