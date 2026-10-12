@@ -423,7 +423,7 @@ final class ListBlockBuilder
                                 : $this->itemFenceOpenerAt($stripped);
                             if ($subFenceOpener !== null) {
                                 $subFenceColumns = $subIndent + IndentationHelper::getLeadingColumns($stripped);
-                                if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns)) {
+                                if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns, $subIndent)) {
                                     $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
                                     $subInterruptedParagraphFence = $subTrailingState->fence !== null;
                                 } else {
@@ -434,9 +434,20 @@ final class ListBlockBuilder
                                 }
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
+                                $trackedLine = $subMarkerComment ?? $stripped;
+                                // A closer at the host column ends a fence opened past it, as the item's own parse reads it.
+                                if (
+                                    $subInterruptedParagraphFence
+                                    && $subTrailingState->fence !== null
+                                    && $subTrailingState->fence->column > 0
+                                    && IndentationHelper::getLeadingColumns($stripped, 1) === 0
+                                    && ($this->getFencedBlockParser)()->isCodeFenceCloser($stripped, $subTrailingState->fence->char, $subTrailingState->fence->length)
+                                ) {
+                                    $trackedLine = str_repeat(' ', $subTrailingState->fence->column) . $stripped;
+                                }
                                 $subTrailingState = $subTrailingState->hasLiteralDiv()
-                                    ? $this->continuations->advanceLiteralStateWithSourceFenceLookahead($subTrailingState, $subMarkerComment ?? $stripped, $lines, $i, $subIndent)
-                                    : $this->advanceTrailingState($subTrailingState, $subMarkerComment ?? $stripped, true);
+                                    ? $this->continuations->advanceLiteralStateWithSourceFenceLookahead($subTrailingState, $trackedLine, $lines, $i, $subIndent)
+                                    : $this->advanceTrailingState($subTrailingState, $trackedLine, true);
                                 if ($wasSubInFence && $subTrailingState->fence === null) {
                                     $subInterruptedParagraphFence = false;
                                 }
@@ -2603,10 +2614,11 @@ final class ListBlockBuilder
      * @param int $openIndex Source index of the run.
      * @param array{fence: string, length: int, char?: string} $opener
      * @param int $columns Leading columns of the run.
+     * @param int|null $hostColumns
      */
-    private function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns): bool
+    private function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns, ?int $hostColumns = null): bool
     {
-        return $this->continuations->itemFenceCloserAhead($lines, $openIndex, $opener, $columns);
+        return $this->continuations->itemFenceCloserAhead($lines, $openIndex, $opener, $columns, $hostColumns);
     }
 
     /**
