@@ -21,6 +21,8 @@ trait ReportsDjotLosses
     private function djotLosses(string $source): array
     {
         $source = str_replace(["\r\n", "\r"], "\n", $source);
+        $accepted = [];
+        $this->foldDjotReferences($source, $accepted);
         $mask = $this->djotEmphasisMask($source);
         $findings = [];
         $add = static function (int $at, string $message) use (&$findings): void {
@@ -86,23 +88,11 @@ trait ReportsDjotLosses
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:)/', $previousContent) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $previousContent) === 1
                 || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', $this->djotItemPrefix($previous, $previousAt)) === 1);
-            if (preg_match('/^\[(?!\^)([^\]\n]+)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
-                $destination = $definition[2];
-                for ($next = $n + 1; $next < $lineCount; $next++) {
-                    $nextAt = $this->djotContentStart($lines[$next]);
-                    $prefix = substr($lines[$next], 0, $nextAt);
-                    $token = preg_replace('/\r$/', '', substr($lines[$next], $nextAt)) ?? '';
-                    if (
-                        $quoteDepths[$next] !== $quoteDepths[$n] || $nextAt <= $at || str_contains($prefix, '[^')
-                        || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', $prefix) === 1
-                        || preg_match('/^[^ \t\r\n]+$/', $token) !== 1
-                    ) {
-                        break;
-                    }
-                    $destination .= $token;
+            if (isset($accepted[$n])) {
+                for ($next = $n + 1; $next <= $accepted[$n]['end']; $next++) {
                     $definitionLines[$next] = true;
                 }
-                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = $destination;
+                $definitions[$this->djotReferenceDefinitionKey($accepted[$n]['label'])] = $accepted[$n]['target'];
                 $definitionLines[$n] = true;
                 $lineEnd = $offsets[$n] + strlen($line);
                 for ($k = $offsets[$n]; $k < $lineEnd; $k++) {

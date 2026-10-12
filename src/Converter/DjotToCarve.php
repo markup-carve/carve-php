@@ -3455,7 +3455,11 @@ class DjotToCarve
         return $output . substr($source, $copied);
     }
 
-    private function foldDjotReferences(string $source): string
+    /**
+     * @param string $source
+     * @param array<int, array{label: string, target: string, end: int}>|null $accepted
+     */
+    private function foldDjotReferences(string $source, ?array &$accepted = null): string
     {
         if (!str_contains($source, ']: ') && !str_contains($source, ']:')) {
             return $source;
@@ -3494,7 +3498,7 @@ class DjotToCarve
                 $fenceMask ??= $this->maskDjotFences($source, null, $rows, true);
             }
             $metadataExit = $ownerExit && $metadata && (($mask[$offset + $at] ?? '') !== ' ' || ($fenceMask[$offset + $at] ?? ' ') !== ' ');
-            $outdented = $metadataExit || $at < $previousOwner && ($previousNote !== false || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', substr($previousLine, 0, $previousAt)) === 1);
+            $outdented = $metadataExit || $at < $previousOwner && preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', substr($previousLine, 0, $previousNote === false ? $previousAt : $previousNote)) === 1;
             $boundary = $previous === '' || $previousAttributeBlock || ($rows[$n - 1] ?? false) || $depth !== $previousDepth || preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*][ \t]*){3,}$/', $previousLine) === 1 || $outdented || preg_match('/^(?:#{1,6} |:{3,}|[`~]{3,}|\[[^\]]*\]:|(?:[-*][ \t]*){3,}$)/', $previous) === 1;
             $marker = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', ($noteAt === false ? $ownerPrefix : substr($ownerPrefix, 0, $noteAt))) === 1;
             $ownerBody = substr($line, $physicalLength);
@@ -3523,7 +3527,7 @@ class DjotToCarve
             if ($separator !== '') {
                 $lines[$n] = $separator . $line;
             }
-            if ($definition && ($mask[$offset + $at] ?? '') === '[' && ($boundary || $marker)) {
+            if ($definition && (($mask[$offset + $at] ?? '') === '[' || $metadataExit && ($fenceMask[$offset + $at] ?? '') === '[') && ($boundary || $marker)) {
                 $target = $match[2];
                 $end = $n;
                 while ($end + 1 < $count) {
@@ -3539,6 +3543,9 @@ class DjotToCarve
                     $end++;
                 }
                 $nextByte = $content[strlen($match[1]) + 3] ?? '';
+                if ($accepted !== null) {
+                    $accepted[$n] = ['label' => $match[1], 'target' => $target, 'end' => $end];
+                }
                 if ($end > $n || $target !== '' && $nextByte !== ' ') {
                     $lines[$n] = $separator . substr($line, 0, $at) . '[' . $match[1] . ']:' . ($target !== '' ? ' ' . $target : '');
                 }

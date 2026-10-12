@@ -194,4 +194,25 @@ class DjotLossReportTest extends TestCase
             self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'));
         }
     }
+
+    public function testReferencesAfterFootnotesHaveNoFalseUnresolvedLoss(): void
+    {
+        foreach ([' ', '', "\t"] as $padding) {
+            $source = "[^n]: note\n  more\n[r]:{$padding}/u\n\n[x][r]";
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            self::assertStringContainsString('href="/u"', (new CarveConverter())->convert((new DjotToCarve())->convert($source)));
+            foreach ($result->report()['diagnostics'] as $diagnostic) {
+                self::assertStringNotContainsString('unresolved Djot reference', $diagnostic['message']);
+            }
+        }
+    }
+
+    public function testParagraphFootnoteDoesNotOpenReferenceBoundary(): void
+    {
+        $source = "text\n[^n]: note\n[r]: /u\n\n[x][r]";
+        $converter = new DjotToCarve();
+        self::assertStringNotContainsString('href="/u"', (new CarveConverter())->convert($converter->convert($source)));
+        $losses = array_filter($converter->convertWithFidelityReport($source)->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference'));
+        self::assertCount(1, $losses);
+    }
 }
