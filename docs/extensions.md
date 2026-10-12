@@ -887,12 +887,44 @@ Content for the second tab.
 ::::
 ~~~
 
+Roundtrip export adds `data-carve-label` to a panel when its tab has an opener
+label. The value is the label production's interior, with the same validation
+as a code-block label. When a heading supplies the tab title, the panel keeps
+that heading at its original position, including its inline markup and attributes,
+with `hidden` and `data-carve-tab-title`. A tab without either title has no title
+carrier. An authored `hidden` attribute is identified by
+`data-carve-tab-title="authored-hidden"` and survives import. Default export adds
+neither carrier.
+
+These are TabsExtension's own carriers under PART 10 §13a, "AN EXTENSION WRITES
+ITS OWN CARRIERS". Both names are reserved and consumed on import in every mode;
+they never become authored attributes. The importer recognizes the extension's
+CSS and ARIA control and panel wiring and restores labels, title headings and
+nested panel content.
+
+Roundtrip export adds `data-carve-ext="tabs"` or `data-carve-ext="code-group"`
+to the respective root wrapper. `data-carve-ext` is reserved and consumed on
+import in every mode. With this carrier, the importer checks element names,
+control and label pairing, and panel roles without requiring default CSS
+classes. The first wrapper and tab-panel class is generated; remaining classes
+are authored. Without the carrier, recognition requires the default classes.
+
+Static roundtrip output keeps panel metadata on its `<section>` elements and
+marks the selected panel with `data-carve-selected`. Import restores the group
+and omits the generated label headings. It validates the whole group before
+restoring title-heading attributes. Code-group panels accept ordinary code,
+fenced-render output, figure-wrapped fences and callout code blocks.
+
+Import omits `{selected}` on the first tab because it is the default; later selected tabs keep it.
+
 ### CodeGroupExtension
 
 Converts a div with class `code-group` containing several code blocks into a
 tabbed code interface, ideal for showing the same step in multiple languages.
 Tab labels come from the code fence info using `[Label]` suffix syntax, falling
 back to the language name or "Code N". HTML output only.
+
+Import omits `{selected}` on the first code block because it is the default; later selected blocks keep it.
 
 Constructor options:
 
@@ -1001,8 +1033,15 @@ language word. These carry fields, without fence delimiters or attribute syntax.
 A bracketed label uses `data-carve-label`. The default HTML importer reads these
 carriers in every import mode on a named image wrapper containing one SVG or
 image. It validates the language token and UTF-8 content, rejecting control
-characters other than tabs and line endings. Interactive Mermaid imports from
-its named `<pre>` text; a `<pre><code>` with class `mermaid` remains ordinary code.
+characters other than tabs and line endings. Roundtrip interactive export
+uses the language and label carriers for every fenced-render configuration.
+The importer reads text from a classed `<pre>` or `<div>`, or JSON from its
+single `<script type="application/json">` child. JSON export also carries the
+original content so escaping a script terminator preserves the fence body. Without a build renderer, roundtrip static export keeps
+the source in `<pre><code>` and carries its language and bracketed label on
+`<pre>`. The importer consumes the generated wrapper class when the language
+carrier and code element match this fallback structure. A `<pre><code>` with
+class `mermaid` alone remains ordinary code.
 
 Constructor options:
 

@@ -255,17 +255,11 @@ class ACaptionSlotFlattensBlocksTest extends TestCase
     }
 
     /**
-     * STORED ROUND-TRIP SOURCE cannot smuggle block syntax into a caption.
-     *
-     * `data-carve-src` is emitted verbatim, so a caption's `<ul>` carrying one
-     * put `- a` straight back into the inline slot, recreating the literal
-     * marker this fix removes - and the serializer never ran, so a report built
-     * from the input claimed a flattening that did not happen. Inside a caption
-     * the stored source is not taken.
+     * A legacy source attribute cannot supply block syntax to an inline caption.
      */
-    public function testStoredRoundTripSourceIsNotTakenInsideACaption(): void
+    public function testLegacySourceIsIgnoredInsideACaption(): void
     {
-        $result = (new HtmlToCarve(trustStoredSource: true))->convertWithReport(
+        $result = (new HtmlToCarve())->convertWithReport(
             '<table><caption><ul data-carve-src="- a"><li>a</li></ul></caption><tr><td>x</td></tr></table>',
         );
         $rendered = (new CarveConverter())->convert($result->value);

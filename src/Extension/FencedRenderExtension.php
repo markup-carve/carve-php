@@ -10,7 +10,6 @@ use MarkupCarve\Carve\CodePayload;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -329,19 +328,15 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // Author attributes (id, extra classes, data-*) ride onto the wrapper in
         // source order (the `mermaid` base class merged into the class value), so
         // static output never loses authored metadata and matches carve-js/rs.
-        // Round-trip mode carries the same data-carve-src the interactive openTag()
-        // emits, so Carve -> static HTML -> Carve still reconstructs the fence.
         $source = CodePayload::joinedLines($node->getContent());
         $build = $renderer->getStaticRenderer($this->cssClass);
         $defaults = [];
         if ($this->roundTripMode) {
-            $defaults['data-carve-src'] = $this->reconstructCodeBlockSource($node);
-            if ($build !== null) {
-                $defaults['data-carve-fence-content'] = $node->getContent();
-                $defaults['data-carve-fence-language'] = $node->getLanguage();
-                if ($node->getLabel() !== null) {
-                    $defaults['data-carve-label'] = $node->getLabel();
-                }
+            $defaults['data-carve-fence-language'] = $node->getLanguage();
+            $defaults['data-carve-fence-content'] = $node->getContent();
+            $defaults['data-carve-fence-generated'] = implode(' ', $build !== null ? array_keys($this->namingDefaults($node)) : []);
+            if ($node->getLabel() !== null) {
+                $defaults['data-carve-label'] = $node->getLabel();
             }
         }
         // ONLY the rendered image is named. The no-renderer path really is
@@ -355,7 +350,7 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         // `align` may become: HTML maps `align` to `text-align` on a `div` and
         // to nothing at all on a `pre` (markup-carve/carve#1755).
         $tag = $build !== null ? 'div' : 'pre';
-        $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], ['data-carve-fence-content', 'data-carve-fence-language', 'data-carve-label'], [], $defaults, $tag);
+        $attrs = $this->renderExtensionAttributes($node, $renderer, [$this->cssClass], array_values(array_filter(array_keys($defaults), static fn (string $name): bool => str_starts_with($name, 'data-carve-'))), [], $defaults, $tag);
         $element = $build !== null
             // The build-time renderer owns its escaping (it emits SVG / <img>).
             ? '<div' . $attrs . '>' . $build($source) . "</div>\n"
@@ -434,7 +429,12 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         }
 
         if ($this->roundTripMode) {
-            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($this->reconstructCodeBlockSource($node)) . '"';
+            $attrs .= ' data-carve-fence-language="' . StringUtil::escapeHtmlAttribute($node->getLanguage() ?? '') . '"';
+            $attrs .= ' data-carve-fence-content="' . StringUtil::escapeHtmlAttribute($node->getContent()) . '"';
+            $attrs .= ' data-carve-fence-generated="' . implode(' ', array_keys($this->namingDefaults($node))) . '"';
+        }
+        if ($this->roundTripMode && $node->getLabel() !== null) {
+            $attrs .= ' data-carve-label="' . StringUtil::escapeHtmlAttribute($node->getLabel()) . '"';
         }
 
         return '<' . $this->tag . $attrs . '>';
@@ -470,8 +470,21 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
      */
     protected function buildExtraAttributes(CodeBlock $node): string
     {
+        $carriers = $this->roundTripMode ? ['data-carve-fence-language', 'data-carve-fence-content', 'data-carve-fence-generated'] : [];
+        if ($this->roundTripMode && $this->contentMode === self::MODE_JSON) {
+            $carriers[] = 'data-carve-fence-content';
+        }
+        if ($this->roundTripMode && $node->getLabel() !== null) {
+            $carriers[] = 'data-carve-label';
+        }
+        $this->renderer?->attributesBesideCarriers($node, $carriers);
         $attrs = $node->getAttributes();
         unset($attrs['class']);
+        foreach (array_keys($attrs) as $name) {
+            if (in_array(strtolower((string)$name), $carriers, true)) {
+                unset($attrs[$name]);
+            }
+        }
 
         if ($this->renderer !== null) {
             $attrs = $this->renderer->sanitizeAttributes($attrs);
@@ -487,83 +500,5 @@ class FencedRenderExtension implements StaticRenderExtensionInterface
         }
 
         return $out;
-    }
-
-    /**
-     * Reconstruct the original Carve source for a claimed code block (round-trip).
-     */
-    protected function reconstructCodeBlockSource(CodeBlock $node): string
-    {
-        $content = $node->getContent();
-        $language = $node->getLanguage() ?? $this->languages[0];
-
-        // Choose a fence that does not conflict with the content.
-        $fence = StringUtil::findSafeCodeFence($content, 3);
-
-        $djot = $this->renderDjotAttributeBlock($node);
-        $djot .= $fence . ' ' . $language;
-        // A bracketed label (```d2 [Diagram]) is structured metadata stored
-        // separately from the language; re-emit it so round-trip does not lose
-        // it, matching HtmlRenderer::reconstructCodeBlockSource().
-        $label = $node->getLabel();
-        if ($label !== null) {
-            $djot .= ' [' . $label . ']';
-        }
-        $djot .= "\n";
-        $djot .= $content;
-        if (!str_ends_with($content, "\n")) {
-            $djot .= "\n";
-        }
-        $djot .= $fence . "\n";
-
-        return $djot;
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $node
-     * @param array<string> $skipAttrs
-     * @param array<string> $skipClasses
-     */
-    protected function renderDjotAttributeBlock(CodeBlock $node, array $skipAttrs = [], array $skipClasses = []): string
-    {
-        $parts = [];
-
-        $id = $node->getAttribute('id');
-        if ($id !== null && $id !== '' && !in_array('id', $skipAttrs, true)) {
-            $parts[] = '#' . $id;
-        }
-
-        if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassEntries() as $class) {
-                if (!in_array($class, $skipClasses, true)) {
-                    $parts[] = '.' . $class;
-                }
-            }
-        }
-
-        foreach ($node->getAttributes() as $name => $value) {
-            if ($name === 'id' || $name === 'class' || in_array($name, $skipAttrs, true)) {
-                continue;
-            }
-
-            $parts[] = $value === ''
-                ? $name
-                : $name . '=' . $this->quoteDjotAttributeValue($value);
-        }
-
-        if ($parts === []) {
-            return '';
-        }
-
-        return '{' . implode(' ', $parts) . "}\n";
-    }
-
-    protected function quoteDjotAttributeValue(string $value): string
-    {
-        if ($value !== '' && preg_match('/^[A-Za-z0-9._:-]+$/', $value) === 1) {
-            return $value;
-        }
-
-        return '"' . QuotedSlotEscaper::escape($value) . '"';
     }
 }

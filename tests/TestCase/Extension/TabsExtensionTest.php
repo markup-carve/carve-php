@@ -121,7 +121,9 @@ DJOT;
 
         $html = $converter->convert(":::: tabs\n::: tab \"Inner\" [First]\nBody.\n:::\n::::");
 
-        $this->assertMatchesRegularExpression('/data-carve-src="[^"]*tab &quot;Inner&quot; \[First\]/', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        $this->assertStringContainsString('data-carve-label="First"', $html);
+        $this->assertStringContainsString('<p class="admonition-title">Inner</p>', $html);
     }
 
     public function testOpenerLabelPreservesContentHeading(): void
@@ -992,7 +994,7 @@ DJOT;
         $this->assertContains('Heading Inside Tab', $headingTexts);
     }
 
-    public function testRoundTripModeAddsDjotSrc(): void
+    public function testRoundTripModeUsesHtmlStructure(): void
     {
         $renderer = new HtmlRenderer();
         $renderer->setRoundTripMode(true);
@@ -1017,8 +1019,8 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-carve-src="', $html);
-        $this->assertStringContainsString(':::: tabs', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        $this->assertStringContainsString('data-carve-tab-title', $html);
     }
 
     public function testNonRoundTripModeNoDjotSrc(): void
@@ -1062,9 +1064,9 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-carve-src="', $html);
-        // The reconstructed djot should contain the code fence
-        $this->assertStringContainsString('```php', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        // The panel retains the code block.
+        $this->assertStringContainsString('class="language-php"', $html);
     }
 
     public function testRoundTripWithTable(): void
@@ -1088,9 +1090,9 @@ DJOT;
 
         $html = $converter->convert($djot);
 
-        $this->assertStringContainsString('data-carve-src="', $html);
-        // The reconstructed djot should contain the table
-        $this->assertStringContainsString('| Header 1 | Header 2 |', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
+        // The panel retains the table.
+        $this->assertStringContainsString('<th scope="col">Header 1</th>', $html);
     }
 
     public function testSoftBreakInTabStaysFlushInsideSection(): void

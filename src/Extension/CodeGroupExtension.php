@@ -11,7 +11,6 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -269,7 +268,9 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             // outlier rather than a considered choice, and it left the label
             // out of the document outline that is the whole point of surfacing
             // it offline (markup-carve/carve-php#1535).
-            $html .= '  <section class="' . StringUtil::escapeHtml($this->panelClass) . "\">\n"
+            $panelAttrs = ' class="' . StringUtil::escapeHtml($this->panelClass) . '"'
+                . ($renderer->isRoundTripMode() && $item['selected'] ? ' data-carve-selected' : '');
+            $html .= '  <section' . $panelAttrs . ">\n"
                 . '  <h3 class="' . StringUtil::escapeHtml($this->labelClass) . '">'
                 . $renderer->escapeText($item['label']) . "</h3>\n"
                 . $this->renderCodeBlock($item['block'], $item['language'], $renderer)
@@ -362,12 +363,6 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
         // Build wrapper attributes
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer);
 
-        // Add data-carve-src for round-trip support
-        if ($renderer->isRoundTripMode()) {
-            $djotSrc = $this->reconstructDjotSource($wrapper, $codeBlocks);
-            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
-        }
-
         $html = '<div' . $attrs . ">\n";
 
         // Render all radio inputs and labels first
@@ -441,16 +436,6 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
 
         $attrs = $this->buildWrapperAttributes($wrapper, $renderer, 'tablist');
 
-        // Round-trip metadata, as both Tabs renderers and the CSS one here do.
-        // Without it, switching only the mode silently broke the HTML -> Carve
-        // round trip, which is the shape §13 exists to prevent: two renderers
-        // of the same construct do not get different capabilities because one
-        // was written second.
-        if ($renderer->isRoundTripMode()) {
-            $djotSrc = $this->reconstructDjotSource($wrapper, $codeBlocks);
-            $attrs .= ' data-carve-src="' . StringUtil::escapeHtmlAttribute($djotSrc) . '"';
-        }
-
         $html = '<div' . $attrs . ">\n";
 
         foreach ($codeBlocks as $index => $item) {
@@ -494,7 +479,23 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
 
         // Use custom highlighter if provided
         if ($this->highlighter !== null) {
-            return ($this->highlighter)($code, $language);
+            $highlighted = ($this->highlighter)($code, $language);
+            if (!$renderer->isRoundTripMode()) {
+                return $highlighted;
+            }
+            $metadata = new CodeBlock($block->getContent(), $language, $block->getLabel());
+            foreach ($block->getAttributes() as $name => $value) {
+                if ($name !== 'selected') {
+                    $metadata->setAttribute($name, $value);
+                }
+            }
+            $attrs = $renderer->renderAttributesBesideCarriers($metadata, ['data-carve-ext', 'data-carve-fence-content', 'data-carve-fence-language', 'data-carve-label', 'data-carve-src'], 'pre');
+
+            return '<div data-carve-ext="code-block" data-carve-fence-content="'
+                . $renderer->escapeAttribute($block->getContent()) . '" data-carve-fence-language="'
+                . $renderer->escapeAttribute($language ?? '') . '"'
+                . ($block->getLabel() !== null ? ' data-carve-label="' . $renderer->escapeAttribute($block->getLabel()) . '"' : '')
+                . $attrs . '>' . $highlighted . '</div>';
         }
 
         $renderBlock = new CodeBlock($block->getContent(), $language, $block->getLabel());
@@ -511,102 +512,6 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
     }
 
     /**
-     * Reconstruct the original Carve source for round-trip support
-     *
-     * @param \MarkupCarve\Carve\Node\Block\Div $wrapper
-     * @param array<array{block: \MarkupCarve\Carve\Node\Block\CodeBlock, language: string|null, label: string, selected: bool}> $codeBlocks
-     */
-    protected function reconstructDjotSource(Div $wrapper, array $codeBlocks): string
-    {
-        $djot = $this->renderDjotAttributeBlock($wrapper, skipClasses: ['code-group']);
-        $djot .= "::: code-group\n";
-
-        foreach ($codeBlocks as $item) {
-            /** @var \MarkupCarve\Carve\Node\Block\CodeBlock $block */
-            $block = $item['block'];
-            $langHint = $block->getLanguage() ?? '';
-            $label = $block->getLabel();
-
-            $content = $block->getContent();
-            $fence = StringUtil::findSafeCodeFence($content, 3);
-
-            $djot .= $this->renderDjotAttributeBlock($block);
-            $djot .= $fence;
-            if ($langHint !== '') {
-                $djot .= ' ' . $langHint;
-            }
-            // Label is stored separately from the language; re-emit it.
-            if ($label !== null) {
-                $djot .= ' [' . $label . ']';
-            }
-            $djot .= "\n";
-
-            // Ensure content ends with newline before closing fence
-            if (!str_ends_with($content, "\n")) {
-                $content .= "\n";
-            }
-            $djot .= $content;
-            $djot .= $fence . "\n\n";
-        }
-
-        // Remove trailing blank line
-        $djot = rtrim($djot) . "\n";
-        $djot .= ":::\n";
-
-        return $djot;
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Block\Div|\MarkupCarve\Carve\Node\Block\CodeBlock $node
-     * @param array<string> $skipAttrs
-     * @param array<string> $skipClasses
-     */
-    protected function renderDjotAttributeBlock(Div|CodeBlock $node, array $skipAttrs = [], array $skipClasses = []): string
-    {
-        $parts = [];
-
-        $id = $node->getAttribute('id');
-        if ($id !== null && $id !== '' && !in_array('id', $skipAttrs, true)) {
-            $parts[] = '#' . $id;
-        }
-
-        if (!in_array('class', $skipAttrs, true)) {
-            foreach ($node->getClassEntries() as $class) {
-                if (!in_array($class, $skipClasses, true)) {
-                    $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/D', $class) === 1
-                        ? '.' . $class
-                        : 'class=' . $this->quoteDjotAttributeValue($class);
-                }
-            }
-        }
-
-        foreach ($node->getAttributes() as $name => $value) {
-            if ($name === 'id' || $name === 'class' || in_array($name, $skipAttrs, true)) {
-                continue;
-            }
-
-            $parts[] = $value === ''
-                ? $name
-                : $name . '=' . $this->quoteDjotAttributeValue($value);
-        }
-
-        if ($parts === []) {
-            return '';
-        }
-
-        return '{' . implode(' ', $parts) . "}\n";
-    }
-
-    protected function quoteDjotAttributeValue(string $value): string
-    {
-        if ($value !== '' && preg_match('/^[A-Za-z0-9._:-]+$/', $value) === 1) {
-            return $value;
-        }
-
-        return '"' . QuotedSlotEscaper::escape($value) . '"';
-    }
-
-    /**
      * Build wrapper div attributes
      */
     protected function buildWrapperAttributes(Div $wrapper, HtmlRenderer $renderer, ?string $role = null): string
@@ -618,7 +523,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
             $wrapper,
             $renderer,
             [$this->wrapperClass],
-            [],
+            $renderer->isRoundTripMode() ? ['data-carve-ext'] : [],
             ['code-group'],
             $this->groupNameAttributes(
                 $wrapper,
@@ -627,6 +532,7 @@ class CodeGroupExtension implements ResettableExtensionInterface, StaticRenderEx
                 $this->groupLabel ?? $renderer->label('codeGroup'),
             ),
             'div',
-        );
+            true,
+        ) . ($renderer->isRoundTripMode() ? ' data-carve-ext="code-group"' : '');
     }
 }

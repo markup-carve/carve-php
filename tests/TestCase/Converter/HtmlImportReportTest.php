@@ -112,12 +112,6 @@ class HtmlImportReportTest extends TestCase
         );
     }
 
-    public function testTrustedConstructorSelectsRoundtripMode(): void
-    {
-        $result = (new HtmlToCarve(trustStoredSource: true))->convertWithReport('<p>x</p>');
-        $this->assertSame('roundtrip', $result->mode);
-    }
-
     public function testAstConvenienceReturnsTheReportedValue(): void
     {
         $importer = new HtmlToCarve();

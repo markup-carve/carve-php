@@ -29,6 +29,7 @@ trait ExtensionAttributesTrait
      * @param array<string, string> $defaultAttrs Added only when the author did not set them.
      * @param string|null $tag The element being written, so a text-alignment
      *   `align` renders its CSS declaration (markup-carve/carve#1755).
+     * @param bool $trackGenerated Record which defaults the extension added.
      */
     protected function renderExtensionAttributes(
         Node $node,
@@ -38,7 +39,10 @@ trait ExtensionAttributesTrait
         array $excludeClasses = [],
         array $defaultAttrs = [],
         ?string $tag = null,
+        bool $trackGenerated = false,
     ): string {
+        $carriers = array_values(array_filter($excludeAttrs, static fn (string $name): bool => str_starts_with($name, 'data-carve-')));
+        $renderer->attributesBesideCarriers($node, $carriers);
         $stored = $node->getAttributes();
         if ($excludeAttrs !== []) {
             $drop = array_flip(array_map('strtolower', $excludeAttrs));
@@ -108,10 +112,17 @@ trait ExtensionAttributesTrait
         // `style`, e.g. the color-swatch tint). They win only where the author
         // set nothing - and an author value that safe mode just stripped counts
         // as absent, matching the pre-refactor behavior.
+        $generated = [];
         foreach ($defaultAttrs as $name => $value) {
             if (!array_key_exists($name, $ordered)) {
                 $ordered[$name] = $value;
+                $generated[] = $name;
             }
+        }
+
+        if ($trackGenerated && $renderer->isRoundTripMode()) {
+            $renderer->attributesBesideCarriers($node, ['data-carve-group-generated']);
+            $ordered['data-carve-group-generated'] = implode(' ', $generated);
         }
 
         return $renderer->renderAttributeArray($ordered, $tag);

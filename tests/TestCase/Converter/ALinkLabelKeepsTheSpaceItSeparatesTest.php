@@ -52,10 +52,10 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
     {
         $this->assertSame("x *y*\n", (new HtmlToCarve())->convert('<p><a href="">x </a><strong> y</strong></p>'));
 
-        $trusted = new HtmlToCarve(true);
+        $roundtrip = new HtmlToCarve(importMode: 'roundtrip');
         $this->assertSame(
             "`<a href=\"u\"><img src=\"i\" alt=\"a]b[\"> </a>`{=html}{* y*}\n",
-            $trusted->convert('<p><a href="u"><img src="i" alt="a]b["> </a><strong> y</strong></p>'),
+            $roundtrip->convert('<p><a href="u"><img src="i" alt="a]b["> </a><strong> y</strong></p>'),
         );
     }
 
