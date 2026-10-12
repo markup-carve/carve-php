@@ -2360,8 +2360,9 @@ final class BlockContinuationScanner
      * @param int $openIndex Source index of the run.
      * @param array{fence: string, length: int, char?: string} $opener
      * @param int $columns Leading columns of the run.
+     * @param int|null $hostColumns The host's content column, where a closer also ends the fence.
      */
-    public function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns): bool
+    public function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns, ?int $hostColumns = null): bool
     {
         $char = $opener['char'] ?? $opener['fence'][0];
         if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
@@ -2375,6 +2376,11 @@ final class BlockContinuationScanner
             if ($indent < $columns) {
                 if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null) {
                     return false;
+                }
+                // An opener past the host column may close at the host column;
+                // any other line at that column ends the search.
+                if ($hostColumns !== null && $indent === $hostColumns && !IndentationHelper::isBlankLine($line)) {
+                    return ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length']);
                 }
 
                 continue;
