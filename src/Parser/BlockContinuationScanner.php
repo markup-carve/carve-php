@@ -641,9 +641,13 @@ final class BlockContinuationScanner
         // item's `- :: t` / `  : d` spelling writes the body on a line this
         // collector never sees.
         $openDefinitionBody = null;
+        $pendingDefinitionTerm = false;
         foreach ($itemLines as $seedLine) {
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($seedLine, " \t"))) {
+                $pendingDefinitionTerm = true;
+            }
         }
         // A span opened on the MARKER LINE is the item's first block
         // (`CARVE-P0-007`), so it retains nothing for a below-column follower.
@@ -768,9 +772,35 @@ final class BlockContinuationScanner
                         }
                     }
                 }
-                $inlineAuthoredFence = $inlineCodeParagraph;
+                if (
+                    $nextIndent === $contentIndent
+                    && $trailingState->fence === null
+                    && !$trailingState->hasOpenDiv()
+                    && $openCommentLength === null
+                ) {
+                    if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed)) {
+                        $pendingDefinitionTerm = true;
+                    } elseif (
+                        $pendingDefinitionTerm && (
+                            preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)
+                            || $this->isBlockElementStart($nextTrimmed, $lines, $i)
+                            || $this->startsNewBlock($nextTrimmed, $lines, $i)
+                            || ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                            || $this->isCommentLineOrFence($nextTrimmed)
+                        )
+                    ) {
+                        $pendingDefinitionTerm = false;
+                    }
+                }
+                $termContinuation = $pendingDefinitionTerm
+                    && $nextIndent > $contentIndent
+                    && $trailingState->fence === null
+                    && !$trailingState->hasOpenDiv()
+                    && $openCommentLength === null;
+                $inlineAuthoredFence = $inlineCodeParagraph || $termContinuation;
                 if (
                     $authoredCodeColumn === null
+                    && !$termContinuation
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
                     && !$trailingState->quoteParagraph
@@ -805,7 +835,7 @@ final class BlockContinuationScanner
                 $stripColumn = $authoredCodeColumn !== null
                     && IndentationHelper::getLeadingColumns($nextLine, $authoredCodeColumn) >= $authoredCodeColumn
                     ? $authoredCodeColumn : $contentIndent;
-                $contentLine = $inlineAuthoredFence
+                $contentLine = $inlineAuthoredFence && !$termContinuation
                     ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                     : IndentationHelper::stripLeadingColumns($nextLine, $stripColumn);
                 if ($wrappedAttributeLinesRemaining === 0) {
