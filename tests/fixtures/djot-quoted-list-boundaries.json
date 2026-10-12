@@ -7394,5 +7394,9 @@
   {
     "source": "[x][r]\n\n{title=t}\n[r]: /x\n   y\n",
     "carve": "[r]: /xy {title=t}\n\n[x][r]\n"
+  },
+  {
+    "source": "> - > a\n>   > b\n> - x\n",
+    "carve": "> - > a\n>   > b\n> - x\n"
   }
 ]

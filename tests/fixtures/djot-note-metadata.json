@@ -3282,5 +3282,11 @@
     "source": "[r]: ![x](/u)\n\n[x][r]",
     "lossLines": [],
     "html": "<p><a href=\"![x](/u)\">x</a></p>"
+  },
+  {
+    "name": "quote-list-after-nested-thematic",
+    "source": "> > ***\n> - x",
+    "lossLines": [],
+    "html": "<blockquote><blockquote><hr></blockquote><ul><li>x</li></ul></blockquote>"
   }
 ]
