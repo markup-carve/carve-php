@@ -10702,5 +10702,121 @@
   {
     "source": "><mark>x</mark>",
     "html": "<blockquote>\n<p><mark>x</mark></p>\n</blockquote>\n"
+  },
+  {
+    "source": "<strong>a</strong><mark>b</mark>",
+    "html": "<p><strong>a</strong><mark>b</mark></p>\n"
+  },
+  {
+    "source": "<strong><mark>x</mark></strong>",
+    "html": "<p><strong><mark>x</mark></strong></p>\n"
+  },
+  {
+    "source": "a \\><mark>x</mark>",
+    "html": "<p>a &gt;<mark>x</mark></p>\n"
+  },
+  {
+    "source": "a \\>= b",
+    "html": "<p>a &gt;= b</p>\n"
+  },
+  {
+    "source": "| a |\n| --- |\n| \\>= |",
+    "html": "<table>\n<thead>\n<tr>\n<th>a</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>&gt;=</td>\n</tr>\n</tbody>\n</table>\n"
+  },
+  {
+    "source": "&gt;<mark>x</mark>",
+    "html": "<p>&gt;<mark>x</mark></p>\n"
+  },
+  {
+    "source": "&lt;<mark>x</mark>",
+    "html": "<p>&lt;<mark>x</mark></p>\n"
+  },
+  {
+    "source": "&gt;=",
+    "html": "<p>&gt;=</p>\n"
+  },
+  {
+    "source": "&lt;=",
+    "html": "<p>&lt;=</p>\n"
+  },
+  {
+    "source": "=<mark>x</mark>",
+    "html": "<p>=<mark>x</mark></p>\n"
+  },
+  {
+    "source": "<mark>a</mark><mark>b</mark>",
+    "html": "<p><mark>a</mark><mark>b</mark></p>\n"
+  },
+  {
+    "source": "<mark>x</mark>=>",
+    "html": "<p><mark>x</mark>=&gt;</p>\n"
+  },
+  {
+    "source": "[Read more...]\n\n[Read more...]: /post",
+    "html": "<p><a href=\"/post\">Read more...</a></p>\n"
+  },
+  {
+    "source": "[Read more...][]\n\n[Read more...]: /post",
+    "html": "<p><a href=\"/post\">Read more...</a></p>\n"
+  },
+  {
+    "source": "[a--b]\n\n[a--b]: /post",
+    "html": "<p><a href=\"/post\">a--b</a></p>\n"
+  },
+  {
+    "source": "[a--b][]\n\n[a--b]: /post",
+    "html": "<p><a href=\"/post\">a--b</a></p>\n"
+  },
+  {
+    "source": "a \\>==> b",
+    "html": "<p>a &gt;==&gt; b</p>\n"
+  },
+  {
+    "source": "==<mark>x</mark>",
+    "html": "<p>==<mark>x</mark></p>\n"
+  },
+  {
+    "source": "=<mark>a</mark><mark>b</mark>",
+    "html": "<p>=<mark>a</mark><mark>b</mark></p>\n"
+  },
+  {
+    "source": "![Read more...]\n\n[Read more...]: /img.png",
+    "html": "<p><img src=\"/img.png\" alt=\"Read more...\" /></p>\n"
+  },
+  {
+    "source": "![a -> b](x.png)",
+    "html": "<p><img src=\"x.png\" alt=\"a -&gt; b\" /></p>\n"
+  },
+  {
+    "source": "=<mark>a</mark><mark>b</mark> c@d.test",
+    "html": "<p>=<mark>a</mark><mark>b</mark> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "![Read more...] c@d.test\n\n[Read more...]: /img.png",
+    "html": "<p><img src=\"/img.png\" alt=\"Read more...\" /> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "![a -> b](x.png) c@d.test",
+    "html": "<p><img src=\"x.png\" alt=\"a -&gt; b\" /> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "[Read more...] c@d.test\n\n[Read more...]: /post",
+    "html": "<p><a href=\"/post\">Read more...</a> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "[a--b] c@d.test\n\n[a--b]: /post",
+    "html": "<p><a href=\"/post\">a--b</a> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "a \\>==> b c@d.test",
+    "html": "<p>a &gt;==&gt; b <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "=<mark>x</mark> c@d.test",
+    "html": "<p>=<mark>x</mark> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
+  },
+  {
+    "source": "<mark>a</mark><mark>b</mark> c@d.test",
+    "html": "<p><mark>a</mark><mark>b</mark> <a href=\"mailto:c@d.test\">c@d.test</a></p>\n"
   }
 ]

@@ -6412,6 +6412,12 @@ class MarkdownToCarve
         // and the exclusion does not apply (carve#2838). The match is on the
         // shape §8c emits and refuses anything wider, falling back to the raw
         // span the rest of this method would otherwise write.
+        $hasProtectedEscapeBefore = static function (string $subject, int $offset) use (&$protected): bool {
+            $before = substr($subject, max(0, $offset - 32), min(32, $offset));
+
+            return preg_match('/\x00P(\d+)\x00$/', $before, $token) === 1
+                && ($protected[(int)$token[1]] ?? '') === '\\';
+        };
         if (!$this->convertRawHtml) {
             $line = preg_replace_callback(
                 '/<span[ \t]+class[ \t]*=[ \t]*"critic-comment"[ \t]*>([^<]*)<\/span[ \t]*>/i',
@@ -7063,7 +7069,8 @@ class MarkdownToCarve
                 if ($canonical === null && str_contains($raw, '|')) {
                     return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
                 }
-                $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1;
+                $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1
+                    && preg_match('/(?:\.{3,}|--)/', $label ?? '') !== 1;
 
                 return $protect($canonical === null || strpbrk($canonical, '[]') !== false || $collapsed ? $match[0][0] : '[' . $canonical . ']');
             },
@@ -7184,7 +7191,7 @@ class MarkdownToCarve
                     }
 
                     return $match[1][0] . '[' . $label . ']'
-                        . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 ? '[]' : $protect('[' . $definition . ']'));
+                        . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 && preg_match('/(?:\.{3,}|--)/', $label) !== 1 ? '[]' : $protect('[' . $definition . ']'));
                 },
                 $line,
                 flags: PREG_OFFSET_CAPTURE,
@@ -7296,8 +7303,45 @@ class MarkdownToCarve
         // always-braced form. The others below have no bare form and are always
         // braced (sup/sub/ins) or always bare (del/s).
         if (!$this->convertRawHtml) {
+            $line = preg_replace_callback(
+                '/(?:<mark>[^<]+<\/mark>){2,}/i',
+                static fn (array $run): string => preg_replace_callback(
+                    '/<mark>([^<]+)<\/mark>/i',
+                    static fn (array $mark): string => $protect('{=') . $mark[1] . $protect('=}'),
+                    $run[0],
+                ) ?? $run[0],
+                $line,
+            ) ?? $line;
             $line = $replaceNativeInline('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line);
-            $line = preg_replace_callback('/([!<>])<mark>([^<]+)<\/mark>/i', static fn (array $match): string => $protect('\\' . $match[1] . '{=') . $match[2] . $protect('=}'), $line) ?? $line;
+            $prefixSubject = $line;
+            $prefixCursor = 0;
+            $prefixTagEnd = 0;
+            $line = preg_replace_callback(
+                '/([!<>=])<mark>([^<]+)<\/mark>/i',
+                function (array $match) use ($protect, $prefixSubject, $hasProtectedEscapeBefore, &$prefixCursor, &$prefixTagEnd): string {
+                    $offset = $match[0][1];
+                    while ($prefixCursor <= $offset) {
+                        $tag = $prefixSubject[$prefixCursor] === '<' ? $this->htmlTagAt($prefixSubject, $prefixCursor) : null;
+                        if ($tag !== null) {
+                            $prefixTagEnd = $tag['end'];
+                            $prefixCursor = $prefixTagEnd;
+                        } else {
+                            $prefixCursor++;
+                        }
+                    }
+                    if ($prefixTagEnd > $offset) {
+                        return $match[0][0];
+                    }
+
+                    if ($hasProtectedEscapeBefore($prefixSubject, $offset)) {
+                        return $match[1][0] . $protect('{=') . $match[2][0] . $protect('=}');
+                    }
+
+                    return $protect('\\' . $match[1][0] . '{=') . $match[2][0] . $protect('=}');
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
             $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line);
             $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>/i', '=$1=', $line);
             // §8c writes `underline` as `<u>`, which this table did not read back
@@ -7370,7 +7414,15 @@ class MarkdownToCarve
         $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
         $line = $this->escapeTypographicDashes($line);
         $line = preg_replace_callback('/(?<!\\\\)\.{3,}/', static fn (array $run): string => str_replace('.', '\\.', $run[0]), $line) ?? $line;
-        $line = preg_replace_callback('/(?<!\\\\)(?:<-->|<->|-->|<--|<=>|==>|<==|\(tm\)|->|<-|<=|>=|!=|\+-|\(c\)|\(r\))/', static fn (array $symbol): string => preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $symbol[0]) ?? $symbol[0], $line) ?? $line;
+        $symbolSubject = $line;
+        $line = preg_replace_callback(
+            '/(?<!\\\\)(?:<-->|<->|-->|<--|<=>|==>|<==|\(tm\)|->|<-|<=|>=|!=|\+-|\(c\)|\(r\))/',
+            static fn (array $symbol): string => $hasProtectedEscapeBefore($symbolSubject, $symbol[0][1])
+                ? $symbol[0][0][0] . (preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', substr($symbol[0][0], 1)) ?? substr($symbol[0][0], 1))
+                : preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $symbol[0][0]) ?? $symbol[0][0],
+            $line,
+            flags: PREG_OFFSET_CAPTURE,
+        ) ?? $line;
         if (!$this->convertAttributes) {
             $line = $this->escapeAttributeListsThatAttach($line);
         }
@@ -8860,7 +8912,7 @@ class MarkdownToCarve
      */
     protected function escapeDecodedCharacterReference(string $text): string
     {
-        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-])/', '\\\\$1', $text) ?? $text;
+        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-<>])/', '\\\\$1', $text) ?? $text;
     }
 
     /**
