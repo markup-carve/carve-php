@@ -731,6 +731,7 @@ final class BlockContinuationScanner
                     break;
                 }
                 $structuralFence = false;
+                $fenceIndentationChanged = false;
                 $sourceFenceOpener = $trailingState->fence === null
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed)
                     ? (($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed)
@@ -741,7 +742,6 @@ final class BlockContinuationScanner
                 }
                 if (
                     $rebasedFenceColumn !== null
-                    && $trailingState->fence !== null
                     && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $rebasedFenceColumn + 1)
                         >= $contentIndent + $rebasedFenceColumn
                 ) {
@@ -752,6 +752,7 @@ final class BlockContinuationScanner
                 } else {
                     $contentLine = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
                     $structuralFence = $trailingState->fence === null
+                        && !$this->state->frame->rebasedItemInput
                         && !$trailingState->hasOpenDiv()
                         && !$trailingState->inFootnoteBody
                         && !$trailingState->quoteParagraph
@@ -762,7 +763,7 @@ final class BlockContinuationScanner
                         && $sourceFenceOpener !== null;
                     if ($structuralFence) {
                         $rebasedLine = IndentationHelper::rebaseLeadingColumns($nextLine, $contentIndent);
-                        $structuralFence = $rebasedLine !== $contentLine;
+                        $fenceIndentationChanged = $rebasedLine !== $contentLine;
                         $contentLine = $rebasedLine;
                     }
                 }
@@ -838,11 +839,15 @@ final class BlockContinuationScanner
                     if ($trailingState->fence === null) {
                         // Failed admission leaves the original paragraph spelling.
                         $itemLines[array_key_last($itemLines)] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
-                    } elseif ($trailingState->fence->column > 0) {
+                    } elseif (
+                        $trailingState->fence->column > 0
+                        && ($fenceIndentationChanged
+                            || ($contentIndent + $trailingState->fence->column) % IndentationHelper::TAB_STOP === 0)
+                    ) {
                         $rebasedFenceColumn = $trailingState->fence->column;
                     }
                 }
-                if ($trailingState->fence !== null || !$trailingState->openParagraph) {
+                if ($trailingState->fence !== null) {
                     $unadmittedFenceInParagraph = false;
                 } elseif (!$wasInFence && $sourceFenceOpener !== null) {
                     $unadmittedFenceInParagraph = true;

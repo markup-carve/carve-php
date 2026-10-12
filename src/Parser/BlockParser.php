@@ -1773,6 +1773,7 @@ class BlockParser
         $this->nestingDepth++;
         $previousFrame = $this->state->frame;
         $frame = new BlockParseFrame();
+        $frame->rebasedItemInput = $previousFrame->rebasedItemInput || $itemBody;
         $frame->hostedColonFences = $previousFrame->hostedColonFences
             || $itemBody
             || in_array($parent->getType(), ['list_item', 'definition_description', 'footnote_definition', 'block_quote'], true);

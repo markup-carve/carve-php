@@ -113,6 +113,26 @@ class TabFenceColumnsTest extends TestCase
     public static function reviewedPreservationControls(): array
     {
         return [
+            'review2-0' => [
+                "1. a\n\t\t````\n   {.c}\n\t\t~~~\n",
+                "<ol>\n  <li>a\n<code></code>\n    <pre class=\"c\"><code></code></pre>\n  </li>\n</ol>\n",
+            ],
+            'review2-3' => [
+                "- a\n  - b\n    \t```=html\n> q\n\t  `````\n",
+                "<ul>\n  <li>a\n    <ul>\n      <li>b\n<code>=html\n</code></li>\n    </ul>\n  </li>\n</ul>\n<blockquote><p>q\n<code></code></p></blockquote>\n",
+            ],
+            'review2-4' => [
+                "- [x] t\n\t \t````\n\t \t%% c\n    \t```\n",
+                "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"t\"> t\n<code></code>\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
+            ],
+            'review2-5' => [
+                "- [x] t\n\t \t`````\n \t %% c\n\t \t~~~\n",
+                "<ul class=\"task-list\">\n  <li data-task-state=\"x\"><input type=\"checkbox\" checked disabled aria-label=\"t\"> t\n<code></code>\n    <pre><code></code></pre>\n  </li>\n</ul>\n",
+            ],
+            'non-tab-stop-raw-base' => [
+                "- a\n  > q\n\t\t[^n]: f\n  # h\n\t  ```=html\n\t- s\n    ``` \n\t```make\n    \t```\t\nafter\n",
+                "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"h\">h</h1>\n      - s\n  ``` \n  ```make\n  </li>\n</ul>\n<p>after</p>\n",
+            ],
             'below-fence-column' => [
                 "- a\n  # h\n      ```\n    x\n   ```\n      ```\nafter\n",
                 "<ul>\n  <li>a\n    <h1 id=\"h\">h</h1>\n    <pre><code>  x\n ```\n</code></pre>\n  </li>\n</ul>\n<p>after</p>",
