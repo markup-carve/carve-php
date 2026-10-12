@@ -49,19 +49,26 @@ final class HtmlCarrierNames
         'col-widths',
         'escaped',
         'explicit-id',
+        'ext',
+        'group-generated',
         'fence-content',
+        'fence-generated',
         'fence-language',
         'footnote-label',
         'heading-ref',
         'heading-ref-display',
+        'id-slot',
         'inline-footnote',
         'inline-footnote-class',
         'inline-footnote-html',
         'label',
         'raw',
         'ref',
+        'selected',
         'source-level',
         'src',
+        'tab-title',
+        'tight',
     ];
 
     /**
@@ -100,6 +107,11 @@ final class HtmlCarrierNames
             $attributes = iterator_to_array($element->attributes);
             foreach ($attributes as $attribute) {
                 $lower = strtolower($attribute->name);
+                if (in_array($lower, ['data-carve-src', 'data-djot-src'], true)) {
+                    $element->removeAttribute($attribute->name);
+
+                    continue;
+                }
                 if (!str_starts_with($lower, self::LEGACY_PREFIX)) {
                     continue;
                 }

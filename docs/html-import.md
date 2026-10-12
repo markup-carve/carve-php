@@ -8,12 +8,8 @@ The loss report, the diagnostic `path` locator, and the import modes.
 | --- | --- |
 | Export `roundTripMode` / `--roundtrip` | Adds carriers to output. Any import mode reads them; this is not a trust decision. |
 | `importMode`: `safe`, `semantic`, `roundtrip` | Decides what happens to HTML Carve cannot spell. `roundtrip` keeps it as raw `{=html}`. |
-| `trustStoredSource` | Re-emits `data-carve-src` verbatim. Use only with trusted input; implies `roundtrip` import mode. |
 
-Omitting `importMode` selects `safe`, or `roundtrip` when `trustStoredSource`
-is true. Combining stored-source trust with explicit `safe` or `semantic`
-throws `InvalidArgumentException`. Export options do not select an import mode
-or trust setting.
+Omitting `importMode` selects `safe`. Export options do not select an import mode.
 
 HTML import uses PHP's native HTML5 parser on PHP 8.4 and later. On PHP 8.2 and
 8.3 it keeps the legacy libxml parser. Both paths require `ext-dom` when importing
@@ -60,9 +56,6 @@ nested list. The Markdown target writes a list table as a pipe table either way.
 $carve = (new HtmlToCarve(listTableForBlockCells: true))->convert($html);
 ~~~
 
-When trusted `data-carve-src` returns stored Carve source verbatim, the report has
-no diagnostics. The HTML descendants are not imported in that path.
-
 ## Roundtrip carrier names
 
 The attributes a roundtrip export writes so an import can recover a distinction
@@ -75,10 +68,21 @@ alias**: it is canonicalized on load, the `data-carve-` name wins where an
 element carries both, and the alias is consumed either way, so a document that
 arrives with it leaves without it.
 
+Legacy `data-carve-src` and `data-djot-src` attributes are reserved and consumed
+on import in every mode. Their values never supply Carve source.
+
 The reserved set is an enumeration, not a prefix. A `data-carve-` or
 `data-djot-` name the enumeration does not list is an ordinary authored
 attribute and is imported as one. `MarkupCarve\Carve\Converter\HtmlCarrierNames`
 holds the list.
+
+Roundtrip sections with generated IDs use `data-carve-ext="section"`. Those
+with authored IDs use `data-carve-explicit-id="1"`. These markers distinguish
+generated wrappers from imported HTML sections. Headings use `data-carve-explicit-id="0"`
+for generated IDs. Section wrappers use `data-carve-id-slot` when an authored ID follows other attributes,
+so import restores their order. Lists use `data-carve-tight` to preserve
+tightness when an attributed paragraph needs a `<p>` wrapper. These carriers
+are consumed by the default importer.
 
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows

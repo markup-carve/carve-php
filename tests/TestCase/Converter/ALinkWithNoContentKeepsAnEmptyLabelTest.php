@@ -25,7 +25,7 @@ class ALinkWithNoContentKeepsAnEmptyLabelTest extends TestCase
     {
         $this->assertSame(
             "[](/x)\n",
-            (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<p><a href="/x" data-carve-ref=""></a></p>'),
+            (new HtmlToCarve(importMode: 'roundtrip'))->convert('<p><a href="/x" data-carve-ref=""></a></p>'),
         );
     }
 }

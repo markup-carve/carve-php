@@ -285,7 +285,6 @@ final class HtmlAstBuilder
     /**
      * @param bool $listTableForBlockCells
      * @param string $importMode
-     * @param bool $trustStoredSource
      * @param bool $sourceSafe
      * @param array<string, string> $alignmentClasses
      * @param array<string, string> $labels
@@ -293,7 +292,6 @@ final class HtmlAstBuilder
     public function __construct(
         private readonly bool $listTableForBlockCells = false,
         private readonly string $importMode = 'safe',
-        private readonly bool $trustStoredSource = false,
         private readonly bool $sourceSafe = true,
         private readonly array $alignmentClasses = [],
         private readonly array $labels = [],
@@ -950,12 +948,19 @@ final class HtmlAstBuilder
 
             return $children === [] ? [] : [HtmlImportNodes::paragraph($children)];
         }
-        $roundTripBlocks = $this->roundTripBlocks($node);
-        if ($roundTripBlocks !== null) {
-            return $roundTripBlocks;
-        }
         $extension = $this->extensionBlock($node);
         if ($extension !== null) {
+            if ($extension['type'] === 'code_block' && $node->hasAttribute('data-carve-fence-language')) {
+                $this->session->consumedExtensionElements[$node] = true;
+                $parent = $node->parentNode;
+                if (
+                    $parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'figure'
+                    && $parent->getAttribute('class') !== '' && $this->extensionElements($parent) === [$node]
+                ) {
+                    $this->session->consumedExtensionElements[$parent] = false;
+                }
+            }
+
             return [$extension];
         }
         if ($tag === 'p') {
@@ -1151,11 +1156,18 @@ final class HtmlAstBuilder
         ) {
             return $blocks;
         }
+        if ($node->getAttribute('data-carve-ext') === 'section' || $node->getAttribute('data-carve-explicit-id') === '1') {
+            $this->session->consumedExtensionElements[$node] = false;
+        }
         foreach ($blocks as &$block) {
             if ($block['type'] === 'heading') {
                 $headingAttrs = self::attrsValue($block['attrs'] ?? null);
                 $headingAttrs['id'] = $node->getAttribute('id');
-                $headingAttrs['order'] = ['#id', ...array_values(array_diff($headingAttrs['order'] ?? [], ['#id']))];
+                $order = array_values(array_diff($headingAttrs['order'] ?? [], ['#id']));
+                $idSlot = $node->getAttribute('data-carve-id-slot');
+                $position = ctype_digit($idSlot) ? min((int)$idSlot, count($order)) : 0;
+                array_splice($order, $position, 0, ['#id']);
+                $headingAttrs['order'] = $order;
                 $block['attrs'] = $headingAttrs;
                 if (!$node->hasAttribute('data-carve-explicit-id')) {
                     $block[self::SECTION_ID_KEY] = true;
@@ -1378,6 +1390,9 @@ final class HtmlAstBuilder
 
     private function headingIdWasGenerated(DOMElement $node): bool
     {
+        if ($node->getAttribute('data-carve-explicit-id') === '0') {
+            return true;
+        }
         if ($this->importMode !== 'roundtrip' || !$node->hasAttribute('id') || $node->hasAttribute('data-carve-explicit-id')) {
             return false;
         }
@@ -1724,6 +1739,8 @@ final class HtmlAstBuilder
             && $node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'code'
             && ($node->nextSibling === null || ($node->nextSibling instanceof DOMText && str_starts_with($node->nextSibling->textContent, "\n")))
         ) {
+            $this->session->consumedExtensionElements[$node] = true;
+
             return '<' . $node->textContent . '>';
         }
         if ($node instanceof DOMText) {
@@ -1749,6 +1766,9 @@ final class HtmlAstBuilder
         $skip = ['role'];
         if ($node->getAttribute('aria-label') === $base) {
             $skip[] = 'aria-label';
+        }
+        if ($node->hasAttribute('data-carve-fence-generated')) {
+            $skip = array_values(array_intersect(explode(' ', $node->getAttribute('data-carve-fence-generated')), ['role', 'aria-label']));
         }
         $attrs = $this->attrs($node, $skip);
         $classes = $attrs['classes'] ?? [];
@@ -1784,41 +1804,150 @@ final class HtmlAstBuilder
     {
         $tag = strtolower(HtmlDomLoader::elementName($node));
         $classes = $this->codeLanguageClasses($node);
-        if (self::isMermaidFenceElement($node)) {
-            $block = $this->codeBlock($node);
-            $block['lang'] = 'mermaid';
-            $block['attrs'] = $this->fencedExtensionAttrs($node);
+        if ($node->getAttribute('data-carve-ext') === 'code-block') {
+            $content = $node->getAttribute('data-carve-fence-content');
+            if (
+                !$node->hasAttribute('data-carve-fence-content') || preg_match('//u', $content) !== 1
+                || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $content) !== 0
+            ) {
+                return null;
+            }
+            $block = ['type' => 'code_block', 'content' => $content];
+            $attrs = $this->attrs($node, []);
+            if ($attrs !== []) {
+                $block['attrs'] = $attrs;
+            }
+            foreach ($node->getElementsByTagName('*') as $generated) {
+                $this->session->consumedExtensionElements[$generated] = true;
+            }
+            $language = $node->getAttribute('data-carve-fence-language');
+            if ($this->validCodeLanguage($language)) {
+                $block['lang'] = $language;
+            }
+            if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+                $block['label'] = $node->getAttribute('data-carve-label');
+            }
 
             return $block;
         }
         if (
-            $tag === 'div' && $node->getAttribute('role') === 'img'
-            && $node->getAttribute('aria-label') !== ''
+            $this->hasFencedExtensionBody($node)
             && $node->hasAttribute('data-carve-fence-content')
             && $this->validCodeLanguage($node->getAttribute('data-carve-fence-language'))
-            && $classes !== [] && $classes[0] !== ''
             && preg_match('//u', $node->getAttribute('data-carve-fence-content')) === 1
             && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $node->getAttribute('data-carve-fence-content')) === 0
         ) {
+            $block = ['type' => 'code_block', 'lang' => $node->getAttribute('data-carve-fence-language'), 'content' => $node->getAttribute('data-carve-fence-content')];
+            $attrs = $this->fencedExtensionAttrs($node);
+            if ($attrs !== []) {
+                $block['attrs'] = $attrs;
+            }
+            if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+                $block['label'] = $node->getAttribute('data-carve-label');
+            }
+            foreach ($node->getElementsByTagName('*') as $generated) {
+                $this->session->consumedExtensionElements[$generated] = true;
+            }
+
+            return $block;
+        }
+        if ($tag === 'figure') {
             $elements = $this->extensionElements($node);
-            if ($elements !== null && count($elements) === 1 && in_array(strtolower(HtmlDomLoader::elementName($elements[0])), ['svg', 'img'], true)) {
-                $block = ['type' => 'code_block', 'lang' => $node->getAttribute('data-carve-fence-language'), 'content' => $node->getAttribute('data-carve-fence-content')];
-                $block['attrs'] = $this->fencedExtensionAttrs($node);
-                if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
-                    $block['label'] = $node->getAttribute('data-carve-label');
+            if ($elements !== null && count($elements) === 1 && $elements[0]->hasAttribute('data-carve-fence-language')) {
+                $block = $this->extensionBlock($elements[0]);
+                if (($block['type'] ?? null) === 'code_block') {
+                    $this->session->consumedExtensionElements[$node] = false;
+                    $this->session->consumedExtensionElements[$elements[0]] = true;
+
+                    return $block;
+                }
+            }
+        }
+
+        if ($tag === 'pre' && $this->validCodeLanguage($node->getAttribute('data-carve-fence-language'))) {
+            $elements = $this->extensionElements($node);
+            if (
+                $elements !== null && count($elements) === 1
+                && strtolower(HtmlDomLoader::elementName($elements[0])) === 'code'
+                && self::every(iterator_to_array($elements[0]->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText)
+            ) {
+                $block = $this->codeBlock($node);
+                $block['lang'] = $node->getAttribute('data-carve-fence-language');
+                if ($node->hasAttribute('data-carve-fence-content')) {
+                    $block['content'] = $node->getAttribute('data-carve-fence-content');
+                }
+                $attrs = $this->fencedExtensionAttrs($node);
+                unset($block['attrs']);
+                if ($attrs !== []) {
+                    $block['attrs'] = $attrs;
                 }
 
                 return $block;
             }
         }
-        if ($tag !== 'div' || !in_array('code-group', $classes, true) || !in_array($node->getAttribute('role'), ['group', 'tablist'], true) || $node->getAttribute('aria-label') === '') {
+        if (
+            in_array($tag, ['pre', 'div'], true)
+            && $this->validCodeLanguage($node->getAttribute('data-carve-fence-language'))
+        ) {
+            $elements = $this->extensionElements($node);
+            $textOnly = self::every(iterator_to_array($node->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
+            $json = $elements !== null && count($elements) === 1
+                && strtolower(HtmlDomLoader::elementName($elements[0])) === 'script'
+                && $elements[0]->getAttribute('type') === 'application/json'
+                && self::every(iterator_to_array($elements[0]->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
+            if ($textOnly || $json) {
+                $content = $json ? $elements[0]->textContent : $node->textContent;
+                $block = ['type' => 'code_block', 'lang' => $node->getAttribute('data-carve-fence-language'), 'content' => CodePayload::contentFromCodeText($content)];
+                if (
+                    $node->hasAttribute('data-carve-fence-content')
+                    && preg_match('//u', $node->getAttribute('data-carve-fence-content')) === 1
+                    && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $node->getAttribute('data-carve-fence-content')) === 0
+                ) {
+                    $block['content'] = $node->getAttribute('data-carve-fence-content');
+                }
+                if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+                    $block['label'] = $node->getAttribute('data-carve-label');
+                }
+                $attrs = $this->fencedExtensionAttrs($node);
+                if ($attrs !== []) {
+                    $block['attrs'] = $attrs;
+                }
+
+                return $block;
+            }
+        }
+        if (self::isMermaidFenceElement($node)) {
+            $block = $this->codeBlock($node);
+            $block['lang'] = 'mermaid';
+            if (self::isValidCodeLabel($node->getAttribute('data-carve-label'))) {
+                $block['label'] = $node->getAttribute('data-carve-label');
+            }
+            $block['attrs'] = $this->fencedExtensionAttrs($node);
+
+            return $block;
+        }
+        $carrier = $node->getAttribute('data-carve-ext');
+        $marked = in_array($carrier, ['tabs', 'code-group'], true);
+        $tabs = $marked ? $carrier === 'tabs' : in_array('tabs', $classes, true);
+        $kind = $tabs ? 'tabs' : 'code-group';
+        if ($tag !== 'div') {
+            return null;
+        }
+        if (
+            !$marked && (
+                !in_array($kind, $classes, true)
+                || (!$node->hasAttribute('data-carve-group-generated') && !in_array($node->getAttribute('role'), ['group', 'tablist'], true))
+                || $node->getAttribute('aria-label') === ''
+            )
+        ) {
             return null;
         }
         $elements = $this->extensionElements($node);
         if ($elements === null || $elements === []) {
             return null;
         }
-        $aria = $node->getAttribute('role') === 'tablist';
+        $static = $marked && strtolower(HtmlDomLoader::elementName($elements[0])) === 'section';
+        $aria = $marked ? strtolower(HtmlDomLoader::elementName($elements[0])) === 'button' : $node->getAttribute('role') === 'tablist';
         $controls = [];
         $index = 0;
         $name = null;
@@ -1830,8 +1959,8 @@ final class HtmlAstBuilder
             }
             if ($aria) {
                 if (
-                    $control->getAttribute('class') !== 'code-group-label' || $control->getAttribute('type') !== 'button' || $control->getAttribute('role') !== 'tab'
-                    || !in_array($control->getAttribute('aria-selected'), ['true', 'false'], true) || $control->getAttribute('aria-controls') === ''
+                    (!$marked && $control->getAttribute('class') !== $kind . '-label') || (!$marked && $control->getAttribute('type') !== 'button') || (!$marked && $control->getAttribute('role') !== 'tab')
+                    || !in_array($control->getAttribute('aria-selected'), ['true', 'false'], true) || (!$marked && $control->getAttribute('aria-controls') === '')
                 ) {
                     return null;
                 }
@@ -1840,56 +1969,134 @@ final class HtmlAstBuilder
                 $label = $elements[$index++] ?? null;
                 $name ??= $control->getAttribute('name');
                 if (
-                    $control->getAttribute('class') !== 'code-group-radio' || $control->getAttribute('type') !== 'radio' || $name === '' || $control->getAttribute('name') !== $name
-                    || $label === null || strtolower(HtmlDomLoader::elementName($label)) !== 'label' || $label->getAttribute('class') !== 'code-group-label' || $label->getAttribute('for') !== $id
+                    (!$marked && $control->getAttribute('class') !== $kind . '-radio') || (!$marked && ($control->getAttribute('type') !== 'radio' || $name === '' || $control->getAttribute('name') !== $name))
+                    || $label === null || strtolower(HtmlDomLoader::elementName($label)) !== 'label' || (!$marked && $label->getAttribute('class') !== $kind . '-label') || ((!$marked || $label->hasAttribute('for')) && $label->getAttribute('for') !== $id)
                 ) {
                     return null;
                 }
             }
             $controls[$id] = ['control' => $control, 'label' => $label];
         }
-        if ($controls === [] || count($elements) - $index !== count($controls)) {
+        if ($static) {
+            foreach ($elements as $position => $panel) {
+                $children = $this->extensionElements($panel);
+                if (strtolower(HtmlDomLoader::elementName($panel)) !== 'section' || $children === null || $children === [] || strtolower(HtmlDomLoader::elementName($children[0])) !== 'h3') {
+                    return null;
+                }
+                $controls[(string)$position] = ['control' => $panel, 'label' => $children[0]];
+            }
+        }
+        if ($controls === [] || (!$static && count($elements) - $index !== count($controls))) {
             return null;
         }
         $selectedCount = 0;
         foreach ($controls as $entry) {
-            $selectedCount += (int)($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked'));
+            $selectedCount += (int)($static ? $entry['control']->hasAttribute('data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked')));
         }
         if ($selectedCount !== 1) {
             return null;
         }
-        $blocks = [];
         foreach ($controls as $id => $entry) {
             $panel = $elements[$index++];
             if (
-                strtolower(HtmlDomLoader::elementName($panel)) !== 'div' || $panel->getAttribute('class') !== 'code-group-panel'
-                || $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group')
-                || ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : $panel->getAttribute('aria-label') !== $entry['label']->textContent)
+                strtolower(HtmlDomLoader::elementName($panel)) !== ($static ? 'section' : 'div') || (!$marked && !$this->hasClass($panel, $kind . '-panel'))
+                || (!$marked && !$static && (!$panel->hasAttribute('data-carve-group-generated') || in_array('role', explode(' ', $panel->getAttribute('data-carve-group-generated')), true)) && $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group'))
+                || (!$marked && !$static && ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : (!$panel->hasAttribute('data-carve-group-generated') && $panel->getAttribute('aria-label') !== $entry['label']->textContent)))
             ) {
-                return null;
-            }
-            $children = $this->extensionElements($panel);
-            if ($children === null || count($children) !== 1 || strtolower(HtmlDomLoader::elementName($children[0])) !== 'pre') {
-                return null;
-            }
-            $code = $this->extensionElements($children[0]);
-            if ($code === null || count($code) !== 1 || strtolower(HtmlDomLoader::elementName($code[0])) !== 'code') {
                 return null;
             }
             if (!self::every(iterator_to_array($entry['label']->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText)) {
                 return null;
             }
-            $block = $this->codeBlock($children[0]);
-            $selected = $aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked');
+            if ($tabs) {
+                $titleHeading = false;
+                foreach ($panel->childNodes as $child) {
+                    if (!$child instanceof DOMElement || !$child->hasAttribute('data-carve-tab-title')) {
+                        continue;
+                    }
+                    if ($titleHeading || !$child->hasAttribute('hidden') || preg_match('/^h[1-6]$/D', strtolower(HtmlDomLoader::elementName($child))) !== 1 || $panel->hasAttribute('data-carve-label')) {
+                        return null;
+                    }
+                    $titleHeading = true;
+                }
+            }
+        }
+        $index -= count($controls);
+        $blocks = [];
+        foreach ($controls as $id => $entry) {
+            $panel = $elements[$index++];
+            if ($tabs) {
+                $title = [];
+                $titleNode = null;
+                foreach ($panel->childNodes as $child) {
+                    if (!$child instanceof DOMElement) {
+                        continue;
+                    }
+                    if ($child->hasAttribute('data-carve-tab-title')) {
+                        if ($child->getAttribute('data-carve-tab-title') !== 'authored-hidden') {
+                            $child->removeAttribute('hidden');
+                        }
+                        if (!$child->hasAttribute('data-carve-explicit-id') || $child->getAttribute('data-carve-explicit-id') === '0') {
+                            $child->removeAttribute('id');
+                        }
+                    }
+                    if ($titleNode === null && strtolower(HtmlDomLoader::elementName($child)) === 'p' && $this->hasClass($child, 'admonition-title')) {
+                        $title = $this->blockInlines($child);
+                        $this->stripOpenerTitleQuotes($title);
+                        $titleNode = $child;
+                    }
+                }
+                $content = array_values(array_filter($this->children($panel), static fn (DOMNode $child): bool => $child !== $titleNode && (!$static || $child !== $entry['label'])));
+                $block = ['type' => 'admonition', 'kind' => 'tab', 'children' => $this->blocks($content)];
+                if ($title !== []) {
+                    $block['title'] = $title;
+                }
+                $attrs = $this->attrs($panel, $panel->hasAttribute('data-carve-group-generated') ? explode(' ', $panel->getAttribute('data-carve-group-generated')) : array_merge(['role', 'aria-label', 'aria-labelledby'], $aria ? ['hidden'] : []));
+                if (!$panel->hasAttribute('data-carve-explicit-id')) {
+                    unset($attrs['id']);
+                    $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $slot): bool => $slot !== '#id'));
+                }
+                $attrs['classes'] = array_values(array_filter($attrs['classes'] ?? [], static fn (string $class): bool => $class !== ($marked ? (preg_split('/\s+/', trim($panel->getAttribute('class')))[0] ?? '') : 'tabs-panel')));
+                if ($attrs['classes'] === []) {
+                    $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $slot): bool => $slot !== '.class'));
+                }
+                $attrs = array_filter($attrs, static fn (array|string $value): bool => $value !== []);
+                if ($attrs !== []) {
+                    $block['attrs'] = $attrs;
+                }
+                if (self::isValidCodeLabel($panel->getAttribute('data-carve-label'))) {
+                    $block['label'] = $panel->getAttribute('data-carve-label');
+                }
+            } else {
+                $children = $this->extensionElements($panel);
+                if ($static && $children !== null) {
+                    array_shift($children);
+                }
+                if ($children === null || count($children) !== 1 || (strtolower(HtmlDomLoader::elementName($children[0])) !== 'pre' && $children[0]->getAttribute('data-carve-ext') !== 'code-block' && !$children[0]->hasAttribute('data-carve-fence-language') && strtolower(HtmlDomLoader::elementName($children[0])) !== 'figure')) {
+                    return null;
+                }
+                $fence = $this->extensionBlock($children[0]);
+                if (($fence['type'] ?? null) === 'code_block') {
+                    $block = $fence;
+                    $this->session->consumedExtensionElements[$children[0]] = true;
+                } else {
+                    $code = $this->extensionElements($children[0]);
+                    if ($code === null || count($code) !== 1 || strtolower(HtmlDomLoader::elementName($code[0])) !== 'code') {
+                        return null;
+                    }
+                    $block = $this->codeBlock($children[0]);
+                }
+            }
+            $selected = $static ? $entry['control']->hasAttribute('data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked'));
             if ($selected && $blocks !== []) {
                 $block['attrs']['keyValues']['selected'] = '';
                 $block['attrs']['order'][] = 'selected';
             }
             $blocks[] = $block;
         }
-        $group = ['type' => 'admonition', 'kind' => 'code-group', 'children' => $blocks];
-        $attrs = $this->attrs($node, ['role', 'aria-label']);
-        $classes = array_values(array_filter($attrs['classes'] ?? [], static fn (string $class): bool => $class !== 'code-group'));
+        $group = ['type' => 'admonition', 'kind' => $kind, 'children' => $blocks];
+        $attrs = $this->attrs($node, $node->hasAttribute('data-carve-group-generated') ? explode(' ', $node->getAttribute('data-carve-group-generated')) : ['role', 'aria-label']);
+        $classes = array_values(array_filter($attrs['classes'] ?? [], static fn (string $class): bool => $class !== ($marked ? ($classes[0] ?? '') : $kind)));
         if ($classes === []) {
             unset($attrs['classes']);
             $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $slot): bool => $slot !== '.class'));
@@ -1903,7 +2110,35 @@ final class HtmlAstBuilder
             $group['attrs'] = $attrs;
         }
 
+        $this->session->consumedExtensionElements[$node] = false;
+        foreach ($controls as $entry) {
+            $this->session->consumedExtensionElements[$entry['control']] = !$static;
+            $this->session->consumedExtensionElements[$entry['label']] = true;
+        }
+        foreach (array_slice($elements, count($elements) - count($controls)) as $panel) {
+            $this->session->consumedExtensionElements[$panel] = false;
+            foreach ($panel->childNodes as $child) {
+                if ($child instanceof DOMElement && $child->hasAttribute('data-carve-tab-title')) {
+                    $this->session->consumedExtensionElements[$child] = false;
+                }
+            }
+        }
+
         return $group;
+    }
+
+    private function hasFencedExtensionBody(DOMElement $node): bool
+    {
+        if (!in_array(strtolower(HtmlDomLoader::elementName($node)), ['pre', 'div'], true)) {
+            return false;
+        }
+        if (self::every(iterator_to_array($node->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText)) {
+            return true;
+        }
+        $elements = $this->extensionElements($node);
+
+        return $elements !== null && count($elements) === 1
+            && in_array(strtolower(HtmlDomLoader::elementName($elements[0])), ['code', 'script', 'svg', 'img'], true);
     }
 
     public static function isValidCodeLabel(string $value): bool
@@ -2037,6 +2272,9 @@ final class HtmlAstBuilder
 
                 break;
             }
+        }
+        if (in_array($node->getAttribute('data-carve-tight'), ['true', 'false'], true)) {
+            $tight = $node->getAttribute('data-carve-tight') === 'true';
         }
         $list = ['type' => 'list', 'ordered' => $ordered, 'tight' => $tight, 'items' => $items];
         if ($node->hasAttribute('data-marker')) {
@@ -2420,8 +2658,6 @@ final class HtmlAstBuilder
                 $this->session->pipeCellDepth = $listForm ? $previousPipeCellDepth : $previousPipeCellDepth + 1;
                 $previousProjection = $this->session->inInlineProjection;
                 $this->session->inInlineProjection = $previousProjection || !$listForm;
-                $previousStoredProjection = $this->session->flattensStoredBlocks;
-                $this->session->flattensStoredBlocks = $previousStoredProjection || !$listForm;
                 $previousCellContext = $this->session->tableCellAllowsEmptyCode;
                 $this->session->tableCellAllowsEmptyCode = $allowsEmptyCode;
                 try {
@@ -2431,7 +2667,6 @@ final class HtmlAstBuilder
                     $this->session->pipeCellDepth = $previousPipeCellDepth;
                     $this->session->tableCellAllowsEmptyCode = $previousCellContext;
                     $this->session->inInlineProjection = $previousProjection;
-                    $this->session->flattensStoredBlocks = $previousStoredProjection;
                 }
                 $cell = HtmlImportNodes::tableCell($children, $tag === 'th');
                 $horizontal = $this->styleEnum($cellElement, 'text-align', ['left', 'right', 'center']);
@@ -2692,7 +2927,6 @@ final class HtmlAstBuilder
         if (
             $headerRows > 0
             && $node->hasAttribute('data-carve-col-widths')
-            && !$node->hasAttribute('data-carve-src')
         ) {
             $widths = self::separatorWidths($node->getAttribute('data-carve-col-widths'));
             if ($widths !== []) {
@@ -3540,6 +3774,9 @@ final class HtmlAstBuilder
 
     public static function isDerivedRole(DOMElement $node, string $value): bool
     {
+        if ($node->hasAttribute('data-carve-fence-generated')) {
+            return in_array('role', explode(' ', $node->getAttribute('data-carve-fence-generated')), true);
+        }
         $tag = strtolower(HtmlDomLoader::elementName($node));
         $role = strtolower(trim($value));
         $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
@@ -3936,8 +4173,7 @@ final class HtmlAstBuilder
      */
     private function hoistedRun(array $nodes): array
     {
-        // A trusted round trip reads its own Carve source back, spaces included.
-        $keep = $this->session->preserveInlineWhitespace || $this->trustStoredSource;
+        $keep = $this->session->preserveInlineWhitespace;
 
         return $this->coalesceText($keep ? $nodes : $this->hoistEdgeSpace($nodes));
     }
@@ -4346,13 +4582,10 @@ final class HtmlAstBuilder
         if ($this->isBlock($node)) {
             $previousProjection = $this->session->inInlineProjection;
             $this->session->inInlineProjection = true;
-            $previousStoredProjection = $this->session->flattensStoredBlocks;
-            $this->session->flattensStoredBlocks = true;
             try {
                 return $this->flattenBlocks($this->block($node));
             } finally {
                 $this->session->inInlineProjection = $previousProjection;
-                $this->session->flattensStoredBlocks = $previousStoredProjection;
             }
         }
 
@@ -4835,125 +5068,6 @@ final class HtmlAstBuilder
         }
 
         return $value;
-    }
-
-    /**
-     * @return list<ImportedNode>|null
-     */
-    private function roundTripBlocks(DOMElement $node): ?array
-    {
-        if (
-            !$this->trustStoredSource
-            || $this->importMode !== 'roundtrip'
-            || $this->session->inCaption
-            || !$node->hasAttribute('data-carve-src')
-            || HtmlDomLoader::isCoreCodeBlock($node)
-        ) {
-            return null;
-        }
-        $this->session->storedSourceElements[$node] = null;
-        $source = html_entity_decode(
-            $node->getAttribute('data-carve-src'),
-            ENT_QUOTES | ENT_HTML5,
-            'UTF-8',
-        );
-        $tree = (new AstCodec())->encode(CarveConverter::create()->parse($source));
-        $children = self::nodeList($tree['children']);
-        $droppedPipeContent = false;
-        if ($this->sourceSafe && $this->session->pipeCellDepth > 0 && $this->foldStoredPipeCodes($children, $droppedPipeContent)) {
-            $this->session->foldedStoredCodeSpans[$node] = null;
-        }
-
-        if ($this->session->flattensStoredBlocks) {
-            $projected = count($children) > 1;
-            $dropped = $droppedPipeContent;
-            $pending = $children;
-            while ($pending !== []) {
-                $stored = array_pop($pending);
-                $isBlock = !isset(self::INLINE_PROJECTION_TYPES[$stored['type']]) || ($stored['type'] === 'comment' && ($stored['block'] ?? false) === true);
-                $projected = $projected || ($isBlock && ($stored['type'] !== 'paragraph' || ($stored['attrs'] ?? []) !== []));
-                if ($isBlock && ($stored['content'] ?? null) !== '' && !isset($stored['children']) && !isset($stored['items']) && !isset($stored['rows']) && !isset($stored['cells']) && $this->projectToInlines($stored) === []) {
-                    $dropped = true;
-                }
-                if (is_array($stored['target'] ?? null)) {
-                    $pending[] = self::importedNode($stored['target']);
-                }
-                foreach (['title', 'children', 'items', 'rows', 'cells', 'caption'] as $slot) {
-                    if (is_array($stored[$slot] ?? null)) {
-                        array_push($pending, ...self::nodeList($stored[$slot]));
-                    }
-                }
-            }
-            if ($projected || $dropped) {
-                $this->session->projectedStoredBlocks[$node] = ['projected' => $projected, 'dropped' => $dropped];
-            }
-
-            return $children;
-        }
-
-        if (
-            isset($children[0])
-            && !preg_match('/`<(?:th|td|dt|dd)\b/i', $source)
-        ) {
-            if (!$this->sourceSafe) {
-                return $children;
-            }
-            $this->setPrivateAttribute($children[0], "\0carve-stored-source", $source);
-
-            return self::nodeList([$children[0]]);
-        }
-
-        return $children;
-    }
-
-    /**
-     * @param list<ImportedNode> $nodes
-     * @param bool $dropped
-     */
-    private function foldStoredPipeCodes(array &$nodes, bool &$dropped): bool
-    {
-        $folded = false;
-        foreach ($nodes as &$node) {
-            $valueKey = $node['type'] === 'math' ? 'content' : 'value';
-            if (in_array($node['type'], ['code', 'math'], true) && is_string($node[$valueKey] ?? null) && strpbrk($node[$valueKey], "\r\n") !== false) {
-                $node[$valueKey] = str_replace(["\r\n", "\r", "\n"], ' ', $node[$valueKey]);
-                $folded = true;
-            }
-            if ($node['type'] === 'raw_inline' && is_string($node['content'] ?? null) && strpbrk($node['content'], "\r\n") !== false) {
-                $node = HtmlImportNodes::text('');
-                $dropped = true;
-
-                continue;
-            }
-            if (is_array($node['target'] ?? null)) {
-                $target = [self::importedNode($node['target'])];
-                $folded = $this->foldStoredPipeCodes($target, $dropped) || $folded;
-                $node['target'] = $target[0];
-            }
-            foreach (['children', 'items', 'rows', 'cells', 'caption', 'title', 'old', 'new', 'inline', 'content', 'prefix', 'locator', 'suffix'] as $slot) {
-                if (!is_array($node[$slot] ?? null)) {
-                    continue;
-                }
-                $children = self::nodeList($node[$slot]);
-                $folded = $this->foldStoredPipeCodes($children, $dropped) || $folded;
-                $node[$slot] = $children;
-            }
-            if ($node['type'] === 'ruby' && is_array($node['pairs'] ?? null)) {
-                foreach ($node['pairs'] as &$pair) {
-                    if (!is_array($pair)) {
-                        continue;
-                    }
-                    foreach (['base', 'annotation'] as $slot) {
-                        $children = self::nodeList($pair[$slot] ?? []);
-                        $folded = $this->foldStoredPipeCodes($children, $dropped) || $folded;
-                        $pair[$slot] = $children;
-                    }
-                }
-                unset($pair);
-            }
-        }
-
-        return $folded;
     }
 
     private function isSupportedInlineTag(string $tag): bool

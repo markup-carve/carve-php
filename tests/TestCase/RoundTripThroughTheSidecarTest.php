@@ -4,29 +4,18 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\AdmonitionExtension;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Carve -> HTML -> Carve, WITH the round-trip sidecar switched on.
- *
- * The converter here runs in `roundTripMode`, so the rendered HTML carries the
- * original Carve in a `data-carve-src` attribute, and the importer runs in
- * `trustStoredSource`, so it reads that attribute back verbatim. For every
- * construct that emits the attribute this class therefore proves the SIDECAR
- * SURVIVES A RENDER - a real property, and a much narrower one than "the
- * document round-trips" (markup-carve/carve-php#1603).
- * Core code blocks reconstruct from `<pre><code>` and `data-carve-label`.
- *
- * The reconstruction claim - the same source coming back out of the rendered
- * HTML with no sidecar to read - is a different question, and it lives in
- * `Converter\TheHtmlRoundTripWithoutTheSidecarTest`, which measures reconstruction
- * separately, because HTML import is lossy by design.
+ * Roundtrip export carriers reconstruct the document through the default importer.
  */
 class RoundTripThroughTheSidecarTest extends TestCase
 {
@@ -41,41 +30,46 @@ class RoundTripThroughTheSidecarTest extends TestCase
         $this->converter->addExtension(new TabsExtension());
         $this->converter->addExtension(FencedRenderExtension::mermaid());
         $this->converter->addExtension(new AdmonitionExtension());
-        // Round-trip tests feed carve's OWN (trusted) HTML back through the
-        // converter, so they must honor the `data-carve-src` round-trip attribute.
-        // The default converter ignores it (untrusted-input safe default).
-        $this->htmlToCarve = new HtmlToCarve(trustStoredSource: true);
+        $this->htmlToCarve = new HtmlToCarve();
     }
 
-    /**
-     * Assert the source comes back out of its own rendered HTML.
-     *
-     * ONLY THE DOCUMENT-FINAL NEWLINE IS NORMALIZED, and only on the expected
-     * side. The sources below are heredocs, which do not end in one, while a
-     * Carve document does - so that single character is an artifact of how the
-     * case is written rather than anything the converters did.
-     *
-     * Everything else is compared byte for byte. The helper used to `trim()`
-     * BOTH sides, which made the assertion blind to exactly what a SOURCE
-     * comparison is for: a leading blank line, a trailing blank RUN and any
-     * indentation at either end could appear or vanish and it still passed
-     * (markup-carve/carve-php#1603).
-     */
     private function assertRoundTrip(string $carve, string $message = ''): void
     {
         $html = $this->converter->convert($carve);
+        $this->assertStringNotContainsString('data-carve-src', $html);
         $back = $this->htmlToCarve->convert($html);
-        $expected = $carve === '' || str_ends_with($carve, "\n") ? $carve : $carve . "\n";
+        $tree = static fn (string $source): array => array_diff_key((new AstCodec())->encode((new BlockParser())->parse($source)), ['srcByteLength' => true]);
 
-        $this->assertSame($expected, $back, $message ?: 'Round-trip failed');
+        $this->assertSame($this->normalizeFirstSelection($tree($carve)), $this->normalizeFirstSelection($tree($back)), $message ?: $back);
     }
 
     /**
-     * Helper to verify data-carve-src is present
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
      */
-    private function assertHasDjotSrc(string $html, string $message = ''): void
+    private function normalizeFirstSelection(array $node): array
     {
-        $this->assertStringContainsString('data-carve-src=', $html, $message ?: 'Missing data-carve-src');
+        // First-tab selection is the default spelling, so its explicit marker is not recorded.
+        if (($node['type'] ?? null) === 'admonition' && in_array($node['kind'] ?? null, ['tabs', 'code-group'], true)) {
+            if (isset($node['children'][0]['attrs']['keyValues']['selected'])) {
+                $attrs = &$node['children'][0]['attrs'];
+                unset($attrs['keyValues']['selected']);
+                $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $key): bool => $key !== 'selected'));
+                $attrs = array_filter($attrs, static fn (array|string $value): bool => $value !== []);
+                if ($attrs === []) {
+                    unset($node['children'][0]['attrs']);
+                }
+                unset($attrs);
+            }
+        }
+        foreach ($node as &$value) {
+            if (is_array($value)) {
+                $value = $this->normalizeFirstSelection($value);
+            }
+        }
+
+        return $node;
     }
 
     // =========================================================================
@@ -516,7 +510,7 @@ CARVE;
     }
 
     // =========================================================================
-    // Verify data-carve-src presence
+    // Verify stored source is absent
     // =========================================================================
 
     public function testCodeBlockHasNoStoredSource(): void
@@ -526,25 +520,25 @@ CARVE;
         $this->assertStringNotContainsString('data-carve-src=', $html);
     }
 
-    public function testMermaidHasDjotSrc(): void
+    public function testMermaidHasNoStoredSource(): void
     {
         $carve = "``` mermaid\ngraph TD;\n```";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Mermaid should have data-carve-src');
+        $this->assertStringNotContainsString('data-carve-src', $html);
     }
 
-    public function testCodeGroupHasDjotSrc(): void
+    public function testCodeGroupHasNoStoredSource(): void
     {
         $carve = "::: code-group\n``` php\ntest\n```\n:::";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Code group should have data-carve-src');
+        $this->assertStringNotContainsString('data-carve-src', $html);
     }
 
-    public function testTabsHasDjotSrc(): void
+    public function testTabsHasNoStoredSource(): void
     {
         $carve = ":::: tabs\n::: tab\n### Tab\nContent\n:::\n::::";
         $html = $this->converter->convert($carve);
-        $this->assertHasDjotSrc($html, 'Tabs should have data-carve-src');
+        $this->assertStringNotContainsString('data-carve-src', $html);
     }
 
     // =========================================================================
@@ -1042,18 +1036,21 @@ CARVE;
 
     public function testRawInlineHtml(): void
     {
+        $this->htmlToCarve = new HtmlToCarve(importMode: 'roundtrip');
         $carve = 'Text `<br>`{=html} more.';
         $this->assertRoundTrip($carve);
     }
 
     public function testRawInlineHtmlComplex(): void
     {
+        $this->htmlToCarve = new HtmlToCarve(importMode: 'roundtrip');
         $carve = 'Insert `<span class="red">colored</span>`{=html} text.';
         $this->assertRoundTrip($carve);
     }
 
     public function testRawInlineHtmlEmphasis(): void
     {
+        $this->htmlToCarve = new HtmlToCarve(importMode: 'roundtrip');
         $carve = 'abc `<em>xy</em>`{=html}';
         $this->assertRoundTrip($carve);
     }

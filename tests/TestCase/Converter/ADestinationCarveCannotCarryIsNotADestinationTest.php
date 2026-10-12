@@ -104,7 +104,7 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
      */
     public function testRoundtripModeRebuildsNoDestinationEither(): void
     {
-        $carve = (new HtmlToCarve(trustStoredSource: true))->convert(
+        $carve = (new HtmlToCarve(importMode: 'roundtrip'))->convert(
             '<p><a href="" data-carve-ref="danger" title="vbscript:x">t</a></p>',
         );
 
@@ -205,7 +205,7 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
     #[DataProvider('provenanceCarryingAnchors')]
     public function testProvenanceDoesNotCarryAnAnchorPastTheRule(string $html): void
     {
-        $this->assertSame('t', trim((new HtmlToCarve(trustStoredSource: true))->convert($html)));
+        $this->assertSame('t', trim((new HtmlToCarve())->convert($html)));
     }
 
     /**
@@ -218,7 +218,7 @@ class ADestinationCarveCannotCarryIsNotADestinationTest extends TestCase
 
         $this->assertSame(
             "A ref[^1].\n\n[^1]: note\n",
-            (new HtmlToCarve(trustStoredSource: true))->convert($roundTrip->convert("A ref[^1].\n\n[^1]: note\n")),
+            (new HtmlToCarve())->convert($roundTrip->convert("A ref[^1].\n\n[^1]: note\n")),
         );
     }
 

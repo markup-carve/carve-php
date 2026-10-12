@@ -61,13 +61,6 @@ class CodeSpanChildMarkupTest extends TestCase
         }
     }
 
-    public function testTrustedStoredSourceDoesNotInspectDiscardedHtmlChildren(): void
-    {
-        $result = (new HtmlToCarve(trustStoredSource: true))->convertWithReport('<p>lead</p><p data-carve-src="`saved`&#10;"><code><strong>shown</strong></code></p>');
-        $this->assertSame("lead\n\n`saved`\n", $result->value);
-        $this->assertSame([], $result->diagnostics);
-    }
-
     public function testListTableCodeLinesAreNotFoldedAsPipeCellLines(): void
     {
         $html = '<table><tr><td><strong><div><code>x' . "\n" . 'y</code></div></strong><ul><li>tail</li></ul></td></tr></table>';
@@ -82,16 +75,6 @@ class CodeSpanChildMarkupTest extends TestCase
         $result = (new HtmlToCarve())->convertWithReport('<p><code><script>x</script></code>tail</p>');
         $this->assertSame("tail\n", $result->value);
         $this->assertSame(['structure-unspellable', 'element-dropped'], array_column($result->diagnostics, 'code'));
-    }
-
-    public function testStoredSourceCodeLinesAreFoldedAndReportedInPipeCells(): void
-    {
-        foreach (['`a&#10;b`', '*`a&#10;b`*'] as $source) {
-            $result = (new HtmlToCarve(trustStoredSource: true))->convertWithReport('<table><tr><td><p data-carve-src="' . $source . '">shown</p></td></tr></table>');
-            $this->assertStringContainsString('<td>', (new CarveConverter())->convert($result->value));
-            $this->assertSame($result->value, CarveConverter::toCarve($result->value));
-            $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
-        }
     }
 
     public function testAstTableCodePreservesItsLineBreaks(): void
@@ -117,13 +100,6 @@ class CodeSpanChildMarkupTest extends TestCase
         $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'inside <code>')));
     }
 
-    public function testStoredSourceKeepsAllProjectedPipeCellBlocks(): void
-    {
-        $result = (new HtmlToCarve(trustStoredSource: true))->convertWithReport('<table><tr><td><p data-carve-src="first&#10;&#10;`a&#10;b`">shown</p></td></tr></table>');
-        $this->assertSame("| first `a b` |\n", $result->value);
-        $this->assertSame(['structure-unspellable', 'structure-unspellable'], array_column($result->diagnostics, 'code'));
-    }
-
     public function testProjectedPreStillReportsItsNativeCodeSpanChildren(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<table><tr><td><pre><b><code><i>x</i></code></b></pre></td></tr></table>');
@@ -135,105 +111,5 @@ class CodeSpanChildMarkupTest extends TestCase
         $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport('<span data-carve-raw="html">&lt;code&gt;&lt;b&gt;x&lt;/b&gt;&lt;/code&gt;</span>');
         $this->assertStringContainsString('<code><b>x</b></code>', $result->value);
         $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'inside <code>')));
-    }
-
-    public function testFigureFallbackKeepsStoredBlockSourceWithoutAFlatteningWarning(): void
-    {
-        $html = '<figure><div><a href="javascript:x">y</a></div><figcaption><p data-carve-src="a&#10;&#10;b">a b</p></figcaption></figure>';
-        $result = (new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true))->convertWithReport($html);
-        $this->assertStringContainsString("a\n\nb", $result->value);
-        $this->assertSame([], array_filter($result->diagnostics, static fn ($d) => str_contains($d->message, 'Projected stored block structure')));
-    }
-
-    public function testASingleStoredListReportsItsProjectedStructure(): void
-    {
-        $result = (new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true))->convertWithReport('<table><tr><td><p data-carve-src="- a&#10;- b">x</p></td></tr></table>');
-        $this->assertSame("| a b |\n", $result->value);
-        $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
-    }
-
-    public function testStoredRawBlockReportsDroppedContent(): void
-    {
-        $result = (new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true))->convertWithReport('<table><tr><td><p data-carve-src="```=html&#10;a&#10;b&#10;```">x</p></td></tr></table>');
-        $this->assertContains('element-dropped', array_column($result->diagnostics, 'code'));
-    }
-
-    public function testAllStoredBlockKindsReportInlineProjection(): void
-    {
-        foreach (["::: note\nx\n:::", "- `<td>` a\n- b", "{.x}\npara"] as $source) {
-            $html = '<table><tr><td><p data-carve-src="' . htmlspecialchars($source, ENT_QUOTES) . '">x</p></td></tr></table>';
-            $result = (new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true))->convertWithReport($html);
-            $this->assertContains('structure-unspellable', array_column($result->diagnostics, 'code'), $source);
-        }
-    }
-
-    public function testAstStoredListReportsProjectionWithoutFoldingCode(): void
-    {
-        $result = (new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true))->convertToAstWithReport('<table><tr><td><p data-carve-src="- a&#10;- b">x</p></td></tr></table>');
-        $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
-    }
-
-    public function testStoredInlineValuesSurviveProjectionWithoutFalseLosses(): void
-    {
-        foreach (['a \\* b', '"q"', 'a*b*c'] as $source) {
-            $html = '<table><tr><td><p data-carve-src="' . htmlspecialchars($source, ENT_QUOTES) . '">x</p></td></tr></table>';
-            $converter = new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true);
-            foreach ([$converter->convertWithReport($html), $converter->convertToAstWithReport($html)] as $result) {
-                $this->assertSame([], $result->diagnostics, $source);
-            }
-            $rendered = (new CarveConverter())->convert($converter->convert($html));
-            $expected = trim((new CarveConverter())->convert($source));
-            $expected = substr($expected, 3, -4);
-            $this->assertStringContainsString('<td>' . $expected . '</td>', $rendered, $source);
-        }
-    }
-
-    public function testStoredFigureKeepsItsTargetDuringProjection(): void
-    {
-        $html = '<table><tr><td><p data-carve-src="![a](x)&#10;^ cap">x</p></td></tr></table>';
-        $result = (new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true))->convertWithReport($html);
-        $this->assertStringContainsString('![a](x)', $result->value);
-        $this->assertStringContainsString('cap', $result->value);
-        $this->assertNotContains('element-dropped', array_column($result->diagnostics, 'code'));
-    }
-
-    public function testStoredMultilineMathIsFoldedOnlyInSource(): void
-    {
-        $html = '<table><tr><td><p data-carve-src="$`a&#10;b`">x</p></td></tr></table>';
-        $converter = new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true);
-        $result = $converter->convertWithReport($html);
-        $this->assertSame(['structure-unspellable'], array_column($result->diagnostics, 'code'));
-        $this->assertStringContainsString('a b', $result->value);
-        $this->assertSame([], $converter->convertToAstWithReport($html)->diagnostics);
-    }
-
-    public function testStoredMultilineRawContentIsDroppedAndReportedOnlyInSource(): void
-    {
-        foreach (['before `<b>\n</b>`{=html} after', 'before *a `<b>\n</b>`{=html} b* after'] as $source) {
-            $source = str_replace('\n', "\n", $source);
-            $html = '<table><tr><td><p data-carve-src="' . htmlspecialchars($source, ENT_QUOTES) . '">x</p></td></tr></table>';
-            $converter = new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true);
-            $result = $converter->convertWithReport($html);
-            $this->assertSame(['element-dropped'], array_column($result->diagnostics, 'code'));
-            $this->assertStringNotContainsString('<b>', $result->value);
-            $this->assertSame([], $converter->convertToAstWithReport($html)->diagnostics);
-        }
-    }
-
-    public function testStoredEmptyTableCellsDoNotReportDroppedContent(): void
-    {
-        $html = '<table><tr><td><p data-carve-src="| a |&#10;|  |">x</p></td></tr></table>';
-        $result = (new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true))->convertWithReport($html);
-        $this->assertNotContains('element-dropped', array_column($result->diagnostics, 'code'));
-    }
-
-    public function testStoredInlineExtensionFoldsNestedCodeOnlyInSource(): void
-    {
-        $html = '<table><tr><td><p data-carve-src=":index[`a&#10;b`]">x</p></td></tr></table>';
-        $converter = new HtmlToCarve(importMode: 'roundtrip', trustStoredSource: true);
-        $result = $converter->convertWithReport($html);
-        $this->assertContains('structure-unspellable', array_column($result->diagnostics, 'code'));
-        $this->assertStringContainsString('`a b`', $result->value);
-        $this->assertSame([], $converter->convertToAstWithReport($html)->diagnostics);
     }
 }

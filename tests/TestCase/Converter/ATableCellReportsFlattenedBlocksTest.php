@@ -74,14 +74,4 @@ class ATableCellReportsFlattenedBlocksTest extends TestCase
         $this->assertSame('| | x |', trim($result->value));
         $this->assertSame(['element-dropped'], array_column($result->report()['diagnostics'], 'code'));
     }
-
-    public function testStoredSourceDoesNotSuppressTheNextImportsCellReport(): void
-    {
-        $converter = new HtmlToCarve(trustStoredSource: true);
-        $stored = '<div data-carve-src="stored"><table><tr><td><p>x</p></td></tr></table></div>';
-        $this->assertSame([], $converter->convertWithReport($stored)->diagnostics);
-
-        $next = $converter->convertWithReport('<table><tr><td><p>f</p></td></tr></table>');
-        $this->assertSame(['element-unwrapped'], array_column($next->report()['diagnostics'], 'code'));
-    }
 }

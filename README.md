@@ -63,6 +63,9 @@ and extensions, inspect output, and share snippets via pastebin-style links. It
 also powers the [wp-carve](https://github.com/markup-carve/wp-carve) WordPress
 plugin.
 
+Roundtrip HTML export writes structural carriers that the default HTML importer
+reads. Legacy stored-source attributes are consumed and never used as source.
+
 ## Untrusted input
 
 Use the [safe rendering options](https://github.com/markup-carve/carve-php/blob/main/docs/security.md) for untrusted documents.

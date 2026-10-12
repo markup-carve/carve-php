@@ -110,27 +110,12 @@ final class HtmlImportSession
     /**
      * @var \SplObjectStorage<\DOMElement, null>
      */
-    public SplObjectStorage $storedSourceElements;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
-    public SplObjectStorage $foldedStoredCodeSpans;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
     public SplObjectStorage $nativeCodeSpans;
 
     /**
      * @var \SplObjectStorage<\DOMElement, array{code: ?\DOMElement, lang: ?string}>
      */
     public SplObjectStorage $nativeCodeBlocks;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, array{projected: bool, dropped: bool}>
-     */
-    public SplObjectStorage $projectedStoredBlocks;
 
     public ?bool $tableCellAllowsEmptyCode = null;
 
@@ -222,8 +207,6 @@ final class HtmlImportSession
 
     public bool $inInlineProjection = false;
 
-    public bool $flattensStoredBlocks = false;
-
     public bool $preserveInlineWhitespace = false;
 
     /**
@@ -231,8 +214,14 @@ final class HtmlImportSession
      */
     public SplObjectStorage $retainedListTypes;
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, bool>
+     */
+    public SplObjectStorage $consumedExtensionElements;
+
     public function __construct()
     {
+        $this->consumedExtensionElements = new SplObjectStorage();
         $this->droppedFootnoteLabelCarriers = new SplObjectStorage();
         $this->droppedReferenceCarriers = new SplObjectStorage();
         $this->endnoteItemLabels = new SplObjectStorage();
@@ -251,10 +240,7 @@ final class HtmlImportSession
         $this->flattenedSummaryBlocks = new SplObjectStorage();
         $this->tableBlockCells = new SplObjectStorage();
         $this->foldedCodeSpans = new SplObjectStorage();
-        $this->storedSourceElements = new SplObjectStorage();
-        $this->foldedStoredCodeSpans = new SplObjectStorage();
         $this->nativeCodeSpans = new SplObjectStorage();
         $this->nativeCodeBlocks = new SplObjectStorage();
-        $this->projectedStoredBlocks = new SplObjectStorage();
     }
 }

@@ -156,17 +156,15 @@ class CodeCalloutsExtensionTest extends TestCase
         );
     }
 
-    public function testRoundTripModeEmitsDataDjotSrcLikeAnUnmarkedBlock(): void
+    public function testRoundTripModeKeepsCalloutHtmlWithoutStoredSource(): void
     {
         $converter = new CarveConverter();
         $converter->addExtension(new CodeCalloutsExtension());
         $converter->getRenderer()->setRoundTripMode(true);
         $out = trim($converter->convert("```js\nfoo()  <1>\n```\n\n<1> note."));
 
-        // The marked block still carries round-trip source, encoding the
-        // ORIGINAL literal marker + fence (not the <b> bubble).
-        $this->assertStringContainsString('data-carve-src="', $out);
-        $this->assertStringContainsString('foo()  &lt;1&gt;', $out);
+        $this->assertStringNotContainsString('data-carve-src', $out);
+        $this->assertStringContainsString('data-callout="1"', $out);
         // Default mode (no round-trip) emits no data-carve-src.
         $this->assertStringNotContainsString('data-carve-src', $this->html("```\nfoo()  <1>\n```\n\n<1> note."));
     }
