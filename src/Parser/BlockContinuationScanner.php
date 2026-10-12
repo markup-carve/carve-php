@@ -893,7 +893,15 @@ final class BlockContinuationScanner
                             || $this->isCommentLineOrFence($nextTrimmed)
                         )
                     ) {
-                        $pendingDefinitionTerm = false;
+                        // A non-null tracker here was opened on this line; its opener already parsed.
+                        if (
+                            $termCodeTailFence !== null
+                            || !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) !== null
+                            || ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed) !== null
+                        ) {
+                            $pendingDefinitionTerm = false;
+                        }
                     }
                 }
                 $termContinuation = $pendingDefinitionTerm

@@ -1216,9 +1216,12 @@ final class ListBlockBuilder
         $end = $start;
         $opensList = ($this->getListParser)()->parseListItemMarker($lines[$start]) !== null;
         $contentColumn = $this->containerContentColumn($lines[$start], 0);
+        $termOpen = !$opensList && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $lines[$start]) === 1;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
             if (IndentationHelper::isBlankLine($candidate)) {
+                $termOpen = false;
+
                 continue;
             }
             $indent = IndentationHelper::getLeadingColumns($candidate);
@@ -1258,7 +1261,25 @@ final class ListBlockBuilder
                     || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $candidate) === 1
                 );
             if (!$continues) {
+                if (
+                    $termOpen && !$this->isCommentLineOrFence($candidate) && (
+                        ((($candidate[0] ?? '') === '`' || ($candidate[0] ?? '') === '~')
+                            && ($this->getFencedBlockParser)()->isCodeFenceHead($candidate, 0)
+                            && ($this->getFencedBlockParser)()->parseCodeFenceOpener($candidate) === null
+                            && ($this->getFencedBlockParser)()->parseRawBlockOpener($candidate) === null)
+                        || (!$this->isBlockElementStart($candidate, $lines, $j)
+                            && !$this->startsNewBlock($candidate, $lines, $j))
+                    )
+                ) {
+                    $end = $j;
+
+                    continue;
+                }
+
                 break;
+            }
+            if (!$opensList) {
+                $termOpen = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $candidate) === 1;
             }
             $contentColumn = $this->containerContentColumn($candidate, 0) ?? $contentColumn;
             $end = $j;
