@@ -29,15 +29,15 @@ class MarkdownReferenceLabelsTest extends TestCase
     {
         foreach (
             [
-                '<http://a.b/x][Foo]>',
-                'see https://a.b/x][Foo] now',
-                'a][Foo]',
-                '[^1][Foo]',
-                '[foo][bar][Foo]',
-            ] as $source
+                ['<http://a.b/x][Foo]>', '<p><a href="http://a.b/x%5D%5BFoo%5D">http://a.b/x][Foo]</a></p>'],
+                ['see https://a.b/x][Foo] now', '<p>see <a href="https://a.b/x%5D%5BFoo%5D">https://a.b/x][Foo]</a> now</p>'],
+                ['a][Foo]', '<p>a]<a href="/u">Foo</a></p>'],
+                ['[^1][Foo]', '<p>[^1]<a href="/u">Foo</a></p>'],
+                ['[foo][bar][Foo]', '<p><a href="/v">foo</a><a href="/u">Foo</a></p>'],
+            ] as [$source, $expected]
         ) {
             $converted = (new MarkdownToCarve())->convert($source . "\n\n[foo]: /u\n[bar]: /v");
-            $this->assertStringContainsString('[Foo]', $converted, $source);
+            $this->assertSame($expected, rtrim((new CarveConverter())->convert($converted), "\n"), $source);
         }
     }
 }

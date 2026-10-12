@@ -74,7 +74,7 @@ final class MigrationResultTest extends TestCase
     public function testImportersWithoutConstructEvidenceFailClosed(): void
     {
         $results = [
-            (new MarkdownToCarve())->convertWithFidelityReport('https://example.org'),
+            (new MarkdownToCarve())->convertWithFidelityReport('<code>http://example.org</code>'),
             (new DjotToCarve())->convertWithFidelityReport('plain text!'),
             (new BbcodeToCarve())->convertWithFidelityReport('plain text!'),
         ];

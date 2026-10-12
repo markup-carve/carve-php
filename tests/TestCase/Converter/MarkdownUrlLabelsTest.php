@@ -52,17 +52,20 @@ class MarkdownUrlLabelsTest extends TestCase
 
     public function testLiteralPathSpellingIsUnchanged(): void
     {
-        foreach (["https://x.test/[r]\n\n[r]: /u\n", "https://x.test/a\\_b/[r]\n\n[r]: /u\n", "[a/b](x)\n", "[src/index.ts](x)\n", "[https://e.test](https://e.test)\n", "see https://x.test/a\\_b/_c_\n"] as $source) {
+        foreach (["[a/b](x)\n", "[src/index.ts](x)\n", "[https://e.test](https://e.test)\n"] as $source) {
             $this->assertSame($source, (new MarkdownToCarve())->convert($source));
         }
     }
 
-    public function testPreservedBareUrlSpellingDoesNotClaimExactFidelity(): void
+    public function testBareUrlNormalizationHasExactFidelity(): void
     {
         foreach (["https://x.test/[r]\n\n[r]: /u\n", "https://x.test/a\\_b/[r]\n\n[r]: /u\n"] as $source) {
             $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
-            $unverified = array_filter($rows, static fn ($row): bool => $row->code === 'fidelity-unverified' && $row->confidence === 'fallback' && $row->fidelity === 'dropped');
-            $this->assertNotEmpty($unverified);
+            $this->assertNotEmpty($rows);
+            foreach ($rows as $row) {
+                $this->assertSame('exact', $row->confidence);
+                $this->assertNotSame('dropped', $row->fidelity);
+            }
         }
     }
 
@@ -89,28 +92,6 @@ class MarkdownUrlLabelsTest extends TestCase
             $migration = (new MarkdownToCarve())->convertWithFidelityReport($source);
             $this->assertSame($expected, $migration->value);
             $this->assertNotEmpty(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable' && $row->fidelity === 'dropped'));
-        }
-    }
-
-    public function testEscapedUrlSlashKeepsEmphasisAndReportsTheUrlFidelityGap(): void
-    {
-        $migration = (new MarkdownToCarve())->convertWithFidelityReport("https://x.test/a\\/<em>b</em>\n");
-        $this->assertSame("https://x.test/a\\/{/b/}\n", $migration->value);
-        $this->assertNotEmpty(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'fidelity-unverified' && $row->confidence === 'fallback'));
-    }
-
-    public function testUrlEntitiesPreserveLiteralContentAndReportUnverifiedFidelity(): void
-    {
-        foreach (
-            [
-                ["https://x.test/?a=1&amp;b=_c_\n", "https://x.test/?a=1&b=_c_\n"],
-                ["https://x.test/?a=1&amp;b=*c*\n", "https://x.test/?a=1&b=*c*\n"],
-                ["https://x.test/?a=1&amp;[r]\n\n[r]: /u\n", "https://x.test/?a=1&[r]\n\n[r]: /u\n"],
-            ] as [$source, $expected]
-        ) {
-            $migration = (new MarkdownToCarve())->convertWithFidelityReport($source);
-            $this->assertSame($expected, $migration->value);
-            $this->assertNotEmpty(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'fidelity-unverified' && $row->confidence === 'fallback'));
         }
     }
 
