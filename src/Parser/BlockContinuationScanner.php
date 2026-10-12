@@ -657,6 +657,7 @@ final class BlockContinuationScanner
         // collector never sees.
         $openDefinitionBody = null;
         $pendingDefinitionTerm = false;
+        $pendingTermFence = null;
         foreach ($itemLines as $seedLine) {
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
             $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
@@ -804,6 +805,18 @@ final class BlockContinuationScanner
                     }
                 }
                 if (
+                    $pendingDefinitionTerm
+                    && $trailingState->fence === null
+                    && !$trailingState->hasOpenDiv()
+                    && $trailingState->divDepth === 0
+                    && $pendingTermFence === null
+                    && $openCommentLength === null
+                    && ($nextTrimmed[0] ?? '') === '%'
+                    && $this->isCommentLineOrFence($nextTrimmed)
+                ) {
+                    $pendingDefinitionTerm = false;
+                }
+                if (
                     $nextIndent === $contentIndent
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
@@ -811,6 +824,7 @@ final class BlockContinuationScanner
                 ) {
                     if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed)) {
                         $pendingDefinitionTerm = true;
+                        $pendingTermFence = null;
                     } elseif (
                         $pendingDefinitionTerm && (
                             preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)
@@ -1086,6 +1100,23 @@ final class BlockContinuationScanner
                     $floorExistingDiv = false;
                 }
                 $floorLiveParagraph = $trailingState->openParagraph;
+                if ($inlineAuthoredFence) {
+                    if ($termContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)) {
+                        if (
+                            $pendingTermFence !== null
+                            && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                                $nextTrimmed,
+                                $pendingTermFence['char'] ?? $pendingTermFence['fence'][0],
+                                $pendingTermFence['length'],
+                            )
+                        ) {
+                            $pendingTermFence = null;
+                        } elseif ($pendingTermFence === null) {
+                            $pendingTermFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
+                                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
+                        }
+                    }
+                }
                 if ($inlineAuthoredFence || ($floorParagraphWitness && IndentationHelper::getLeadingColumns($nextLine) > $contentIndent && $trailingState->fence === null)) {
                     $trailingState->fence = null;
                     $trailingState->openParagraph = true;
