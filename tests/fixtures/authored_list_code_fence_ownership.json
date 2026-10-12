@@ -3238,15 +3238,13 @@
   {
     "id": "authored-code-hosts-0",
     "source": "- :: term\n  : payload\n    ```\n    code\n  ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-1",
     "source": "- :: term\n  : payload\n    ```\n    code\n    ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -3266,10 +3264,8 @@
   {
     "id": "authored-code-hosts-4",
     "source": "- :: term\n  : payload\n      ```\n      code\n  ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-5",
@@ -3280,7 +3276,7 @@
   {
     "id": "authored-code-hosts-6",
     "source": "- :: term\n  : payload\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -3294,10 +3290,8 @@
   {
     "id": "authored-code-hosts-8",
     "source": "- :: term\n  : payload\n        ```\n        code\n  ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-9",
@@ -3314,7 +3308,7 @@
   {
     "id": "authored-code-hosts-11",
     "source": "- :: term\n  : payload\n        ```\n        code\n        ```\nafter\n",
-    "html": "<ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p>",
+    "html": "<ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p>",
     "codePayloads": [
       "code\n"
     ]
@@ -3418,15 +3412,13 @@
   {
     "id": "authored-code-hosts-24",
     "source": "> - :: term\n>   : payload\n>     ```\n>     code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-25",
     "source": "> - :: term\n>   : payload\n>     ```\n>     code\n>     ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3446,10 +3438,8 @@
   {
     "id": "authored-code-hosts-28",
     "source": "> - :: term\n>   : payload\n>       ```\n>       code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-29",
@@ -3460,7 +3450,7 @@
   {
     "id": "authored-code-hosts-30",
     "source": "> - :: term\n>   : payload\n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3474,10 +3464,8 @@
   {
     "id": "authored-code-hosts-32",
     "source": "> - :: term\n>   : payload\n>         ```\n>         code\n>   ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-33",
@@ -3494,7 +3482,7 @@
   {
     "id": "authored-code-hosts-35",
     "source": "> - :: term\n>   : payload\n>         ```\n>         code\n>         ```\n> after\n",
-    "html": "<blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
+    "html": "<blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3598,15 +3586,13 @@
   {
     "id": "authored-code-hosts-48",
     "source": "> > - :: term\n> >   : payload\n> >     ```\n> >     code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-49",
     "source": "> > - :: term\n> >   : payload\n> >     ```\n> >     code\n> >     ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3626,10 +3612,8 @@
   {
     "id": "authored-code-hosts-52",
     "source": "> > - :: term\n> >   : payload\n> >       ```\n> >       code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-53",
@@ -3640,7 +3624,7 @@
   {
     "id": "authored-code-hosts-54",
     "source": "> > - :: term\n> >   : payload\n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]
@@ -3654,10 +3638,8 @@
   {
     "id": "authored-code-hosts-56",
     "source": "> > - :: term\n> >   : payload\n> >         ```\n> >         code\n> >   ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload\n<code>\ncode\n</code>\nafter</dd></dl></li></ul></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-57",
@@ -3674,7 +3656,7 @@
   {
     "id": "authored-code-hosts-59",
     "source": "> > - :: term\n> >   : payload\n> >         ```\n> >         code\n> >         ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd>payload</dd></dl><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
+    "html": "<blockquote><blockquote><ul><li><dl><dt>term</dt><dd><p>payload</p><pre><code>code\n</code></pre></dd></dl></li></ul><p>after</p></blockquote></blockquote>",
     "codePayloads": [
       "code\n"
     ]

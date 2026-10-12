@@ -270,6 +270,7 @@ final class ListBlockBuilder
                     // / `lazy` read the heading as the item's lead and pushed
                     // `lazy` out of an item that plainly still holds `text`.
                     $subTrailingState = new TrailingBlockState(isLead: false);
+                    $subTermColumn = null;
                     // The width of the block comment open over these lines, or
                     // null. PART 9 §28 gives the fence a body that recognizes no
                     // block construct, so the shared trailing tracker cannot
@@ -383,7 +384,7 @@ final class ListBlockBuilder
                                 $strippedIsMarker
                                 && !$subSawListMarker
                                 && $subTrailingState->openParagraph
-                                && !$subTrailingState->quoteParagraph
+                                && $sawBlankLine
                                 && $subTrailingState->fence === null
                                 && !$subTrailingState->hasOpenDiv()
                             ) {
@@ -421,6 +422,20 @@ final class ListBlockBuilder
                             // the tracker across a blank, so `openParagraph` is
                             // still set there and the veto would refuse a fence
                             // that opens on its own.
+                            // Walk the full indent on a term line only: per line it is quadratic on a ladder.
+                            $subSubject = ltrim($stripped, " \t");
+                            $afterSubTerm = $subTermColumn !== null && !$sawBlankLine;
+                            if (str_starts_with($subSubject, '::') && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $subSubject) === 1) {
+                                $subTermColumn = IndentationHelper::getLeadingColumns($stripped);
+                            } elseif (
+                                !$afterSubTerm
+                                || (
+                                    IndentationHelper::getLeadingColumns($stripped, $subTermColumn + 1) <= $subTermColumn
+                                    && $this->startsNewBlock($subSubject, $lines, $i)
+                                )
+                            ) {
+                                $subTermColumn = null;
+                            }
                             $subFenceOpener = $sawBlankLine || $subTrailingState->fence !== null
                                 || !$subTrailingState->openParagraph
                                 ? null
@@ -431,10 +446,18 @@ final class ListBlockBuilder
                                     $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
                                     $subInterruptedParagraphFence = $subTrailingState->fence !== null;
                                 } else {
+                                    if (!$afterSubTerm && !$subTrailingState->nestedIsQuote && IndentationHelper::getLeadingColumns($stripped, $subTrailingState->nestedColumn) < $subTrailingState->nestedColumn) {
+                                        $subLines[count($subLines) - 1] = BlockGrammar::LAZY_FRAME . ltrim($stripped, " \t");
+                                    }
                                     // A neutral prose line advances every
                                     // non-fence flag exactly as this failed
                                     // opener must; only its literal bytes differ.
-                                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text', true);
+                                    // A line block reads its own payload.
+                                    $subTrailingState = $this->advanceTrailingState(
+                                        $subTrailingState,
+                                        $subTrailingState->hasLiteralDiv() ? $stripped : 'text',
+                                        true,
+                                    );
                                 }
                             } else {
                                 $wasSubInFence = $subTrailingState->fence !== null;
@@ -638,6 +661,20 @@ final class ListBlockBuilder
                             // readings differed between the two columns).
                             if ($subTrailingState->fence !== null) {
                                 break;
+                            }
+                            if (
+                                !$sawBlankLine
+                                && $subTermColumn === null
+                                && $subTrailingState->openParagraph
+                                && $subLines !== []
+                                && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
+                            ) {
+                                $subLines[] = $trimmedLine;
+                                $subLineMap[] = $this->sourceLineFor($i);
+                                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
+                                $i++;
+
+                                continue;
                             }
                             $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
                                 || $this->startsNewBlock($trimmedLine, $lines, $i)
@@ -1837,9 +1874,17 @@ final class ListBlockBuilder
         }
         for ($j = $lead + 1; $j < $count; $j++) {
             $text = ltrim($lines[$j], " \t");
+            if ($text === '') {
+                $resumes = $this->footnoteBodyResumesAfter($lines, $j, $count, BlockGrammar::FOOTNOTE_BODY_COLUMN, false);
+                if ($resumes === null) {
+                    break;
+                }
+                $j = $resumes - 1;
+
+                continue;
+            }
             if (
-                $text === ''
-                || IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN
+                IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN
                 || $this->isCommentLineOrFence($text)
                 || preg_match('/^\\[[^\\]]+\\]:/', $text) === 1
                 || (
@@ -1951,7 +1996,7 @@ final class ListBlockBuilder
 
                 continue;
             }
-            if ($i > $minimumColonEnd && $eligible !== null && !isset($eligible[$i]) && ($line[0] ?? '') === ':') {
+            if ($i > $minimumColonEnd && $eligible !== null && ($line[0] ?? '') === ':') {
                 $minimumDiv = ($this->getFencedBlockParser)()->parseDivFenceOpener($line);
                 if ($minimumDiv !== null) {
                     $closer = $this->colonFenceEnd($lines, $i, $minimumDiv['length'], $count, null);
@@ -2199,6 +2244,23 @@ final class ListBlockBuilder
             $colon = ($code === null && $comment === null)
                 ? ($this->getFencedBlockParser)()->parseDivFenceOpener($opener)
                 : null;
+
+            if ($colon !== null && $i <= $minimumColonEnd) {
+                for (; $blockStateCursor < $i; $blockStateCursor++) {
+                    $blockState = $this->advanceTrailingStateWithFenceLookahead(
+                        $blockState,
+                        $lines[$blockStateCursor],
+                        $lines,
+                        $blockStateCursor,
+                        true,
+                    );
+                }
+                if ($colon['className'] === '|' || $blockState->openParagraph) {
+                    $afterBlank = false;
+
+                    continue;
+                }
+            }
 
             $commentClose = null;
             if ($code !== null) {

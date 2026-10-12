@@ -75,8 +75,19 @@ class ARoundTripMarkerIsConsumedInEveryImportModeTest extends TestCase
                 $this->assertStringNotContainsString('stored', $source->value);
                 $this->assertStringNotContainsString(strtolower($name), strtolower($source->value));
                 $this->assertStringNotContainsString('stored', json_encode($ast->value, JSON_THROW_ON_ERROR));
-                $this->assertSame([], $source->diagnostics);
-                $this->assertSame([], $ast->diagnostics);
+                $this->assertStringNotContainsString(strtolower($name), strtolower(json_encode($ast->value, JSON_THROW_ON_ERROR)));
+                $tag = str_starts_with($template, '<p %s') ? 'p' : 'div';
+                $path = $tag === 'p' ? '/p[1]' : '/div[2]';
+                $expected = [
+                    'code' => 'attribute-dropped',
+                    'message' => 'Dropped round-trip marker attribute ' . strtolower($name) . ' on <' . $tag . '>',
+                    'severity' => 'info',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
+                    'path' => $path,
+                ];
+                $this->assertSame([$expected], $source->report()['diagnostics']);
+                $this->assertSame([$expected], $ast->report()['diagnostics']);
             }
         }
     }
