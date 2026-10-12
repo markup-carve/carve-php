@@ -72,6 +72,7 @@ final class ListBlockBuilder
      * @param (\Closure(\MarkupCarve\Carve\Node\Node, array<string>, array<int, int>|null, array<int, true>|null, int|null): (void))|null $parseItemBlocksCallback
      * @param (\Closure(): bool)|null $canRepairParagraphLocallyCallback
      * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
+     * @param \Closure(string): bool $isBlockAttributeLineCallback
      */
     public function __construct(
         private BlockParserState $state,
@@ -110,6 +111,7 @@ final class ListBlockBuilder
         private Closure $startsNewBlockCallback,
         private Closure $subContentHasLooseningBlankCallback,
         private Closure $wrappedBlockAttributeLengthCallback,
+        private Closure $isBlockAttributeLineCallback,
         private ?Closure $parseItemBlocksCallback = null,
         private ?Closure $canRepairParagraphLocallyCallback = null,
     ) {
@@ -1274,9 +1276,16 @@ final class ListBlockBuilder
                     || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $candidate) === 1
                 );
             if (!$continues) {
+                if ($termOpen && ($candidate[0] ?? '') === '{') {
+                    $attributeLength = ($this->isBlockAttributeLineCallback)($candidate)
+                        ? 1
+                        : ($this->wrappedBlockAttributeLengthCallback)($lines, $j);
+                    if ($attributeLength !== null) {
+                        return $j + $attributeLength - 1;
+                    }
+                }
                 if (
-                    $termOpen && !$this->isCommentLineOrFence($candidate)
-                    && (($candidate[0] ?? '') !== '{' || ($this->wrappedBlockAttributeLengthCallback)($lines, $j) === null) && (
+                    $termOpen && !$this->isCommentLineOrFence($candidate) && (
                         ((($candidate[0] ?? '') === '`' || ($candidate[0] ?? '') === '~')
                             && ($this->getFencedBlockParser)()->isCodeFenceHead($candidate, 0)
                             && ($this->getFencedBlockParser)()->parseCodeFenceOpener($candidate) === null
