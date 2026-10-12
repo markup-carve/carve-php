@@ -799,6 +799,8 @@ final class BlockContinuationScanner
             }
 
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
+                // A marker at the body column of the marker-line note is the
+                // note's own line (PART 9 §16), so it does not end the item.
                 if (
                     $trailingState->fence === null
                     && (!$trailingState->hasOpenDiv() || ($minimumFenceBase && $floorParagraphWitness && !$floorExistingDiv && !$floorSawFenceState && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $trailingState->divColumn) < $contentIndent + $trailingState->divColumn))
@@ -806,14 +808,7 @@ final class BlockContinuationScanner
                     && $openCommentLength === null
                     && !$trailingState->quoteParagraph
                     && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
-                    // A marker at the body column of the marker-line note is the
-                    // note's own line (PART 9 §16).
-                    && !(
-                        $trailingState->inFootnoteBody
-                        && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
-                            >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                        && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken)
-                    )
+                    && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken))
                 ) {
                     break;
                 }
