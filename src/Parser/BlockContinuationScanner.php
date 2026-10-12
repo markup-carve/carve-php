@@ -826,6 +826,13 @@ final class BlockContinuationScanner
                 $wasAfterComment = $trailingState->afterComment;
                 $wasInFence = $trailingState->fence !== null;
                 $fenceFallbackState = $structuralFence ? clone $trailingState : null;
+                $rebasedFloorCloser = $rebasedFenceColumn !== null
+                    && IndentationHelper::getLeadingColumns($contentLine) === 0
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        $contentLine,
+                        $trailingState->fence->char,
+                        $trailingState->fence->length,
+                    );
                 // A CLOSER PAST THE BLANK THAT ENDS THIS ITEM IS NOT THIS
                 // FENCE'S (§10 I4 over carve#1379, markup-carve/carve#2509).
                 // The general lookahead reads to end of source, so a run whose
@@ -848,6 +855,11 @@ final class BlockContinuationScanner
                             true,
                             $contentIndent,
                         ));
+                if ($rebasedFloorCloser) {
+                    $trailingState->fence = null;
+                    $trailingState->openParagraph = false;
+                    $rebasedFenceColumn = null;
+                }
                 if ($structuralFence) {
                     if ($trailingState->fence === null) {
                         // Restore both the collected spelling and its admission state.

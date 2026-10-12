@@ -221,6 +221,38 @@ class TabFenceColumnsTest extends TestCase
                 "1. a\n   - \n \t\t{.c}\n \t%% c\n   \t```\n\t````\n  y\n",
                 "<ol>\n  <li>a\n-\n    <pre class=\"c\"><code> ````\n</code></pre>\n  </li>\n</ol>\n<p>y</p>\n",
             ],
+            'item-floor-second-fence-0' => [
+                "- a\n  \t```\n  \tx\n  ```\n\n\t```\n\tz\n\t```\n",
+                "<ul>\n  <li>a\n    <pre><code>x\n</code></pre>\n    <pre><code>z\n</code></pre>\n  </li>\n</ul>",
+            ],
+            'item-floor-second-fence-1' => [
+                "> - a\n>   \t```\n>   \tx\n>   ```\n> \n> \t```\n> \tz\n> \t```\n",
+                "<blockquote>\n  <ul>\n    <li>a\n      <pre><code>x\n</code></pre>\n      <pre><code>z\n</code></pre>\n    </li>\n  </ul>\n</blockquote>",
+            ],
+            'item-floor-second-fence-2' => [
+                "- a\n  \t``` =html\n  \t<b>x</b>\n  ```\n\n\t``` =html\n\t<i>z</i>\n\t```\n",
+                "<ul>\n  <li>a\n    <b>x</b>\n    <i>z</i>\n  </li>\n</ul>",
+            ],
+            'item-floor-second-fence-3' => [
+                "> - a\n>   \t``` =html\n>   \t<b>x</b>\n>   ```\n> \n> \t``` =html\n> \t<i>z</i>\n> \t```\n",
+                "<blockquote>\n  <ul>\n    <li>a\n      <b>x</b>\n      <i>z</i>\n    </li>\n  </ul>\n</blockquote>",
+            ],
+            'item-floor-second-fence-4' => [
+                "1. a\n   \t```\n   \tx\n   ```\n\n\t```\n\tz\n\t```\n",
+                "<ol>\n  <li>a\n    <pre><code>x\n</code></pre>\n    <pre><code>z\n</code></pre>\n  </li>\n</ol>",
+            ],
+            'item-floor-second-fence-5' => [
+                "> 1. a\n>    \t```\n>    \tx\n>    ```\n> \n> \t```\n> \tz\n> \t```\n",
+                "<blockquote>\n  <ol>\n    <li>a\n      <pre><code>x\n</code></pre>\n      <pre><code>z\n</code></pre>\n    </li>\n  </ol>\n</blockquote>",
+            ],
+            'item-floor-second-fence-6' => [
+                "1. a\n   \t``` =html\n   \t<b>x</b>\n   ```\n\n\t``` =html\n\t<i>z</i>\n\t```\n",
+                "<ol>\n  <li>a\n    <b>x</b>\n    <i>z</i>\n  </li>\n</ol>",
+            ],
+            'item-floor-second-fence-7' => [
+                "> 1. a\n>    \t``` =html\n>    \t<b>x</b>\n>    ```\n> \n> \t``` =html\n> \t<i>z</i>\n> \t```\n",
+                "<blockquote>\n  <ol>\n    <li>a\n      <b>x</b>\n      <i>z</i>\n    </li>\n  </ol>\n</blockquote>",
+            ],
             'below-fence-column' => [
                 "- a\n  # h\n      ```\n    x\n   ```\n      ```\nafter\n",
                 "<ul>\n  <li>a\n    <h1 id=\"h\">h</h1>\n    <pre><code>  x\n ```\n</code></pre>\n  </li>\n</ul>\n<p>after</p>",
