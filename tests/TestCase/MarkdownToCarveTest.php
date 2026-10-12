@@ -360,9 +360,9 @@ bar
                 '[_id_]: /u "*title*"',
                 '[_id_]: /u "*title*"',
             ],
-            'does not rewrite a reference label at the use site' => [
+            'converts inline markup in an undefined reference label' => [
                 '[link][_id_]',
-                '[link][_id_]',
+                '[link]\\[/id/\\]',
             ],
             'still converts emphasis in link text' => [
                 '[*hi*](/u)',

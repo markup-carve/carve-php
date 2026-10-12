@@ -34,6 +34,25 @@ return 1;
 | alpha | 1 |
 CRV;
 
+    public function testEscapedReferenceScalarsMatchTheAuthoritativeParser(): void
+    {
+        foreach (['/a\\(b\\)', '/a\\(b', '/a\\)b', '/a\\\\b'] as $destination) {
+            $source = "[a][r]\n\n[r]: " . $destination . ' "title"';
+            $converter = new CarveConverter();
+            $expected = $converter->render($converter->parse($source));
+            $attempt = (new BorrowedHtmlLayout())->render($source);
+            $this->assertNotNull($attempt);
+            $this->assertSame($expected, $attempt['html']);
+            $this->assertSame($expected, $converter->convert($source));
+            $streamed = '';
+            $status = $converter->tryRenderHtmlStreaming($source, static function (string $chunk) use (&$streamed): void {
+                $streamed .= $chunk;
+            });
+            $this->assertContains($status, ['complete', 'needs-ast']);
+            $this->assertSame($status === 'complete' ? $expected : '', $streamed);
+        }
+    }
+
     public function testLargeBufferedDocumentsKeepHtmlAndLateFallback(): void
     {
         foreach ([65535, 65536, 65537, 262144] as $size) {
