@@ -6348,7 +6348,7 @@ class MarkdownToCarve
         if (
             !$isReferenceDefinition && str_contains($line, '/')
             && (preg_match('/<(?:em|i)\\b/i', $line) === 1
-                || (strpbrk($line, '*_') !== false && substr_count(MarkdownEmphasis::convert($line, protectedSpans: $protected), '/') > substr_count($line, '/')))
+                || ($this->hasOddMarkdownDelimiterRun($line) && substr_count(MarkdownEmphasis::convert($line, protectedSpans: $protected), '/') > substr_count($line, '/')))
         ) {
             $authored = $line;
             $guarded = '';
@@ -8479,6 +8479,26 @@ class MarkdownToCarve
 
             return $this->markdownUrlTokenSource($index, $protected, $protectedSources);
         }, 'url');
+    }
+
+    private function hasOddMarkdownDelimiterRun(string $source): bool
+    {
+        // Even runs are consumed in pairs as strong delimiters. A new emphasis
+        // slash requires an odd run; escaped or unmatched runs may over-admit.
+        $length = strlen($source);
+        for ($offset = 0; $offset < $length;) {
+            $offset += strcspn($source, '*_', $offset);
+            if ($offset === $length) {
+                break;
+            }
+            $width = strspn($source, $source[$offset], $offset);
+            if ($width % 2 !== 0) {
+                return true;
+            }
+            $offset += $width;
+        }
+
+        return false;
     }
 
     /**
