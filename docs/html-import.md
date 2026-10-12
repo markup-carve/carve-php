@@ -115,6 +115,31 @@ The core renderer writes the rows of PART 10 section 13a, under the option only:
 | `data-carve-abbreviations` | `<template>` | No value. The text holds the abbreviation definitions, one per line. |
 | `data-carve-col-widths` | `<table>` | The separator row's dash widths, comma-joined. |
 | `data-carve-label` | `<pre>` | The code block's bracketed label. |
+| `data-carve-ext` | `<section>` | `section`: the renderer generated the wrapper for a heading whose id is generated. |
+| `data-carve-id-slot` | `<section>` | The authored id's position among the heading's attributes, counted from 0. Omitted at 0. |
+| `data-carve-tight` | `<ul>`, `<ol>` | `true`: the list is tight although an item's paragraph keeps its `<p>`. |
+
+A carrier follows the element's structural attributes (`type`, `start`,
+`data-delim`, `href`, `src`, `alt`, `title`) and precedes the attributes the
+author wrote:
+
+~~~
+{.c}
+1) {.x}
+   a
+2) b
+~~~
+
+~~~ html
+<ol data-delim=")" data-carve-tight="true" class="c">
+  <li><p class="x">a</p></li>
+  <li>b</li>
+</ol>
+~~~
+
+An authored attribute that has a carrier's name loses to the carrier. The render
+drops it and reports a `carrier-attribute-dropped` render loss naming the
+attribute.
 
 Extensions write carriers of their own; see
 [Roundtrip carriers](extensions.md#roundtrip-carriers).
@@ -124,6 +149,8 @@ byte-identical source:
 
 - A raw block has no carrier. One whose format HTML cannot write is dropped with
   a `raw-format-dropped` render loss, with or without the option.
+- A raw inline whose format HTML cannot write reports `raw-format-dropped` with
+  or without the option. Under the option `data-carve-raw` carries it as well.
 - A task marker `[X]` returns as `[x]`.
 - A collapsed reference `[r][]` and a full reference `[r][r]` both return as
   `[r][]`.
@@ -134,21 +161,33 @@ alias**: it is canonicalized on load, the `data-carve-` name wins where an
 element carries both, and the alias is consumed either way, so a document that
 arrives with it leaves without it.
 
-Legacy `data-carve-src` and `data-djot-src` attributes are reserved and consumed
-on import in every mode. Their values never supply Carve source.
+`data-carve-src` is reserved without a row. No renderer writes it, and import
+consumes it and its `data-djot-src` alias in every mode without reading Carve
+source from the value. Default export passes an authored one through. Roundtrip
+export drops it and reports `carrier-attribute-dropped`.
 
 The reserved set is an enumeration, not a prefix. A `data-carve-` or
 `data-djot-` name the enumeration does not list is an ordinary authored
 attribute and is imported as one. `MarkupCarve\Carve\Converter\HtmlCarrierNames`
 holds the list.
 
-Roundtrip sections with generated IDs use `data-carve-ext="section"`. Those
-with authored IDs use `data-carve-explicit-id="1"`. These markers distinguish
-generated wrappers from imported HTML sections. Headings use `data-carve-explicit-id="0"`
-for generated IDs. Section wrappers use `data-carve-id-slot` when an authored ID follows other attributes,
-so import restores their order. Lists use `data-carve-tight` to preserve
-tightness when an attributed paragraph needs a `<p>` wrapper. These carriers
-are consumed by the default importer.
+Every import mode consumes the names in the table. A value outside its carrier's
+grammar is not a carrier: the importer drops it, reports `attribute-dropped`,
+and rebuilds nothing from it. That covers a `data-carve-tight` other than `true`
+or `false`, a `data-carve-id-slot` that is not a run of digits, and a
+`data-carve-ext` value no carrier table lists. A slot past the heading's last
+attribute places the id last.
+
+Two carriers that contradict each other on one element restore neither meaning.
+An `<a>` carrying both `data-carve-autolink` and a valid `data-carve-ref` imports
+as an inline link with one `attribute-dropped` warning. An endnote carrying both
+a footnote label and the inline-footnote flag imports as an ordinary numbered
+note with the same warning.
+
+One value is specific to this engine and not in the section 13a inventory: a
+heading that no section wraps writes `data-carve-explicit-id="0"` where its id
+is generated. The name for that distinction is pending in
+[markup-carve/carve#2953](https://github.com/markup-carve/carve/pull/2953).
 
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows
