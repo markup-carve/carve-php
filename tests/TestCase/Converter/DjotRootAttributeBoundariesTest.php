@@ -123,6 +123,8 @@ class DjotRootAttributeBoundariesTest extends TestCase
                 $inCode = true;
             } elseif ($part === '</code>') {
                 $inCode = false;
+            } elseif ($inCode && !str_starts_with($part, '<')) {
+                $parts[$n] = htmlspecialchars(html_entity_decode($part, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_NOQUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
             } elseif (!$inCode && !str_starts_with($part, '<')) {
                 $parts[$n] = preg_replace('/[ \t\r\n]+/', ' ', $part) ?? $part;
             }

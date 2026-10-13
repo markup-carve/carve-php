@@ -1684,5 +1684,65 @@
   {
     "source": "> > > - x\n> > >   - a\n> > >   b\n> > > > - c\n> > > >\n> > > >   {.y}\n> > > >\n> > > > - d",
     "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\nx\n- a\nb\n</li>\n</ul>\n<blockquote>\n<ul>\n<li>\n<p>c</p>\n</li>\n<li class=\"y\">\n<p>d</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> para `code\n> >\n> > more`\n\n> - g\n>\n>   {.x}\n>   h",
+    "html": "<blockquote>\n<p>para <code>code\n&gt;\n&gt; more</code></p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> > para `code\n> > >\n> > > more`\n> \n> > - g\n> >\n> >   {.x}\n> >   h",
+    "html": "<blockquote>\n<blockquote>\n<p>para <code>code\n&gt;\n&gt; more</code></p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > para `code\n> > > >\n> > > > more`\n> > \n> > > - g\n> > >\n> > >   {.x}\n> > >   h",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<p>para <code>code\n&gt;\n&gt; more</code></p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> para\n> > >\n\n> - g\n>\n>   {.x}\n>   h",
+    "html": "<blockquote>\n<p>para\n&gt; &gt;</p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> > para\n> > > >\n> \n> > - g\n> >\n> >   {.x}\n> >   h",
+    "html": "<blockquote>\n<blockquote>\n<p>para\n&gt; &gt;</p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > para\n> > > > >\n> > \n> > > - g\n> > >\n> > >   {.x}\n> > >   h",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<p>para\n&gt; &gt;</p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> - a\n>   >\n> > b\n\n> - g\n>\n>   {.x}\n>   h",
+    "html": "<blockquote>\n<ul>\n<li>\na\n&gt;\n</li>\n</ul>\n<blockquote>\n<p>b</p>\n</blockquote>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> >   >\n> > > b\n> \n> > - g\n> >\n> >   {.x}\n> >   h",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\na\n&gt;\n</li>\n</ul>\n<blockquote>\n<p>b</p>\n</blockquote>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - a\n> > >   >\n> > > > b\n> > \n> > > - g\n> > >\n> > >   {.x}\n> > >   h",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n&gt;\n</li>\n</ul>\n<blockquote>\n<p>b</p>\n</blockquote>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> para\n> | a |\n> > >\n> > > - b\n> > >\n> > >   {.y}\n> > >\n> > > - c\n\n> - g\n>\n>   {.x}\n>   h",
+    "html": "<blockquote>\n<p>para\n| a |\n&gt; &gt;\n&gt; &gt; - b\n&gt; &gt;\n&gt; &gt;   \n&gt; &gt;\n&gt; &gt; - c</p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> > para\n> > | a |\n> > > >\n> > > > - b\n> > > >\n> > > >   {.y}\n> > > >\n> > > > - c\n> \n> > - g\n> >\n> >   {.x}\n> >   h",
+    "html": "<blockquote>\n<blockquote>\n<p>para\n| a |\n&gt; &gt;\n&gt; &gt; - b\n&gt; &gt;\n&gt; &gt;   \n&gt; &gt;\n&gt; &gt; - c</p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > para\n> > > | a |\n> > > > >\n> > > > > - b\n> > > > >\n> > > > >   {.y}\n> > > > >\n> > > > > - c\n> > \n> > > - g\n> > >\n> > >   {.x}\n> > >   h",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<p>para\n| a |\n&gt; &gt;\n&gt; &gt; - b\n&gt; &gt;\n&gt; &gt;   \n&gt; &gt;\n&gt; &gt; - c</p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> para `code\n> | a |\n> >\n> > more`\n\n> - g\n>\n>   {.x}\n>   h",
+    "html": "<blockquote>\n<p>para <code>code\n| a |\n&gt;\n&gt; more</code></p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> > para `code\n> > | a |\n> > >\n> > > more`\n> \n> > - g\n> >\n> >   {.x}\n> >   h",
+    "html": "<blockquote>\n<blockquote>\n<p>para <code>code\n| a |\n&gt;\n&gt; more</code></p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > para `code\n> > > | a |\n> > > >\n> > > > more`\n> > \n> > > - g\n> > >\n> > >   {.x}\n> > >   h",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<p>para <code>code\n| a |\n&gt;\n&gt; more</code></p>\n</blockquote>\n<blockquote>\n<ul>\n<li>\n<p>g</p>\n<p class=\"x\">h</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
   }
 ]
