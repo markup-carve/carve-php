@@ -49,6 +49,8 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-at-sign-before-a-space-and-a-doubled-delimiter-inside-bold-italic-are-text',
+        'a-titled-footnotes-marker-names-the-endnotes-section',
         'a-closed-fence-in-a-quoted-sub-item-after-a-lazy-line-leaves-no-paragraph',
         'a-description-marker-followed-by-a-no-break-space-has-content',
         'a-head-row-alignment-marker-sets-the-whole-column',
