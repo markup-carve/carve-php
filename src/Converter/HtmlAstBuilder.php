@@ -1050,6 +1050,7 @@ final class HtmlAstBuilder
         if ($tag === 'blockquote') {
             $quote = ['type' => 'block_quote', 'children' => $this->blocks($this->children($node))];
             $this->attachAttrs($quote, $node);
+
             return self::nodeList([$quote]);
         }
         if ($tag === 'pre') {
