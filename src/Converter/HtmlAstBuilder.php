@@ -520,7 +520,8 @@ final class HtmlAstBuilder
                     continue 2;
                 }
             }
-            if (preg_match('/^fnref[0-9]+(?:-[0-9]+)?$/D', $reference->getAttribute('id')) === 1) {
+            // An authored id can replace fnref{n} (PART 9 §16), so a backlink's target decides, not the spelling.
+            if ($reference->getAttribute('id') !== '') {
                 $supReferences[$reference->getAttribute('id')] = $reference;
             }
         }
@@ -5057,7 +5058,10 @@ final class HtmlAstBuilder
 
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)]];
         }
-        if ($this->session->inFootnoteDefinition && str_starts_with($node->getAttribute('href'), '#fnref')) {
+        if (
+            $this->session->inFootnoteDefinition
+            && (str_starts_with($node->getAttribute('href'), '#fnref') || strtolower($node->getAttribute('role')) === 'doc-backlink')
+        ) {
             return [];
         }
         $labelText = '';

@@ -4752,7 +4752,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $refCount = $label !== false ? ($context->footnoteRefCounts[$label] ?? 1) : 1;
 
             // Generate backlinks - multiple if footnote referenced multiple times
-            $backlinks = $this->generateBacklinks($number, $refCount);
+            $backlinks = $this->generateBacklinks($number, $refCount, $label !== false ? ($context->footnoteRefIds[$label] ?? []) : []);
 
             // Add backlink - if the body ends IN a paragraph, insert before its
             // close; otherwise add as a separate paragraph.
@@ -4781,8 +4781,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      *
      * @param int $number Footnote number
      * @param int $refCount Number of times footnote was referenced
+     * @param array<int, string> $refIds The id each reference rendered with, by occurrence
      */
-    protected function generateBacklinks(int $number, int $refCount): string
+    protected function generateBacklinks(int $number, int $refCount, array $refIds = []): string
     {
         // The accessible name is the label plus WHAT THE LINK VISIBLY SAYS
         // (PART 9 §16, markup-carve/carve#1455): the label alone for a lone
@@ -4794,18 +4795,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         if ($refCount <= 1) {
             // Single reference - simple backlink
-            return '<a href="#fnref' . $number . '" role="doc-backlink" aria-label="'
+            return '<a href="#' . $this->escapeAttribute($refIds[1] ?? 'fnref' . $number) . '" role="doc-backlink" aria-label="'
                 . $this->escapeAttribute($label) . '">↩</a>';
         }
 
         // Multiple references - generate numbered backlinks
         $links = [];
         for ($i = 1; $i <= $refCount; $i++) {
-            $refId = 'fnref' . $number;
-            if ($i > 1) {
-                $refId .= '-' . $i;
-            }
-            $links[] = '<a href="#' . $refId . '" role="doc-backlink" aria-label="'
+            $refId = $refIds[$i] ?? 'fnref' . $number . ($i > 1 ? '-' . $i : '');
+            $links[] = '<a href="#' . $this->escapeAttribute($refId) . '" role="doc-backlink" aria-label="'
                 . $this->escapeAttribute($label . ' ' . $i) . '">↩<sup>' . $i . '</sup></a>';
         }
 
@@ -4869,11 +4867,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $context->footnoteRefCounts[$label]++;
         $refCount = $context->footnoteRefCounts[$label];
 
-        // Generate unique ID: fnref1 for first, fnref1-2 for second, etc.
-        $refId = 'fnref' . $number;
-        if ($refCount > 1) {
-            $refId .= '-' . $refCount;
-        }
+        // An authored id replaces fnref1 / fnref1-2, and the backlink follows it (PART 9 §16).
+        $refId = $node->getAttribute('id') ?? 'fnref' . $number . ($refCount > 1 ? '-' . $refCount : '');
+        $context->footnoteRefIds[$label][$refCount] = $refId;
 
         $parent = $node->getParent();
         while ($parent !== null) {
@@ -4882,14 +4878,14 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                     ? ' data-carve-footnote-label="' . $this->escapeAttribute($label) . '"'
                     : '';
 
-                return '<sup id="' . $refId . '"' . $carrier
+                return '<sup id="' . $this->escapeAttribute($refId) . '"' . $carrier
                     . $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '>' . $number . '</sup>';
             }
             $parent = $parent->getParent();
         }
 
         // Format: <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a>
-        $html = '<a id="' . $refId . '" href="#fn' . $number . '" role="doc-noteref"';
+        $html = '<a id="' . $this->escapeAttribute($refId) . '" href="#fn' . $number . '" role="doc-noteref"';
 
         // In round-trip mode, store the original label for reconstruction
         if ($this->roundTripMode) {

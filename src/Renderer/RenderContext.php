@@ -18,6 +18,13 @@ class RenderContext
      */
     public array $footnoteRefCounts = [];
 
+    /**
+     * The id each reference to a footnote rendered with, in reference order.
+     *
+     * @var array<string, array<int, string>>
+     */
+    public array $footnoteRefIds = [];
+
     public HeadingIdTracker $headingIdTracker;
 
     /**
@@ -102,6 +109,7 @@ class RenderContext
     public function reset(): void
     {
         $this->footnoteRefCounts = [];
+        $this->footnoteRefIds = [];
         $this->headingIdTracker->reset();
         $this->footnoteNumbers = [];
         $this->pendingFootnoteLabels = [];
