@@ -346,7 +346,9 @@ class ProseMirrorRenderer
                     for ($offset = 1; $offset < $entry['rowspan']; $offset++) {
                         $markers = [];
                         for ($covered = 0; $covered < $entry['colspan']; $covered++) {
-                            $markers[] = $grid[$index + $offset][$column + $covered]['cell']->getSpanMarker();
+                            $markers[] = isset($grid[$index + $offset][$column + $covered])
+                                ? $grid[$index + $offset][$column + $covered]['cell']->getSpanMarker()
+                                : null;
                         }
                         $coveredRows[] = $markers;
                     }
