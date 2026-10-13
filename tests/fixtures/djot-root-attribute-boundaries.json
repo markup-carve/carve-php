@@ -1236,5 +1236,81 @@
         }
       ]
     }
+  },
+  {
+    "source": "- ```\n  c\n  ```\n  {.x}\n- b",
+    "html": "<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\nb\n</li>\n</ul>\n"
+  },
+  {
+    "source": "- ```\n  c\n  ```\n  {.x}\n\n- b",
+    "html": "<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n"
+  },
+  {
+    "source": "- ```\n  c\n  ```\n\n  {.x}\n- b",
+    "html": "<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n"
+  },
+  {
+    "source": "- ```\n  c\n  ```\n\n  {.x}\n\n- b",
+    "html": "<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n"
+  },
+  {
+    "source": "> - ```\n>   c\n>   ```\n>   {.x}\n> - b",
+    "html": "<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\nb\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> - ```\n>   c\n>   ```\n>   {.x}\n>\n> - b",
+    "html": "<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> - ```\n>   c\n>   ```\n>\n>   {.x}\n> - b",
+    "html": "<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> - ```\n>   c\n>   ```\n>\n>   {.x}\n>\n> - b",
+    "html": "<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - ```\n> >   c\n> >   ```\n> >   {.x}\n> > - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\nb\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - ```\n> >   c\n> >   ```\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - ```\n> >   c\n> >   ```\n> >\n> >   {.x}\n> > - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - ```\n> >   c\n> >   ```\n> >\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<pre><code>c\n</code></pre>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "[^n]: - x\n\n        {.a}\n\n> p[^n]",
+    "html": "<blockquote class=\"a\">\n<p>p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</blockquote>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "[^n]: - x\n\n        {.a}\n\n- p[^n]",
+    "html": "<ul class=\"a\">\n<li>\np<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>\n</li>\n</ul>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "[^a]: - x\n\n      [^b]: - y\n\n              {.c}\n\np[^a] q[^b]",
+    "html": "<p class=\"c\">p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> q<a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<ul>\n<li>\nx\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n<li id=\"fn2\">\n<ul>\n<li>\n<p>y</p>\n</li>\n</ul>\n<p><a href=\"#fnref2\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "> - x\n>\n>   {.a}\n\np",
+    "html": "<blockquote>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n</blockquote>\n<p class=\"a\">p</p>\n"
+  },
+  {
+    "source": "p[^n]\n\n[^n]: note\n\n  > - x\n  >\n  >   {.c}\n  >\n  > * y",
+    "html": "<p>p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>note</p>\n<blockquote>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<ul class=\"c\">\n<li>\ny\n</li>\n</ul>\n</blockquote>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "> [^n]: - x\n>\n>         {.a}\n>\n> > p[^n]",
+    "html": "<blockquote>\n<blockquote class=\"a\">\n<p>p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</blockquote>\n</blockquote>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "p[^n]\n\n[^n]: note\n\n  > - x\n  >\n  >   {.c}\n  >\n  > * y\n\n  - z",
+    "html": "<p>p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>note</p>\n<blockquote>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<ul class=\"c\">\n<li>\ny\n</li>\n</ul>\n</blockquote>\n<ul>\n<li>\nz\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
   }
 ]

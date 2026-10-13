@@ -110,7 +110,15 @@ class DjotRootAttributeBoundariesTest extends TestCase
     {
         $parts = preg_split('/(<[^>]+>)/', $html, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [];
         $inCode = false;
+        $inBacklink = false;
         foreach ($parts as $n => $part) {
+            if (str_starts_with($part, '<a ') && str_contains($part, 'role="doc-backlink"')) {
+                $inBacklink = true;
+            } elseif ($part === '</a>') {
+                $inBacklink = false;
+            } elseif ($inBacklink && !str_starts_with($part, '<')) {
+                $parts[$n] = $part = str_replace("\u{FE0E}", '', $part);
+            }
             if (str_starts_with($part, '<code')) {
                 $inCode = true;
             } elseif ($part === '</code>') {
