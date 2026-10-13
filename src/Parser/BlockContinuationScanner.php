@@ -779,6 +779,14 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            // Below a nested definition in a marker-line note, a line under the item's column leaves the list.
+            if (
+                $markerNoteItem && $sawNestedNote && $nextIndent < $contentIndent && $trailingState->fence === null
+                && $nestedNoteBodyColumn !== null
+                && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
+            ) {
+                break;
+            }
             if ($openDefinitionBody !== null) {
                 $recentDefinitionBodyColumn = $openDefinitionBody;
             } elseif (!$trailingState->openParagraph) {

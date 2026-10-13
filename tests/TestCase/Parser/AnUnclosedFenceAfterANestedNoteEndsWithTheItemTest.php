@@ -30,6 +30,11 @@ class AnUnclosedFenceAfterANestedNoteEndsWithTheItemTest extends TestCase
             "<ul><li><pre><code>code\n</code></pre></li></ul><p>after " . self::REFS . '</p>',
         ];
 
+        yield 'a closed block in the nested note leaves no lazy claim' => [
+            "- [^a]: text\n    - child\n    [^b]: text\n\n      - c2\n      ~~~\n      code\n      ~~~\nafter [^a] [^b]\n",
+            '<ul><li></li></ul><p>after ' . self::REFS . '</p>',
+        ];
+
         yield 'after a nested note holding a term, in a quote' => [
             "> - [^a]: text\n>     more\n>     [^b]: text\n> \n>       :: t\n>     ~~~\n>     code\n> after [^a] [^b]\n",
             "<blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after " . self::REFS . '</p></blockquote>',
