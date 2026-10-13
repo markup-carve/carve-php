@@ -1089,7 +1089,7 @@ class InlineParser
                     $content = substr($content, 1);
                 }
                 $content = rtrim($content, " \t");
-                $textBuffer = rtrim($textBuffer, " ");
+                $textBuffer = rtrim($textBuffer, ' ');
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
                 $comment = new Comment($content);
@@ -1490,7 +1490,7 @@ class InlineParser
                     $lookAhead++;
                 }
                 if ($lookAhead < $length && $text[$lookAhead] === "\n") {
-                    $textBuffer = rtrim($textBuffer, " ");
+                    $textBuffer = rtrim($textBuffer, ' ');
                     $this->appendHardBreak($parent, $textBuffer, $pos, $lookAhead + 1);
                     $pos = $lookAhead + 1;
 

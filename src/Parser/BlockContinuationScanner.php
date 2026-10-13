@@ -765,8 +765,10 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
-            if ($nextIndent === $contentIndent
-                && preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $nextTrimmed) === 1) {
+            if (
+                $nextIndent === $contentIndent
+                && preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $nextTrimmed) === 1
+            ) {
                 $unclosedFenceColumn = null;
             }
             if ($this->isContinuationMarker($nextTrimmed)) {
@@ -1069,9 +1071,11 @@ final class BlockContinuationScanner
                         || ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
                         || $this->isCommentLineOrFence($nextTrimmed))
                 ) {
-                    if (IndentationHelper::getLeadingColumns($nextLine) === $authoredTermColumn
+                    if (
+                        IndentationHelper::getLeadingColumns($nextLine) === $authoredTermColumn
                         && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
-                        && $pendingTermFence === null) {
+                        && $pendingTermFence === null
+                    ) {
                         $pendingDefinitionTerm = false;
                         $authoredFenceOwnsLazy = true;
                         $trailingState->openParagraph = false;
@@ -1206,9 +1210,11 @@ final class BlockContinuationScanner
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
                 $inlineAuthoredFence = $inlineCodeParagraph || $termContinuation || $failedReplayFence || $releasedNoteFenceText;
                 $failedFenceColumn = null;
-                if ($markerNoteItem && $trailingState->inFootnoteBody
+                if (
+                    $markerNoteItem && $trailingState->inFootnoteBody
                     && $column <= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)) {
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                ) {
                     $trailingState->openParagraph = false;
                     $authoredFenceOwnsLazy = true;
                 }
@@ -1389,9 +1395,11 @@ final class BlockContinuationScanner
                                 $authoredCodeColumn ?? $contentIndent,
                                 $authoredCodeColumn !== null,
                             ))));
-                if ($releasedNoteParagraphColumn !== null && $column === $releasedNoteParagraphColumn
+                if (
+                    $releasedNoteParagraphColumn !== null && $column === $releasedNoteParagraphColumn
                     && $trailingState->fence === null && !$this->isBlockElementStart($nextTrimmed, $lines, $i)
-                    && !$this->startsNewBlock($nextTrimmed, $lines, $i)) {
+                    && !$this->startsNewBlock($nextTrimmed, $lines, $i)
+                ) {
                     $trailingState->openParagraph = true;
                     $trailingState->inFootnoteBody = false;
                     $trailingState->afterInvisible = false;
@@ -1569,10 +1577,12 @@ final class BlockContinuationScanner
                 continue;
             }
 
-            if ($authoredFenceOwnsLazy && $trailingState->fence !== null
+            if (
+                $authoredFenceOwnsLazy && $trailingState->fence !== null
                 && !$this->isBlockElementStart($nextTrimmed, $lines, $i)
                 && !$this->startsNewBlock($nextTrimmed, $lines, $i)
-                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null) {
+                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null
+            ) {
                 $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $i++;
@@ -2885,9 +2895,11 @@ final class BlockContinuationScanner
         // Re-armed only by the two branches that set `nestedColumn`.
         $nestedIsQuoteOnEntry = $state->nestedIsQuote;
         $state->nestedIsQuote = false;
-        if ($wasQuoteParagraph && $state->nestedColumn > 0 && $state->fence === null
+        if (
+            $wasQuoteParagraph && $state->nestedColumn > 0 && $state->fence === null
             && IndentationHelper::getLeadingColumns($line, $state->nestedColumn) >= $state->nestedColumn
-            && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)) {
+            && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
+        ) {
             $state->openParagraph = true;
             $state->quoteParagraph = true;
             $state->nestedIsQuote = true;

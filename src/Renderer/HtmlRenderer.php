@@ -3480,7 +3480,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $tracker = $this->getRenderContext()->headingIdTracker;
         $carrier = $this->roundTripMode ? ' data-carve-xref' : '';
         $attrs = $this->renderAttributeArray($this->attributesBesideCarriers(
-            $node, $this->roundTripMode ? ['data-carve-xref'] : [], ['href'],
+            $node,
+            $this->roundTripMode ? ['data-carve-xref'] : [],
+            ['href'],
         ));
 
         // Exact match only (CARVE-P9R-010): `</#getting-started>` does not

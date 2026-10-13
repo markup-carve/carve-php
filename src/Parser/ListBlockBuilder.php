@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
-
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
@@ -877,9 +876,11 @@ final class ListBlockBuilder
                         $children = $lastItem->getChildren();
                         $previousList = $before > 0 ? $children[$before - 1] : null;
                         $nextList = $children[$before] ?? null;
-                        if ($previousList instanceof DefinitionList && $nextList instanceof DefinitionList
+                        if (
+                            $previousList instanceof DefinitionList && $nextList instanceof DefinitionList
                             && $previousList->getAttributeEntries() === [] && $nextList->getAttributeEntries() === []
-                            && $previousList->isLoose() === $nextList->isLoose()) {
+                            && $previousList->isLoose() === $nextList->isLoose()
+                        ) {
                             $terms = $nextList->getChildren();
                             $nextList->setChildren([]);
                             foreach ($terms as $term) {
@@ -889,9 +890,12 @@ final class ListBlockBuilder
                             $endPos = $nextList->getPos();
                             if ($startPos !== null && $endPos !== null) {
                                 $previousList->setPos(new SourceSpan(
-                                    $startPos->startLine, $endPos->endLine,
-                                    $startPos->startColumn, $endPos->endColumn,
-                                    $startPos->startOffset, $endPos->endOffset,
+                                    $startPos->startLine,
+                                    $endPos->endLine,
+                                    $startPos->startColumn,
+                                    $endPos->endColumn,
+                                    $startPos->startOffset,
+                                    $endPos->endOffset,
                                 ));
                             }
                             $lastItem->removeChild($nextList);
@@ -1601,8 +1605,10 @@ final class ListBlockBuilder
                     continue;
                 }
                 $subject = ltrim($candidate, " \t");
-                if ($subject !== $candidate && (($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0)
-                    || ($this->getFencedBlockParser)()->parseDivFenceOpener($subject) !== null)) {
+                if (
+                    $subject !== $candidate && (($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0)
+                    || ($this->getFencedBlockParser)()->parseDivFenceOpener($subject) !== null)
+                ) {
                     return true;
                 }
             }

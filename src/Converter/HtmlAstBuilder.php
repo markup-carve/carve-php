@@ -4586,20 +4586,24 @@ final class HtmlAstBuilder
                 $span['attrs'] = $attrs;
             }
 
-            if ($tag === 'span' && $attrs === [] && $node->attributes->length > 0
+            if (
+                $tag === 'span' && $attrs === [] && $node->attributes->length > 0
                 && !self::hasConflictingTextCarriers($node)
                 && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
                 && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
-                && $this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
+                && $this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)
+            ) {
                 $this->keepRaw($node);
 
                 return [['type' => 'raw_inline', 'content' => rtrim(HtmlDomLoader::serialize($node), "\n"), 'format' => 'html']];
             }
             if ($tag === 'span' && $attrs === []) {
-                if ($span['children'] !== [] && $node->attributes->length > 0
+                if (
+                    $span['children'] !== [] && $node->attributes->length > 0
                     && !self::hasConflictingTextCarriers($node)
                     && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
-                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')) {
+                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+                ) {
                     $this->session->unwrappedBareSpans[$node] = null;
                 }
                 if ($span['children'] === []) {
@@ -4633,6 +4637,7 @@ final class HtmlAstBuilder
 
     /**
      * @phpstan-param list<ImportedNode> $children
+     *
      * @phpstan-return list<ImportedNode>
      */
     private function lineBlockPadding(array $children): array
@@ -4644,8 +4649,10 @@ final class HtmlAstBuilder
             $out = [];
             $leading = true;
             foreach (self::nodeList($paragraph['children'] ?? []) as $inline) {
-                if ($leading && $inline['type'] === 'text'
-                    && preg_match('/^\x{00a0}+/u', self::stringValue($inline['value'] ?? null), $match) === 1) {
+                if (
+                    $leading && $inline['type'] === 'text'
+                    && preg_match('/^\x{00a0}+/u', self::stringValue($inline['value'] ?? null), $match) === 1
+                ) {
                     for ($i = 0, $count = strlen($match[0]) / 2; $i < $count; $i++) {
                         $out[] = ['type' => 'non_breaking_space'];
                     }
@@ -4654,6 +4661,7 @@ final class HtmlAstBuilder
                         $out[] = HtmlImportNodes::text($rest);
                         $leading = false;
                     }
+
                     continue;
                 }
                 $out[] = $inline;
@@ -4860,8 +4868,10 @@ final class HtmlAstBuilder
             HtmlCarrierNames::consumeAttribute($node, 'href');
             foreach ($node->attributes as $attribute) {
                 $name = strtolower(HtmlDomLoader::attributeName($attribute));
-                if (($name === 'id' && isset($attrs['id'])) || ($name === 'class' && isset($attrs['classes']))
-                    || array_key_exists($name, $attrs['keyValues'] ?? [])) {
+                if (
+                    ($name === 'id' && isset($attrs['id'])) || ($name === 'class' && isset($attrs['classes']))
+                    || array_key_exists($name, $attrs['keyValues'] ?? [])
+                ) {
                     HtmlCarrierNames::consumeAttribute($node, $name);
                 }
             }

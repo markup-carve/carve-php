@@ -10,7 +10,9 @@ use PHPUnit\Framework\TestCase;
 
 class RefusedSpanCarriersTest extends TestCase
 {
-    /** @param array{id:string,mode:string,html:string,source:string,diagnostics:list<array{string,string,string}>} $row */
+    /**
+     * @param array{id:string,mode:string,html:string,source:string,diagnostics:list<array{string,string,string}>} $row
+     */
     #[DataProvider('cases')]
     public function testReferenceFallbackAndReports(array $row): void
     {
@@ -21,7 +23,9 @@ class RefusedSpanCarriersTest extends TestCase
         self::assertSame($row['diagnostics'], $diagnostics);
     }
 
-    /** @return iterable<string, array{array<string,mixed>}> */
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
     public static function cases(): iterable
     {
         $rows = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/fixtures/refused-span-carriers.json'), true, 512, JSON_THROW_ON_ERROR);

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use LogicException;
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Converter\HtmlAstBuilder;
 use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
 use PHPUnit\Framework\Attributes\Group;
@@ -20,7 +21,7 @@ class HtmlAstBuilderTest extends TestCase
 *[42]: answer
 *[1a]: first</template><p>9 42 1a</p>');
         self::assertSame(['9', '42', '1a'], array_column(array_slice($tree['children'], 0, 3), 'abbr'));
-        (new \MarkupCarve\Carve\Ast\AstCodec())->decode($tree);
+        (new AstCodec())->decode($tree);
     }
 
     public function testTableSectionsKeepTheirOwnRetainedRows(): void

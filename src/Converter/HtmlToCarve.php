@@ -2466,8 +2466,10 @@ class HtmlToCarve
         foreach ($node->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
             $canonical = HtmlCarrierNames::canonicalName($name);
-            if (!$preserved && $tag === 'a' && (HtmlCarrierNames::wasUsed($node, 'data-carve-xref') || HtmlCarrierNames::wasUsed($node, 'data-djot-xref'))
-                && !isset($this->contradictoryLinkCarriers[$node]) && HtmlCarrierNames::wasUsed($node, $name)) {
+            if (
+                !$preserved && $tag === 'a' && (HtmlCarrierNames::wasUsed($node, 'data-carve-xref') || HtmlCarrierNames::wasUsed($node, 'data-djot-xref'))
+                && !isset($this->contradictoryLinkCarriers[$node]) && HtmlCarrierNames::wasUsed($node, $name)
+            ) {
                 continue;
             }
             if (!$preserved && $canonical === 'data-carve-ext' && HtmlCarrierNames::wasUsed($node, $name)) {
@@ -5061,7 +5063,9 @@ class HtmlToCarve
      */
     private ?SplObjectStorage $unwrappedSameKindImportSpans = null;
 
-    /** @var \SplObjectStorage<\DOMElement, null>|null */
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
     private ?SplObjectStorage $unwrappedBareImportSpans = null;
 
     /**

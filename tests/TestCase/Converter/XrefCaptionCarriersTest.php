@@ -10,7 +10,9 @@ use PHPUnit\Framework\TestCase;
 
 class XrefCaptionCarriersTest extends TestCase
 {
-    /** @param array{id:string,mode:string,html:string,projection:list<array<string,mixed>>,diagnostics:list<array<string,string>>} $row */
+    /**
+     * @param array{id:string,mode:string,html:string,projection:list<array<string,mixed>>,diagnostics:list<array<string,string>>} $row
+     */
     #[DataProvider('cases')]
     public function testReferenceCarriers(array $row): void
     {
@@ -34,7 +36,9 @@ class XrefCaptionCarriersTest extends TestCase
         )));
     }
 
-    /** @return iterable<string, array{array<string,mixed>}> */
+    /**
+     * @return iterable<string, array{array<string, mixed>}>
+     */
     public static function cases(): iterable
     {
         $rows = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/fixtures/xref-caption-carriers.json'), true, 512, JSON_THROW_ON_ERROR);

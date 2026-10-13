@@ -3034,7 +3034,7 @@ class BlockParser
             // as outside one.
             $commentOffset = null;
             $labelNodes = ContainerLabelParser::parse($label, $this->inlineParser, $commentOffset);
-            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), " "));
+            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), ' '));
             $div->setLabelNodes($labelNodes);
         }
 
@@ -5371,9 +5371,11 @@ class BlockParser
                 }
                 $trailingState->openParagraph = false;
                 $retainedBelowComment = true;
-            } elseif ($retainedBelowComment
+            } elseif (
+                $retainedBelowComment
                 && (!$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
-                    || $this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0))) {
+                    || $this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0))
+            ) {
                 $bodyLine = ltrim($nextLine, " \t");
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);

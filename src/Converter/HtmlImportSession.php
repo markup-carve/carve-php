@@ -41,7 +41,9 @@ final class HtmlImportSession
      */
     public SplObjectStorage $unwrappedSameKindSpans;
 
-    /** @var \SplObjectStorage<\DOMElement, null> */
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
     public SplObjectStorage $unwrappedBareSpans;
 
     /**
