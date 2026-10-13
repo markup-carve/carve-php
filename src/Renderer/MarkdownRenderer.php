@@ -78,6 +78,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -356,6 +357,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
 
     protected HeadingIdTracker $headingIdTracker;
+
+    /**
+     * @var array<string, true>
+     */
+    protected array $referencedLinkDefinitions = [];
 
     protected int $renderDepth = 0;
 
@@ -692,6 +698,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // `parse(fmt(x)) != parse(x)`. carve-js and carve-rs both keep it in
         // place, and this node exists precisely so this renderer can too
         // (carve-php#708).
+        $this->referencedLinkDefinitions = ReferencedLinkDefinitions::labels($document);
         $markdown = $this->renderChildren($document);
         $residual = $this->renderResidualAbbreviationDefinitions($document);
         if ($residual !== '') {
@@ -1690,6 +1697,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof AbbreviationDefinition
             => $this->renderAbbreviationDefinition($node),
             $node instanceof LinkReferenceDefinition => $this->roundTripMode
+                || !isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])
                 ? $this->renderLinkReferenceDefinition($node) : '',
             $node instanceof RawBlock => $this->renderRawBlock($node),
             $node instanceof BlockQuote => $this->renderBlockQuote($node),

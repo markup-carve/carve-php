@@ -2,7 +2,7 @@
     "specPin": "ab887d8",
     "tickets": {
         "3255": {
-            "classification": "B",
+            "classification": "A",
             "sources": [
                 "197-a-comment-ends-the-paragraph-it-sits-under",
                 "277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open",
@@ -98,6 +98,27 @@
                     "checkerHtml": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>d\n<code></code></p>\n        <blockquote><p>q\n<code>php\n</code>=html</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n  <li>next</li>\n</ul>",
                     "referenceHtml": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>d\n<code></code></p>\n        <blockquote><p>q\n<code>php\n</code>=html</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n  <li>next</li>\n</ul>",
                     "expectedHtml": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>d\n<code></code></p>\n        <blockquote><p>q\n<code>php\n</code>=html</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n  <li>next</li>\n</ul>"
+                }
+            ]
+        },
+        "3266": {
+            "classification": "A",
+            "expectationChanges": [
+                {
+                    "test": "TableCellWriterParityTest/collected link definition in list item",
+                    "classification": "B",
+                    "source": "- [x]: /url\n",
+                    "originalMarkdown": "-\n",
+                    "expectedMarkdown": "-\n\n[x]: /url\n",
+                    "referenceMarkdown": "-\n\n[x]: /url\n"
+                },
+                {
+                    "test": "TableCellWriterParityTest/collected link definition in definition description",
+                    "classification": "B",
+                    "source": ":: term\n:  [x]: /url\n",
+                    "originalMarkdown": "**term**\n",
+                    "expectedMarkdown": "**term**\n\n[x]: /url\n",
+                    "referenceMarkdown": "**term**\n\n[x]: /url\n"
                 }
             ]
         }
