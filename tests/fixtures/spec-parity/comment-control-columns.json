@@ -233,5 +233,110 @@
     "id": "comment-controls/column-gate/7/comment",
     "source": "::: note\n[^a]: intro\n%% c\n  more\n:::\n\nsee[^a]\n",
     "html": "<aside class=\"admonition note\" aria-label=\"Note\">\n\n</aside>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro</p>\n      <p>more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+  },
+  {
+    "id": "comment-controls/nested-description/0",
+    "source": ":: t\n:  - a\n%% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        tail\n      </li>\n    </ul>\n  </dd>\n</dl>"
+  },
+  {
+    "id": "comment-controls/nested-description/1",
+    "source": ":: t\n:  - a\n %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        tail\n      </li>\n    </ul>\n  </dd>\n</dl>"
+  },
+  {
+    "id": "comment-controls/nested-description/3",
+    "source": ":: t\n:  - a\n   %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/nested-description/4",
+    "source": ":: t\n:  - a\n    %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/nested-description/5",
+    "source": ":: t\n:  - a\n     %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/nested-description/6",
+    "source": ":: t\n:  - a\n      %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/nested-description/7",
+    "source": ":: t\n:  - a\n       %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/nested-description/8",
+    "source": ":: t\n:  - a\n        %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/nested-description/9",
+    "source": ":: t\n:  - a\n         %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/description-d/0",
+    "source": ":: t\n:  d\n%% c\ntail\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+  },
+  {
+    "id": "comment-controls/description-d/1",
+    "source": ":: t\n:  d\n %% c\ntail\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+  },
+  {
+    "id": "comment-controls/description-d/2",
+    "source": ":: t\n:  d\n  %% c\ntail\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>d</p>\n    <p>tail</p>\n  </dd>\n</dl>"
+  },
+  {
+    "id": "comment-controls/description-d/3",
+    "source": ":: t\n:  d\n   %% c\ntail\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/description-blank",
+    "source": ":: t\n:  d\n\n%% c\ntail\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-item/line-heading",
+    "source": "- a\n  %% x\n # h\n\n- b\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p># h</p>\n<ul>\n  <li>b</li>\n</ul>"
+  },
+  {
+    "id": "comment-item/open-span-heading",
+    "source": "- a\n  %%% x\n # h\n\n- b\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p># h</p>\n<ul>\n  <li>b</li>\n</ul>"
+  },
+  {
+    "id": "comment-item/closed-span-plain",
+    "source": "- a\n  %%% x\n  y\n  %%%\n b\n\n- c\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>\n<ul>\n  <li>c</li>\n</ul>"
+  },
+  {
+    "id": "comment-item/line-plain",
+    "source": "- a\n  %% x\n b\n\n- c\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>\n<ul>\n  <li>c</li>\n</ul>"
+  },
+  {
+    "id": "comment-item/closed-span-marker",
+    "source": "- a\n  %%% x\n  y\n  %%%\n - s\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+  },
+  {
+    "id": "comment-controls/lazy-bullet",
+    "source": "- :::\n y\n  :::\n",
+    "html": "<ul>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ul>\n<p>y\n:::</p>"
+  },
+  {
+    "id": "comment-controls/lazy-ordered",
+    "source": "1. :::\n  y\n   :::\n",
+    "html": "<ol>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ol>\n<p>y\n:::</p>"
   }
 ]

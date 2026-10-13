@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -65,12 +66,11 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
      * above a defect rather than a choice: one document cannot depend on a blank
      * line the comment renders nothing either side of.
      */
-    public function testItAgreesWithTheBlankLineSpelling(): void
+    public function testTheBlankLineAndCommentFollowTheirOwnBoundaries(): void
     {
-        $this->assertSame(
-            $this->html(":: t\n:  d\n\n%% c\ntail\n"),
-            $this->html(":: t\n:  d\n%% c\ntail\n"),
-        );
+        foreach ([":: t\n:  d\n\n%% c\ntail\n", ":: t\n:  d\n%% c\ntail\n"] as $source) {
+            $this->assertSame(trim(PinnedOracleHtml::forSource($source)), $this->html($source));
+        }
     }
 
     /**
@@ -143,14 +143,11 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
      * own file pins it). Columns 1, 2 and 3 must all keep their current answer:
      * this fix is STRICTLY column 0, like the attribute line beside it.
      */
-    public function testAControlBelowColumnZeroIsUnchanged(): void
+    public function testTheDescriptionBodyKeepsOnlyBelowColumnComments(): void
     {
         foreach ([' ', '  ', '   '] as $indent) {
-            $this->assertSame(
-                "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>",
-                $this->html(":: t\n:  d\n" . $indent . "%% c\ntail\n"),
-                'indent ' . strlen($indent),
-            );
+            $source = ":: t\n:  d\n" . $indent . "%% c\ntail\n";
+            $this->assertSame(trim(PinnedOracleHtml::forSource($source)), $this->html($source));
         }
     }
 

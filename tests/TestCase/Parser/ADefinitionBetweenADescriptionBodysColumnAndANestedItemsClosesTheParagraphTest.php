@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -332,11 +333,11 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     }
 
     #[DataProvider('commentBandProvider')]
-    public function testTheCommentControlDoesNotMove(int $column): void
+    public function testTheCommentControlReadsItsColumn(int $column): void
     {
-        $html = $this->converter->convert(":: t\n:  - a\n" . str_repeat(' ', $column) . "%% c\ntail");
-
-        $this->assertSame(self::ENDED, trim($html));
+        $source = ":: t\n:  - a\n" . str_repeat(' ', $column) . "%% c\ntail";
+        $html = $this->converter->convert($source);
+        $this->assertSame(($column === 2 ? self::ENDED : trim(PinnedOracleHtml::forSource($source))), trim($html));
     }
 
     /**

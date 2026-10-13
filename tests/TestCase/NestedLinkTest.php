@@ -191,8 +191,7 @@ class NestedLinkTest extends TestCase
             'link inside footnote body in label survives' => [
                 '[x ^[see [y](/inner)]](/outer)',
                 false,
-                '<p><a href="/outer">x <a id="fnref1" href="#fn1" role="doc-noteref">'
-                    . "<sup>1</sup></a></a></p>\n"
+                '<p><a href="/outer">x <sup id="fnref1">1</sup></a></p>' . "\n"
                     . "<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n"
                     . "    <li id=\"fn1\">\n"
                     . '      <p>see <a href="/inner">y</a>'

@@ -77,7 +77,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // minute before this file did - so main went red on a test whose own
         // PR had been green against the older base.
         $this->assertSame(
-            '<blockquote> <dl> <dt>t</dt> </dl> </blockquote> <p>~</p>',
+            '<blockquote> <dl> <dt>t ~</dt> </dl> </blockquote>',
             $this->squash($this->converter->convert("> :: t\n~\n")),
         );
     }

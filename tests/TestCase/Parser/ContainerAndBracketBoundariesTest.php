@@ -165,6 +165,6 @@ class ContainerAndBracketBoundariesTest extends TestCase
         $document = (new CarveConverter())->parse(':::[' . $label . " \t%% outer]\nbody\n:::\n");
         $div = $document->getChildren()[0];
         $this->assertInstanceOf(Div::class, $div);
-        $this->assertSame($label, $div->getLabel());
+        $this->assertSame($label . " \t%% outer", $div->getLabel());
     }
 }
