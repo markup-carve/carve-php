@@ -3301,6 +3301,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDefinitionList(DefinitionList $node): string
     {
+        if ($this->roundTripMode && !$this->carriesDefinitionList($node)) {
+            $this->recordDefinitionListFlattened($node);
+        }
         // GFM has no definition list and reads a `: ` marker as text, so each
         // term is a strong paragraph and each description's blocks follow it
         // as ordinary blocks (PART 11 §10p).

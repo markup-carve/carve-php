@@ -51,6 +51,7 @@ final class HtmlCarrierNames
         'col-widths',
         'escaped',
         'explicit-id',
+        'generated-id',
         'ext',
         'group-generated',
         'fence-content',

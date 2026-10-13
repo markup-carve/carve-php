@@ -1001,7 +1001,13 @@ final class HtmlAstBuilder
             if ($this->headingIdWasGenerated($node)) {
                 $skip[] = 'id';
             }
-            $this->attachAttrsInElementOrder($heading, $node, $skip);
+            $headingAttrs = $this->attrsInElementOrder($node, $skip);
+            if ($node->hasAttribute('id')) {
+                HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id');
+            }
+            if ($headingAttrs !== []) {
+                $heading['attrs'] = $headingAttrs;
+            }
 
             return [$heading];
         }
@@ -1160,9 +1166,10 @@ final class HtmlAstBuilder
         ) {
             return $blocks;
         }
-        if (HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, self::EXTENSION_CARRIER_VALUES, true)) === 'section' || HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id') === '1') {
-            HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext');
-            HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id');
+        if (
+            !self::hasConflictingIdCarriers($node)
+            && (HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id') || HtmlCarrierNames::consumePresence($node, 'data-carve-generated-id'))
+        ) {
             $this->session->consumedExtensionElements[$node] = false;
         }
         foreach ($blocks as &$block) {
@@ -1170,12 +1177,24 @@ final class HtmlAstBuilder
                 $headingAttrs = self::attrsValue($block['attrs'] ?? null);
                 $headingAttrs['id'] = $node->getAttribute('id');
                 $order = array_values(array_diff($headingAttrs['order'] ?? [], ['#id']));
-                $idSlot = HtmlCarrierNames::consumeAttribute($node, 'data-carve-id-slot');
-                $position = ctype_digit($idSlot) ? min((int)$idSlot, count($order)) : 0;
+                $explicit = HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id') && !self::hasConflictingIdCarriers($node);
+                $idSlot = HtmlCarrierNames::peekAttribute($node, 'data-carve-id-slot');
+                $validSlot = $explicit && ctype_digit($idSlot) && (float)$idSlot <= count($order);
+                if ($validSlot) {
+                    HtmlCarrierNames::consumeAttribute($node, 'data-carve-id-slot');
+                }
+                $position = $validSlot ? (int)$idSlot : 0;
                 array_splice($order, $position, 0, ['#id']);
-                $headingAttrs['order'] = $order;
+                if ($explicit) {
+                    $headingAttrs['order'] = $order;
+                } else {
+                    unset($headingAttrs['order']);
+                }
+                if (!self::hasConflictingIdCarriers($node) && HtmlCarrierNames::consumePresence($node, 'data-carve-generated-id')) {
+                    unset($headingAttrs['id']);
+                }
                 $block['attrs'] = $headingAttrs;
-                if (!HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id')) {
+                if (!$explicit) {
                     $block[self::SECTION_ID_KEY] = true;
                 }
 
@@ -1394,38 +1413,25 @@ final class HtmlAstBuilder
         unset($child);
     }
 
+    public static function hasConflictingIdCarriers(DOMElement $node): bool
+    {
+        return HtmlCarrierNames::peekPresence($node, 'data-carve-explicit-id')
+            && HtmlCarrierNames::peekPresence($node, 'data-carve-generated-id');
+    }
+
+    public static function hasConflictingTextCarriers(DOMElement $node): bool
+    {
+        return HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+            && count(preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: []) === 1
+            && HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
+            && self::isValidRawCarrierFormat(HtmlCarrierNames::peekAttribute($node, 'data-carve-raw'));
+    }
+
     private function headingIdWasGenerated(DOMElement $node): bool
     {
-        if (!$node->hasAttribute('id')) {
-            return false;
-        }
-        if (HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id') === '0') {
-            return true;
-        }
-        if ($this->importMode !== 'roundtrip' || HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id')) {
-            return false;
-        }
-        $names = [];
-        foreach ($node->attributes as $attribute) {
-            $names[] = strtolower(HtmlDomLoader::attributeName($attribute));
-        }
-        while ($names !== [] && end($names) === 'data-source-line') {
-            array_pop($names);
-        }
-        if ($names === [] || end($names) !== 'id') {
-            return false;
-        }
-        $base = (new HeadingIdTracker())->normalizeId(trim($node->textContent));
-        $id = $node->getAttribute('id');
-        if ($id === $base) {
-            return true;
-        }
-        $tail = str_starts_with($id, $base . '-') ? substr($id, strlen($base) + 1) : '';
-
-        return $tail !== ''
-            && $tail !== '1'
-            && !str_starts_with($tail, '0')
-            && preg_match('/^[0-9]+$/D', $tail) === 1;
+        return $node->hasAttribute('id')
+            && !self::hasConflictingIdCarriers($node)
+            && HtmlCarrierNames::consumePresence($node, 'data-carve-generated-id');
     }
 
     /**
@@ -2261,8 +2267,8 @@ final class HtmlAstBuilder
                 break;
             }
         }
-        if (in_array(HtmlCarrierNames::consumeAttribute($node, 'data-carve-tight'), ['true', 'false'], true)) {
-            $tight = HtmlCarrierNames::consumeAttribute($node, 'data-carve-tight') === 'true';
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-tight')) {
+            $tight = true;
         }
         $list = ['type' => 'list', 'ordered' => $ordered, 'tight' => $tight, 'items' => $items];
         if ($node->hasAttribute('data-marker')) {
@@ -4312,7 +4318,7 @@ final class HtmlAstBuilder
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
             return [];
         }
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-escaped', static fn (string $value): bool => count(preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: []) === 1)) {
+        if (!self::hasConflictingTextCarriers($node) && HtmlCarrierNames::consumePresence($node, 'data-carve-escaped', static fn (string $value): bool => count(preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: []) === 1)) {
             // ONE ESCAPE PER ELEMENT (PART 10 section 13a). Splitting a longer
             // value into one escaped_text per character wrote `\a\b\c`, which
             // is not Carve, so a span carrying more than one character is
@@ -4322,7 +4328,7 @@ final class HtmlAstBuilder
                 return [['type' => 'escaped_text', 'value' => $characters[0]]];
             }
         }
-        $rawFormat = HtmlCarrierNames::consumeAttribute($node, 'data-carve-raw', fn (string $value): bool => self::isValidRawCarrierFormat($value) && ($this->importMode === 'roundtrip' || strcasecmp($value, 'html') !== 0));
+        $rawFormat = self::hasConflictingTextCarriers($node) ? '' : HtmlCarrierNames::consumeAttribute($node, 'data-carve-raw', fn (string $value): bool => self::isValidRawCarrierFormat($value) && ($this->importMode === 'roundtrip' || strcasecmp($value, 'html') !== 0));
         // Only HTML payloads require roundtrip mode; other formats are inert in HTML output.
         if (
             self::isValidRawCarrierFormat($rawFormat)
@@ -5635,26 +5641,20 @@ final class HtmlAstBuilder
     }
 
     /**
-     * @phpstan-param T $target
-     *
-     * @template T of array<string, mixed>
-     *
-     * @param array<string, mixed> $target
-     * @param \DOMElement $node
      * @param list<string> $skip
+     *
+     * @return Attrs
      */
-    private function attachAttrsInElementOrder(array &$target, DOMElement $node, array $skip = []): void
+    private function attrsInElementOrder(DOMElement $node, array $skip = []): array
     {
         $attrs = $this->attrs($node, $skip);
         if ($attrs === []) {
-            return;
+            return [];
         }
         $available = array_fill_keys($attrs['order'] ?? [], true);
         // Only an id's place is observable; without one the order stays canonical.
         if (!isset($available['#id'])) {
-            $target['attrs'] = $attrs;
-
-            return;
+            return $attrs;
         }
         $order = [];
         $seen = [];
@@ -5676,7 +5676,7 @@ final class HtmlAstBuilder
             }
         }
         $attrs['order'] = $order;
-        $target['attrs'] = $attrs;
+        return $attrs;
     }
 
     /**

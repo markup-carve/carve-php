@@ -41,7 +41,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
             'a link reference label' => ["[a][r]{data-carve-ref=x}\n\n[r]: /u\n", 'data-carve-ref', 'r'],
             'an image reference label' => ["![a][r]{data-carve-ref=x}\n\n[r]: /i.png\n", 'data-carve-ref', 'r'],
             'an autolink marker' => ["<https://e.test>{data-carve-autolink=x}\n", 'data-carve-autolink', '1'],
-            'a list tightness' => ["{data-carve-tight=x}\n- {.k}\n  a\n- b\n", 'data-carve-tight', 'true'],
+            'a list tightness' => ["{data-carve-tight=x}\n- {.k}\n  a\n- b\n", 'data-carve-tight', '1'],
         ];
     }
 
@@ -159,17 +159,17 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
             'a tight bullet list' => [
                 "{.l #i k=v}\n- {.x}\n  a\n- b\n",
                 '<ul class="l" id="i" k="v">',
-                '<ul data-carve-tight="true" class="l" id="i" k="v">',
+                '<ul data-carve-tight="1" class="l" id="i" k="v">',
             ],
             'a tight star list' => [
                 "{.l}\n* {.x}\n  a\n* b\n",
                 '<ul class="l">',
-                '<ul data-marker="*" data-carve-tight="true" class="l">',
+                '<ul data-marker="*" data-carve-tight="1" class="l">',
             ],
             'a tight ordered list' => [
                 "{.l}\n3) {.x}\n   a\n4) b\n",
                 '<ol start="3" data-delim=")" class="l">',
-                '<ol start="3" data-delim=")" data-carve-tight="true" class="l">',
+                '<ol start="3" data-delim=")" data-carve-tight="1" class="l">',
             ],
             'a thematic break' => ["{.c #i}\n***\n", '<hr class="c" id="i">', '<hr data-char="*" class="c" id="i">'],
             'a section with a trailing id' => [
@@ -180,7 +180,7 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
             'a section with a generated id' => [
                 "{.c}\n# H\n",
                 '<section id="H">',
-                '<section id="H" data-carve-ext="section">',
+                '<section id="H" data-carve-generated-id="1">',
             ],
         ];
     }
@@ -225,13 +225,13 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
                 "{.c #h %s=x}\n# T\n",
                 '<section id="h" data-carve-explicit-id="1" data-carve-id-slot="1">' . "\n  <h1 class=\"c\">T</h1>",
             ],
-            'wrapped, generated id' => ["{%s=x}\n# T\n", '<section id="T" data-carve-ext="section">' . "\n  <h1>T</h1>"],
+            'wrapped, generated id' => ["{%s=x}\n# T\n", '<section id="T" data-carve-generated-id="1">' . "\n  <h1>T</h1>"],
             'in a quote, authored id' => ["> {#h %s=x}\n> # T\n", '<h1 data-carve-explicit-id="1" id="h">T</h1>'],
-            'in a quote, generated id' => ["> {%s=x}\n> # T\n", '<h1 data-carve-explicit-id="0" id="T">T</h1>'],
+            'in a quote, generated id' => ["> {%s=x}\n> # T\n", '<h1 data-carve-generated-id="1" id="T">T</h1>'],
         ];
         $cases = [];
         foreach ($shapes as $label => [$carve, $html]) {
-            foreach (['data-carve-explicit-id', 'data-carve-id-slot', 'data-carve-ext'] as $name) {
+            foreach (['data-carve-explicit-id', 'data-carve-id-slot', 'data-carve-generated-id'] as $name) {
                 $cases[$label . ', ' . $name] = [sprintf($carve, $name), $name, $html];
             }
         }
@@ -288,14 +288,14 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
      * The carriers this node will actually write, never the whole inventory: a
      * link that resolved no reference collides with nothing.
      */
-    public function testAnAuthoredNameTheNodeWritesNoCarrierForSurvives(): void
+    public function testAReservedNameIsDroppedWithoutAnEmittedCarrier(): void
     {
         $renderer = new HtmlRenderer();
         $renderer->setRoundTripMode(true);
         $report = (new CarveConverter(renderer: $renderer))->convertWithReport("[a](/u){data-carve-ref=x}\n");
 
-        $this->assertStringContainsString('data-carve-ref="x"', $report->value);
-        $this->assertSame(0, $report->totalLosses);
+        $this->assertStringNotContainsString('data-carve-ref="x"', $report->value);
+        $this->assertSame(1, $report->totalLosses);
     }
 
     /**
@@ -310,9 +310,9 @@ class ACarrierWinsACollisionWithAnAuthoredAttributeTest extends TestCase
         $report = (new CarveConverter(renderer: $renderer))->convertWithReport("{data-marker=x}\n1) a\n");
 
         $this->assertStringContainsString('data-delim=")"', $report->value);
-        $this->assertStringContainsString('data-marker="x"', $report->value);
-        $this->assertSame(1, substr_count($report->value, 'data-marker='));
-        $this->assertSame(0, $report->totalLosses);
+        $this->assertStringNotContainsString('data-marker="x"', $report->value);
+        $this->assertSame(0, substr_count($report->value, 'data-marker='));
+        $this->assertSame(1, $report->totalLosses);
     }
 
     public function testWithoutRoundtripModeNothingCollides(): void

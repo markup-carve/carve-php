@@ -218,7 +218,7 @@ class ExtensionCompositionMatrixTest extends TestCase
             $converter = new CarveConverter(roundTripMode: true);
             $converter->addExtension(new TabsExtension(mode: $mode));
             $html = $converter->convert(":::: tabs\n::: tab\n## First\n\nBody.\n:::\n::: tab [Second]\nOther.\n:::\n::::\n");
-            $html = preg_replace('/ data-carve-explicit-id="0" id="First[^"]*"/', ' id="retained-anchor"', $html);
+            $html = preg_replace('/ data-carve-generated-id="1"(?: id="First[^"]*")?/', ' data-carve-explicit-id="1" id="retained-anchor"', $html);
             $this->assertIsString($html);
             $role = $mode === 'aria' ? 'tabpanel' : 'group';
             $offset = strrpos($html, 'role="' . $role . '"');

@@ -244,26 +244,6 @@ class ReferenceDefinitionExtractor
     }
 
     /**
-     * Strip Unicode whitespace from the destination's LEADING side only.
-     *
-     * `trim()` only knows ASCII, which left invisible characters at the front
-     * of a link destination - the spoofing shape the scheme probe exists to
-     * catch (carve#352, carve#404). Zero-width characters (U+200B, U+FEFF) are
-     * not whitespace and are deliberately preserved.
-     *
-     * The TRAILING side used to be stripped by the same call and is not any
-     * more: after the destination a Unicode space is content, and content after
-     * the production is what the end-of-line anchor rejects
-     * (markup-carve/carve#911).
-     */
-    private static function ltrimUnicodeWhitespace(string $value): string
-    {
-        $trimmed = preg_replace('/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+/u', '', $value);
-
-        return $trimmed ?? ltrim($value);
-    }
-
-    /**
      * Whether a reference definition could start at `$at`, by its first byte.
      *
      * A walk crossing a container prefix reads this at an offset instead of

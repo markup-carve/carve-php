@@ -259,6 +259,28 @@ trait RenderLossCollectorTrait
         $this->renderLosses[] = $loss;
     }
 
+    protected function recordDefinitionListFlattened(Node $node): void
+    {
+        if ($this->renderLossTarget === null) {
+            return;
+        }
+        $this->renderLossTotal++;
+        $this->renderLossCounts['definition-list-flattened'] = ($this->renderLossCounts['definition-list-flattened'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'definition-list-flattened',
+            'target' => $this->renderLossTarget,
+            'nodeType' => 'block',
+            'message' => 'Flattened a definition list without roundtrip markers',
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
     protected function recordEditorialCommentFlattened(Node $node): void
     {
         if ($this->renderLossTarget === null || isset($this->seenEditorialCommentLosses[spl_object_id($node)])) {

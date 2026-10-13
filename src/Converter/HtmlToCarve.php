@@ -2447,9 +2447,21 @@ class HtmlToCarve
             $covered = $this->spelledAttributeNames($node);
         }
         $displaced = !$preserved && $tag === 'figure' ? ($this->displacedImportFigureAttributes[$path] ?? []) : [];
+        $conflictingNames = [];
+        if (!$preserved && HtmlAstBuilder::hasConflictingIdCarriers($node)) {
+            $conflictingNames = ['data-carve-explicit-id', 'data-carve-generated-id'];
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped contradictory explicit and generated id carriers on <' . $tag . '>', 'warning', $path);
+        }
+        if (!$preserved && HtmlAstBuilder::hasConflictingTextCarriers($node)) {
+            $conflictingNames = array_merge($conflictingNames, ['data-carve-escaped', 'data-carve-raw']);
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped contradictory escaped and raw carriers on <' . $tag . '>', 'warning', $path);
+        }
         foreach ($node->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
             $canonical = HtmlCarrierNames::canonicalName($name);
+            if (in_array($canonical, $conflictingNames, true)) {
+                continue;
+            }
             if (!$preserved && HtmlCarrierNames::isReserved($name)) {
                 $value = HtmlCarrierNames::peekAttribute($node, $canonical);
                 $invalid = match ($canonical) {
@@ -2501,9 +2513,7 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
             } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid raw format carrier on <' . $tag . '>', 'warning', $path);
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-tight' && in_array($tag, ['ul', 'ol'], true) && !in_array($attribute->value, ['true', 'false'], true)) {
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid list tightness carrier on <' . $tag . '>', 'warning', $path);
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-id-slot' && $tag === 'section' && !ctype_digit($attribute->value)) {
+            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-id-slot' && !HtmlCarrierNames::wasUsed($node, $name)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid heading id slot carrier on <' . $tag . '>', 'warning', $path);
             } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-ext' && !in_array($attribute->value, HtmlAstBuilder::EXTENSION_CARRIER_VALUES, true)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unknown generated element carrier on <' . $tag . '>', 'warning', $path);

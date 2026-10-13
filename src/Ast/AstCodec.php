@@ -2886,6 +2886,9 @@ class AstCodec
             $wire['classes'] = $classes;
         }
         [$attrs, $order] = self::attrsFromWire($wire);
+        if ($this->decodeImporterHints && $node instanceof Heading && array_key_exists('id', $attrs) && !in_array('#id', $order, true)) {
+            array_unshift($order, '#id');
+        }
         if ($this->decodeImporterHints) {
             foreach ($attrs as $name => $value) {
                 if (!str_starts_with($name, "\0carve-") || !is_string($value)) {
