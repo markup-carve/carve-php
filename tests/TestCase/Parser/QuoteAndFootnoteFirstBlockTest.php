@@ -10,7 +10,9 @@ use PHPUnit\Framework\TestCase;
 
 class QuoteAndFootnoteFirstBlockTest extends TestCase
 {
-    /** @return iterable<string, array{string, string}> */
+    /**
+     * @return iterable<string, array{string, string}>
+     */
     public static function cases(): iterable
     {
         yield 'quote takes table' => ["> +\n|= a | < |= b |\n", '<blockquote>'];

@@ -713,6 +713,34 @@
       },
       "additionalProperties": false
     },
+    "cell_wrap": {
+      "type": "object",
+      "title": "cell_wrap (inline)",
+      "description": "Where a `+` continuation row joined content onto this table cell (CARVE-P12-069). Renders as one space; the Carve writer writes the `+` line back. Valid only inside a `table_cell`.",
+      "required": [
+        "type",
+        "line"
+      ],
+      "properties": {
+        "type": {
+          "const": "cell_wrap"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The continuation line of the named row this part came from, counted from 1."
+        },
+        "row": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Rows below the spanning cell's own row whose `+` line this is. Absent means 0."
+        },
+        "pos": {
+          "$ref": "#/$defs/pos"
+        }
+      },
+      "additionalProperties": false
+    },
     "citation": {
       "type": "object",
       "title": "citation (inline)",
@@ -1599,6 +1627,7 @@
             "abbreviation",
             "autolink",
             "caption_number",
+            "cell_wrap",
             "citation_group",
             "code",
             "comment",
@@ -1681,6 +1710,21 @@
           },
           "then": {
             "$ref": "#/$defs/caption_number"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "cell_wrap"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/cell_wrap"
           }
         },
         {
@@ -3381,6 +3425,11 @@
           "items": {
             "$ref": "#/$defs/table_cell"
           }
+        },
+        "continuationLines": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many `+` continuation lines follow this row in the source (CARVE-P12-069). Absent when there are none."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"

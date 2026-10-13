@@ -8,6 +8,17 @@ use RuntimeException;
 
 final class CorpusPopulation
 {
+    public static function awaitsBlankTableRowPort(string $path): bool
+    {
+        $name = basename($path);
+
+        return in_array($name, [
+            '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-26.crv',
+            '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-31.crv',
+            '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-32.crv',
+        ], true);
+    }
+
     public static function countPairs(string $source): int
     {
         $marker = null;
