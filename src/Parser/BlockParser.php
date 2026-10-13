@@ -3324,7 +3324,10 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
-            $unclosedCode = $nestingAware ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]) : null;
+            // A box can receive an unclosed code fence one column past its
+            // body base. Rebase that opener and its payload together.
+            $codeIndent = IndentationHelper::getLeadingColumns($lines[$i]);
+            $unclosedCode = $nestingAware ? $this->fencedBlockParser->parseCodeFenceOpener(IndentationHelper::stripLeadingColumns($lines[$i], $codeIndent)) : null;
             $boxColumn = $unclosedCode === null ? null : $this->authoredColumnOf($start, $lines[$start]);
             $nextColumn = $unclosedCode === null || !isset($lines[$i + 1])
                 ? null : $this->authoredColumnOf($i + 1, $lines[$i + 1]);
@@ -3336,8 +3339,9 @@ class BlockParser
                     || ($nextColumn === $boxColumn
                         && $this->fencedBlockParser->isDivFenceCloser($lines[$i + 1], $fenceLength))
                 )
-                && IndentationHelper::getLeadingColumns($lines[$i]) === 0
-                && $this->closedNestedLiteralBeforeFence($innerLines)
+                // A fence-shaped line inside the line block is its payload;
+                // only a fence after its closer can belong to the box.
+                && ($innerLines === [] || $this->closedNestedLiteralBeforeFence($innerLines))
                 && !$this->hasCodeFenceCloserAhead($lines, $i, $unclosedCode['char'], $unclosedCode['length'])
             ) {
                 for (; $i < $count; $i++) {
@@ -3353,7 +3357,7 @@ class BlockParser
                     ) {
                         break;
                     }
-                    $innerLines[] = $lines[$i];
+                    $innerLines[] = IndentationHelper::stripLeadingColumns($lines[$i], $codeIndent);
                     $innerLineMap[] = $this->sourceLineFor($i);
                 }
                 if (

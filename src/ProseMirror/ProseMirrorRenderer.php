@@ -350,7 +350,9 @@ class ProseMirrorRenderer
                         }
                         $coveredRows[] = $markers;
                     }
-                    $rendered['attrs']['carveCoveredRowMarkers'] = $coveredRows;
+                    if (is_array($rendered['attrs'])) {
+                        $rendered['attrs']['carveCoveredRowMarkers'] = $coveredRows;
+                    }
                 }
                 $cells[] = $rendered;
             }

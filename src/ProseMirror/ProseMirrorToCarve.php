@@ -98,8 +98,13 @@ use WeakMap;
  */
 class ProseMirrorToCarve
 {
-    /** @var \WeakMap<TableCell, list<list<string|null>>>|null */
+    /**
+     * Authored covered-row markers carried by a merged editor cell.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\TableCell, list<list<string|null>>>|null
+     */
     private ?WeakMap $coveredRowMarkers = null;
+
     /**
      * @var array<string, string>
      */
@@ -700,8 +705,14 @@ class ProseMirrorToCarve
      * @param bool $isHeaderRow
      * @param int $logicalCol
      */
-    protected function drainRowspans(array &$newCells, array &$rowspanMap, array &$rowspanWidth, array &$rowspanMarkers, int &$logicalCol, bool $isHeaderRow): void
-    {
+    protected function drainRowspans(
+        array &$newCells,
+        array &$rowspanMap,
+        array &$rowspanWidth,
+        array &$rowspanMarkers,
+        int &$logicalCol,
+        bool $isHeaderRow,
+    ): void {
         while (($rowspanMap[$logicalCol] ?? 0) > 0) {
             $start = $logicalCol;
             $width = $rowspanWidth[$start] ?? 1;

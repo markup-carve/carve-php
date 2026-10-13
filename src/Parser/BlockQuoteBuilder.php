@@ -396,7 +396,9 @@ final class BlockQuoteBuilder
         $host = &$state['hosts'];
         $afterComment = $host['commentBoundary'] ?? false;
         unset($host['commentBoundary']);
-        $afterLiteral = isset($host['inlineFenceLines']);
+        // Only a fence run recorded in the line block can pair with the next
+        // run as inline code. Plain payload before that run opens nothing.
+        $afterLiteral = !empty($host['inlineFenceLines']);
         $closedLiteralColumn = $host['closedLiteralColumn'] ?? 0;
         unset($host['closedLiteralColumn']);
         $inlineFenceLines = $host['inlineFenceLines'] ?? [];
