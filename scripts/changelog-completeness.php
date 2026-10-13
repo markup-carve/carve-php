@@ -68,6 +68,8 @@ const EXEMPT_FILE = '.changelog-exempt';
 
 /** A squash merge carries its pull request as a trailing `(#N)`. */
 const PULL_REQUEST = '#\(\#(\d+)\)\s*$#';
+/** A wave pull request merges with a merge commit, `Merge pull request #N from ...`. */
+const MERGED_PULL_REQUEST = '#^Merge pull request \#(\d+) from #';
 /**
  * A qualified reference to ANOTHER repository is not a citation of this one.
  * This changelog carries 192 references to markup-carve/carve against 36 to
@@ -105,12 +107,19 @@ function main(array $argv): int
     // What merged, and what of it moved shipped source.
     $shipping = [];
     $unattributed = [];
-    foreach (explode("\n", $git('log', '--format=%H%x1f%s', $range)) as $line) {
-        if ($line === '') {
+    // First parent only: a merge commit stands for its pull request, and the
+    // commits it brought in are that pull request's, not unattributed work.
+    foreach (explode("\x1e", $git('log', '--first-parent', '--format=%H%x1f%s%x1f%b%x1e', $range)) as $record) {
+        $record = ltrim($record, "\n");
+        if ($record === '') {
             continue;
         }
-        [$sha, $subject] = explode("\x1f", $line, 2);
+        [$sha, $subject, $body] = explode("\x1f", $record, 3) + ['', '', ''];
         if (!movesShipped($git, $sha)) {
+            continue;
+        }
+        if (preg_match(MERGED_PULL_REQUEST, $subject, $m)) {
+            $shipping[$m[1]] ??= trim(strtok($body, "\n") ?: $subject);
             continue;
         }
         if (!preg_match(PULL_REQUEST, $subject, $m)) {
