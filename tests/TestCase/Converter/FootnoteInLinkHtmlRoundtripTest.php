@@ -14,6 +14,8 @@ use PHPUnit\Framework\TestCase;
 class FootnoteInLinkHtmlRoundtripTest extends TestCase
 {
     /**
+     * @throws \LogicException
+     *
      * @return iterable<string, array{string}>
      */
     public static function documents(): iterable
@@ -29,6 +31,7 @@ class FootnoteInLinkHtmlRoundtripTest extends TestCase
         if (count($documents) !== 8) {
             throw new LogicException('Expected the eight pinned footnote-in-link corpus documents');
         }
+
         yield from $documents;
         yield 'reference outside the link' => ["a [t](/u)[^1] b\n\n[^1]: n\n"];
     }
