@@ -1692,7 +1692,8 @@ final class ListBlockBuilder
                     !$lazyParagraph && $subject !== $candidate
                     && ((($index === 1 || $afterHostedComment) && ($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0))
                     || ($this->getFencedBlockParser)()->parseDivFenceOpener($subject) !== null
-                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $subject) === 1)
+                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $subject) === 1
+                    || ReferenceDefinitionExtractor::isDefinitionHead($subject))
                 ) {
                     return true;
                 }
@@ -2594,7 +2595,7 @@ final class ListBlockBuilder
                         $bodyStartsWithCode = $div['className'] !== '|'
                             && (($this->getFencedBlockParser)()->parseCodeFenceOpener($firstBody) !== null
                                 || ($this->getFencedBlockParser)()->parseRawBlockOpener($firstBody) !== null);
-                        if ($includeSublists) {
+                        if ($includeSublists || $this->containerExtentBeforeADefinition($lines, $i, $end) < $end) {
                             $i = $this->containerExtentBeforeADefinition($lines, $i, $end);
                         } elseif (!$bodyStartsWithCode) {
                             $i = $end;
@@ -2632,12 +2633,6 @@ final class ListBlockBuilder
                 continue;
             }
             $opener = IndentationHelper::stripLeadingColumns($line, $base);
-            if (
-                $i <= $minimumColonEnd && ReferenceDefinitionExtractor::isDefinitionHead($opener)
-                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $opener) !== 1
-            ) {
-                continue;
-            }
             if (
                 !$this->lineOpensBlockForLooseness($opener, true)
                 || (!$includeSublists && ($this->getListParser)()->parseListItemMarker($opener) !== null)
