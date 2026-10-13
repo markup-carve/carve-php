@@ -2817,14 +2817,35 @@ final class ListBlockBuilder
                 }
             }
 
+            // Only a fence that opens measures its payload from the base; one
+            // an open paragraph absorbs is text, which keeps its residue.
+            $codeOpens = false;
+            if ($code !== null) {
+                for (; $blockStateCursor < $i; $blockStateCursor++) {
+                    if (($this->isBlockAttributeLineCallback)(ltrim($lines[$blockStateCursor], " \t"))) {
+                        continue;
+                    }
+                    $blockState = $this->advanceTrailingStateWithFenceLookahead(
+                        $blockState,
+                        $lines[$blockStateCursor],
+                        $lines,
+                        $blockStateCursor,
+                        true,
+                    );
+                }
+                $codeOpens = !$blockState->openParagraph;
+            }
             for ($j = $i; $j <= $end; $j++) {
                 if ($comment !== null && $commentClose !== null && $j > $i && $j < $commentClose) {
                     continue;
                 }
                 // Payload below the base keeps the residue past the
-                // container's column, which the dedent would clamp away.
+                // container's column, which the dedent would clamp away. A
+                // code payload is measured from the authored base instead
+                // (CARVE-P0-004), so it loses its whole available prefix. A
+                // fence-shaped line keeps its residue: dedented, it would close.
                 if (
-                    ($code !== null || $colon !== null)
+                    ($colon !== null || ($code !== null && (!$codeOpens || preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $lines[$j]) === 1)))
                     && !IndentationHelper::isBlankLine($lines[$j])
                     && IndentationHelper::getLeadingColumns($lines[$j], $base) < $base
                 ) {

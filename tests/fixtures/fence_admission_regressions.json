@@ -2,7 +2,7 @@
   {
     "id": "non-tab-stop-raw-base",
     "source": "- a\n  > q\n\t\t[^n]: f\n  # h\n\t  ```=html\n\t- s\n    ``` \n\t```make\n    \t```\t\nafter\n",
-    "html": "<ul><li>a\n    <blockquote><p>q</p></blockquote><h1 id=\"h\">h</h1>\n      - s\n  ``` \n  ```make\n  </li></ul><p>after</p>"
+    "html": "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"h\">h</h1>\n    - s\n  ``` \n  ```make\n  </li>\n</ul>\n<p>after</p>\n"
   },
   {
     "id": "review3-p5-0",

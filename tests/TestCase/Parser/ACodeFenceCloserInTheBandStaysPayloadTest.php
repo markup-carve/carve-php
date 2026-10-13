@@ -124,7 +124,8 @@ class ACodeFenceCloserInTheBandStaysPayloadTest extends TestCase
             ],
             'G7 item opener 6 a payload line at 4 in the band' => [
                 "- item\n\n      ```\n      a\n    z\n      b\n      ```\n",
-                "<ul>\n  <li>item\n    <pre><code>a\n  z\nb\n</code></pre>\n  </li>\n</ul>\n",
+                // Measured from the opener's authored base (CARVE-P0-004).
+                "<ul>\n  <li>item\n    <pre><code>a\nz\nb\n</code></pre>\n  </li>\n</ul>\n",
             ],
             'G9 item opener 6 a payload line at the content column' => [
                 "- item\n\n      ```\n      a\n  z\n      b\n      ```\n",
