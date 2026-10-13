@@ -7423,12 +7423,7 @@ class MarkdownToCarve
         $line = $this->escapeLinkLabelSlashes($line, $protected);
         $line = MarkdownEmphasis::convert($line, function (): void {
             $this->flattenedEmphasis = true;
-        }, null, $protected);
-        $line = preg_replace('/~~([^~]+)~~/', '~$1~', $line) ?? $line;
-        // The single-tilde form is strikethrough too (GFM: "a matching pair of
-        // one or two tildes"), and Carve's own spelling is the single tilde, so
-        // a paired one is already the Carve form and needs no rewrite. An
-        // UNPAIRED tilde is literal in both languages and stays as it is.
+        }, null, $protected, strikethrough: true);
 
         // ==highlight== -> =highlight=. Carve highlight is a single `=`; a
         // doubled `==x==` is literal text in Carve, so a Markdown highlight

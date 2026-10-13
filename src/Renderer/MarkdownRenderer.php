@@ -3301,6 +3301,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDefinitionList(DefinitionList $node): string
     {
+        if ($this->roundTripMode && !$this->carriesDefinitionList($node)) {
+            $this->recordDefinitionListFlattened($node);
+        }
         // GFM has no definition list and reads a `: ` marker as text, so each
         // term is a strong paragraph and each description's blocks follow it
         // as ordinary blocks (PART 11 §10p).
@@ -4461,7 +4464,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \t\r\n]+)>/u';
+    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \r\n]+)>/u';
 
     /**
      * Escape a text value, leaving any UNRESOLVED crossref marker readable.

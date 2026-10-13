@@ -2861,7 +2861,7 @@
   },
   {
     "source": ">  - - ```\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code>- tail\n</code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - ```\n\n>   - tail\n",

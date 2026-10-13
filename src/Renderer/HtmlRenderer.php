@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use Closure;
+use MarkupCarve\Carve\Converter\HtmlCarrierNames;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
@@ -198,7 +199,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      *
      * @var list<string>
      */
-    private const HEADING_CARRIERS = ['data-carve-explicit-id', 'data-carve-id-slot', 'data-carve-ext'];
+    private const HEADING_CARRIERS = ['data-carve-explicit-id', 'data-carve-id-slot', 'data-carve-generated-id'];
 
     /**
      * The English defaults, and the whole key set.
@@ -775,6 +776,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // re-decided here against this document's reference table.
         BlockImagePromotion::promoteWhereAbsent($document);
         $this->pickBreakGuards($document);
+        if ($this->roundTripMode) {
+            $pending = [$document];
+            while ($pending !== []) {
+                $current = array_pop($pending);
+                $this->getRenderableAttributes($current);
+                foreach (array_reverse($current->getChildren()) as $child) {
+                    $pending[] = $child;
+                }
+            }
+        }
 
         return $this->restoreSoftBreakGuards($this->withRenderContext(
             $this->sharedRenderContext,
@@ -1064,10 +1075,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // The id and the carriers ride the <section>, so an authored attribute
         // of a carrier's name is displaced here although this tag writes none.
-        $attrs = $this->renderAttributeArray(
-            $this->attributesBesideCarriers($node, $this->roundTripMode ? self::HEADING_CARRIERS : [], ['id']),
-            'h' . $level,
-        );
+        $attributes = $this->attributesBesideCarriers($node, $this->roundTripMode ? self::HEADING_CARRIERS : [], ['id']);
+        if ($this->roundTripMode && $node->getRenderHint('source-level') !== null) {
+            $attributes['data-carve-source-level'] = $node->getRenderHint('source-level');
+        }
+        $attrs = $this->renderAttributeArray($attributes, 'h' . $level);
 
         return '<h' . $level . $attrs . '>' . $this->renderChildren($node) . '</h' . $level . ">\n";
     }
@@ -1083,10 +1095,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return [];
         }
         if (!$node->hasAttribute('id')) {
-            return ['data-carve-ext' => 'section'];
+            return ['data-carve-generated-id' => '1'];
         }
         $carriers = ['data-carve-explicit-id' => '1'];
-        $idSlot = array_search('#id', $node->getAttributeOrder(), true);
+        $surviving = $this->getRenderableAttributes($node, ['id']);
+        $order = array_values(array_filter($node->getAttributeOrder(), static fn (string $slot): bool => $slot === '#id' || array_key_exists($slot === '.class' ? 'class' : $slot, $surviving)));
+        $idSlot = array_search('#id', $order, true);
         if ($idSlot !== false && $idSlot > 0) {
             $carriers['data-carve-id-slot'] = (string)$idSlot;
         }
@@ -1463,6 +1477,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $carriesExplicitId ? self::HEADING_CARRIERS : [],
             $authoredId ? [] : ['id'],
         );
+        if ($this->roundTripMode && $node->getRenderHint('source-level') !== null) {
+            $attrs['data-carve-source-level'] = $node->getRenderHint('source-level');
+        }
         $idAttr = $authoredId
             ? ''
             : ' id="' . $this->escapeHeadingId($this->getSectionId($node)) . '"';
@@ -1487,7 +1504,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
         $annotationAttr = $this->renderAttributeArray($annotations);
 
-        $explicitIdAttr = $carriesExplicitId ? ' data-carve-explicit-id="' . ($authoredId ? '1' : '0') . '"' : '';
+        $explicitIdAttr = $carriesExplicitId ? ($authoredId ? ' data-carve-explicit-id="1"' : ' data-carve-generated-id="1"') : '';
 
         return '<h' . $level . $explicitIdAttr . $this->renderAttributeArray($attrs, 'h' . $level)
             . $idAttr . $annotationAttr . '>'
@@ -2032,7 +2049,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         }
         $attrs = $this->attributesBesideCarriers($node, array_merge($carriesMarker ? ['data-marker'] : [], $carriesTightness ? ['data-carve-tight'] : []));
-        $tightAttr = $carriesTightness ? ' data-carve-tight="true"' : '';
+        $tightAttr = $carriesTightness ? ' data-carve-tight="1"' : '';
         if ($node->getListType() === ListBlock::TYPE_ORDERED) {
             $olAttrs = '';
             $start = $node->getStart();
@@ -3708,10 +3725,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * both, which is what this renderer used to do, is invalid HTML, and the
      * precedence used to vary by carrier.
      *
-     * CALLED WITH THE CARRIERS THIS NODE WILL ACTUALLY WRITE, never with the
-     * whole inventory. An authored `data-carve-ref` on a link that resolved no
-     * reference collides with nothing and reaches the document.
-     *
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param list<string> $carriers
      * @param array<string> $exclude
@@ -3743,6 +3756,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $this->renderAttributeArray($this->attributesBesideCarriers($node, $carriers), $tag);
     }
 
+    private static function isReservedExportAttribute(string $name): bool
+    {
+        $name = strtolower($name);
+        $canonical = HtmlCarrierNames::canonicalName($name);
+
+        return in_array($name, ['data-marker', 'data-char'], true)
+            || ($canonical !== 'data-carve-ext' && HtmlCarrierNames::isReserved($name));
+    }
+
     /**
      * @param \MarkupCarve\Carve\Node\Node $node
      * @param array<string> $exclude
@@ -3756,12 +3778,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return [];
         }
 
-        // PART 10 section 13a reserves `data-carve-src` without a row: no carrier is
-        // written, and an importer would consume an authored one in silence.
         if ($this->roundTripMode) {
             foreach (array_keys($attrs) as $key) {
-                if (strtolower((string)$key) === self::RETIRED_SOURCE_CARRIER) {
-                    $this->recordCarrierAttributeDropped($node, self::RETIRED_SOURCE_CARRIER, $node instanceof InlineNode ? 'inline' : 'block');
+                if (self::isReservedExportAttribute((string)$key)) {
+                    $this->recordCarrierAttributeDropped($node, strtolower((string)$key), $node instanceof InlineNode ? 'inline' : 'block');
                     unset($attrs[$key]);
                 }
             }

@@ -671,6 +671,8 @@ final class BlockContinuationScanner
             && !$this->isBlockAttributeLine(ltrim($itemLines[0] ?? '', " \t"));
         $markerNoteItem = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $itemLines[0] ?? '') === 1;
         $nestedNoteBodyColumn = null;
+        $nestedNoteTail = null;
+        $nestedNoteTailColumn = 0;
         $sawNestedNote = false;
         $nestedNoteBlankContinues = false;
         $inBlankRun = false;
@@ -707,6 +709,9 @@ final class BlockContinuationScanner
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if ($nestedNoteTail !== null && $nestedNoteTail->fence === null) {
+                    $nestedNoteTail = null;
+                }
                 $rejectedColonFenceLength = null;
                 if (!$inBlankRun) {
                     $nestedNoteBlankContinues = $nestedNoteBodyColumn !== null
@@ -774,7 +779,29 @@ final class BlockContinuationScanner
             ) {
                 $nestedNoteBodyColumn = IndentationHelper::getLeadingColumns($nextLine) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                 $sawNestedNote = true;
+                $nestedNoteTail = null;
             }
+            if ($markerNoteItem) {
+                $noteMarker = ($this->getListParser)()->parseListItemMarker($nextTrimmed);
+                $noteColumn = IndentationHelper::getLeadingColumns($nextLine);
+                if ($nestedNoteBodyColumn !== null && $nestedNoteBodyColumn >= $contentIndent + 2 * BlockGrammar::FOOTNOTE_BODY_COLUMN && $noteMarker !== null && $noteColumn >= $nestedNoteBodyColumn && $i > 0 && IndentationHelper::isBlankLine($lines[$i - 1])) {
+                    $nestedNoteTailColumn = $noteColumn + $this->listMarkerWidth($nextTrimmed, $noteMarker);
+                    $nestedNoteTail = $this->advanceTrailingState(new TrailingBlockState(), $noteMarker['content'], true);
+                } elseif ($nestedNoteTail !== null && $noteColumn >= $nestedNoteTailColumn) {
+                    $nestedNoteTail = $this->advanceTrailingStateWithFenceLookahead(
+                        $nestedNoteTail,
+                        IndentationHelper::stripLeadingColumns($nextLine, $nestedNoteTailColumn),
+                        $lines,
+                        $i,
+                        true,
+                        $nestedNoteTailColumn,
+                    );
+                }
+                if ($noteColumn === 0 && $nestedNoteTail !== null && $nestedNoteTail->openParagraph) {
+                    $trailingState->openParagraph = true;
+                }
+            }
+
             if ($termCodeTailAfterBlank) {
                 if ($nextIndent < $contentIndent) {
                     break;
@@ -2003,11 +2030,11 @@ final class BlockContinuationScanner
             return $state;
         }
         $opener = $literal->fence === null
-            && IndentationHelper::getLeadingColumns($line, $column + 1) === $column
+            && IndentationHelper::getLeadingColumns($line, $column + 1) >= $column
             ? (($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($line, " \t"))
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")))
             : null;
-        $paired = $opener !== null && $this->literalSourceFenceHasCloser($lines, $index, $opener, $stripColumns + $column, $stripColumns + $offset);
+        $paired = $opener !== null && $this->literalSourceFenceHasCloser($lines, $index, $opener, -1, $stripColumns + $offset);
         $state = $this->advanceTrailingState($state, $line, true);
         if (!$paired) {
             return $state;
@@ -2021,12 +2048,12 @@ final class BlockContinuationScanner
         if (!$literal->inDiv || !$literal->literalDiv || $literal->fence !== null) {
             return $state;
         }
-        $literal->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literal->divColumn);
+        $literal->openFence($opener['char'] ?? $opener['fence'][0], $opener['length'], $literal->divColumn, 0, true);
         $literal->openParagraph = false;
         foreach (array_reverse($parents) as $parent) {
             $fence = $literal->fence;
             if ($fence !== null) {
-                $parent->openFence($fence->char, $fence->length, $fence->column + $parent->nestedDivColumn, $fence->hostColumn + $parent->nestedDivColumn);
+                $parent->openFence($fence->char, $fence->length, $fence->column + $parent->nestedDivColumn, $fence->hostColumn + $parent->nestedDivColumn, $fence->pairedInline);
             }
             $parent->openParagraph = false;
             $parent->nestedDivBody = true;
@@ -2120,7 +2147,7 @@ final class BlockContinuationScanner
         if (($this->getFencedBlockParser)()::class !== FencedBlockParser::class) {
             for ($i = $index + 1; $i < $end; $i++) {
                 $at = IndentationHelper::getLeadingColumns($lines[$i], max($column, $base) + 1);
-                if ($at === $column && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
+                if (($column < 0 || $at === $column) && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
                     return true;
                 }
             }
@@ -2684,6 +2711,7 @@ final class BlockContinuationScanner
                 $child = $this->advanceTrailingStateCore($state->nestedDiv, $local, true);
                 $state->nestedDiv = $child;
                 $state->openParagraph = $child->openParagraph;
+                $state->afterComment = $child->afterComment;
                 $fence = $child->fence;
                 if ($fence === null) {
                     $state->fence = null;
@@ -2693,6 +2721,7 @@ final class BlockContinuationScanner
                         $fence->length,
                         $fence->column + $state->nestedDivColumn,
                         $fence->hostColumn + $state->nestedDivColumn,
+                        $fence->pairedInline,
                     );
                 }
                 $state->nestedDivBody = $state->nestedDivBody || $text !== '';
@@ -2702,6 +2731,19 @@ final class BlockContinuationScanner
                     $state->nestedColumn = 0;
                     $state->nestedIsQuote = false;
                 }
+
+                return $state;
+            }
+            if (
+                $state->nestedDiv->afterComment && $column > 0
+                && (!$this->startsNewBlock($text) || ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
+            ) {
+                $child = clone $state->nestedDiv;
+                $child->openParagraph = true;
+                $child->afterComment = false;
+                $state->nestedDiv = $child;
+                $state->openParagraph = true;
+                $state->afterComment = false;
 
                 return $state;
             }
@@ -2719,6 +2761,19 @@ final class BlockContinuationScanner
             $state->nestedDiv = null;
             $state->nestedDivHosts = [];
             $state->fence = null;
+        }
+        if ($state->afterComment && $state->nestedColumn > 0) {
+            $column = IndentationHelper::getLeadingColumns($line);
+            $text = ltrim($line, " \t");
+            if (
+                $state->nestedColumn > $column && $column > 0
+                && (!$this->startsNewBlock($text) || ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
+            ) {
+                $state->openParagraph = true;
+                $state->afterComment = false;
+
+                return $state;
+            }
         }
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Clearing it here and re-arming it only
@@ -2825,7 +2880,7 @@ final class BlockContinuationScanner
             // the matching closer is seen. The closer itself is still part of
             // the code block, so the trailing block remains code.
             if (
-                IndentationHelper::getLeadingColumns($line) === $state->fence->column
+                ($state->fence->pairedInline || IndentationHelper::getLeadingColumns($line) === $state->fence->column)
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->fence->char, $state->fence->length)
             ) {
                 $state->fence = null;
@@ -2915,6 +2970,16 @@ final class BlockContinuationScanner
                 $state->openParagraph = false;
 
                 return $state;
+            }
+
+            $markerText = ltrim(BlockGrammar::subjectFrom($line, $at, $end), " \t");
+            $marker = ($this->getListParser)()->parseListItemMarker($markerText);
+            if (
+                $marker !== null && ($state->nestedColumn === 0
+                    || IndentationHelper::getLeadingColumns($line, $state->nestedColumn) < $state->nestedColumn)
+            ) {
+                $state->nestedColumn = IndentationHelper::getLeadingColumns($line)
+                    + $this->listMarkerWidth($markerText, $marker);
             }
 
             // A TABLE, a THEMATIC BREAK and a HEADING inside the div leave no
@@ -3527,7 +3592,7 @@ final class BlockContinuationScanner
         for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
             $text = ltrim($itemLines[$cursor], " \t");
             $broken = $this->isCommentLineOrFence($text)
-                || preg_match('/^\[[^\]]+\]:/', $text) === 1
+                || $this->isReferenceDefinitionLine($text)
                 || (
                     ($this->getListParser)()->parseListItemMarker($text) === null
                     && ($this->isBlockElementStart($text) || $this->startsNewBlock($text))

@@ -150,6 +150,19 @@ class IncludeConformanceTest extends TestCase
     {
         /** @var array<string, mixed> $expected */
         $expected = $vector['expected'];
+        $ahead = match ($vector['name']) {
+            'i01-padding-is-a-run-of-whitespace' => ['html' => "<p>body</p>\n<p>{{\tc.crv\t}}</p>"],
+            'i01-section-after-a-tab' => [
+                'html' => "<p>{{ child\t<span class=\"tag\"><strong>#pick</strong></span> }}</p>",
+                'warnings' => [['rule' => 'include-unresolved']],
+                'dependencies' => [['id' => "child\t", 'resolved' => false]],
+            ],
+            default => [],
+        };
+        foreach ($ahead as $field => $value) {
+            $this->assertNotSame($value, $expected[$field], 'The pinned golden was regenerated; remove its reference override');
+            $expected[$field] = $value;
+        }
 
         $out = [
             [

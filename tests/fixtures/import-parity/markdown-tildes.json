@@ -1,0 +1,170 @@
+[
+  {
+    "id": "markdown-tilde-1",
+    "source": "~a~~\n",
+    "html": "<p>~a~~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-2",
+    "source": "~a~b~\n",
+    "html": "<p><s>a</s>b~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-3",
+    "source": "~~a~\n",
+    "html": "<p>~~a~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-4",
+    "source": "~~a~~b~~\n",
+    "html": "<p><s>a</s>b~~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-5",
+    "source": "~a~\n",
+    "html": "<p><s>a</s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-6",
+    "source": "~~a~~\n",
+    "html": "<p><s>a</s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-7",
+    "source": "x~a~y\n",
+    "html": "<p>x<s>a</s>y</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-8",
+    "source": "~a~b\n",
+    "html": "<p><s>a</s>b</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-9",
+    "source": "a~b~c~d\n",
+    "html": "<p>a<s>b</s>c~d</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-10",
+    "source": "~a~ ~b~\n",
+    "html": "<p><s>a</s> <s>b</s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-11",
+    "source": "~~a~b~~\n",
+    "html": "<p><s>a~b</s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-12",
+    "source": "~a~~b~\n",
+    "html": "<p><s>a~~b</s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-13",
+    "source": "~a ~b~\n",
+    "html": "<p>~a <s>b</s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-14",
+    "source": "~a~~~\n",
+    "html": "<p>~a~~~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-15",
+    "source": "~a~b~c~\n",
+    "html": "<p><s>a</s>b<s>c</s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-16",
+    "source": "a ~b~c\n",
+    "html": "<p>a <s>b</s>c</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-17",
+    "source": "~ a~\n",
+    "html": "<p>~ a~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-18",
+    "source": "~a ~\n",
+    "html": "<p>~a ~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-19",
+    "source": "*~a~b~*\n",
+    "html": "<p><em><s>a</s>b~</em></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-20",
+    "source": "~~a~~b\n",
+    "html": "<p><s>a</s>b</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-21",
+    "source": "~a~.\n",
+    "html": "<p><s>a</s>.</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-22",
+    "source": "*~a~*\n",
+    "html": "<p><em><s>a</s></em></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-23",
+    "source": "**~~a~~**\n",
+    "html": "<p><strong><s>a</s></strong></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-24",
+    "source": "~*a*~\n",
+    "html": "<p><s><em>a</em></s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-25",
+    "source": "~~**a**~~\n",
+    "html": "<p><s><strong>a</strong></s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-26",
+    "source": "~~*a~ b*~~\n",
+    "html": "<p><s><em>a~ b</em></s></p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-27",
+    "source": "\\~a\\~\n",
+    "html": "<p>~a~</p>",
+    "format": "md"
+  },
+  {
+    "id": "markdown-tilde-28",
+    "source": "~a\\~b~\n",
+    "html": "<p><s>a~b</s></p>",
+    "format": "md"
+  }
+]

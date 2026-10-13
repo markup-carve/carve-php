@@ -123,9 +123,9 @@ final class TrailingBlockState
         return $state->inDiv && $state->literalDiv;
     }
 
-    public function openFence(string $char, int $length, int $column, int $hostColumn = 0): void
+    public function openFence(string $char, int $length, int $column, int $hostColumn = 0, bool $pairedInline = false): void
     {
-        $this->fence = new TrailingCodeFence($char, $length, $column, $hostColumn);
+        $this->fence = new TrailingCodeFence($char, $length, $column, $hostColumn, $pairedInline);
         $this->lastFence = $this->fence;
     }
 

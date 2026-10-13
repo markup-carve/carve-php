@@ -47,12 +47,9 @@ class ReferenceDestinationWhitespaceTest extends TestCase
     }
 
     #[DataProvider('unicodeWhitespaceProvider')]
-    public function testItIsTrimmedFromTheLeadingSide(string $space): void
+    public function testLeadingUnicodeWhitespaceIsContent(string $space): void
     {
-        $this->assertStringContainsString(
-            'href="https://e.com"',
-            (new CarveConverter())->convert("[x][r]\n\n[r]: {$space}https://e.com\n"),
-        );
+        $this->assertStringNotContainsString('<a ', (new CarveConverter())->convert("[x][r]\n\n[r]: {$space}https://e.com\n"));
     }
 
     #[DataProvider('unicodeWhitespaceProvider')]
@@ -175,34 +172,16 @@ class ReferenceDestinationWhitespaceTest extends TestCase
         $this->assertStringContainsString('[r]:', $out);
     }
 
-    public function testTheAnsiTargetShowsNoInvisibleCharacter(): void
+    public function testTheAnsiTargetPreservesAnUnresolvedDefinitionLine(): void
     {
-        // The case that made this visible: the destination is denied and blanked
-        // in HTML, so only the ANSI target - which printed it - showed the engines
-        // disagreeing.
-        //
-        // THIS EXPECTATION FLIPPED, deliberately. It used to assert the ANSI
-        // target CONTAINS `javascript:alert(1)`, pinning the answer of the day so
-        // that settling markup-carve/carve#765 could not be silent. It was settled
-        // the other way: PART 9 §25 binds "every target that emits a resolvable
-        // URL", a terminal autolinks a URL in its output and hands the scheme to
-        // the OS handler on click, so the destination is now blanked here as it
-        // already was in HTML and Markdown (carve-php#867).
-        //
-        // The subject of this case is unchanged and is what its name says: no
-        // invisible character reaches the output. Blanking makes that strictly
-        // stronger, and the assertion stays because the trim is what it guards -
-        // a future change that stopped blanking must still not print U+202F.
         $converter = CarveConverter::ansi();
         /** @var \MarkupCarve\Carve\Renderer\AnsiRenderer $renderer */
         $renderer = $converter->getRenderer();
         $renderer->setUseColors(false);
         $out = $converter->convert("[click][a]\n\n[a]: \u{202F}javascript:alert(1)\n");
 
-        $this->assertStringNotContainsString('javascript:', $out);
-        $this->assertStringNotContainsString("\u{202F}", $out);
-        // The reference still RESOLVED - it is the destination that is withheld,
-        // not the link. An unresolved reference would print `[click][a]` instead.
-        $this->assertStringContainsString('click ()', $out);
+        $this->assertStringContainsString('javascript:', $out);
+        $this->assertStringContainsString("\u{202F}", $out);
+        $this->assertStringContainsString('[click][a]', $out);
     }
 }

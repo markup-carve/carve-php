@@ -251,7 +251,29 @@ trait RenderLossCollectorTrait
             'target' => $this->renderLossTarget,
             'nodeType' => $nodeType,
             'attribute' => $attribute,
-            'message' => sprintf('Dropped authored attribute %s displaced by a roundtrip carrier', $attribute),
+            'message' => sprintf('Dropped authored attribute %s reserved for roundtrip import', $attribute),
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
+    protected function recordDefinitionListFlattened(Node $node): void
+    {
+        if ($this->renderLossTarget === null) {
+            return;
+        }
+        $this->renderLossTotal++;
+        $this->renderLossCounts['definition-list-flattened'] = ($this->renderLossCounts['definition-list-flattened'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'definition-list-flattened',
+            'target' => $this->renderLossTarget,
+            'nodeType' => 'block',
+            'message' => 'Flattened a definition list without roundtrip markers',
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();

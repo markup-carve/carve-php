@@ -44,11 +44,11 @@ final class AClosedMarkerLineFenceEndsBothHostsTest extends TestCase
         );
     }
 
-    public function testAnUnfinishedOpenerKeepsItsBodyInBothHosts(): void
+    public function testAnUnfinishedOpenerReleasesLinesBelowBothHosts(): void
     {
         foreach (["- - ```\nx\n", ":: t\n: - - ```\nx\n"] as $source) {
-            self::assertCount(1, CarveConverter::create()->parse($source)->getChildren());
-            self::assertStringContainsString("<pre><code>x\n</code></pre>", CarveConverter::create()->convert($source));
+            self::assertCount(2, CarveConverter::create()->parse($source)->getChildren());
+            self::assertStringContainsString('<pre><code></code></pre>', CarveConverter::create()->convert($source));
         }
     }
 

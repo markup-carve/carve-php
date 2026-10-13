@@ -19,6 +19,7 @@ final class TrailingCodeFence
          * own. A line below it ends that container and the fence with it.
          */
         public readonly int $hostColumn = 0,
+        public readonly bool $pairedInline = false,
     ) {
     }
 }

@@ -1247,7 +1247,7 @@ class InlineParser
             if ($char === '<' && ($text[$pos + 1] ?? '') === '/' && ($text[$pos + 2] ?? '') === '#') {
                 if (
                     $this->crossrefBodyCanEnd($text, $pos + 3)
-                    && preg_match('/\G<\/#([^> \t\r\n]+)>/u', $text, $hm, 0, $pos)
+                    && preg_match('/\G<\/#([^> \r\n]+)>/u', $text, $hm, 0, $pos)
                 ) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
@@ -5369,7 +5369,7 @@ class InlineParser
                 return false;
             }
         }
-        $end = $from + strcspn($text, " \t\r\n>", $from);
+        $end = $from + strcspn($text, " \r\n>", $from);
         if ($text[$end] === '>') {
             return true;
         }

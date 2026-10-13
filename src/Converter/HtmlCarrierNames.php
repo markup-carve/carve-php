@@ -51,6 +51,7 @@ final class HtmlCarrierNames
         'col-widths',
         'escaped',
         'explicit-id',
+        'generated-id',
         'ext',
         'group-generated',
         'fence-content',
@@ -78,14 +79,14 @@ final class HtmlCarrierNames
      */
     public static function reserved(): array
     {
-        return array_map(static fn (string $suffix): string => self::PREFIX . $suffix, self::SUFFIXES);
+        return array_values(array_filter(array_map(static fn (string $suffix): string => self::PREFIX . $suffix, self::SUFFIXES), self::isReserved(...)));
     }
 
     public static function isReserved(string $name): bool
     {
         $lower = self::canonicalName($name);
 
-        return str_starts_with($lower, self::PREFIX)
+        return $lower !== 'data-carve-ext' && str_starts_with($lower, self::PREFIX)
             && in_array(substr($lower, strlen(self::PREFIX)), self::SUFFIXES, true);
     }
 
@@ -185,7 +186,7 @@ final class HtmlCarrierNames
     private static function readName(DOMElement $element, string $name): string
     {
         // Canonical carriers win without changing the attributes serialized as raw HTML.
-        if ($element->hasAttribute($name) || !self::isReserved($name)) {
+        if ($element->hasAttribute($name) || (!self::isReserved($name) && $name !== 'data-carve-ext')) {
             return $name;
         }
 

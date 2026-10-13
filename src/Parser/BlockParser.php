@@ -1371,7 +1371,7 @@ class BlockParser
             if ($child instanceof Heading) {
                 $id = $tracker->getIdForHeading($child);
                 $ids[$id] = true;
-                $label = preg_replace('/\s+/', ' ', trim($tracker->getPlainText($child))) ?? '';
+                $label = LabelKey::normalize($tracker->getPlainText($child));
                 if (!$inBlockquote && $label !== '' && !isset($index[$label])) {
                     $index[$label] = $id;
                 }
@@ -1511,7 +1511,7 @@ class BlockParser
                 // punctuation, which slugging collapses, so the id is identical.)
                 // Skips one of the two inline parses per heading.
                 if ($pendingId === null && $headingText !== '' && preg_match('/^[\p{L}\p{N} ]+$/u', $headingText) === 1) {
-                    $label = preg_replace('/\s+/', ' ', $headingText) ?? $headingText;
+                    $label = LabelKey::normalize($headingText);
                     $id = $headingIdTracker->getIdForText($label);
                     $this->state->session->headingIds[$id] = true;
                     $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
@@ -1554,7 +1554,7 @@ class BlockParser
 
                 // Register as reference if not already defined
                 // Use normalized plain text as the label (for [Heading][] style links)
-                $label = preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
+                $label = LabelKey::normalize($plainText);
                 $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
                 $this->registerHeadingReference($label, $reference);
             } else {
@@ -2431,7 +2431,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -4761,7 +4761,7 @@ class BlockParser
                 // has nothing to continue: both end the item.
                 // The deepest frame decides continuation after a closed fence
                 // in either host (markup-carve/carve#2895).
-                if ($nextIndent === 0 && !$legacyNestedFence) {
+                if (!$legacyNestedFence) {
                     $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 }
                 $lastItemLine = array_key_last($itemLines);
@@ -4778,7 +4778,7 @@ class BlockParser
                         ? $this->nestedLeadParagraphOpenBelowAClosedFence($itemLines)
                         : $nestedFence->closed && $nestedFence->trailing->openParagraph);
                 if (
-                    ((!$trailingState->openParagraph || $closedNestedFence)
+                    ((!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
                         && !$nestedLeadParagraphOpen
                         && !($trailingState->afterComment && ($trailingState->nestedColumn > 0 || $trailingState->hasOpenDiv()) && $nextIndent > $baseIndent))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
@@ -6377,7 +6377,10 @@ class BlockParser
                 return null;
             }
 
-            $part = trim(substr($line, $pos + 1, $end - $pos - 1));
+            $part = trim(substr($line, $pos + 1, $end - $pos - 1), ' ');
+            if (!AttributeParser::inlineInteriorIsSpaceOnly($part)) {
+                return null;
+            }
             // An EMPTY `{}` is not a block-attribute block, so a line holding
             // one is not a block-attribute line - wherever it sits. Joining the
             // payloads with a space made the empty one vanish silently, so
@@ -7201,10 +7204,10 @@ class BlockParser
                     || IndentationHelper::getLeadingColumns($content) < $column
                     || (!str_starts_with($text, ':') && $this->lineOpensBlockForLooseness($text));
             }
-            if (IndentationHelper::getLeadingColumns($content) !== $column) {
+            if ($column >= 0 && IndentationHelper::getLeadingColumns($content) !== $column) {
                 continue;
             }
-            $content = IndentationHelper::stripLeadingColumns($content, $column);
+            $content = $column < 0 ? ltrim($content, " \t") : IndentationHelper::stripLeadingColumns($content, $column);
             if (
                 $char === '%'
                 ? $this->fencedBlockParser->isFencedCommentCloser($content, $length)
@@ -7415,17 +7418,6 @@ class BlockParser
         $subCol = -1;
 
         $n = count($subLines);
-        // The last line that renders anything. A colon span reaching past it
-        // and starting at line 0 IS the body, rather than one block in it.
-        $lastContentIdx = -1;
-        for ($k = $n - 1; $k >= 0; $k--) {
-            if ($subLines[$k] !== '') {
-                $lastContentIdx = $k;
-
-                break;
-            }
-        }
-
         // Track fenced-code regions: a blank line INSIDE an open fence is
         // verbatim content, not an interior block separator, so it must not
         // loosen the item (carve#326 case C; matches carve-rs / carve-js).
@@ -7480,11 +7472,9 @@ class BlockParser
             $colon = $this->fencedBlockParser->parseDivFenceOpener($authored);
             if ($colon !== null) {
                 $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
-                if (!($sourceIsTheItemBody && $k === 0 && $end > $lastContentIdx)) {
-                    $k = $end;
+                $k = $end;
 
-                    continue;
-                }
+                continue;
             }
             if ($sl !== '') {
                 // `=== 0` only needs to know whether the run reaches column 1,
@@ -8167,7 +8157,7 @@ class BlockParser
      */
     public function headingIndexKey(Node $label): string
     {
-        return trim(preg_replace('/\s+/', ' ', $this->headingIndexLabel($label)) ?? '');
+        return LabelKey::normalize($this->headingIndexLabel($label));
     }
 
     /**
@@ -8776,7 +8766,6 @@ class BlockParser
             isReferenceDefinitionLineCallback: $this->isReferenceDefinitionLine(...),
             keptCommentDelimiterCallback: $this->keptCommentDelimiter(...),
             lastCommentFenceIndexCallback: $this->lastCommentFenceIndex(...),
-            leadBottomOpensFenceCallback: $this->leadBottomOpensFence(...),
             advanceNestedLeadFenceStateCallback: $this->advanceNestedLeadFenceState(...),
             lineOpensBlockForLoosenessCallback: $this->lineOpensBlockForLooseness(...),
             linesLeaveACommentSpanOpenCallback: $this->collectedLinesLeaveACommentSpanOpen(...),

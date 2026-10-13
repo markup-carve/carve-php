@@ -317,7 +317,6 @@
     "html": "<form data-carve-ext=\"v\"><p>x</p></form>\n",
     "source": "```=html\n<form data-carve-ext=\"v\"><p>x</p></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-carve-ext on <form> in the raw HTML this element is kept as",
       "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
@@ -327,7 +326,6 @@
     "html": "<form data-djot-ext=\"v\"><p>x</p></form>\n",
     "source": "```=html\n<form data-djot-ext=\"v\"><p>x</p></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
       "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
@@ -337,8 +335,6 @@
     "html": "<form data-djot-ext=\"w\" data-carve-ext=\"v\"><p>x</p></form>\n",
     "source": "```=html\n<form data-djot-ext=\"w\" data-carve-ext=\"v\"><p>x</p></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-carve-ext on <form> in the raw HTML this element is kept as",
       "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
@@ -348,8 +344,6 @@
     "html": "<form data-carve-ext=\"v\" data-djot-ext=\"w\"><p>x</p></form>\n",
     "source": "```=html\n<form data-carve-ext=\"v\" data-djot-ext=\"w\"><p>x</p></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-carve-ext on <form> in the raw HTML this element is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
       "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
@@ -359,7 +353,6 @@
     "html": "<form DATA-DJOT-EXT=\"v\"><p>x</p></form>\n",
     "source": "```=html\n<form data-djot-ext=\"v\"><p>x</p></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
       "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
@@ -1773,8 +1766,7 @@
     "html": "<form><p data-carve-ext=\"v\">x</p></form>\n",
     "source": "```=html\n<form><p data-carve-ext=\"v\">x</p></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-carve-ext on <p> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -1783,8 +1775,7 @@
     "html": "<form><p data-djot-ext=\"v\">x</p></form>\n",
     "source": "```=html\n<form><p data-djot-ext=\"v\">x</p></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-djot-ext on <p> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -1793,9 +1784,7 @@
     "html": "<form><p data-djot-ext=\"w\" data-carve-ext=\"v\">x</p></form>\n",
     "source": "```=html\n<form><p data-djot-ext=\"w\" data-carve-ext=\"v\">x</p></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-djot-ext on <p> inside the raw HTML <form> is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-carve-ext on <p> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -1804,9 +1793,7 @@
     "html": "<form><p data-carve-ext=\"v\" data-djot-ext=\"w\">x</p></form>\n",
     "source": "```=html\n<form><p data-carve-ext=\"v\" data-djot-ext=\"w\">x</p></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-carve-ext on <p> inside the raw HTML <form> is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-djot-ext on <p> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -1815,8 +1802,7 @@
     "html": "<form><p DATA-DJOT-EXT=\"v\">x</p></form>\n",
     "source": "```=html\n<form><p data-djot-ext=\"v\">x</p></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/p[1]|Preserved round-trip marker attribute data-djot-ext on <p> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -3229,8 +3215,7 @@
     "html": "<form><div><em data-carve-ext=\"v\">x</em></div></form>\n",
     "source": "```=html\n<form><div><em data-carve-ext=\"v\">x</em></div></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/div[1]/em[1]|Preserved round-trip marker attribute data-carve-ext on <em> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -3239,8 +3224,7 @@
     "html": "<form><div><em data-djot-ext=\"v\">x</em></div></form>\n",
     "source": "```=html\n<form><div><em data-djot-ext=\"v\">x</em></div></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/div[1]/em[1]|Preserved round-trip marker attribute data-djot-ext on <em> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -3249,9 +3233,7 @@
     "html": "<form><div><em data-djot-ext=\"w\" data-carve-ext=\"v\">x</em></div></form>\n",
     "source": "```=html\n<form><div><em data-djot-ext=\"w\" data-carve-ext=\"v\">x</em></div></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/div[1]/em[1]|Preserved round-trip marker attribute data-djot-ext on <em> inside the raw HTML <form> is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]/div[1]/em[1]|Preserved round-trip marker attribute data-carve-ext on <em> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -3260,9 +3242,7 @@
     "html": "<form><div><em data-carve-ext=\"v\" data-djot-ext=\"w\">x</em></div></form>\n",
     "source": "```=html\n<form><div><em data-carve-ext=\"v\" data-djot-ext=\"w\">x</em></div></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/div[1]/em[1]|Preserved round-trip marker attribute data-carve-ext on <em> inside the raw HTML <form> is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]/div[1]/em[1]|Preserved round-trip marker attribute data-djot-ext on <em> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -3271,8 +3251,7 @@
     "html": "<form><div><em DATA-DJOT-EXT=\"v\">x</em></div></form>\n",
     "source": "```=html\n<form><div><em data-djot-ext=\"v\">x</em></div></form>\n```\n",
     "rows": [
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/div[1]/em[1]|Preserved round-trip marker attribute data-djot-ext on <em> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -10604,9 +10583,7 @@
     "html": "<form data-user=\"u\" data-carve-ext=\"v\"><cite data-user=\"w\" data-carve-ext=\"v\">t</cite></form>\n",
     "source": "```=html\n<form data-user=\"u\" data-carve-ext=\"v\"><cite data-user=\"w\" data-carve-ext=\"v\">t</cite></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-carve-ext on <form> in the raw HTML this element is kept as",
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/cite[1]|Preserved round-trip marker attribute data-carve-ext on <cite> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -10615,9 +10592,7 @@
     "html": "<form data-user=\"u\" data-djot-ext=\"v\"><cite data-user=\"w\" data-djot-ext=\"v\">t</cite></form>\n",
     "source": "```=html\n<form data-user=\"u\" data-djot-ext=\"v\"><cite data-user=\"w\" data-djot-ext=\"v\">t</cite></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/cite[1]|Preserved round-trip marker attribute data-djot-ext on <cite> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -10626,11 +10601,7 @@
     "html": "<form data-user=\"u\" data-djot-ext=\"w\" data-carve-ext=\"v\"><cite data-user=\"w\" data-djot-ext=\"w\" data-carve-ext=\"v\">t</cite></form>\n",
     "source": "```=html\n<form data-user=\"u\" data-djot-ext=\"w\" data-carve-ext=\"v\"><cite data-user=\"w\" data-djot-ext=\"w\" data-carve-ext=\"v\">t</cite></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-carve-ext on <form> in the raw HTML this element is kept as",
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/cite[1]|Preserved round-trip marker attribute data-djot-ext on <cite> inside the raw HTML <form> is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]/cite[1]|Preserved round-trip marker attribute data-carve-ext on <cite> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -10639,11 +10610,7 @@
     "html": "<form data-user=\"u\" data-carve-ext=\"v\" data-djot-ext=\"w\"><cite data-user=\"w\" data-carve-ext=\"v\" data-djot-ext=\"w\">t</cite></form>\n",
     "source": "```=html\n<form data-user=\"u\" data-carve-ext=\"v\" data-djot-ext=\"w\"><cite data-user=\"w\" data-carve-ext=\"v\" data-djot-ext=\"w\">t</cite></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-carve-ext on <form> in the raw HTML this element is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/cite[1]|Preserved round-trip marker attribute data-carve-ext on <cite> inside the raw HTML <form> is kept as",
-      "attribute-preserved|info|preserved|exact|/form[1]/cite[1]|Preserved round-trip marker attribute data-djot-ext on <cite> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {
@@ -10652,9 +10619,7 @@
     "html": "<form data-user=\"u\" DATA-DJOT-EXT=\"v\"><cite data-user=\"w\" DATA-DJOT-EXT=\"v\">t</cite></form>\n",
     "source": "```=html\n<form data-user=\"u\" data-djot-ext=\"v\"><cite data-user=\"w\" data-djot-ext=\"v\">t</cite></form>\n```\n",
     "rows": [
-      "attribute-preserved|info|preserved|exact|/form[1]|Preserved round-trip marker attribute data-djot-ext on <form> in the raw HTML this element is kept as",
-      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML",
-      "attribute-preserved|info|preserved|exact|/form[1]/cite[1]|Preserved round-trip marker attribute data-djot-ext on <cite> inside the raw HTML <form> is kept as"
+      "raw-preserved|warning|degraded|exact|/form[1]|Preserved unsupported <form> element as raw HTML"
     ]
   },
   {

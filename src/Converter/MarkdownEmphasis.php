@@ -173,6 +173,33 @@ final class MarkdownEmphasis
         foreach (array_keys(self::straddledBracketClosers($brackets, $pairs)) as $offset) {
             $literalEscapes[$offset] = true;
         }
+        $tildeEscapes = [];
+        if ($strikethrough) {
+            $closer = false;
+            for ($i = strlen($source) - 1; $i >= 0; $i--) {
+                $ch = $source[$i];
+                if ($ch === "\n") {
+                    $closer = false;
+
+                    continue;
+                }
+                if ($ch !== '~' || ($i > 0 && $source[$i - 1] === '\\')) {
+                    continue;
+                }
+                $before = $i > 0 ? $source[$i - 1] : '';
+                $after = $source[$i + 1] ?? '';
+                if (
+                    !isset($claimed[$i]) && $before !== '~' && $after !== '~'
+                    && preg_match('/[A-Za-z0-9_]/', $before) !== 1 && $after !== ''
+                    && preg_match('/\s/u', $after) !== 1 && $closer
+                ) {
+                    $tildeEscapes[$i] = true;
+                }
+                if ($before !== '' && preg_match('/\s/u', $before) !== 1 && preg_match('/[A-Za-z0-9]/', $after) !== 1) {
+                    $closer = true;
+                }
+            }
+        }
         $hostChanges = [];
         foreach ($brackets as $bracket) {
             if (!$bracket['link']) {
@@ -195,7 +222,7 @@ final class MarkdownEmphasis
         $flattened = false;
         $output = [];
         $stack = [];
-        $frame = ['i' => 0, 'end' => strlen($source), 'kind' => '', 'parent' => '', 'slot' => -1, 'first' => '', 'last' => '', 'pair' => null, 'scope' => -1, 'force' => false, 'strong' => false, 'italic' => false, 'strike' => false, 'repeated' => false, 'keep' => true];
+        $frame = ['i' => 0, 'end' => strlen($source), 'kind' => '', 'parent' => '', 'slot' => -1, 'first' => '', 'last' => '', 'pair' => null, 'scope' => -1, 'force' => false, 'strong' => false, 'italic' => false, 'strike' => false, 'literalTilde' => false, 'repeated' => false, 'keep' => true];
         $active = ['/' => 0, '*' => 0, '~' => 0];
         while (true) {
             if ($frame['i'] < $frame['end']) {
@@ -219,6 +246,7 @@ final class MarkdownEmphasis
                         'strong' => false,
                         'italic' => false,
                         'strike' => false,
+                        'literalTilde' => false,
                         'repeated' => $active[$pair['kind']] > 0,
                         'keep' => count($stack) + ($pair['hostDepth'] ?? 0) < InlineParser::MAX_INLINE_DEPTH,
                     ];
@@ -226,7 +254,13 @@ final class MarkdownEmphasis
                     $output[] = '';
                 } else {
                     $ch = $source[$frame['i']++];
-                    $output[] = isset($literalEscapes[$frame['i'] - 1]) ? '\\' . $ch : $ch;
+                    if ($ch === '~') {
+                        $frame['literalTilde'] = true;
+                    }
+                    $at = $frame['i'] - 1;
+                    $escape = isset($literalEscapes[$at]) || isset($tildeEscapes[$at])
+                        || ($active['~'] > 0 && ($ch === '*' || $ch === '_') && !isset($claimed[$at]));
+                    $output[] = $escape ? '\\' . $ch : $ch;
                     if ($frame['first'] === '') {
                         $frame['first'] = $ch;
                     }
@@ -249,12 +283,12 @@ final class MarkdownEmphasis
                     || preg_match('/^[\p{L}\p{N}]/u', $neighbor($pair['close'] + $pair['width'], false));
                 $besideLiteral = false;
                 foreach ([$pair['open'] - 1, $pair['close'] + $pair['width']] as $neighborIndex) {
-                    if ($neighborIndex >= 0 && in_array($source[$neighborIndex] ?? '', ['*', '_'], true) && !isset($claimed[$neighborIndex])) {
+                    if ($neighborIndex >= 0 && in_array($source[$neighborIndex] ?? '', $pair['kind'] === '~' ? ['*', '_', '~'] : ['*', '_'], true) && !isset($claimed[$neighborIndex])) {
                         $besideLiteral = true;
                     }
                 }
                 $besideSlash = $pair['kind'] === '/' && $pair['scope'] !== -1 && ($neighbor($pair['open'], true) === '/' || ($source[$pair['close'] + $pair['width']] ?? '') === '/' || substr($source, $pair['close'] + $pair['width'], 2) === '\\/');
-                $braced = $besideSlash || $frame['repeated'] || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic) || ($frame['kind'] === '~' && $strike) || $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
+                $braced = $besideSlash || $frame['repeated'] || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic) || ($frame['kind'] === '~' && ($strike || $frame['literalTilde'])) || $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
                 $strong = $strong || $pair['kind'] === '*';
                 $italic = $italic || $pair['kind'] === '/';
                 $strike = $strike || $pair['kind'] === '~';
@@ -266,10 +300,12 @@ final class MarkdownEmphasis
                 $flattened = true;
             }
             $active[$pair['kind']]--;
+            $literalTilde = $frame['literalTilde'];
             $frame = array_pop($stack);
             if ($frame === null) {
                 break;
             }
+            $frame['literalTilde'] = $frame['literalTilde'] || $literalTilde;
             $frame['strong'] = $frame['strong'] || $strong;
             $frame['italic'] = $frame['italic'] || $italic;
             $frame['strike'] = $frame['strike'] || $strike;

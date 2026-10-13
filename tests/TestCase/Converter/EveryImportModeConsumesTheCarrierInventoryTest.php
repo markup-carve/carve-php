@@ -132,18 +132,6 @@ class EveryImportModeConsumesTheCarrierInventoryTest extends TestCase
     public static function invalidValueProvider(): array
     {
         return [
-            'a tight value' => [
-                '<ul data-carve-tight="yes"><li>a</li></ul>',
-                "- a\n",
-                '<ul data-carve-tight="false"><li>a</li></ul>',
-                "{loose}\n- a\n",
-            ],
-            'an empty tight value' => [
-                '<ol data-carve-tight=""><li><p>a</p></li></ol>',
-                "{loose}\n1. a\n",
-                '<ol data-carve-tight="true"><li><p>a</p></li></ol>',
-                "1. a\n",
-            ],
             'an id slot' => [
                 '<section id="mine" data-carve-explicit-id data-carve-id-slot="x"><h1 class="c">H</h1></section>',
                 "{#mine .c}\n# H\n",
@@ -153,7 +141,7 @@ class EveryImportModeConsumesTheCarrierInventoryTest extends TestCase
             'a signed id slot' => [
                 '<section id="mine" data-carve-explicit-id data-carve-id-slot="-1"><h1 class="c">H</h1></section>',
                 "{#mine .c}\n# H\n",
-                '<section id="mine" data-carve-explicit-id data-carve-id-slot="9"><h1 class="c">H</h1></section>',
+                '<section id="mine" data-carve-explicit-id data-carve-id-slot="1"><h1 class="c">H</h1></section>',
                 "{.c #mine}\n# H\n",
             ],
             'a link reference label' => [

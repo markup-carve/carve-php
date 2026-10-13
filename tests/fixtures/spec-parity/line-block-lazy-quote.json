@@ -1,0 +1,17 @@
+[
+  {
+    "id": "closed-line-block-in-sublist",
+    "source": "- a\n  - ::: |\n    ```\n    x\n    :::\nafter\n",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>\n        <div class=\"line-block\">\n          <p><code>\nx</code></p>\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>after</p>"
+  },
+  {
+    "id": "unfinished-line-block-in-item",
+    "source": "- a\n\n  ::: |\n  ```\n  x\nafter\n",
+    "html": "<ul>\n  <li>a\n    <div class=\"line-block\">\n      <p><code>\nx\nafter</code></p>\n    </div>\n  </li>\n</ul>"
+  },
+  {
+    "id": "unfinished-line-block-in-quote",
+    "source": "> ::: |\n> ```\n> x\nafter\n",
+    "html": "<blockquote>\n  <div class=\"line-block\">\n    <p><code>\nx\nafter</code></p>\n  </div>\n</blockquote>"
+  }
+]

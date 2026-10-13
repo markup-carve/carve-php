@@ -54,7 +54,7 @@ class IncludeDirectiveSyntax
      *
      * @var string
      */
-    public const SCAN = '/\{\{[ \t]++(?:"(?:\\\\.|[^"\\\\\n])*+"|[^{}])*+(?<=[ \t])\}\}/s';
+    public const SCAN = '/\{\{ ++(?:"(?:\\\\.|[^"\\\\\n])*+"|[^{}])*+(?<= )\}\}/s';
 
     /**
      * Loose directive shape: one whole token, valid options or not. Same body
@@ -78,7 +78,7 @@ class IncludeDirectiveSyntax
      *
      * @var string
      */
-    private const SLOT = '/\G[#@]?(?:"(?:\\\\.|[^"\\\\\n])*+"|[^\s#@])++/';
+    private const SLOT = '/\G[#@]?(?:"(?:\\\\.|[^"\\\\\n])*+"|[^ #@\n])++/';
 
     /**
      * @var string
@@ -172,14 +172,7 @@ class IncludeDirectiveSyntax
      */
     public static function parse(string $text): ?array
     {
-        // The padding is a RUN of whitespace, not one space (grammar PART 6).
-        // At least one character is required on each side - `{{c.crv}}` and
-        // `{{ c.crv}}` are literal text - but beyond the first, more changes
-        // nothing: a bare path stops at the first space anyway. Refusing the
-        // extra turned an ALIGNED directive into prose with no warning, which
-        // is the failure mode section 19's error rules exist to avoid, and it
-        // is what carve-js and carve-rs already accepted.
-        if (!preg_match('/^\{\{[ \t]+(.+?)[ \t]+\}\}$/s', $text, $match)) {
+        if (!preg_match('/^\{\{ +(.+?) +\}\}$/s', $text, $match)) {
             return null;
         }
 
@@ -195,17 +188,13 @@ class IncludeDirectiveSyntax
             }
             // The escape set of a quoted attribute value (carve#2778).
             $path = AttributeParser::processEscapes($pathMatch[1]);
-            $rest = trim($pathMatch[2]);
+            $rest = trim($pathMatch[2], ' ');
         } else {
-            // The stop set holds the TAB: `bare_include_path` stops at
-            // whitespace, and a tab is whitespace wherever else the grammar
-            // says so. Taking it as path text made `{{ c.crv<TAB>#Alpha }}`
-            // look for a file whose name ends in a tab.
-            if (!preg_match('/^([^#@} \t"]+)(.*)$/s', $body, $pathMatch)) {
+            if (!preg_match('/^([^#@} \n"]+)(.*)$/s', $body, $pathMatch)) {
                 return null;
             }
             $path = $pathMatch[1];
-            $rest = trim($pathMatch[2]);
+            $rest = trim($pathMatch[2], ' ');
         }
 
         $section = null;
@@ -291,7 +280,7 @@ class IncludeDirectiveSyntax
         $at = 0;
         $length = strlen($tail);
         while ($at < $length) {
-            if ($tail[$at] === ' ' || $tail[$at] === "\t") {
+            if ($tail[$at] === ' ') {
                 $at++;
 
                 continue;

@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @phpstan-type Fixture array{id: string, source: string, html: string, attribute: string, value: string|null, defaultValue: string|null, lossCodes: list<string>, carriers: array<string, string|null>, ordinaryAttributes: array<string, string|null>, carrierText: array<string, string|list<string>>, expectedNodes: list<array<string, mixed>>, fallbackNodes: list<array<string, mixed>>, fallbackHtml: string, carrierHosts: list<array{attribute: string, element: string}>, importModes: list<string>, forbiddenExportAttributes: list<string>, carrierFragments: list<string>, forbiddenTypes: list<string>, forbiddenSourceSubstrings: list<string>, forbiddenAstSubstrings: list<string>, forbiddenRenderedSubstrings: list<string>, requiresDiagnostic: bool, diagnosticControlHtml: string|null, expectedAbsentFields: list<array{type: string, field: string}>, forbiddenFieldValues: list<array{type: string, field: string, value: mixed}>}
+ * @phpstan-type Fixture array{id: string, source: string, html: string, attribute: string, value: string|null, defaultValue: string|null, lossCodes: list<string>, carriers: array<string, string|null>, ordinaryAttributes: array<string, string|null>, carrierText: array<string, string|list<string>>, expectedNodes: list<array<string, mixed>>, fallbackNodes: list<array<string, mixed>>, fallbackHtml: string, carrierHosts: list<array{attribute: string, element: string}>, importModes: list<string>, forbiddenExportAttributes: list<string>, carrierFragments: list<string>, forbiddenTypes: list<string>, forbiddenSourceSubstrings: list<string>, forbiddenAstSubstrings: list<string>, forbiddenRenderedSubstrings: list<string>, requiresDiagnostic: bool, kept: bool, diagnosticControlHtml: string|null, expectedAbsentFields: list<array{type: string, field: string}>, forbiddenFieldValues: list<array{type: string, field: string, value: mixed}>}
  */
 class SharedRoundtripExportAcceptanceTest extends TestCase
 {
@@ -51,7 +51,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     /**
      * @var list<string>
      */
-    private const INVENTORY = ['explicit-id', 'ref', 'autolink', 'footnote-label', 'inline-footnote', 'raw', 'escaped', 'abbreviations', 'col-widths', 'label', 'ext', 'id-slot', 'tight'];
+    private const INVENTORY = ['explicit-id', 'ref', 'autolink', 'footnote-label', 'inline-footnote', 'raw', 'escaped', 'abbreviations', 'col-widths', 'label', 'generated-id', 'id-slot', 'tight'];
 
     /**
      * Reserved without an inventory row: no core writer emits it, every importer consumes it.
@@ -466,7 +466,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         };
         $result = (new CarveConverter(roundTripMode: true))->convertWithReport($fixture['source']);
         self::assertSame($fixture['value'] === null ? [] : [$fixture['value']], $named($result->value));
-        self::assertCount(1, array_filter($result->losses, static fn ($row): bool => $row['code'] === 'carrier-attribute-dropped' && ($row['attribute'] ?? null) === $fixture['attribute']));
+        self::assertCount($fixture['kept'] ? 0 : 1, array_filter($result->losses, static fn ($row): bool => $row['code'] === 'carrier-attribute-dropped' && ($row['attribute'] ?? null) === $fixture['attribute']));
         if ($fixture['defaultValue'] === null) {
             return;
         }
@@ -485,14 +485,22 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         $ordinary = new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: false);
         self::assertStringNotContainsString('<!-- carve:', $ordinary->convert($fixture['source']));
         $exporter = new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: true);
-        $exported = $exporter->convert($fixture['source']);
+        $report = $exporter->convertWithReport($fixture['source']);
+        $exported = $report->value;
+        foreach ($fixture['lossCodes'] as $code) {
+            self::assertContains($code, array_column($report->losses, 'code'));
+        }
         foreach ($fixture['carrierFragments'] as $fragment) {
             self::assertStringContainsString($fragment, $exported);
         }
         $source = (new MarkdownToCarve())->convert($exported);
         $converter = new CarveConverter();
         self::assertTrue(self::matchesProjection((new AstCodec())->encode($converter->parse($source)), $fixture['expectedNodes']));
-        self::assertSame(trim($converter->convert($fixture['source'])), trim($converter->convert($source)));
+        if (in_array('definition-list-flattened', $fixture['lossCodes'], true)) {
+            self::assertNotSame(trim($converter->convert($fixture['source'])), trim($converter->convert($source)));
+        } else {
+            self::assertSame(trim($converter->convert($fixture['source'])), trim($converter->convert($source)));
+        }
     }
 
     /**
@@ -557,6 +565,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                 'forbiddenAstSubstrings' => self::strings($row['forbiddenAstSubstrings'] ?? []),
                 'forbiddenRenderedSubstrings' => self::strings($row['forbiddenRenderedSubstrings'] ?? []),
                 'requiresDiagnostic' => self::boolean($row['requiresDiagnostic'] ?? false),
+                'kept' => self::boolean($row['kept'] ?? false),
                 'diagnosticControlHtml' => isset($row['diagnosticControlHtml']) ? self::text($row['diagnosticControlHtml']) : null,
                 'expectedAbsentFields' => self::absent($row['expectedAbsentFields'] ?? []),
                 'forbiddenFieldValues' => self::forbidden($row['forbiddenFieldValues'] ?? []),

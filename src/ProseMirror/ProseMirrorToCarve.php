@@ -1349,7 +1349,7 @@ class ProseMirrorToCarve
     {
         $plainText = (new HeadingIdTracker())->getPlainText($link);
 
-        return preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
+        return LabelKey::normalize($plainText);
     }
 
     /**

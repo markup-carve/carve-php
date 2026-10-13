@@ -318,7 +318,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         return [
             'code fence' => [
                 "- - ``` x\ncode\n```\n- lazy\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n  <li>lazy</li>\n</ul>\n",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code>\n- lazy</code></p>\n",
             ],
             'div opener' => [
                 "- - ::: note\nb\n:::\nlazy\n",

@@ -8,25 +8,6 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * markup-carve/carve-php#1900, ruled on markup-carve/carve#1900.
- *
- * A fence at an item's block start runs to the END OF ITS CONTAINER, so an
- * unfinished fence opened on a NESTED item's marker lead owns the lines the
- * enclosing container folded in below its column - and a closing run written
- * among them is body text, because a fence's content is not re-scanned for
- * structure.
- *
- * This engine published an EMPTY `pre`, leaked the body into the outer item as
- * prose and returned the closer as a stray inline `code`. Every expectation
- * here is the executable spec's answer, read from `scripts/spec/layout.mjs`
- * into `scripts/spec/html.mjs`; the pinned spec 95fc3a04 and spec main 063656e7
- * agree on every one of them.
- *
- * The OUTERMOST spelling is the control and must NOT move: with no container
- * above it nothing was folded in, and the spec leaks the body to the document
- * exactly as this engine already did.
- */
 class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
 {
     #[DataProvider('ownedProvider')]
@@ -41,18 +22,18 @@ class UnfinishedFenceOnANestedLeadOwnsItsBodyTest extends TestCase
     public static function ownedProvider(): array
     {
         return [
-            'flush-left body and closer' => ["- - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'body indented one below column' => ["- - ``` x\n code\n ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'three levels deep' => ["- - - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code class=\"language-x\">code\n```\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>"],
+            'flush-left body and closer' => ["- - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'body indented one below column' => ["- - ``` x\n code\n ```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'three levels deep' => ["- - - ``` x\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code class=\"language-x\"></code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
             'a quoted fence needs marked body lines' => ["> - ``` x\ncode\n```\n", "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-x\"></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>code\n<code></code></p>"],
-            'ordered markers' => ["1. 1. ``` x\ncode\n```\n", "<ol>\n  <li>\n    <ol>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ol>\n  </li>\n</ol>"],
-            'tilde fence' => ["- - ~~~ x\ncode\n~~~\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n~~~\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'no info string' => ["- - ```\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'no closer at all' => ["- - ``` x\ncode\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'closer is only line below' => ["- - ``` x\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'trailing lazy item' => ["- - ``` x\ncode\n```\n- lazy\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n  <li>lazy</li>\n</ul>"],
-            'a closer with body below it' => ["- - ``` x\na\n```\nb\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">a\n```\nb\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"],
-            'two closing runs' => ["- - ``` x\na\n```\nb\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">a\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code>b\n</code></pre>"],
+            'ordered markers' => ["1. 1. ``` x\ncode\n```\n", "<ol>\n  <li>\n    <ol>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ol>\n  </li>\n</ol>\n<p>code\n<code></code></p>"],
+            'tilde fence' => ["- - ~~~ x\ncode\n~~~\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n~~~</p>"],
+            'no info string' => ["- - ```\ncode\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"],
+            'no closer at all' => ["- - ``` x\ncode\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>"],
+            'closer is only line below' => ["- - ``` x\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>"],
+            'trailing lazy item' => ["- - ``` x\ncode\n```\n- lazy\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code>\n- lazy</code></p>"],
+            'a closer with body below it' => ["- - ``` x\na\n```\nb\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>a\n<code>\nb</code></p>"],
+            'two closing runs' => ["- - ``` x\na\n```\nb\n```\n", "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>a</p>\n<pre><code>b\n</code></pre>"],
         ];
     }
 

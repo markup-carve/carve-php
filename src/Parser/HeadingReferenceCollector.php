@@ -82,7 +82,7 @@ class HeadingReferenceCollector
     protected function register(Heading $heading, string $id): void
     {
         $plainText = $this->headingIdTracker->getPlainText($heading);
-        $label = preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
+        $label = LabelKey::normalize($plainText);
         if ($label === '') {
             return;
         }

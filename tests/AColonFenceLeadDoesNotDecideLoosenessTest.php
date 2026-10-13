@@ -116,13 +116,13 @@ class AColonFenceLeadDoesNotDecideLoosenessTest extends TestCase
      * and `list.tight` is the only place the answer appears. Corpus document
      * 362-3.
      */
-    public function testTheUnterminatedDivReportsALooseList(): void
+    public function testTheUnterminatedDivKeepsItsListTight(): void
     {
         $document = $this->converter->parse("- ::: d\n  b\n\n  tail\n");
         $list = $document->getChildren()[0];
 
         $this->assertInstanceOf(ListBlock::class, $list);
-        $this->assertFalse($list->isTight(), 'the blank between the div\'s two blocks did not reach the list');
+        $this->assertTrue($list->isTight(), 'the blank belongs to the held div');
     }
 
     /**

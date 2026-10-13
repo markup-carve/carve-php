@@ -1,0 +1,7 @@
+[
+  {
+    "id": "556-a-closed-block-leaves-no-frame-for-the-line-below-13",
+    "source": "- ::: inner\n %% c\n text\n",
+    "html": "<ul>\n  <li>::: inner\n    text\n  </li>\n</ul>\n"
+  }
+]

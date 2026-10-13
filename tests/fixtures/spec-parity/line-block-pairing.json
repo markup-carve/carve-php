@@ -1,0 +1,17 @@
+[
+  {
+    "id": "561-a-line-block-payload-span-pairs-past-the-content-column-2",
+    "source": "- ::: |\n    ```\n  :::\n    ```\n  :::\n  para\ntail\n",
+    "html": "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p>\n    </div>\n    para\ntail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "561-a-line-block-payload-span-pairs-past-the-content-column-3",
+    "source": "- ::: |\n    ```\n  :::\n  para\ntail\n",
+    "html": "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>&nbsp;&nbsp;<code></code></p>\n    </div>\n    para\ntail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "561-a-line-block-payload-span-pairs-past-the-content-column",
+    "source": "> - ::: |\n>     ```\n>   :::\n>     ```\n>   :::\n>   :::bad\n>   :::\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"line-block\">\n        <p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p>\n      </div>\n      :::bad\n:::\n- tail\n    </li>\n  </ul>\n</blockquote>\n"
+  }
+]
