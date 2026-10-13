@@ -153,6 +153,9 @@ final class ListBlockBuilder
         $listSourceLine = $this->sourceLineFor($start);
         $sourceTail = rtrim($this->state->source->sourceLines[$listSourceLine] ?? '', " \t");
         $lineTail = rtrim($line, " \t");
+        if (str_contains(substr($sourceTail, 0, max(0, strlen($sourceTail) - strlen($lineTail))), '>')) {
+            $lineTail = ltrim($lineTail, " \t");
+        }
         $listOpeningColumn = $parent instanceof Document
             ? 0
             : (str_ends_with($sourceTail, $lineTail)
@@ -1023,7 +1026,7 @@ final class ListBlockBuilder
             $itemOpeningColumn = str_contains($itemPrefix, "\t")
                 && $itemMarkerColumn <= $listOpeningColumn
                 ? 0
-                : $listOpeningColumn;
+                : (str_contains($itemPrefix, '>') ? $itemMarkerColumn : $listOpeningColumn);
             // Attributes from an abutting `{...}` block attach to the <li>.
             if (isset($itemInfo['attributes'])) {
                 /** @var array<string, string|list<string>> $markerAttributes */
@@ -2611,6 +2614,25 @@ final class ListBlockBuilder
             $end = $i;
             $code = ($this->getFencedBlockParser)()->parseCodeFenceOpener($opener)
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($opener);
+            if ($code !== null && $skipOnlyClosedOpaqueAtMinimum) {
+                for (; $blockStateCursor < $i; $blockStateCursor++) {
+                    if (($this->isBlockAttributeLineCallback)(ltrim($lines[$blockStateCursor], " \t"))) {
+                        continue;
+                    }
+                    $blockState = $this->advanceTrailingStateWithFenceLookahead(
+                        $blockState,
+                        $lines[$blockStateCursor],
+                        $lines,
+                        $blockStateCursor,
+                        true,
+                    );
+                }
+                if ($blockState->openParagraph && !$this->itemFenceCloserAhead($lines, $i, $code, $base, 0)) {
+                    $afterBlank = false;
+
+                    continue;
+                }
+            }
             // A VERBATIM extent has no blank line: a whitespace-only line in a
             // fenced body is a content line, so the rebase below owes it the
             // same dedent as every other line (CARVE-P11-016, PART 9 section 24

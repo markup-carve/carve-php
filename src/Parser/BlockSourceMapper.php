@@ -1308,6 +1308,13 @@ final class BlockSourceMapper
         // PART 12 §4: begin at the markup that opens THIS block, not at the
         // container prefix that carried its line (carve#913).
         $opening = $start + ($this->state->frame->currentContentColumns[$startLine] ?? 0);
+        if ($node instanceof ListBlock) {
+            $sourceLine = $this->state->source->sourceLines[$startLine] ?? '';
+            $prefix = substr($sourceLine, 0, $opening - $start);
+            if (str_contains($prefix, '>')) {
+                $opening += strspn($sourceLine, " \t", $opening - $start);
+            }
+        }
         $node->setPos($this->state->source->positionIndex?->span(
             min($opening, $endOffset),
             $endOffset,

@@ -1,0 +1,77 @@
+[
+  {
+    "id": "table after lazy run",
+    "source": "- :: t\n  :   p\n      ```\n    ```\n        | a |\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code>\n</code></p>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "table after open run",
+    "source": "- :: t\n  :   p\n      ```\n        | a |\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code></code></p>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "quote after open run",
+    "source": "- :: a\n  : p\n    ```\n      > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>\n        <p>p\n<code></code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "table in quoted description",
+    "source": "> - :: a\n>   : p\n>         ```\n>       | a |\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>a</dt>\n        <dd>\n          <p>p\n<code></code></p>\n          <table>\n            <tbody>\n              <tr><td>a</td></tr>\n            </tbody>\n          </table>\n        </dd>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+  },
+  {
+    "id": "colon after open run",
+    "source": "> - :: term\n>   : payload\n   code\n>       ```=html\n>         :::\n>  :: t2\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n        <dd>\n          <p>payload\ncode\n<code>=html</code></p>\n          <div>\n\n          </div>\n        </dd>\n      </dl>\n    </li>\n  </ul>\n  <p>:: t2</p>\n</blockquote>"
+  },
+  {
+    "id": "plain text control",
+    "source": "- :: a\n  : p\n    ```\n      x\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>p\n<code>\nx</code></dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "closed fence control",
+    "source": "- :: term\n  : desc\n      ```\n      code\n      ```\nafter\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>term</dt>\n      <dd>\n        <p>desc</p>\n        <pre><code>code\n</code></pre>\n      </dd>\n    </dl>\n  </li>\n</ul>\n<p>after</p>"
+  },
+  {
+    "id": "code payload stays in description",
+    "source": "- :: t\n  :   | a |\n      ```\n        | a |\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n        <pre><code>  | a |\n</code></pre>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "div body stays in description",
+    "source": "- :: t\n  :   p\n      ```\n        :::\n        d\n        :::\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code></code></p>\n        <div>\n          <p>d</p>\n        </div>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "tabbed quote stays in description",
+    "source": "- :: a\n  : p\n    ```\n\t  > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>\n        <p>p\n<code></code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "lazy-below-fence",
+    "source": "- :: t\n  : p\n    ```\n ```\n    > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code>\n</code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "lazy-below-text",
+    "source": "- :: t\n  : p\n    ```\n  x\n    :::\n    d\n    :::\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code>\nx</code></p>\n        <div>\n          <p>d</p>\n        </div>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "multiline",
+    "source": "- :: a\n  : p\n    more\n    ```\n      > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>\n        <p>p\nmore\n<code></code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "table-multiline",
+    "source": "- :: a\n  :   | a |\n      p\n      ```\n        > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n        <p>p\n<code></code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "table-fence",
+    "source": "- :: t\n  :   | a |\n      ```\n  ```\ntext\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n        <pre><code></code></pre>\n      </dd>\n    </dl>\n    <pre><code>text\n</code></pre>\n  </li>\n</ul>"
+  }
+]
