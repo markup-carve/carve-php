@@ -3324,16 +3324,39 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
-            $unclosedCode = $nestingAware ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]) : null;
+            $unclosedCode = $nestingAware && preg_match('/^`{3,}[ \t]*$/', $lines[$i]) === 1
+                ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]) : null;
+            $boxColumn = $unclosedCode === null ? null : $this->authoredColumnOf($start, $lines[$start]);
+            $nextColumn = $unclosedCode === null || !isset($lines[$i + 1])
+                ? null : $this->authoredColumnOf($i + 1, $lines[$i + 1]);
             if (
                 $nestingAware && $unclosedCode !== null
+                && $boxColumn !== null && $nextColumn !== null && $nextColumn > $boxColumn
                 && IndentationHelper::getLeadingColumns($lines[$i]) === 0
                 && $this->closedNestedLiteralBeforeFence($innerLines)
                 && !$this->hasCodeFenceCloserAhead($lines, $i, $unclosedCode['char'], $unclosedCode['length'])
             ) {
                 for (; $i < $count; $i++) {
+                    $authoredColumn = $this->authoredColumnOf($i, $lines[$i]);
+                    if (
+                        $boxColumn !== null && $authoredColumn !== null
+                        && !IndentationHelper::isBlankLine($lines[$i])
+                        && (
+                            $authoredColumn < $boxColumn
+                            || ($authoredColumn === $boxColumn
+                                && $this->fencedBlockParser->isDivFenceCloser($lines[$i], $fenceLength))
+                        )
+                    ) {
+                        break;
+                    }
                     $innerLines[] = $lines[$i];
                     $innerLineMap[] = $this->sourceLineFor($i);
+                }
+                if (
+                    $i < $count && $this->fencedBlockParser->isDivFenceCloser($lines[$i], $fenceLength)
+                    && $this->authoredColumnOf($i, $lines[$i]) === $boxColumn
+                ) {
+                    continue;
                 }
 
                 break;
