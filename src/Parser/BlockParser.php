@@ -7418,17 +7418,6 @@ class BlockParser
         $subCol = -1;
 
         $n = count($subLines);
-        // The last line that renders anything. A colon span reaching past it
-        // and starting at line 0 IS the body, rather than one block in it.
-        $lastContentIdx = -1;
-        for ($k = $n - 1; $k >= 0; $k--) {
-            if ($subLines[$k] !== '') {
-                $lastContentIdx = $k;
-
-                break;
-            }
-        }
-
         // Track fenced-code regions: a blank line INSIDE an open fence is
         // verbatim content, not an interior block separator, so it must not
         // loosen the item (carve#326 case C; matches carve-rs / carve-js).
@@ -7483,11 +7472,9 @@ class BlockParser
             $colon = $this->fencedBlockParser->parseDivFenceOpener($authored);
             if ($colon !== null) {
                 $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
-                if (!($sourceIsTheItemBody && $k === 0 && $end > $lastContentIdx)) {
-                    $k = $end;
+                $k = $end;
 
-                    continue;
-                }
+                continue;
             }
             if ($sl !== '') {
                 // `=== 0` only needs to know whether the run reaches column 1,
