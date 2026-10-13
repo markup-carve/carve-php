@@ -13,6 +13,10 @@ final class DjotNoteContext
      */
     public array $pendingAttributes = [];
 
+    public string $pendingPrefix = '  ';
+
+    public string $pendingParentPrefix = '';
+
     /**
      * @param int $depth
      * @param int $column

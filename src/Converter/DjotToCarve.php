@@ -645,14 +645,17 @@ class DjotToCarve
             $at = 0;
             $depth = 0;
             $column = 0;
+            $inlineContainer = false;
             while (preg_match($container, $line, $token, 0, $at) === 1) {
                 $at += strlen($token[0]);
                 if (str_starts_with($token[2], '>')) {
                     $depth++;
                     $column = 0;
                 } elseif (str_starts_with($token[2], '[^')) {
+                    $inlineContainer = true;
                     $column = strlen($token[1]) + 2;
                 } else {
+                    $inlineContainer = true;
                     $column += strlen($token[0]);
                     if (str_contains('-*+', $token[2][0]) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $task, 0, $at) === 1) {
                         $at += strlen($task[0]);
@@ -665,7 +668,7 @@ class DjotToCarve
                 continue;
             }
             $quoteHeading = $depth > 0 && $column === 0;
-            $firstLine = $quoteHeading ? substr($line, 0, $at) . substr($line, $at + strlen($heading[1])) : $line;
+            $firstLine = $quoteHeading && $inlineContainer ? substr($line, 0, $at) . substr($line, $at + strlen($heading[1])) : $line;
             if (!$quoteHeading) {
                 $column += strlen($heading[1]);
             }

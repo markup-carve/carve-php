@@ -95,8 +95,11 @@ trait NormalizesDjotStructure
             $paragraph = false;
             $headingMarker = '';
             $parentList = $lists === [] ? null : $lists[array_key_last($lists)];
+            if ($ended->pendingAttributes !== []) {
+                $out[] = rtrim($ended->pendingParentPrefix);
+            }
             foreach ($ended->pendingAttributes as $attributes) {
-                $out[] = $quoteBoundary . str_repeat(' ', $parentList !== null ? $parentList->target + $parentList->content : 0) . $attributes;
+                $out[] = $ended->pendingParentPrefix . str_repeat(' ', $parentList !== null ? $parentList->target + $parentList->content : 0) . $attributes;
             }
 
             return $notes->last();
@@ -170,9 +173,9 @@ trait NormalizesDjotStructure
                     continue;
                 }
                 if ($noteOwner->pendingAttributes !== []) {
-                    $out[] = '';
+                    $out[] = rtrim($noteOwner->pendingPrefix);
                     foreach ($noteOwner->pendingAttributes as $attributes) {
-                        $out[] = '  ' . $attributes;
+                        $out[] = $noteOwner->pendingPrefix . $attributes;
                     }
                     $noteOwner->pendingAttributes = [];
                 }
@@ -397,6 +400,8 @@ trait NormalizesDjotStructure
                     $attributes = str_starts_with($content, '{') ? $this->readDjotWordAttributes($content, 0) : null;
                     if ($attributes !== null && $attributes['end'] === strlen($content)) {
                         $noteOwner->pendingAttributes[] = $attributes['source'];
+                        $noteOwner->pendingPrefix = '  ' . $inlineQuote['prefix'];
+                        $noteOwner->pendingParentPrefix = $quote;
                         $out[] = $noteHead[1] . substr($body, 0, strlen($body) - strlen($content)) . $emptyNote;
                     } else {
                         $out[] = $noteHead[1] . ($child && $childBody === '+' ? $emptyNote . "\n  " : '') . $this->compactDjotListPrefix($body);
@@ -810,6 +815,9 @@ trait NormalizesDjotStructure
                 $paragraph = !$itemDiv && !$itemHeading && ($itemAttributes === null || $itemAttributes['end'] !== strlen($itemBody))
                     && preg_match('/^\[(?!\^)[^\]\n]+\]:/', $itemBody) !== 1 && !str_contains($body, "\x00DJOTNOTEATTR\x00")
                     && !($itemQuoteDepth > 0 && ($quoteBody === '' || preg_match('/^\[[^\]\n]*\]:/', $quoteBody) === 1 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|(?:[*-][ \t]*){3,}$)/', $quoteBody) === 1));
+                if ($itemQuoteDepth === 0) {
+                    $depth = $quoteDepth;
+                }
                 $blank = $itemDiv;
 
                 continue;
@@ -828,6 +836,15 @@ trait NormalizesDjotStructure
             $dedent = $lists !== [] ? min($indent, $lists[0]->column - $lists[0]->target) : 0;
             $attrs = str_starts_with($visible, '{') ? $this->readDjotWordAttributes($raw, $rawIndent) : null;
             $attributeLine = $attrs !== null && $attrs['end'] === strlen($raw);
+            if ($blank && $attributeLine) {
+                foreach ($lists as $list) {
+                    if ($indent > $list->column && isset($out[$list->start]) && !str_contains($out[$list->start], '{loose}')) {
+                        $out[$list->start] = $quoteForCarve() . str_repeat(' ', $list->target) . "{loose}\n" . $out[$list->start];
+                        $list->loose = true;
+                    }
+                }
+            }
+
             if ($blank && !$this->djotListContains($lists, $indent) && !$attributeLine) {
                 $lists = [];
                 $embeddedOwners->clear();
