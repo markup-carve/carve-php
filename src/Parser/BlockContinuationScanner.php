@@ -1231,10 +1231,12 @@ final class BlockContinuationScanner
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
                 $inlineAuthoredFence = $inlineCodeParagraph || $termContinuation || $failedReplayFence || $releasedNoteFenceText;
                 $failedFenceColumn = null;
+                $noteFence = $markerNoteItem && $trailingState->inFootnoteBody
+                    ? ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) : null;
                 if (
                     $markerNoteItem && ($sawNestedNote || $leadNoteHadBlank) && $trailingState->inFootnoteBody
                     && $column <= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                    && ($noteFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)) !== null
+                    && $noteFence !== null
                     && !$this->sourceFenceCloserInView($lines, $i, $noteFence, $column, true)
                 ) {
                     $trailingState->openParagraph = false;
