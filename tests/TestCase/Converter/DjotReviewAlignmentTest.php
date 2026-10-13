@@ -429,6 +429,9 @@ class DjotReviewAlignmentTest extends TestCase
                 isset($match[1]) ? html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5) : null,
                 $case['source'] . "\n" . $imported,
             );
+            if (array_key_exists('text', $case)) {
+                self::assertSame($case['text'], trim(preg_replace('/\s+/', ' ', strip_tags($html))), $case['source'] . "\n" . $imported);
+            }
             if (array_key_exists('code', $case)) {
                 preg_match('/<code\b[^>]*>(.*?)<\/code>/s', $html, $code);
                 self::assertSame($case['code'], $code[1] ?? null, $case['source'] . "\n" . $imported);

@@ -643,5 +643,33 @@
     "alt": null,
     "href": null,
     "code": "c][]"
+  },
+  {
+    "name": "link-owner-break-0",
+    "source": "- [foo\n- bar][]\n\n[foo - bar]: /u",
+    "alt": null,
+    "href": null,
+    "text": "[foo bar][]"
+  },
+  {
+    "name": "link-owner-break-1",
+    "source": "> [foo\n# bar][]\n\n[foo # bar]: /u",
+    "alt": null,
+    "href": null,
+    "text": "[foo bar][]"
+  },
+  {
+    "name": "link-owner-break-2",
+    "source": "[foo\n# bar][]\n\n[foo # bar]: /u",
+    "alt": null,
+    "href": "/u",
+    "text": "foo # bar"
+  },
+  {
+    "name": "link-owner-break-3",
+    "source": "[foo\n- bar][]\n\n[foo - bar]: /u",
+    "alt": null,
+    "href": "/u",
+    "text": "foo - bar"
   }
 ]

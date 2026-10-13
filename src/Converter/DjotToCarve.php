@@ -265,7 +265,6 @@ class DjotToCarve
                 return $value;
             }
             if (str_contains($key, "\n")) {
-                $image = str_starts_with($match[1][0], '!') && !$this->isDjotEscaped($source, $at);
                 $bracketAt = $at + (str_starts_with($match[1][0], '!') ? 1 : 0);
                 if (preg_match('/\n[ \t]*\n/', $key) === 1 || $this->isDjotEscaped($source, $bracketAt)) {
                     return $value;
@@ -276,7 +275,7 @@ class DjotToCarve
                 }
                 $owner = $collapsedImageLines[$collapsedImageLine];
                 $layout = $this->djotImageAltLayout($key, $owner['quotes'], $owner['itemColumn'], $owner['itemQuote'], $owner['div']);
-                if ($image && !$layout['valid']) {
+                if (!$layout['valid']) {
                     return $value;
                 }
                 $key = preg_replace('/[ \t\r\n]+/', ' ', trim($imageChildText($layout['normalized']), " \t\r\n")) ?? $key;
