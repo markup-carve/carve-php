@@ -1507,12 +1507,20 @@ final class ListBlockBuilder
      * @param array<string> $lines
      * @param int $start
      * @param int $count
+     * @param bool $stopAtDefinition end a lead note before a nested definition
      */
-    private function footnoteDefinitionBodyExtent(array $lines, int $start, int $count): int
+    private function footnoteDefinitionBodyExtent(array $lines, int $start, int $count, bool $stopAtDefinition = false): int
     {
         $end = $start;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
+            // A lead note ends where a nested note starts; a comment keeps its reading until carve#3060 is ruled.
+            if (
+                $stopAtDefinition
+                && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($candidate, " \t")) === 1 || str_starts_with(ltrim($candidate, " \t"), '%%'))
+            ) {
+                break;
+            }
             if (IndentationHelper::isBlankLine($candidate)) {
                 $resumes = $this->footnoteBodyResumesAfter(
                     $lines,
@@ -2260,14 +2268,6 @@ final class ListBlockBuilder
         $leadNoteTextEnd = $this->leadNoteTextEnd($lines);
         $leadNoteFenceLine = $absorbLeadNoteBody ? $this->leadNoteMarkerRunEnd($lines, $firstContentLine === null ? null : (int)$firstContentLine) : -1;
         $leadNoteExtentEnd = $leadNoteFenceLine >= 0 ? $this->footnoteDefinitionBodyExtent($lines, (int)$firstContentLine, $count) : -1;
-        for ($j = $leadNoteFenceLine; $j >= 0 && $j <= $leadNoteExtentEnd; $j++) {
-            $text = ltrim($lines[$j], " \t");
-            if (($this->isBlockAttributeLineCallback)($text) || preg_match(BlockGrammar::NOTE_ENDING_IMAGE_LINE, $text) === 1) {
-                $leadNoteExtentEnd = $j - 1;
-
-                break;
-            }
-        }
         $afterBlank = false;
         $blockState = new TrailingBlockState();
         $blockStateCursor = 0;
@@ -2325,6 +2325,10 @@ final class ListBlockBuilder
                             continue 2;
                         }
                     }
+                    // An unclosed fence in the note runs to the note's end.
+                    $i = min($j, $leadNoteExtentEnd + 1) - 1;
+
+                    continue;
                 }
             }
             if ($i <= $minimumColonEnd && preg_match('/^[ \t]+:{3,}[ \t]*$/', $line) === 1) {
@@ -2349,6 +2353,7 @@ final class ListBlockBuilder
                 $eligible !== null
                 && !isset($eligible[$i])
                 && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $line) !== 1
+                && !($absorbLeadNoteBody && $i === $firstContentLine && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1)
                 && (
                     IndentationHelper::getLeadingColumns($line) !== 0
                     || (
@@ -2530,7 +2535,7 @@ final class ListBlockBuilder
                         )
                         && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
                     ) {
-                        $i = $this->footnoteDefinitionBodyExtent($lines, $i, $count);
+                        $i = $this->footnoteDefinitionBodyExtent($lines, $i, $count, $i === $firstContentLine);
                         $afterBlank = false;
 
                         continue;
