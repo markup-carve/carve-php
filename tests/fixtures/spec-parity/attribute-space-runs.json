@@ -1,0 +1,17 @@
+[
+  {
+    "id": "273-the-inline-attribute-interior-is-space-only-the-attribute-line-is-not-2",
+    "source": "{\t.a\t.b\t}\n\nparagraph\n",
+    "html": "<p>{\t.a\t.b\t}</p>\n<p>paragraph</p>\n"
+  },
+  {
+    "id": "273-the-inline-attribute-interior-is-space-only-the-attribute-line-is-not-3",
+    "source": "{.a\n\t.b}\n\nparagraph\n",
+    "html": "<p class=\"a b\">paragraph</p>\n"
+  },
+  {
+    "id": "273-the-inline-attribute-interior-is-space-only-the-attribute-line-is-not",
+    "source": "*x*{.a .b}\n\n*y*{ .c}\n\n*z*{.d }\n\n[w]{ }\n",
+    "html": "<p><strong class=\"a b\">x</strong></p>\n<p><strong class=\"c\">y</strong></p>\n<p><strong class=\"d\">z</strong></p>\n<p><span>w</span></p>\n"
+  }
+]

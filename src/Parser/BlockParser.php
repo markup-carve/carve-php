@@ -6377,7 +6377,10 @@ class BlockParser
                 return null;
             }
 
-            $part = trim(substr($line, $pos + 1, $end - $pos - 1));
+            $part = trim(substr($line, $pos + 1, $end - $pos - 1), ' ');
+            if (!AttributeParser::inlineInteriorIsSpaceOnly($part)) {
+                return null;
+            }
             // An EMPTY `{}` is not a block-attribute block, so a line holding
             // one is not a block-attribute line - wherever it sits. Joining the
             // payloads with a space made the empty one vanish silently, so

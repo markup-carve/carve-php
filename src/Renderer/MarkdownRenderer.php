@@ -4461,7 +4461,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \t\r\n]+)>/u';
+    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \r\n]+)>/u';
 
     /**
      * Escape a text value, leaving any UNRESOLVED crossref marker readable.

@@ -6349,7 +6349,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     protected function escapeCrossrefTarget(string $text): string
     {
-        if ($text === '' || preg_match('/[> \t\r\n\x00]/', $text) === 1) {
+        if ($text === '' || preg_match('/[> \r\n\x00]/', $text) === 1) {
             throw new SourceUnspellableException('heading_ref', 'an empty target or a target with a closer, whitespace or NUL has no Carve source spelling');
         }
 

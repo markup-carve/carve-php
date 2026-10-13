@@ -20,7 +20,7 @@ class CrossrefLiteralTargetTest extends TestCase
      */
     public static function literalTargets(): iterable
     {
-        foreach (['p\\an', 'ls\\-greet', 'a\\\\b', 'a\\', '日本語'] as $target) {
+        foreach (['p\\an', 'ls\\-greet', 'a\\\\b', 'a\\', '日本語', "a\tb"] as $target) {
             yield $target => [$target];
         }
     }
@@ -59,7 +59,7 @@ class CrossrefLiteralTargetTest extends TestCase
      */
     public static function unspellableTargets(): iterable
     {
-        foreach (['', 'a>b', 'a b', "a\tb", "a\nb", "a\rb", "a\0b"] as $target) {
+        foreach (['', 'a>b', 'a b', "a\nb", "a\rb", "a\0b"] as $target) {
             yield json_encode($target, JSON_THROW_ON_ERROR) => [$target];
         }
     }
