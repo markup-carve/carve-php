@@ -74,9 +74,9 @@ class AttributeParser
         // keep the narrower identifier grammar.
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*+(?:\\\\.[^"\\\\]*+)*+)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*+(?:\\\\.[^\'\\\\]*+)*+)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
             . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'}|\\\\]+)(?=[ \t\r\n]|}|$)|'
             // Skip invalid unquoted values (e.g. key=a|b, 1=v) - consume but don't capture
@@ -217,9 +217,9 @@ class AttributeParser
         // invalid-value skip also prevents numeric keys becoming PHP ints.
         $pattern = '/'
             // Group 1,2: key="double quoted value"
-            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*(?:\\\\.[^"\\\\]*)*)"|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)="([^"\\\\]*+(?:\\\\.[^"\\\\]*+)*+)"|'
             // Group 3,4: key='single quoted value'
-            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*(?:\\\\.[^\'\\\\]*)*)\'|'
+            . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=\'([^\'\\\\]*+(?:\\\\.[^\'\\\\]*+)*+)\'|'
             // Group 5,6: key=unquoted (must end at whitespace/}/end, not invalid chars)
             . '(?:(?<=[ \t\r\n])|^)([a-zA-Z_][a-zA-Z0-9_-]*)=([^ \t\r\n"\'}|\\\\]+)(?=[ \t\r\n]|}|$)|'
             // Skip invalid unquoted values (e.g. key=a|b, 1=v) - consume but don't capture
@@ -344,7 +344,7 @@ class AttributeParser
     {
         // Quoted key=values first, so dots/braces/% inside quotes are protected.
         $rest = preg_replace(
-            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*(?:\\\\.[^"\\\\]*)*"|\'[^\'\\\\]*(?:\\\\.[^\'\\\\]*)*\')/',
+            '/(?:(?<=[ \t\r\n])|^)[a-zA-Z_][a-zA-Z0-9_-]*=(?:"[^"\\\\]*+(?:\\\\.[^"\\\\]*+)*+"|\'[^\'\\\\]*+(?:\\\\.[^\'\\\\]*+)*+\')/',
             ' ',
             $attrStr,
         ) ?? $attrStr;

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer\Utility;
 
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 
 /**
  * Escapes a quoted attribute value or title, inventing no escape the re-parse
@@ -47,5 +48,26 @@ final class QuotedSlotEscaper
         }
 
         return $out;
+    }
+
+    /**
+     * @param string $text
+     * @param bool $inTable
+     *
+     * @return string
+     */
+    public static function escapeImageAlt(string $text, bool $inTable = false): string
+    {
+        if (BracketScanner::rawRunCloses($text) && AttributeParser::processEscapes($text) === $text && preg_match('/\n[ \t]*(?:\[[^\]\n]+\]:|`{3,})/', $text) !== 1) {
+            $escaped = $inTable ? str_replace('|', '\\|', $text) : $text;
+        } else {
+            $escaped = str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $text);
+
+            $escaped = $inTable ? str_replace('|', '\\|', $escaped) : $escaped;
+        }
+
+        $escaped = preg_replace('/(\n[ \t]*)(?=#{1,6}(?:[ \t]|$)|>(?:[ \t]|$)|[-*](?:[ \t]|[-*]{2})|:{1,3}(?:[ \t]|:|$)|`{3,}|~{3,}|\||\^(?:[ \t]|$)|\{|%%|\[[^\]\n]+\]:)/m', '$1\\\\', $escaped) ?? $escaped;
+
+        return preg_replace('/(\n[ \t]*(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z]|(?=\.)))([.)])(?=[ \t])/', '$1\\\\$2', $escaped) ?? $escaped;
     }
 }

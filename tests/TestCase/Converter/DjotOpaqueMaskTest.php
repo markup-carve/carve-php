@@ -48,4 +48,35 @@ class DjotOpaqueMaskTest extends TestCase
         self::assertSame(str_repeat('   {=', 8192) . "\n}", $method->invoke(new DjotToCarve(), $source . "\n}"));
         self::assertSame('   {=html}', $method->invoke(new DjotToCarve(), '`a`{=html}', true, ['code' => false]));
     }
+
+    public function testQuoteBoundaryRequiresSpaceOrLineEnding(): void
+    {
+        $converter = new DjotToCarve();
+        $method = new ReflectionMethod($converter, 'maskDjotOpaque');
+        foreach (['># heading', '>***', '>{.c}', '>:::'] as $head) {
+            $source = $head . "\n[r]: /a`b";
+            self::assertSame($source, $method->invoke($converter, $source, false));
+        }
+        foreach (['> # heading', '> ***', '> {.c}', '> :::', '>'] as $head) {
+            $source = $head . "\n[r]: /a`b";
+            self::assertSame(str_replace('/a`b', '    ', $source), $method->invoke($converter, $source, false));
+        }
+    }
+
+    public function testListHostedBlockBoundariesRemainOpaque(): void
+    {
+        $converter = new DjotToCarve();
+        $method = new ReflectionMethod($converter, 'maskDjotOpaque');
+        foreach (['- ', '1. ', ': ', '- [ ] ', '- # H', '- [a]: /x', '- {.c}', '- :::'] as $head) {
+            $source = $head . "\n[r]: /a`b\n[s]: /c`d";
+            self::assertSame(str_replace(['/a`b', '/c`d', '/x'], ['    ', '    ', '  '], $source), $method->invoke($converter, $source, false));
+        }
+    }
+
+    public function testDefinitionDoesNotJoinCodeAcrossParagraphs(): void
+    {
+        $source = "[r]: /x\n\na `b\n\nc` d";
+        $method = new ReflectionMethod(DjotToCarve::class, 'maskDjotOpaque');
+        self::assertSame(str_replace('/x', '  ', $source), $method->invoke(new DjotToCarve(), $source, false));
+    }
 }

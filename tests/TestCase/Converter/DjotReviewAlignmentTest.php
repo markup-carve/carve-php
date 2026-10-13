@@ -351,9 +351,9 @@ class DjotReviewAlignmentTest extends TestCase
     public function testKeepsCodePaddingOutOfDestinationsAndOpaqueSpans(): void
     {
         foreach (['[x]', '![x]'] as $label) {
-            self::assertSame($label . "(a%60%20b%20%60c)\n", (new DjotToCarve())->convert($label . "(a` b `c)\n"));
-            self::assertSame($label . "(a%60%20b%20%60c) and `  code  `\n", (new DjotToCarve())->convert($label . "(a` b `c) and ` code `\n"));
-            self::assertSame($label . "(a%28b{}c%29)\n", (new DjotToCarve())->convert($label . "(a(b{}c))\n"));
+            self::assertSame((str_starts_with($label, '!') ? '{%%}' : '') . $label . "(a%60%20b%20%60c)\n", (new DjotToCarve())->convert($label . "(a` b `c)\n"));
+            self::assertSame((str_starts_with($label, '!') ? '{%%}' : '') . $label . "(a%60%20b%20%60c) and `  code  `\n", (new DjotToCarve())->convert($label . "(a` b `c) and ` code `\n"));
+            self::assertSame((str_starts_with($label, '!') ? '{%%}' : '') . $label . "(a%28b{}c%29)\n", (new DjotToCarve())->convert($label . "(a(b{}c))\n"));
         }
         foreach (["`` x ``{=html}\n", "$`` x ``\n"] as $source) {
             self::assertSame($source, (new DjotToCarve())->convert($source));
@@ -400,5 +400,46 @@ class DjotReviewAlignmentTest extends TestCase
     private function assertNoLoss(string $source): void
     {
         self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'), $source);
+    }
+
+    public function testReconciledNoteAndAttributeBoundaries(): void
+    {
+        $cases = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-reconciliation-boundaries.json'), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($cases as $case) {
+            $imported = (new DjotToCarve())->convert($case['source']);
+            $html = (new CarveConverter())->convert($imported);
+            $html = preg_replace('/ aria-label="[^"]*"/', '', $html);
+            $html = preg_replace('/>\s+</', '><', trim($html));
+            self::assertSame($case['html'], $html, $case['source'] . "\n" . $imported);
+        }
+    }
+
+    public function testImageReferenceChildText(): void
+    {
+        $cases = array_merge(
+            json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-image-reference-child-text.json'), true, flags: JSON_THROW_ON_ERROR),
+            json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-image-reference-hard-breaks.json'), true, flags: JSON_THROW_ON_ERROR),
+        );
+        foreach ($cases as $case) {
+            $imported = (new DjotToCarve())->convert($case['source']);
+            $html = (new CarveConverter())->convert($imported);
+            preg_match('/<img\b[^>]*\balt="([^"]*)"/', $html, $match);
+            self::assertSame(
+                isset($case['alt']) ? html_entity_decode($case['alt'], ENT_QUOTES | ENT_HTML5) : null,
+                isset($match[1]) ? html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5) : null,
+                $case['source'] . "\n" . $imported,
+            );
+            if (array_key_exists('text', $case)) {
+                self::assertSame($case['text'], trim(preg_replace('/\s+/', ' ', strip_tags($html))), $case['source'] . "\n" . $imported);
+            }
+            if (array_key_exists('code', $case)) {
+                preg_match('/<code\b[^>]*>(.*?)<\/code>/s', $html, $code);
+                self::assertSame($case['code'], $code[1] ?? null, $case['source'] . "\n" . $imported);
+            }
+            if (array_key_exists('href', $case)) {
+                preg_match('/<a\b[^>]*\bhref="([^"]*)"/', $html, $link);
+                self::assertSame($case['href'], $link[1] ?? null, $case['source'] . "\n" . $imported);
+            }
+        }
     }
 }

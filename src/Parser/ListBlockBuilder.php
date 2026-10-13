@@ -1664,9 +1664,6 @@ final class ListBlockBuilder
                 $literalHead = $bottom === null
                     ? null : ($this->getFencedBlockParser)()->parseDivFenceOpener(substr($candidate, $bottom));
                 if ($literalHead !== null && $literalHead['className'] === '|') {
-                    if (!$hasBlankBoundary) {
-                        break;
-                    }
                     $bodyColumn = IndentationHelper::getLeadingColumns($candidate);
                     $walk = $markerStart;
                     while (($head = ($this->getListParser)()->markerHeadAt($candidate, $walk)) !== null) {
@@ -1676,6 +1673,58 @@ final class ListBlockBuilder
                             'attributesWidth' => $head['attrs'],
                         ]);
                         $walk = $head['content'];
+                    }
+                    $literalMarker = ($this->getListParser)()->parseListItemMarker(ltrim($candidate, " \t"));
+                    if (
+                        !$hasBlankBoundary
+                        && $literalMarker !== null
+                        && !isset($literalMarker['checked'])
+                        && isset($lines[$index + 1])
+                        && preg_match(
+                            $literalMarker['type'] === ListBlock::TYPE_BULLET
+                                ? '/^[ \t]*`{3,}[ \t]*$/' : '/^[ \t]*`{3}[ \t]*$/',
+                            $lines[$index + 1],
+                        ) === 1
+                    ) {
+                        for ($later = $index + 1, $total = count($lines); $later + 1 < $total; $later++) {
+                            if (
+                                !IndentationHelper::isBlankLine($lines[$later])
+                                && IndentationHelper::getLeadingColumns($lines[$later]) < $bodyColumn
+                            ) {
+                                break;
+                            }
+                            if (
+                                IndentationHelper::getLeadingColumns($lines[$later]) === $bodyColumn
+                                && ($this->getFencedBlockParser)()->isDivFenceCloser(
+                                    IndentationHelper::stripLeadingColumns($lines[$later], $bodyColumn),
+                                    $literalHead['length'],
+                                )
+                            ) {
+                                $fenceColumn = IndentationHelper::getLeadingColumns($lines[$later + 1]);
+                                if (
+                                    $fenceColumn > 0 && $fenceColumn < $bodyColumn
+                                    && ($this->getFencedBlockParser)()->isCodeFenceHead(
+                                        ltrim($lines[$later + 1], " \t"),
+                                        0,
+                                    )
+                                    && isset($lines[$later + 2])
+                                    && (
+                                        IndentationHelper::getLeadingColumns($lines[$later + 2]) >= $fenceColumn
+                                        || ($this->getFencedBlockParser)()->isDivFenceCloser(
+                                            ltrim($lines[$later + 2], " \t"),
+                                            $literalHead['length'],
+                                        )
+                                    )
+                                ) {
+                                    return true;
+                                }
+
+                                break;
+                            }
+                        }
+                    }
+                    if (!$hasBlankBoundary) {
+                        break;
                     }
                     $next = $lines[$index + 1] ?? '';
                     $emptyLiteral = IndentationHelper::getLeadingColumns($next, $bodyColumn + 1) === $bodyColumn
@@ -1692,7 +1741,8 @@ final class ListBlockBuilder
                     !$lazyParagraph && $subject !== $candidate
                     && ((($index === 1 || $afterHostedComment) && ($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0))
                     || ($this->getFencedBlockParser)()->parseDivFenceOpener($subject) !== null
-                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $subject) === 1)
+                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $subject) === 1
+                    || ReferenceDefinitionExtractor::isDefinitionHead($subject))
                 ) {
                     return true;
                 }
@@ -2293,6 +2343,7 @@ final class ListBlockBuilder
         $minimumColonIsLiteral = false;
         $beforeLeadNote = null;
         $seenBlank = false;
+        $nestedInlineParagraph = false;
         $descendantFenceClosers = null;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
@@ -2307,6 +2358,7 @@ final class ListBlockBuilder
             if (IndentationHelper::isBlankLine($line)) {
                 $afterBlank = true;
                 $seenBlank = true;
+                $nestedInlineParagraph = false;
 
                 continue;
             }
@@ -2355,6 +2407,33 @@ final class ListBlockBuilder
             // A line block's payload is inline content: an indented line in it
             // opens no block, so it carries no authored base.
             if ($i <= $minimumColonEnd && $minimumColonIsLiteral && ($line[0] === ' ' || $line[0] === "\t")) {
+                continue;
+            }
+            if (
+                $nestedInlineParagraph && !$afterBlank
+                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
+            ) {
+                continue;
+            }
+            $previousMarker = $i > 0 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
+            $nestedFence = $previousMarker === null || preg_match('/^`{3,}[ \t]*$/', ltrim($line, " \t")) !== 1
+                ? null : $this->itemFenceOpenerAt($line);
+            $fenceColumn = IndentationHelper::getLeadingColumns($line);
+            if (
+                !$afterBlank && $nestedColumns !== [] && $fenceColumn < end($nestedColumns)
+                && $previousMarker !== null
+                && !$this->lineOpensBlockForLooseness($previousMarker['content'], true)
+                && $nestedFence !== null
+                && !$this->itemFenceCloserAhead(
+                    $lines,
+                    $i,
+                    $nestedFence,
+                    $fenceColumn,
+                    0,
+                )
+            ) {
+                $nestedInlineParagraph = true;
+
                 continue;
             }
             // A CODE-FENCE OPENER AT THE ITEM'S CONTENT COLUMN IS ALWAYS
@@ -2591,11 +2670,12 @@ final class ListBlockBuilder
                         $closer = $this->colonFenceEnd($lines, $i, $length, $count, null);
                         $end = $closer === -1 ? $count - 1 : $closer;
                         $firstBody = ltrim($lines[$i + 1] ?? '', " \t");
+                        $definitionExtent = $this->containerExtentBeforeADefinition($lines, $i, $end);
                         $bodyStartsWithCode = $div['className'] !== '|'
                             && (($this->getFencedBlockParser)()->parseCodeFenceOpener($firstBody) !== null
                                 || ($this->getFencedBlockParser)()->parseRawBlockOpener($firstBody) !== null);
-                        if ($includeSublists) {
-                            $i = $this->containerExtentBeforeADefinition($lines, $i, $end);
+                        if ($includeSublists || $definitionExtent < $end) {
+                            $i = $definitionExtent;
                         } elseif (!$bodyStartsWithCode) {
                             $i = $end;
                         }
@@ -2632,12 +2712,6 @@ final class ListBlockBuilder
                 continue;
             }
             $opener = IndentationHelper::stripLeadingColumns($line, $base);
-            if (
-                $i <= $minimumColonEnd && ReferenceDefinitionExtractor::isDefinitionHead($opener)
-                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $opener) !== 1
-            ) {
-                continue;
-            }
             if (
                 !$this->lineOpensBlockForLooseness($opener, true)
                 || (!$includeSublists && ($this->getListParser)()->parseListItemMarker($opener) !== null)

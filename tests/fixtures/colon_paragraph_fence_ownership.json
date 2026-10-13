@@ -2,12 +2,12 @@
   {
     "id": "depth-1-spaces-1-width-3-backtick-- tail",
     "source": "> - ::: box\n>   - ::: |\n>     ```\n>     :::\n>    ```\n>    :::bad\n>    :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-1-spaces-1-width-3-backtick-lazy",
     "source": "> - ::: box\n>   - ::: |\n>     ```\n>     :::\n>    ```\n>    :::bad\n>    :::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote><p>lazy</p>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-1-spaces-1-width-3-tilde-- tail",
@@ -62,12 +62,12 @@
   {
     "id": "depth-1-spaces-1-width-4-backtick-- tail",
     "source": "> - :::: box\n>   - :::: |\n>     ```\n>     ::::\n>    ```\n>    :::bad\n>    ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-1-spaces-1-width-4-backtick-lazy",
     "source": "> - :::: box\n>   - :::: |\n>     ```\n>     ::::\n>    ```\n>    :::bad\n>    ::::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote><p>lazy</p>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-1-spaces-1-width-4-tilde-- tail",
@@ -122,12 +122,12 @@
   {
     "id": "depth-1-spaces-2-width-3-backtick-- tail",
     "source": "> - ::: box\n>   -  ::: |\n>      ```\n>      :::\n>     ```\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-1-spaces-2-width-3-backtick-lazy",
     "source": "> - ::: box\n>   -  ::: |\n>      ```\n>      :::\n>     ```\n>     :::bad\n>     :::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote><p>lazy</p>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-1-spaces-2-width-3-tilde-- tail",
@@ -182,12 +182,12 @@
   {
     "id": "depth-1-spaces-2-width-4-backtick-- tail",
     "source": "> - :::: box\n>   -  :::: |\n>      ```\n>      ::::\n>     ```\n>     :::bad\n>     ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-1-spaces-2-width-4-backtick-lazy",
     "source": "> - :::: box\n>   -  :::: |\n>      ```\n>      ::::\n>     ```\n>     :::bad\n>     ::::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote><p>lazy</p>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-1-spaces-2-width-4-tilde-- tail",
@@ -242,12 +242,12 @@
   {
     "id": "depth-1-spaces-3-width-3-backtick-- tail",
     "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>      ```\n>      :::bad\n>      :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-1-spaces-3-width-3-backtick-lazy",
     "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>      ```\n>      :::bad\n>      :::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote><p>lazy</p>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-1-spaces-3-width-3-tilde-- tail",
@@ -302,12 +302,12 @@
   {
     "id": "depth-1-spaces-3-width-4-backtick-- tail",
     "source": "> - :::: box\n>   -   :::: |\n>       ```\n>       ::::\n>      ```\n>      :::bad\n>      ::::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-1-spaces-3-width-4-backtick-lazy",
     "source": "> - :::: box\n>   -   :::: |\n>       ```\n>       ::::\n>      ```\n>      :::bad\n>      ::::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote><p>lazy</p>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-1-spaces-3-width-4-tilde-- tail",
@@ -362,12 +362,12 @@
   {
     "id": "depth-2-spaces-1-width-3-backtick-- tail",
     "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >     :::\n> >    ```\n> >    :::bad\n> >    :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-2-spaces-1-width-3-backtick-lazy",
     "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >     :::\n> >    ```\n> >    :::bad\n> >    :::\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-2-spaces-1-width-3-tilde-- tail",
@@ -422,12 +422,12 @@
   {
     "id": "depth-2-spaces-1-width-4-backtick-- tail",
     "source": "> > - :::: box\n> >   - :::: |\n> >     ```\n> >     ::::\n> >    ```\n> >    :::bad\n> >    ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-2-spaces-1-width-4-backtick-lazy",
     "source": "> > - :::: box\n> >   - :::: |\n> >     ```\n> >     ::::\n> >    ```\n> >    :::bad\n> >    ::::\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-2-spaces-1-width-4-tilde-- tail",
@@ -482,12 +482,12 @@
   {
     "id": "depth-2-spaces-2-width-3-backtick-- tail",
     "source": "> > - ::: box\n> >   -  ::: |\n> >      ```\n> >      :::\n> >     ```\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-2-spaces-2-width-3-backtick-lazy",
     "source": "> > - ::: box\n> >   -  ::: |\n> >      ```\n> >      :::\n> >     ```\n> >     :::bad\n> >     :::\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-2-spaces-2-width-3-tilde-- tail",
@@ -542,12 +542,12 @@
   {
     "id": "depth-2-spaces-2-width-4-backtick-- tail",
     "source": "> > - :::: box\n> >   -  :::: |\n> >      ```\n> >      ::::\n> >     ```\n> >     :::bad\n> >     ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-2-spaces-2-width-4-backtick-lazy",
     "source": "> > - :::: box\n> >   -  :::: |\n> >      ```\n> >      ::::\n> >     ```\n> >     :::bad\n> >     ::::\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-2-spaces-2-width-4-tilde-- tail",
@@ -602,12 +602,12 @@
   {
     "id": "depth-2-spaces-3-width-3-backtick-- tail",
     "source": "> > - ::: box\n> >   -   ::: |\n> >       ```\n> >       :::\n> >      ```\n> >      :::bad\n> >      :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-2-spaces-3-width-3-backtick-lazy",
     "source": "> > - ::: box\n> >   -   ::: |\n> >       ```\n> >       :::\n> >      ```\n> >      :::bad\n> >      :::\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-2-spaces-3-width-3-tilde-- tail",
@@ -662,12 +662,12 @@
   {
     "id": "depth-2-spaces-3-width-4-backtick-- tail",
     "source": "> > - :::: box\n> >   -   :::: |\n> >       ```\n> >       ::::\n> >      ```\n> >      :::bad\n> >      ::::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-2-spaces-3-width-4-backtick-lazy",
     "source": "> > - :::: box\n> >   -   :::: |\n> >       ```\n> >       ::::\n> >      ```\n> >      :::bad\n> >      ::::\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-2-spaces-3-width-4-tilde-- tail",
@@ -722,12 +722,12 @@
   {
     "id": "depth-3-spaces-1-width-3-backtick-- tail",
     "source": "> > > - ::: box\n> > >   - ::: |\n> > >     ```\n> > >     :::\n> > >    ```\n> > >    :::bad\n> > >    :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-3-spaces-1-width-3-backtick-lazy",
     "source": "> > > - ::: box\n> > >   - ::: |\n> > >     ```\n> > >     :::\n> > >    ```\n> > >    :::bad\n> > >    :::\nlazy\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-3-spaces-1-width-3-tilde-- tail",
@@ -782,12 +782,12 @@
   {
     "id": "depth-3-spaces-1-width-4-backtick-- tail",
     "source": "> > > - :::: box\n> > >   - :::: |\n> > >     ```\n> > >     ::::\n> > >    ```\n> > >    :::bad\n> > >    ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-3-spaces-1-width-4-backtick-lazy",
     "source": "> > > - :::: box\n> > >   - :::: |\n> > >     ```\n> > >     ::::\n> > >    ```\n> > >    :::bad\n> > >    ::::\nlazy\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-3-spaces-1-width-4-tilde-- tail",
@@ -842,12 +842,12 @@
   {
     "id": "depth-3-spaces-2-width-3-backtick-- tail",
     "source": "> > > - ::: box\n> > >   -  ::: |\n> > >      ```\n> > >      :::\n> > >     ```\n> > >     :::bad\n> > >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-3-spaces-2-width-3-backtick-lazy",
     "source": "> > > - ::: box\n> > >   -  ::: |\n> > >      ```\n> > >      :::\n> > >     ```\n> > >     :::bad\n> > >     :::\nlazy\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-3-spaces-2-width-3-tilde-- tail",
@@ -902,12 +902,12 @@
   {
     "id": "depth-3-spaces-2-width-4-backtick-- tail",
     "source": "> > > - :::: box\n> > >   -  :::: |\n> > >      ```\n> > >      ::::\n> > >     ```\n> > >     :::bad\n> > >     ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-3-spaces-2-width-4-backtick-lazy",
     "source": "> > > - :::: box\n> > >   -  :::: |\n> > >      ```\n> > >      ::::\n> > >     ```\n> > >     :::bad\n> > >     ::::\nlazy\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-3-spaces-2-width-4-tilde-- tail",
@@ -962,12 +962,12 @@
   {
     "id": "depth-3-spaces-3-width-3-backtick-- tail",
     "source": "> > > - ::: box\n> > >   -   ::: |\n> > >       ```\n> > >       :::\n> > >      ```\n> > >      :::bad\n> > >      :::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-3-spaces-3-width-3-backtick-lazy",
     "source": "> > > - ::: box\n> > >   -   ::: |\n> > >       ```\n> > >       :::\n> > >      ```\n> > >      :::bad\n> > >      :::\nlazy\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n:::</code></p></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n:::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-3-spaces-3-width-3-tilde-- tail",
@@ -1022,12 +1022,12 @@
   {
     "id": "depth-3-spaces-3-width-4-backtick-- tail",
     "source": "> > > - :::: box\n> > >   -   :::: |\n> > >       ```\n> > >       ::::\n> > >      ```\n> > >      :::bad\n> > >      ::::\n- tail\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "depth-3-spaces-3-width-4-backtick-lazy",
     "source": "> > > - :::: box\n> > >   -   :::: |\n> > >       ```\n> > >       ::::\n> > >      ```\n> > >      :::bad\n> > >      ::::\nlazy\n",
-    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::bad\n::::</code></p></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
+    "html": "<blockquote><blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><pre><code>:::bad\n::::\n</code></pre></div></li></ul></blockquote></blockquote></blockquote><p>lazy</p>"
   },
   {
     "id": "depth-3-spaces-3-width-4-tilde-- tail",

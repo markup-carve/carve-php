@@ -4,12 +4,111 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use PHPUnit\Framework\TestCase;
 use ReflectionMethod;
 
 class DjotReferenceLayoutTest extends TestCase
 {
+    public function testOpeningBracketsInDefinitionLabelsResolve(): void
+    {
+        foreach (
+            [
+                ["[a[b]: /u\n\n[`a[b`][]", '<p><a href="/u"><code>a[b</code></a></p>'],
+                ["[a[b]: /u\n\n[x][a\\[b]", '<p><a href="/u">x</a></p>'],
+            ] as [$source, $expected]
+        ) {
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            $this->assertSame($expected, rtrim((new CarveConverter())->convert($result->value), "\n"), $source);
+            self::assertSame([], array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference'))));
+        }
+    }
+
+    public function testOpeningBracketAliasesKeepTheirContextsAndAvoidCollisions(): void
+    {
+        foreach (
+            [
+                "[a[b]: /u\n\n| [x][a\\[b] |",
+                "[a[b]: /u\n\n> [x][a\\[b]",
+                "[a[b]: /u\n\n- [x][a\\[b]",
+                "[a[b]: /old\n[a[b]: /u\n\n[x][a\\[b]",
+                "[carve-djot-reference-1]: /other\n[a[b]: /u\n\n[x][a\\[b] [y][carve-djot-reference-1]",
+            ] as $source
+        ) {
+            $converted = (new DjotToCarve())->convert($source);
+            $html = (new CarveConverter())->convert($converted);
+            $this->assertStringContainsString('<a href="/u">x</a>', $html, $source);
+            if (str_contains($source, '/other')) {
+                $this->assertStringContainsString('<a href="/other">y</a>', $html);
+            }
+        }
+    }
+
+    public function testShorthandClassesKeepTheirAppendSemanticsOnReferences(): void
+    {
+        foreach (
+            [
+                ["{.a .md:flex}\n[r]: /u\n\n[x][r]", 'a md:flex'],
+                ["{.a\n  .md:flex}\n[r]: /u\n\n[x][r]", 'a md:flex'],
+                ["[r]: /u\n\n[x][r]{.a .md:flex}", 'a md:flex'],
+                ["{.a class=b .md:flex}\n[r]: /u\n\n[x][r]", 'b md:flex'],
+            ] as [$source, $classes]
+        ) {
+            $native = (new DjotToCarve())->convert($source);
+            self::assertSame('<p><a href="/u" class="' . $classes . '">x</a></p>', rtrim((new CarveConverter())->convert($native), "\n"));
+        }
+    }
+
+    public function testCollapsedBracketLabelUsesItsWholeDefinitionKey(): void
+    {
+        $source = "[a[b]: /u\n[b]: /v\n\n[a\\[b][]";
+        $native = (new DjotToCarve())->convert($source);
+        self::assertSame('<p><a href="/u">a[b</a></p>', rtrim((new CarveConverter())->convert($native), "\n"));
+    }
+
+    public function testBracketAndPipeLabelResolvesInsideItsTableCell(): void
+    {
+        $source = "[a[b|c]: /u\n\n| [x][a\\[b\\|c] |";
+        $native = (new DjotToCarve())->convert($source);
+        $html = (new CarveConverter())->convert($native);
+        self::assertStringContainsString('<table>', $html);
+        self::assertStringContainsString('<td><a href="/u">x</a></td>', $html);
+    }
+
+    public function testLongInheritedAttributesStayShared(): void
+    {
+        $value = str_repeat('v', 32768);
+        foreach (['title', 'class', 'data-long'] as $attribute) {
+            $source = '{' . $attribute . '="' . $value . '"}' . "\n[r]: /u\n\n" . str_repeat('[x][r] ', 1024);
+            $result = (new DjotToCarve())->convert($source);
+            self::assertLessThan(strlen($source) * 2, strlen($result));
+            self::assertSame(1, substr_count($result, $value));
+        }
+    }
+
+    public function testClassOverridesKeepOtherInheritedAttributesShared(): void
+    {
+        $value = str_repeat('v', 32768);
+        $source = '{.base title="' . $value . '"}' . "\n[r]: /u\n\n[x][r] " . str_repeat('[x][r]{.own} ', 1024);
+        $result = (new DjotToCarve())->convert($source);
+        self::assertLessThan(strlen($source) * 3, strlen($result));
+        self::assertLessThanOrEqual(2, substr_count($result, $value));
+        $small = "{.base title=\"a|b\"}\n[r]: /u\n\n| [x][r] | [x][r]{.own} |\n";
+        $expected = "| [x](/u){class=base title=\"a\\|b\"} | [x](/u){title=\"a\\|b\" class=own} |\n";
+        self::assertSame((new CarveConverter())->convert($expected), (new CarveConverter())->convert((new DjotToCarve())->convert($small)));
+    }
+
+    public function testMalformedLabelKeepsLaterReferenceDefaults(): void
+    {
+        $source = "m[i][j\nthen [x][r] and [y][r]{title=own}\n\n{title=base}\n[r]: /u\n";
+        $converter = new DjotToCarve();
+        $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
+        $normalized = $method->invoke($converter, $source);
+        self::assertStringContainsString('[r]: /u {title=base}', $normalized);
+        self::assertStringContainsString('[y][r]{title=own}', $normalized);
+    }
+
     public function testReferenceLabelBoundaries(): void
     {
         $converter = new DjotToCarve();
@@ -23,7 +122,7 @@ class DjotReferenceLayoutTest extends TestCase
                 ["[_link_][]\n\n[link]: /u", '[_link_](/u)'],
             ] as [$source, $expected]
         ) {
-            self::assertSame($expected, $method->invoke($converter, $source));
+            self::assertSame((new CarveConverter())->convert($expected), (new CarveConverter())->convert($method->invoke($converter, $source)));
         }
     }
 
@@ -32,14 +131,14 @@ class DjotReferenceLayoutTest extends TestCase
         $prefix = str_repeat('[a ', 8192);
         $converter = new DjotToCarve();
         $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
-        self::assertSame($prefix . '[_link_](/u)', $method->invoke($converter, $prefix . "[_link_][]\n\n[link]: /u"));
+        self::assertSame($prefix . "[_link_][link]\n\n[link]: /u", $method->invoke($converter, $prefix . "[_link_][]\n\n[link]: /u"));
     }
 
     public function testDefinitionAttributeOrder(): void
     {
         $converter = new DjotToCarve();
         $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
-        self::assertSame('[a](/u){x=last y=middle}', $method->invoke($converter, "[a][r]\n\n{x=first}\n{y=middle x=last}\n[r]: /u"));
+        self::assertSame((new CarveConverter())->convert('[a](/u){x=last y=middle}'), (new CarveConverter())->convert($method->invoke($converter, "[a][r]\n\n{x=first}\n{y=middle x=last}\n[r]: /u")));
     }
 
     public function testManyInlinedDefinitions(): void
@@ -52,7 +151,7 @@ class DjotReferenceLayoutTest extends TestCase
         }
         $converter = new DjotToCarve();
         $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
-        self::assertSame(implode(' ', array_fill(0, 1024, '[a](/u){class=c}')), $method->invoke($converter, implode(' ', $uses) . "\n\n" . implode("\n", $definitions)));
+        self::assertSame((new CarveConverter())->convert(implode(' ', array_fill(0, 1024, '[a](/u){class=c}'))), (new CarveConverter())->convert($method->invoke($converter, implode(' ', $uses) . "\n\n" . implode("\n", $definitions))));
     }
 
     public function testConsecutiveReferenceAttributeBlocks(): void
@@ -61,13 +160,66 @@ class DjotReferenceLayoutTest extends TestCase
         $method = new ReflectionMethod($converter, 'normalizeDjotReferenceUses');
         foreach (
             [
-                ["[a][r]{title=first}{title=last}\n\n{.base}\n[r]: /u", '[a](/u){class=base title=last}'],
-                ["[a][r]{.a}{.b}\n\n{title=base}\n[r]: /u", '[a](/u){title=base class="a b"}'],
+                ["[a][r]{title=first}{title=last}\n\n{.base}\n[r]: /u", '[a](/u){title=last class=base}'],
+                ["[a][r]{.a}{.b}\n\n{title=base}\n[r]: /u", '[a](/u){class="a b" title=base}'],
                 ["[a][r]{.a title=x}{.b title=y}\n\n{.base title=z}\n[r]: /u", '[a](/u){class="a b" title=y}'],
                 ["[a][r]\n\n{.a}\n{.b}\n[r]: /u", '[a](/u){class="a b"}'],
             ] as [$source, $expected]
         ) {
-            self::assertSame($expected, $method->invoke($converter, $source));
+            self::assertSame((new CarveConverter())->convert($expected), (new CarveConverter())->convert($method->invoke($converter, $source)));
         }
+    }
+
+    public function testEscapedReferenceNamesKeepSharedDestinations(): void
+    {
+        $target = '/' . str_repeat('x', 32768);
+        foreach (['escaped', 'styled', 'attributes'] as $shape) {
+            $source = $shape === 'escaped' ? '[a\\*b]: ' . $target . "\n\n" . str_repeat('[link][a\\\\*b] ', 1024)
+                : ($shape === 'attributes' ? "{.target}\n" : '') . '[link]: ' . $target . "\n\n" . str_repeat('[_link_][] ', 1024);
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            self::assertSame(1, substr_count($result->value, $target));
+            self::assertLessThan(strlen($source) * 2, strlen($result->value));
+            self::assertSame([], array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference'))));
+        }
+    }
+
+    public function testEscapedReferenceNamesDistinguishUnresolvedUses(): void
+    {
+        foreach (['*', '^', ' '] as $marker) {
+            $name = 'a\\' . $marker . 'b';
+            foreach (['', "{.t}\n"] as $attrs) {
+                $source = $attrs . '[' . $name . "]: /x\n\n[link][" . $name . "]\n";
+                $result = (new DjotToCarve())->convertWithFidelityReport($source);
+                $losses = array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference')));
+                self::assertCount(1, $losses);
+                self::assertStringNotContainsString('href="/x"', (new CarveConverter())->convert($result->value));
+            }
+        }
+    }
+
+    public function testCaretReferenceNamesDoNotReportFalseLosses(): void
+    {
+        foreach (['a^b', 'a^^b', 'a ^b', 'a^ b'] as $name) {
+            $source = "{.target}\n[" . $name . "]: /x\n\n[link][" . $name . "]\n";
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            self::assertSame([], array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference'))));
+        }
+    }
+
+    public function testNonbreakingLabelWhitespaceDoesNotResolveSpaceDefinition(): void
+    {
+        foreach (['a b', "a\u{00a0}b"] as $label) {
+            $result = (new DjotToCarve())->convertWithFidelityReport('[' . $label . "]: /x\n\n[a\\ b][]\n");
+            self::assertCount(1, array_filter($result->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference')));
+        }
+    }
+
+    public function testPipesInsideNestedAttributesRemainCellBoundaries(): void
+    {
+        $source = "{.c}\n[x]: /u\n\n| h |\n|---|\n| [a{k=\"a|b\"}][x] |\n";
+        $method = new ReflectionMethod(DjotToCarve::class, 'normalizeDjotReferenceUses');
+        $normalized = $method->invoke(new DjotToCarve(), $source);
+        self::assertStringContainsString('[a{k="a|b"}][x]', $normalized);
+        self::assertStringNotContainsString('[x]{class=c}', $normalized);
     }
 }
