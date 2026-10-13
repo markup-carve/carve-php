@@ -228,13 +228,13 @@ class ACodeBlockARubyAndADetailsReachAnInlineOnlySlotTest extends TestCase
         return [
             'MathML in a cell is still dropped' => [
                 '<table><tr><td><math><mfrac><mn>1</mn><mn>2</mn></mfrac></math></td></tr></table>',
-                '',
-                ['structure-unspellable', 'element-dropped'],
+                '| |',
+                ['element-dropped'],
             ],
-            'a blank row is still not a row' => [
+            'a blank row is still a row' => [
                 '<table><tr><td></td></tr></table>',
-                '',
-                ['structure-unspellable'],
+                '| |',
+                [],
             ],
             'a code block in a list item' => [
                 '<ul><li><pre><code>f</code></pre></li></ul>',

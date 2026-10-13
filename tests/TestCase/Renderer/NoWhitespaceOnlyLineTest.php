@@ -112,9 +112,6 @@ class NoWhitespaceOnlyLineTest extends TestCase
 
         $produced = [];
         foreach ($inputs as $path) {
-            if (CorpusPopulation::awaitsBlankTableRowPort($path)) {
-                continue;
-            }
             $slug = basename($path);
             $out = CarveConverter::toCarve((string)file_get_contents($path));
             foreach ($this->offendingLines($slug, $out) as $site) {

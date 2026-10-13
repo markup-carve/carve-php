@@ -158,7 +158,7 @@ final class TableBlockBuilder
 
             // Trailing whitespace after the closing pipe is insignificant
             // (parity with carve-js / carve-rs).
-            if ($lineWithoutRowAttrs === '||' || !preg_match('/^\|.*\|[ \t]*$/', $lineWithoutRowAttrs)) {
+            if (!preg_match('/^\|.*\|[ \t]*$/', $lineWithoutRowAttrs)) {
                 break;
             }
 

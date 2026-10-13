@@ -226,8 +226,8 @@ class HtmlImportTableFidelityTest extends TestCase
         $this->assertCount(1, $ast->value['children'][0]['rows']);
         $this->assertSame('c', $ast->value['children'][0]['caption'][0]['value']);
         $written = $this->converter->convertWithReport($html);
-        $this->assertSame('', trim($written->value));
-        $this->assertContains('structure-unspellable', array_column($written->diagnostics, 'code'));
+        $this->assertSame("| |\n^ c", trim($written->value));
+        $this->assertSame([], $written->diagnostics);
     }
 
     public function testRowlessTablesDoNotLeakOntoTheFollowingParagraph(): void

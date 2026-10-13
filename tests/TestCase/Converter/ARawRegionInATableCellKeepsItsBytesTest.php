@@ -223,18 +223,15 @@ class ARawRegionInATableCellKeepsItsBytesTest extends TestCase
 
     /**
      * What #2362 asked about and what stays: a cell whose content the importer
-     * cannot place is blank, a row of only blank cells is not a table row
-     * (markup-carve/carve#1954), and a table of no rows is nothing. The report
-     * says so, and this pins the OUTPUT rather than the row.
+     * cannot place is blank, and a row of blank cells is still a row (PART 9
+     * CARVE-P9-082), so the table survives with an empty cell.
      */
-    public function testACellEmptiedOfEverythingDropsItsRow(): void
+    public function testACellEmptiedOfEverythingKeepsItsRow(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<table><tr><td><form><input></form></td></tr></table>');
-        $this->assertSame('', trim($result->value));
+        $this->assertSame('| |', trim($result->value));
         $codes = array_map(static fn ($diagnostic): string => $diagnostic->toArray()['code'], $result->diagnostics);
-        $this->assertSame(['structure-unspellable', 'element-dropped', 'element-dropped'], $codes);
-        // A second cell with content keeps the table, so the drop is the blank
-        // ROW's and not the unplaceable cell's.
+        $this->assertSame(['element-dropped', 'element-dropped'], $codes);
         $kept = (new HtmlToCarve())->convertWithReport('<table><tr><td><form><input></form></td><td>b</td></tr></table>');
         $this->assertSame('| | b |', rtrim($kept->value, "\n"));
     }

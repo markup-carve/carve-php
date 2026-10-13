@@ -50,7 +50,8 @@ class DjotLossReportTest extends TestCase
             'empty definition description' => [": apple\n fruit\n\n  Body\n\n: orange\n", 6, 'empty definition description'],
             'interior table separator' => ["|a|b|\n|:-|---:|\n|c|d|\n|cc|dd|\n|-:|:-:|\n|e|f|\n", 5, 'separator inside a table'],
             'separator-only table' => ["|--|--|\n", 1, 'only separator rows'],
-            'blank table' => ["| |\n", 1, 'only row has blank cells'],
+            'blank cell holding a tab' => ["|\t|\n", 1, 'blank table cell holding a tab'],
+            'tab in a later blank row' => ["| a |\n| \t |\n", 2, 'blank table cell holding a tab'],
             'source line before folds' => ["##\nheading\n\n{title=foo}\n[ref]: /url\n\n[missing][]\n", 7, 'unresolved Djot reference'],
             'source line after frontmatter' => ["---\ntitle: Demo\n---\n\n##\n", 5, 'empty heading'],
             'CRLF line numbers' => ["paragraph\r\n\r\n##\r\n", 3, 'empty heading'],
@@ -77,6 +78,15 @@ class DjotLossReportTest extends TestCase
     {
         foreach (['_({_foo_})_', '*****a*****', '__emphasis inside_ emphasis_', "```\n##\n[x][]\n|--|--|\n```\n", '`_({_foo_})_`', "[x][r]\n\n[r]: /url\n", "- a\n\n  - b\n  - c\n\n- d\n", "[x][]\n\n[x]:\n url\n", "See [Introduction][].\n\n# Introduction\n", "[link _and_ link][]\n\n[link and link]: url\n", "[![image](img)](url)\n", "\n|`|\n", '| `a |`', '[see [^1][^2]](v)'] as $source) {
             self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'));
+        }
+    }
+
+    public function testABlankTableRowIsARowAndNoLoss(): void
+    {
+        foreach (["| |\n", "| | |\n", "| a |\n| |\n"] as $source) {
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            self::assertNotContains('structure-unspellable', array_column($result->report()['diagnostics'], 'code'));
+            self::assertSame($source, $result->value);
         }
     }
 

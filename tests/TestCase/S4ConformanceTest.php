@@ -134,9 +134,9 @@ class S4ConformanceTest extends TestCase
         $this->assertSame("<p><span k=\"a:b\">a</span></p>\n", $this->c->convert('[a]{k=a:b}'));
     }
 
-    public function testTwoPipesIsParagraphNotTable(): void
+    public function testTwoPipesAreOneEmptyCell(): void
     {
-        $this->assertSame("<p>||</p>\n", $this->c->convert('||'));
+        $this->assertSame("<table>\n  <tbody>\n    <tr><td></td></tr>\n  </tbody>\n</table>\n", $this->c->convert('||'));
     }
 
     public function testAdjacentBlockAttributeLinesMergeForFollowingBlock(): void

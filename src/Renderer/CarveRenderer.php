@@ -2856,9 +2856,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $cells[] = $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical);
                 $column++;
             }
-            // A row whose every cell is blank is not a table row (markup-carve/carve#1954).
-            if ($cells !== [] && array_diff($cells, [' ', '= ']) === []) {
-                throw new SourceUnspellableException('table_row', 'a table row whose every cell is blank has no Carve source spelling');
+            // PART 11 CARVE-P11-014: a row of empty cells is written as a row.
+            // Only a row with no cell has no spelling: `|` alone is prose.
+            if ($cells === []) {
+                throw new SourceUnspellableException('table_row', 'a table row with no cells has no Carve source spelling');
             }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
         }
