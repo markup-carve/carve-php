@@ -124,7 +124,7 @@ trait NormalizesDjotStructure
                 $literalDepth = null;
             }
             if ($depth > $previousDepth && $previousParagraph && !$endsItem) {
-                $literalDepth = $previousDepth;
+                $literalDepth ??= $previousDepth;
             }
             foreach (array_keys($frames) as $level) {
                 if ($level > $depth) {
