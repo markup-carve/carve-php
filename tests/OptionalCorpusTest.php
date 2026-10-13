@@ -29,6 +29,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Throwable;
 use function array_keys;
 use function basename;
 use function class_exists;
@@ -341,7 +342,7 @@ class OptionalCorpusTest extends TestCase
                 if ($converter !== null) {
                     try {
                         $actual = $converter->convert($crv);
-                    } catch (\Throwable) {
+                    } catch (Throwable) {
                         $actual = null;
                     }
                     if ($actual !== null) {
