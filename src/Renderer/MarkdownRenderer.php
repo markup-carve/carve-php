@@ -3090,6 +3090,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             }
         }
         $last = count($items) - 1;
+        if ($override !== null && $items !== [] && $node->getListType() === ListBlock::TYPE_ORDERED) {
+            $this->recordListDelimiterChanged($node, $node->getMarker() === ')' ? ')' : '.', $override);
+        }
 
         foreach ($items as $index => $child) {
             if ($node->getListType() === ListBlock::TYPE_ORDERED) {

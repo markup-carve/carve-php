@@ -834,7 +834,7 @@ class CliTest extends TestCase
         $this->assertSame(2, $refused['exit']);
         $this->assertStringContainsString(
             '--allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened'
-            . ', carrier-attribute-dropped or list-style-dropped',
+            . ', carrier-attribute-dropped, list-style-dropped or list-delimiter-changed',
             $refused['err'],
         );
     }
@@ -912,6 +912,19 @@ class CliTest extends TestCase
         $this->assertSame(1, $denied['exit']);
         $this->assertSame(0, $allowed['exit']);
         $this->assertSame("1. one\n", $allowed['out']);
+        $this->assertSame('', $allowed['err']);
+    }
+
+    public function testListDelimiterLossCanBeAllowed(): void
+    {
+        $source = "a) one\n\n1) two\n";
+        $denied = $this->runCliInput(['--markdown', '--strict-losses', '--allow-loss', 'list-style-dropped'], $source);
+        $allowed = $this->runCliInput(['--markdown', '--strict-losses', '--allow-loss', 'list-style-dropped', '--allow-loss', 'list-delimiter-changed'], $source);
+
+        $this->assertSame(1, $denied['exit']);
+        $this->assertStringContainsString('list-delimiter-changed', $denied['err']);
+        $this->assertSame(0, $allowed['exit']);
+        $this->assertSame("1) one\n\n1. two\n", $allowed['out']);
         $this->assertSame('', $allowed['err']);
     }
 }
