@@ -44,6 +44,18 @@ class AJoinInsideAVerbatimSpanIsCarriedTest extends TestCase
                 "| `é |\n+ b` |\n",
                 ['type' => 'code', 'value' => 'é b', 'cellWraps' => [['offset' => 1, 'line' => 1]]],
             ],
+            'a join stripped as padding after the opener' => [
+                "| ` |\n+ b ` |\n",
+                ['type' => 'code', 'value' => 'b', 'cellWraps' => [['offset' => 0, 'line' => 1]]],
+            ],
+            'a join stripped as padding before the closer' => [
+                "| ` a |\n+ ` |\n",
+                ['type' => 'code', 'value' => 'a', 'cellWraps' => [['offset' => 1, 'line' => 1]]],
+            ],
+            'an interior join beside padding names its space' => [
+                "| ` a |\n+ b ` |\n",
+                ['type' => 'code', 'value' => 'a b', 'cellWraps' => [['offset' => 1, 'line' => 1]]],
+            ],
             'a rowspan origin names the row' => [
                 "| `a | x |\n| ^ | y |\n+ b` | z |\n",
                 ['type' => 'code', 'value' => 'a | x b', 'cellWraps' => [['offset' => 5, 'line' => 1, 'row' => 1]]],
@@ -77,6 +89,8 @@ class AJoinInsideAVerbatimSpanIsCarriedTest extends TestCase
             'with text around' => ["| x `a |\n+ b` y |\n"],
             'math' => ["| $`a |\n+ |\n+ b` |\n"],
             'raw inline' => ["| `<b |\n+ c>`{=html} |\n"],
+            'padding after the opener' => ["| ` |\n+ b ` |\n"],
+            'padding before the closer' => ["| ` a |\n+ ` |\n"],
         ];
     }
 

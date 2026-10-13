@@ -4907,7 +4907,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // padded: it is emitted verbatim and read back unchanged. Padding it
         // instead grew the span by two spaces on every fmt pass. One-sided space
         // is left as-is (the parser only strips when both sides are spaces).
-        $needsPad = str_starts_with($content, '`')
+        // A join the padding strip took sits at a boundary offset; it is
+        // written as that pad space, so the pad is forced (CARVE-P12-069).
+        $boundaryStart = null;
+        $boundaryEnd = null;
+        if ($cellWraps !== null && $this->tableCellDepth > 0) {
+            $length = mb_strlen($content, 'UTF-8');
+            $interior = [];
+            foreach ($cellWraps as $wrap) {
+                if ($wrap['offset'] === 0 && !str_starts_with($content, ' ')) {
+                    $boundaryStart = $wrap;
+                } elseif ($wrap['offset'] === $length) {
+                    $boundaryEnd = $wrap;
+                } else {
+                    $interior[] = $wrap;
+                }
+            }
+            $cellWraps = $interior;
+        }
+        $needsPad = $boundaryStart !== null || $boundaryEnd !== null
+            || str_starts_with($content, '`')
             || str_ends_with($content, '`')
             || (str_starts_with($content, ' ')
                 && str_ends_with($content, ' ')
@@ -4947,8 +4966,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             throw new SourceUnspellableException('code', 'a leading newline loses its padding where the code span cannot run to the end');
         }
 
+        $marker = static fn (?array $wrap): string => $wrap === null ? ' ' : "\x02" . ($wrap['row'] ?? 0) . ',' . $wrap['line'] . "\x03";
+
         return $needsPad
-            ? $fence . ' ' . $content . ' ' . $fence
+            ? $fence . $marker($boundaryStart) . $content . $marker($boundaryEnd) . $fence
             : $fence . $content . $fence;
     }
 

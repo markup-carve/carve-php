@@ -2524,13 +2524,17 @@ class InlineParser
      * `$text`. The scanner skips the payload, so its joins would otherwise
      * vanish; a join consumed as padding has no space left and is dropped.
      *
+     * A join whose space the padding strip took sits at the boundary: offset 0
+     * after the opener, the value's length before the closer.
+     *
      * @param string $text
      * @param int $start
      * @param string $payload
+     * @param int $pad Spaces the padding strip took on each side.
      *
      * @return array<array{offset: int, line: int, row?: int}>|null
      */
-    protected function verbatimCellWraps(string $text, int $start, string $payload): ?array
+    protected function verbatimCellWraps(string $text, int $start, string $payload, int $pad = 0): ?array
     {
         if ($this->cellWraps === []) {
             return null;
@@ -2539,10 +2543,15 @@ class InlineParser
         $end = $start + strlen($payload);
         foreach ($this->cellWraps as $at => [$line, $row]) {
             $at -= $this->textOrigin;
-            if ($at < $start || $at >= $end || $text[$at] !== ' ') {
+            if ($at < $start - $pad || $at >= $end + $pad || $text[$at] !== ' ') {
                 continue;
             }
-            $wrap = ['offset' => mb_strlen(substr($text, $start, $at - $start), 'UTF-8'), 'line' => $line];
+            $offset = match (true) {
+                $at < $start => 0,
+                $at >= $end => mb_strlen($payload, 'UTF-8'),
+                default => mb_strlen(substr($text, $start, $at - $start), 'UTF-8'),
+            };
+            $wrap = ['offset' => $offset, 'line' => $line];
             if ($row > 0) {
                 $wrap['row'] = $row;
             }
@@ -2560,12 +2569,13 @@ class InlineParser
      * @param string $text
      * @param int $start
      * @param string $payload
+     * @param int $pad
      *
      * @return T
      */
-    private function withVerbatimCellWraps(Code|RawInline|Math $node, string $text, int $start, string $payload): Code|RawInline|Math
+    private function withVerbatimCellWraps(Code|RawInline|Math $node, string $text, int $start, string $payload, int $pad = 0): Code|RawInline|Math
     {
-        $node->setCellWraps($this->verbatimCellWraps($text, $start, $payload));
+        $node->setCellWraps($this->verbatimCellWraps($text, $start, $payload, $pad));
 
         return $node;
     }
@@ -2635,7 +2645,8 @@ class InlineParser
             $padded = substr($text, $contentStart, $closePos - $contentStart);
 
             $content = $this->stripVerbatimPadding($padded);
-            $payloadStart = $contentStart + intdiv(strlen($padded) - strlen($content), 2);
+            $pad = intdiv(strlen($padded) - strlen($content), 2);
+            $payloadStart = $contentStart + $pad;
 
             // Check for raw inline format: `...`{=format}
             // Format must be ONLY {=format} with no other attributes
@@ -2651,7 +2662,7 @@ class InlineParser
                         $endPos = $formatEnd + 1;
 
                         return [
-                            'node' => $this->withVerbatimCellWraps(new RawInline($content, $format), $text, $payloadStart, $content),
+                            'node' => $this->withVerbatimCellWraps(new RawInline($content, $format), $text, $payloadStart, $content, $pad),
                             'pos' => $endPos,
                         ];
                     }
@@ -2661,7 +2672,7 @@ class InlineParser
             }
 
             $code = new Code($content);
-            $code->setCellWraps($this->verbatimCellWraps($text, $payloadStart, $content));
+            $code->setCellWraps($this->verbatimCellWraps($text, $payloadStart, $content, $pad));
 
             // Check for trailing attributes: `code`{.class}{.more}
             // But NOT if there was a {= pattern (failed raw inline attempt should be literal)
@@ -5794,7 +5805,8 @@ class InlineParser
         $padded = substr($text, $contentStart, $closePos - $contentStart);
         $content = $this->stripVerbatimPadding($padded);
         $node = new Math($content, $display);
-        $node->setCellWraps($this->verbatimCellWraps($text, $contentStart + intdiv(strlen($padded) - strlen($content), 2), $content));
+        $pad = intdiv(strlen($padded) - strlen($content), 2);
+        $node->setCellWraps($this->verbatimCellWraps($text, $contentStart + $pad, $content, $pad));
 
         // A trailing `{...}` applies attributes to the math span (math reuses the
         // code-span attribute slot). EXCEPT `{=format}`, the raw-inline form,
