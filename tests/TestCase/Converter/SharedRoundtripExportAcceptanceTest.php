@@ -335,8 +335,14 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
     {
         $resource = dirname(__DIR__, 2) . '/spec/resources/roundtrip-export-acceptance-fixtures.json';
         $fixtures = self::resource();
+        /** @var array<string, array<array<string, mixed>>> $raw */
+        $raw = json_decode((string)file_get_contents($resource), true, flags: JSON_THROW_ON_ERROR);
         foreach (['exportImport', 'importNegative', 'collisionExport', 'markdownExportImport'] as $kind) {
-            foreach ($fixtures[$kind] as $fixture) {
+            foreach ($fixtures[$kind] as $index => $fixture) {
+                // The shared contract marks rows no engine is bound to yet; nested Markdown markers wait on carve-php#3279.
+                if (($raw[$kind][$index]['aheadOfPin'] ?? false) === true) {
+                    continue;
+                }
                 foreach ($kind === 'importNegative' ? $fixture['importModes'] : [null] as $mode) {
                     yield $kind . '/' . $fixture['id'] . ($mode === null ? '' : '/' . $mode) => [$kind, $fixture, $mode];
                 }
