@@ -392,8 +392,8 @@ DJOT;
             }
 
             // LITERAL_INLINE is intentionally not in either list; it folds to CODE via trustClass()
-            // CAPTION is not deniable, so resolution answers before the lists
-            if ($value === NodeType::LITERAL_INLINE || $value === NodeType::CAPTION) {
+            // CAPTION and CELL_WRAP are not deniable, so resolution answers before the lists
+            if ($value === NodeType::LITERAL_INLINE || $value === NodeType::CAPTION || $value === NodeType::CELL_WRAP) {
                 continue;
             }
 

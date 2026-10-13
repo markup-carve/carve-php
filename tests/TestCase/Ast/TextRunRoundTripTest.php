@@ -107,26 +107,22 @@ class TextRunRoundTripTest extends TestCase
         }
     }
 
-    public function testARunJoinedAcrossAGapCarriesNoSpan(): void
+    public function testNoRunIsJoinedAcrossAGap(): void
     {
-        // A cell rebuilt from two source lines is joined by a space the source
-        // does not contain, so the merged value is not a slice of it at any
-        // offset. PART 12 section 4 rates a span selecting the wrong text worse
-        // than none, so the node carries none.
-        $document = $this->converter->parse(
-            "|= a |= b |\n| x | A long description |\n+     | that continues     |\n",
-        );
-        $texts = $this->collectText($document);
-        $joined = null;
+        // A cell rebuilt from two source lines keeps a cell_wrap at the join
+        // (CARVE-P12-069), so no text node spans the gap the `+` marker sits in.
+        $source = "|= a |= b |\n| x | A long description |\n+     | that continues     |\n";
+        $texts = $this->collectText($this->converter->parse($source));
+        $contents = array_map(static fn (Text $text): string => $text->getContent(), $texts);
+
+        $this->assertContains('A long description', $contents);
+        $this->assertContains('that continues', $contents);
         foreach ($texts as $text) {
-            if (str_contains($text->getContent(), 'that continues')) {
-                $joined = $text;
+            $position = $text->getPos();
+            if ($position !== null) {
+                $this->assertSame($text->getContent(), substr($source, $position->startOffset, $position->endOffset - $position->startOffset));
             }
         }
-
-        $this->assertNotNull($joined, 'the continued cell should be one text node');
-        $this->assertSame('A long description that continues', $joined->getContent());
-        $this->assertNull($joined->getPos(), 'a run joined across a gap must not claim a span');
     }
 
     protected function firstCitationGroup(Node $node): ?CitationGroup

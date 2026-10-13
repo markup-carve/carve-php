@@ -39,6 +39,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -2285,7 +2286,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $classes = $node->getClassEntries();
 
         return $classes !== []
-            && $classes[0] !== 'line-block'
             && preg_match('/^[A-Za-z0-9_][\w-]*$/D', $classes[0]) === 1;
     }
 
@@ -2834,6 +2834,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $needsDelimiter = $needsDelimiter || !$trailingColspansOnly;
             }
         }
+        // The `+` lines each row is followed by, one slot per cell (CARVE-P12-069).
+        $continuations = [];
+        foreach ($tableRows as $rowIndex => $row) {
+            $width = count(array_filter($row->getChildren(), static fn (Node $child): bool => $child instanceof TableCell));
+            $continuations[$rowIndex] = array_fill(0, $row->getContinuationLines(), array_fill(0, $width, ' '));
+        }
         foreach ($tableRows as $rowIndex => $row) {
             $cells = [];
             $column = 0;
@@ -2853,7 +2859,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     && $rowIndex > 0
                     && !$cell->hasExplicitVerticalAlignment()
                     && ($headerValigns[$column] ?? null) === $cell->getVerticalAlignment();
-                $cells[] = $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical);
+                $cells[] = $this->placeCellWraps(
+                    $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical),
+                    $continuations,
+                    $rowIndex,
+                    $column,
+                    $row,
+                );
                 $column++;
             }
             // PART 11 CARVE-P11-014: a row of empty cells is written as a row.
@@ -2862,6 +2874,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 throw new SourceUnspellableException('table_row', 'a table row with no cells has no Carve source spelling');
             }
             $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
+            foreach ($continuations[$rowIndex] as $line) {
+                $rows[] = '+' . implode('|', $line) . '|';
+            }
         }
         if ($needsDelimiter) {
             $headerCells = array_values(array_filter(
@@ -2890,7 +2905,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $this->separatorExpansionRemaining -= $width;
                 $separators[] = $this->renderTableSeparator($width, $alignment);
             }
-            array_splice($rows, 1, 0, '|' . implode('|', $separators !== [] ? $separators : ['---']) . '|');
+            array_splice($rows, 1 + count($continuations[0] ?? []), 0, '|' . implode('|', $separators !== [] ? $separators : ['---']) . '|');
         }
         if ($node->hasCaption()) {
             $caption = $node->getCaption();
@@ -2956,6 +2971,59 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             TableCell::ALIGN_CENTER => ':' . $dashes . ':',
             default => $dashes,
         };
+    }
+
+    /**
+     * Cut a rendered cell at its `cell_wrap` markers and write each later part
+     * into the free slot of the `+` line it names.
+     *
+     * @param string $rendered
+     * @param array<int, array<int, array<int, string>>> $continuations
+     * @param int $rowIndex
+     * @param int $cellIndex
+     * @param \MarkupCarve\Carve\Node\Block\TableRow $row
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     *
+     * @return string
+     */
+    protected function placeCellWraps(string $rendered, array &$continuations, int $rowIndex, int $cellIndex, TableRow $row): string
+    {
+        if (preg_match_all('/\x02([0-9]+),([0-9]+)\x03/', $rendered, $markers, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) === 0) {
+            return $rendered;
+        }
+        $head = substr($rendered, 0, $markers[0][0][1]) . ' ';
+        $count = count($markers);
+        foreach ($markers as $at => $marker) {
+            $start = $marker[0][1] + strlen($marker[0][0]);
+            $end = $markers[$at + 1][0][1] ?? strlen($rendered);
+            $part = substr($rendered, $start, $end - $start);
+            if ($at === $count - 1 && str_ends_with($part, ' ')) {
+                $part = substr($part, 0, -1);
+            }
+            $targetRow = $rowIndex + (int)$marker[1][0];
+            $targetLine = (int)$marker[2][0] - 1;
+            $line = $continuations[$targetRow][$targetLine] ?? null;
+            if ($line === null || $cellIndex >= count($line)) {
+                throw new SourceUnspellableException('table_row', 'cell_wrap points outside its continuation row');
+            }
+            // A colspan marker may carry another fragment into this cell on the
+            // same line; the schema names no column, so take the next free slot.
+            $slot = null;
+            foreach ($line as $index => $value) {
+                if ($index >= $cellIndex && $value === ' ') {
+                    $slot = $index;
+
+                    break;
+                }
+            }
+            if ($slot === null) {
+                throw new SourceUnspellableException('table_row', 'cell_wrap has no free continuation cell');
+            }
+            $continuations[$targetRow][$targetLine][$slot] = $this->padCell('', $part);
+        }
+
+        return $head;
     }
 
     /**
@@ -3906,6 +3974,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 ? $this->verbatimSentinels[4]
                 : $withAttrs('[' . $this->verbatimSentinels[4] . ']'),
             $node instanceof SoftBreak => "\n",
+            // renderTable() moves the part after a marker onto its `+` line.
+            $node instanceof CellWrap => $this->tableCellDepth > 0 ? "\x02" . $node->getRow() . ',' . $node->getLine() . "\x03" : ' ',
             // A line block's own spelling is decided in renderInlines(), which
             // is the only place that can see the line the break ends
             // (PART 11 §7c) - see verseLineBreak().

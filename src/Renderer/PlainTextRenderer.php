@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -449,6 +450,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof NonBreakingSpace => "\0",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
+                $node instanceof CellWrap => ' ',
                 $node instanceof HardBreak => "\n",
                 $node instanceof RawInline => $this->dropRaw($node, 'inline'),
                 // §27: always emitted (unlike raw passthrough above), as plain prose.
