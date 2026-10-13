@@ -152,7 +152,7 @@
   {
     "id": "matrix-q2328",
     "source": "> - a\n>     - child\n>     ```\n>\n>       ```\n>   ~~~\nafter\n",
-    "html": "<blockquote><ul><li>a\n      <ul><li>child\n<code></code></li></ul><code>\n~~~</code></li></ul></blockquote><p>after</p>"
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n<code></code><pre><code></code></pre></li></ul><pre><code></code></pre></li></ul></blockquote><p>after</p>"
   },
   {
     "id": "matrix-q2351",
