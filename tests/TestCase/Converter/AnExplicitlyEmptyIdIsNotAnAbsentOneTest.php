@@ -69,7 +69,7 @@ class AnExplicitlyEmptyIdIsNotAnAbsentOneTest extends TestCase
                 "{id=\"\" .note}\n::: admonition\nx\n:::\n",
             ],
             'on a line block' => [
-                '<div class="line-block" id=""><span>a</span></div>',
+                '<div data-carve-line-block class="line-block" id=""><span>a</span></div>',
                 "{id=\"\"}\n::: |\na\n:::\n",
             ],
             'on a fenced container' => [
