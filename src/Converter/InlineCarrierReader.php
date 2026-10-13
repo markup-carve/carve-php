@@ -6,15 +6,19 @@ namespace MarkupCarve\Carve\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
+use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Inline\Span;
+use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -36,16 +40,39 @@ final class InlineCarrierReader
 
     private bool $changed = false;
 
+    private string $token = '';
+
     public function prepare(string $markdown): string
     {
+        if (!str_contains($markdown, CarrierMarkers::PREFIX)) {
+            return $markdown;
+        }
         $token = 'CARVEINLINE';
         while (str_contains($markdown, $token)) {
             $token .= 'X';
         }
+        $this->token = $token;
         $lines = explode("\n", $markdown);
+        $lastTicks = [];
+        $paragraphs = [];
+        $offsets = [];
+        $paragraph = 0;
+        $offset = 0;
+        foreach ($lines as $index => $line) {
+            if (trim(preg_replace('/^(?:[ \t]*>[ ]?)+/', '', $line) ?? $line) === '') {
+                $paragraph++;
+            }
+            $paragraphs[$index] = $paragraph;
+            $offsets[$index] = $offset;
+            preg_match_all('/`+/', $line, $runs, PREG_OFFSET_CAPTURE);
+            foreach ($runs[0] as [$run, $at]) {
+                $lastTicks[$paragraph][strlen($run)] = $offset + $at;
+            }
+            $offset += strlen($line) + 1;
+        }
         $fence = null;
         $ticks = 0;
-        foreach ($lines as &$line) {
+        foreach ($lines as $index => &$line) {
             $subject = preg_replace('/^(?:[ \t]*>[ ]?)+/', '', $line) ?? $line;
             if (preg_match('/^[ ]{0,3}(`{3,}|~{3,})/', $subject, $match) === 1) {
                 if ($fence === null) {
@@ -60,10 +87,13 @@ final class InlineCarrierReader
                 continue;
             }
             if (
-                $fence !== null || preg_match('/^(?: {4}|\t)/', $subject) === 1
+                $fence !== null
                 || (str_contains($subject, '|') && preg_match('/^\s*\|/', $subject) === 1)
             ) {
                 continue;
+            }
+            if (trim($subject) === '') {
+                $ticks = 0;
             }
             $whole = CarrierMarkers::payload(trim($subject));
             if ($whole !== null && $whole !== '[' && !str_starts_with($whole, ']{') && !str_starts_with($whole, '</#')) {
@@ -72,7 +102,7 @@ final class InlineCarrierReader
             $length = strlen($line);
             $out = '';
             for ($at = 0; $at < $length;) {
-                if ($line[$at] === '\\') {
+                if ($ticks === 0 && $line[$at] === '\\') {
                     $out .= substr($line, $at, 2);
                     $at += 2;
 
@@ -80,7 +110,7 @@ final class InlineCarrierReader
                 }
                 if ($line[$at] === '`') {
                     $run = strspn($line, '`', $at);
-                    if ($ticks === 0) {
+                    if ($ticks === 0 && ($lastTicks[$paragraphs[$index]][$run] ?? -1) > $offsets[$index] + $at) {
                         $ticks = $run;
                     } elseif ($ticks === $run) {
                         $ticks = 0;
@@ -117,18 +147,52 @@ final class InlineCarrierReader
         if ($this->markers === []) {
             return $source;
         }
-        $replacements = [];
-        foreach ($this->markers as $key => $marker) {
-            preg_match_all('/`+/', $marker, $runs);
-            $width = max([0, ...array_map(strlen(...), $runs[0])]) + 1;
-            $fence = str_repeat('`', $width);
-            $replacements[$key] = $fence . $marker . $fence . '{=html}';
-        }
-        $source = strtr($source, $replacements);
         $document = (new CarveConverter())->parse($source);
+        $this->restoreTokens($document);
+        $restoredSource = (new CarveRenderer())->render($document);
         $this->visit($document);
 
-        return !$this->changed || $this->damaged ? $source : (new CarveRenderer())->render($document);
+        return !$this->changed || $this->damaged ? $restoredSource : (new CarveRenderer())->render($document);
+    }
+
+    private function restoreTokens(Node $node, bool $opaque = false): void
+    {
+        $opaque = $opaque || $node instanceof Table || $node instanceof CodeBlock || $node instanceof RawBlock
+            || $node instanceof Code || $node instanceof RawInline || $node instanceof Image;
+        if (
+            $node instanceof Text || $node instanceof Code || $node instanceof RawInline || $node instanceof RawBlock
+            || $node instanceof CodeBlock || $node instanceof Math
+        ) {
+            $node->setContent(strtr($node->getContent(), $this->markers));
+        }
+        $children = [];
+        foreach ($node->getChildren() as $child) {
+            if ($child instanceof Comment && str_contains($child->getContent(), $this->token)) {
+                $restored = new Comment(strtr($child->getContent(), $this->markers), $child->getFenceLength(), $child->isDelimited());
+                $restored->setAttributesWithOrder($child->getAttributes(), $child->getAttributeOrder());
+                $restored->setPos($child->getPos());
+                $children[] = $restored;
+
+                continue;
+            }
+            if (!$opaque && $child instanceof Text) {
+                $parts = preg_split('/(' . preg_quote($this->token, '/') . '[0-9]+Z)/', $child->getContent(), -1, PREG_SPLIT_DELIM_CAPTURE);
+                if ($parts !== false && count($parts) > 1) {
+                    foreach ($parts as $part) {
+                        if (isset($this->markers[$part])) {
+                            $children[] = new RawInline($this->markers[$part], 'html');
+                        } elseif ($part !== '') {
+                            $children[] = new Text($part);
+                        }
+                    }
+
+                    continue;
+                }
+            }
+            $this->restoreTokens($child, $opaque);
+            $children[] = $child;
+        }
+        $node->setChildren($children);
     }
 
     private function visit(Node $node): void
