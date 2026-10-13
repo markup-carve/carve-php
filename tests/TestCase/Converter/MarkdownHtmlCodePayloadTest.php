@@ -151,7 +151,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
     public function testCodeFallbacksKeepTheirOriginalSourceLine(): void
     {
         foreach ([false, true] as $mode) {
-            foreach (["Title\n<code>*a*</code>\n=====", "a\nb <code></code>"] as $markdown) {
+            foreach (["Title\n<code>*a*</code>\n=====", "a\nb <code></code> z"] as $markdown) {
                 $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport($markdown);
                 $rows = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'raw-code-fallback'));
                 $this->assertCount(1, $rows);

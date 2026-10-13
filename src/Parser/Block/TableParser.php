@@ -968,7 +968,9 @@ class TableParser
      */
     public function isColspanMarker(string $cellContent): bool
     {
-        return trim($cellContent, ' ') === '<';
+        // `|< |` is a glued alignment run ended by a space (PART 9 §5 T11):
+        // an empty left-aligned cell, not a span marker.
+        return trim($cellContent, ' ') === '<' && !str_starts_with($cellContent, '< ');
     }
 
     /**
