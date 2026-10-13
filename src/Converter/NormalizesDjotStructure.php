@@ -63,6 +63,7 @@ trait NormalizesDjotStructure
         $emptyItemAt = null;
         foreach ($lines as $n => $original) {
             $emptyItem = false;
+            $emptyItemColumn = null;
             $masked = $mask[$n];
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $original, $quoteMatch);
             $quote = $quoteMatch[0] ?? '';
@@ -128,10 +129,14 @@ trait NormalizesDjotStructure
             if (
                 ($blank || !$paragraph || ($lists !== [] && $quoteDepth === $depth)) && $visible === $text && $fences[$n] === $original
                 && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) !== 1
-                && preg_match('/^(?:(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+)+(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text) === 1
+                && preg_match('/^((?:(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+)+)(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text, $emptyNested) === 1
             ) {
                 $text = rtrim($text, " \t") . ' +';
                 $visible = $text;
+                $paragraph = false;
+                $emptyItem = true;
+                [$nestedWidth] = $this->leadingIndent((string)preg_replace('/[^ \t]/', ' ', $emptyNested[1]));
+                $emptyItemColumn = $indent + $nestedWidth;
             }
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
             // The marker would attach a flush-left block; a blank keeps it out.
@@ -144,7 +149,7 @@ trait NormalizesDjotStructure
             ) {
                 $out[] = $emptyItemAt[2];
             }
-            $emptyItemAt = $emptyItem ? [$quoteDepth, $indent, rtrim($quote)] : null;
+            $emptyItemAt = $emptyItem ? [$quoteDepth, $emptyItemColumn ?? $indent, rtrim($quote)] : null;
             if ($quoteDepth < $depth && ($blockStart || $item || $this->rejectedDjotCommentStartsBlock($visible))) {
                 if ($item && !$blank) {
                     $out[] = rtrim($quote);
