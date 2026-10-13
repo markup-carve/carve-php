@@ -5078,7 +5078,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 || $slot === 'class'
                 || $slot === "\0carve-delimiter-row"
                 || $slot === "\0carve-compact-items"
-                || $slot === "\0carve-leading-blank"
                 || $slot === "\0carve-prefix-attrs"
                 || $slot === "\0carve-indent-blank-lines"
                 || $slot === "\0carve-literal-symbol"
