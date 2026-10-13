@@ -128,6 +128,38 @@ A `-->` inside a payload is written `--\>`, and a backslash the payload itself
 carries before such a `>` doubles. Nothing else is escaped: the payload is Carve
 source, so Carve's own escape is the one the reader already has.
 
+A bare div's opener is `:::` with nothing after it, so its marker is
+`<!-- carve: ::: -->`, the same bytes as its closer's. The import tells them
+apart by the containers already open: a bare fence of the innermost opener's
+width closes it, any other opens one. The padded `<!-- carve: :::  -->` an older
+export wrote is still read.
+
+A payload may span lines. A definition term written over two lines keeps both,
+and the import reads the whole comment as one marker and restores the line
+break:
+
+~~~
+<!-- carve: :: A term that
+wraps onto the next line -->
+**A term that
+wraps onto the next line**
+~~~
+
+### Reference links and abbreviations
+
+Under roundtrip export a link that resolved through a reference definition keeps
+its reference form, `[a][r]` or `[r][]`, and the definition writes its `[r]: /u`
+line where it stands (CARVE-P11-028). Markdown has the construct, so no marker
+is needed. Without the mode the link is written inline and a referenced
+definition writes no line. A label Markdown would case-fold onto another
+definition's stays inline.
+
+The Markdown import reads `*[HTML]: HyperText` as an abbreviation definition by
+default, because this target writes that line (CARVE-P11-033 T1), and an
+`<abbr>` whose title is the expansion a definition gives its text comes back as
+the plain term. `new MarkdownToCarve(convertAbbreviations: false)` keeps the
+line literal as `\*[HTML]: HyperText`.
+
 ### A damaged marker set is never guessed
 
 A Markdown editor that deleted one marker, reordered two or left a set unbalanced

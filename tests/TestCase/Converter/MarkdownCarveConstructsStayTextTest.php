@@ -38,10 +38,6 @@ class MarkdownCarveConstructsStayTextTest extends TestCase
     {
         return [
             'inline footnote' => ["a ^[note] b\n", '<p>a ^[note] b</p>'],
-            'abbreviation definition' => [
-                "*[HTML]: HyperText Markup Language\n\nHTML is a language.\n",
-                "<p>*[HTML]: HyperText Markup Language</p>\n<p>HTML is a language.</p>",
-            ],
             'fenced div' => ["::: note\nx\n:::\n", "<p>::: note\nx\n:::</p>"],
             'attributed span and block attribute line' => [
                 "a [t]{.c} b\n\n{.cls}\n\npara\n",
@@ -85,14 +81,17 @@ class MarkdownCarveConstructsStayTextTest extends TestCase
         $this->assertStringContainsString('doc-noteref', $html);
     }
 
-    public function testTheAbbreviationsFlagOptsBackIn(): void
+    public function testAnAbbreviationDefinitionIsReadUnlessTurnedOff(): void
     {
-        $html = $this->render(
-            "*[HTML]: HyperText Markup Language\n\nHTML is a language.\n",
-            new MarkdownToCarve(convertAbbreviations: true),
-        );
+        // CARVE-P11-033 T1: the Markdown target writes this line, so the
+        // import reads it by default and keeps it literal only when turned off.
+        $markdown = "*[HTML]: HyperText Markup Language\n\nHTML is a language.\n";
 
-        $this->assertStringContainsString('<abbr title="HyperText Markup Language">HTML</abbr>', $html);
+        $this->assertStringContainsString('<abbr title="HyperText Markup Language">HTML</abbr>', $this->render($markdown));
+        $this->assertSame(
+            "<p>*[HTML]: HyperText Markup Language</p>\n<p>HTML is a language.</p>",
+            $this->render($markdown, new MarkdownToCarve(convertAbbreviations: false)),
+        );
     }
 
     public function testTheFencedDivsFlagOptsBackIn(): void
