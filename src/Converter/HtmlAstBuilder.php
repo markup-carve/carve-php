@@ -4596,6 +4596,12 @@ final class HtmlAstBuilder
                 return [['type' => 'raw_inline', 'content' => rtrim(HtmlDomLoader::serialize($node), "\n"), 'format' => 'html']];
             }
             if ($tag === 'span' && $attrs === []) {
+                if ($span['children'] !== [] && $node->attributes->length > 0
+                    && !self::hasConflictingTextCarriers($node)
+                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
+                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')) {
+                    $this->session->unwrappedBareSpans[$node] = null;
+                }
                 if ($span['children'] === []) {
                     $this->session->droppedEmptyElements[$node] = null;
                 }

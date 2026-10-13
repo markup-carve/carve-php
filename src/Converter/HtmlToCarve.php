@@ -423,6 +423,7 @@ class HtmlToCarve
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
         $this->unwrappedSameKindImportSpans = null;
+        $this->unwrappedBareImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
@@ -454,6 +455,7 @@ class HtmlToCarve
         $this->keptRawImportElements = $session->keptRawElements;
         $this->droppedEmptyImportElements = $session->droppedEmptyElements;
         $this->unwrappedSameKindImportSpans = $session->unwrappedSameKindSpans;
+        $this->unwrappedBareImportSpans = $session->unwrappedBareSpans;
         $this->droppedEmptyImportHeadings = $session->droppedEmptyHeadings;
         $this->urlListImportCarriers = $session->urlListCarriers;
         $this->droppedBlankImportRows = $session->droppedBlankTableRows;
@@ -1523,6 +1525,9 @@ class HtmlToCarve
     private function directAstUnwraps(DOMElement $node): bool
     {
         $tag = strtolower(HtmlDomLoader::elementName($node));
+        if ($tag === 'span' && isset($this->unwrappedBareImportSpans[$node])) {
+            return true;
+        }
         if ($tag === 'aside') {
             $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
 
@@ -3830,6 +3835,7 @@ class HtmlToCarve
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
         $this->unwrappedSameKindImportSpans = null;
+        $this->unwrappedBareImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
@@ -5054,6 +5060,9 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, string|null>|null
      */
     private ?SplObjectStorage $unwrappedSameKindImportSpans = null;
+
+    /** @var \SplObjectStorage<\DOMElement, null>|null */
+    private ?SplObjectStorage $unwrappedBareImportSpans = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null
