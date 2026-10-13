@@ -4745,7 +4745,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +' . $colon . '))/';
-        if ($nodeType === 'code') {
+        if ($nodeType === 'code' && preg_match('/^`+\n/', $written) === 1) {
             $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]' . $colon . '))/';
         }
 
