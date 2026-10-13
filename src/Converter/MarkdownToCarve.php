@@ -898,6 +898,10 @@ class MarkdownToCarve
      */
     protected function carrierFenceTightAfter(array $lines, int $markerAt, string $host): bool
     {
+        // Quote-hosted fence bodies can lose their list indent on import.
+        if (str_contains($host, '>')) {
+            return false;
+        }
         $opener = ltrim($this->withoutCarrierHost($lines[$markerAt + 1] ?? '', $host), " \t");
         if (preg_match('/^(`{3,}|~{3,})/', $opener, $match) !== 1) {
             return false;
