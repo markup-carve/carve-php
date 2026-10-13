@@ -7567,19 +7567,20 @@ class BlockParser
         $fenceChar = null;
         $fenceLength = 0;
         $fenceBase = 0;
+        $afterFenceCloser = false;
         $k = 0;
         while ($k < $n) {
             $sl = $subLines[$k];
             if ($fenceChar !== null) {
-                // The closer sits at the fence's own base or at the item's
-                // column, and nowhere between: a run in that band is payload,
-                // so the fence stays open across the blank lines below it.
+                // A run below the authored base closes once its available
+                // prefix has been removed. A deeper run remains payload.
                 $closerColumn = IndentationHelper::getLeadingColumns($sl, $fenceBase + 1);
                 if (
-                    ($closerColumn === 0 || $closerColumn === $fenceBase)
+                    $closerColumn <= $fenceBase
                     && $this->fencedBlockParser->isCodeFenceCloser(ltrim($sl, " \t"), $fenceChar, $fenceLength)
                 ) {
                     $fenceChar = null;
+                    $afterFenceCloser = true;
                 }
                 $k++;
 
@@ -7587,13 +7588,14 @@ class BlockParser
             }
             $authored = $sl;
             if (
-                ($k === 0 || $subLines[$k - 1] === '')
+                ($k === 0 || $subLines[$k - 1] === '' || $afterFenceCloser)
                 && ($subCol < 0 || IndentationHelper::getLeadingColumns($sl, $subCol) < $subCol)
             ) {
                 // Normalize only a block-start line owned by this item. A
                 // nested item's closing run belongs to its own recursive scan.
                 $authored = ltrim($sl, " \t");
             }
+            $afterFenceCloser = false;
             $opener = $this->fencedBlockParser->parseCodeFenceOpener($authored)
                 ?? $this->fencedBlockParser->parseRawBlockOpener($authored);
             if ($opener !== null) {

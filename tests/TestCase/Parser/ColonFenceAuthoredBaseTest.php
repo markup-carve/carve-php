@@ -114,7 +114,7 @@ class ColonFenceAuthoredBaseTest extends TestCase
             ["- head\n      ::: box\n      a\n    :::\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::\ntail</p>\n    </div>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n    :::\n      :::\n\n  tail\n", "<ul>\n  <li><p>head</p>\n    <div class=\"box\">\n      <p>a\n:::</p>\n    </div>\n    <p>tail</p>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n    :::\n- next\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::</p>\n    </div>\n  </li>\n  <li>next</li>\n</ul>\n"],
-            ["- head\n\n      ``` \n      a\n    ```\n      ```\n\n  tail\n", "<ul>\n  <li><p>head</p>\n    <pre><code>a\n  ```\n</code></pre>\n    <p>tail</p>\n  </li>\n</ul>\n"],
+            ["- head\n\n      ``` \n      a\n    ```\n      ```\n\n  tail\n", "<ul>\n  <li>head\n    <pre><code>a\n</code></pre>\n    <pre><code>\ntail\n</code></pre>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n \t:::\n\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::</p>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n  \t:::\n\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::</p>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n  \t  :::\n\n  tail\n", "<ul>\n  <li><p>head</p>\n    <div class=\"box\">\n      <p>a</p>\n    </div>\n    <p>tail</p>\n  </li>\n</ul>\n"],

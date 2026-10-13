@@ -1936,8 +1936,8 @@ final class ListBlockBuilder
         $end = $start;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
-            // A matching run below the authored base closes after its
-            // available prefix is removed (CARVE-P0-004).
+            // A flush run closes here. A lower run stays in the extent so
+            // rebasing can remove its available prefix (CARVE-P0-004).
             if (($this->getFencedBlockParser)()->isCodeFenceCloser($candidate, $fence[0], strlen($fence))) {
                 break;
             }
@@ -1945,10 +1945,10 @@ final class ListBlockBuilder
             $local = IndentationHelper::isBlankLine($candidate)
                 ? ''
                 : IndentationHelper::stripLeadingColumns($candidate, $base);
-            // A run past the opener's column is verbatim body. A run at or
-            // below it closes after the available prefix is stripped.
+            // A run at the opener's column ends this extent. A deeper run
+            // remains payload; a lower one still needs rebasing.
             if (
-                IndentationHelper::getLeadingColumns($candidate) <= $base
+                IndentationHelper::getLeadingColumns($candidate) === $base
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser($local, $fence[0], strlen($fence))
             ) {
                 break;
