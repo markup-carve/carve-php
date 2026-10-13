@@ -114,15 +114,24 @@ trait NormalizesDjotStructure
                     unset($frames[$level]);
                 }
             }
+            if ($depth > $previousDepth && isset($frames[$previousDepth])) {
+                $ownerIndex = array_key_last($frames[$previousDepth]);
+                $frames[$previousDepth][$ownerIndex]['attributes'] = [];
+            }
             $previousDepth = $depth;
-            $previousParagraph = $text !== '' && preg_match('/^(?:[-*+][ \t]|[0-9A-Za-z]+[.)][ \t]|#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|\[|\{)/', $visible) !== 1;
+            $wholeAttributes = str_starts_with($visible, '{') && ($this->readDjotWordAttributes($body, $indent)['end'] ?? -1) === strlen(rtrim($body));
+            $previousParagraph = $text !== '' && !$wholeAttributes && preg_match('/^(?:[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|\[(?:\^)?[^\]\n]*\]:)/', $visible) !== 1;
             if ($literalDepth !== null && $depth > $literalDepth) {
                 continue;
             }
             if ($depth < 1 || $text === '') {
                 continue;
             }
-            $frame = $frames[$depth] ?? null;
+            $stack = $frames[$depth] ?? [];
+            while ($stack !== [] && $stack[array_key_last($stack)]['column'] > $indent) {
+                array_pop($stack);
+            }
+            $frame = $stack !== [] ? $stack[array_key_last($stack)] : null;
             if (preg_match('/^([-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+/', $visible, $item) === 1) {
                 $kind = $this->djotListKind($item[1]);
                 if (str_contains('-*+', $item[1]) && preg_match('/^\[[ xX]\](?:[ \t]+|$)/', substr($text, strlen($item[0]))) === 1) {
@@ -141,28 +150,44 @@ trait NormalizesDjotStructure
                         preg_match('/^[ \t]*>(?:[ \t]|$)/', substr($prefix, $prefixEnds[$level]), $part);
                         $prefixEnds[] = $prefixEnds[$level] + strlen($part[0] ?? '');
                     }
-                    foreach ($frames as $ownerDepth => $owner) {
-                        if ($ownerDepth > $depth) {
-                            continue;
-                        }
-                        $ownerIndent = strspn(substr($prefix, $prefixEnds[$ownerDepth]), " \t");
-                        if ($ownerDepth < $depth && $ownerIndent <= $owner['column']) {
-                            continue;
-                        }
-                        preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $lines[$owner['start']], $startPrefix);
-                        if (!isset($before[$owner['start']])) {
-                            $before[$owner['start']] = [($startPrefix[0] ?? '') . str_repeat(' ', $owner['column']) . $hold('{loose}', true), rtrim($startPrefix[0] ?? '')];
+                    foreach ($frames as $ownerDepth => $owners) {
+                        foreach ($owners as $owner) {
+                            if ($ownerDepth > $depth) {
+                                continue;
+                            }
+                            $ownerIndent = strspn(substr($prefix, $prefixEnds[$ownerDepth]), " \t");
+                            if ($ownerDepth < $depth && $ownerIndent <= $owner['column']) {
+                                continue;
+                            }
+                            preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $lines[$owner['start']], $startPrefix);
+                            if (!isset($before[$owner['start']])) {
+                                $before[$owner['start']] = [($startPrefix[0] ?? '') . str_repeat(' ', $owner['column']) . $hold('{loose}', true), rtrim($startPrefix[0] ?? '')];
+                            }
                         }
                     }
                 }
-                $frames[$depth] = ['column' => $indent, 'start' => $same !== null ? $frame['start'] : $row, 'kind' => $same ?? $kind, 'attributes' => []];
+                if ($frame !== null && $indent === $frame['column']) {
+                    array_pop($stack);
+                }
+                $stack[] = ['column' => $indent, 'start' => $same !== null ? $frame['start'] : $row, 'kind' => $same ?? $kind, 'attributes' => []];
+                $frames[$depth] = $stack;
             } elseif (str_starts_with($visible, '{')) {
                 $attrs = $this->readDjotWordAttributes($body, $indent);
                 if ($depth >= 2 && $frame !== null && $indent > $frame['column'] && $attrs !== null && $attrs['end'] === strlen(rtrim($body)) && !$this->djotCommentContinuesParagraph($source, $at)) {
-                    $frames[$depth]['attributes'][] = ['row' => $row, 'wire' => $attrs['source']];
+                    $stack[array_key_last($stack)]['attributes'][] = ['row' => $row, 'wire' => $attrs['source']];
+                    $frames[$depth] = $stack;
+                } elseif ($frame !== null && $indent <= $frame['column']) {
+                    unset($frames[$depth]);
+                } elseif ($frame !== null && ($attrs['end'] ?? -1) !== strlen(rtrim($body))) {
+                    $stack[array_key_last($stack)]['attributes'] = [];
+                    $frames[$depth] = $stack;
                 }
-            } elseif ($frame !== null && $indent <= $frame['column']) {
-                unset($frames[$depth]);
+            } elseif ($frame !== null) {
+                $stack[array_key_last($stack)]['attributes'] = [];
+                $frames[$depth] = $stack;
+                if ($indent <= $frame['column']) {
+                    unset($frames[$depth]);
+                }
             }
         }
         $output = [];
@@ -450,6 +475,12 @@ trait NormalizesDjotStructure
             }
             $outsideQuoteItem = $quoteList !== null && $quoteDepth > $quoteList->depth && $listColumn($quoteList) < $quoteList->column + 1;
             if ($noteHead !== null) {
+                foreach ($pendingAttributes as $attribute) {
+                    if (array_key_exists($attribute['row'], $out)) {
+                        $out[$attribute['row']] = '';
+                    }
+                }
+                $pendingAttributes = [];
                 if ($noteOwner === null && ($quotedNoteItem !== null || $inlineNoteItem !== null) && $physicalQuoteDepth < $depth) {
                     $out[] = $quoteBoundary;
                     $depth = $physicalQuoteDepth;
@@ -607,14 +638,6 @@ trait NormalizesDjotStructure
                     $nativeRemainder = ltrim($nativeRemainder, " \t");
                     $lists = [];
                 }
-                if ($paragraph && $quoteDepth > $depth && !$outsideQuoteItem) {
-                    $markerAt = strlen($this->djotClosedQuoteBoundary($quoteForCarve(), max(0, $depth - ($noteOwner->depth ?? 0)))) - 1;
-                    $written = $originalForCarve($nativeRemainder);
-                    $out[] = substr($written, 0, $markerAt) . '\\' . substr($written, $markerAt);
-                    $blank = false;
-
-                    continue;
-                }
                 while ($divs !== [] && $quoteDepth < $divs[array_key_last($divs)]['depth']) {
                     array_pop($divs);
                 }
@@ -646,18 +669,7 @@ trait NormalizesDjotStructure
 
                 continue;
             }
-            $blockIndent = $indent;
-            if ($quoteDepth > $depth) {
-                $remainder = $original;
-                for ($level = 0; $level < $depth; $level++) {
-                    $remainder = substr(ltrim($remainder, " \t"), 1);
-                    if (str_starts_with($remainder, ' ') || str_starts_with($remainder, "\t")) {
-                        $remainder = substr($remainder, 1);
-                    }
-                }
-                $blockIndent = strspn($remainder, " \t");
-            }
-            $rawFencedItem = preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+(?:\[[ xX]\][ \t]+)?[`~]{3,}/', $text) === 1;
+            $rawFencedItem = preg_match('/^(?:[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|(?:(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)[`~]{3,}/', $text) === 1;
             $rawReferenceItem = preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+\[(?!\^)[^\]\n]+\]:/', $text) === 1;
             $wholeAttributes = str_starts_with($visible, '{') && ($this->readDjotWordAttributes($raw, $indent)['end'] ?? -1) === strlen($raw);
             $rawItem = preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+[^ \t]/', $visible) === 1;

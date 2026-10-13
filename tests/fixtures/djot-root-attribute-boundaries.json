@@ -1111,5 +1111,45 @@
   {
     "source": "> - outer\n>\n>   > - inner\n>   >\n>   >   {.x}\n>   >\n>   > - peer\n>\n>   {.y}\n>\n> - end",
     "html": "<blockquote>\n<ul>\n<li>\n<p>outer</p>\n<blockquote>\n<ul>\n<li>\n<p>inner</p>\n</li>\n<li class=\"x\">\n<p>peer</p>\n</li>\n</ul>\n</blockquote>\n</li>\n<li class=\"y\">\n<p>end</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> {.a}\n> > {.b}\n\nword",
+    "html": "<blockquote>\n<blockquote class=\"a\">\n</blockquote>\n</blockquote>\n<p class=\"b\">word</p>\n"
+  },
+  {
+    "source": "> {.a}\n\n> {.b}\n\nword",
+    "html": "<blockquote>\n</blockquote>\n<blockquote class=\"a\">\n</blockquote>\n<p class=\"b\">word</p>\n"
+  },
+  {
+    "source": "> {.a}\n\n>\n\n[r]: /u\n\n[x][r]",
+    "html": "<blockquote>\n</blockquote>\n<blockquote class=\"a\">\n</blockquote>\n<p><a href=\"/u\">x</a></p>\n"
+  },
+  {
+    "source": "> > - x\n> >\n> >   {.a}\n> >\n> >   p\n> >\n> > - y",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>x</p>\n<p class=\"a\">p</p>\n</li>\n<li>\n<p>y</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - x\n> >\n> >   {.a}\n> >\n> > {.b}\n> >\n> > - y",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<ul class=\"a b\">\n<li>\ny\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> Mr. Smith\n> > - a\n> >\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<p>Mr. Smith\n&gt; - a\n&gt;\n&gt;   \n&gt;\n&gt; - b</p>\n</blockquote>\n"
+  },
+  {
+    "source": "> [x](/u) intro\n> > - a\n> >\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<p><a href=\"/u\">x</a> intro\n&gt; - a\n&gt;\n&gt;   \n&gt;\n&gt; - b</p>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - outer\n> >\n> >   - inner\n> >\n> > - peer\n> >\n> >   {.x}\n> >\n> > - end",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>outer</p>\n<ul>\n<li>\ninner\n</li>\n</ul>\n</li>\n<li>\n<p>peer</p>\n</li>\n<li class=\"x\">\n<p>end</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ] ```\n\n   _e_",
+    "html": "<ol>\n<li>\n<p>[ ] <code></code></p>\n<p><em>e</em></p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "[^n]: - [ ] a\n      - [ ] b",
+    "html": ""
   }
 ]

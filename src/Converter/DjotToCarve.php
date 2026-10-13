@@ -350,7 +350,7 @@ class DjotToCarve
         $carve = strtr($carve, $dropInherited);
         if ($itemAttributeValues !== []) {
             $carve = preg_replace_callback('/^[ \t>]*' . preg_quote($itemAttributePrefix, '/') . '(B?)(\d+)\x00\n(?:[ \t>]*\n)*([ \t>]*)([-*+]|[^ \t\n]+)([ \t]+)/m', static fn (array $match): string => $match[1] === 'B' ? $match[3] . ($itemAttributeValues[(int)$match[2]] ?? '') . "\n" . $match[3] . $match[4] . $match[5] : $match[3] . $match[4] . ($itemAttributeValues[(int)$match[2]] ?? '') . $match[5], $carve) ?? $carve;
-            $carve = preg_replace_callback('/([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
+            $carve = preg_replace_callback('/(?<![ \t])([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
         }
         if ($preserveHeadingIds) {
             $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
@@ -2674,7 +2674,7 @@ class DjotToCarve
     {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
-        $fenceOpener = '/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+(?:\[[ xX]\][ \t]+)?))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/';
+        $fenceOpener = '/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|(?:(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/';
         $heldFence = null;
         $previousBlock = true;
         $normalizeBoundary = true;
@@ -5514,7 +5514,7 @@ class DjotToCarve
         $output = [];
         foreach (explode("\n", $source) as $line) {
             $at = $this->djotContentStart($line);
-            if (preg_match('/\G\[[ xX]\][ \t]+/', $line, $taskPrefix, offset: $at) === 1) {
+            if (preg_match('/[-*+][ \t]+$/', substr($line, 0, $at)) === 1 && preg_match('/\G\[[ xX]\][ \t]+/', $line, $taskPrefix, offset: $at) === 1) {
                 $at += strlen($taskPrefix[0]);
             }
             $lineLength = strlen($line);
