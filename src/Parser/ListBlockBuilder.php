@@ -158,6 +158,15 @@ final class ListBlockBuilder
             : (str_ends_with($sourceTail, $lineTail)
                 ? strlen($sourceTail) - strlen($lineTail)
                 : ($this->state->frame->currentContentColumns[$listSourceLine] ?? 0));
+        $behindMarkup = false;
+        $markerLine = ltrim($lineTail, " \t");
+        if ($baseIndent > 0 && str_ends_with($sourceTail, $markerLine)) {
+            $markerColumn = strlen($sourceTail) - strlen($markerLine);
+            if (preg_match('/\S/', substr($sourceTail, 0, $listOpeningColumn)) === 1) {
+                $behindMarkup = true;
+                $listOpeningColumn = $markerColumn;
+            }
+        }
 
         /** @var string $listType */
         $listType = $listInfo['type'];
@@ -1271,6 +1280,9 @@ final class ListBlockBuilder
             $list->setAttributesWithOrder($listAttributes, $listAttributeOrder);
         }
         $this->consumeLooseKey($list);
+        if ($behindMarkup) {
+            $list->setPos($this->spanForLineMap([$listSourceLine], $listOpeningColumn));
+        }
         $parent->appendChild($list);
 
         return $i - $start;
