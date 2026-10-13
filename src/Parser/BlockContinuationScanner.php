@@ -2827,10 +2827,14 @@ final class BlockContinuationScanner
                 if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null) {
                     return false;
                 }
-                // An opener past the host column may close at the host column;
-                // any other line at that column ends the search.
-                if ($hostColumns !== null && $indent === $hostColumns && !IndentationHelper::isBlankLine($line)) {
-                    return ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length']);
+                // A closer below the authored base uses its available prefix.
+                if ($hostColumns !== null && $indent >= $hostColumns && !IndentationHelper::isBlankLine($line)) {
+                    if (($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length'])) {
+                        return true;
+                    }
+                    if ($indent === $hostColumns) {
+                        return false;
+                    }
                 }
 
                 continue;
@@ -3149,7 +3153,7 @@ final class BlockContinuationScanner
             // the matching closer is seen. The closer itself is still part of
             // the code block, so the trailing block remains code.
             if (
-                ($state->fence->pairedInline || IndentationHelper::getLeadingColumns($line) === $state->fence->column)
+                ($state->fence->pairedInline || IndentationHelper::getLeadingColumns($line) <= $state->fence->column)
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->fence->char, $state->fence->length)
             ) {
                 $state->fence = null;

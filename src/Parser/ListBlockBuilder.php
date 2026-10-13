@@ -1936,10 +1936,8 @@ final class ListBlockBuilder
         $end = $start;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
-            // A run at the container's own column closes the fence
-            // there; every other line below the base is payload, so it
-            // must not end the extent and be re-read as a base of its
-            // own (CARVE-P0-004).
+            // A matching run below the authored base closes after its
+            // available prefix is removed (CARVE-P0-004).
             if (($this->getFencedBlockParser)()->isCodeFenceCloser($candidate, $fence[0], strlen($fence))) {
                 break;
             }
@@ -1947,12 +1945,10 @@ final class ListBlockBuilder
             $local = IndentationHelper::isBlankLine($candidate)
                 ? ''
                 : IndentationHelper::stripLeadingColumns($candidate, $base);
-            // A CLOSER SITS AT THE OPENER'S COLUMN, NOT PAST IT
-            // (carve-php#1906). A run indented further is verbatim body,
-            // so the fence stays open and owns it - the same rule the
-            // top level already applies. `$base` is the opener's column.
+            // A run past the opener's column is verbatim body. A run at or
+            // below it closes after the available prefix is stripped.
             if (
-                IndentationHelper::getLeadingColumns($candidate) === $base
+                IndentationHelper::getLeadingColumns($candidate) <= $base
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser($local, $fence[0], strlen($fence))
             ) {
                 break;
@@ -2842,10 +2838,9 @@ final class ListBlockBuilder
                 // Payload below the base keeps the residue past the
                 // container's column, which the dedent would clamp away. A
                 // code payload is measured from the authored base instead
-                // (CARVE-P0-004), so it loses its whole available prefix. A
-                // fence-shaped line keeps its residue: dedented, it would close.
+                // (CARVE-P0-004), so it loses its whole available prefix.
                 if (
-                    ($colon !== null || ($code !== null && (!$codeOpens || preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $lines[$j]) === 1)))
+                    ($colon !== null || ($code !== null && !$codeOpens))
                     && !IndentationHelper::isBlankLine($lines[$j])
                     && IndentationHelper::getLeadingColumns($lines[$j], $base) < $base
                 ) {
