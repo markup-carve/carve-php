@@ -338,5 +338,30 @@
     "id": "comment-controls/lazy-ordered",
     "source": "1. :::\n  y\n   :::\n",
     "html": "<ol>\n  <li>\n    <div>\n\n    </div>\n  </li>\n</ol>\n<p>y\n:::</p>"
+  },
+  {
+    "id": "comment-controls/quoted-claim-item",
+    "source": "> - ::: box\n> - b\n>   :::\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n    <li>b\n      <div>\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
+  },
+  {
+    "id": "comment-controls/quoted-claim-lazy",
+    "source": "> - ::: box\ntail\n>   :::\nmore\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n<blockquote><p>:::\nmore</p></blockquote>"
+  },
+  {
+    "id": "comment-controls/quoted-claim-nested",
+    "source": "> > - ::: box\n> tail\n> >   :::\nmore\n",
+    "html": "<blockquote>\n  <blockquote>\n    <ul>\n      <li>\n        <div class=\"box\">\n\n        </div>\n      </li>\n    </ul>\n  </blockquote>\n  <p>tail</p>\n  <blockquote><p>:::\nmore</p></blockquote>\n</blockquote>"
+  },
+  {
+    "id": "comment-controls/comment-marker",
+    "source": "- a\n  %%%\n  x\n  %%%\n - s\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>"
+  },
+  {
+    "id": "comment-controls/hosted-link-definition",
+    "source": "- ::: box\n    [r]: /u\n  :::\n\n[t][r]\n",
+    "html": "<ul>\n  <li>\n    <div class=\"box\">\n      <p>[r]: /u</p>\n    </div>\n  </li>\n</ul>\n<p>[t][r]</p>"
   }
 ]

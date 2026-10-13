@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -543,11 +544,10 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
      */
     public function testAnUnterminatedCommentOpenerDoesNotSwallowTheDocument(): void
     {
-        $html = $this->html("- a\n  %%% x\n # h\n\n- b\n");
-
-        $this->assertStringContainsString('<p>a</p>', $html);
-        $this->assertStringContainsString('<p># h</p>', $html);
-        $this->assertStringContainsString('<p>b</p>', $html);
+        $source = "- a\n  %%% x\n # h\n\n- b\n";
+        $expected = PinnedOracleHtml::forSource($source);
+        $expected = (string)preg_replace('/\s+/', ' ', $expected);
+        $this->assertSame(trim(str_replace('> <', '><', $expected)), $this->html($source));
     }
 
     /**
