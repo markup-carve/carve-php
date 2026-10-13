@@ -7516,7 +7516,7 @@ class MarkdownToCarve
         while (str_contains($line, $nativeTagPrefix)) {
             $nativeTagPrefix .= 'N';
         }
-        $line = preg_replace_callback('~<u>[^<]+</u>/(?=[A-Za-z0-9])~i', static function (array $match) use (&$nativeTags, $nativeTagPrefix): string {
+        $line = preg_replace_callback('~(?<![A-Za-z0-9])<u>(?!\s)[^<]*\S</u>/(?=[A-Za-z0-9])~iu', static function (array $match) use (&$nativeTags, $nativeTagPrefix): string {
             $token = $nativeTagPrefix . count($nativeTags) . "\0";
             $nativeTags[$token] = '/';
 
