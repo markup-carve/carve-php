@@ -27,6 +27,9 @@ class DjotEmptyListItemTest extends TestCase
     {
         return [
             'between items' => ["- a\n-\n- c", "- a\n- +\n- c", '<ul><li>a</li><li></li><li>c</li></ul>'],
+            'before an empty quote' => ["-\n>", "- +\n\n>", '<ul><li></li></ul><blockquote></blockquote>'],
+            'before a one-column empty quote' => ["-\n >", "- +\n\n>", '<ul><li></li></ul><blockquote></blockquote>'],
+            'marker-line child' => ['- -', '- - +', '<ul><li><ul><li></li></ul></li></ul>'],
             'dash' => ['-', '- +', '<ul><li></li></ul>'],
             'number' => ['1.', '1. +', '<ol><li></li></ol>'],
             'letter' => ['a.', 'a. +', '<ol type="a"><li></li></ol>'],

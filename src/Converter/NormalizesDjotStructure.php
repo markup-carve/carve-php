@@ -73,6 +73,10 @@ trait NormalizesDjotStructure
             $text = substr($raw, $indent);
             $visible = substr($view, $indent);
             if ($text === '') {
+                if ($emptyItemAt !== null && $quoteDepth > $emptyItemAt[0] && strspn($original, " \t") < $emptyItemAt[1] + 2) {
+                    $out[] = $emptyItemAt[2];
+                    $original = ltrim($original, " \t");
+                }
                 while ($divs !== [] && $quoteDepth < $divs[array_key_last($divs)]['depth']) {
                     array_pop($divs);
                 }
@@ -120,6 +124,14 @@ trait NormalizesDjotStructure
                 $visible = $text;
                 $paragraph = false;
                 $emptyItem = true;
+            }
+            if (
+                ($blank || !$paragraph || ($lists !== [] && $quoteDepth === $depth)) && $visible === $text && $fences[$n] === $original
+                && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) !== 1
+                && preg_match('/^(?:(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+)+(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text) === 1
+            ) {
+                $text = rtrim($text, " \t") . ' +';
+                $visible = $text;
             }
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
             // The marker would attach a flush-left block; a blank keeps it out.
