@@ -2570,6 +2570,25 @@ final class ListBlockBuilder
             $end = $i;
             $code = ($this->getFencedBlockParser)()->parseCodeFenceOpener($opener)
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($opener);
+            if ($code !== null && $skipOnlyClosedOpaqueAtMinimum) {
+                for (; $blockStateCursor < $i; $blockStateCursor++) {
+                    if (($this->isBlockAttributeLineCallback)(ltrim($lines[$blockStateCursor], " \t"))) {
+                        continue;
+                    }
+                    $blockState = $this->advanceTrailingStateWithFenceLookahead(
+                        $blockState,
+                        $lines[$blockStateCursor],
+                        $lines,
+                        $blockStateCursor,
+                        true,
+                    );
+                }
+                if ($blockState->openParagraph && !$this->itemFenceCloserAhead($lines, $i, $code, $base, 0)) {
+                    $afterBlank = false;
+
+                    continue;
+                }
+            }
             // A VERBATIM extent has no blank line: a whitespace-only line in a
             // fenced body is a content line, so the rebase below owes it the
             // same dedent as every other line (CARVE-P11-016, PART 9 section 24
