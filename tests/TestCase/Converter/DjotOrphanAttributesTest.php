@@ -48,4 +48,51 @@ class DjotOrphanAttributesTest extends TestCase
             self::assertSame($expected, preg_replace('/>\s+</', '><', $html), $source);
         }
     }
+
+    public function testPendingAttributesMatchDjot(): void
+    {
+        $rows = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-pending-attributes.json'), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($rows as $row) {
+            $html = (new CarveConverter())->convert((new DjotToCarve())->convert($row['source']));
+            $normalize = static function (string $value): string {
+                $value = preg_replace('/<\/?tbody>/', '', $value);
+                $value = preg_replace('/\s+/', ' ', $value);
+
+                return trim(preg_replace_callback('/> | </', static fn (array $match): string => trim($match[0]), $value));
+            };
+            self::assertSame($normalize($row['html']), $normalize($html), $row['source']);
+        }
+    }
+
+    public function testManyPendingItemsSurviveThePcreStackLimit(): void
+    {
+        $items = array_map(static fn (int $index): string => 'c' . $index, range(0, 8191));
+        $classes = implode(' ', $items);
+        $source = '{.' . implode(' .', $items) . "}\n\nword";
+        $imported = (new DjotToCarve())->convert($source);
+        self::assertSame('<p class="' . $classes . '">word</p>', trim((new CarveConverter())->convert($imported)));
+    }
+
+    public function testEscapeDensePendingValuesSurviveThePcreStackLimit(): void
+    {
+        $source = '{title="' . str_repeat('\\"', 8192) . "\"}\n\nword";
+        $imported = (new DjotToCarve())->convert($source);
+        self::assertSame('<p title="' . str_repeat('&quot;', 8192) . '">word</p>', trim((new CarveConverter())->convert($imported)));
+    }
+
+    public function testLongPendingValuesSurviveChainedQuoteExits(): void
+    {
+        $value = str_repeat('v', 32768);
+        $classes = [];
+        $source = str_repeat('> ', 64) . '{title="' . $value . '"}' . "\n";
+        for ($index = 0; $index < 63; $index++) {
+            $classes[] = 'c' . $index;
+            $source .= str_repeat('> ', 63 - $index) . '{.c' . $index . '}' . "\n";
+        }
+        $source .= "\nword";
+        $imported = (new DjotToCarve())->convert($source);
+        self::assertSame(1, substr_count($imported, $value));
+        self::assertLessThan(strlen($source) * 2, strlen($imported));
+        self::assertStringContainsString('<p title="' . $value . '" class="' . implode(' ', $classes) . '">word</p>', (new CarveConverter())->convert($imported));
+    }
 }

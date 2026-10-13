@@ -101,13 +101,13 @@ final class DjotPlaceholderPrefixesTest extends TestCase
     public function testNulCharactersInImportedDataAreRestored(): void
     {
         foreach (["# a\0b", "[a](x\0y)", "![a](x\0y)", "[a]{key=\"x\0y\"}", "<x:a\0b>"] as $source) {
-            self::assertSame($source, (new DjotToCarve())->convert($source));
+            self::assertSame((str_starts_with($source, '![') ? '{%%}' : '') . $source, (new DjotToCarve())->convert($source));
         }
     }
 
     public function testOriginalNulIsRestoredBeforeFlatteningAFormattedImageLabel(): void
     {
-        self::assertSame("![a\u{FFFD}](x)", (new DjotToCarve())->convert("![*a*\0](x)"));
+        self::assertSame("{%%}![a\u{FFFD}](x)", (new DjotToCarve())->convert("![*a*\0](x)"));
     }
 
     public function testEscapedNulStaysInsideItsAttributedWord(): void

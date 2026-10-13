@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
-use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Node\Block\Paragraph;
+use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
+use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 
 trait ReportsDjotLosses
 {
@@ -17,11 +21,18 @@ trait ReportsDjotLosses
     private function djotLosses(string $source): array
     {
         $source = str_replace(["\r\n", "\r"], "\n", $source);
+        $accepted = [];
+        $this->foldDjotReferences($source, $accepted);
         $mask = $this->djotEmphasisMask($source);
         $findings = [];
         $add = static function (int $at, string $message) use (&$findings): void {
             $findings[] = [$at, $message];
         };
+        if ($this->hasDjotCodeLayoutCandidates($source)) {
+            $this->closeDjotTableCode($source, static function (int $at) use ($add): void {
+                $add($at, 'Multiline inline code uses raw HTML; plain-text export omits it.');
+            });
+        }
         DjotEmphasis::convert($source, $mask, static fn (string $text): string => $text, [], static function (int $at) use ($add): void {
             $add($at, 'Emphasis exceeding the native nesting budget is flattened; its text is preserved.');
         }, $this->djotTableCellBoundaries($source));
@@ -53,7 +64,6 @@ trait ReportsDjotLosses
         $definitions = [];
         $definitionLines = $headingLines = [];
         $tableRows = $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false));
-        $plain = new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer());
         $offsets = [];
         $quoteDepths = [];
         $offset = 0;
@@ -64,24 +74,25 @@ trait ReportsDjotLosses
             $offset += strlen($line) + 1;
         }
         foreach ($lines as $n => $line) {
+            if (isset($definitionLines[$n])) {
+                continue;
+            }
             $at = $this->djotContentStart($line);
             $content = substr($line, $at);
             $contentMask = substr($visible[$n], $at);
             $previous = $lines[$n - 1] ?? '';
             $previousAt = $this->djotContentStart($previous);
             $previousContent = trim(substr($previous, $previousAt));
-            $item = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', substr($line, 0, $at)) === 1;
+            $item = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $this->djotItemPrefix($line, $at)) === 1;
             $boundary = $previousContent === '' || ($tableRows[$n - 1] ?? false) || $item || isset($definitionLines[$n - 1])
                 || preg_match('/^(?:#{1,6}(?: |$)|:{3,}|[`~]{3,}|\{|\[[^\]]+\]:)/', $previousContent) === 1
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $previousContent) === 1
-                || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previous, 0, $previousAt)) === 1);
-            if (preg_match('/^\[([^\[\]\n^]+)\]:[ \t]*(\S*)[ \t]*$/', $content, $definition) === 1 && str_starts_with($contentMask, '[') && $boundary) {
-                $destination = $definition[2];
-                for ($next = $n + 1; $next < $lineCount && $this->djotContentStart($lines[$next]) > $at && preg_match('/^\S+$/', substr($lines[$next], $this->djotContentStart($lines[$next]))) === 1; $next++) {
-                    $destination .= substr($lines[$next], $this->djotContentStart($lines[$next]));
+                || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', $this->djotItemPrefix($previous, $previousAt)) === 1);
+            if (isset($accepted[$n])) {
+                for ($next = $n + 1; $next <= $accepted[$n]['end']; $next++) {
                     $definitionLines[$next] = true;
                 }
-                $definitions[$this->djotReferenceKey($definition[1])] = $destination;
+                $definitions[$this->djotReferenceDefinitionKey($accepted[$n]['label'])] = $accepted[$n]['target'];
                 $definitionLines[$n] = true;
                 $lineEnd = $offsets[$n] + strlen($line);
                 for ($k = $offsets[$n]; $k < $lineEnd; $k++) {
@@ -96,7 +107,7 @@ trait ReportsDjotLosses
                     $following = $lines[$next];
                     $nextAt = $this->djotContentStart($following);
                     $prefix = substr($following, 0, $nextAt);
-                    if (substr_count($prefix, '>') !== substr_count(substr($line, 0, $at), '>') || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $prefix) === 1) {
+                    if (substr_count($prefix, '>') !== substr_count(substr($line, 0, $at), '>') || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $this->djotItemPrefix($following, $nextAt)) === 1) {
                         break;
                     }
                     $part = substr($following, $nextAt);
@@ -115,7 +126,7 @@ trait ReportsDjotLosses
                     }
                     $headingLines[$next] = true;
                 }
-                $key = $this->djotReferenceKey(rtrim($plain->convert($this->convert($text)), "\n"));
+                $key = $this->djotReferenceDefinitionKey($this->djotReferenceRenderedLabel($text));
                 $definitions[$key] ??= '#' . $key;
             }
             if (preg_match('/^#{1,6}[ \t]*$/', $contentMask) === 1 && $boundary && !isset($headingLines[$n])) {
@@ -213,22 +224,24 @@ trait ReportsDjotLosses
                 unset($depths[$start]);
                 $image = array_pop($images);
                 $innerLink = array_pop($innerLinks);
+                $footnote = ($source[$start + 1] ?? '') === '^' && $at > $start + 2;
                 $validForm = isset($destinations[$at + 1]) || ($source[$at + 1] ?? '') === '[' && ($referenceEnds[$at + 2] ?? -1) >= 0;
-                $isLink = !$image && ($source[$start + 1] ?? '') !== '^' && $validForm;
+                $isLink = !$image && !$footnote && $validForm;
                 $referenceEnd = $referenceEnds[$at + 2] ?? -1;
-                if (($source[$start + 1] ?? '') !== '^' && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
+                if (!$footnote && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
                     $label = substr($source, $at + 2, $referenceEnd - $at - 2);
                     if ($label === '' && $definitions !== []) {
-                        $label = rtrim($plain->convert($this->convert(substr($source, $start + 1, $at - $start - 1))), "\n");
+                        $label = $this->djotReferenceDefinitionKey($this->djotReferenceRenderedLabel(substr($source, $start + 1, $at - $start - 1)));
+                    } else {
+                        $label = $this->djotReferenceKey($label);
                     }
-                    $label = $this->djotReferenceKey($label);
                     if (!array_key_exists($label, $definitions)) {
                         $add($start, $image ? 'An unresolved Djot image reference has no src; Carve cannot spell that image.' : 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
                     } elseif ($definitions[$label] === '') {
                         $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                     }
                 }
-                if (($source[$start + 1] ?? '') !== '^' && isset($destinations[$at + 1]) && $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth) === '') {
+                if (!$footnote && isset($destinations[$at + 1]) && $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth) === '') {
                     $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                 }
                 if ($isLink && $innerLink) {
@@ -237,7 +250,7 @@ trait ReportsDjotLosses
                 if ($starts !== [] && ($isLink || $innerLink && !($image && $validForm))) {
                     $innerLinks[count($starts) - 1] = true;
                 }
-                if (($source[$start + 1] ?? '') !== '^' && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
+                if (!$footnote && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
                     $at = $referenceEnd;
                 }
             }
@@ -272,7 +285,32 @@ trait ReportsDjotLosses
     {
         $label = preg_replace('/\\\\([ \t!-\/:-@\[-`{-~])/', '$1', $label) ?? $label;
 
-        return trim(preg_replace('/\s+/', ' ', $label) ?? $label);
+        return $this->djotReferenceDefinitionKey($label);
+    }
+
+    private function djotReferenceRenderedLabel(string $label): string
+    {
+        $paragraph = new Paragraph();
+        (new InlineParser(new BlockParser()))->parse($paragraph, $this->convert($label));
+
+        $pending = [$paragraph];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            $children = array_values(array_filter($node->getChildren(), static fn ($child): bool => !$child instanceof NonBreakingSpace));
+            if (count($children) !== count($node->getChildren())) {
+                $node->setChildren($children);
+            }
+            foreach ($children as $child) {
+                $pending[] = $child;
+            }
+        }
+
+        return (new HeadingIdTracker())->getPlainText($paragraph, SmartTypographyMode::Source);
+    }
+
+    private function djotReferenceDefinitionKey(string $label): string
+    {
+        return trim(preg_replace('/[ \t\r\n]+/', ' ', $label) ?? $label);
     }
 
     /**

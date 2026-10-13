@@ -10,15 +10,14 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A QUOTE or a DIV opened inside a list item owns the run written under it, so
- * a line indented past its column stays that container's text instead of being
- * given an authored base.
+ * a non-definition line indented past its column stays that container's text.
+ * A link definition past a hosted div's column uses its authored base.
  *
  * `rebaseOverindentedItemBlocks()` recognises a container at the minimum column
  * through `containerContentColumn()`, which answers for a list marker and a
  * definition body and returns null for a quote and a div. Neither reached that
- * branch, so the run under them was rebased to the minimum - which OPENED a
- * heading, and CONSUMED a definition, out of a container the spec renders as
- * text (carve-php#1892).
+ * branch, so the run under them was rebased to the minimum and opened a
+ * heading out of a container the spec renders as text (carve-php#1892).
  *
  * THE ARBITER IS THE EXECUTABLE SPEC, not another engine and not a twin one
  * host out. Every row below was measured against
@@ -52,10 +51,6 @@ class AContainerInAnItemOwnsItsIndentedContentTest extends TestCase
     public static function containerProvider(): array
     {
         return [
-            'a div holding an indented definition' => [
-                "- a\n  ::: note\n   [r]: /url\n  :::\n\nSee [r][].\n",
-                "::: note\n [r]: /url\n:::\n\nSee [r][].\n",
-            ],
             'a div holding an indented heading' => [
                 "- a\n  ::: note\n   # h\n  :::\n\nafter\n",
                 "::: note\n # h\n:::\n\nafter\n",
@@ -63,10 +58,6 @@ class AContainerInAnItemOwnsItsIndentedContentTest extends TestCase
             'a div whose payload contains a blank line' => [
                 "- a\n  ::: note\n   text\n\n   # h\n  :::\n\nafter\n",
                 "::: note\n text\n\n # h\n:::\n\nafter\n",
-            ],
-            'a wide div holding an indented definition' => [
-                "- a\n  :::: note\n   [r]: /url\n  ::::\n\nSee [r][].\n",
-                ":::: note\n [r]: /url\n::::\n\nSee [r][].\n",
             ],
         ];
     }
@@ -104,6 +95,17 @@ class AContainerInAnItemOwnsItsIndentedContentTest extends TestCase
 
             $this->assertStringNotContainsString('<h1', $html);
             $this->assertStringNotContainsString('href="/url"', $html);
+        }
+    }
+
+    public function testItemHostedDefinitionUsesItsAuthoredBase(): void
+    {
+        foreach ([':::', '::::'] as $fence) {
+            $inItem = "- a\n  $fence note\n   [r]: /url\n  $fence\n\nSee [r][].\n";
+            $atTopLevel = "$fence note\n [r]: /url\n$fence\n\nSee [r][].\n";
+
+            self::assertStringContainsString('href="/url"', $this->converter->convert($inItem));
+            self::assertStringNotContainsString('href="/url"', $this->converter->convert($atTopLevel));
         }
     }
 

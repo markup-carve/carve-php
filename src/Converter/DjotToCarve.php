@@ -12,7 +12,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
-use MarkupCarve\Carve\Renderer\PlainTextRenderer;
+use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
 /**
@@ -200,18 +200,35 @@ class DjotToCarve
         $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
-        [$source, $inherited] = $this->escapeInvalidDjotAttributes($this->carryDjotAttributesAcrossQuoteExits($source));
-        $source = $this->normalizeDjotFences($this->normalizeDjotAttributeLines($source));
+        $source = $this->escapeDjotTableAttributeBoundaries($source);
+        $hasCaretReference = false;
+        if (str_contains($source, '[^') && str_contains($source, ']:')) {
+            foreach (explode("\n", $source) as $line) {
+                if (preg_match('/^\[\^[^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1) {
+                    $hasCaretReference = true;
+
+                    break;
+                }
+            }
+        }
+        if ($hasCaretReference) {
+            $accepted = [];
+            $this->foldDjotReferences($source, $accepted);
+            $source = $this->normalizeDjotReferenceUses($source, true, $accepted ?? []);
+        }
+        $source = $this->carryDjotAttributesAcrossQuoteExits($this->carryDjotAttributesAcrossDivClosers($source));
+        [$source, $inherited] = $this->escapeInvalidDjotAttributes($source);
+        $source = $this->normalizeDjotFences($this->foldDjotReferences($this->normalizeDjotAttributeLines($source)));
         $itemAttributePrefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTITEMATTR\x00");
         $itemAttributeValues = [];
-        $holdItemAttributes = static function (string $attributes) use (&$itemAttributeValues, $itemAttributePrefix): string {
+        $holdItemAttributes = static function (string $attributes, bool $block = false) use (&$itemAttributeValues, $itemAttributePrefix): string {
             $itemAttributeValues[] = $attributes;
 
-            return $itemAttributePrefix . (count($itemAttributeValues) - 1) . "\x00";
+            return $itemAttributePrefix . ($block ? 'B' : '') . (count($itemAttributeValues) - 1) . "\x00";
         };
-        $source = $this->normalizeDjotReferenceUses($this->normalizeDjotStructure($source, $holdItemAttributes));
         $emptyNote = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYNOTE\x00");
-        $source = $this->normalizeDjotFootnotes($this->foldDjotReferences($source), $strippedDefinitions['isBoundary'], $inherited, $emptyNote);
+        $source = $this->normalizeDjotReferenceUses($this->foldDjotReferences($this->normalizeDjotStructure($source, $strippedDefinitions['isBoundary'], $emptyNote, $holdItemAttributes)));
+        $source = $this->normalizeDjotFootnotes($source, $strippedDefinitions['isBoundary'], $inherited, $emptyNote);
         $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->escapeDjotNonTableRows($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source, $inherited))))));
         $source = $this->normalizeDjotInlineSpellings($source);
         $collapsedMask = $this->maskCodeAndDestinations($source);
@@ -238,34 +255,88 @@ class DjotToCarve
             $previous = trim(preg_replace('/^[ \t]*(?:>[ ]?)*/', '', $previousDefinitionLines[$at] ?? '') ?? '');
             $bracket = strpos($value, '[');
             if ($bracket !== false && $collapsedMask[$at + $bracket] === '[' && ($previous === '' || preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|\{[ \t.#A-Za-z}%]|\[(?!\^)[^\]]*\]:)/', $previous) === 1)) {
-                $definitions[$definitionMatches[1][$index][0]] = true;
+                $definitionKey = preg_replace('/[ \t\r\n]+/', ' ', trim($definitionMatches[1][$index][0], " \t\r\n")) ?? $definitionMatches[1][$index][0];
+                $definitions[$definitionKey] = $definitionMatches[1][$index][0];
             }
         }
-        $source = preg_replace_callback('/(!?\[([^\[\]\n]*)\])\[\]/', static fn (array $match): string => $collapsedMask[$match[0][1]] !== ' ' && isset($definitions[$match[2][0]]) ? $match[1][0] . '[' . $match[2][0] . ']' : $match[0][0], $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
+        $childTextCache = [];
+        $imageChildText = function (string $label) use (&$childTextCache, $inherited): string {
+            return $childTextCache[$label] ??= $this->renderImageLabelChildText($label, $inherited);
+        };
+        $collapsedImageLines = null;
+        $collapsedImageLine = 0;
+        $source = preg_replace_callback('/(!?\[([^\[\]]*)\])\[\]/', function (array $match) use ($source, $collapsedMask, $definitions, &$collapsedImageLines, &$collapsedImageLine, $imageChildText): string {
+            [$value, $at] = $match[0];
+            $key = $match[2][0];
+            if ($collapsedMask[$at] === ' ' || $collapsedMask[$at + strlen($value) - 3] !== ']' || str_starts_with($key, '^') && strlen($key) > 1) {
+                return $value;
+            }
+            if (str_contains($key, "\n")) {
+                $bracketAt = $at + (str_starts_with($match[1][0], '!') ? 1 : 0);
+                if (preg_match('/\n[ \t]*\n/', $key) === 1 || $this->isDjotEscaped($source, $bracketAt)) {
+                    return $value;
+                }
+                $collapsedImageLines ??= $this->djotImageLineOwners($source, $collapsedMask);
+                while ($collapsedImageLines[$collapsedImageLine]['end'] <= $at) {
+                    $collapsedImageLine++;
+                }
+                $owner = $collapsedImageLines[$collapsedImageLine];
+                $layout = $this->djotImageAltLayout($key, $owner['quotes'], $owner['itemColumn'], $owner['itemQuote'], $owner['div']);
+                if (!$layout['valid']) {
+                    return $value;
+                }
+                $key = preg_replace('/[ \t\r\n]+/', ' ', trim($imageChildText($layout['normalized']), " \t\r\n")) ?? $key;
+            }
+
+            $key = preg_replace('/[ \t\r\n]+/', ' ', trim($key, " \t\r\n")) ?? $key;
+
+            return isset($definitions[$key]) ? $match[1][0] . '[' . $definitions[$key] . ']' : $value;
+        }, $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
         $source = $this->convertDjotBlockMarkers($source);
         $emptyTerm = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYTERM\x00");
         $source = $this->convertDefinitionLists($source, $emptyTerm);
         $djotBody = $source;
         $strongSpans = [];
         $altPrefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTALT\x00");
+        $imageParagraph = DjotPlaceholderPrefix::choose($source, "\x00DJOTIMAGEPARAGRAPH\x00");
         $imageMask = $this->maskCodeAndDestinations($source);
-        $source = preg_replace_callback('/!\[([^\[\]\n]*)\](?=[([])/', function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask): string {
+        $imageLines = $this->djotImageLineOwners($source, $imageMask);
+        $imageStarts = array_fill_keys(array_column($imageLines, 'start'), true);
+        $imageLine = 0;
+        $source = $this->replaceImageLabels($source, $imageMask, function (array $match) use (&$strongSpans, $altPrefix, $source, $imageMask, $imageParagraph, $imageStarts, $imageLines, &$imageLine, $imageChildText): string {
             [$image, $at] = $match[0];
-            if ($imageMask[$at] !== '!' || $this->isDjotEscaped($source, $at) || str_contains($match[1][0], '\\') || str_starts_with($match[1][0], '^')) {
+            if ($imageMask[$at] !== '!' || $imageMask[$at + strlen($image) - 1] !== ']' || preg_match('/\n[ \t]*\n/', $match[1][0]) === 1 || $this->isDjotEscaped($source, $at)) {
                 return $image;
             }
-            if (preg_match('/[_*`{^~]/', $match[1][0]) !== 1) {
+            $paragraph = isset($imageStarts[$at]) ? $imageParagraph : '';
+            if (str_starts_with($match[1][0], '^')) {
+                return $image;
+            }
+            if (!str_contains($match[1][0], "\n") && preg_match('/[_*`{^~\[\]]/', $match[1][0]) !== 1 && preg_match('/(?<!\\\\)(?:\\\\\\\\)*\\\\[ \t]/', $match[1][0]) !== 1) {
                 $token = $altPrefix . count($strongSpans) . "\x00";
                 $strongSpans[$token] = $match[1][0];
 
-                return '![' . $token . ']';
+                return $paragraph . '![' . $token . ']';
             }
-            $label = preg_replace_callback('/(\\\\+)$/', static fn (array $tail): string => strlen($tail[0]) % 2 !== 0 ? $tail[0] . '\\' : $tail[0], $match[1][0]) ?? $match[1][0];
+            $label = $match[1][0];
+            while ($imageLines[$imageLine]['end'] <= $at) {
+                $imageLine++;
+            }
+            $layout = $this->djotImageAltLayout($label, $imageLines[$imageLine]['quotes'], $imageLines[$imageLine]['itemColumn'], $imageLines[$imageLine]['itemQuote'], $imageLines[$imageLine]['div']);
+            if (!$layout['valid']) {
+                return $image;
+            }
+            $label = $layout['normalized'];
+            $continuations = $layout['continuations'];
             $token = $altPrefix . count($strongSpans) . "\x00";
-            $strongSpans[$token] = substr(rtrim((new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert('DJOTALT ' . $label . ' DJOTEND'))), "\n"), 8, -8);
+            $alt = QuotedSlotEscaper::escapeImageAlt($imageChildText($label), $imageLines[$imageLine]['table']);
+            $continuation = 0;
+            $strongSpans[$token] = preg_replace_callback('/\n/', static function () use ($continuations, &$continuation): string {
+                return "\n" . ($continuations[$continuation++] ?? '');
+            }, $alt) ?? $alt;
 
-            return '![' . $token . ']';
-        }, $source, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $source;
+            return $paragraph . '![' . $token . ']';
+        });
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
         $wire = [];
@@ -273,12 +344,12 @@ class DjotToCarve
         $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source));
 
         $carve = str_replace($emptyTerm, '%%', $carve);
-        $carve = str_replace($emptyNote, '%%%%', $carve);
+        $carve = str_replace([$emptyNote, $imageParagraph], ['%%%%', '{%%}'], $carve);
         $carve = strtr($carve, $orphanSpans + $strongSpans);
         $dropInherited = array_fill_keys(array_keys($inherited), '');
         $carve = strtr($carve, $dropInherited);
         if ($itemAttributeValues !== []) {
-            $carve = preg_replace_callback('/^[ \t>]*' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00\n(?:[ \t>]*\n)*([ \t>]*)([-*+]|[^ \t\n]+)([ \t]+)/m', static fn (array $match): string => $match[2] . $match[3] . ($itemAttributeValues[(int)$match[1]] ?? '') . $match[4], $carve) ?? $carve;
+            $carve = preg_replace_callback('/^[ \t>]*' . preg_quote($itemAttributePrefix, '/') . '(B?)(\d+)\x00\n(?:[ \t>]*\n)*([ \t>]*)([-*+]|[^ \t\n]+)([ \t]+)/m', static fn (array $match): string => $match[1] === 'B' ? $match[3] . ($itemAttributeValues[(int)$match[2]] ?? '') . "\n" . $match[3] . $match[4] . $match[5] : $match[3] . $match[4] . ($itemAttributeValues[(int)$match[2]] ?? '') . $match[5], $carve) ?? $carve;
             $carve = preg_replace_callback('/([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
         }
         if ($preserveHeadingIds) {
@@ -544,7 +615,7 @@ class DjotToCarve
             : fn (int $at): ?array => $this->readDjotWordAttributes($source, $at);
         $masked = $this->maskCodeAndDestinations($source, opaqueOptions: ['comments' => false]);
         $previousLines = $this->previousSourceLines($source);
-        $masked = preg_replace_callback('/<[^<>\s]+>/', static fn (array $match): string => preg_match('/[^:]@|[A-Za-z]:/', $match[0]) === 1 ? str_repeat(' ', strlen($match[0])) : $match[0], $masked) ?? $masked;
+        $masked = preg_replace_callback('/<[^<>\s]+>/', fn (array $match): string => !$this->isDjotEscaped($source, $match[0][1]) && preg_match('/[^:]@|[A-Za-z]:/', $match[0][0]) === 1 ? str_repeat(' ', strlen($match[0][0])) : $match[0][0], $masked, -1, $angleCount, PREG_OFFSET_CAPTURE) ?? $masked;
         $masked = $this->maskFootnoteTokens($masked, '/\[\^[^\]\n]*\]/');
         $masked = preg_replace_callback('/(?<=\])\[[^\]\n]*\]/m', static fn (array $match): string => str_repeat(' ', strlen($match[0])), $masked) ?? $masked;
         $masked = preg_replace_callback('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9]+[.)])[ \t]+)?\[(?!\^)[^\]\n]*\]:[^\n]*/m', function (array $match) use ($previousLines): string {
@@ -556,7 +627,7 @@ class DjotToCarve
         }, $masked, -1, $referenceCount, PREG_OFFSET_CAPTURE) ?? $masked;
         $masked = preg_replace_callback('/!\[[^\[\]\n]*\](?=[([])/', fn (array $match): string => $this->isDjotEscaped($source, $match[0][1]) || $this->isDjotEscaped($source, $match[0][1] + strlen($match[0][0]) - 1) ? $match[0][0] : $this->blanks($match[0][0]), $masked, -1, $imageCount, PREG_OFFSET_CAPTURE) ?? $masked;
         for ($i = 0, $length = strlen($source); $attributes && $i < $length; $i++) {
-            if ($masked[$i] !== '{') {
+            if ($masked[$i] !== '{' || $this->isDjotEscaped($source, $i)) {
                 continue;
             }
             $attrs = $readAttributes($i);
@@ -564,13 +635,20 @@ class DjotToCarve
                 continue;
             }
             $firstAttributeEnd = $attrs['end'];
-            while (($source[$attrs['end']] ?? '') === '{') {
-                $next = $readAttributes($attrs['end']);
+            $attributeSources = $attrs['source'] === '{}' ? [] : [$attrs['source']];
+            $attributeEnd = $attrs['end'];
+            while (($source[$attributeEnd] ?? '') === '{') {
+                $next = $readAttributes($attributeEnd);
                 if ($next === null) {
                     break;
                 }
-                $joined = ($attrs['source'] === '{}' ? '' : $attrs['source']) . ($next['source'] === '{}' ? '' : $next['source']);
-                $attrs = ['end' => $next['end'], 'source' => $joined !== '' ? $joined : '{}'];
+                if ($next['source'] !== '{}') {
+                    $attributeSources[] = $next['source'];
+                }
+                $attributeEnd = $next['end'];
+            }
+            if ($attributeEnd !== $attrs['end']) {
+                $attrs = ['end' => $attributeEnd, 'source' => $attributeSources !== [] ? implode('', $attributeSources) : '{}'];
             }
             if ($wire !== null) {
                 $wire[$i] = $attrs + ['single' => $attrs['end'] === $firstAttributeEnd];
@@ -591,43 +669,84 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $masked = explode("\n", $this->maskCodeAndDestinations($source));
         $block = '/^(?:[#>|{]|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|:[ \t]|:{2,}|\([0-9a-zA-Z]+\)[ \t]|[`~]{3,}|\^[ \t]|\[[^\]\n]*\]:|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$)/';
+        $container = '/\G([ \t]*)(>(?:[ \t]|$)|\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]+|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]+)/';
         $result = [];
         $count = count($lines);
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
-            if (preg_match('/^([ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)?)(#{1,6})(?: +\S|[ \t]*$)/', $line, $heading) !== 1 || ($masked[$i][strlen($heading[1])] ?? '') !== '#') {
+            if (!str_contains($line, '#')) {
                 $result[] = $line;
 
                 continue;
             }
-            $marker = '/^' . $heading[2] . ' +/';
-            $column = strlen($heading[1]);
+            $at = 0;
+            $depth = 0;
+            $column = 0;
+            $inlineContainer = false;
+            while (preg_match($container, $line, $token, 0, $at) === 1) {
+                $at += strlen($token[0]);
+                if (str_starts_with($token[2], '>')) {
+                    $depth++;
+                    $column = 0;
+                } elseif (str_starts_with($token[2], '[^')) {
+                    $inlineContainer = true;
+                    $column = strlen($token[1]) + 2;
+                } else {
+                    $inlineContainer = true;
+                    $column += strlen($token[0]);
+                    if (str_contains('-*+', $token[2][0]) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $task, 0, $at) === 1) {
+                        $at += strlen($task[0]);
+                    }
+                }
+            }
+            if (preg_match('/\G([ \t]*)(#{1,6})(?:[ \t]+\S|[ \t]*$)/', $line, $heading, 0, $at) !== 1 || ($masked[$i][$at + strlen($heading[1])] ?? '') !== '#') {
+                $result[] = $line;
+
+                continue;
+            }
+            $quoteHeading = $depth > 0 && $column === 0;
+            $firstLine = $quoteHeading && $inlineContainer ? substr($line, 0, $at) . substr($line, $at + strlen($heading[1])) : $line;
+            if (!$quoteHeading) {
+                $column += strlen($heading[1]);
+            }
+            $marker = '/^' . $heading[2] . '[ \t]+/';
+            $parts = [rtrim($firstLine, " \t")];
+            $tail = $line;
             while ($i + 1 < $count) {
-                if ((strlen($line) - strlen(rtrim($line, '\\'))) % 2 === 1) {
+                if ((strlen($tail) - strlen(rtrim($tail, '\\'))) % 2 === 1) {
                     break;
                 }
-                if ($column > 0 && strspn($lines[$i + 1], " \t") < $column) {
+                if (preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $lines[$i + 1], $quote) !== 1) {
                     break;
                 }
-                $next = ltrim($lines[$i + 1], " \t");
+                if (substr_count($quote[0], '>') !== $depth) {
+                    break;
+                }
+                $remainder = substr($lines[$i + 1], strlen($quote[0]));
+                $indent = strspn($remainder, " \t");
+                if ($indent < $column) {
+                    break;
+                }
+                $next = substr($remainder, $indent);
                 if ($this->rejectedDjotCommentStartsBlock($next)) {
                     break;
                 }
                 if (preg_match($marker, $next) === 1) {
                     $part = preg_replace($marker, '', $next) ?? $next;
-                    if (trim($part) === '') {
+                    if (trim($part, " \t\r\n") === '') {
                         break;
                     }
                 } else {
-                    if (trim($next) === '' || preg_match($block, $next) === 1) {
+                    if (trim($next, " \t\r\n") === '' || preg_match($block, $next) === 1) {
                         break;
                     }
                     $part = $next;
                 }
-                $line = rtrim($line) . ' ' . $part;
+                $parts[] = rtrim($part, " \t");
+                $tail = $part;
                 $i++;
             }
-            $result[] = $line;
+            $result[] = count($parts) === 1 ? $firstLine : implode(' ', $parts);
         }
 
         return implode("\n", $result);
@@ -850,9 +969,16 @@ class DjotToCarve
     /**
      * @return array{end: int, source: string, parts: list<string>}|null
      */
-    private function readDjotWordAttributes(string $source, int $start, bool $carve = false, bool $table = false, bool $paragraphContext = true): ?array
-    {
+    private function readDjotWordAttributes(
+        string $source,
+        int $start,
+        bool $carve = false,
+        bool $table = false,
+        bool $paragraphContext = true,
+        bool $preserveShorthand = false,
+    ): ?array {
         $parts = [];
+        $lastClassAssignment = -1;
         $length = strlen($source);
         $i = $start + 1;
         $context = null;
@@ -899,6 +1025,10 @@ class DjotToCarve
                     }
                 }
 
+                if ($carve && $lastClassAssignment >= 0) {
+                    $parts = array_values(array_filter($parts, static fn (string $part, int $index): bool => $index >= $lastClassAssignment || (!str_starts_with($part, '.') && !str_starts_with($part, 'class=')), ARRAY_FILTER_USE_BOTH));
+                }
+
                 return ['end' => $i + 1, 'source' => '{' . implode(' ', $parts) . '}', 'parts' => $parts];
             }
             if (($source[$i] ?? '') === '%') {
@@ -943,12 +1073,15 @@ class DjotToCarve
                 if ($kind === '#' ? preg_match('/[\]\[~!@#$%^&*(){}`,.<>\\\\|=+\/?\x{0009}-\x{000D}\x{0020}\x{00A0}\x{1680}\x{2000}-\x{200A}\x{2028}\x{2029}\x{202F}\x{205F}\x{3000}\x{FEFF}]/u', $value) === 1 : preg_match('/^[A-Za-z0-9_:-]+$/D', $value) !== 1) {
                     return null;
                 }
-                $parts[] = preg_match('/^[A-Za-z0-9_][\w-]*$/', $value) === 1
+                $parts[] = ($preserveShorthand && !$carve && $kind === '.') || preg_match('/^[A-Za-z0-9_][\w-]*$/', $value) === 1
                     ? $kind . $value
                     : ($kind === '#' ? 'id' : 'class') . '=' . $quoteValue($value);
             } else {
                 if (preg_match('/\G[A-Za-z][A-Za-z0-9_-]*=/', $source, $key, offset: $i) !== 1) {
                     return null;
+                }
+                if ($key[0] === 'class=') {
+                    $lastClassAssignment = count($parts);
                 }
                 $i += strlen($key[0]);
                 $from = $i;
@@ -1164,13 +1297,20 @@ class DjotToCarve
             if ($attrs === null) {
                 continue;
             }
-            while (($source[$attrs['end']] ?? '') === '{') {
-                $next = $readNative($attrs['end']);
+            $attributeSources = $attrs['source'] === '{}' ? [] : [$attrs['source']];
+            $attributeEnd = $attrs['end'];
+            while (($source[$attributeEnd] ?? '') === '{') {
+                $next = $readNative($attributeEnd);
                 if ($next === null) {
                     break;
                 }
-                $joined = ($attrs['source'] === '{}' ? '' : $attrs['source']) . ($next['source'] === '{}' ? '' : $next['source']);
-                $attrs = ['end' => $next['end'], 'source' => $joined !== '' ? $joined : '{}'];
+                if ($next['source'] !== '{}') {
+                    $attributeSources[] = $next['source'];
+                }
+                $attributeEnd = $next['end'];
+            }
+            if ($attributeEnd !== $attrs['end']) {
+                $attrs = ['end' => $attributeEnd, 'source' => $attributeSources !== [] ? implode('', $attributeSources) : '{}'];
             }
             if ($attrs['source'] === '{}') {
                 $i = $attrs['end'] - 1;
@@ -1303,9 +1443,15 @@ class DjotToCarve
                     $lines[$n] = ($quotes[0] ?? '') . substr($line, strlen(($quotes[0] ?? '')) + $dedent['delta']);
                 }
             }
+            $exitedNote = false;
             while ($noteColumn !== null && $content !== '' && $column + 1 < $noteColumn) {
+                $exitedNote = true;
                 if ($metadataNote && $listColumn !== null && $column >= $listColumn && $n > 0 && preg_match('/^[ \t]*$/', $lines[$n - 1]) === 1) {
-                    $lines[$n - 1] = str_repeat(' ', $listColumn) . '+';
+                    while (isset($reserved[$serial])) {
+                        $serial++;
+                    }
+                    $comments[$serial] = true;
+                    $lines[$n - 1] = str_repeat(' ', $listColumn) . "\x00DJOTNOTEATTR\x00" . $serial++ . "\x00";
                 }
                 $noteColumn = $noteParents === [] ? null : array_pop($noteParents);
                 $metadataNote = false;
@@ -1362,7 +1508,7 @@ class DjotToCarve
             if ($attrs !== null && $standalone && $blockAllowed) {
                 $pending[] = ['line' => $n, 'end' => $attrs['end'], 'start' => $offset, 'wire' => $attrs['source']];
                 $consumedUntil = $attrs['end'];
-            } else {
+            } elseif ($content !== '') {
                 if ($pending !== [] && preg_match('/^\[\^[^\]\n]+\]:(?:[ \t]|$)/', $content) === 1 && ($mask[$offset + strlen($prefix)] ?? '') === '[') {
                     $handledNote = true;
                     preg_match('/^(?:[ \t]*>[ \t]?)*/', $prefix, $quotePrefix);
@@ -1397,9 +1543,7 @@ class DjotToCarve
                         }
                     }
                 }
-                if ($content !== '') {
-                    $pending = [];
-                }
+                $pending = [];
             }
             $reference = $blockAllowed && ($mask[$offset + strlen($prefix)] ?? '') === '[' && preg_match('/^\[(?!\^)[^\]\n]*\]:(?:[ \t]+\S*[ \t]*|)$/', $content) === 1;
             if ($reference) {
@@ -1440,6 +1584,9 @@ class DjotToCarve
                 $heading = false;
             }
             $boundary = $content === '' || $reference || isset($fenceLines[$n]) || $row || $div || $heading || $blockAllowed && preg_match('/^(?:[-*][ \t]*){3,}$/', $content) === 1;
+            if ($exitedNote && !$marker && str_starts_with($content, '{') && ($this->readDjotWordAttributes($content, 0)['end'] ?? -1) === strlen($content) && $n > 0 && trim($lines[$n - 1]) !== '') {
+                $lines[$n] = $prefix . "\n" . $lines[$n];
+            }
             $offset += strlen($line) + 1;
         }
 
@@ -1529,6 +1676,10 @@ class DjotToCarve
             if (trim($masked) === '') {
                 continue;
             }
+            $contentAt = strlen($line) - strlen(ltrim($line, " \t"));
+            if (($masked[$contentAt] ?? '') !== ($line[$contentAt] ?? '')) {
+                continue;
+            }
             $view = $line;
             while (preg_match('/^(?:[ \t]*> ?|[ \t]*(?:(?:[-*+]|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-zA-Z])[.)]|\([0-9A-Za-z]+\)) +(?:\[[ xX]\] +)?|: |\[\^[^\]\r\n]+\]: +))/', $view, $host)) {
                 $view = substr($view, strlen($host[0]));
@@ -1557,8 +1708,8 @@ class DjotToCarve
                     $line = $lines[$i];
                 }
             }
-            if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $masked, $match)) {
-                if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(([0-9A-Za-z]+)\)([ \t]+\S.*)$/', $line, $authored)) {
+            if (preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,}))\)([ \t]+\S.*)$/', $masked, $match)) {
+                if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)\(((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,}))\)([ \t]+\S.*)$/', $line, $authored)) {
                     continue;
                 }
                 $indent = $match[1] === '' && $nested[$i] ? $authored[2] : '';
@@ -1566,7 +1717,7 @@ class DjotToCarve
 
                 continue;
             }
-            if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)([*-])(?:[ \t]*\3){2,}[ \t]*$/', $masked, $rule)) {
+            if (!preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)([*-])(?:[ \t]*\3){2,}[ \t]*$/', $masked, $rule) || !preg_match('/^((?:(?:[ \t]*>)+[ \t]*)?)([ \t]*)([*-])(?:[ \t]*\3){2,}[ \t]*$/', $line)) {
                 continue;
             }
             $indent = $rule[1] === '' && $nested[$i] ? $rule[2] : '';
@@ -1694,11 +1845,15 @@ class DjotToCarve
      */
     private function consumeOrphanDjotAttributes(string $source): array
     {
+        if (!str_contains($source, '{')) {
+            return [$source, []];
+        }
+
         $maskedSource = preg_replace_callback('/<[A-Za-z][A-Za-z0-9+.-]*:[^<>\\s]*>/', static fn (array $match): string => str_repeat(' ', strlen($match[0])), $this->maskCodeAndDestinations($source)) ?? $source;
         $maskedSource = $this->maskFootnoteTokens($maskedSource, '/\[\^[^\]\n]*\]/', true);
         $masked = explode("\n", $maskedSource);
-        $item = '(?:[.#][A-Za-z0-9_][A-Za-z0-9_-]*|[A-Za-z][A-Za-z0-9_-]*=(?:"(?:\\\\.|[^"\\\\\n])*"|[A-Za-z0-9_:-]+))';
-        $pattern = '/\{[ \t]*' . $item . '(?:[ \t]+' . $item . ')*[ \t]*\}/';
+        $item = '(?:[.#][A-Za-z0-9_:-]+|[A-Za-z][A-Za-z0-9_-]*=(?:"(?:\\\\.|[^"\\\\\n]++)*+"|[A-Za-z0-9_:-]+))';
+        $pattern = '/\{[ \t]*' . $item . '(?:[ \t]+' . $item . ')*+[ \t]*\}/';
         $lines = explode("\n", $source);
         $lineOffsets = [];
         $lineOffset = 0;
@@ -1706,6 +1861,7 @@ class DjotToCarve
             $lineOffsets[] = $lineOffset;
             $lineOffset += strlen($line) + 1;
         }
+        $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $maskedSource) : [];
         $dangling = [];
         $wholeAttribute = '/^(?:' . substr($pattern, 1, -1) . ')$/';
         $followsBlank = true;
@@ -1738,6 +1894,82 @@ class DjotToCarve
         $prefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTORPHAN\x00");
         $out = [];
         $spaces = [];
+        $blockAttributes = [];
+        $ownerExits = [];
+        $quoteScopeChanges = [];
+        $targetPrefixes = [];
+        $previousDepth = 0;
+        $previousNonblankDepth = 0;
+        $blockOwners = [];
+        foreach ($lines as $index => $line) {
+            preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?[ \t]*/', $line, $container);
+            $first = strlen($container[0] ?? '');
+            $body = rtrim(substr($line, $first));
+            $depth = substr_count($container[0] ?? '', '>');
+            if (trim($body) === '' && $depth <= $previousDepth) {
+                $previousDepth = min($previousDepth, $depth);
+
+                continue;
+            }
+            $opens = $depth > $previousDepth;
+            $quoteScopeChanges[$index] = $opens || $depth !== $previousNonblankDepth;
+            $previousNonblankDepth = $depth;
+            $at = -1;
+            if ($opens) {
+                for ($count = 0; $count <= $previousDepth; $count++) {
+                    $position = strpos($container[0] ?? '', '>', $at + 1);
+                    $at = $position === false ? strlen($container[0] ?? '') : $position;
+                }
+            }
+            $targetPrefixes[$index] = $opens ? substr($container[0] ?? '', 0, $at) : ($container[0] ?? '');
+            $previousDepth = $depth;
+            $previousLine = $lines[$index - 1] ?? '';
+            $previous = trim(preg_replace('/^(?:(?:[ \t]*>)+[ \t]*)?[ \t]*/', '', $previousLine) ?? '');
+            $blockOwner = $blockOwners === [] ? null : $blockOwners[array_key_last($blockOwners)];
+            $ownerOutdent = $blockOwner !== null && ($depth < $blockOwner['depth'] || $depth === $blockOwner['depth'] && $first < $blockOwner['start']);
+            $canOpenOwner = $index === 0 || $previous === '' || $ownerOutdent || ($blockAttributes[$index - 1] ?? false);
+            $rowEnd = strlen(rtrim($line)) - 1;
+            $exitsAtRow = $ownerOutdent && str_starts_with($body, '|') && $rowEnd > $first && ($masked[$index][$first] ?? '') === '|' && ($masked[$index][$rowEnd] ?? '') === '|' && ($line[$rowEnd - 1] ?? '') !== '\\';
+            $closesOwner = $exitsAtRow || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|(?:[-*][ \t]*){3,}$)/', $body) === 1 && ($masked[$index][$first] ?? '') !== ' ' || ($tableRows[$index] ?? false) || preg_match('/^(?:`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $body) === 1;
+            if ($previous === '' || preg_match($wholeAttribute, $body) === 1 || $closesOwner || $ownerOutdent && ($tableRows[$index - 1] ?? false)) {
+                while (($owner = $blockOwners === [] ? null : $blockOwners[array_key_last($blockOwners)]) !== null && ($depth < $owner['depth'] || $depth === $owner['depth'] && $first < $owner['start'])) {
+                    array_pop($blockOwners);
+                }
+            }
+            $contentStart = $this->djotContentStart($line);
+            $ownerPrefix = substr($line, 0, $contentStart);
+            $ownerNote = strpos($ownerPrefix, '[^');
+            $markerPrefix = $ownerNote === false ? $ownerPrefix : substr($ownerPrefix, 0, $ownerNote);
+            if ($canOpenOwner && preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $markerPrefix, $ownerMatch, PREG_OFFSET_CAPTURE) === 1 && ($masked[$index][$ownerMatch[0][1]] ?? '') !== ' ') {
+                $owner = ['start' => $ownerMatch[0][1] + 1, 'depth' => $depth];
+                if (($blockOwners === [] ? null : $blockOwners[array_key_last($blockOwners)]) !== $owner) {
+                    $blockOwners[] = $owner;
+                }
+            }
+            if (($masked[$index][$first] ?? '') !== '{' || preg_match($wholeAttribute, $body) !== 1) {
+                continue;
+            }
+            $previousStart = $this->djotContentStart($previousLine);
+            $noteAt = strpos(substr($previousLine, 0, $previousStart), '[^');
+            $ownerStart = $noteAt === false ? $previousStart : $noteAt + 1;
+            preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?/', $previousLine, $previousQuotes);
+            $outdented = $depth < substr_count($previousQuotes[0] ?? '', '>') || $first < $ownerStart && ($noteAt !== false || preg_match('/(?:[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', substr($previousLine, 0, $previousStart)) === 1);
+            $ownerExits[$index] = $ownerOutdent && $previous !== '';
+            $blockAttributes[$index] = $index === 0 || $previous === '' || $outdented || $ownerOutdent || ($blockAttributes[$index - 1] ?? false)
+                || preg_match('/^(?:`{3,}|~{3,}|:{3,}|#{1,6} |:{1,2} |(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|\|.*\||\[(?!\^)[^\]]+\]:|\[\^[^\]]+\]:[ \t]*$)/', $previous) === 1;
+        }
+        $nextBlock = [];
+        $following = -1;
+        for ($index = count($lines) - 1; $index >= 0; $index--) {
+            $nextBlock[$index] = $following;
+            preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?[ \t]*/', $lines[$index], $container);
+            $first = strlen($container[0] ?? '');
+            $body = rtrim(substr($lines[$index], $first));
+            if (($quoteScopeChanges[$index] ?? false) || trim($body) !== '' && !(($masked[$index][$first] ?? '') === '{' && preg_match($wholeAttribute, $body) === 1)) {
+                $following = $index;
+            }
+        }
+        $moved = [];
         foreach ($lines as $index => $line) {
             preg_match('/^(?:(?:[ \t]*>)+[ \t]*)?[ \t]*/', $line, $container);
             $first = strlen($container[0] ?? '');
@@ -1763,16 +1995,40 @@ class DjotToCarve
                     continue;
                 }
                 $alone = $at === $first && $at + strlen($attrs) === $last;
-                $previous = trim(preg_replace('/^(?:(?:[ \t]*>)+[ \t]*)?/', '', $lines[$index - 1] ?? '') ?? '');
-                $block = $alone && ($index === 0 || $previous === '' || preg_match('/^\{.*\}$/', $previous) === 1 || preg_match('/^(?:`{3,}|~{3,}|:{3,}|#{1,6} |[-*+] |[0-9]+[.)] |> |:{1,2} |(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|\|.*\||\[[^\]]+\]:)/', $previous) === 1 || !$this->djotCommentContinuesParagraph($source, $lineOffsets[$index] + $at));
+                $block = $blockAttributes[$index] ?? false;
                 if ($alone && $block) {
+                    if (($ownerExits[$index] ?? false) && !isset($dangling[$index])) {
+                        $out[] = substr($line, 0, $first);
+                    }
                     if (!isset($dangling[$index])) {
+                        $target = $nextBlock[$index];
+                        if ($target >= 0) {
+                            $targetPrefix = $targetPrefixes[$target];
+                            if (substr_count(substr($line, 0, $first), '>') > substr_count($targetPrefix, '>') || (substr_count(substr($line, 0, $first), '>') === substr_count($targetPrefix, '>') && substr($line, 0, $first) !== $targetPrefix)) {
+                                if ($targetPrefixes[$index] === substr($line, 0, $first)) {
+                                    foreach ($moved[$index] ?? [] as $pending) {
+                                        $moved[$target][] = $pending;
+                                    }
+                                    unset($moved[$index]);
+                                }
+                                $moved[$target][] = $attrs;
+                                $dropLine = true;
+                                $cursor = $at + strlen($attrs);
+                            }
+                        }
+
                         continue;
                     }
                     $dropLine = true;
+                    if ($targetPrefixes[$index] === substr($line, 0, $first)) {
+                        unset($moved[$index]);
+                    }
                 }
                 $written .= substr($line, $cursor, $at - $cursor) . ($prefix . ($at === $first ? 'L' : 'I'));
                 $cursor = $at + strlen($attrs);
+            }
+            foreach ($moved[$index] ?? [] as $pending) {
+                $out[] = $targetPrefixes[$index] . $pending;
             }
             if ($dropLine) {
                 if (str_contains(substr($line, 0, $first), '>')) {
@@ -1895,7 +2151,14 @@ class DjotToCarve
                 if ($quoteText === null) {
                     break;
                 }
+                $end = strpos($source, "\n", $line + 1);
+                $bodyStart = $line + 1 + strlen($quoteText);
+                $body = substr($source, $bodyStart, ($end === false ? strlen($source) : $end) - $bodyStart);
                 if ($enclosing !== [] && strlen($quoteText) - strlen(ltrim($quoteText)) < strlen($enclosing[0])) {
+                    if (strlen($quoteText) - strlen(ltrim($quoteText)) > strlen($enclosing[0]) - strlen(ltrim($enclosing[0])) && ltrim($quoteText) === ltrim($openingQuote[0] ?? '') && substr_count($quoteText, '>') === $context['depth']) {
+                        $edits[$line + 1 + strlen($quoteText)] = str_replace('>', '\\>', trim($quoteText)) . ' ';
+                    }
+
                     break;
                 }
                 if (substr_count($quoteText, '>') < $context['depth']) {
@@ -1906,14 +2169,15 @@ class DjotToCarve
                 if (ltrim($quoteText) !== ltrim($openingQuote[0] ?? '') || substr_count($quoteText, '>') !== $context['depth']) {
                     break;
                 }
-                $end = strpos($source, "\n", $line + 1);
-                $bodyStart = $line + 1 + strlen($quoteText);
-                $body = substr($source, $bodyStart, ($end === false ? strlen($source) : $end) - $bodyStart);
                 if (trim($body) === '') {
                     break;
                 }
                 $indent = strspn($body, " \t");
                 if ($indent < $context['minimum']) {
+                    if (strlen($quoteText) - strlen(ltrim($quoteText)) >= strlen($openingQuote[0] ?? '') - strlen(ltrim($openingQuote[0] ?? '')) + $context['minimum']) {
+                        $edits[$bodyStart] = str_replace('>', '\\>', trim($quoteText)) . ' ';
+                    }
+
                     break;
                 }
                 if ($indent <= $context['indent']) {
@@ -1936,6 +2200,207 @@ class DjotToCarve
         }
 
         return $output . substr($source, $cursor);
+    }
+
+    private function escapeDjotTableAttributeBoundaries(string $source): string
+    {
+        if (!str_contains($source, '|') || !str_contains($source, '{') && !str_contains($source, '<')) {
+            return $source;
+        }
+        $mask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['attributeValues' => false, 'comments' => false, 'autolinks' => false]);
+        $rows = $this->djotTableRows($source, $mask);
+        $codeMask = $mask;
+        if (str_contains($source, '`')) {
+            $codeLines = [];
+            $offset = 0;
+            foreach (explode("\n", $source) as $index => $physical) {
+                $codeLines[] = ($rows[$index] ?? false) && str_contains($physical, '`')
+                    ? $this->maskCodeAndDestinations(str_replace('{', ' ', $physical), false, opaqueOptions: ['attributeValues' => false, 'comments' => false, 'autolinks' => false, 'destinations' => false], unclosedCode: false)
+                    : substr($mask, $offset, strlen($physical));
+                $offset += strlen($physical) + 1;
+            }
+            $codeMask = implode("\n", $codeLines);
+        }
+        $rejectedRows = [];
+        $edits = [];
+        $codeEnds = [];
+        $line = 0;
+        $lineStart = 0;
+        for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+            if ($source[$at] === "\n") {
+                $line++;
+                $lineStart = $at + 1;
+
+                continue;
+            }
+            if (isset($codeEnds[$at])) {
+                $at = $codeEnds[$at] - 1;
+
+                continue;
+            }
+            if (($rows[$line] ?? false) && $source[$at] === '<' && !$this->isDjotEscaped($source, $at)) {
+                if (preg_match('/\G<[^<>\s]+>/u', $source, $angle, offset: $at) === 1) {
+                    $crossesCell = false;
+                    for ($inner = $at + 1, $angleEnd = $at + strlen($angle[0]); $inner < $angleEnd; $inner++) {
+                        if ($source[$inner] === '|' && $source[$inner - 1] !== '\\') {
+                            $crossesCell = true;
+                        }
+                    }
+                    if ($crossesCell) {
+                        $edits[$at] = ['end' => $at, 'text' => '\\', 'line' => $line];
+                    }
+                }
+            }
+            if (!($rows[$line] ?? false) || $source[$at] !== '{' || $mask[$at] !== '{' || $this->isDjotEscaped($source, $at)) {
+                continue;
+            }
+            $attrs = $this->readDjotWordAttributes($source, $at);
+            if ($attrs === null) {
+                continue;
+            }
+            $crossesCell = false;
+            $firstPipe = -1;
+            for ($inner = $at + 1; $inner < $attrs['end']; $inner++) {
+                if ($source[$inner] === '|' && $source[$inner - 1] !== '\\') {
+                    if ($firstPipe < 0) {
+                        $firstPipe = $inner;
+                    }
+                    if ($mask[$inner] === '|' && ($source[$at + 1] === '%' || $codeMask[$inner] === '|')) {
+                        $crossesCell = true;
+                    }
+                }
+            }
+            if ($firstPipe >= 0 && $source[$at + 1] !== '%' && $codeMask[$firstPipe] !== '|' && !isset($rejectedRows[$line])) {
+                $newline = strpos($source, "\n", $lineStart);
+                $physical = substr($source, $lineStart, ($newline === false ? $length : $newline) - $lineStart);
+                $rejectedRows[$line] = $lineStart + $this->djotContentStart($physical);
+            }
+            if ($crossesCell) {
+                for ($inner = $at + 1; $inner < $firstPipe; $inner++) {
+                    if ($source[$inner] === '"' && ($source[$inner + 1] ?? '') === '}' && !$this->isDjotEscaped($source, $inner)) {
+                        $edits[$inner] = ['end' => $inner + 2, 'text' => '“\\}', 'line' => $line];
+                    }
+                }
+            }
+            if ($crossesCell && $firstPipe >= 0 && !isset($rejectedRows[$line])) {
+                $open = -1;
+                $width = 0;
+                for ($inner = $at + 1; $inner < $firstPipe; $inner++) {
+                    if ($source[$inner] === '\\') {
+                        $inner++;
+
+                        continue;
+                    }
+                    if ($source[$inner] !== '`') {
+                        continue;
+                    }
+                    $run = 1;
+                    while (($source[$inner + $run] ?? '') === '`') {
+                        $run++;
+                    }
+                    if ($open < 0) {
+                        $open = $inner;
+                        $width = $run;
+                    } elseif ($width === $run) {
+                        $open = -1;
+                    }
+                    $inner += $run - 1;
+                }
+                if ($open >= 0) {
+                    if ($open + $width === $firstPipe) {
+                        $edits[$open] = ['end' => $firstPipe, 'text' => '`<code></code>`{=html}', 'line' => $line];
+                    } else {
+                        $edits[$firstPipe] = ['end' => $firstPipe, 'text' => str_repeat('`', $width), 'line' => $line];
+                    }
+                    $codeEnds[$open] = $firstPipe;
+                }
+            }
+            if ($crossesCell) {
+                $edits[$at] = ['end' => $at + 1, 'text' => in_array($source[$at - 1] ?? '', [']', ')'], true) ? '{}\\{' : '\\{', 'line' => $line];
+
+                continue;
+            }
+            for ($inner = $at; $inner < $attrs['end']; $inner++) {
+                if ($source[$inner] === "\n") {
+                    $line++;
+                    $lineStart = $inner + 1;
+                }
+            }
+            $at = $attrs['end'] - 1;
+        }
+        $ownedRows = $rows;
+        if ($rejectedRows !== []) {
+            $paragraphSource = $source;
+            foreach ($rejectedRows as $at) {
+                $paragraphSource[$at] = 'x';
+            }
+            $analysis = [];
+            $positions = [];
+            $owner = null;
+            foreach (explode("\n", $paragraphSource) as $index => $physical) {
+                $prefix = substr($physical, 0, $this->djotContentStart($physical));
+                $depth = substr_count(preg_replace('/\[\^[^\]\n]+\]:[ \t]*/', '', $prefix) ?? $prefix, '>');
+                preg_match('/^(?:[ \t]*>(?:[ \t]|$))*[ \t]*/', $physical, $leading);
+                $leadingPrefix = $leading[0] ?? '';
+                preg_match_all('/>/', $leadingPrefix, $quotes, PREG_OFFSET_CAPTURE);
+                $column = $owner !== null && count($quotes[0]) > $owner['itemDepth'] ? $quotes[0][$owner['itemDepth']][1] : strlen($leadingPrefix);
+                if (($rows[$index] ?? false) && $owner !== null && ($depth < $owner['depth'] || $owner['column'] >= 0 && $column <= $owner['column'])) {
+                    $analysis[] = '';
+                    $owner = null;
+                }
+                $positions[] = count($analysis);
+                $analysis[] = $physical;
+                if (isset($rejectedRows[$index])) {
+                    $at = $itemDepth = $quoteDepth = $column = 0;
+                    $itemColumn = -1;
+                    $prefixLength = strlen($prefix);
+                    while ($at < $prefixLength) {
+                        if (str_contains(" \t", $prefix[$at])) {
+                            $at++;
+                            $column++;
+
+                            continue;
+                        }
+                        if ($prefix[$at] === '>') {
+                            $quoteDepth++;
+                            $at++;
+                            $column++;
+
+                            continue;
+                        }
+                        if (preg_match('/\G(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|\[\^[^\]\n]+\]:)[ \t]+/', $prefix, $marker, offset: $at) !== 1) {
+                            break;
+                        }
+                        $itemColumn = $column + (str_starts_with($marker[0], '[^') ? 1 : 0);
+                        $itemDepth = $quoteDepth;
+                        $at += strlen($marker[0]);
+                        $column += intdiv(strlen(mb_convert_encoding($marker[0], 'UTF-16LE', 'UTF-8')), 2);
+                    }
+                    $owner = ['depth' => $depth, 'itemDepth' => $itemDepth, 'column' => $itemColumn];
+                }
+            }
+            $analysisSource = implode("\n", $analysis);
+            $analysisRows = $this->djotTableRows($analysisSource, $this->maskCodeAndDestinations($analysisSource, false, opaqueOptions: ['attributeValues' => false, 'comments' => false, 'autolinks' => false]));
+            $ownedRows = array_map(static fn (int $position): bool => $analysisRows[$position] ?? false, $positions);
+        }
+        $rowStarts = array_fill_keys(array_values($rejectedRows), true);
+        $copied = 0;
+        $output = '';
+        for ($at = 0; $at < $length; $at++) {
+            if (isset($rowStarts[$at])) {
+                $output .= substr($source, $copied, $at - $copied) . '\\';
+                $copied = $at;
+            }
+            $edit = $edits[$at] ?? null;
+            if ($edit === null || isset($rejectedRows[$edit['line']]) || !($ownedRows[$edit['line']] ?? false)) {
+                continue;
+            }
+            $output .= substr($source, $copied, $at - $copied) . $edit['text'];
+            $copied = $edit['end'];
+            $at = max($at, $edit['end'] - 1);
+        }
+
+        return $output !== '' ? $output . substr($source, $copied) : $source;
     }
 
     /**
@@ -2209,13 +2674,23 @@ class DjotToCarve
     {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
+        $fenceOpener = '/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+(?:\[[ xX]\][ \t]+)?))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/';
         $heldFence = null;
         $previousBlock = true;
         $normalizeBoundary = true;
         $previousDepth = 0;
         $ancestors = [];
         foreach ($lines as $i => $line) {
-            [$depth, $content] = $this->quoted($line);
+            if ($heldFence === null) {
+                [$depth, $content] = $this->quoted($line);
+            } else {
+                $depth = $offset = 0;
+                while ($depth < $heldFence['depth'] && preg_match('/\G[ \t]*>(?:[ \t]|$)/', $line, $hostQuote, 0, $offset) === 1) {
+                    $depth++;
+                    $offset += strlen($hostQuote[0]);
+                }
+                $content = substr($line, $offset);
+            }
             $canNormalize = $normalizeBoundary || ($rowBoundaries[$i - 1] ?? false) || $depth < $previousDepth;
             $previousDepth = $depth;
             if ($heldFence !== null && trim($content) !== '' && $depth < $heldFence['depth']) {
@@ -2286,21 +2761,39 @@ class DjotToCarve
 
                 continue;
             }
-            if (preg_match('/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+(?:\[[ xX]\][ \t]+)?))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $content, $open) === 1) {
+            $nestedNote = false;
+            $nestedNoteColumn = -1;
+            $openResult = preg_match($fenceOpener, $content, $open);
+            if ($openResult !== 1 && str_contains($content, '[^') && (str_contains($content, '```') || str_contains($content, '~~~'))) {
+                $openingAt = $this->djotContentStart($content);
+                $openingPrefix = substr($content, 0, $openingAt);
+                preg_match_all('/\[\^[^\]\n]+\]:[ \t]*/', $openingPrefix, $headers, PREG_OFFSET_CAPTURE);
+                if (count($headers[0]) > 1 && !str_contains(preg_replace('/\[\^[^\]\n]+\]:[ \t]*/', '', $openingPrefix) ?? '', '>')) {
+                    $openResult = preg_match($fenceOpener, substr($content, $openingAt), $open);
+                    if ($openResult === 1) {
+                        $nestedNote = true;
+                        $open[1] = substr($content, 0, strspn($content, " \t"));
+                        $open[2] = substr($openingPrefix, strlen($open[1]));
+                        $lastHeader = $headers[0][array_key_last($headers[0])];
+                        $nestedNoteColumn = (int)(strlen(mb_convert_encoding(substr($openingPrefix, 0, $lastHeader[1]), 'UTF-16LE', 'UTF-8')) / 2);
+                    }
+                }
+            }
+            if ($openResult === 1) {
                 if ((str_starts_with($open[2], ':') && !$previousBlock) || ($strict && !$canNormalize && $open[2] === '')) {
                     continue;
                 }
-                $container = $open[2] !== '' ? strlen($open[1]) + 1 : ($nested ? $ownerIndent + 1 : null);
+                $container = $nestedNote ? $nestedNoteColumn + 1 : ($open[2] !== '' ? strlen($open[1]) + 1 : ($nested ? $ownerIndent + 1 : null));
                 $markerBase = preg_replace('/\[[ xX]\][ \t]+$/', '', $open[2]) ?? $open[2];
                 $nativeMarkerBase = preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)$/', '$1.$2', $markerBase) ?? $markerBase;
                 $nativeMarker = $nativeMarkerBase . substr($open[2], strlen($markerBase));
-                $targetColumn = str_starts_with($open[2], '[^') ? strlen($open[1]) + 2 : ($open[2] !== '' ? strlen($open[1]) + strlen($nativeMarkerBase) : ($nested ? $ownerColumn : 0));
-                $heldFence = ['container' => $container, 'char' => $open[3][0], 'length' => strlen($open[3]), 'depth' => $depth, 'target' => str_repeat(' ', $targetColumn), 'dedent' => strlen($open[1]) + strlen($open[2]), 'normalize' => $canNormalize || $open[2] !== ''];
+                $targetColumn = $nestedNote ? $nestedNoteColumn + 2 : (str_starts_with($open[2], '[^') ? strlen($open[1]) + 2 : ($open[2] !== '' ? strlen($open[1]) + strlen($nativeMarkerBase) : ($nested ? $ownerColumn : 0)));
+                $heldFence = ['container' => $container, 'char' => $open[3][0], 'length' => strlen($open[3]), 'depth' => $depth, 'target' => str_repeat(' ', $targetColumn), 'dedent' => $nestedNote ? (int)(strlen(mb_convert_encoding($openingPrefix, 'UTF-16LE', 'UTF-8')) / 2) : strlen($open[1]) + strlen($open[2]), 'normalize' => $canNormalize || $open[2] !== ''];
                 if ($onFenceLine !== null && $heldFence['normalize'] && ($open[2] === '' || $nativeMarker !== $open[2])) {
                     $openingPrefix = $open[2] === '' ? $heldFence['target'] : $open[1] . $nativeMarker;
                     $onFenceLine($i, substr($line, 0, strlen($line) - strlen($content)) . $openingPrefix . substr($content, $heldFence['dedent']));
                 }
-                $start = strpos($line, $open[3]);
+                $start = $nestedNote ? strlen($line) - strlen($content) + $openingAt : strpos($line, $open[3]);
                 if ($start === false) {
                     continue;
                 }
@@ -2483,6 +2976,361 @@ class DjotToCarve
     }
 
     /**
+     * @param string $label
+     * @param array<string, true> $inherited
+     */
+    private function renderImageLabelChildText(string $label, array $inherited): string
+    {
+        [$protected, $scalars] = $this->protectImageAltScalars($label);
+        $renderer = new DjotImageChildTextRenderer();
+        if (str_contains($label, "\n")) {
+            $renderer->setSoftBreakMode(SoftBreakMode::Newline);
+        }
+        $plain = (new CarveConverter(smartTypography: false, renderer: $renderer))->convert(str_replace("\0U\0", "\0", $this->removeInheritedAttributeMarkers($this->convert('DJOTALT ' . $protected . ' DJOTEND'), $inherited)));
+
+        return strtr(preg_replace('/^DJOTALT ?| ?DJOTEND\n?$/', '', $plain) ?? $plain, $scalars);
+    }
+
+    /**
+     * @param string $label
+     *
+     * @return array{0: string, 1: array<string, string>}
+     */
+    private function protectImageAltScalars(string $label): array
+    {
+        preg_match_all('/DJOTALTSCALAR([0-9]+)Z/', $label, $matches);
+        $reserved = array_fill_keys($matches[1], true);
+        $serial = 0;
+        while (isset($reserved[$serial])) {
+            $serial++;
+        }
+        $prefix = 'DJOTALTSCALAR' . $serial . 'Z';
+        $values = [];
+        $scalar = static function (string $value) use ($prefix, &$values): string {
+            $token = $prefix . count($values) . 'Z';
+            $values[$token] = $value;
+
+            return $token;
+        };
+        $codeMask = $this->maskDjotOpaque($label, false, ['code' => false, 'rawCode' => false]);
+        preg_match_all('/`+/', $codeMask, $runs, PREG_OFFSET_CAPTURE);
+        $ends = [];
+        $next = [];
+        foreach (array_reverse($runs[0]) as [$run, $at]) {
+            $width = strlen($run);
+            for ($offset = 0; $offset < $width; $offset++) {
+                $ends[$at + $offset] = $next[$width - $offset] ?? -1;
+            }
+            $next[$width] = $at + $width;
+        }
+        preg_match_all('/\{=[^\x09-\x0d\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}{}`]+\}/u', $label, $formats, PREG_OFFSET_CAPTURE);
+        $rawFormats = [];
+        foreach ($formats[0] as [$format, $at]) {
+            $rawFormats[$at] = $at + strlen($format);
+        }
+        $chunks = [];
+        $copied = 0;
+        foreach ($runs[0] as [$run, $at]) {
+            $width = strlen($run);
+            if ($this->isDjotEscaped($label, $at)) {
+                $at++;
+                $width--;
+            }
+            if ($width === 0 || $at < $copied || $ends[$at] < 0) {
+                continue;
+            }
+            $end = $ends[$at];
+            $value = substr($label, $at + $width, $end - $at - 2 * $width);
+            $raw = $rawFormats[$end] ?? null;
+            if ($raw !== null) {
+                $value = preg_replace('/^ `/', '`', $value) ?? $value;
+                $value = preg_replace('/` \z/', '`', $value) ?? $value;
+            } elseif (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, " \t\n\r") !== '') {
+                $value = substr($value, 1, -1);
+            }
+            $chunks[] = substr($label, $copied, $at - $copied);
+            $chunks[] = $scalar($value);
+            $copied = $raw ?? $end;
+        }
+        if ($copied > 0) {
+            $label = implode('', $chunks) . substr($label, $copied);
+        }
+        $mask = $this->maskCodeAndDestinations($label);
+        $label = preg_replace_callback('/(\n[ \t]*)(#{1,6}(?=[ \t]|$)|>(?=[ \t]|$)|(?:[-*][ \t]*){3,}(?=\n|$)|[-*+](?=[ \t]|$)|:{1,}(?=[ \t]|$)|\||\^(?=[ \t]|$)|%%|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)](?=[ \t]|$))/m', static function (array $match) use ($mask, $scalar): string {
+            [$all, $at] = $match[0];
+            $prefix = $match[1][0];
+            $marker = $match[2][0];
+
+            return $mask[$at + strlen($prefix)] === $marker[0] ? $prefix . $scalar($marker) : $all;
+        }, $label, -1, $count, PREG_OFFSET_CAPTURE) ?? $label;
+        $label = preg_replace_callback('/^[ \t\x0b\x0c\x{0085}\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}]+$/mu', static fn (array $match): string => trim($match[0], " \t") === '' ? $match[0] : $scalar($match[0]), $label) ?? $label;
+
+        return [$label, $values];
+    }
+
+    /**
+     * @return list<array{start: int, end: int, quotes: int, itemColumn: int, itemQuote: int, table: bool, div: ?array{width: int, depth: int, column: int}}>
+     */
+    private function djotImageLineOwners(string $source, string $mask): array
+    {
+        $imageLines = [];
+        $imageOffset = 0;
+        $imageItemColumn = 0;
+        $imageItemQuote = 0;
+        $imageBlank = false;
+        $imageDivs = [];
+        $imageOwnerMarker = '/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+/';
+        foreach (explode("\n", $source) as $line) {
+            $contentStart = $this->djotContentStart($line);
+            [$depth, $body] = $this->quoted($line);
+            $text = ltrim($body, " \t");
+            $indent = strlen($body) - strlen($text);
+            $itemBody = $line;
+            for ($quote = 0; $quote < $imageItemQuote; $quote++) {
+                if (preg_match('/^[ \t]*>(?:[ \t]|$)/', $itemBody, $prefix) !== 1) {
+                    break;
+                }
+                $itemBody = substr($itemBody, strlen($prefix[0]));
+            }
+            $ownerIndent = strlen($itemBody) - strlen(ltrim($itemBody, " \t"));
+            if (preg_match($imageOwnerMarker, $text) === 1) {
+                $imageItemColumn = $indent + 1;
+                $imageItemQuote = $depth;
+            } elseif ($text !== '' && ($depth < $imageItemQuote || $imageBlank && $ownerIndent < $imageItemColumn || $depth === $imageItemQuote && $indent < $imageItemColumn && preg_match('/^(?:#{1,6} |:{3,}|[-*+] |\{|\|)/', $text) === 1)) {
+                $imageItemColumn = 0;
+            }
+            $imageBlank = $text === '';
+            if (preg_match('/^(:{3,})(?:[ \t]+\S.*)?[ \t]*$/', substr($line, $contentStart), $delimiter) === 1 && $mask[$imageOffset + $contentStart] !== ' ') {
+                $owner = $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)];
+                if ($owner !== null && substr_count(substr($line, 0, $contentStart), '>') === $owner['depth'] && preg_match('/^:{3,}[ \t]*$/', substr($line, $contentStart)) === 1 && strlen($delimiter[1]) >= $owner['width']) {
+                    array_pop($imageDivs);
+                } else {
+                    $imageDivs[] = ['width' => strlen($delimiter[1]), 'depth' => substr_count(substr($line, 0, $contentStart), '>'), 'column' => $contentStart];
+                }
+            }
+            $imageLines[] = ['start' => $imageOffset + $contentStart, 'end' => $imageOffset + strlen($line) + 1, 'quotes' => substr_count(substr($line, 0, $contentStart), '>'), 'itemColumn' => $imageItemColumn, 'itemQuote' => $imageItemQuote, 'table' => ($line[$contentStart] ?? '') === '|', 'div' => $imageDivs === [] ? null : $imageDivs[array_key_last($imageDivs)]];
+            $imageOffset += strlen($line) + 1;
+        }
+
+        return $imageLines;
+    }
+
+    /**
+     * @return \Closure(int, int, int, int, int, ?int): bool
+     */
+    private function djotImageBoundaryIndex(string $source, string $mask): Closure
+    {
+        $offsets = [];
+        $thresholds = [];
+        $itemThresholds = [];
+        $stride = strlen($source) + 1;
+        $divClosers = [];
+        $divs = [];
+        $offset = 0;
+        $block = '/^(?:[-*+](?:[ \t]|$)|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|\||\^ |\[[^\]]+\]:)/';
+        foreach (explode("\n", $source) as $line) {
+            [$depth, $body] = $this->quoted($line);
+            $blank = trim($body, " \t") === '';
+            $text = ltrim($body, " \t");
+            $indent = strlen($body) - strlen($text);
+            $attributes = str_starts_with($text, '{') ? $this->readDjotWordAttributes($text, 0) : null;
+            $extraBlock = preg_match('/^(?:[-*][ \t]*){3,}$/', $text) === 1 || $attributes !== null && trim(substr($text, $attributes['end']), " \t") === '';
+            if ($blank || preg_match($block, $text) === 1 || $extraBlock) {
+                $offsets[] = $offset;
+                $thresholds[] = $depth + ($blank ? 0 : 1);
+                $itemThresholds[] = $depth * $stride + ($blank ? -1 : $indent);
+            }
+            $contentAt = $this->djotContentStart($line);
+            if (preg_match('/^(:{3,})(?:[ \t]+\S.*)?[ \t]*$/', substr($line, $contentAt), $delimiter) === 1 && $mask[$offset + $contentAt] !== ' ') {
+                $owner = $divs === [] ? null : $divs[array_key_last($divs)];
+                if ($owner !== null && $depth === $owner['depth'] && preg_match('/^:{3,}[ \t]*$/', substr($line, $contentAt)) === 1 && strlen($delimiter[1]) >= $owner['width']) {
+                    $divClosers[$owner['at']] = $offset;
+                    array_pop($divs);
+                } else {
+                    $divs[] = ['width' => strlen($delimiter[1]), 'depth' => $depth, 'at' => $offset];
+                }
+            }
+            $offset += strlen($line) + 1;
+        }
+        $size = 1;
+        $boundaryCount = count($offsets);
+        while ($size < $boundaryCount) {
+            $size *= 2;
+        }
+        $tree = array_fill(0, $size * 2, PHP_INT_MAX);
+        $itemTree = array_fill(0, $size * 2, PHP_INT_MAX);
+        foreach ($thresholds as $at => $threshold) {
+            $tree[$size + $at] = $threshold;
+            $itemTree[$size + $at] = $itemThresholds[$at];
+        }
+        for ($at = $size - 1; $at > 0; $at--) {
+            $tree[$at] = min($tree[$at * 2], $tree[$at * 2 + 1]);
+            $itemTree[$at] = min($itemTree[$at * 2], $itemTree[$at * 2 + 1]);
+        }
+        $after = static function (int $offset) use ($offsets): int {
+            $low = 0;
+            $high = count($offsets);
+            while ($low < $high) {
+                $middle = intdiv($low + $high, 2);
+                if ($offsets[$middle] <= $offset) {
+                    $low = $middle + 1;
+                } else {
+                    $high = $middle;
+                }
+            }
+
+            return $low;
+        };
+
+        return static function (int $start, int $end, int $depth, int $itemColumn, int $itemQuote, ?int $divAt) use ($after, $size, $tree, $itemTree, $stride, $divClosers): bool {
+            if ($divAt !== null && ($divClosers[$divAt] ?? PHP_INT_MAX) <= $end) {
+                return false;
+            }
+            $boundary = $itemQuote * $stride + $itemColumn;
+            $left = $after($start) + $size;
+            $right = $after($end) + $size;
+            while ($left < $right) {
+                if ($left % 2) {
+                    if ($tree[$left] <= $depth || $itemColumn > 0 && $itemTree[$left] < $boundary) {
+                        return false;
+                    }
+                    $left++;
+                }
+                if ($right % 2) {
+                    $right--;
+                    if ($tree[$right] <= $depth || $itemColumn > 0 && $itemTree[$right] < $boundary) {
+                        return false;
+                    }
+                }
+                $left = intdiv($left, 2);
+                $right = intdiv($right, 2);
+            }
+
+            return true;
+        };
+    }
+
+    /**
+     * @param string $source
+     * @param string $mask
+     * @param \Closure(array<int, array{string, int}>): string $replace
+     *
+     * @return string
+     */
+    private function replaceImageLabels(string $source, string $mask, Closure $replace): string
+    {
+        if (!str_contains($source, '![')) {
+            return $source;
+        }
+        $opens = [];
+        $closes = [];
+        $length = strlen($source);
+        $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask), true);
+        preg_match_all('/\n[ \t]*\n/', $source, $blankLines, PREG_OFFSET_CAPTURE);
+        foreach ($blankLines[0] as $blank) {
+            $boundaries[$blank[1]] = true;
+        }
+        for ($at = 0; $at < $length; $at++) {
+            if (isset($boundaries[$at])) {
+                $opens = [];
+            }
+            if ($mask[$at] === '[' && !$this->isDjotEscaped($source, $at)) {
+                $opens[] = $at;
+            } elseif ($mask[$at] === ']' && !$this->isDjotEscaped($source, $at)) {
+                $open = array_pop($opens);
+                if ($open !== null && $open > 0 && $source[$open - 1] === '!' && $mask[$open - 1] === '!' && !$this->isDjotEscaped($source, $open - 1) && in_array($source[$at + 1] ?? '', ['(', '['], true)) {
+                    $closes[$open - 1] = $at;
+                }
+            }
+        }
+        if (!$closes) {
+            return $source;
+        }
+        $chunks = [];
+        $cursor = 0;
+        for ($at = 0; $at < $length; $at++) {
+            if (!isset($closes[$at])) {
+                continue;
+            }
+            $end = $closes[$at];
+            $image = substr($source, $at, $end + 1 - $at);
+            $replaced = $replace([[$image, $at], [substr($source, $at + 2, $end - $at - 2), $at + 2]]);
+            if ($replaced === $image) {
+                continue;
+            }
+            $chunks[] = substr($source, $cursor, $at - $cursor);
+            $chunks[] = $replaced;
+            $cursor = $end + 1;
+            $at = $end;
+        }
+        $chunks[] = substr($source, $cursor);
+
+        return implode('', $chunks);
+    }
+
+    /**
+     * @param string $label
+     * @param int $quotes
+     * @param int $itemColumn
+     * @param int $itemQuote
+     * @param array{width: int, depth: int, column: int}|null $div
+     *
+     * @return array{normalized: string, continuations: list<string>, valid: bool}
+     */
+    private function djotImageAltLayout(string $label, int $quotes, int $itemColumn = 0, int $itemQuote = 0, ?array $div = null): array
+    {
+        $continuations = [];
+        $valid = true;
+        $labelLines = explode("\n", $label);
+        foreach ($labelLines as $index => $line) {
+            if ($index === 0) {
+                continue;
+            }
+            [$depth, $body] = $this->quoted($line);
+            $ownerOffset = 0;
+            for ($quote = 0; $quote < $itemQuote; $quote++) {
+                if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $line, $prefix, 0, $ownerOffset) !== 1) {
+                    break;
+                }
+                $ownerOffset += strlen($prefix[0]);
+            }
+            $ownerBody = substr($line, $ownerOffset);
+            $ownerIndent = strlen($ownerBody) - strlen(ltrim($ownerBody, " \t"));
+            $text = ltrim($body, " \t");
+            $attributes = str_starts_with($text, '{') ? $this->readDjotWordAttributes($text, 0) : null;
+            $extraAttributes = $attributes !== null && trim(substr($text, $attributes['end']), " \t") === '';
+            $extraBlock = preg_match('/^(?:[-*][ \t]*){3,}$/', $text) === 1 || $extraAttributes;
+            if (($extraBlock || preg_match('/^[ \t]*>(?:[ \t]|$)/', $ownerBody) === 1) && ($depth < $quotes || $itemColumn > 0 && $ownerIndent < $itemColumn)) {
+                $valid = false;
+            }
+            if ($div !== null && $depth === $div['depth'] && preg_match('/^[ \t]*:{3,}[ \t]*$/', $body) === 1 && strlen(trim($body)) >= $div['width'] && strlen($body) - strlen($text) <= $div['column'] + 3) {
+                $valid = false;
+            }
+            if (($depth < $quotes || $itemColumn > 0 && $ownerIndent < $itemColumn) && preg_match('/^(?:[-*+](?:[ \t]|$)|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|\||\^ |\[[^\]]+\]:)/', ltrim($body, " \t")) === 1) {
+                $valid = false;
+            }
+            $start = 0;
+            for ($quote = 0; $quote < $quotes; $quote++) {
+                while (($line[$start] ?? '') === ' ' || ($line[$start] ?? '') === "\t") {
+                    $start++;
+                }
+                if (($line[$start] ?? '') !== '>' || $start + 1 < strlen($line) && $line[$start + 1] !== ' ' && $line[$start + 1] !== "\t") {
+                    break;
+                }
+                $start++;
+            }
+            while (($line[$start] ?? '') === ' ' || ($line[$start] ?? '') === "\t") {
+                $start++;
+            }
+            $continuations[] = substr($line, 0, $start);
+            $labelLines[$index] = substr($line, $start);
+        }
+        $label = implode("\n", $labelLines);
+
+        return ['normalized' => $label, 'continuations' => $continuations, 'valid' => $valid && preg_match('/\n[ \t]*\n/', $label) !== 1];
+    }
+
+    /**
      * Split a line into its block-quote depth and the content inside it.
      *
      * A prefix is a run of `>` markers, each optionally followed by one space
@@ -2495,7 +3343,7 @@ class DjotToCarve
     {
         $depth = 0;
         $offset = 0;
-        while (preg_match('/\G[ \t]*>[ ]?/', $line, $prefix, 0, $offset)) {
+        while (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $line, $prefix, 0, $offset)) {
             $depth++;
             $offset += strlen($prefix[0]);
         }
@@ -2523,10 +3371,11 @@ class DjotToCarve
      * @param string $mask
      * @param bool $codeScopes
      * @param array<int, list<int>>|null $divClosers
+     * @param array<int, array{column: int|null, depth: int}>|null $divOwners
      *
      * @return array<int, int>
      */
-    private function djotInlineBoundaries(string $source, string $mask, bool $codeScopes = false, ?array &$divClosers = null): array
+    private function djotInlineBoundaries(string $source, string $mask, bool $codeScopes = false, ?array &$divClosers = null, ?array &$divOwners = null): array
     {
         $boundaries = [];
         $rows = $this->djotTableRows($source, $mask);
@@ -2604,7 +3453,7 @@ class DjotToCarve
                     $codeFence = ['ch' => $ticks[1][0], 'width' => strlen($ticks[1]), 'depth' => $bodyDepth, 'itemColumn' => $startsItem ? $indent + strlen($marker[0]) : (($active !== null && $depth === $active['depth'] && $indent >= $active['column']) ? $active['column'] : null)];
                     $previousBlock = false;
                 } else {
-                    preg_match('/^(:{3,})[ \t]*[A-Za-z0-9_-]*[ \t]*$/', $body, $fence);
+                    preg_match('/^(:{3,})(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$/', $body, $fence);
                     $owner = $divs !== [] ? $divs[array_key_last($divs)] : null;
                     $visible = ($mask[$offset + strlen($line) - strlen($body)] ?? '') === ':';
                     if (
@@ -2624,6 +3473,9 @@ class DjotToCarve
                         }
                         if ($divClosers !== null) {
                             $divClosers[$offset] = array_reverse(array_column(array_slice($divs, $low), 'start'));
+                        }
+                        if ($divOwners !== null) {
+                            $divOwners[$offset] = ['column' => $divs[$low]['itemColumn'], 'depth' => $divs[$low]['itemDepth']];
                         }
                         for ($remaining = count($divs) - $low; $remaining > 0; $remaining--) {
                             array_pop($divs);
@@ -2908,6 +3760,7 @@ class DjotToCarve
         }
         $mask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false]);
         $rows = $this->djotTableRows($source, $mask);
+        $imageLines = null;
         preg_match_all('/<[^<>\s]+>/', $source, $angleMatches, PREG_OFFSET_CAPTURE);
         $angles = [];
         foreach ($angleMatches[0] as [$value, $at]) {
@@ -2921,8 +3774,19 @@ class DjotToCarve
             return substr_count($prefix[0] ?? '', '>');
         }, explode("\n", $source));
         $stack = $edits = $pendingNotes = [];
+        $pipeTargets = [];
+        $pipeDefinitions = [];
+        $occupiedLabels = null;
+        $pipeSerial = 0;
         $line = 0;
         $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask), true);
+        if (str_contains($source, ':::')) {
+            $divClosers = [];
+            $this->djotInlineBoundaries($source, $mask, true, $divClosers);
+            foreach ($divClosers ?? [] as $at => $_) {
+                $boundaries[$at] = true;
+            }
+        }
         $destinationOwner = null;
         $length = strlen($source);
         for ($i = 0; $i < $length; $i++) {
@@ -3074,29 +3938,70 @@ class DjotToCarve
 
                 continue;
             }
+            $authoredLabel = $owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) ? substr($source, $owner['at'] + 1, $owner['labelEnd'] - $owner['at'] - 1) : '';
+            if (str_contains($authoredLabel, "\n")) {
+                $imageLines ??= $this->djotImageLineOwners($source, $mask);
+                $left = 0;
+                $right = count($imageLines);
+                while ($left < $right) {
+                    $middle = intdiv($left + $right, 2);
+                    if ($imageLines[$middle]['end'] <= $owner['at']) {
+                        $left = $middle + 1;
+                    } else {
+                        $right = $middle;
+                    }
+                }
+                $imageOwner = $imageLines[$left];
+                if (!$this->djotImageAltLayout($authoredLabel, $imageOwner['quotes'], $imageOwner['itemColumn'], $imageOwner['itemQuote'])['valid']) {
+                    array_pop($stack);
+                    $destinationOwner = null;
+
+                    continue;
+                }
+            }
             $label = $this->djotLinkLabel($source, $mask, $angles, $edits, $owner['at'] + 1, $owner['labelEnd']);
             $rawDestination = '';
             for ($at = $owner['target']; $at < $i;) {
-                $end = !($rows[$line] ?? false) ? ($literalNotes[$at] ?? null) : null;
+                $end = $literalNotes[$at] ?? null;
                 if ($end !== null && $end <= $i) {
-                    $rawDestination .= preg_replace('/\n[ \t]*/', ' ', str_replace('\\', '%5C', substr($source, $at, $end - $at)));
+                    $rawDestination .= preg_replace('/\n[ \t]*/', ' ', str_replace('\\', ($rows[$line] ?? false) ? '\\\\' : '%5C', substr($source, $at, $end - $at)));
                     $at = $end;
                 } else {
                     $rawDestination .= $source[$at++];
                 }
             }
             $destination = $this->djotDestinationLines($rawDestination, $owner['depth']);
-            if ($rows[$line] ?? false) {
-                $destination = preg_replace_callback('/\\\\+\|/', static fn (array $match): string => str_repeat('%5C', intdiv(strlen($match[0]) - 1, 2)) . '%7C', $destination) ?? $destination;
-            }
-            if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && str_contains($label, '[')) {
-                $label = (new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert('DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND')));
+            if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && !str_contains($authoredLabel, "\n") && str_contains($label, '[')) {
+                $altDefinitions = [];
+                preg_match_all('/\[(carve-djot-pipe-target-[0-9]+)\]/', $label, $altAliases);
+                foreach ($altAliases[1] as $alias) {
+                    if (isset($pipeDefinitions[$alias])) {
+                        $altDefinitions[] = $pipeDefinitions[$alias];
+                    }
+                }
+                $label = (new CarveConverter(smartTypography: false, renderer: new DjotImageChildTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert(($altDefinitions !== [] ? implode("\n", $altDefinitions) . "\n\n" : '') . 'DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND')));
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
                 $label = str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $label);
             }
-            $target = preg_replace_callback(($rows[$line] ?? false) ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()|]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : ($match[0] === '\\' ? '\\\\' : rawurlencode($match[0])), $destination) ?? $destination;
+            $target = preg_replace_callback(($rows[$line] ?? false) && str_contains($destination, '|') ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : ($match[0] === '\\' ? '\\\\' : rawurlencode($match[0])), $destination) ?? $destination;
             $target = preg_replace('/\](?=[\[{])/', '%5D', $target) ?? $target;
-            $edits[$owner['at']] = ['end' => $i + 1, 'text' => '[' . $label . '](' . $target . ')'];
+            if (($rows[$line] ?? false) && str_contains($target, '|')) {
+                if (!isset($pipeTargets[$target])) {
+                    if ($occupiedLabels === null) {
+                        preg_match_all('/\[([^\[\]\n]*)\]/', $source, $labelMatches);
+                        $occupiedLabels = array_fill_keys(array_map(static fn (string $label): string => preg_replace('/[ \t\r\n]+/', ' ', trim(preg_replace('/\\\\([ \t!-\/:-@\[-`{-~])/', '$1', $label) ?? $label)) ?? $label, $labelMatches[1]), true);
+                    }
+                    do {
+                        $alias = 'carve-djot-pipe-target-' . ++$pipeSerial;
+                    } while (isset($occupiedLabels[$alias]));
+                    $occupiedLabels[$alias] = true;
+                    $pipeTargets[$target] = $alias;
+                    $pipeDefinitions[$alias] = '[' . $alias . ']: ' . $target;
+                }
+                $edits[$owner['at']] = ['end' => $i + 1, 'text' => '[' . $label . '][' . $pipeTargets[$target] . ']'];
+            } else {
+                $edits[$owner['at']] = ['end' => $i + 1, 'text' => '[' . $label . '](' . $target . ')'];
+            }
             array_pop($stack);
             $destinationOwner = null;
             foreach ($pendingNotes as $at => $_) {
@@ -3120,7 +4025,113 @@ class DjotToCarve
             }
         }
 
-        return $output;
+        preg_match_all('/\[(carve-djot-pipe-target-[0-9]+)\]/', $output, $aliases);
+        $used = array_fill_keys($aliases[1], true);
+        $definitions = [];
+        foreach ($pipeTargets as $target => $alias) {
+            if (isset($used[$alias])) {
+                $definitions[] = '[' . $alias . ']: ' . $target;
+            }
+        }
+
+        return ($definitions !== [] ? implode("\n", $definitions) . "\n\n" : '') . $output;
+    }
+
+    private function carryDjotAttributesAcrossDivClosers(string $source): string
+    {
+        if (!str_contains($source, '{') || !str_contains($source, ':::')) {
+            return $source;
+        }
+        $mask = $this->maskCodeAndDestinations($source);
+        $closers = [];
+        $owners = [];
+        $this->djotInlineBoundaries($source, $mask, true, $closers, $owners);
+        if ($closers === []) {
+            return $source;
+        }
+        $lines = explode("\n", $source);
+        $removed = $moved = $pending = $residues = [];
+        $crossed = false;
+        $offset = $previousDepth = 0;
+        $previous = '';
+        $closedOwner = null;
+        foreach ($lines as $index => $line) {
+            preg_match('/^(?:[ \t]*>(?:[ \t]|$))*[ \t]*/', $line, $prefix);
+            $physical = $prefix[0] ?? '';
+            $start = strlen($physical);
+            $content = substr($line, $start);
+            $depth = substr_count($physical, '>');
+            $followsBlock = $pending !== [] || $previous === '' || preg_match('/^(?:#{1,6} |:{3,}|[`~]{3,}|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previous) === 1;
+            $comment = str_starts_with($content, '{') && ($followsBlock || ($mask[$offset + $start] ?? '') === '{') ? $this->readDjotWordAttributes($content, 0) : null;
+            if ($followsBlock && $depth === $previousDepth && $comment !== null && $comment['parts'] === [] && $comment['end'] === strlen(rtrim($content, " \t\r"))) {
+                $offset += strlen($line) + 1;
+
+                continue;
+            }
+            $attrs = ($mask[$offset + $start] ?? '') === '{' ? $comment : null;
+            $whole = $attrs !== null && $attrs['end'] === strlen(rtrim($content, " \t\r"));
+            if ($crossed && !isset($closers[$offset]) && trim($content, " \t\r") !== '' && (!$whole || $depth !== $previousDepth)) {
+                preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $quotePrefix);
+                $indent = strspn(substr($line, strlen($quotePrefix[0] ?? '')), " \t");
+                $peerItem = $closedOwner !== null && $closedOwner['column'] !== null && $depth === $closedOwner['depth'] && $indent < $closedOwner['column'] && preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))(?:[ \t]+|$)/', substr($line, strlen($physical))) === 1;
+                if (!$peerItem || preg_match('/^(?:[-*][ \t]*){3,}$/', $content) === 1) {
+                    $targetPrefix = $physical;
+                    if ($depth > $previousDepth) {
+                        preg_match_all('/>/', $physical, $markers, PREG_OFFSET_CAPTURE);
+                        $targetPrefix = substr($physical, 0, $markers[0][$previousDepth][1]);
+                    }
+                    foreach ($pending as $attr) {
+                        $removed[$attr['line']] = true;
+                        $moved[$index][] = $targetPrefix . $attr['value'];
+                    }
+                }
+                $pending = [];
+                $crossed = false;
+            }
+            if ($whole && $followsBlock) {
+                if (!$crossed && $depth > $previousDepth) {
+                    $pending = [];
+                }
+                $pending[] = ['line' => $index, 'value' => rtrim($content, " \t\r")];
+                if ($depth > $previousDepth) {
+                    $residues[$index] = rtrim($physical);
+                }
+            } elseif (isset($closers[$offset])) {
+                $crossed = $crossed || $pending !== [];
+                $closedOwner = $owners[$offset] ?? null;
+            } elseif (trim($content, " \t\r") !== '') {
+                $pending = [];
+            }
+            if (!$whole) {
+                $previous = trim($content, " \t\r");
+            }
+            $previousDepth = trim($content, " \t\r") === '' ? min($previousDepth, $depth) : $depth;
+            $offset += strlen($line) + 1;
+        }
+        if ($crossed) {
+            foreach ($pending as $attr) {
+                $removed[$attr['line']] = true;
+            }
+        }
+        if ($removed === []) {
+            return $source;
+        }
+        $out = [];
+        $lineCount = count($lines);
+        for ($index = 0; $index <= $lineCount; $index++) {
+            foreach ($moved[$index] ?? [] as $attr) {
+                $out[] = $attr;
+            }
+            if ($index < $lineCount) {
+                if (!isset($removed[$index])) {
+                    $out[] = $lines[$index];
+                } elseif (isset($residues[$index])) {
+                    $out[] = $residues[$index];
+                }
+            }
+        }
+
+        return implode("\n", $out);
     }
 
     private function carryDjotAttributesAcrossQuoteExits(string $source): string
@@ -3132,13 +4143,16 @@ class DjotToCarve
         $mask = explode("\n", $this->maskCodeAndDestinations($source));
         $contexts = [];
         $offset = 0;
+        $previousDepth = 0;
         foreach ($lines as $n => $line) {
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $matches);
             $prefix = $matches[0] ?? '';
             $body = substr($line, strlen($prefix));
             $indent = strspn($body, " \t");
             $attrs = ($mask[$n][strlen($prefix) + $indent] ?? '') === '{' ? $this->readDjotWordAttributes($body, $indent) : null;
-            $contexts[] = ['prefix' => $prefix, 'depth' => substr_count($prefix, '>'), 'body' => $body, 'indent' => $indent, 'attributes' => $attrs !== null && $attrs['end'] === strlen(rtrim($body)), 'offset' => $offset, 'continued' => false, 'listOwned' => false];
+            $currentDepth = substr_count($prefix, '>');
+            $contexts[] = ['opens' => $currentDepth > $previousDepth, 'prefix' => $prefix, 'depth' => substr_count($prefix, '>'), 'body' => $body, 'indent' => $indent, 'attributes' => $attrs !== null && $attrs['end'] === strlen(rtrim($body)), 'offset' => $offset, 'continued' => false, 'listOwned' => false];
+            $previousDepth = $currentDepth;
             $offset += strlen($line) + 1;
         }
         $listColumns = [];
@@ -3166,11 +4180,12 @@ class DjotToCarve
         }
         $moved = [];
         $following = null;
+        $nextContent = null;
         $destinationDepth = null;
         for ($n = count($lines) - 1; $n >= 0; $n--) {
             $context = $contexts[$n];
             if ($context['attributes']) {
-                if ($following !== null && $destinationDepth !== null && $context['depth'] > $destinationDepth && !$context['continued'] && !$context['listOwned']) {
+                if ($following !== null && $destinationDepth !== null && $context['depth'] > $destinationDepth && !($nextContent !== null && $contexts[$nextContent]['opens']) && !$context['continued'] && !$context['listOwned']) {
                     $target = $lines[$following];
                     $end = 0;
                     for ($level = 0; $level < $destinationDepth; $level++) {
@@ -3197,6 +4212,9 @@ class DjotToCarve
             } else {
                 $following = $n;
                 $destinationDepth = $context['depth'];
+            }
+            if (trim($context['body']) !== '' || $context['opens']) {
+                $nextContent = $n;
             }
         }
         $output = [];
@@ -3233,7 +4251,7 @@ class DjotToCarve
             if ($mask[$i] !== '{' || $this->isDjotEscaped($source, $i)) {
                 continue;
             }
-            $attrs = $this->readDjotWordAttributes($source, $i);
+            $attrs = $this->readDjotWordAttributes($source, $i, preserveShorthand: true);
             if ($attrs === null) {
                 $end = $closes[$i] ?? null;
                 if ($end !== null && preg_match('/\G[A-Za-z][A-Za-z0-9_-]*=/', $source, offset: $i + 1)) {
@@ -3255,7 +4273,11 @@ class DjotToCarve
         return $output . substr($source, $copied);
     }
 
-    private function foldDjotReferences(string $source): string
+    /**
+     * @param string $source
+     * @param array<int, array{label: string, target: string, end: int}>|null $accepted
+     */
+    private function foldDjotReferences(string $source, ?array &$accepted = null): string
     {
         if (!str_contains($source, ']: ') && !str_contains($source, ']:')) {
             return $source;
@@ -3268,31 +4290,87 @@ class DjotToCarve
         $previous = '';
         $previousDepth = 0;
         $previousAttributeBlock = false;
+        $definitionOwners = [];
+        $fenceMask = null;
         for ($n = 0, $count = count($lines); $n < $count; $n++) {
             $line = $lines[$n];
             [$depth] = $this->quoted($line);
             $at = $this->djotContentStart($line);
             $content = substr($line, $at);
-            $definition = preg_match('/^\[(?!\^)([^\]\n]*)\]:(?:[ \t]+(\S*)[ \t]*|)$/', $content, $match) === 1;
+            $definition = preg_match('/^\[(?!\^[^\]\n]+\]:(?:[ \t\r]|$))([^\]\n]*)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', $content, $match) === 1;
             $previousLine = $lines[$n - 1] ?? '';
             $previousAt = $this->djotContentStart($previousLine);
-            $boundary = $previous === '' || $previousAttributeBlock || ($rows[$n - 1] ?? false) || $depth !== $previousDepth || preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*][ \t]*){3,}$/', $previousLine) === 1 || $at < $previousAt && preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', substr($previousLine, 0, $previousAt)) === 1 || preg_match('/^(?:#{1,6} |:{3,}|\[[^\]]*\]:|(?:[-*][ \t]*){3,}$)/', $previous) === 1;
-            $marker = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', substr($line, 0, $at)) === 1;
-            if ($definition && ($mask[$offset + $at] ?? '') === '[' && ($boundary || $marker)) {
-                $target = $match[2] ?? '';
+            $previousNote = strpos(substr($previousLine, 0, $previousAt), '[^');
+            $previousOwner = $previousNote === false ? $previousAt : $previousNote + 1;
+            $ownerPrefix = substr($line, 0, $at);
+            $noteAt = strpos($ownerPrefix, '[^');
+            $hasOwnerMarker = $noteAt === false && preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $ownerPrefix, $ownerMatch, PREG_OFFSET_CAPTURE) === 1;
+            preg_match('/^(?:[ \t]*>(?:[ \t]|$))*[ \t]*/', $line, $physical);
+            $physicalPrefix = $physical[0] ?? '';
+            $physicalLength = strlen($physicalPrefix);
+            $definitionOwner = $definitionOwners === [] ? null : $definitionOwners[array_key_last($definitionOwners)];
+            $ownerExit = $definitionOwner !== null && ($depth < $definitionOwner['depth'] || $depth === $definitionOwner['depth'] && $physicalLength < $definitionOwner['start']);
+            $attrs = str_starts_with($content, '{') ? $this->readDjotWordAttributes($content, 0) : null;
+            $metadata = $definition || $attrs !== null && $attrs['end'] === strlen(rtrim($content));
+            if ($ownerExit && $metadata && ($mask[$offset + $at] ?? '') === ' ') {
+                $fenceMask ??= $this->maskDjotFences($source, null, $rows, true);
+            }
+            $metadataExit = $ownerExit && $metadata && (($mask[$offset + $at] ?? '') !== ' ' || ($fenceMask[$offset + $at] ?? ' ') !== ' ');
+            $outdented = $metadataExit || $at < $previousOwner && preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', substr($previousLine, 0, $previousNote === false ? $previousAt : $previousNote)) === 1;
+            $boundary = $previous === '' || $previousAttributeBlock || ($rows[$n - 1] ?? false) || $depth !== $previousDepth || preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*][ \t]*){3,}$/', $previousLine) === 1 || $outdented || preg_match('/^(?:#{1,6} |:{3,}|[`~]{3,}|\[[^\]]*\]:|(?:[-*][ \t]*){3,}$)/', $previous) === 1;
+            $marker = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', ($noteAt === false ? $ownerPrefix : substr($ownerPrefix, 0, $noteAt))) === 1;
+            $ownerBody = substr($line, $physicalLength);
+            $rowEnd = strlen(rtrim($line)) - 1;
+            $boundaryRow = ($ownerExit || ($rows[$n - 1] ?? false)) && str_starts_with($ownerBody, '|') && $rowEnd > $physicalLength && ($mask[$offset + $physicalLength] ?? '') === '|' && ($mask[$offset + $rowEnd] ?? '') === '|' && ($line[$rowEnd - 1] ?? '') !== '\\';
+            $rowEntry = $boundaryRow && $ownerExit && !($rows[$n] ?? false);
+            if ($boundaryRow) {
+                $rows[$n] = true;
+            }
+            $closesOwner = $boundaryRow || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|(?:[-*][ \t]*){3,}$)/', $ownerBody) === 1 && ($mask[$offset + $physicalLength] ?? '') !== ' ' || ($rows[$n] ?? false) || preg_match('/^(?:`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $ownerBody) === 1;
+            if ($ownerExit && ($metadataExit || $previous === '' || $closesOwner || ($rows[$n - 1] ?? false))) {
+                while (($owner = $definitionOwners === [] ? null : $definitionOwners[array_key_last($definitionOwners)]) !== null && ($depth < $owner['depth'] || $depth === $owner['depth'] && $physicalLength < $owner['start'])) {
+                    array_pop($definitionOwners);
+                }
+            }
+            if ($boundary && ($noteAt !== false || $hasOwnerMarker)) {
+                $ownerStart = $noteAt !== false ? $noteAt : $ownerMatch[0][1];
+                if (($mask[$offset + $ownerStart] ?? '') !== ' ') {
+                    $owner = ['start' => $ownerStart + 1, 'depth' => $depth];
+                    if (($definitionOwners === [] ? null : $definitionOwners[array_key_last($definitionOwners)]) !== $owner) {
+                        $definitionOwners[] = $owner;
+                    }
+                }
+            }
+            $separator = ($metadataExit && !$marker || $rowEntry || $definition && ($rows[$n - 1] ?? false) && !$marker && ($ownerExit || $definitionOwner === null)) && $previous !== '' ? $physicalPrefix . "\n" : '';
+            if ($separator !== '') {
+                $lines[$n] = $separator . $line;
+            }
+            if ($definition && (($mask[$offset + $at] ?? '') === '[' || $metadataExit && ($fenceMask[$offset + $at] ?? '') === '[') && ($boundary || $marker)) {
+                $target = $match[2];
                 $end = $n;
                 while ($end + 1 < $count) {
                     $next = $lines[$end + 1];
                     [$nextDepth] = $this->quoted($next);
                     $nextAt = $this->djotContentStart($next);
-                    if ($nextDepth !== $depth || $nextAt <= $at || preg_match('/^\S+$/', substr($next, $nextAt)) !== 1) {
+                    $nextPrefix = substr($next, 0, $nextAt);
+                    $nextToken = str_ends_with($next, "\r") ? substr($next, $nextAt, -1) : substr($next, $nextAt);
+                    if ($nextDepth !== $depth || $nextAt <= $at || str_contains($nextPrefix, '[^') || preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', $nextPrefix) === 1 || preg_match('/^[^ \t\r\n]+$/', $nextToken) !== 1) {
                         break;
                     }
-                    $target .= substr($next, $nextAt);
+                    $target .= $nextToken;
                     $end++;
                 }
+                if ($match[1] === '') {
+                    $lines[$n] = $separator . substr($line, 0, $at);
+                }
+                $nextByte = $content[strlen($match[1]) + 3] ?? '';
+                if ($accepted !== null) {
+                    $accepted[$n] = ['label' => $match[1], 'target' => $target, 'end' => $end];
+                }
+                if ($match[1] !== '' && ($end > $n || $target !== '' && $nextByte !== ' ')) {
+                    $lines[$n] = $separator . substr($line, 0, $at) . '[' . $match[1] . ']:' . ($target !== '' ? ' ' . $target : '');
+                }
                 if ($end > $n) {
-                    $lines[$n] = substr($line, 0, $at) . '[' . $match[1] . ']: ' . $target;
                     for ($k = $n + 1; $k <= $end; $k++) {
                         $offset += strlen($lines[$k]) + 1;
                         $removed[$k] = true;
@@ -3300,7 +4378,8 @@ class DjotToCarve
                     $n = $end;
                 }
             }
-            if ($definition && ($mask[$offset + $at] ?? '') === '[' && !($boundary || $marker)) {
+            $invalidDefinition = !$definition && preg_match('/^\[(?!\^)[^\]\n]*\]:/', $content) === 1;
+            if (($invalidDefinition || $definition && !($boundary || $marker)) && ($mask[$offset + $at] ?? '') === '[') {
                 $colon = strpos($line, ']:', $at) + 1;
                 $lines[$n] = substr($line, 0, $colon) . '\\' . substr($line, $colon);
             }
@@ -3446,16 +4525,20 @@ class DjotToCarve
         $emptyDefinitions = [];
         $noteLines = explode("\n", $source);
         foreach ($noteLines as $n => $line) {
-            preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)*/', $line, $prefix);
-            $prefixText = $prefix[0] ?? '';
+            preg_match('/^[ \t]*(?:>[ \t]+|>$)*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+)*/', $line, $prefix);
+            $noteAt = strpos(substr($line, 0, $this->djotContentStart($line)), '[^');
+            $prefixText = $noteAt !== false ? substr($line, 0, $noteAt) : ($prefix[0] ?? '');
             $at = strlen($prefixText);
             $lineHeads[$offset + $at] = true;
             $previousLine = $noteLines[$n - 1] ?? '';
-            preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)*/', $previousLine, $previousPrefix);
+            preg_match('/^[ \t]*(?:>[ \t]+|>$)*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+)*/', $previousLine, $previousPrefix);
             $previousPrefixText = $previousPrefix[0] ?? '';
             $previous = trim(substr($previousLine, strlen($previousPrefixText)));
-            $item = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $prefixText) === 1;
-            $boundary = ($isDefinitionBoundary !== null && $isDefinitionBoundary($previousLine)) || $previous === '' || ($rows[$n - 1] ?? false) || $item || preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*][ \t]*){3,}$/', $previousLine) === 1 || $at < strlen($previousPrefixText) && preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+/', $previousPrefixText) === 1 || substr_count($prefixText, '>') < substr_count($previousPrefixText, '>') || preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|\{|\[[^\]]*\]:|(?:[-*][ \t]*){3,}$)/', $previous) === 1;
+            $item = preg_match('/(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+/', $prefixText) === 1;
+            $boundary = ($isDefinitionBoundary !== null && $isDefinitionBoundary($previousLine)) || $previous === '' || ($rows[$n - 1] ?? false) || $item && preg_match('/(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+/', $previousPrefixText) === 1 || preg_match('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:[-*][ \t]*){3,}$/', $previousLine) === 1 || $at < strlen($previousPrefixText) && preg_match('/(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+/', $previousPrefixText) === 1 || substr_count($prefixText, '>') < substr_count($previousPrefixText, '>') || preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|\{|\[[^\]]*\]:|(?:[-*][ \t]*){3,}$)/', $previous) === 1;
+            if ($at > strlen($previousPrefixText) && preg_match('/^\[\^[^\]\n]+\]:[ \t]*(.+)$/', $previous, $previousNote) === 1 && preg_match('/^(?:>(?:[ \t]|$)|[-*+][ \t]|#{1,6}(?:[ \t]|$)|[`~]{3,}|:{3,}|[|]|\{|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t])/', $previousNote[1]) !== 1) {
+                $boundary = false;
+            }
             if ($boundary && preg_match('/^\[\^([^\]\n]+)\]:(?:[ \t]|$)/', substr($line, $at), $head) && ($mask[$offset + $at] ?? '') === '[') {
                 $key = $keyOf($head[1]);
                 $defined[$key] = true;
@@ -3465,6 +4548,25 @@ class DjotToCarve
                 }
                 if ($unsupported($key)) {
                     $alias($key);
+                }
+                preg_match('/^\[\^[^\]\n]+\]:[ \t]*/', substr($line, $at), $header);
+                $bodyAt = $at + strlen($header[0] ?? $head[0]);
+                preg_match_all('/\[\^([^\]\n]+)\]:(?:[ \t]|$)/', substr($line, $bodyAt, $this->djotContentStart($line) - $bodyAt), $nestedHeads, PREG_OFFSET_CAPTURE);
+                foreach ($nestedHeads[0] as $index => $nestedHead) {
+                    $nestedAt = $bodyAt + $nestedHead[1];
+                    if (($mask[$offset + $nestedAt] ?? '') !== '[') {
+                        continue;
+                    }
+                    $nestedKey = $keyOf($nestedHeads[1][$index][0]);
+                    $defined[$nestedKey] = true;
+                    $definitions[$offset + $nestedAt] = [$nestedKey, $offset + $nestedAt + 2 + strlen($nestedHeads[1][$index][0])];
+                    $lineHeads[$offset + $nestedAt] = true;
+                    if (trim(substr($line, $nestedAt + strlen($nestedHead[0]))) === '') {
+                        $emptyDefinitions[$offset + $nestedAt] = true;
+                    }
+                    if ($unsupported($nestedKey)) {
+                        $alias($nestedKey);
+                    }
                 }
             }
             $offset += strlen($line) + 1;
@@ -3518,7 +4620,7 @@ class DjotToCarve
         for ($i = 0; $i < $length; $i++) {
             if ($source[$i] === "\n") {
                 $lineIndex++;
-                if (preg_match('/\G\n[ \t]*(?:>[ \t]*)*\n/', $source, offset: $i)) {
+                if (preg_match('/\G\n[ \t]*(?:>[ \t]+)*>?\n/', $source, offset: $i)) {
                     $stack = [];
                 }
             }
@@ -3586,7 +4688,7 @@ class DjotToCarve
         }
         $imageEnds = [];
         foreach ($brackets as $at => $close) {
-            if ($at > 0 && $source[$at - 1] === '!' && str_contains('[(', $source[$close + 1] ?? "\0")) {
+            if ($at > 0 && $source[$at - 1] === '!' && (($source[$at + 1] ?? '') !== '^' || $close === $at + 2) && str_contains('[(', $source[$close + 1] ?? "\0")) {
                 $imageEnds[$at] = $close;
             }
         }
@@ -3634,7 +4736,7 @@ class DjotToCarve
             }
             $definition = $definitions[$i] ?? null;
             $end = $definition[1] ?? $brackets[$i] ?? null;
-            if (substr($source, $i, 2) === '[^' && ($definition !== null || $mask[$i] === '[') && $end !== null) {
+            if (substr($source, $i, 2) === '[^' && ($definition !== null || $mask[$i] === '[') && $end !== null && $end > $i + 2) {
                 $key = $definition[0] ?? $keyOf(substr($source, $i + 2, $end - $i - 2));
                 $rename = isset($labels[$key]) || $unsupported($key) || !isset($defined[$key]);
                 $name = $rename ? $alias($key) : $key;
@@ -3648,12 +4750,19 @@ class DjotToCarve
                     $output .= ': ' . $emptyNote;
                     $i++;
                 }
+                if ($definition !== null && ($source[$i] ?? '') === ':' && ($source[$i + 1] ?? '') === "\t") {
+                    $output .= ': ';
+                    $i += 2;
+                }
                 if ($definition === null && ($source[$i] ?? '') === ':' && isset($lineHeads[$at])) {
                     $output .= '\\:';
                     $i++;
                 }
 
                 continue;
+            }
+            if ($source[$i] === '!' && !$this->isDjotEscaped($source, $i) && substr($source, $i + 1, 2) === '[^' && ($brackets[$i + 1] ?? 0) > $i + 3 && ($mask[$i + 1] ?? '') === '[') {
+                $output .= '\\';
             }
             $output .= $source[$i++];
         }
@@ -3669,8 +4778,9 @@ class DjotToCarve
 
     private function normalizeDjotFences(string $source): string
     {
+        $quoteCode = $this->hasDjotCodeLayoutCandidates($source);
         if (!str_contains($source, '```') && !str_contains($source, '~~~')) {
-            return str_contains($source, '\\|') ? $this->closeDjotTableCode($source) : $source;
+            return str_contains($source, '\\|') || $quoteCode ? $this->closeDjotTableCode($source) : $source;
         }
         $lines = explode("\n", $source);
         $rows = $this->djotTableRows($source, $this->maskCodeAndDestinations($source, false));
@@ -3680,17 +4790,7 @@ class DjotToCarve
 
         $normalized = $this->normalizeDjotParagraphFences(implode("\n", $lines));
 
-        $inlineFence = false;
-        foreach (explode("\n", $source) as $line) {
-            [, $content] = $this->quoted($line);
-            if (preg_match('/^[ \t]+`{3,}/', $content)) {
-                $inlineFence = true;
-
-                break;
-            }
-        }
-
-        return str_contains($source, '\\|') || $inlineFence ? $this->closeDjotTableCode($normalized) : $normalized;
+        return $quoteCode ? $this->closeDjotTableCode($normalized) : $normalized;
     }
 
     private function normalizeDjotAutolinks(string $source): string
@@ -3985,15 +5085,18 @@ class DjotToCarve
             while (($line[$at] ?? '') === ' ' || ($line[$at] ?? '') === "\t") {
                 $at++;
             }
-            if (($line[$at] ?? '') === '>') {
+            if (($line[$at] ?? '') === '>' && ($at + 1 === $length || ($line[$at + 1] ?? '') === ' ' || ($line[$at + 1] ?? '') === "\t")) {
                 $at++;
 
                 continue;
             }
-            if (preg_match('/\G(?:\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+)/', $line, $marker, offset: $at) !== 1) {
+            if (preg_match('/\G(?:\[\^[^\]\n]+\]:(?:[ \t]+|[\r\n]*$)|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\)|:)[ \t]+)/', $line, $marker, offset: $at) !== 1) {
                 break;
             }
             $at += strlen($marker[0]);
+            if (in_array($marker[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $task, offset: $at) === 1) {
+                $at += strlen($task[0]);
+            }
         }
 
         return $at;
@@ -4023,6 +5126,11 @@ class DjotToCarve
         return implode("\n", $lines);
     }
 
+    private function djotItemPrefix(string $line, int $at): string
+    {
+        return preg_replace('/\[\^[^\]\n]+\]:[ \t]*/', '', substr($line, 0, $at)) ?? substr($line, 0, $at);
+    }
+
     /**
      * @return array<int, bool>
      */
@@ -4032,19 +5140,59 @@ class DjotToCarve
         $previousRow = false;
         $previousBlock = true;
         $footnoteColumn = null;
+        $noteContainerColumn = null;
+        $noteContainerDepth = 0;
+        $noteItemColumn = null;
+        $noteItemDepth = 0;
+        $noteItemPrefix = 0;
         $rows = [];
         foreach (explode("\n", $source) as $line) {
             $at = $this->djotContentStart($line);
             $end = strlen(rtrim($line)) - 1;
             $content = substr($line, $at);
-            $opensItem = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', substr($line, 0, $at)) === 1;
+            $itemPrefix = substr($line, 0, $at);
+            $noteAt = strpos($itemPrefix, '[^');
+            $opensItem = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', $noteAt === false ? $itemPrefix : substr($itemPrefix, 0, $noteAt)) === 1;
             $closesNote = $footnoteColumn !== null && $at < $footnoteColumn;
             if ($closesNote) {
-                $footnoteColumn = null;
+                $footnoteColumn = $noteContainerColumn = null;
             }
-            $allowed = $previousBlock || $previousRow || $opensItem || $closesNote;
-            if ($allowed && preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]+)*\[\^[^\]\n]+\]:/', $line, $note)) {
-                $footnoteColumn = strpos($note[0], '[^') + 2;
+            preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $physicalQuote);
+            $physicalPrefix = $physicalQuote[0] ?? '';
+            $physicalDepth = substr_count($physicalPrefix, '>');
+            $closesContainer = $noteContainerColumn !== null && trim($content) !== '' && ($noteContainerDepth > 0 ? $physicalDepth < $noteContainerDepth : $at <= $noteContainerColumn);
+            if ($physicalDepth > $noteItemDepth) {
+                preg_match_all('/>/', $physicalPrefix, $positions, PREG_OFFSET_CAPTURE);
+                $itemColumn = ($positions[0][$noteItemDepth][1] ?? 0) - $noteItemPrefix;
+            } else {
+                $itemColumn = strspn(substr($line, strlen($physicalPrefix)), " \t") + strlen($physicalPrefix) - $noteItemPrefix;
+            }
+            $closesNoteItem = $noteItemColumn !== null && str_starts_with($content, '|') && ($physicalDepth < $noteItemDepth || $itemColumn <= $noteItemColumn);
+            if ($closesNoteItem || $closesNote) {
+                $noteItemColumn = null;
+            }
+            if ($closesContainer) {
+                $noteContainerColumn = null;
+            }
+            $allowed = $previousBlock || $previousRow || $opensItem || $closesNote || $closesContainer || $closesNoteItem;
+            if ($allowed && $noteAt !== false && ($mask[$offset + $noteAt] ?? '') === '[' && preg_match('/^\[\^[^\]\n]+\]:/', substr($line, $noteAt), $noteHead) === 1) {
+                $note = substr($line, 0, $noteAt + strlen($noteHead[0]));
+                $notePrefix = substr($line, 0, $noteAt);
+                $noteDepth = substr_count($notePrefix, '>');
+                $footnoteColumn = $noteAt + 1;
+                $after = substr($line, strlen($note));
+                $padding = strspn($after, " \t");
+                $body = substr($after, $padding);
+                $firstItem = preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+/', $body) === 1;
+                $noteItemColumn = $firstItem ? intdiv(strlen(mb_convert_encoding($note, 'UTF-16LE', 'UTF-8')), 2) + $padding - strlen($notePrefix) : null;
+                $noteItemDepth = $noteDepth;
+                $noteItemPrefix = strlen($notePrefix);
+                if ($firstItem || preg_match('/^>(?:[ \t]|$)/', $body) === 1) {
+                    $noteContainerColumn = strlen($note) + $padding;
+                    $inlinePrefix = preg_replace('/\[\^[^\]\n]+\]:[ \t]*/', '', substr($body, 0, $this->djotContentStart($body))) ?? '';
+                    $inlineDepth = substr_count($inlinePrefix, '>');
+                    $noteContainerDepth = $inlineDepth > 0 ? $noteDepth + $inlineDepth : 0;
+                }
             }
             $row = $allowed && ($line[$at] ?? '') === '|' && ($mask[$offset + $at] ?? '') === '|' && ($line[$end] ?? '') === '|' && ($mask[$offset + $end] ?? '') === '|' && ($line[$end - 1] ?? '') !== '\\';
             $previousBlock = trim($content) === '' || preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|\{|\[[^\]]+\]:)/', $content) === 1;
@@ -4092,7 +5240,7 @@ class DjotToCarve
             $at = $this->djotContentStart($line);
             $end = strlen(rtrim($line)) - 1;
             $content = substr($line, $at);
-            $opensItem = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', substr($line, 0, $at)) === 1;
+            $opensItem = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', $this->djotItemPrefix($line, $at)) === 1;
             $row = ($previousBlock || $previousRow || $opensItem) && ($line[$at] ?? '') === '|' && ($mask[$lineOffset + $at] ?? '') === '|' && ($line[$end] ?? '') === '|' && ($mask[$lineOffset + $end] ?? '') === '|' && ($line[$end - 1] ?? '') !== '\\';
             $previousBlock = trim($content) === '' || preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|\{|\[[^\]]+\]:)/', $content) === 1;
             $previousRow = $row;
@@ -4226,15 +5374,22 @@ class DjotToCarve
         return $output;
     }
 
-    private function closeDjotTableCode(string $source): string
+    /**
+     * @param string $source
+     * @param callable(int): void|null $onRawCode
+     */
+    private function closeDjotTableCode(string $source, ?callable $onRawCode = null): string
     {
         if (!str_contains($source, '`')) {
             return $source;
         }
-        $mask = $this->maskDjotOpaque($source, false, ['code' => false]);
+        $blockAttributes = function (string $value): bool {
+            $attrs = str_starts_with($value, '{') ? $this->readDjotWordAttributes($value, 0) : null;
+
+            return $attrs !== null && trim(substr($value, $attrs['end']), " \t") === '';
+        };
+        $mask = $this->maskDjotOpaque($this->maskDjotFences($source), false, ['code' => false]);
         $length = strlen($source);
-        preg_match_all('/\n[ \t]*(?:>[ \t]*)*\n/', $source, $breaks, PREG_OFFSET_CAPTURE);
-        $paragraphEnds = array_column($breaks[0], 1);
         preg_match_all('/`+/', $source, $tickMatches, PREG_OFFSET_CAPTURE);
         $runs = [];
         foreach ($tickMatches[0] as [$run, $position]) {
@@ -4340,10 +5495,12 @@ class DjotToCarve
                 $labels[array_pop($bracketStack)] = $at;
             }
         }
-        $block = '/^(?:[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}|>|\||\^ |\[[^\]]+\]:)/';
+        $block = '/^(?:[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] |\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\) |: |#{1,6} |`{3,}|~{3,}|:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|>(?:[ \t]|$)|\||\^ |\[[^\]]+\]:)/';
         $marker = '/^(?:\[\^[^\]\n]+\]:[ \t]*|(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+)/';
+        $prefixMarker = '/\G' . substr($marker, 2);
         $itemKindOf = static fn (string $item): string => trim(preg_replace(['/^[0-9]+/', '/^[A-Za-z]+/'], ['1', 'a'], $item) ?? $item);
-        $paragraph = 0;
+        $imageParagraphValid = str_contains($source, '![') ? $this->djotImageBoundaryIndex($source, $mask) : null;
+        $codeHostDepth = 0;
         $offset = 0;
         $cursor = 0;
         $consumed = 0;
@@ -4360,14 +5517,42 @@ class DjotToCarve
             if (preg_match('/\G\[[ xX]\][ \t]+/', $line, $taskPrefix, offset: $at) === 1) {
                 $at += strlen($taskPrefix[0]);
             }
-            $lineEnd = $offset + strlen($line);
-            [$depth, $content] = $this->quoted($line);
+            $lineLength = strlen($line);
+            $lineEnd = $offset + $lineLength;
+            $codeDepth = 0;
+            $prefixAt = 0;
+            while ($prefixAt < $lineLength) {
+                $prefixAt += strspn($line, " \t", $prefixAt);
+                if (preg_match('/\G>(?:[ \t]|$)/', $line, $quotePrefix, 0, $prefixAt) === 1) {
+                    ++$codeDepth;
+                    $prefixAt += strlen($quotePrefix[0]);
+
+                    continue;
+                }
+                if (preg_match($prefixMarker, $line, $itemPrefix, 0, $prefixAt) !== 1) {
+                    break;
+                }
+                $prefixAt += strlen($itemPrefix[0]);
+                if (in_array($itemPrefix[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $taskPrefix, 0, $prefixAt) === 1) {
+                    $prefixAt += strlen($taskPrefix[0]);
+                }
+            }
+            [$parsedDepth, $content] = $this->quoted($line);
             $trimmed = ltrim($content, " \t");
             $indent = strlen($content) - strlen($trimmed);
             $item = preg_match($marker, $trimmed, $itemMatch) === 1;
+            if ($item && str_starts_with($itemMatch[0], '[^') && !$previousBlock && $parsedDepth >= $previousQuote && !($itemColumn > 0 && $parsedDepth === $itemQuote && $indent < $itemColumn)) {
+                $item = false;
+            }
             $oldColumn = $itemColumn;
             $oldQuote = $itemQuote;
             $beganInside = $offset < $consumed;
+            $depth = $beganInside ? $codeHostDepth : $parsedDepth;
+            if ($beganInside) {
+                $codeDepth = $codeHostDepth;
+            } elseif (!$previousBlock && $parsedDepth < $previousQuote && $trimmed !== '' && preg_match($block, $trimmed) !== 1) {
+                $codeDepth = max($codeDepth, $previousQuote);
+            }
             if (!$beganInside) {
                 if ($fenced !== null && $trimmed !== '' && ($depth < $fenced['depth'] || ($depth === $fenced['depth'] && $indent < $fenced['item']))) {
                     $fenced = null;
@@ -4393,26 +5578,39 @@ class DjotToCarve
                     continue;
                 }
                 if ($item) {
-                    $itemColumn = $indent + (str_starts_with($itemMatch[0], '[^') ? 2 : strlen($itemMatch[0]));
+                    $itemColumn = $indent + 1;
                     $itemQuote = $depth;
                     $itemKind = $itemKindOf($itemMatch[0]);
-                } elseif ($trimmed !== '' && ($depth < $itemQuote || ($depth === $itemQuote && $indent < $itemColumn && (preg_match($block, $trimmed) === 1 || (str_starts_with($trimmed, '{') && $this->readDjotWordAttributes($trimmed, 0) !== null))))) {
-                    $itemColumn = 0;
+                } elseif ($trimmed !== '' && $itemColumn > 0) {
+                    $ownerAt = 0;
+                    for ($q = 0; $q < $itemQuote; $q++) {
+                        if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $line, $ownerPrefix, 0, $ownerAt) !== 1) {
+                            break;
+                        }
+                        $ownerAt += strlen($ownerPrefix[0]);
+                    }
+                    $ownerIndent = strspn($line, " \t", $ownerAt);
+                    $ownerText = substr($line, $ownerAt + $ownerIndent);
+                    if ($depth < $itemQuote || ($ownerIndent < $itemColumn && ($previousBlock || preg_match($block, $ownerText) === 1 || $blockAttributes($ownerText)))) {
+                        $itemColumn = 0;
+                        $itemKind = '';
+                    }
                 }
                 if (preg_match('/^(:{3,})(?:[ \t]+\S.*)?[ \t]*$/', substr($line, $at), $div) === 1) {
                     $owner = $divs !== [] ? end($divs) : null;
                     if ($owner !== null && $depth === $owner['depth'] && preg_match('/^:{3,}[ \t]*$/', substr($line, $at)) === 1 && strlen($div[1]) >= $owner['width']) {
                         array_pop($divs);
                     } elseif ($mask[$offset + $at] !== ' ') {
-                        $divs[] = ['width' => strlen($div[1]), 'depth' => $depth, 'column' => $at];
+                        $divs[] = ['width' => strlen($div[1]), 'depth' => $depth, 'column' => $at, 'at' => $offset];
                     }
                 }
                 if (($line[$at] ?? '') === '|' && (($oldColumn > 0 && $depth <= $oldQuote && $indent < $oldColumn) || $depth < $previousQuote)) {
                     $output[] = substr($source, $cursor, $offset - $cursor);
-                    $output[] = "\n";
+                    preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $line, $hostQuote);
+                    $output[] = rtrim($hostQuote[0] ?? '') . "\n";
                     $cursor = $offset;
                 }
-                $previousQuote = $depth;
+                $previousQuote = max($depth, $codeDepth);
             }
             $i = max($offset + $at, $consumed);
             $pending = [];
@@ -4440,6 +5638,10 @@ class DjotToCarve
                     continue;
                 }
                 if (substr($source, $i, 2) === '![' && isset($labels[$i + 1]) && $balancedTicks($i + 2, $labels[$i + 1])) {
+                    if ($labels[$i + 1] >= $lineEnd && in_array($source[$labels[$i + 1] + 1] ?? '', ['(', '['], true) && $imageParagraphValid !== null && $imageParagraphValid($i, $labels[$i + 1], $codeDepth, $itemColumn, $itemQuote, $divs === [] ? null : $divs[array_key_last($divs)]['at'])) {
+                        $consumed = $labels[$i + 1] + 1;
+                        $codeHostDepth = $codeDepth;
+                    }
                     $i = $labels[$i + 1] + 1;
 
                     continue;
@@ -4475,6 +5677,7 @@ class DjotToCarve
                     continue;
                 }
                 $width = $this->backtickRun($source, $i);
+                $codeHostDepth = $codeDepth;
                 $candidate = $closeRun($i, $width);
                 if ($candidate + $width <= $lineEnd) {
                     $i = $candidate + $width;
@@ -4482,25 +5685,39 @@ class DjotToCarve
 
                     continue;
                 }
-                while (isset($paragraphEnds[$paragraph]) && $paragraphEnds[$paragraph] <= $i) {
-                    $paragraph++;
-                }
-                $limit = min($candidate, $paragraphEnds[$paragraph] ?? $length);
+                $limit = min($candidate, $length);
                 $separate = false;
+                $separateDepth = 0;
                 for ($next = $lineEnd + 1; $next < $limit;) {
                     $newline = strpos($source, "\n", $next);
                     $end = $newline === false ? $length : $newline;
-                    [$nextDepth, $nextContent] = $this->quoted(substr($source, $next, $end - $next));
-                    $nextTrimmed = ltrim($nextContent);
+                    $following = substr($source, $next, $end - $next);
+                    [$nextDepth, $nextContent] = $this->quoted($following);
+                    $nextTrimmed = ltrim($nextContent, " \t");
+                    $ownerAt = 0;
+                    for ($q = 0; $q < $itemQuote; ++$q) {
+                        if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $following, $ownerPrefix, 0, $ownerAt) !== 1) {
+                            break;
+                        }
+                        $ownerAt += strlen($ownerPrefix[0]);
+                    }
+                    $ownerContent = substr($following, $ownerAt);
+                    $ownerIndent = strspn($following, " \t", $ownerAt);
+                    $outside = ($codeDepth > 0 && $nextDepth < $codeDepth) || ($itemColumn > 0 && $ownerIndent < $itemColumn);
+                    if (($nextDepth <= $codeDepth || $outside) && trim($nextContent, " \t") === '') {
+                        $limit = $next - 1;
+
+                        break;
+                    }
                     $nextIndent = strlen($nextContent) - strlen($nextTrimmed);
                     $owner = $divs !== [] ? end($divs) : null;
                     $closesDiv = $owner !== null && $nextDepth === $owner['depth'] && $nextIndent <= $owner['column'] + 3 && preg_match('/^:{3,}[ \t]*$/', $nextTrimmed) === 1 && strlen(trim($nextTrimmed)) >= $owner['width'];
-                    $outside = ($depth > 0 && $nextDepth < $depth) || ($itemColumn > 0 && $nextDepth <= $itemQuote && $nextIndent < $itemColumn);
-                    $attributes = str_starts_with($nextTrimmed, '{') && $this->readDjotWordAttributes($nextTrimmed, 0) !== null;
-                    if ($closesDiv || ($outside && (preg_match($block, $nextTrimmed) === 1 || $attributes))) {
+                    $attributes = $blockAttributes($nextTrimmed);
+                    if ($closesDiv || ($outside && (preg_match($block, $nextTrimmed) === 1 || ($itemColumn > 0 && $ownerIndent < $itemColumn && preg_match($block, ltrim($ownerContent, " \t")) === 1) || $attributes))) {
                         $limit = $next - 1;
                         $nextItem = preg_match($marker, $nextTrimmed, $nextItemMatch) === 1 ? $itemKindOf($nextItemMatch[0]) : null;
                         $separate = $outside && ($nextDepth < $depth || $nextItem !== $itemKind);
+                        $separateDepth = min($depth, $nextDepth);
 
                         break;
                     }
@@ -4515,33 +5732,41 @@ class DjotToCarve
                 if (!$closed && $end === $length) {
                     $payload = preg_replace('/\n[ \t]*(?:>[ \t]*)*$/', '', $payload) ?? $payload;
                 }
-                $payload = preg_replace('/\n$/', '', $payload) ?? $payload;
+                if (!$closed) {
+                    $payload = preg_replace('/\n$/', '', $payload) ?? $payload;
+                }
                 $payload = preg_replace('/^ `|` $/', '`', $payload) ?? $payload;
                 $normalized = [];
                 foreach (explode("\n", $payload) as $n => $value) {
                     if ($n === 0) {
-                        $normalized[] = rtrim($value, " \t");
+                        $normalized[] = $value;
 
                         continue;
                     }
                     $valueOffset = 0;
-                    for ($q = 0; $q < $depth; $q++) {
-                        if (preg_match('/\G[ \t]*>[ ]?/', $value, $prefixMatch, 0, $valueOffset) !== 1) {
+                    for ($q = 0; $q < $codeDepth; $q++) {
+                        if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $value, $prefixMatch, 0, $valueOffset) !== 1) {
                             break;
                         }
                         $valueOffset += strlen($prefixMatch[0]);
                     }
-                    $normalized[] = trim(substr($value, $valueOffset), " \t");
+                    $normalized[] = ltrim(substr($value, $valueOffset), " \t");
                 }
-                $rawCode = str_starts_with($itemKind, '[^') && count($normalized) > 1;
+                $rawCode = $itemColumn > 0 && str_starts_with($itemKind, '[^') && count($normalized) > 1;
                 foreach (array_slice($normalized, 1) as $value) {
-                    if ((preg_match($block, $value) === 1 || str_starts_with($value, '{')) && (preg_match('/^\|[ \t:|-]*\|$/', $value) !== 1 || ($line[$at] ?? '') !== '|')) {
+                    if ((preg_match($block, $value) === 1 || str_starts_with($value, ':::') || str_starts_with($value, '{')) && (preg_match('/^\|[ \t:|-]*\|$/', $value) !== 1 || ($line[$at] ?? '') !== '|')) {
                         $rawCode = true;
 
                         break;
                     }
                 }
+                if ($codeDepth > 0 && !$rawCode) {
+                    $payload = implode("\n", $normalized);
+                }
                 if ($rawCode) {
+                    if ($onRawCode !== null) {
+                        $onRawCode($i);
+                    }
                     $payload = '<code>' . (preg_replace_callback('/[!-\/:-@\[-`{-~]|\n/', static fn (array $match): string => '&#' . ord($match[0]) . ';', implode("\n", $normalized)) ?? '') . '</code>';
                 }
                 preg_match_all('/`+/', $payload, $payloadRuns);
@@ -4550,7 +5775,7 @@ class DjotToCarve
                     $fenceWidth = max($fenceWidth, strlen($run) + 1);
                 }
                 $fence = str_repeat('`', $fenceWidth);
-                $pad = str_starts_with($payload, '`') || str_ends_with($payload, '`') || (str_starts_with($payload, ' ') && str_ends_with($payload, ' ') && trim($payload) !== '') ? ' ' : '';
+                $pad = str_starts_with($payload, '`') || str_ends_with($payload, '`') ? ' ' : '';
                 $escapes = array_merge(array_filter($pending, static fn (int $k): bool => $k > 0 && $source[$k - 1] === ']'), $footnotes);
                 sort($escapes);
                 foreach ($escapes as $escape) {
@@ -4563,11 +5788,11 @@ class DjotToCarve
                 $cursor = $closed ? $end + $width : $end;
                 $consumed = $cursor;
                 if ($separate && !$closed) {
-                    $output[] = "\n";
+                    $output[] = "\n" . rtrim(str_repeat('> ', $separateDepth));
                 }
                 $i = $consumed;
             }
-            $previousBlock = !$beganInside && $consumed <= $lineEnd && ($trimmed === '' || preg_match('/^(?:#{1,6} |:{3,}|\[[^\]]+\]:)/', $trimmed) === 1 || (str_starts_with($trimmed, '{') && $this->readDjotWordAttributes($trimmed, 0) !== null) || (($line[$at] ?? '') === '|' && str_ends_with(rtrim($line), '|') && !str_ends_with(rtrim($line), '\\|')));
+            $previousBlock = !$beganInside && $consumed <= $lineEnd && ($trimmed === '' || preg_match('/^(?:#{1,6} |:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$|\[[^\]]+\]:)/', $trimmed) === 1 || $blockAttributes($trimmed) || (($line[$at] ?? '') === '|' && str_ends_with(rtrim($line), '|') && !str_ends_with(rtrim($line), '\\|')));
             $offset = $lineEnd + 1;
         }
         $output[] = substr($source, $cursor);
@@ -4593,13 +5818,13 @@ class DjotToCarve
         $definitions = [];
         foreach ($lines as $n => $line) {
             $at = $this->djotContentStart($line);
-            if (($mask[$offsets[$n] + $at] ?? '') !== '[' || preg_match('/^\[([^\[\]\n^][^\[\]\n]*)\]:[ \t]*(\S*)[ \t]*$/', substr($line, $at), $definition) !== 1 || !str_contains($definition[1], '|')) {
+            if (($mask[$offsets[$n] + $at] ?? '') !== '[' || preg_match('/^\[([^\[\]\n^][^\[\]\n]*)\]:[ \t]*+([^ \t\r\n]*+)\r?$/', substr($line, $at), $definition) !== 1 || !str_contains($definition[1], '|')) {
                 continue;
             }
             $previousLine = $lines[$n - 1] ?? '';
             $previousAt = $this->djotContentStart($previousLine);
             $previous = trim(substr($previousLine, $previousAt));
-            $opensItem = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', substr($line, 0, $at)) === 1;
+            $opensItem = preg_match('/(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\)|:)[ \t]+/', $this->djotItemPrefix($line, $at)) === 1;
             $previousAttrs = str_starts_with($previous, '{') ? $this->readDjotWordAttributes($previous, 0) : null;
             if ($previous !== '' && !($rowFlags[$n - 1] ?? false) && $at >= $previousAt && preg_match('/^(?:\*[ \t]*){3,}$|^(?:-[ \t]*){3,}$/', $previous) !== 1 && preg_match('/^(?:#{1,6} |`{3,}|~{3,}|:{3,}|\[[^\]]+\]:)/', $previous) !== 1 && ($previousAttrs === null || $previousAttrs['end'] !== strlen($previous)) && !$opensItem && substr_count(substr($line, 0, $at), '>') <= substr_count(substr($previousLine, 0, $previousAt), '>')) {
                 $lines[$n] = substr($line, 0, $at) . '\\' . substr($line, $at);

@@ -84,7 +84,8 @@ class DjotLossReportTest extends TestCase
     {
         $source = "{title=foo .old}\n[ref]: /url\n\n[ref][]{title=bar .new}\n";
         $value = (new DjotToCarve())->convert($source);
-        self::assertSame("[ref](/url){title=\"bar\" class=\"new\"}\n", $value);
+        self::assertSame((new CarveConverter())->convert("[ref](/url){title=\"bar\" class=\"new\"}\n"), (new CarveConverter())->convert($value));
+        self::assertSame("\n[ref]: /url\n\n[ref][ref]{title=\"bar\" class=\"new\"}\n", $value);
         self::assertStringNotContainsString('title=foo', $value);
         self::assertStringNotContainsString('}{', $value);
     }
@@ -162,13 +163,15 @@ class DjotLossReportTest extends TestCase
     public function testKeepsDefinitionUsedByAnOrdinaryReference(): void
     {
         $source = "[link _and_ link][] and [plain][link and link]\n\n[link and link]: url\n";
-        self::assertSame("[link /and/ link](url) and [plain][link and link]\n\n[link and link]: url\n", (new DjotToCarve())->convert($source));
+        self::assertSame((new CarveConverter())->convert("[link /and/ link](url) and [plain][link and link]\n\n[link and link]: url\n"), (new CarveConverter())->convert((new DjotToCarve())->convert($source)));
+        self::assertSame("[link /and/ link][link and link] and [plain][link and link]\n\n[link and link]: url\n", (new DjotToCarve())->convert($source));
     }
 
-    public function testRemovesInlinedDefinitionAfterFoldingAWrappedLabel(): void
+    public function testKeepsSharedDefinitionAfterFoldingAWrappedLabel(): void
     {
         $source = "[wrapped][a and\nb] and [ref][]\n\n[a and b]: url\n\n{title=\"two words\"}\n[ref]: /url\n";
-        self::assertSame("[wrapped][a and b] and [ref](/url){title=\"two words\"}\n\n[a and b]: url\n", (new DjotToCarve())->convert($source));
+        self::assertSame((new CarveConverter())->convert("[wrapped][a and b] and [ref](/url){title=\"two words\"}\n\n[a and b]: url\n"), (new CarveConverter())->convert((new DjotToCarve())->convert($source)));
+        self::assertSame("[wrapped][a and b] and [ref][ref]\n\n[a and b]: url\n\n\n[ref]: /url {title=\"two words\"}\n", (new DjotToCarve())->convert($source));
     }
 
     public function testDefinitionTermContinuationIsDedented(): void
@@ -176,11 +179,12 @@ class DjotLossReportTest extends TestCase
         self::assertStringContainsString(":: apple\nfruit\n", (new DjotToCarve())->convert(": apple\n fruit\n\n  Body\n\n: orange\n"));
     }
 
-    public function testRemovingAnInlinedDefinitionPreservesParagraphSeparation(): void
+    public function testSharedDefinitionPreservesParagraphSeparation(): void
     {
         $source = "[b][]\n\n{title=t}\n[b]: /u\n\nnext\n";
         $carve = (new DjotToCarve())->convert($source);
-        self::assertSame("[b](/u){title=\"t\"}\n\nnext\n", $carve);
+        self::assertSame((new CarveConverter())->convert("[b](/u){title=\"t\"}\n\nnext\n"), (new CarveConverter())->convert($carve));
+        self::assertSame("[b][b]\n\n\n[b]: /u {title=t}\n\nnext\n", $carve);
         self::assertSame("<p><a href=\"/u\" title=\"t\">b</a></p>\n<p>next</p>\n", (new CarveConverter())->convert($carve));
     }
 
@@ -189,5 +193,34 @@ class DjotLossReportTest extends TestCase
         foreach (["[a][b][c]\n\n[b]: /u", "[a][b]()\n\n[b]: /u", '[a][[b]', '[a][b `c] [x][y]` z', "[a [b](u)\\\n\nc](v)", "> [x [a](u)\n>\n> b](v)", '| [a [b](u) | c](v) |'] as $source) {
             self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'));
         }
+    }
+
+    public function testReferencesAfterFootnotesHaveNoFalseUnresolvedLoss(): void
+    {
+        foreach ([' ', '', "\t"] as $padding) {
+            $source = "[^n]: note\n  more\n[r]:{$padding}/u\n\n[x][r]";
+            $result = (new DjotToCarve())->convertWithFidelityReport($source);
+            self::assertStringContainsString('href="/u"', (new CarveConverter())->convert((new DjotToCarve())->convert($source)));
+            foreach ($result->report()['diagnostics'] as $diagnostic) {
+                self::assertStringNotContainsString('unresolved Djot reference', $diagnostic['message']);
+            }
+        }
+    }
+
+    public function testParagraphFootnoteDoesNotOpenReferenceBoundary(): void
+    {
+        $source = "text\n[^n]: note\n[r]: /u\n\n[x][r]";
+        $converter = new DjotToCarve();
+        self::assertStringNotContainsString('href="/u"', (new CarveConverter())->convert($converter->convert($source)));
+        $losses = array_filter($converter->convertWithFidelityReport($source)->report()['diagnostics'], static fn (array $row): bool => str_contains($row['message'], 'unresolved Djot reference'));
+        self::assertCount(1, $losses);
+    }
+
+    public function testAdjacentFootnotesRemainFootnotesBesideCaretReference(): void
+    {
+        $source = "[^n]:/u\n\n[^n][^n]";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+        self::assertSame(2, substr_count($html, 'role="doc-noteref"'));
+        self::assertStringNotContainsString('carve-djot-reference', $html);
     }
 }

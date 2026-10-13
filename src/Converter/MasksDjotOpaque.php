@@ -11,7 +11,7 @@ trait MasksDjotOpaque
      *
      * @param string $source
      * @param bool $unclosedCode
-     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void} $options
+     * @param array{code?: bool, rawCode?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void} $options
      */
     private function maskDjotOpaque(string $source, bool $unclosedCode = true, array $options = []): string
     {
@@ -28,25 +28,16 @@ trait MasksDjotOpaque
         if (str_contains($source, ']:')) {
             foreach (explode("\n", $source) as $line) {
                 if (preg_match('/^[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\[(?!\^)[^\]\n]+\](?=:)/', $line, $definition) === 1) {
-                    $definitionLines[$lineOffset + strlen($definition[0]) - 1] = [$lineOffset, trim($previousLine)];
+                    $definitionLines[$lineOffset + strlen($definition[0]) - 1] = [$lineOffset, $previousLine];
                 }
                 $lineOffset += strlen($line) + 1;
                 $previousLine = $line;
             }
         }
+        preg_match_all('/\{=[^\x09-\x0d\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}{}`]+\}/u', $source, $formats, PREG_OFFSET_CAPTURE);
         $rawFormats = [];
-        if (str_contains($source, '{=')) {
-            $rawEnd = -1;
-            for ($at = strlen($source) - 1; $at >= 0; $at--) {
-                if ($source[$at] === '}') {
-                    $rawEnd = $at + 1;
-                } elseif ($source[$at] === "\n") {
-                    $rawEnd = -1;
-                }
-                if ($source[$at] === '{' && ($source[$at + 1] ?? '') === '=' && $rawEnd >= 0) {
-                    $rawFormats[$at] = $rawEnd;
-                }
-            }
+        foreach ($formats[0] as [$format, $at]) {
+            $rawFormats[$at] = $at + strlen($format);
         }
         $lastBrace = strrpos($source, '}');
         $out = $source;
@@ -153,7 +144,10 @@ trait MasksDjotOpaque
                 array_pop($brackets);
                 if (isset($definitionLines[$at])) {
                     [$lineStart, $previous] = $definitionLines[$at];
-                    if ($lineStart > 0 && $previous !== '' && preg_match('/^(?:#{1,6} |:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/', $previous) !== 1) {
+                    $content = trim(substr($previous, $this->djotContentStart($previous)));
+                    $block = trim((string)preg_replace('/^(?:[ \t]*+>(?:[ \t]|$))*+[ \t]*+/', '', $previous));
+                    $definitionBoundary = '/^(?:#{1,6} |:{3,}|[`~]{3,}|\{|\[[^\]]+\]:|(?:[*-][ \t]*){3,}$)/';
+                    if ($lineStart > 0 && $content !== '' && preg_match($definitionBoundary, $content) !== 1 && preg_match($definitionBoundary, $block) !== 1) {
                         continue;
                     }
                     $newline = strpos($source, "\n", $at);
@@ -184,7 +178,7 @@ trait MasksDjotOpaque
             }
             $rawEnd = $rawFormats[$end] ?? null;
             $math = $at > 0 && $at < strlen($source) && $source[$at - 1] === '$';
-            if (($options['code'] ?? true) || $rawEnd !== null || $math) {
+            if (($options['code'] ?? true) || $rawEnd !== null && ($options['rawCode'] ?? true) || $math) {
                 $hide($at - (int)$math, $end);
             }
             $at = ($rawEnd ?? $end) - 1;

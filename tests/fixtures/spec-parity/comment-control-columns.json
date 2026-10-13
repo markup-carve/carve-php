@@ -362,6 +362,6 @@
   {
     "id": "comment-controls/hosted-link-definition",
     "source": "- ::: box\n    [r]: /u\n  :::\n\n[t][r]\n",
-    "html": "<ul>\n  <li>\n    <div class=\"box\">\n      <p>[r]: /u</p>\n    </div>\n  </li>\n</ul>\n<p>[t][r]</p>"
+    "html": "<ul>\n  <li>\n    <div class=\"box\">\n\n    </div>\n  </li>\n</ul>\n<p><a href=\"/u\">t</a></p>"
   }
 ]

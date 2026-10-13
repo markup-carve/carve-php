@@ -98,6 +98,17 @@ final class DjotMultilineCommentBoundariesTest extends TestCase
         $source = $reader->convert("{% a\r\n\r\nb %}\n");
         self::assertStringContainsString('a', $source);
         self::assertStringContainsString('b', $source);
-        self::assertSame("- > \\{% a\n > b %}\n", $reader->convert("- > {% a\n > b %}\n"));
+        self::assertSame("- > \\{% a\n  > \\> b %}\n", $reader->convert("- > {% a\n > b %}\n"));
+    }
+
+    public function testIndentedRejectedCommentQuotesKeepOwnership(): void
+    {
+        $reader = new DjotToCarve();
+        $source = "> - {% a\n> b %}\n";
+        $expected = $reader->convert($source);
+        foreach ([1, 2, 4, 8] as $width) {
+            $indented = implode("\n", array_map(static fn (string $line): string => $line !== '' ? str_repeat(' ', $width) . $line : $line, explode("\n", $source)));
+            self::assertSame($expected, $reader->convert($indented));
+        }
     }
 }

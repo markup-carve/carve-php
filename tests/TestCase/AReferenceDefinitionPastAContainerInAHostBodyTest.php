@@ -12,8 +12,8 @@ use PHPUnit\Framework\TestCase;
  * markup-carve/carve-php#1908.
  *
  * A definition in a quote's lazy run is classified before block ownership and
- * therefore escapes a list item. The opposite top-level shape remains an open
- * quoted paragraph: a div-shaped lazy run, including its closer, stays text.
+ * therefore escapes a list item. A hosted div also releases a link definition
+ * past its content column. A div-shaped lazy run in a top-level quote stays text.
  */
 class AReferenceDefinitionPastAContainerInAHostBodyTest extends TestCase
 {
@@ -48,7 +48,7 @@ class AReferenceDefinitionPastAContainerInAHostBodyTest extends TestCase
     {
         return [
             'definition at quote column in item' => ["- a\n  > q\n  [r]: /url\n\n[r][]\n", "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n<p><a href=\"/url\">r</a></p>"],
-            'div in item keeps definition' => ["- a\n  ::: n\n   [r]: /url\n  :::\n\n[r][]\n", "<ul>\n  <li>a\n    <div class=\"n\">\n      <p>[r]: /url</p>\n    </div>\n  </li>\n</ul>\n<p>[r][]</p>"],
+            'div in item releases definition' => ["- a\n  ::: n\n   [r]: /url\n  :::\n\n[r][]\n", "<ul>\n  <li>a\n    <div class=\"n\">\n\n    </div>\n  </li>\n</ul>\n<p><a href=\"/url\">r</a></p>"],
             'quote in item keeps heading payload' => ["- a\n  > q\n   # h\n\nx\n", "<ul>\n  <li>a\n    <blockquote><p>q\n# h</p></blockquote>\n  </li>\n</ul>\n<p>x</p>"],
             'quote in description consumes definition' => [":: t\n: a\n  > q\n   [r]: /url\n\n[r][]\n", "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <blockquote><p>q</p></blockquote>\n  </dd>\n</dl>\n<p><a href=\"/url\">r</a></p>"],
             'top quote keeps div run without definition' => ["> a\n  ::: note\n  :::\n\n[r][]\n", "<blockquote><p>a\n::: note\n:::</p></blockquote>\n<p>[r][]</p>"],
