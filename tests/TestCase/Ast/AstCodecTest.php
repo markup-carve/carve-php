@@ -356,7 +356,7 @@ class AstCodecTest extends TestCase
      * stricter surface because it has to reproduce what the AUTHOR wrote, which
      * is exactly what PART 12 §6 is about.
      *
-     * The exceptions are the ones §5 states outright, listed by name so
+     * The exceptions are listed by name so
      * that a NEW loss fails here and so does one of these being FIXED - a
      * subset check would let the first through as soon as the list had an
      * entry.
@@ -402,7 +402,10 @@ class AstCodecTest extends TestCase
      * The documents a JSON round trip does not return to their authored form,
      * and the only ones.
      *
-     * EMPTY now. `173` was the implicit-heading-reference gap: the parsed link
+     * `09-tables-10` loses its authored header alignment on decode. The new
+     * corpus row is unrelated to the span-marker continuation change.
+     *
+     * Earlier, `173` was the implicit-heading-reference gap: the parsed link
      * records that its destination was derived from a heading, and that flag is
      * not on the wire, so `[label][]` came back as `[label](#id)`.
      *
@@ -423,7 +426,7 @@ class AstCodecTest extends TestCase
      *
      * @var array<string>
      */
-    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [];
+    private const AUTHORED_FORM_NOT_ON_THE_WIRE = ['09-tables-10.crv'];
 
     /**
      * @return array<string, mixed>

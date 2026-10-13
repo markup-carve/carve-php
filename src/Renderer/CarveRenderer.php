@@ -490,7 +490,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * The verbatim node about to be written carries these `+` joins.
      *
-     * @var array<array{offset: int, line: int, row?: int}>|null
+     * @var array<array{offset: int, line: int, row?: int, col?: int}>|null
      */
     private ?array $pendingVerbatimCellWraps = null;
 
@@ -3024,7 +3024,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function placeCellWraps(string $rendered, array &$continuations, int $rowIndex, int $cellIndex, TableRow $row): string
     {
-        if (preg_match_all('/\x02([0-9]+),([0-9]+)\x03/', $rendered, $markers, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) === 0) {
+        if (preg_match_all('/\x02([0-9]+),([0-9]+),([0-9]+)\x03/', $rendered, $markers, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) === 0) {
             return $rendered;
         }
         $head = substr($rendered, 0, $markers[0][0][1]) . ' ';
@@ -3039,21 +3039,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $targetRow = $rowIndex + (int)$marker[1][0];
             $targetLine = (int)$marker[2][0] - 1;
             $line = $continuations[$targetRow][$targetLine] ?? null;
-            if ($line === null || $cellIndex >= count($line)) {
+            $slot = $cellIndex + (int)$marker[3][0];
+            if ($line === null || $slot >= count($line)) {
                 throw new SourceUnspellableException('table_row', 'cell_wrap points outside its continuation row');
             }
-            // A colspan marker may carry another fragment into this cell on the
-            // same line; the schema names no column, so take the next free slot.
-            $slot = null;
-            foreach ($line as $index => $value) {
-                if ($index >= $cellIndex && $value === ' ') {
-                    $slot = $index;
-
-                    break;
-                }
-            }
-            if ($slot === null) {
-                throw new SourceUnspellableException('table_row', 'cell_wrap has no free continuation cell');
+            if ($line[$slot] !== ' ') {
+                throw new SourceUnspellableException('table_row', 'two cell_wrap parts name one continuation cell');
             }
             $continuations[$targetRow][$targetLine][$slot] = $this->padCell('', $part);
         }
@@ -4024,7 +4015,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 : $withAttrs('[' . $this->verbatimSentinels[4] . ']'),
             $node instanceof SoftBreak => "\n",
             // renderTable() moves the part after a marker onto its `+` line.
-            $node instanceof CellWrap => $this->tableCellDepth > 0 ? "\x02" . $node->getRow() . ',' . $node->getLine() . "\x03" : ' ',
+            $node instanceof CellWrap => $this->tableCellDepth > 0 ? "\x02" . $node->getRow() . ',' . $node->getLine() . ',' . $node->getCol() . "\x03" : ' ',
             // A line block's own spelling is decided in renderInlines(), which
             // is the only place that can see the line the break ends
             // (PART 11 §7c) - see verseLineBreak().
@@ -4836,7 +4827,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     /**
      * @param string $content
-     * @param array<array{offset: int, line: int, row?: int}> $cellWraps
+     * @param array<array{offset: int, line: int, row?: int, col?: int}> $cellWraps
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      *
@@ -4850,7 +4841,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if ($wrap['offset'] <= $previous || ($chars[$wrap['offset']] ?? null) !== ' ') {
                 throw new SourceUnspellableException('code', 'a cellWraps offset does not name a joining space in ascending order');
             }
-            $chars[$wrap['offset']] = "\x02" . ($wrap['row'] ?? 0) . ',' . $wrap['line'] . "\x03";
+            $chars[$wrap['offset']] = "\x02" . ($wrap['row'] ?? 0) . ',' . $wrap['line'] . ',' . ($wrap['col'] ?? 0) . "\x03";
             $previous = $wrap['offset'];
         }
 

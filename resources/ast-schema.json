@@ -735,6 +735,11 @@
           "minimum": 1,
           "description": "Rows below the spanning cell's own row whose `+` line this is. Absent means 0."
         },
+        "col": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Columns right of the widened cell's left edge where its `+` part was written. Absent means 0."
+        },
         "pos": {
           "$ref": "#/$defs/pos"
         }
@@ -923,11 +928,12 @@
             "properties": {
               "offset": { "type": "integer", "minimum": 0 },
               "line": { "type": "integer", "minimum": 1 },
-              "row": { "type": "integer", "minimum": 1 }
+              "row": { "type": "integer", "minimum": 1 },
+              "col": { "type": "integer", "minimum": 1 }
             },
             "additionalProperties": false
           },
-          "description": "CARVE-P12-069 continuation joins as { offset, line, row? }: the codepoint offset of each joining space in the code value payload."
+          "description": "CARVE-P12-069 continuation joins as { offset, line, row?, col? }: the codepoint offset of each joining space in the code value payload."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"
@@ -2649,11 +2655,12 @@
             "properties": {
               "offset": { "type": "integer", "minimum": 0 },
               "line": { "type": "integer", "minimum": 1 },
-              "row": { "type": "integer", "minimum": 1 }
+              "row": { "type": "integer", "minimum": 1 },
+              "col": { "type": "integer", "minimum": 1 }
             },
             "additionalProperties": false
           },
-          "description": "CARVE-P12-069 continuation joins as { offset, line, row? }: the codepoint offset of each joining space in the math content payload."
+          "description": "CARVE-P12-069 continuation joins as { offset, line, row?, col? }: the codepoint offset of each joining space in the math content payload."
         },
         "label": {
           "type": "string",
@@ -2851,11 +2858,12 @@
             "properties": {
               "offset": { "type": "integer", "minimum": 0 },
               "line": { "type": "integer", "minimum": 1 },
-              "row": { "type": "integer", "minimum": 1 }
+              "row": { "type": "integer", "minimum": 1 },
+              "col": { "type": "integer", "minimum": 1 }
             },
             "additionalProperties": false
           },
-          "description": "CARVE-P12-069 continuation joins as { offset, line, row? }: the codepoint offset of each joining space in the raw_inline content payload."
+          "description": "CARVE-P12-069 continuation joins as { offset, line, row?, col? }: the codepoint offset of each joining space in the raw_inline content payload."
         },
         "attrs": {
           "$ref": "#/$defs/attrs"

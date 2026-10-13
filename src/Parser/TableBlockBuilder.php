@@ -146,7 +146,7 @@ final class TableBlockBuilder
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
-        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int}>, rowIndex: int}> $cellBuilds */
+        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int, int}>, rowIndex: int}> $cellBuilds */
         $cellBuilds = [];
         /** @var array<int, true> $rejoined */
         $rejoined = [];
@@ -588,7 +588,7 @@ final class TableBlockBuilder
                     $rowsBelow = $rowIndex - $build['rowIndex'];
                     foreach ($join['wraps'] as $at => $wrapLine) {
                         if ($at >= 0 || $joinAt > 0) {
-                            $build['wraps'][$joinAt + $at] = [$wrapLine, $rowsBelow];
+                            $build['wraps'][$joinAt + $at] = [$wrapLine, $rowsBelow, $col - $build['cellData']['gridColumn']];
                         }
                     }
                     $build['content'] = $build['content'] === '' ? $join['text'] : $build['content'] . ' ' . $join['text'];
@@ -699,7 +699,7 @@ final class TableBlockBuilder
      * @param string $trimmed
      * @param array<int, int> $wraps
      *
-     * @return array<int, array{int, int}>
+     * @return array<int, array{int, int, int}>
      */
     private function contentWraps(string $content, string $trimmed, array $wraps): array
     {
@@ -714,7 +714,7 @@ final class TableBlockBuilder
         foreach ($wraps as $at => $line) {
             $at -= $delta;
             if ($at > 0 && ($trimmed[$at] ?? '') === ' ') {
-                $mapped[$at] = [$line, 0];
+                $mapped[$at] = [$line, 0, 0];
             }
         }
 
@@ -728,7 +728,7 @@ final class TableBlockBuilder
      * @param array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>} $cellData
      * @param int $baseLineForRow
      * @param string $trimmedContent
-     * @param array<int, array{int, int}> $wraps
+     * @param array<int, array{int, int, int}> $wraps
      */
     private function fillCellContent(TableCell $cell, array $cellData, int $baseLineForRow, string $trimmedContent, array $wraps = []): void
     {
