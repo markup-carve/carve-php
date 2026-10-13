@@ -172,6 +172,10 @@ class ListStyleDroppedTest extends TestCase
             'nested ordered' => ["1. outer\n   <!-- carve: a. -->\n   1. one\n2. next\n", "1. outer\n   a. one\n2. next\n"],
             'nested noninitial start' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  3. three\n- next\n", "- outer\n  b. two\n  c. three\n- next\n"],
             'nested noninitial loose' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  3. three\n\n- next\n", "- outer\n  b. two\n  c. three\n\n- next\n"],
+            'nested noninitial at end' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  3. three\n", "- outer\n  b. two\n  c. three\n"],
+            'nested noninitial before sibling' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  3. three\n  - sib\n- next\n", "- outer\n  b. two\n  c. three\n  - sib\n- next\n"],
+            'nested noninitial before lazy line' => ["- outer\n  <!-- carve: a. -->\n  2. two\nlazy\n- next\n", "- outer\n  b. two\n     lazy\n- next\n"],
+            'nested noninitial with later blank' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  - sib\n\n- next\n", "- outer\n  b. two\n  - sib\n\n- next\n"],
         ];
     }
 
