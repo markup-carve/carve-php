@@ -45,6 +45,13 @@ trailing line endings. When the imported text matches and no known loss was
 reported, `literal-text-verified` records preserved/exact evidence. All other
 inputs retain the dropped/fallback `fidelity-unverified` warning.
 
+Djot derives collapsed image-reference keys from child text. Paired quote
+wrappers, footnotes, symbols and ignored attributes do not contribute to the
+key. An unresolved image without a destination has no Carve image spelling. The
+same applies when removing ignored markup leaves a blank line in the alternative
+text. The migration report records `structure-unspellable`. HTML rendered from
+the converted source does not preserve that image.
+
 Markdown reports `raw-code-fallback` with warning severity, degraded fidelity
 and exact confidence when an HTML code payload needs raw HTML to preserve its
 content or structure in Carve source. The HTML output keeps the code payload;
