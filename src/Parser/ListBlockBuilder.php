@@ -1678,7 +1678,7 @@ final class ListBlockBuilder
                     if (
                         !$hasBlankBoundary
                         && ($literalMarker['type'] ?? null) === ListBlock::TYPE_BULLET
-                        && ($literalMarker['marker'] ?? '') === '-'
+                        && $literalMarker['marker'] === '-'
                         && isset($lines[$index + 1])
                         && preg_match('/^[ \t]*`{3,}[ \t]*$/', $lines[$index + 1]) === 1
                     ) {

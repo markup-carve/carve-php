@@ -3339,7 +3339,7 @@ class BlockParser
                 for (; $i < $count; $i++) {
                     $authoredColumn = $this->authoredColumnOf($i, $lines[$i]);
                     if (
-                        $boxColumn !== null && $authoredColumn !== null
+                        $authoredColumn !== null
                         && !IndentationHelper::isBlankLine($lines[$i])
                         && (
                             $authoredColumn < $boxColumn
