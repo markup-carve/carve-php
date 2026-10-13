@@ -172,7 +172,12 @@ trait ReportsDjotLosses
                 if ($separator && count($rows) >= 2) {
                     $add($offset, 'A separator inside a table promotes the preceding row to a header; Carve cannot spell that structure.');
                 }
-                $rows[] = ['at' => $offset, 'separator' => $separator, 'blank' => trim($view, "| \t") === ''];
+                // A row of blank cells is a Carve row (CARVE-P9-082), but Carve
+                // reads a tab between the pipes as content where Djot reads padding.
+                if (str_contains($view, "\t") && preg_match('/^\|(?:[ \t]*\|)+$/', $view) === 1) {
+                    $add($offset, 'A blank table cell holding a tab reads as tab content in Carve.');
+                }
+                $rows[] = ['at' => $offset, 'separator' => $separator];
             } else {
                 $this->reportDjotTableLosses($rows, $add);
                 $rows = [];
@@ -314,7 +319,7 @@ trait ReportsDjotLosses
     }
 
     /**
-     * @param list<array{at: int, separator: bool, blank: bool}> $rows
+     * @param list<array{at: int, separator: bool}> $rows
      * @param callable(int, string): void $add
      */
     private function reportDjotTableLosses(array $rows, callable $add): void
@@ -324,8 +329,6 @@ trait ReportsDjotLosses
         }
         if (count(array_filter($rows, static fn (array $row): bool => !$row['separator'])) === 0) {
             $add($rows[0]['at'], 'A table containing only separator rows has no Carve spelling.');
-        } elseif (count($rows) === 1 && $rows[0]['blank']) {
-            $add($rows[0]['at'], 'A table whose only row has blank cells has no Carve spelling.');
         }
     }
 }

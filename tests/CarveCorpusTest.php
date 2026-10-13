@@ -50,7 +50,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
-        'an-explicitly-delimited-row-of-blank-cells-is-a-table',
         'a-block-quote-and-a-footnote-body-take-the-first-block-form',
         'a-fence-that-leaves-a-closed-nested-item-opens-in-the-host-it-lands-in',
         'a-footnote-definition-past-a-box-s-column-is-hoisted',
@@ -1167,6 +1166,8 @@ class CarveCorpusTest extends TestCase
         'a-dash-run-opens-frontmatter-only-at-the-start-and-only-a-dash-run',
         'a-below-column-line-continues-a-paragraph-only-where-one-is-open',
         'a-caption-scope-resets-at-a-structural-only-line',
+        // CARVE-P9-082 (carve 46b3d3f): a delimited row of blank cells is a row.
+        'an-explicitly-delimited-row-of-blank-cells-is-a-table',
     ];
 
     /**
@@ -1187,30 +1188,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [
-        '113-a-pipe-pair-with-no-cell-is-not-a-table' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '453-a-row-whose-every-cell-is-blank-is-not-a-table' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '453-a-row-whose-every-cell-is-blank-is-not-a-table-2' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '453-a-row-whose-every-cell-is-blank-is-not-a-table-3' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-13' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-2' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-23' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-24' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-25' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-26' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-27' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-28' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-29' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-3' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-30' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-31' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-33' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-34' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-4' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-5' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-6' => 'Blank table row parsing is tracked by carve-php#3319.',
-        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table' => 'Blank table row parsing is tracked by carve-php#3319.',
-    ];
+    protected const KNOWN_GAPS = [];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED

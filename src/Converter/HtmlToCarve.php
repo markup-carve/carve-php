@@ -77,13 +77,6 @@ class HtmlToCarve
     protected const EMPTY_BODY_SENTINEL = '{empty}';
 
     /**
-     * A written table row whose every cell is blank, before its row attributes.
-     *
-     * @var string
-     */
-    protected const BLANK_TABLE_ROW = '/^\|(?:=? *\|)+$/';
-
-    /**
      * Canonical definition marker.
      *
      * @var string
@@ -1174,16 +1167,16 @@ class HtmlToCarve
 
         if (
             $tag === 'tr'
-            && $this->directAstBlankTableRow($node)
+            && $this->directAstDroppedTableRow($node)
         ) {
             $this->addImportDiagnostic(
                 $diagnostics,
                 'structure-unspellable',
-                'Dropped a row whose every cell is empty: Carve reads such a row as text',
+                'Dropped a row with no cells: Carve has no spelling for it',
                 'warning',
                 $path,
             );
-            if ($this->directAstBlankRowDropsCaption($node)) {
+            if ($this->directAstDroppedRowDropsCaption($node)) {
                 $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped a caption whose table has no row left', 'warning', $path);
             }
         }
@@ -1853,34 +1846,12 @@ class HtmlToCarve
         return false;
     }
 
-    private function directAstBlankTableRow(DOMElement $row): bool
+    private function directAstDroppedTableRow(DOMElement $row): bool
     {
-        if ($this->droppedBlankImportRows !== null) {
-            return isset($this->droppedBlankImportRows[$row]);
-        }
-        $sawCell = false;
-        foreach ($row->childNodes as $cell) {
-            if (
-                !$cell instanceof DOMElement
-                || !in_array(strtolower(HtmlDomLoader::elementName($cell)), ['td', 'th'], true)
-            ) {
-                continue;
-            }
-            $sawCell = true;
-            if (trim($cell->textContent) !== '') {
-                return false;
-            }
-            foreach ($cell->getElementsByTagName('*') as $descendant) {
-                if (strtolower(HtmlDomLoader::elementName($descendant)) !== 'hr') {
-                    return false;
-                }
-            }
-        }
-
-        return $sawCell;
+        return $this->droppedBlankImportRows !== null && isset($this->droppedBlankImportRows[$row]);
     }
 
-    private function directAstBlankRowDropsCaption(DOMElement $row): bool
+    private function directAstDroppedRowDropsCaption(DOMElement $row): bool
     {
         $table = $row->parentNode;
         while ($table instanceof DOMElement && strtolower(HtmlDomLoader::elementName($table)) !== 'table') {
@@ -1891,7 +1862,7 @@ class HtmlToCarve
         }
         $lastBlank = null;
         foreach ($table->getElementsByTagName('tr') as $candidate) {
-            if (!$this->directAstBlankTableRow($candidate)) {
+            if (!$this->directAstDroppedTableRow($candidate)) {
                 return false;
             }
             $lastBlank = $candidate;
@@ -4712,7 +4683,7 @@ class HtmlToCarve
             }
             if ($tag === 'td' || $tag === 'th') {
                 $row = $ancestor->parentNode;
-                if ($row instanceof DOMElement && strtolower(HtmlDomLoader::elementName($row)) === 'tr' && $this->directAstBlankTableRow($row)) {
+                if ($row instanceof DOMElement && strtolower(HtmlDomLoader::elementName($row)) === 'tr' && $this->directAstDroppedTableRow($row)) {
                     return false;
                 }
 

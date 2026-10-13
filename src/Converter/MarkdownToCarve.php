@@ -2307,9 +2307,7 @@ class MarkdownToCarve
                 $cells = $this->splitPipeCells($trimmed);
                 $this->recordTableRowDiagnostics($trimmed, $i, $tableWidth, $cells);
                 $row = $this->writeTableRow($cells, [], $tableWidth);
-                if ($this->keepTableRow($row, $i)) {
-                    $result[] = str_repeat(' ', $tableCol) . $row;
-                }
+                $result[] = str_repeat(' ', $tableCol) . $row;
 
                 continue;
             }
@@ -2407,7 +2405,7 @@ class MarkdownToCarve
                 }
                 $this->recordTableRowDiagnostics($trimmed, $i);
                 $header = $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
-                if ($this->keepTableRow($header, $i)) {
+                if ($this->keepHeaderRow($header, $i)) {
                     $result[] = str_repeat(' ', $contentCol) . $header;
                 } else {
                     // Keep the block boundary until the writer separates adjacent lists.
@@ -4441,25 +4439,17 @@ class MarkdownToCarve
                 $width = count($this->splitPipeCells(trim($text)));
                 $header = $this->gfmHeaderToCarve(trim($text), trim($held[1]));
                 $end = $index + 1;
-                if (!$this->keepTableRow($header, $index)) {
+                if (!$this->keepHeaderRow($header, $index)) {
                     $header = '%%';
-                    for ($at = $index + 2, $count = count($lines); $at < $count; $at++) {
-                        if ($this->indentWidth($lines[$at]) < $contentCol) {
-                            break;
-                        }
-                        $body = $this->stripColumns($lines[$at], $contentCol);
-                        if (!$this->continuesGfmTableBody($body)) {
-                            break;
-                        }
+                    $at = $index + 2;
+                    $body = isset($lines[$at]) && $this->indentWidth($lines[$at]) >= $contentCol
+                        ? $this->stripColumns($lines[$at], $contentCol)
+                        : null;
+                    if ($body !== null && $this->continuesGfmTableBody($body)) {
                         $cells = $this->splitPipeCells($body);
                         $this->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
-                        $row = $this->writeTableRow($cells, [], $width);
+                        $header = $this->writeTableRow($cells, [], $width);
                         $end = $at;
-                        if ($this->keepTableRow($row, $at)) {
-                            $header = $row;
-
-                            break;
-                        }
                     }
                 }
 
@@ -5539,21 +5529,20 @@ class MarkdownToCarve
     }
 
     /**
-     * A row whose every cell is blank and unmarked, which `writeTableRow` can
-     * produce from §10n's scaffolding header row. Carve spells no such row: its
-     * own parser reads `|= |= |` as a paragraph, so emitting it puts a line of
-     * pipes above the table (carve#2840). The row is dropped and reported
-     * instead, which is what carve-js already does.
+     * Whether a converted GFM header row is kept. An all-blank header with no
+     * alignment is the scaffolding the Markdown writer adds to a headerless
+     * table (PART 11 CARVE-P11-056), so it is omitted and reported. Body rows
+     * are always kept: a row of empty cells is a row (PART 9 CARVE-P9-082).
      */
-    private function keepTableRow(string $row, int $index): bool
+    private function keepHeaderRow(string $row, int $index): bool
     {
-        if ((new TableParser())->isTableRow($row)) {
+        if (!(new TableParser())->isScaffoldHeaderRow($row)) {
             return true;
         }
         $this->droppedTableRows = true;
         $this->tableDiagnostics[] = new MigrationDiagnostic(
             'structure-unspellable',
-            'Dropped a table row of ' . (substr_count(rtrim($row), '|') - 1) . ' blank cells; Carve spells no row whose every cell is blank',
+            'Dropped an empty header row of ' . (substr_count(rtrim($row), '|') - 1) . ' cells; a headerless GFM table has no Carve header',
             'warning',
             'dropped',
             'exact',
@@ -5914,7 +5903,7 @@ class MarkdownToCarve
         $this->inlineRunSourceLine = $this->sourceLine($index);
         $headerRow = $this->gfmHeaderToCarve(trim($header), trim($delimiter));
         $this->inlineRunSourceLine = $previousLine;
-        $written = $this->keepTableRow($headerRow, $index) ? [$prefix . $headerRow] : [];
+        $written = $this->keepHeaderRow($headerRow, $index) ? [$prefix . $headerRow] : [];
         $end = $index + 1;
         $count = count($lines);
         for ($at = $index + 2; $at < $count; $at++) {
@@ -5928,9 +5917,7 @@ class MarkdownToCarve
             $this->inlineRunSourceLine = $this->sourceLine($at);
             $bodyRow = $this->writeTableRow($cells, [], $width);
             $this->inlineRunSourceLine = $previousLine;
-            if ($this->keepTableRow($bodyRow, $at)) {
-                $written[] = $prefix . $bodyRow;
-            }
+            $written[] = $prefix . $bodyRow;
             $end = $at;
         }
 

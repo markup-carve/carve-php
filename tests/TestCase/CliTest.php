@@ -56,13 +56,10 @@ class CliTest extends TestCase
             'children' => [
                 [
                     'type' => 'table', 'rows' => [
+                        ['type' => 'table_row', 'cells' => []],
                         [
                             'type' => 'table_row', 'cells' => [
-                                [
-                                    'type' => 'table_cell',
-                                    'header' => false,
-                                    'blocks' => [['type' => 'thematic_break']],
-                                ],
+                                ['type' => 'table_cell', 'header' => false, 'children' => [['type' => 'text', 'value' => 'a']]],
                             ],
                         ],
                     ],

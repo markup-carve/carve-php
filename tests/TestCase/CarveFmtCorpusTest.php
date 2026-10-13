@@ -161,9 +161,6 @@ class CarveFmtCorpusTest extends TestCase
 
         $cases = [];
         foreach ($crvFiles as $crvPath) {
-            if (CorpusPopulation::awaitsBlankTableRowPort($crvPath)) {
-                continue;
-            }
             $slug = basename($crvPath, '.crv');
             $cases[$slug] = [
                 'slug' => $slug,

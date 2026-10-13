@@ -42,14 +42,9 @@ class AnOrphanCaptionSaysSoTest extends TestCase
     {
         $this->assertSame("bcontent\n", $this->carve('<div><caption>bcontent</caption></div>') . "\n");
         $html = '<table><tr><td><caption>bcontent</caption></td></tr></table>';
-        $this->assertSame('', $this->carve($html));
-        $this->assertContains(
-            ['element-dropped', 'warning', 'Dropped a caption whose table has no row left'],
-            $this->diagnostics($html),
-        );
-        foreach ($this->diagnostics($html) as $row) {
-            $this->assertStringNotContainsString('has nothing to caption', $row[2]);
-        }
+        // The repaired caption captions a table whose one row is an empty cell.
+        $this->assertSame("| |\n^ bcontent", $this->carve($html));
+        $this->assertSame([], $this->diagnostics($html));
     }
 
     #[DataProvider('orphanProvider')]

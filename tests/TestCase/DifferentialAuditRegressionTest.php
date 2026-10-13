@@ -11,10 +11,10 @@ use PHPUnit\Framework\TestCase;
 
 class DifferentialAuditRegressionTest extends TestCase
 {
-    public function testWhitespaceOnlySingleCellRowInsideAListStaysLiteral(): void
+    public function testWhitespaceOnlySingleCellRowInsideAListIsATable(): void
     {
         $html = (new CarveConverter())->convert("* | |\n");
-        $this->assertStringContainsString('<li>| |</li>', $html);
+        $this->assertStringContainsString("<li>\n    <table>\n      <tbody>\n        <tr><td></td></tr>", $html);
     }
 
     public function testIndentedLineAfterAbbreviationDefinitionIsAParagraph(): void

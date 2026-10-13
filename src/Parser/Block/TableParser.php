@@ -49,34 +49,30 @@ class TableParser
             return false;
         }
 
-        // A row whose every cell is blank is a paragraph, regardless of its
-        // cell count (markup-carve/carve#1950). Attributes and alignment/valign
-        // markers are authored constructs and keep a cell non-blank; a
-        // header-only `=` does not. A cell's content is trimmed of SPACES only,
-        // matching the spec's `padTrim`: a TAB is significant content, so a
-        // tab-filled cell keeps the table.
-        $allCellsBlank = true;
-        foreach ($this->parseTableCellsWithAttributes($lineWithoutRowAttrs) as $cell) {
+        // CARVE-P9-082: a cell slot is counted, not weighed. `||` and `| |`
+        // are one empty cell; only a lone `|` has no slot.
+        return true;
+    }
+
+    /**
+     * Whether every cell of a written row is empty and carries no marker beyond
+     * `=`: the empty header the Markdown writer adds to a headerless table
+     * (PART 11 CARVE-P11-056). A cell is trimmed of SPACES only, matching the
+     * spec's `padTrim`: a TAB is content.
+     */
+    public function isScaffoldHeaderRow(string $line): bool
+    {
+        $line = $this->stripRowAttributes(rtrim($line, " \t"));
+        foreach ($this->parseTableCellsWithAttributes($line) as $cell) {
             if ($cell['attributes'] !== '') {
-                $allCellsBlank = false;
-
-                break;
+                return false;
             }
-
             $runLength = $this->cellMarkerRunLength($cell['content']);
             $marker = substr($cell['content'], 0, $runLength);
             $headerLength = str_starts_with($marker, '=') ? 1 : 0;
-            if (
-                strlen($marker) > $headerLength
-                || trim(substr($cell['content'], $runLength), ' ') !== ''
-            ) {
-                $allCellsBlank = false;
-
-                break;
+            if (strlen($marker) > $headerLength || trim(substr($cell['content'], $runLength), ' ') !== '') {
+                return false;
             }
-        }
-        if ($allCellsBlank) {
-            return false;
         }
 
         return true;

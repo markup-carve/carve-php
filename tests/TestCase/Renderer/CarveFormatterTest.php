@@ -14,7 +14,6 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
-use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -43,9 +42,6 @@ class CarveFormatterTest extends TestCase
 
         $cases = [];
         foreach ($crvFiles as $crvPath) {
-            if (CorpusPopulation::awaitsBlankTableRowPort($crvPath)) {
-                continue;
-            }
             $slug = basename($crvPath, '.crv');
             $cases[$slug] = [
                 'slug' => $slug,
