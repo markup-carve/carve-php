@@ -81,10 +81,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheSixCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheSevenCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed'],
             self::schemaCodes(),
         );
     }
@@ -99,8 +99,8 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
     }
 
     /**
-     * The text renderers exercise four codes. A roundtrip HTML carrier
-     * collision supplies the fifth, so the union checks every schema code.
+     * The text renderers, list cases, and a roundtrip HTML carrier collision
+     * exercise every schema code.
      */
     public function testEveryEmittedCodeIsOneTheSchemaPermits(): void
     {
@@ -149,6 +149,11 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
 
         $styleReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("a. one\n");
         foreach ($styleReport->losses as $loss) {
+            $seen[$loss['code']] = true;
+        }
+        $delimiterReport = (new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: true))->convertWithReport("a. one\n\n1. two\n");
+        foreach ($delimiterReport->losses as $loss) {
+            self::assertContains($loss['code'], self::schemaCodes());
             $seen[$loss['code']] = true;
         }
         $codes = array_keys($seen);
