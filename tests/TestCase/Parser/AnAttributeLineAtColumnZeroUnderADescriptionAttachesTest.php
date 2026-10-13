@@ -125,7 +125,13 @@ class AnAttributeLineAtColumnZeroUnderADescriptionAttachesTest extends TestCase
     {
         $html = $this->html(":: t\n:  d\n%% c\ntail\n");
 
-        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>", $html);
+        $this->assertSame('<dl>
+  <dt>t</dt>
+  <dd>
+    <p>d</p>
+    <p>tail</p>
+  </dd>
+</dl>', $html);
         $this->assertStringNotContainsString('class=', $html);
     }
 

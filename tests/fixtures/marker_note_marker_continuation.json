@@ -182,7 +182,11 @@
   {
     "id": "matrix-n6307",
     "source": "> - [^n]: text\n>     - child\n>     %% k\n>   x\n> after [^n]\n",
-    "html": "<blockquote><ul><li>x\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><p>x<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>",
+    "classification": "C",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "evidence": "reports/ci-reference-parity-triage.json"
   },
   {
     "id": "matrix-n6347",
@@ -317,7 +321,7 @@
   {
     "id": "matrix-n7170",
     "source": "- [^n]: text\n    - child\n    more\n    %% k\n    code\nafter\nafter [^n]\n",
-    "html": "<ul><li>code\nafter\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child\nmore<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li>after\nafter <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child\nmore</p><p>code<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n7199",

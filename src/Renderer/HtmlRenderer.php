@@ -3478,6 +3478,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     {
         $target = $node->getTargetId();
         $tracker = $this->getRenderContext()->headingIdTracker;
+        $carrier = $this->roundTripMode ? ' data-carve-xref' : '';
+        $attrs = $this->renderAttributeArray($this->attributesBesideCarriers(
+            $node,
+            $this->roundTripMode ? ['data-carve-xref'] : [],
+            ['href'],
+        ));
 
         // Exact match only (CARVE-P9R-010): `</#getting-started>` does not
         // reach a `Getting-Started` id.
@@ -3490,7 +3496,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         // Ask the budget before doing the work it would reject (carve-php#2647).
         if (!$this->labelExpansionStillAffordable($id)) {
-            return '<a href="#' . $this->escapeAttribute($id) . '">' . $this->escape($target) . '</a>';
+            return '<a href="#' . $this->escapeAttribute($id) . '"' . $carrier . $attrs . '>' . $this->escape($target) . '</a>';
         }
 
         $label = $tracker->getTextForId($id, $this->smartTypography);
@@ -3519,7 +3525,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $rendered = $this->escape($target);
         }
 
-        return '<a href="#' . $this->escapeAttribute($id) . '">' . $rendered . '</a>';
+        return '<a href="#' . $this->escapeAttribute($id) . '"' . $carrier . $attrs . '>' . $rendered . '</a>';
     }
 
     protected function renderCaptionNumber(CaptionNumber $node): string
@@ -3530,7 +3536,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // plain-text and ANSI targets already render it this way.
         $number = $node->getNumber();
 
-        return $number === null ? '#' : (string)$number;
+        return $number === null ? '#' : ($this->roundTripMode
+            ? '<span data-carve-caption-number>' . $number . '</span>'
+            : (string)$number);
     }
 
     protected function renderMention(Mention $node): string
@@ -4854,6 +4862,19 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $refId .= '-' . $refCount;
         }
 
+        $parent = $node->getParent();
+        while ($parent !== null) {
+            if ($parent instanceof Link && UnresolvedReference::renderedSourceOf($parent) === null) {
+                $carrier = $this->roundTripMode
+                    ? ' data-carve-footnote-label="' . $this->escapeAttribute($label) . '"'
+                    : '';
+
+                return '<sup id="' . $refId . '"' . $carrier
+                    . $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '>' . $number . '</sup>';
+            }
+            $parent = $parent->getParent();
+        }
+
         // Format: <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a>
         $html = '<a id="' . $refId . '" href="#fn' . $number . '" role="doc-noteref"';
 
@@ -4870,6 +4891,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderInlineFootnote(InlineFootnote $node): string
     {
         $number = $this->registerInlineFootnote(fn (): string => '<p>' . $this->renderChildren($node) . "</p>\n");
+
+        $parent = $node->getParent();
+        while ($parent !== null) {
+            if ($parent instanceof Link && UnresolvedReference::renderedSourceOf($parent) === null) {
+                return '<sup id="fnref' . $number . '"'
+                    . $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '>' . $number . '</sup>';
+            }
+            $parent = $parent->getParent();
+        }
 
         return '<a id="fnref' . $number . '" href="#fn' . $number . '" role="doc-noteref"'
             . $this->renderAttributesExcluding($node, ['id', 'href', 'role'])

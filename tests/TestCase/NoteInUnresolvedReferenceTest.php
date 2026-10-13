@@ -276,7 +276,7 @@ class NoteInUnresolvedReferenceTest extends TestCase
         $html = $this->converter->convert("a [t[^1]][r] b\n\n[r]: /u\n\n[^1]: n\n");
 
         $this->assertStringContainsString(
-            '<a href="/u">t<a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></a>',
+            '<a href="/u">t<sup id="fnref1">1</sup></a>',
             $html,
         );
         $this->assertStringContainsString('doc-endnotes', $html);

@@ -7,7 +7,11 @@
   {
     "id": "review3-p5-0",
     "source": "- t\n  \t> q\n   \t{.c}\n\t\t%% c\n  \t ````\n \t{.c}\n \t```\n",
-    "html": "<ul><li>t\n    <blockquote><p>q</p></blockquote><p class=\"c\"><code></code></p><pre class=\"c\"><code></code></pre></li></ul>"
+    "html": "<ul><li>t\n    <blockquote><p>q</p></blockquote><pre class=\"c\"><code>  {.c}\n  ```\n</code></pre></li></ul>",
+    "classification": "C",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "evidence": "reports/ci-reference-parity-triage.json"
   },
   {
     "id": "failed-admission-0",
@@ -232,7 +236,7 @@
   {
     "id": "preservation-5463",
     "source": "- a\n  ```\n  c\n\t\t`````\n        %% c\n {.c}\n \t{.c}\n\nafter\n",
-    "html": "<ul><li>a\n<code>\nc\n`````</code>\n    {.c}\n{.c}\n  </li></ul><p>after</p>"
+    "html": "<ul>\n  <li>a\n<code>\nc\n`````</code></li>\n</ul>\n<p>{.c}\n{.c}</p>\n<p>after</p>"
   },
   {
     "id": "preservation-5595",

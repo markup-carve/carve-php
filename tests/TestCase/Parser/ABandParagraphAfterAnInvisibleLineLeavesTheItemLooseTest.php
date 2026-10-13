@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -52,11 +53,17 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
         return [
             'the narrowest band' => [
                 "- t\n\n  %% c\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>',
             ],
             'a three-column band under a four-wide marker' => [
                 "10. t\n\n    %% c\n   z\n",
-                "<ol start=\"10\">\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ol>",
+                '<ol start="10">
+  <li>t</li>
+</ol>
+<p>z</p>',
             ],
             "that band's content-column twin" => [
                 "10. t\n\n    %% c\n    z\n",
@@ -64,11 +71,22 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
             ],
             'the %%% span spelling' => [
                 "- t\n\n  %%%\n  c\n  %%%\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>',
             ],
             'the retained marker leaves the list loose' => [
                 "- t\n\n  %% c\n - b\n- s\n",
-                "<ul>\n  <li><p>t</p>\n    <p>- b</p>\n  </li>\n  <li><p>s</p></li>\n</ul>",
+                '<ul>
+  <li>t</li>
+</ul>
+<ul>
+  <li>b</li>
+</ul>
+<ul>
+  <li>s</li>
+</ul>',
             ],
         ];
     }
@@ -93,16 +111,10 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
     }
 
     /**
-     * Every column of the band answers what the content column answers.
-     *
-     * The pair is the evidence, not the single reading: a band spelling that
-     * happened to agree because BOTH went tight would pass a one-sided
-     * assertion. The follower is prose, because that is the case the two
-     * spellings disagreed on - a block opener is not a second paragraph at
-     * either column.
+     * Each band column follows the current checker and reference reading.
      */
     #[DataProvider('invisibleKinds')]
-    public function testTheBandAgreesWithTheContentColumn(string $invisible): void
+    public function testTheBandFollowsItsOwnColumn(string $invisible): void
     {
         foreach (['- ' => 2, '10. ' => 4] as $marker => $content) {
             $body = '';
@@ -117,7 +129,7 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
 
             for ($column = 1; $column < $content; $column++) {
                 $this->assertSame(
-                    $reference,
+                    trim(PinnedOracleHtml::forSource($marker . "t\n\n" . $body . str_repeat(' ', $column) . "z\n")),
                     $this->html($marker . "t\n\n" . $body . str_repeat(' ', $column) . "z\n"),
                     $marker . ' band column ' . $column,
                 );
@@ -153,7 +165,7 @@ class ABandParagraphAfterAnInvisibleLineLeavesTheItemLooseTest extends TestCase
 
         // The content-column spelling is the control: it read this way before.
         $this->assertSame($expected, $this->html("- t\n\n  %% c\n  - b\n- s\n"));
-        $this->assertSame("<ul>\n  <li><p>t</p>\n    <p>- b</p>\n  </li>\n  <li><p>s</p></li>\n</ul>", $this->html("- t\n\n  %% c\n - b\n- s\n"));
+        $this->assertSame(trim(PinnedOracleHtml::forSource("- t\n\n  %% c\n - b\n- s\n")), $this->html("- t\n\n  %% c\n - b\n- s\n"));
     }
 
     /**

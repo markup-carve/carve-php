@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -294,6 +295,9 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
+                && !($parent instanceof ListItem
+                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
+                    && $this->lastQuoteLineIsATerm($innerLines))
                 && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
                     && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0)
                 && !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i)
@@ -392,7 +396,7 @@ final class BlockQuoteBuilder
                 ) {
                     $host['fence'] = null;
                     if ($fence['char'] === '%') {
-                        $host['commentBoundary'] = true;
+                        $host['commentBoundary'] = $column < $host['columns'][array_key_last($host['columns'])];
                     }
                 }
                 $state['paragraphOpen'] = false;
@@ -647,11 +651,9 @@ final class BlockQuoteBuilder
             && ($div['className'] !== '|' || $colon === null || $floor !== ($colon['base'] ?? $colon['column']) || $at <= $colon['column'])
         ) {
             $state['colonClaims'][] = ['length' => $div['length'], 'column' => $at, 'body' => false, 'literal' => $div['className'] === '|', 'base' => $floor];
-            if (!$blockStart) {
-                $state['paragraphOpen'] = false;
+            $state['paragraphOpen'] = false;
 
-                return true;
-            }
+            return true;
         }
         if ($floor > 0 && $at >= $floor && !$blockStart) {
             $row = ($this->getTableParser)()->isTableRow($inner)
@@ -1154,7 +1156,6 @@ final class BlockQuoteBuilder
             || $isTableRow
             || $isContinuationRow
             || $isCommentLine
-            || $isDefinitionTerm
             || $isDefinitionLine
             || $isAttributeLine;
 
@@ -1193,6 +1194,19 @@ final class BlockQuoteBuilder
     private function endContainerAttributeScope(): void
     {
         ($this->endContainerAttributeScopeCallback)();
+    }
+
+    /**
+     * @param array<string> $lines
+     */
+    private function lastQuoteLineIsATerm(array $lines): bool
+    {
+        $last = array_key_last($lines);
+        $line = $last === null ? '' : $lines[$last];
+        $at = IndentationHelper::pastLeadingWhitespace($line);
+        $at = ($this->getListParser)()->markerWalkOffset($line, $at) ?? $at;
+
+        return preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, substr($line, $at)) === 1;
     }
 
     /**

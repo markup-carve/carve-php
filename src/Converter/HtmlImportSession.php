@@ -19,6 +19,11 @@ final class HtmlImportSession
     public ?DOMDocument $builtDocument = null;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, string>
+     */
+    public SplObjectStorage $supFootnoteTargets;
+
+    /**
      * @var \SplObjectStorage<\DOMNode, int>
      */
     public SplObjectStorage $pathSiblingIndices;
@@ -40,6 +45,11 @@ final class HtmlImportSession
      * @var \SplObjectStorage<\DOMElement, string|null>
      */
     public SplObjectStorage $unwrappedSameKindSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $unwrappedBareSpans;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>
@@ -235,10 +245,12 @@ final class HtmlImportSession
         $this->endnoteItemLabels = new SplObjectStorage();
         $this->referencedEndnoteItems = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
+        $this->supFootnoteTargets = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();
         $this->droppedEmptyElements = new SplObjectStorage();
         $this->unwrappedSameKindSpans = new SplObjectStorage();
+        $this->unwrappedBareSpans = new SplObjectStorage();
         $this->droppedEmptyHeadings = new SplObjectStorage();
         $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();

@@ -465,6 +465,7 @@ final class DefinitionListBuilder
                 $bodyNestedCursor = 0;
                 $bodyAttributeThrough = -1;
                 $bodyEndsWithAttribute = false;
+                $retainedBelowComment = false;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     // Form B: `+` pull-left continuation.
@@ -499,6 +500,44 @@ final class DefinitionListBuilder
                     // answer depend on which character an editor inserted
                     // (carve-php#964).
                     $indent = IndentationHelper::getLeadingColumns($contLine, $continuationColumn + 1);
+                    $commentText = ltrim($contLine, " \t");
+                    if (IndentationHelper::isBlankLine($contLine)) {
+                        $retainedBelowComment = false;
+                    } elseif ($indent < $continuationColumn && $this->isCommentLineOrFence($commentText)) {
+                        for ($k = count($body); $bodyStateCursor < $k; $bodyStateCursor++) {
+                            $bodyState = $this->advanceTrailingStateWithFenceLookahead($bodyState, $body[$bodyStateCursor], $body, $bodyStateCursor, true);
+                        }
+                        if ($bodyState->openParagraph || $retainedBelowComment) {
+                            $holder = new Document();
+                            $consumed = $this->tryParseFencedComment($holder, $lines, $i)
+                                ?? $this->tryParseComment($holder, $lines, $i) ?? 1;
+                            if ($consumed > 1 && $indent === 0) {
+                                break;
+                            }
+                            for ($end = $i + $consumed; $i < $end; $i++) {
+                                $body[] = ltrim($lines[$i], " \t");
+                                $bodyMap[] = $this->sourceLineFor($i);
+                            }
+                            $bodyState->openParagraph = false;
+                            $bodyStateCursor = count($body);
+                            $retainedBelowComment = true;
+
+                            continue;
+                        }
+                    } elseif ($retainedBelowComment) {
+                        $retainedBelowComment = false;
+                        $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($commentText)
+                            ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($commentText);
+                        if (!$this->startsInterruptingBlock($commentText, $lines, $i) || $fence !== null) {
+                            $body[] = $commentText;
+                            $bodyMap[] = $this->sourceLineFor($i);
+                            $bodyState = $this->advanceTrailingStateWithFenceLookahead($bodyState, $commentText, $lines, $i, true);
+                            $bodyStateCursor = count($body);
+                            $i++;
+
+                            continue;
+                        }
+                    }
                     // Ordinary text past the minimum may continue the open
                     // paragraph, but carve#1729 gives a recognized block opener
                     // an authored local base. Test the opener before joining the

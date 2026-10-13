@@ -74,7 +74,7 @@ final class ContainerLabelParser
         // the separator the comment took with it does not survive as trailing text
         // in the node before it.
         if ($commentOffset !== null) {
-            $cut = rtrim(substr($label, 0, $commentOffset), " \t");
+            $cut = rtrim(substr($label, 0, $commentOffset), ' ');
             $ignored = null;
 
             return $cut === '' ? [] : self::parse($cut, $inlineParser, $ignored);

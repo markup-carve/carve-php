@@ -61,12 +61,9 @@ class ContainerFenceLookaheadTest extends TestCase
     }
 
     #[DataProvider('lazyColonOpeners')]
-    public function testLazyMarkerLineColonOpenerDoesNotClaimAContentColumnRun(string $source, string $list): void
+    public function testMarkerLineColonOpenerKeepsItsColumnBoundary(string $source, string $list): void
     {
-        $this->assertSame(
-            "<{$list}>\n  <li>:::\ny\n    <div>\n\n    </div>\n  </li>\n</{$list}>",
-            $this->html($source),
-        );
+        $this->assertSame(trim(PinnedOracleHtml::forSource($source)), $this->html($source));
     }
 
     /**

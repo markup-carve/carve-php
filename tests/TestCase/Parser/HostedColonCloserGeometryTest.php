@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -138,9 +139,9 @@ class HostedColonCloserGeometryTest extends TestCase
     public function testOverindentedDefinitionsKeepTheirEstablishedHoist(): void
     {
         $converter = new CarveConverter();
-        $html = $converter->convert("- ::: box\n    [r]: /u\n  :::\n\n[t][r]\n");
-        self::assertStringContainsString('href="/u"', $html);
-        self::assertStringNotContainsString('[r]: /u', $html);
+        $source = "- ::: box\n    [r]: /u\n  :::\n\n[t][r]\n";
+        $html = $converter->convert($source);
+        self::assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
 
         $html = $converter->convert("- ::: box\n    [^n]: note\n  :::\n\nref[^n]\n");
         self::assertStringContainsString('role="doc-noteref"', $html);

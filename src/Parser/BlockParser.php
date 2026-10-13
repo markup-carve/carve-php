@@ -3034,7 +3034,7 @@ class BlockParser
             // as outside one.
             $commentOffset = null;
             $labelNodes = ContainerLabelParser::parse($label, $this->inlineParser, $commentOffset);
-            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), " \t"));
+            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), ' '));
             $div->setLabelNodes($labelNodes);
         }
 
@@ -4704,6 +4704,11 @@ class BlockParser
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingState($trailingState, $seedLine);
         }
+        $lead = $itemLines[0] ?? '';
+        $bottom = $this->markerFreeContent(ltrim($lead, " \t"));
+        if ($bottom !== ltrim($lead, " \t") && $this->fencedBlockParser->parseDivFenceOpener($bottom) !== null) {
+            $trailingState->openParagraph = false;
+        }
         $bareContinuationLead = $itemLines !== []
             && $this->leadBottomIsContinuationMarker((string)$itemLines[0]);
         $bareLeadQuoteState = null;
@@ -4962,8 +4967,8 @@ class BlockParser
     }
 
     /**
-     * Decide whether a list item's lead content is a colon-fence opener with
-     * item-owned body beneath it.
+     * Compatibility hook for a colon opener on an item's marker line.
+     * The source-view parameters remain available to parser subclasses.
      *
      * Used to keep a marker-line opener and its item-owned continuation lines
      * in one block stream so the div/admonition parser captures its body.
@@ -4981,17 +4986,7 @@ class BlockParser
         int $count,
         int $contentIndent,
     ): bool {
-        if ($this->fencedBlockParser->parseDivFenceOpener($itemContent) === null) {
-            return false;
-        }
-
-        while ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
-            $i++;
-        }
-
-        return $i < $count
-            && !isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
-            && IndentationHelper::getLeadingColumns($lines[$i], $contentIndent) >= $contentIndent;
+        return $this->fencedBlockParser->parseDivFenceOpener($itemContent) !== null;
     }
 
     /**
@@ -5256,9 +5251,11 @@ class BlockParser
         // what lies past the body column is content rather than a blank
         // (CARVE-P11-016, PART 9 section 24 C5).
         $trailingState = $this->advanceFootnoteBodyFenceState(new TrailingBlockState(), $content);
+        $retainedBelowComment = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $retainedBelowComment = false;
                 // A BLANK RUN continues the footnote when the body resumes
                 // after it. Must mirror the body-collection logic so a line is
                 // never skipped here without being collected there (grammar
@@ -5343,6 +5340,7 @@ class BlockParser
                 ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                 : $authoredNext >= $authoredFloor;
             if ($reaches) {
+                $retainedBelowComment = false;
                 $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
@@ -5359,6 +5357,30 @@ class BlockParser
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $i++;
+            } elseif ($trailingState->openParagraph && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))) {
+                $holder = new Document();
+                $consumed = $this->tryParseFencedComment($holder, $lines, $i)
+                    ?? $this->tryParseComment($holder, $lines, $i) ?? 1;
+                if ($consumed > 1 && IndentationHelper::getLeadingColumns($nextLine) === 0) {
+                    break;
+                }
+                for ($end = $i + $consumed; $i < $end; $i++) {
+                    $bodyLines[] = ltrim($lines[$i], " \t");
+                    $bodyLineMap[] = $this->sourceLineFor($i);
+                }
+                $trailingState->openParagraph = false;
+                $retainedBelowComment = true;
+            } elseif (
+                $retainedBelowComment
+                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
+                && !$this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0)
+            ) {
+                $bodyLine = ltrim($nextLine, " \t");
+                $bodyLines[] = $bodyLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $retainedBelowComment = false;
                 $i++;
             } else {
                 break;

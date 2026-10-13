@@ -1,0 +1,27 @@
+[
+  {
+    "id": "3233/2",
+    "source": "::: box\n    ```\n    code\n    ```\nafter\n",
+    "html": "<div class=\"box\">\n  <p><code>\ncode\n</code>\nafter</p>\n</div>"
+  },
+  {
+    "id": "3241/0",
+    "source": "- ::: box\n  text\n   ::: note\n   x\n   :::\n  :::\ntail\n",
+    "html": "<ul>\n  <li>\n    <div class=\"box\">\n      <p>text</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>x</p>\n      </aside>\n    </div>\n  </li>\n</ul>\n<p>tail</p>"
+  },
+  {
+    "id": "3241/1",
+    "source": "- ::: box\n  text\n    ::: |\n    x\n    :::\n  :::\ntail\n",
+    "html": "<ul>\n  <li>\n    <div class=\"box\">\n      <p>text</p>\n      <div class=\"line-block\">\n        <p>x</p>\n      </div>\n    </div>\n  </li>\n</ul>\n<p>tail</p>"
+  },
+  {
+    "id": "3241/2",
+    "source": "- ::: box\n  text\n   ::: note\n   x\n   :::\n  :::\ntail\n",
+    "html": "<ul>\n  <li>\n    <div class=\"box\">\n      <p>text</p>\n      <aside class=\"admonition note\" aria-label=\"Note\">\n        <p>x</p>\n      </aside>\n    </div>\n  </li>\n</ul>\n<p>tail</p>"
+  },
+  {
+    "id": "3241/3",
+    "source": "- ::: box\n  text\n   more\n  :::\ntail\n",
+    "html": "<ul>\n  <li>\n    <div class=\"box\">\n      <p>text\nmore</p>\n    </div>\n  </li>\n</ul>\n<p>tail</p>"
+  }
+]

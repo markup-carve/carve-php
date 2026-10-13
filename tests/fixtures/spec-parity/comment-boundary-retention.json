@@ -1,0 +1,347 @@
+[
+  {
+    "id": "comment-boundary-retention/197-a-comment-ends-the-paragraph-it-sits-under",
+    "source": "- a\n  %% x\n b\n\n- c\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>\n<ul>\n  <li>c</li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open-2",
+    "source": "- a\n  %%%\n  x\n  %%%\n 1. o\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<ol>\n  <li>o</li>\n</ol>\n"
+  },
+  {
+    "id": "comment-boundary-retention/277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open-3",
+    "source": "- a\n  %%%\n  x\n  %%%\n # h\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p># h</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open-4",
+    "source": "- a\n  b\n - s\n",
+    "html": "<ul>\n  <li>a\nb\n- s</li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open-5",
+    "source": "- a\n  > q\n - s\n",
+    "html": "<ul>\n  <li>a\n    <blockquote><p>q\n- s</p></blockquote>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/277-a-below-column-marker-after-a-comment-where-no-paragraph-is-open",
+    "source": "- a\n  %%%\n  x\n  %%%\n - s\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/358-what-a-content-column-block-does-not-reach-2",
+    "source": "- a\n  [^f]: t\n    more\n  b\n\nx[^f]\n",
+    "html": "<ul>\n  <li>a\n    b\n  </li>\n</ul>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>t\nmore<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+  },
+  {
+    "id": "comment-boundary-retention/358-what-a-content-column-block-does-not-reach",
+    "source": "- a\n  %% c\n b\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-2",
+    "source": "- x\n  %% z\n y\n",
+    "html": "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-3",
+    "source": "- x\n  %%%\n  body\ny\n",
+    "html": "<ul>\n  <li>x\n    body\ny\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-4",
+    "source": "- x\n  %% z\n  body\ny\n",
+    "html": "<ul>\n  <li>x\n    body\ny\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-5",
+    "source": "1. x\n   %%%\n  y\n",
+    "html": "<ol>\n  <li>x</li>\n</ol>\n<p>y</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-6",
+    "source": "-   x\n    %%%\n   y\n",
+    "html": "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-7",
+    "source": "- x\n    %%%\n y\n",
+    "html": "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-8",
+    "source": "- x\n  %%%\n  %%%\n y\n",
+    "html": "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does-9",
+    "source": "> x\n  %%%\n y\n",
+    "html": "<blockquote><p>x</p></blockquote>\n<p>y</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/446-a-degraded-comment-fence-leaves-a-lazy-follower-where-the-line-form-does",
+    "source": "- x\n  %%%\n y\n",
+    "html": "<ul>\n  <li>x</li>\n</ul>\n<p>y</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-10",
+    "source": ":: t\n:  x\n%%%\ny\n%%%\n   more\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>more</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-11",
+    "source": ":: t\n:  x\n %%%\ny\n %%%\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>z</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-12",
+    "source": ":: t\n:  x\n  %%%\ny\n  %%%\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>z</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-13",
+    "source": ":: t\n:  x\n %% c\n   more\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-2",
+    "source": ":: t\n:  x\n%%%%\ny\n%%%%\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>z</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-3",
+    "source": ":: t\n:  x\n%%%\ny\nw\n%%%\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>z</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-4",
+    "source": ":: t\n:  x\n%%%\ny\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>y\nz</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-5",
+    "source": ":: t\n:  x\n%% c\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>z</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-6",
+    "source": ":: t\n:  x\n   %%%\ny\n   %%%\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>y</p>\n<p>z</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-7",
+    "source": "- a\n%%%\nc\n%%%\nb\n",
+    "html": "<ul>\n  <li>a</li>\n</ul>\n<p>b</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-8",
+    "source": ":: t\n:  x\n%% c\n   more\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body-9",
+    "source": ":: t\n:  x\n%%%\n   more\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>x</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/449-a-comment-below-a-description-body-s-column-ends-the-body",
+    "source": ":: t\n:  x\n%%%\ny\n%%%\nz\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>x</dd>\n</dl>\n<p>z</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there-2",
+    "source": "- item\n %%%\n hidden\n  %%%\ntail\n",
+    "html": "<ul>\n  <li>item\n    tail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there-3",
+    "source": "- item\n %%%\n hidden\n   %%%\ntail\n",
+    "html": "<ul>\n  <li>item\n    tail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there-4",
+    "source": "1. item\n  %%%\n  hidden\n   %%%\ntail\n",
+    "html": "<ol>\n  <li>item\n    tail\n  </li>\n</ol>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there-5",
+    "source": "- a\n  - item\n %%%\n hidden\n    %%%\ntail\n",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>item\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there-6",
+    "source": "- item\n %%%%%\n hidden\n  %%%%%\ntail\n",
+    "html": "<ul>\n  <li>item\n    tail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there-7",
+    "source": "- item\n %% c\ntail\n",
+    "html": "<ul>\n  <li>item\n    tail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there-8",
+    "source": "- item\n %%%\n hidden\n  %%%\n  ```\ntail\n",
+    "html": "<ul>\n  <li>item\n    <pre><code></code></pre>\n  </li>\n</ul>\n<p>tail</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/513-a-comment-span-opened-below-every-content-column-is-located-there",
+    "source": "- item\n %%%\n hidden\n%%%\ntail\n",
+    "html": "<ul>\n  <li>item\n    tail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/517-a-band-paragraph-after-an-invisible-line-leaves-the-item-loose-2",
+    "source": "10. t\n\n    %% c\n   z\n",
+    "html": "<ol start=\"10\">\n  <li>t</li>\n</ol>\n<p>z</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/517-a-band-paragraph-after-an-invisible-line-leaves-the-item-loose-3",
+    "source": "10. t\n\n    %% c\n    z\n",
+    "html": "<ol start=\"10\">\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ol>\n"
+  },
+  {
+    "id": "comment-boundary-retention/517-a-band-paragraph-after-an-invisible-line-leaves-the-item-loose-4",
+    "source": "- t\n\n  %%%\n  c\n  %%%\n z\n",
+    "html": "<ul>\n  <li>t</li>\n</ul>\n<p>z</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/517-a-band-paragraph-after-an-invisible-line-leaves-the-item-loose-5",
+    "source": "- t\n\n  %% c\n - b\n- s\n",
+    "html": "<ul>\n  <li>t</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<ul>\n  <li>s</li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/517-a-band-paragraph-after-an-invisible-line-leaves-the-item-loose",
+    "source": "- t\n\n  %% c\n z\n",
+    "html": "<ul>\n  <li>t</li>\n</ul>\n<p>z</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/557-a-line-retained-after-a-comment-opens-a-paragraph-2",
+    "source": "> - ::: box\n>   - ::: inner\n>     %%%\n>     hidden\n>     %%%\n>    ```\n>    code\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n        <ul>\n          <li>\n            <div class=\"inner\">\n\n            </div>\n          </li>\n        </ul>\n        <pre><code>code\n</code></pre>\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/557-a-line-retained-after-a-comment-opens-a-paragraph-3",
+    "source": "- a\n  - inner\n    %% c\n   code\ntail\n",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>inner</li>\n    </ul>\n    code\ntail\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/557-a-line-retained-after-a-comment-opens-a-paragraph-4",
+    "source": "- inner\n  %% c\n code\n- tail\n",
+    "html": "<ul>\n  <li>inner</li>\n</ul>\n<p>code\n- tail</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/557-a-line-retained-after-a-comment-opens-a-paragraph-5",
+    "source": "- inner\n  %% c\ncode\ntail\n",
+    "html": "<ul>\n  <li>inner</li>\n</ul>\n<p>code\ntail</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/557-a-line-retained-after-a-comment-opens-a-paragraph",
+    "source": "> - ::: box\n>   - inner\n>     %%%\n>     hidden\n>     %%%\n>    ```\n>    code\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n        <ul>\n          <li>inner</li>\n        </ul>\n        <pre><code>code\n</code></pre>\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/570-an-at-column-comment-retains-nothing-2",
+    "source": "- inner\n  %% c\n code\n- tail\n",
+    "html": "<ul>\n  <li>inner</li>\n</ul>\n<p>code\n- tail</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/570-an-at-column-comment-retains-nothing",
+    "source": "> - ::: box\n>   - ::: inner\n>     %% c\n>    text\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n        <ul>\n          <li>\n            <div class=\"inner\">\n\n            </div>\n          </li>\n        </ul>\n        <p>text\ntail</p>\n      </div>\n    </li>\n  </ul>\n</blockquote>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-10",
+    "source": "> intro\n>\n%% c\n  more\n",
+    "html": "<blockquote><p>intro</p></blockquote>\n<p>more</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-11",
+    "source": "> intro\n>\n+\n  more\n",
+    "html": "<blockquote><p>intro</p></blockquote>\n<p>more</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-12",
+    "source": "> intro\n>\n+\nmore\n",
+    "html": "<blockquote>\n  <p>intro</p>\n  <p>more</p>\n</blockquote>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-13",
+    "source": "- intro\n+\n  more\n",
+    "html": "<ul>\n  <li>intro\nmore</li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-14",
+    "source": "- x\n  > q\n +\n",
+    "html": "<ul>\n  <li>x\n    <blockquote><p>q\n+</p></blockquote>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-15",
+    "source": "- x\n  > q\n ZZZ\n",
+    "html": "<ul>\n  <li>x\n    <blockquote><p>q\nZZZ</p></blockquote>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-16",
+    "source": "- x\n  > q\n  +\n",
+    "html": "<ul>\n  <li>x\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-17",
+    "source": "- x\n  > q\n+\n",
+    "html": "<ul>\n  <li>x\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-18",
+    "source": "- x\n  > q\n   +\n",
+    "html": "<ul>\n  <li>x\n    <blockquote><p>q\n+</p></blockquote>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-19",
+    "source": "> q\n +\n- m\n",
+    "html": "<blockquote><p>q\n+\n- m</p></blockquote>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-2",
+    "source": "[^a]: intro\n+\n more\n\nsee[^a]\n",
+    "html": "<p>more</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-3",
+    "source": "[^a]: intro\n%% c\n  more\n\nsee[^a]\n",
+    "html": "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro</p>\n      <p>more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-4",
+    "source": "[^a]: intro\n+\n  more\n\nsee[^a]\n",
+    "html": "<p>more</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-5",
+    "source": "[^a]: intro\n+\nmore\n\nsee[^a]\n",
+    "html": "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro</p>\n      <p>more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-6",
+    "source": ":: term\n:  intro\n%% c\n  more\n",
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>intro</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-7",
+    "source": ":: term\n:  intro\n+\n  more\n",
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-8",
+    "source": ":: term\n:  intro\n+\nmore\n",
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>intro</p>\n    <p>more</p>\n  </dd>\n</dl>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-9",
+    "source": "> intro\n>\n\n  more\n",
+    "html": "<blockquote><p>intro</p></blockquote>\n<p>more</p>\n"
+  },
+  {
+    "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container",
+    "source": "[^a]: intro\n%% c\n more\n\nsee[^a]\n",
+    "html": "<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro</p>\n      <p>more<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+  }
+]

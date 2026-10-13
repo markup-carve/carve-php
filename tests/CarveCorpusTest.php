@@ -49,6 +49,17 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-closed-fence-in-a-quoted-sub-item-after-a-lazy-line-leaves-no-paragraph',
+        'a-description-marker-followed-by-a-no-break-space-has-content',
+        'a-head-row-alignment-marker-sets-the-whole-column',
+        'a-line-block-takes-a-lazy-line-whatever-its-last-payload-line',
+        'a-quoted-term-takes-a-lazy-line',
+        'a-shifted-fence-in-a-quoted-container-s-body-stores-no-continuation-claim',
+        'an-at-column-comment-retains-nothing',
+        'an-opener-past-a-hosted-container-s-column-interrupts-its-open-paragraph',
+        'an-opener-past-a-hosted-container-s-column-opens-there',
+
+        'a-footnote-reference-in-link-text-keeps-its-id-on-the-sup',
         'a-closed-block-leaves-no-frame-for-the-line-below',
         'a-container-boundary-is-read-at-the-container-s-own-column',
         'a-description-keeps-a-block-at-its-body-column-whatever-leads-the-item',

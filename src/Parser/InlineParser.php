@@ -1089,7 +1089,7 @@ class InlineParser
                     $content = substr($content, 1);
                 }
                 $content = rtrim($content, " \t");
-                $textBuffer = rtrim($textBuffer, " \t");
+                $textBuffer = rtrim($textBuffer, ' ');
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
                 $comment = new Comment($content);
@@ -1490,7 +1490,7 @@ class InlineParser
                     $lookAhead++;
                 }
                 if ($lookAhead < $length && $text[$lookAhead] === "\n") {
-                    $textBuffer = rtrim($textBuffer, " \t");
+                    $textBuffer = rtrim($textBuffer, ' ');
                     $this->appendHardBreak($parent, $textBuffer, $pos, $lookAhead + 1);
                     $pos = $lookAhead + 1;
 
@@ -1684,7 +1684,7 @@ class InlineParser
 
         $previous = $pos > 0 ? $text[$pos - 1] : '';
 
-        return $previous === '' || $previous === ' ' || $previous === "\t" || $previous === "\n";
+        return $previous === '' || $previous === ' ' || $previous === "\n";
     }
 
     protected function flushText(Node $parent, string $text): void

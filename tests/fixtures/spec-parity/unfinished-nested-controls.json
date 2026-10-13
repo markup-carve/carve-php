@@ -77,12 +77,12 @@
   {
     "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/colon container on lead (control)",
     "source": "- - ::: d\nbody\n:::\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>::: d\nbody</li>\n    </ul>\n  </li>\n</ul>\n<div>\n\n</div>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>body</p>\n<div>\n\n</div>"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-```-closed",
     "source": ":: t\n: - ``` x\ncode\n```\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-```-unterminated",
@@ -92,7 +92,7 @@
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-~~~-closed",
     "source": ":: t\n: - ~~~ x\ncode\n~~~\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>\n"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-~~~-unterminated",
@@ -102,7 +102,7 @@
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-infoless",
     "source": ":: t\n: - ```\ncode\n```\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/ctrl-item-host",
@@ -117,22 +117,22 @@
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455-2",
     "source": ":: t\n: - ~~~ x\ncode\n~~~\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>\n"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455-3",
     "source": ":: t\n: - ```\ncode\n```\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455-4",
     "source": ":: t\n: - ``` x\ncode\n\n:: t2\n: plain\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<dl>\n  <dt>t2</dt>\n  <dd>plain</dd>\n</dl>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<dl>\n  <dt>t2</dt>\n  <dd>plain</dd>\n</dl>\n"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455",
     "source": ":: t\n: - ``` x\ncode\n```\n",
-    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>"
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-body-lead-not-a-fence-is-unframed",

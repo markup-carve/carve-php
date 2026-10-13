@@ -1,0 +1,38 @@
+[
+  {
+    "id": "ci-triage/extra-0",
+    "source": "- a\n  - ::: box\nlazy\n",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>\n        <div class=\"box\">\n\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>lazy</p>\n",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "classification": "C",
+    "evidence": "reports/ci-reference-parity-triage.json"
+  },
+  {
+    "id": "ci-triage/extra-1",
+    "source": "> - ::: box\n> lazy\n>   :::\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>lazy\n:::\n- tail</p>\n</blockquote>\n",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "classification": "B",
+    "evidence": "reports/ci-reference-parity-triage.json"
+  },
+  {
+    "id": "ci-triage/extra-2",
+    "source": "> - a\n>   - ::: box\n>  - next\n>     :::\n- tail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>next\n      <div>\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "classification": "C",
+    "evidence": "reports/ci-reference-parity-triage.json"
+  },
+  {
+    "id": "ci-triage/extra-3",
+    "source": ":: t\n:  - a\n  %% c\ntail",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        tail\n      </li>\n    </ul>\n  </dd>\n</dl>\n",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "classification": "C",
+    "evidence": "reports/ci-reference-parity-triage.json"
+  }
+]

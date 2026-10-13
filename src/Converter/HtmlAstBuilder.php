@@ -513,6 +513,33 @@ final class HtmlAstBuilder
                 }
             }
         }
+        $supReferences = [];
+        foreach ($root->getElementsByTagName('sup') as $reference) {
+            for ($ancestor = $reference->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre', 'template'], true)) {
+                    continue 2;
+                }
+            }
+            if (preg_match('/^fnref[0-9]+(?:-[0-9]+)?$/D', $reference->getAttribute('id')) === 1) {
+                $supReferences[$reference->getAttribute('id')] = $reference;
+            }
+        }
+        foreach ($allEndnoteItems as $item) {
+            $target = $item->getAttribute('id');
+            if ($target === '') {
+                continue;
+            }
+            foreach ($item->getElementsByTagName('a') as $backlink) {
+                if ($backlink->getAttribute('role') !== 'doc-backlink') {
+                    continue;
+                }
+                $reference = $supReferences[substr($backlink->getAttribute('href'), 1)] ?? null;
+                if ($reference !== null) {
+                    $this->session->supFootnoteTargets[$reference] = '#' . $target;
+                    $this->session->footnoteTargets[$target] = true;
+                }
+            }
+        }
         $footnoteAnchors = [];
         foreach ($root->getElementsByTagName('a') as $anchor) {
             if (
@@ -624,7 +651,7 @@ final class HtmlAstBuilder
         foreach (array_reverse($this->session->abbreviationDefinitions, true) as $abbr => $expansion) {
             $definition = [
                 'type' => 'abbreviation_def',
-                'abbr' => $abbr,
+                'abbr' => (string)$abbr,
                 'expansion' => $expansion,
             ];
             $this->addHint($definition, "\0carve-compact-definition");
@@ -3671,7 +3698,7 @@ final class HtmlAstBuilder
         if ($structuralKind !== '' || $classKindIsSpellable) {
             $kind = $structuralKind !== '' ? $structuralKind : ($classKind === 'line-block' ? '|' : $classKind);
             $container = $kind === '|'
-                ? ['type' => 'line_block', 'children' => $children]
+                ? ['type' => 'line_block', 'children' => $this->lineBlockPadding($children)]
                 : $this->namedContainer($kind, $children);
             if ($classKind !== '') {
                 unset($classes[$kindIndex]);
@@ -4314,8 +4341,26 @@ final class HtmlAstBuilder
         }
 
         $tag = strtolower(HtmlDomLoader::elementName($node));
+        if ($tag === 'sup' && isset($this->session->supFootnoteTargets[$node])) {
+            return $this->inlineSupFootnote($node);
+        }
+
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
+        }
+        if ($tag === 'span' && HtmlCarrierNames::peekPresence($node, 'data-carve-caption-number')) {
+            $bare = true;
+            foreach ($node->attributes as $attribute) {
+                $bare = $bare && HtmlCarrierNames::canonicalName($attribute->name) === 'data-carve-caption-number';
+            }
+            foreach ($node->childNodes as $child) {
+                $bare = $bare && $child instanceof DOMText;
+            }
+            if ($bare) {
+                HtmlCarrierNames::consumePresence($node, 'data-carve-caption-number');
+
+                return [['type' => 'caption_number']];
+            }
         }
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
             return [];
@@ -4572,7 +4617,26 @@ final class HtmlAstBuilder
                 $span['attrs'] = $attrs;
             }
 
+            if (
+                $tag === 'span' && $attrs === [] && $node->attributes->length > 0
+                && !self::hasConflictingTextCarriers($node)
+                && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
+                && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+                && $this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)
+            ) {
+                $this->keepRaw($node);
+
+                return [['type' => 'raw_inline', 'content' => rtrim(HtmlDomLoader::serialize($node), "\n"), 'format' => 'html']];
+            }
             if ($tag === 'span' && $attrs === []) {
+                if (
+                    $span['children'] !== [] && $node->attributes->length > 0
+                    && !self::hasConflictingTextCarriers($node)
+                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
+                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+                ) {
+                    $this->session->unwrappedBareSpans[$node] = null;
+                }
                 if ($span['children'] === []) {
                     $this->session->droppedEmptyElements[$node] = null;
                 }
@@ -4600,6 +4664,47 @@ final class HtmlAstBuilder
         }
 
         return $this->inlines($this->children($node));
+    }
+
+    /**
+     * @phpstan-param list<ImportedNode> $children
+     *
+     * @phpstan-return list<ImportedNode>
+     */
+    private function lineBlockPadding(array $children): array
+    {
+        foreach ($children as &$paragraph) {
+            if ($paragraph['type'] !== 'paragraph') {
+                continue;
+            }
+            $out = [];
+            $leading = true;
+            foreach (self::nodeList($paragraph['children'] ?? []) as $inline) {
+                if (
+                    $leading && $inline['type'] === 'text'
+                    && preg_match('/^\x{00a0}+/u', self::stringValue($inline['value'] ?? null), $match) === 1
+                ) {
+                    for ($i = 0, $count = strlen($match[0]) / 2; $i < $count; $i++) {
+                        $out[] = ['type' => 'non_breaking_space'];
+                    }
+                    $rest = substr(self::stringValue($inline['value'] ?? null), strlen($match[0]));
+                    if ($rest !== '') {
+                        $out[] = HtmlImportNodes::text($rest);
+                        $leading = false;
+                    }
+
+                    continue;
+                }
+                $out[] = $inline;
+                if ($inline['type'] !== 'comment') {
+                    $leading = $inline['type'] === 'hard_break';
+                }
+            }
+            $paragraph['children'] = $out;
+        }
+        unset($paragraph);
+
+        return $children;
     }
 
     /**
@@ -4768,9 +4873,86 @@ final class HtmlAstBuilder
     /**
      * @return list<ImportedNode>
      */
+    private function inlineSupFootnote(DOMElement $node): array
+    {
+        $fragment = substr($this->session->supFootnoteTargets[$node], 1);
+        $endnote = $this->session->endnoteItems[$fragment] ?? null;
+        HtmlCarrierNames::consumeAttribute($node, 'id');
+        $label = HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label');
+        if (self::isValidFootnoteCarrierLabel($label)) {
+            $reference = ['type' => 'footnote_ref', 'label' => $label];
+            $this->attachAttrs($reference, $node, ['id']);
+
+            return [$reference];
+        }
+        if (
+            $endnote !== null && HtmlCarrierNames::consumePresence($endnote, 'data-carve-inline-footnote')
+            && !isset($this->session->activeInlineFootnotes[$fragment])
+        ) {
+            $this->session->activeInlineFootnotes[$fragment] = true;
+            $previous = $this->session->inFootnoteDefinition;
+            $this->session->inFootnoteDefinition = true;
+            try {
+                $inline = [];
+                foreach ($this->blocks($this->children($endnote)) as $block) {
+                    array_push($inline, ...$this->projectToInlines($block));
+                }
+            } finally {
+                $this->session->inFootnoteDefinition = $previous;
+                unset($this->session->activeInlineFootnotes[$fragment]);
+            }
+
+            $reference = ['type' => 'inline_footnote', 'inline' => $inline];
+            $this->attachAttrs($reference, $node, ['id']);
+
+            return [$reference];
+        }
+
+        $reference = ['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)];
+        $this->attachAttrs($reference, $node, ['id']);
+
+        return [$reference];
+    }
+
+    /**
+     * @return list<ImportedNode>
+     */
     private function inlineLink(DOMElement $node): array
     {
         $href = $node->getAttribute('href');
+        if (HtmlCarrierNames::peekPresence($node, 'data-carve-xref') && preg_match('/^#[^> \n\r]+$/D', $href) === 1) {
+            HtmlCarrierNames::consumePresence($node, 'data-carve-xref');
+            $contradiction = self::isReferenceCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-ref'))
+                || HtmlCarrierNames::consumePresence($node, 'data-carve-autolink')
+                || self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));
+            if ($contradiction) {
+                $this->session->contradictoryLinkCarriers[$node] = null;
+                $link = ['type' => 'link', 'href' => $href, 'children' => $this->inlines($this->children($node))];
+                if ($node->hasAttribute('title')) {
+                    $link['title'] = $node->getAttribute('title');
+                }
+                $this->attachAttrs($link, $node, ['href', 'title']);
+
+                return [$link];
+            }
+            $reference = ['type' => 'heading_ref', 'target' => substr($href, 1)];
+            $attrs = $this->attrs($node, ['href']);
+            if ($attrs !== []) {
+                $reference['attrs'] = $attrs;
+            }
+            HtmlCarrierNames::consumeAttribute($node, 'href');
+            foreach ($node->attributes as $attribute) {
+                $name = strtolower(HtmlDomLoader::attributeName($attribute));
+                if (
+                    ($name === 'id' && isset($attrs['id'])) || ($name === 'class' && isset($attrs['classes']))
+                    || array_key_exists($name, $attrs['keyValues'] ?? [])
+                ) {
+                    HtmlCarrierNames::consumeAttribute($node, $name);
+                }
+            }
+
+            return [$reference];
+        }
         $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
         $markedReference = strtolower($node->getAttribute('role')) === 'doc-noteref'
             || self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\TestCase;
 
 class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
@@ -76,7 +77,7 @@ class AClosedQuotedItemDivLeavesNoClaimTest extends TestCase
             ] as $source
         ) {
             $html = (new CarveConverter())->convert($source);
-            $this->assertMatchesRegularExpression('/<\/blockquote>\n<p>(?:tail|more)<\/p>\n$/', $html);
+            $this->assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
         }
     }
 

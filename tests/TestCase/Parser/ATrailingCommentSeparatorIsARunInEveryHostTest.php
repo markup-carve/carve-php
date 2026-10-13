@@ -10,14 +10,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * CARVE-P9-041 in every inline host (markup-carve/carve#2552, ported from
- * markup-carve/carve#2562). A trailing `%%` marker separates on a tab as well
- * as a space, counts as separated when it starts the inline run, and takes the
- * whole separating run with the rest of the line.
- *
- * The shapes are corpus category 518, which arrives with the spec pin bump. A
- * leaf host is what discriminates: its run begins mid-line, so no `%%` line at
- * the block layer reaches it.
+ * Spaces separate a trailing comment marker; tabs remain content.
  */
 class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
 {
@@ -27,11 +20,14 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
     public static function hostProvider(): array
     {
         return [
-            'paragraph, tab' => ["a\t%% hidden\n", '<p>a</p>'],
+            'paragraph, tab' => ["a\t%% hidden\n", '<p>a	%% hidden</p>'],
             'paragraph, whole run' => ["a  %% hidden\n", '<p>a</p>'],
             'definition term, tab' => [
                 ":: a\t%% hidden\n: d\n",
-                "<dl>\n  <dt>a</dt>\n  <dd>d</dd>\n</dl>",
+                '<dl>
+  <dt>a	%% hidden</dt>
+  <dd>d</dd>
+</dl>',
             ],
             'definition term, run start' => [
                 ":: %% hidden\n: d\n",
@@ -39,7 +35,7 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
             ],
             'table cell, tab' => [
                 "| a\t%% hidden | b |\n|---|---|\n| 1 | 2 |\n",
-                "<table>\n  <thead>\n    <tr><th scope=\"col\">a</th><th scope=\"col\">b</th></tr>\n"
+                "<table>\n  <thead>\n    <tr><th scope=\"col\">a\t%% hidden</th><th scope=\"col\">b</th></tr>\n"
                     . "  </thead>\n  <tbody>\n    <tr><td>1</td><td>2</td></tr>\n  </tbody>\n</table>",
             ],
             'table cell, run start' => [
@@ -49,7 +45,10 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
             ],
             'figure caption, tab' => [
                 "![alt](u)\n^ cap\t%% hidden\n",
-                "<figure>\n  <img src=\"u\" alt=\"alt\">\n  <figcaption>cap</figcaption>\n</figure>",
+                '<figure>
+  <img src="u" alt="alt">
+  <figcaption>cap	%% hidden</figcaption>
+</figure>',
             ],
             'figure caption, run start' => [
                 "![alt](u)\n^ %% hidden\n",
@@ -57,7 +56,7 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
             ],
             'div label, tab' => [
                 "::: note [a\t%% hidden]\nbody\n:::\n",
-                "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p class=\"div-label\">a</p>\n"
+                "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p class=\"div-label\">a\t%% hidden</p>\n"
                     . "  <p>body</p>\n</aside>",
             ],
             'div label, run start' => [
@@ -66,7 +65,7 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
                     . "  <p>body</p>\n</aside>",
             ],
             'an unseparated marker stays text' => ["a%%b and 50%% stay\n", '<p>a%%b and 50%% stay</p>'],
-            'link label, tab' => ["[a\t%% hidden](/u)\n", '<p><a href="/u">a</a></p>'],
+            'link label, tab' => ["[a\t%% hidden](/u)\n", '<p><a href="/u">a	%% hidden</a></p>'],
             'link label, run start' => ["[%% hidden](/u)\n", '<p><a href="/u"></a></p>'],
         ];
     }
@@ -87,17 +86,17 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
     public static function thirdPercentProvider(): array
     {
         return [
-            'heading' => ["# a\t%%% b\n", 'a'],
-            'div label' => ["::: note [a\t%%% b]\nbody\n:::\n", 'a'],
-            'definition term' => [":: a\t%%% b\n: d\n", 'a'],
+            'heading' => ["# a\t%%% b\n", "a\t%%% b"],
+            'div label' => ["::: note [a\t%%% b]\nbody\n:::\n", "a\t%%% b"],
+            'definition term' => [":: a\t%%% b\n: d\n", "a\t%%% b"],
         ];
     }
 
     #[DataProvider('thirdPercentProvider')]
-    public function testAThirdPercentIsPartOfTheConsumedRemainder(string $source, string $expected): void
+    public function testATabKeepsAThirdPercentAsContent(string $source, string $expected): void
     {
         $html = CarveConverter::create()->convert($source);
-        $this->assertStringNotContainsString('%', $html, $source);
+        $this->assertStringContainsString('%%%', $html, $source);
         $this->assertStringContainsString('>' . $expected . '<', $html, $source);
     }
 
@@ -139,7 +138,7 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
             ],
             // The inline reader decides a marker on the preceding source byte,
             // so escaping the separator does not hide it.
-            'an escaped tab still separates' => ["a \\\t%% hidden", 'a \\'],
+            'an escaped tab remains content' => ["a \\\t%% hidden", "a \\\t%% hidden"],
             'an escaped space still separates' => ['a \\ %% hidden', 'a \\'],
             'an escaped percent opens no marker' => ['a \\%% b', 'a \\%% b'],
             // Closed comment constructs own their content inside a label.
@@ -214,6 +213,6 @@ class ATrailingCommentSeparatorIsARunInEveryHostTest extends TestCase
                 $labels[] = $child->getLabel();
             }
         }
-        $this->assertSame(['tab one'], $labels);
+        $this->assertSame(["tab one\t%% hidden"], $labels);
     }
 }

@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use LogicException;
+use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlAstBuilder;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Test\TestCase\ScalingGuardTrait;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
@@ -13,6 +16,33 @@ use PHPUnit\Framework\TestCase;
 class HtmlAstBuilderTest extends TestCase
 {
     use ScalingGuardTrait;
+
+    public function testFootnoteSupInsideLinkRestoresItsAuthoredLabel(): void
+    {
+        $renderer = (new HtmlRenderer())->setRoundTripMode(true);
+        $html = (new CarveConverter(renderer: $renderer))->convert("[see[^named]](/u)\n\n[^named]: note\n");
+        $tree = (new HtmlAstBuilder(importMode: 'roundtrip'))->build($html);
+        self::assertSame(['type' => 'footnote_ref', 'label' => 'named'], $tree['children'][0]['children'][0]['children'][1]);
+        self::assertSame('footnote', $tree['children'][1]['type']);
+        self::assertSame('named', $tree['children'][1]['label']);
+    }
+
+    public function testInlineFootnoteSupInsideLinkRestoresItsBody(): void
+    {
+        $renderer = (new HtmlRenderer())->setRoundTripMode(true);
+        $html = (new CarveConverter(renderer: $renderer))->convert("[see^[note]](/u)\n");
+        $tree = (new HtmlAstBuilder(importMode: 'roundtrip'))->build($html);
+        self::assertSame(['type' => 'inline_footnote', 'inline' => [['type' => 'text', 'value' => 'note']]], $tree['children'][0]['children'][0]['children'][1]);
+    }
+
+    public function testNumericAbbreviationDefinitionsKeepStringTerms(): void
+    {
+        $tree = (new HtmlAstBuilder())->build('<template data-carve-abbreviations>*[9]: nine
+*[42]: answer
+*[1a]: first</template><p>9 42 1a</p>');
+        self::assertSame(['9', '42', '1a'], array_column(array_slice($tree['children'], 0, 3), 'abbr'));
+        (new AstCodec())->decode($tree);
+    }
 
     public function testTableSectionsKeepTheirOwnRetainedRows(): void
     {

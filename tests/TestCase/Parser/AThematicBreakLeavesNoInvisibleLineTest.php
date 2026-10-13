@@ -109,23 +109,45 @@ class AThematicBreakLeavesNoInvisibleLineTest extends TestCase
         return [
             'a comment line' => [
                 "- t\n\n  %% c\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>\n",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>
+',
             ],
             'an attribute line' => [
                 "- t\n\n  {#a}\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p id=\"a\">z</p>\n  </li>\n</ul>\n",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>
+',
             ],
             'a link reference definition' => [
                 "- t\n\n  [r]: /u\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>\n",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>
+',
             ],
             'a footnote definition' => [
                 "- t\n\n  [^f]: n\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>\n",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>
+',
             ],
             'a marker behind an attribute line' => [
                 "- t\n\n  {#a}\n - m\n",
-                "<ul>\n  <li>t\n    <ul id=\"a\">\n      <li>m</li>\n    </ul>\n  </li>\n</ul>\n",
+                '<ul>
+  <li>t</li>
+</ul>
+<ul>
+  <li>m</li>
+</ul>
+',
             ],
         ];
     }

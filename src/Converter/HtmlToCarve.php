@@ -423,6 +423,7 @@ class HtmlToCarve
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
         $this->unwrappedSameKindImportSpans = null;
+        $this->unwrappedBareImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
@@ -454,6 +455,7 @@ class HtmlToCarve
         $this->keptRawImportElements = $session->keptRawElements;
         $this->droppedEmptyImportElements = $session->droppedEmptyElements;
         $this->unwrappedSameKindImportSpans = $session->unwrappedSameKindSpans;
+        $this->unwrappedBareImportSpans = $session->unwrappedBareSpans;
         $this->droppedEmptyImportHeadings = $session->droppedEmptyHeadings;
         $this->urlListImportCarriers = $session->urlListCarriers;
         $this->droppedBlankImportRows = $session->droppedBlankTableRows;
@@ -1523,6 +1525,9 @@ class HtmlToCarve
     private function directAstUnwraps(DOMElement $node): bool
     {
         $tag = strtolower(HtmlDomLoader::elementName($node));
+        if ($tag === 'span' && isset($this->unwrappedBareImportSpans[$node])) {
+            return true;
+        }
         if ($tag === 'aside') {
             $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
 
@@ -2093,7 +2098,9 @@ class HtmlToCarve
         }
 
         if (isset($this->contradictoryLinkCarriers[$node])) {
-            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped contradictory autolink and reference carriers on <' . $tag . '>', 'warning', $path);
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', (HtmlCarrierNames::peekPresence($node, 'data-carve-xref')
+                ? 'Dropped contradictory cross-reference carriers on <'
+                : 'Dropped contradictory autolink and reference carriers on <') . $tag . '>', 'warning', $path);
         }
 
         if (isset($this->droppedReferenceCarriers[$node])) {
@@ -2459,6 +2466,12 @@ class HtmlToCarve
         foreach ($node->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
             $canonical = HtmlCarrierNames::canonicalName($name);
+            if (
+                !$preserved && $tag === 'a' && (HtmlCarrierNames::wasUsed($node, 'data-carve-xref') || HtmlCarrierNames::wasUsed($node, 'data-djot-xref'))
+                && !isset($this->contradictoryLinkCarriers[$node]) && HtmlCarrierNames::wasUsed($node, $name)
+            ) {
+                continue;
+            }
             if (!$preserved && $canonical === 'data-carve-ext' && HtmlCarrierNames::wasUsed($node, $name)) {
                 continue;
             }
@@ -3824,6 +3837,7 @@ class HtmlToCarve
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
         $this->unwrappedSameKindImportSpans = null;
+        $this->unwrappedBareImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
@@ -5048,6 +5062,11 @@ class HtmlToCarve
      * @var \SplObjectStorage<\DOMElement, string|null>|null
      */
     private ?SplObjectStorage $unwrappedSameKindImportSpans = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $unwrappedBareImportSpans = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null
