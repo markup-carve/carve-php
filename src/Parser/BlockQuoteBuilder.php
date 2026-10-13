@@ -233,12 +233,21 @@ final class BlockQuoteBuilder
         $lazyState = self::initialBlockQuoteLazyState();
         $codeCloserMemo = [];
 
-        $innerLines[] = $content;
-        $innerLineMap[] = $this->sourceLineFor($start);
-        $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
-
         $i = $start + 1;
         $count = count($lines);
+        $firstBlock = trim($content, " \t") === '+' && isset($lines[$i])
+            && !IndentationHelper::isBlankLine($lines[$i])
+            && IndentationHelper::getLeadingColumns($lines[$i]) === 0;
+        if ($firstBlock) {
+            [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+            $innerLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $rawLineMap);
+            $firstBlock = $innerLines !== [];
+        }
+        if (!$firstBlock) {
+            $innerLines[] = $content;
+            $innerLineMap[] = $this->sourceLineFor($start);
+            $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
+        }
 
         while ($i < $count) {
             $currentLine = $lines[$i];
