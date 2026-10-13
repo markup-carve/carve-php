@@ -1154,7 +1154,6 @@ final class BlockQuoteBuilder
             || $isTableRow
             || $isContinuationRow
             || $isCommentLine
-            || $isDefinitionTerm
             || $isDefinitionLine
             || $isAttributeLine;
 
