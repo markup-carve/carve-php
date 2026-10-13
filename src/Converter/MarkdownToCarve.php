@@ -957,9 +957,17 @@ class MarkdownToCarve
                     $original = preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead'];
                     $base = $last < 0 ? $original : $definitions[$last]->base . '  ';
                     if ($last >= 0 && $definitions[$last]->depth < $depth) {
+                        $host = $item['lead'];
+                        if (trim($host) !== '') {
+                            $base .= preg_replace_callback(
+                                '/(?:[-+*]|\d+[.)])[ \t]+$/D',
+                                static fn (array $match): string => str_repeat(' ', strlen($match[0])),
+                                $host,
+                            ) ?? $host;
+                        }
                         $items[$at]['lead'] = $base;
                         if ($definitions[$last]->pending && $definitions[$last]->marker !== null) {
-                            $items[$at]['lead'] = $definitions[$last]->base . ': ';
+                            $items[$at]['lead'] = $definitions[$last]->base . ': ' . $host;
                             $marker = $definitions[$last]->marker;
                             $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
                             $definitions[$last]->pending = false;
@@ -1037,7 +1045,7 @@ class MarkdownToCarve
                 continue;
             }
             $emptyCloser = $item['kind'] === 'close' && $item['text'] === '';
-            $spelled[] = $item['text'] === '' && trim($item['lead']) === ''
+            $spelled[] = $item['text'] === '' && ($item['kind'] === 'close' || trim($item['lead']) === '')
                 ? '' : $item['lead'] . $item['text'];
         }
 
@@ -1134,7 +1142,13 @@ class MarkdownToCarve
             // quote of its own.
             if ($marker !== null) {
                 for ($drop = $at; $drop < $end; $drop++) {
-                    if (rtrim($items[$drop]['lead']) !== rtrim($marker['kind'] === 'open' ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead'])) {
+                    $blankLead = rtrim($items[$drop]['lead']);
+                    $markerLead = rtrim($marker['kind'] === 'open' ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead']);
+                    if (str_contains($blankLead, '>') && str_contains($markerLead, '>')) {
+                        $blankLead = strstr($blankLead, '>');
+                        $markerLead = strstr($markerLead, '>');
+                    }
+                    if ($blankLead !== $markerLead) {
                         $marker = null;
 
                         break;

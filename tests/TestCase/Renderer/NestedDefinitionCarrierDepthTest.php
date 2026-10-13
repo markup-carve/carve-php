@@ -63,4 +63,16 @@ class NestedDefinitionCarrierDepthTest extends TestCase
             self::assertNotContains('carrier-markers-damaged', array_column($result->diagnostics, 'code'));
         }
     }
+
+    public function testNestedListRetainsItsListOrQuoteHost(): void
+    {
+        foreach ([":: O\n: - :: I\n    : x\n", ":: O\n: > :: I\n  > : ib\n"] as $source) {
+            $renderer = new MarkdownRenderer();
+            $renderer->setRoundTripMode(true);
+            $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
+            $importer = new MarkdownToCarve();
+            self::assertSame($source, $importer->convert($markdown));
+            self::assertFalse($importer->hadDamagedCarrierMarkers());
+        }
+    }
 }
