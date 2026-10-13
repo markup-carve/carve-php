@@ -646,7 +646,6 @@ final class LineBlockBuilder
             }
 
             $hardBreak = new HardBreak();
-            $hardBreak->setPos($span);
             $parent->replaceChild($index, $hardBreak);
         }
     }
