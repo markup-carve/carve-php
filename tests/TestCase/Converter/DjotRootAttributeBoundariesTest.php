@@ -55,6 +55,24 @@ class DjotRootAttributeBoundariesTest extends TestCase
         self::assertSame(self::normalize($expected), self::normalize($html), $source . "\n" . $converted);
     }
 
+    public function testPendingItemAttributesReturnWhenAFootnoteCloses(): void
+    {
+        $converted = (new DjotToCarve())->convert("[^n]: - x\n\n        {.a}\n\np[^n]");
+        $html = preg_replace('/>\s+</', '><', (new CarveConverter())->convert($converted));
+        self::assertStringNotContainsString("\0", $converted);
+        self::assertStringContainsString('<p class="a">p<a', $html);
+        self::assertStringContainsString('<ul><li><p>x</p></li></ul>', $html);
+    }
+
+    public function testAReferencedFootnoteHeadKeepsOneTaskList(): void
+    {
+        $converted = (new DjotToCarve())->convert("[^n]: - [ ] a\n      - [ ] b\n\nx[^n]");
+        $html = (new CarveConverter())->convert($converted);
+        self::assertStringNotContainsString("\0", $converted);
+        self::assertSame(1, preg_match_all('/<ul(?: |>)/', $html));
+        self::assertSame(2, substr_count($html, 'type="checkbox"'));
+    }
+
     private static function normalize(string $html): string
     {
         $parts = preg_split('/(<[^>]+>)/', $html, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [];

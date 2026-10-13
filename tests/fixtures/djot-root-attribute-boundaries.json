@@ -1151,5 +1151,13 @@
   {
     "source": "[^n]: - [ ] a\n      - [ ] b",
     "html": ""
+  },
+  {
+    "source": "> > para\n> > - x\n> >\n> >   {.a}\n> >\n> > - y",
+    "html": "<blockquote>\n<blockquote>\n<p>para\n- x</p>\n<ul class=\"a\">\n<li>\ny\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - outer\n> >   - inner\n> >\n> >     {.x}\n> >\n> >   - peer",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>outer\n- inner</p>\n<ul class=\"x\">\n<li>\npeer\n</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
   }
 ]
