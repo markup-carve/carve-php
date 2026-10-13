@@ -14,9 +14,10 @@ final class NumericAbbreviationTermTest extends TestCase
     {
         $source = "*[dl]: definition list\n*[3D]: three dimensional\n*[9]: nine\n\nA dl, a 3D one, and 9.\n";
         $codec = new AstCodec();
-        $encoded = $codec->encode(CarveConverter::create()->parse($source));
+        $json = $codec->encodeJson(CarveConverter::create()->parse($source));
+        $encoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
 
         self::assertSame('9', $encoded['children'][2]['abbr']);
-        self::assertSame($encoded, $codec->encode($codec->decode($encoded)));
+        self::assertSame($json, $codec->encodeJson($codec->decodeJson($json)));
     }
 }

@@ -16,9 +16,10 @@ final class TabbedFootnoteLabelRoundTripTest extends TestCase
         $parser = new BlockParser();
         $parser->enablePositionTracking();
         $codec = new AstCodec();
-        $encoded = $codec->encode($parser->parse($source));
+        $json = $codec->encodeJson($parser->parse($source));
+        $encoded = json_decode($json, true, flags: JSON_THROW_ON_ERROR);
 
         self::assertSame("a\tb", $encoded['children'][0]['children'][1]['label']);
-        self::assertSame($encoded, $codec->encode($codec->decode($encoded)));
+        self::assertSame($json, $codec->encodeJson($codec->decodeJson($json)));
     }
 }
