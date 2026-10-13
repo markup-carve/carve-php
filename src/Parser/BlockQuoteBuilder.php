@@ -392,7 +392,7 @@ final class BlockQuoteBuilder
                 ) {
                     $host['fence'] = null;
                     if ($fence['char'] === '%') {
-                        $host['commentBoundary'] = true;
+                        $host['commentBoundary'] = $column < $host['columns'][array_key_last($host['columns'])];
                     }
                 }
                 $state['paragraphOpen'] = false;
@@ -647,11 +647,9 @@ final class BlockQuoteBuilder
             && ($div['className'] !== '|' || $colon === null || $floor !== ($colon['base'] ?? $colon['column']) || $at <= $colon['column'])
         ) {
             $state['colonClaims'][] = ['length' => $div['length'], 'column' => $at, 'body' => false, 'literal' => $div['className'] === '|', 'base' => $floor];
-            if (!$blockStart) {
-                $state['paragraphOpen'] = false;
+            $state['paragraphOpen'] = false;
 
-                return true;
-            }
+            return true;
         }
         if ($floor > 0 && $at >= $floor && !$blockStart) {
             $row = ($this->getTableParser)()->isTableRow($inner)

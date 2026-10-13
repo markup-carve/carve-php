@@ -12,6 +12,6 @@
   {
     "id": "unfinished-line-block-in-quote",
     "source": "> ::: |\n> ```\n> x\nafter\n",
-    "html": "<blockquote>\n  <div class=\"line-block\">\n    <p><code>\nx\nafter</code></p>\n  </div>\n</blockquote>"
+    "html": "<blockquote>\n  <div class=\"line-block\">\n    <p><code>\nx\nafter</code></p>\n  </div>\n</blockquote>\n"
   }
 ]

@@ -5246,6 +5246,7 @@ class BlockParser
         // what lies past the body column is content rather than a blank
         // (CARVE-P11-016, PART 9 section 24 C5).
         $trailingState = $this->advanceFootnoteBodyFenceState(new TrailingBlockState(), $content);
+        $retainedBelowComment = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
@@ -5349,6 +5350,27 @@ class BlockParser
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $i++;
+            } elseif ($trailingState->openParagraph && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))) {
+                $holder = new Document();
+                $consumed = $this->tryParseFencedComment($holder, $lines, $i)
+                    ?? $this->tryParseComment($holder, $lines, $i) ?? 1;
+                if ($consumed > 1 && IndentationHelper::getLeadingColumns($nextLine) === 0) {
+                    break;
+                }
+                for ($end = $i + $consumed; $i < $end; $i++) {
+                    $bodyLines[] = ltrim($lines[$i], " \t");
+                    $bodyLineMap[] = $this->sourceLineFor($i);
+                }
+                $trailingState->openParagraph = false;
+                $retainedBelowComment = true;
+            } elseif ($retainedBelowComment && !IndentationHelper::isBlankLine($nextLine)
+                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)) {
+                $bodyLine = ltrim($nextLine, " \t");
+                $bodyLines[] = $bodyLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $retainedBelowComment = false;
                 $i++;
             } else {
                 break;

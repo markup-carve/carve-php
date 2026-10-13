@@ -2,6 +2,6 @@
   {
     "id": "556-a-closed-block-leaves-no-frame-for-the-line-below-13",
     "source": "- ::: inner\n %% c\n text\n",
-    "html": "<ul>\n  <li>::: inner\n    text\n  </li>\n</ul>\n"
+    "html": "<ul>\n  <li>\n    <div class=\"inner\">\n\n    </div>\n  </li>\n</ul>\n<p>text</p>\n"
   }
 ]

@@ -763,6 +763,10 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            if ($nextIndent === $contentIndent
+                && preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $nextTrimmed) === 1) {
+                $unclosedFenceColumn = null;
+            }
             if ($this->isContinuationMarker($nextTrimmed)) {
                 $rejectedColonFenceLength = null;
             }
@@ -1137,7 +1141,7 @@ final class BlockContinuationScanner
                     $floorParagraphWitness = false;
                 }
                 if (
-                    !$minimumFenceBase && !$inlineCodeParagraph && !$termContinuation && !$closesMetadataSameBaseFence && $trailingState->openParagraph && $trailingState->fence === null
+                    !$minimumFenceBase && !$inlineCodeParagraph && !$termContinuation && !$closesMetadataSameBaseFence && !$trailingState->afterComment && $trailingState->openParagraph && $trailingState->fence === null
                     && IndentationHelper::getLeadingColumns($nextLine) === $contentIndent
                     && str_starts_with($nextTrimmed, '```')
                 ) {
@@ -1165,6 +1169,7 @@ final class BlockContinuationScanner
                 $failedReplayFence = false;
                 if (
                     $minimumFenceBase && !$termContinuation && $trailingState->fence === null
+                    && !$closedVisibleBlockAtFloor && !$trailingState->afterComment
                     && IndentationHelper::getLeadingColumns($nextLine) > $contentIndent
                     && (!$trailingState->openParagraph || ($floorLiveParagraph && ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed) !== null))
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
@@ -1192,6 +1197,7 @@ final class BlockContinuationScanner
                     && !$metadataNeedsAuthoredBase
                     && $authoredCodeColumn === null
                     && !$termContinuation
+                    && !$trailingState->afterComment
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
                     && !$trailingState->quoteParagraph
@@ -1323,7 +1329,7 @@ final class BlockContinuationScanner
                 // swallowed the blank; `CARVE-P0-014` folds the run into the
                 // paragraph instead. carve-php#2660 asked this one container in;
                 // the single-item path asks it here.
-                $floorLookaheadOpener = $minimumFenceBase && $wasOpenParagraph && !$wasInFence && $authoredCodeColumn === null
+                $floorLookaheadOpener = $minimumFenceBase && $wasOpenParagraph && !$wasAfterComment && !$wasInFence && $authoredCodeColumn === null
                     && $this->advanceTrailingStateWithFenceLookaheadCallback === null
                     ? ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($contentLine, " \t"))
                         ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($contentLine, " \t"))
@@ -1483,7 +1489,7 @@ final class BlockContinuationScanner
                     $itemLineMap[] = $this->sourceLineFor($i);
                     $trailingState->openParagraph = false;
                     if (!$spanFromMarkerLine) {
-                        $trailingState->afterComment = true;
+                        $trailingState->afterComment = $nextIndent < $contentIndent;
                     }
                     $i++;
 
@@ -1558,6 +1564,7 @@ final class BlockContinuationScanner
                     $itemLineMap[] = $this->sourceLineFor($j);
                 }
                 $i = $commentFenceEnd;
+                $trailingState->afterComment = true;
 
                 continue;
             }
@@ -1958,7 +1965,7 @@ final class BlockContinuationScanner
         int $stripColumns = 0,
         bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        if ($state->openParagraph && $state->fence === null && !$closerKnownAhead) {
+        if ($state->openParagraph && !$state->afterComment && $state->fence === null && !$closerKnownAhead) {
             $fenceAt = IndentationHelper::pastLeadingWhitespace($line);
             $subject = $line;
             if (($this->getFencedBlockParser)()->isCodeFenceHead($line, $fenceAt)) {
@@ -2818,6 +2825,16 @@ final class BlockContinuationScanner
         $state->afterInvisible = false;
         $wasAfterComment = $state->afterComment;
         $state->afterComment = false;
+        if ($wasAfterComment && $state->fence === null) {
+            $retainedFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"))
+                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($line, " \t"));
+            if ($retainedFence !== null) {
+                $state->openFence($retainedFence['char'] ?? $retainedFence['fence'][0], $retainedFence['length'], IndentationHelper::getLeadingColumns($line));
+                $state->openParagraph = false;
+
+                return $state;
+            }
+        }
         // Re-armed only by the two branches that set `nestedColumn`.
         $nestedIsQuoteOnEntry = $state->nestedIsQuote;
         $state->nestedIsQuote = false;
@@ -2937,7 +2954,7 @@ final class BlockContinuationScanner
             if ($this->isCommentLineOrFence($line, $at)) {
                 if ($atContentColumn) {
                     $state->openParagraph = false;
-                    $state->afterComment = true;
+                    $state->afterComment = false;
                 } else {
                     $state->afterComment = $wasAfterComment;
                 }
@@ -3234,7 +3251,7 @@ final class BlockContinuationScanner
                 // happen is a FLUSH-LEFT line folding in, which is what the
                 // closed paragraph refuses (corpus 357-2, 357-3).
                 $state->afterInvisible = true;
-                $state->afterComment = true;
+                $state->afterComment = false;
             } else {
                 // A lazily collected comment adds no new trailing block, so it
                 // cannot erase the fact that the preceding block was invisible.
