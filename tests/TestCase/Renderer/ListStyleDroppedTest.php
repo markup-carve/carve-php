@@ -157,4 +157,25 @@ class ListStyleDroppedTest extends TestCase
         self::assertContains('carrier-marker-dropped', array_column($report->diagnostics, 'code'));
         self::assertStringContainsString('1. one', $report->value);
     }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function markerBoundaries(): array
+    {
+        return [
+            'paragraph' => ["para\n<!-- carve: a. -->\n1. one\n2. two\n", "para\n\na. one\nb. two\n"],
+            'quote' => ["> q\n<!-- carve: a. -->\n1. one\n", "> q\n\na. one\n"],
+            'adjacent lists' => ["<!-- carve: a. -->\n1. one\n<!-- carve: b. -->\n2. two\n", "a. one\n\nb. two\n"],
+            'table' => ["| a |\n|---|\n| b |\n<!-- carve: a. -->\n1. one\n", "|= a |\n| b |\n\na. one\n"],
+        ];
+    }
+
+    #[DataProvider('markerBoundaries')]
+    public function testStyleMarkerStartsItsOwnList(string $markdown, string $expected): void
+    {
+        $report = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+        self::assertSame($expected, $report->value);
+        self::assertNotContains('carrier-markers-damaged', array_column($report->diagnostics, 'code'));
+    }
 }

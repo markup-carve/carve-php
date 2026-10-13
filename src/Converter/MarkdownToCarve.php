@@ -644,7 +644,18 @@ class MarkdownToCarve
                     $open[] = $width;
                 }
             }
+            $styleMarker = $this->carrierListStyle($payload) !== null;
+            $blankHost = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
+            if (
+                $styleMarker && $at > 0 && trim($this->withoutCarrierHost($lines[$at - 1], $host)) !== ''
+                && !str_starts_with($payloads[$at - 1] ?? '', '{')
+            ) {
+                $out[] = $blankHost;
+            }
             $out[] = $host . $token . count($this->carrierSlots) . 'Z';
+            if ($styleMarker) {
+                $out[] = $blankHost;
+            }
             $equation = null;
             if (CarrierMarkers::isCaption($payload)) {
                 $before = $at - 1;
@@ -663,7 +674,7 @@ class MarkdownToCarve
                 'caption' => CarrierMarkers::isCaption($payload),
                 'fence' => CarrierMarkers::isCodeFence($payload),
                 'fenceTightAfter' => CarrierMarkers::isCodeFence($payload) && $this->carrierFenceTightAfter($lines, $at, $host),
-                'style' => $this->carrierListStyle($payload) !== null,
+                'style' => $styleMarker,
                 'equation' => $equation,
             ];
             // The writer emitted the opener's title and label, and a group
