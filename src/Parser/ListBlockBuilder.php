@@ -1664,9 +1664,6 @@ final class ListBlockBuilder
                 $literalHead = $bottom === null
                     ? null : ($this->getFencedBlockParser)()->parseDivFenceOpener(substr($candidate, $bottom));
                 if ($literalHead !== null && $literalHead['className'] === '|') {
-                    if (!$hasBlankBoundary) {
-                        break;
-                    }
                     $bodyColumn = IndentationHelper::getLeadingColumns($candidate);
                     $walk = $markerStart;
                     while (($head = ($this->getListParser)()->markerHeadAt($candidate, $walk)) !== null) {
@@ -1676,6 +1673,29 @@ final class ListBlockBuilder
                             'attributesWidth' => $head['attrs'],
                         ]);
                         $walk = $head['content'];
+                    }
+                    if (!$hasBlankBoundary) {
+                        for ($later = $index + 1, $total = count($lines); $later + 1 < $total; $later++) {
+                            if (
+                                IndentationHelper::getLeadingColumns($lines[$later]) === $bodyColumn
+                                && ($this->getFencedBlockParser)()->isDivFenceCloser(
+                                    IndentationHelper::stripLeadingColumns($lines[$later], $bodyColumn),
+                                    $literalHead['length'],
+                                )
+                            ) {
+                                $fenceColumn = IndentationHelper::getLeadingColumns($lines[$later + 1]);
+                                if (
+                                    $fenceColumn > 0 && $fenceColumn < $bodyColumn
+                                    && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($lines[$later + 1], " \t"), 0)
+                                ) {
+                                    return true;
+                                }
+
+                                break;
+                            }
+                        }
+
+                        break;
                     }
                     $next = $lines[$index + 1] ?? '';
                     $emptyLiteral = IndentationHelper::getLeadingColumns($next, $bodyColumn + 1) === $bodyColumn
@@ -2356,6 +2376,15 @@ final class ListBlockBuilder
             // A line block's payload is inline content: an indented line in it
             // opens no block, so it carries no authored base.
             if ($i <= $minimumColonEnd && $minimumColonIsLiteral && ($line[0] === ' ' || $line[0] === "\t")) {
+                continue;
+            }
+            $previousMarker = $i > 0 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
+            if (
+                !$afterBlank && $nestedColumns !== [] && IndentationHelper::getLeadingColumns($line) < end($nestedColumns)
+                && $previousMarker !== null
+                && !$this->lineOpensBlockForLooseness($previousMarker['content'], true)
+                && $this->fenceRunOpensNothing(ltrim($line, " \t"), $lines, $i, IndentationHelper::getLeadingColumns($line))
+            ) {
                 continue;
             }
             // A CODE-FENCE OPENER AT THE ITEM'S CONTENT COLUMN IS ALWAYS

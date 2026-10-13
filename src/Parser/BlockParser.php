@@ -3324,6 +3324,21 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
+            $unclosedCode = $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]);
+            if (
+                $nestingAware && $unclosedCode !== null
+                && IndentationHelper::getLeadingColumns($lines[$i]) === 0
+                && $innerLines !== []
+                && preg_match('/^[ \t]+:{3,}[ \t]*$/', $innerLines[count($innerLines) - 1]) === 1
+                && !$this->hasCodeFenceCloserAhead($lines, $i, $unclosedCode['char'], $unclosedCode['length'])
+            ) {
+                for (; $i < $count; $i++) {
+                    $innerLines[] = $lines[$i];
+                    $innerLineMap[] = $this->sourceLineFor($i);
+                }
+
+                break;
+            }
             $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap)
                 ?? (end($literal) ? $this->appendIndentedLiteralRunSpan($lines, $i, $innerLines, $innerLineMap) : null);
             if ($skippedTo !== null) {
