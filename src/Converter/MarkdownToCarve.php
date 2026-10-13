@@ -7512,14 +7512,18 @@ class MarkdownToCarve
         // delimiters. A following slash pair can otherwise make the slash in
         // </u> look like a Carve opener before the tag is converted below.
         $nativeTags = [];
-        $line = preg_replace_callback('~(?<=</u>)/(?=[A-Za-z0-9])~i', static function (array $match) use (&$nativeTags): string {
-            $token = "\0N" . count($nativeTags) . "\0";
+        $nativeTagPrefix = "\0N";
+        while (str_contains($line, $nativeTagPrefix)) {
+            $nativeTagPrefix .= 'N';
+        }
+        $line = preg_replace_callback('~(?<=</u>)/(?=[A-Za-z0-9])~i', static function (array $match) use (&$nativeTags, $nativeTagPrefix): string {
+            $token = $nativeTagPrefix . count($nativeTags) . "\0";
             $nativeTags[$token] = $match[0];
 
             return $token;
         }, $line) ?? $line;
-        $line = preg_replace_callback('/<\/?(?:code|mark|ins|del|s|sup|sub|strong|b|em|i|u)>/i', static function (array $match) use (&$nativeTags): string {
-            $token = "\0N" . count($nativeTags) . "\0";
+        $line = preg_replace_callback('/<\/?(?:code|mark|ins|del|s|sup|sub|strong|b|em|i|u)>/i', static function (array $match) use (&$nativeTags, $nativeTagPrefix): string {
+            $token = $nativeTagPrefix . count($nativeTags) . "\0";
             $nativeTags[$token] = $match[0];
 
             return $token;
