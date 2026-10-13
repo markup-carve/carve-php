@@ -115,7 +115,7 @@ trait NormalizesDjotStructure
                 $openingColumn = strspn($prefix, " \t", $prefixEnd);
             }
             $endsItem = false;
-            if ($text === '' && ($masks[$row][strrpos($prefix, '>') ?: 0] ?? '') === '>') {
+            if (($masks[$row][strrpos($prefix, '>') ?: 0] ?? '') === '>') {
                 foreach ($frames[$previousDepth] ?? [] as $owner) {
                     $endsItem = $endsItem || $owner['column'] >= $openingColumn;
                 }
@@ -131,7 +131,7 @@ trait NormalizesDjotStructure
                     unset($frames[$level]);
                 }
             }
-            if ($depth > $previousDepth && ($text === '' || !$previousParagraph) && ($masks[$row][strrpos($prefix, '>') ?: 0] ?? '') === '>') {
+            if ($depth > $previousDepth && ($endsItem || !$previousParagraph) && ($masks[$row][strrpos($prefix, '>') ?: 0] ?? '') === '>') {
                 $frames[$previousDepth] = array_values(array_filter($frames[$previousDepth] ?? [], static fn (array $owner): bool => $owner['column'] < $openingColumn));
             }
             if ($depth > $previousDepth && isset($frames[$previousDepth]) && $frames[$previousDepth] !== []) {

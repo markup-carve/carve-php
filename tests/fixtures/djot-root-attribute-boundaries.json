@@ -1600,5 +1600,53 @@
   {
     "source": "> > > > - a\n> > > >\n> > > >   | x\n> > > > c\n> > > >\n> > > >   {.x}\n> > > >\n> > > > - e",
     "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n<p>| x\nc</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> > > q\n> > - f\n> >\n> >   {.x}\n> >\n> > - g",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\na\n</li>\n</ul>\n<blockquote>\n<p>q</p>\n</blockquote>\n<ul>\n<li>\n<p>f</p>\n</li>\n<li class=\"x\">\n<p>g</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - a\n> > > > q\n> > > - f\n> > >\n> > >   {.x}\n> > >\n> > > - g",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n</li>\n</ul>\n<blockquote>\n<p>q</p>\n</blockquote>\n<ul>\n<li>\n<p>f</p>\n</li>\n<li class=\"x\">\n<p>g</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > > > q\n> > > > - f\n> > > >\n> > > >   {.x}\n> > > >\n> > > > - g",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n</li>\n</ul>\n<blockquote>\n<p>q</p>\n</blockquote>\n<ul>\n<li>\n<p>f</p>\n</li>\n<li class=\"x\">\n<p>g</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> > lazy\n> > >\n> > > - b\n> > >\n> > >   {.x}\n> > >\n> > > - c",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\na\nlazy\n</li>\n</ul>\n<blockquote>\n<ul>\n<li>\n<p>b</p>\n</li>\n<li class=\"x\">\n<p>c</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - a\n> > > lazy\n> > > >\n> > > > - b\n> > > >\n> > > >   {.x}\n> > > >\n> > > > - c",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\nlazy\n</li>\n</ul>\n<blockquote>\n<ul>\n<li>\n<p>b</p>\n</li>\n<li class=\"x\">\n<p>c</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > > lazy\n> > > > >\n> > > > > - b\n> > > > >\n> > > > >   {.x}\n> > > > >\n> > > > > - c",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\nlazy\n</li>\n</ul>\n<blockquote>\n<ul>\n<li>\n<p>b</p>\n</li>\n<li class=\"x\">\n<p>c</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > intro\n> > | a |\n> > >\n> > > - x\n> > >\n> > >   {.k}\n> > >\n> > > - y",
+    "html": "<blockquote>\n<blockquote>\n<p>intro\n| a |\n&gt;\n&gt; - x\n&gt;\n&gt;   \n&gt;\n&gt; - y</p>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > intro\n> > > | a |\n> > > >\n> > > > - x\n> > > >\n> > > >   {.k}\n> > > >\n> > > > - y",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<p>intro\n| a |\n&gt;\n&gt; - x\n&gt;\n&gt;   \n&gt;\n&gt; - y</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > intro\n> > > > | a |\n> > > > >\n> > > > > - x\n> > > > >\n> > > > >   {.k}\n> > > > >\n> > > > > - y",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<p>intro\n| a |\n&gt;\n&gt; - x\n&gt;\n&gt;   \n&gt;\n&gt; - y</p>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > | a |\n> > {.x}\n> >\n> > p",
+    "html": "<blockquote>\n<blockquote>\n<table>\n<tr>\n<td>a</td>\n</tr>\n</table>\n<p class=\"x\">p</p>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > | a |\n> > > {.x}\n> > >\n> > > p",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<table>\n<tr>\n<td>a</td>\n</tr>\n</table>\n<p class=\"x\">p</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > | a |\n> > > > {.x}\n> > > >\n> > > > p",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<table>\n<tr>\n<td>a</td>\n</tr>\n</table>\n<p class=\"x\">p</p>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
   }
 ]
