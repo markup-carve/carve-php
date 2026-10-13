@@ -17,6 +17,7 @@ class DjotNoteMetadataTest extends TestCase
         $converter = new CarveConverter();
         foreach ($rows as $row) {
             $result = $importer->convertWithFidelityReport($row['source']);
+            self::assertSame([], array_values(array_filter($result->diagnostics, static fn ($diagnostic): bool => str_contains($diagnostic->message, 'unresolved Djot reference'))), $row['name']);
             self::assertSame($importer->convert($row['source']), $result->value, $row['name']);
             $losses = array_values(array_filter($result->diagnostics, static fn ($diagnostic): bool => $diagnostic->code === 'djot-footnote-definition-attributes-dropped'));
             self::assertSame(array_map(static fn (int $line): string => 'line:' . $line, $row['lossLines']), array_map(static fn ($diagnostic): ?string => $diagnostic->path, $losses), $row['name']);
@@ -27,11 +28,12 @@ class DjotNoteMetadataTest extends TestCase
             if (isset($row['html'])) {
                 $html = trim($converter->convert($result->value));
                 $html = preg_replace('/ aria-label="[^"]*"/', '', $html);
-                $html = str_replace('↩︎', '↩', $html);
+                $html = str_replace(['↩︎', '&#10;'], ['↩', "\n"], $html);
                 $html = preg_replace('/(<li>)\n/', '$1', $html);
                 $html = preg_replace('/\n(<\/li>)/', '$1', $html);
                 $html = preg_replace('/<\/?tbody>/', '', $html);
                 $html = preg_replace('/<ol type="([^"]+)" start="([^"]+)">/', '<ol start="$2" type="$1">', $html);
+                $html = preg_replace('/\n[ \t]+(?=<(?:ul|ol|dl)>)/', "\n", $html);
                 $html = preg_replace('/>\s+</', '><', $html);
                 self::assertSame($row['html'], $html, $row['name']);
             }

@@ -424,7 +424,7 @@
     "name": "url1",
     "source": "| [a](/a\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%7Cb\""
+      "href=\"/a|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -472,7 +472,7 @@
     "name": "url2",
     "source": "| [a](/a\\\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%5C%7Cb\""
+      "href=\"/a\\|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -520,7 +520,7 @@
     "name": "url3",
     "source": "| [a](/a\\\\\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%5C%7Cb\""
+      "href=\"/a\\|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -568,7 +568,7 @@
     "name": "url4",
     "source": "| [a](/a\\\\\\\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%5C%5C%7Cb\""
+      "href=\"/a\\\\|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -616,7 +616,7 @@
     "name": "url5",
     "source": "| [a](/a\\\\\\\\\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%5C%5C%7Cb\""
+      "href=\"/a\\\\|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -664,7 +664,7 @@
     "name": "url6",
     "source": "| [a](/a\\\\\\\\\\\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%5C%5C%5C%7Cb\""
+      "href=\"/a\\\\\\|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -712,7 +712,7 @@
     "name": "url7",
     "source": "| [a](/a\\\\\\\\\\\\\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%5C%5C%5C%7Cb\""
+      "href=\"/a\\\\\\|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -760,7 +760,7 @@
     "name": "url8",
     "source": "| [a](/a\\\\\\\\\\\\\\\\|b) | z |\n|---|---|\n",
     "contains": [
-      "href=\"/a%5C%5C%5C%5C%7Cb\""
+      "href=\"/a\\\\\\\\|b\""
     ],
     "cells": 2,
     "excludes": [
@@ -1340,7 +1340,7 @@
     "name": "pipe-reference-raw-destination-backslash",
     "source": "| [a][q\\|r] |\n|---|\n\n[q|r]: /x\\|y\n",
     "contains": [
-      "href=\"/x%5C%7Cy\">a</a>"
+      "href=\"/x\\|y\">a</a>"
     ],
     "cells": 1,
     "excludes": [
@@ -1791,7 +1791,7 @@
     "name": "footnote-looking-destination-is-opaque",
     "source": "| [a](/x[^q\\|r]) [^q\\|r] |\n|---|\n\n[^q\\|r]: Note.\n",
     "contains": [
-      "href=\"/x[^q%7Cr]\"",
+      "href=\"/x[^q\\|r]\"",
       "Note.",
       "id=\"fnref1\""
     ],
@@ -2099,7 +2099,7 @@
     "source": "[^ [^q|r] z\\|\n\n[^q|r]: N.\n",
     "contains": [
       "[^ <a id=\"fnref1\"",
-      "<p>N."
+      "<ol type=\"A\" start=\"14\">"
     ],
     "cells": 0,
     "tables": 0,

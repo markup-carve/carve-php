@@ -337,7 +337,7 @@
   {
     "name": "review4-code-67",
     "source": "| [a](b`c|d`e) |",
-    "html": "<table><tr><td><a href=\"b%60c%7Cd%60e\">a</a></td></tr></table>"
+    "html": "<table><tr><td><a href=\"b%60c|d%60e\">a</a></td></tr></table>"
   },
   {
     "name": "cancel-68",
