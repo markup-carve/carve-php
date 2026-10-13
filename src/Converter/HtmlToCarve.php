@@ -2459,6 +2459,9 @@ class HtmlToCarve
         foreach ($node->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
             $canonical = HtmlCarrierNames::canonicalName($name);
+            if (!$preserved && $canonical === 'data-carve-ext' && HtmlCarrierNames::wasUsed($node, $name)) {
+                continue;
+            }
             if (in_array($canonical, $conflictingNames, true)) {
                 continue;
             }
@@ -2515,8 +2518,6 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid raw format carrier on <' . $tag . '>', 'warning', $path);
             } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-id-slot' && !HtmlCarrierNames::wasUsed($node, $name)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid heading id slot carrier on <' . $tag . '>', 'warning', $path);
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-ext' && !in_array($attribute->value, HtmlAstBuilder::EXTENSION_CARRIER_VALUES, true)) {
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unknown generated element carrier on <' . $tag . '>', 'warning', $path);
             } elseif (HtmlCarrierNames::isReserved($name)) {
                 if (!HtmlCarrierNames::wasUsed($node, $name)) {
                     $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);

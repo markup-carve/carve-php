@@ -28,6 +28,16 @@ class FinalCarrierContractTest extends TestCase
         }
     }
 
+    public function testExtIsAnAuthoredAttribute(): void
+    {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['x', 'tabs', 'section'] as $value) {
+                $source = (new HtmlToCarve(importMode: $mode))->convert('<h1 data-carve-ext="' . $value . '">H</h1>');
+                self::assertSame('{data-carve-ext=' . $value . "}\n# H\n", $source);
+            }
+        }
+    }
+
     public function testContradictionsReportOneWarningInEveryMode(): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {

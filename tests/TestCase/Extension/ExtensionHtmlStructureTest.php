@@ -345,7 +345,8 @@ class ExtensionHtmlStructureTest extends TestCase
         $classed = "{.mermaid}\n```\ngraph TD; A-->B;\n```\n";
         $pre = '<pre class="mermaid" role="img" aria-label="mermaid"%s>graph TD; A--&gt;B;</pre>';
         foreach (['', ' data-carve-fence-language=""', ' data-carve-fence-language="bad language"', ' data-carve-ext="mermaid"'] as $foreign) {
-            $this->assertSameTree($classed, (new HtmlToCarve())->convert(sprintf($pre, $foreign)));
+            $expected = $foreign === ' data-carve-ext="mermaid"' ? str_replace('{.mermaid}', '{.mermaid data-carve-ext=mermaid}', $classed) : $classed;
+            $this->assertSameTree($expected, (new HtmlToCarve())->convert(sprintf($pre, $foreign)));
         }
 
         $fence = "```mermaid\ngraph TD; A-->B;\n```\n";

@@ -1808,7 +1808,7 @@ final class HtmlAstBuilder
     {
         $tag = strtolower(HtmlDomLoader::elementName($node));
         $classes = $this->codeLanguageClasses($node);
-        if (HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, self::EXTENSION_CARRIER_VALUES, true)) === 'code-block') {
+        if (HtmlCarrierNames::peekAttribute($node, 'data-carve-ext') === 'code-block') {
             $content = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
             if (
                 !HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content') || preg_match('//u', $content) !== 1
@@ -1816,6 +1816,7 @@ final class HtmlAstBuilder
             ) {
                 return null;
             }
+            HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext');
             $block = ['type' => 'code_block', 'content' => $content];
             $attrs = $this->attrs($node, []);
             if ($attrs !== []) {
@@ -1920,7 +1921,7 @@ final class HtmlAstBuilder
                 return $block;
             }
         }
-        $carrier = HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, self::EXTENSION_CARRIER_VALUES, true));
+        $carrier = $tag === 'div' ? HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, ['tabs', 'code-group'], true)) : '';
         $marked = in_array($carrier, ['tabs', 'code-group'], true);
         $tabs = $marked ? $carrier === 'tabs' : in_array('tabs', $classes, true);
         $kind = $tabs ? 'tabs' : 'code-group';
@@ -2030,11 +2031,12 @@ final class HtmlAstBuilder
                         if (HtmlCarrierNames::consumeAttribute($child, 'data-carve-tab-title') !== 'authored-hidden') {
                             $child->removeAttribute('hidden');
                         }
-                        if (!HtmlCarrierNames::consumePresence($child, 'data-carve-explicit-id') || HtmlCarrierNames::consumeAttribute($child, 'data-carve-explicit-id') === '0') {
+                        if (HtmlCarrierNames::consumePresence($child, 'data-carve-generated-id') || !HtmlCarrierNames::consumePresence($child, 'data-carve-explicit-id')) {
                             $child->removeAttribute('id');
                         }
                     }
                     if ($titleNode === null && strtolower(HtmlDomLoader::elementName($child)) === 'p' && $this->hasClass($child, 'admonition-title')) {
+                        HtmlCarrierNames::consumePresence($child, 'data-carve-generated-id');
                         $title = $this->blockInlines($child);
                         $this->stripOpenerTitleQuotes($title);
                         $titleNode = $child;
@@ -2959,7 +2961,7 @@ final class HtmlAstBuilder
      *
      * @var list<string>
      */
-    public const EXTENSION_CARRIER_VALUES = ['section', 'tabs', 'code-group', 'code-block'];
+    public const EXTENSION_CARRIER_VALUES = ['tabs', 'code-group', 'code-block'];
 
     public static function isValidSeparatorWidthCarrier(string $carrier): bool
     {
@@ -5641,6 +5643,7 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @param \DOMElement $node
      * @param list<string> $skip
      *
      * @return Attrs
@@ -5676,6 +5679,7 @@ final class HtmlAstBuilder
             }
         }
         $attrs['order'] = $order;
+
         return $attrs;
     }
 
