@@ -229,7 +229,7 @@ CRV;
             self::assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-3.crv', $files, $profile);
         }
         // Corpus 551 adds three link documents on both configured routes.
-        self::assertSame(['tier2' => 65, 'events' => 65], $accepted, 'A configured fast-path routing change needs explicit review.');
+        self::assertSame(['tier2' => 67, 'events' => 67], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

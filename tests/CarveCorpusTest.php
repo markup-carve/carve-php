@@ -49,6 +49,17 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-closed-block-leaves-no-frame-for-the-line-below',
+        'a-container-boundary-is-read-at-the-container-s-own-column',
+        'a-description-keeps-a-block-at-its-body-column-whatever-leads-the-item',
+        'a-line-block-payload-span-pairs-past-the-content-column',
+        'a-line-final-run-of-spaces-and-tabs-is-dropped-before-the-line-is-read',
+        'a-line-retained-after-a-comment-opens-a-paragraph',
+        'a-paragraph-in-a-held-container-does-not-loosen-the-item',
+        'a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph',
+        'a-tab-inside-a-line-is-content-in-a-label-and-after-a-definition-marker',
+        'a-tab-is-content-in-a-heading-key-and-in-a-cross-reference-id',
+
         'an-unterminated-raw-fence-keeps-literal-payload-termination',
         'an-ordered-list-carries-its-authored-delimiter',
         'multiple-table-bodies-have-positional-source-metadata',
