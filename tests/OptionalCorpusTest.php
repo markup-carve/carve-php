@@ -336,6 +336,16 @@ class OptionalCorpusTest extends TestCase
         );
 
         if ($disposition === 'known-gap') {
+            $this->assertNotNull($crv, "Missing {$slug}.crv pair");
+            $this->assertNotNull($expected, "Missing {$slug} corpus pair");
+            $this->assertArrayHasKey($feature, self::featureRunners());
+            $converter = self::featureRunners()[$feature]($this->rendererForTarget($target));
+            $this->assertNotNull($converter);
+            $this->assertNotSame(
+                $this->normalize($expected),
+                $this->normalize($converter->convert($crv)),
+                "{$slug} now matches the pinned corpus: delete its KNOWN_GAPS entry",
+            );
             foreach ([$slug . ' (' . $target . ')', $slug] as $key) {
                 if (isset(self::KNOWN_GAPS[$key])) {
                     $this->markTestIncomplete(self::KNOWN_GAPS[$key]);

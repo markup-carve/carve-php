@@ -1372,6 +1372,12 @@ class CarveCorpusTest extends TestCase
     {
         $knownGap = self::knownGap($slug);
         if ($knownGap !== null) {
+            $actual = $this->converter->convert($crv);
+            $this->assertNotSame(
+                $this->normalize($html),
+                $this->normalize($actual),
+                $slug . ' now matches the pinned corpus: delete its KNOWN_GAPS entry',
+            );
             $this->markTestIncomplete($knownGap);
         }
 
