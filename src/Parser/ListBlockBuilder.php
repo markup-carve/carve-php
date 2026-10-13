@@ -1677,10 +1677,14 @@ final class ListBlockBuilder
                     $literalMarker = ($this->getListParser)()->parseListItemMarker(ltrim($candidate, " \t"));
                     if (
                         !$hasBlankBoundary
-                        && ($literalMarker['type'] ?? null) === ListBlock::TYPE_BULLET
-                        && $literalMarker['marker'] === '-'
+                        && $literalMarker !== null
+                        && !isset($literalMarker['checked'])
                         && isset($lines[$index + 1])
-                        && preg_match('/^[ \t]*`{3,}[ \t]*$/', $lines[$index + 1]) === 1
+                        && preg_match(
+                            $literalMarker['type'] === ListBlock::TYPE_BULLET
+                                ? '/^[ \t]*`{3,}[ \t]*$/' : '/^[ \t]*`{3}[ \t]*$/',
+                            $lines[$index + 1],
+                        ) === 1
                     ) {
                         for ($later = $index + 1, $total = count($lines); $later + 1 < $total; $later++) {
                             if (
@@ -1699,9 +1703,18 @@ final class ListBlockBuilder
                                 $fenceColumn = IndentationHelper::getLeadingColumns($lines[$later + 1]);
                                 if (
                                     $fenceColumn > 0 && $fenceColumn < $bodyColumn
-                                    && preg_match('/^`{3,}[ \t]*$/', ltrim($lines[$later + 1], " \t")) === 1
+                                    && ($this->getFencedBlockParser)()->isCodeFenceHead(
+                                        ltrim($lines[$later + 1], " \t"),
+                                        0,
+                                    )
                                     && isset($lines[$later + 2])
-                                    && IndentationHelper::getLeadingColumns($lines[$later + 2]) >= $fenceColumn
+                                    && (
+                                        IndentationHelper::getLeadingColumns($lines[$later + 2]) >= $fenceColumn
+                                        || ($this->getFencedBlockParser)()->isDivFenceCloser(
+                                            ltrim($lines[$later + 2], " \t"),
+                                            $literalHead['length'],
+                                        )
+                                    )
                                 ) {
                                     return true;
                                 }

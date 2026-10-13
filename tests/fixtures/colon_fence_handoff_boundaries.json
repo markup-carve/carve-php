@@ -127,12 +127,12 @@
   {
     "id": "published-dedent-g3-20269",
     "source": "> - ::: box\n>   10. ::: |\n>       ```\n>       :::\n>    ```\n>    %% c\n> ```\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code></code></p></div></li></ol><p><code></code></p></div></li></ul><pre><code></code></pre></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code></code></p></div></li></ol><pre><code>%% c\n</code></pre></div></li></ul><pre><code></code></pre></blockquote>"
   },
   {
     "id": "published-dedent-g3-20374",
     "source": "> - ::: box\n>   10. ::: |\n>       ```\n>       x\n>       ```\n>       :::\n>    ```\n>    - x\n> ```\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ol><p><code>\n- x</code></p></div></li></ul><pre><code></code></pre></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ol start=\"10\"><li><div class=\"line-block\"><p><code>\nx\n</code></p></div></li></ol><pre><code>- x\n</code></pre></div></li></ul><pre><code></code></pre></blockquote>"
   },
   {
     "id": "published-dedent-g3-20606",
