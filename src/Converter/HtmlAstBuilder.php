@@ -3649,18 +3649,21 @@ final class HtmlAstBuilder
         $classes = $attrs['classes'] ?? [];
         $structuralKind = trim(HtmlCarrierNames::consumeAttribute($node, 'data-carve-admonition-type'));
         $tag = strtolower(HtmlDomLoader::elementName($node));
+        // PART 10 §13a presence carriers: a line block is read from its carrier,
+        // never from `class="line-block"` alone, which the admonition renders too.
+        $carriedLineBlock = $tag === 'div' && HtmlCarrierNames::consumePresence($node, 'data-carve-line-block');
+        $carriedDiv = $tag === 'div' && !$carriedLineBlock && HtmlCarrierNames::consumePresence($node, 'data-carve-div');
         $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
-        $lineBlockIndex = array_search('line-block', $classes, true);
+        $lineBlockIndex = $carriedLineBlock ? array_search('line-block', $classes, true) : false;
         if ($lineBlockIndex !== false) {
             $kindIndex = $lineBlockIndex;
         }
-        $classKind = $classes[$kindIndex] ?? '';
+        $classKind = $carriedLineBlock && $lineBlockIndex === false ? '' : ($classes[$kindIndex] ?? '');
         // explicit_identifier, which admonition_type resolves through, admits an
         // ASCII digit first so an imported HTML-valid class survives.
-        $classKindIsSpellable = $classKind === 'line-block'
-            || preg_match('/^\w[\w-]*$/D', $classKind) === 1;
-        if ($structuralKind !== '' || $classKindIsSpellable) {
-            $kind = $structuralKind !== '' ? $structuralKind : ($classKind === 'line-block' ? '|' : $classKind);
+        $classKindIsSpellable = preg_match('/^\w[\w-]*$/D', $classKind) === 1;
+        if ($carriedLineBlock || (!$carriedDiv && ($structuralKind !== '' || $classKindIsSpellable))) {
+            $kind = $carriedLineBlock ? '|' : ($structuralKind !== '' ? $structuralKind : $classKind);
             $container = $kind === '|'
                 ? ['type' => 'line_block', 'children' => $this->lineBlockPadding($children)]
                 : $this->namedContainer($kind, $children);
@@ -3701,7 +3704,7 @@ final class HtmlAstBuilder
 
             return [$container];
         }
-        if ($attrs === [] && $label === null) {
+        if ($attrs === [] && $label === null && !$carriedDiv) {
             return $children;
         }
         $container = ['type' => 'div', 'children' => $children, 'attrs' => $attrs];
@@ -3753,6 +3756,38 @@ final class HtmlAstBuilder
             }
         }
         unset($node);
+    }
+
+    /**
+     * A substitution carrier holding one bare `<del>` then one bare `<ins>` and
+     * nothing else (PART 10 §13a); any other shape keeps both halves as written.
+     *
+     * @return ImportedNode|null
+     */
+    private function carriedSubstitution(DOMElement $node): ?array
+    {
+        foreach ($node->attributes as $attribute) {
+            if (HtmlCarrierNames::canonicalName(HtmlDomLoader::attributeName($attribute)) !== 'data-carve-substitution') {
+                return null;
+            }
+        }
+        $halves = [];
+        foreach ($node->childNodes as $child) {
+            if (!$child instanceof DOMElement || $child->attributes->length !== 0) {
+                return null;
+            }
+            $halves[] = strtolower(HtmlDomLoader::elementName($child));
+        }
+        if ($halves !== ['del', 'ins']) {
+            return null;
+        }
+        $children = $this->inlines($this->children($node));
+        if (count($children) !== 2 || $children[0]['type'] !== 'delete' || $children[1]['type'] !== 'insert') {
+            return null;
+        }
+        HtmlCarrierNames::consumePresence($node, 'data-carve-substitution');
+
+        return ['type' => 'substitution', 'old' => $children[0]['children'] ?? [], 'new' => $children[1]['children'] ?? []];
     }
 
     private function isBareDjotContentWrapper(DOMElement $node): bool
@@ -4324,6 +4359,12 @@ final class HtmlAstBuilder
                 HtmlCarrierNames::consumePresence($node, 'data-carve-caption-number');
 
                 return [['type' => 'caption_number']];
+            }
+        }
+        if ($tag === 'span' && HtmlCarrierNames::peekPresence($node, 'data-carve-substitution')) {
+            $substitution = $this->carriedSubstitution($node);
+            if ($substitution !== null) {
+                return [$substitution];
             }
         }
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {

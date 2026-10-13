@@ -67,6 +67,9 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
      */
     private const PORTED_AHEAD_OF_PIN = [
         'bare-div',
+        'bare-div-carrier',
+        'line-block-carrier',
+        'substitution-carrier',
         'definition-list-wrapped-term',
         'reference-link-full',
         'reference-link-collapsed',
@@ -136,14 +139,6 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
             ], $result->diagnostics));
             self::assertNoReservedAttributes($importer->convertToAstWithReport($fixture['html'])->value);
         }
-    }
-
-    public function testLineBlockAdmonitionImportGapIsStillPresent(): void
-    {
-        $exported = (new CarveConverter(roundTripMode: true))->convert("::: line-block\nfirst\\\nsecond\n:::\n");
-        $imported = (new HtmlToCarve(importMode: 'safe'))->convert($exported);
-        self::assertStringContainsString('::: |', $imported);
-        $this->markTestIncomplete('The line-block admonition carrier is tracked by carve-php#3322.');
     }
 
     public function testRecoveredCarriersArePublishedAstFields(): void
@@ -360,9 +355,6 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         $raw = json_decode((string)file_get_contents($resource), true, flags: JSON_THROW_ON_ERROR);
         foreach (['exportImport', 'importNegative', 'collisionExport', 'markdownExportImport'] as $kind) {
             foreach ($fixtures[$kind] as $index => $fixture) {
-                if ($fixture['id'] === 'line-block-admonition-writes-no-carrier') {
-                    continue;
-                }
                 // The shared contract marks rows no engine is bound to yet; nested Markdown markers wait on carve-php#3279.
                 if (($raw[$kind][$index]['aheadOfPin'] ?? false) === true && !in_array($fixture['id'], self::PORTED_AHEAD_OF_PIN, true)) {
                     continue;
