@@ -46,4 +46,14 @@ final class DefinitionBodyCanonicalSpaceTest extends TestCase
         self::assertSame(":: x\n: y\n", $imported);
         self::assertSame($imported, CarveConverter::toCarve($imported));
     }
+
+    public function testCommentBelowTheBodyColumnStaysInTheDescription(): void
+    {
+        $source = ":: t\n:  d\n  %% c\n";
+        $canonical = ":: t\n: d\n\n  %% c\n";
+
+        self::assertSame($canonical, CarveConverter::toCarve($source));
+        self::assertSame($canonical, CarveConverter::toCarve($canonical));
+        self::assertSame(":: t\n: d\n\n%% c\n", CarveConverter::toCarve(":: t\n: d\n\n%% c\n"));
+    }
 }
