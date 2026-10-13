@@ -3910,9 +3910,8 @@ final class BlockContinuationScanner
     {
         for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
             $text = ltrim($itemLines[$cursor], " \t");
-            // A comment line keeps its reading until markup-carve/carve#3060 is ruled.
-            $broken = ($text !== '' && IndentationHelper::getLeadingColumns($itemLines[$cursor]) < BlockGrammar::FOOTNOTE_BODY_COLUMN)
-                || str_starts_with($text, '%%');
+            $broken = $text !== ''
+                && IndentationHelper::getLeadingColumns($itemLines[$cursor]) < BlockGrammar::FOOTNOTE_BODY_COLUMN;
         }
 
         return !$broken;
