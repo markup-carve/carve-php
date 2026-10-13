@@ -7010,7 +7010,7 @@ class BlockParser
     protected function endsDefinitionTerm(string $line, ?array $lines = null, ?int $index = null): bool
     {
         if ($this->isCaptionLine($line)) {
-            return false;
+            return true;
         }
 
         // AN UNTERMINATED FENCE ENDS A TERM (carve-php#2868). §10 I4 withholds
