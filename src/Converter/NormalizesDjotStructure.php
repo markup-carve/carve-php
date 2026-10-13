@@ -1525,7 +1525,11 @@ trait NormalizesDjotStructure
         return false;
     }
 
-    private function normalizeDjotInlineSpellings(string $source): string
+    /**
+     * @param string $source
+     * @param \Closure(int): bool|null $preserveQuote
+     */
+    private function normalizeDjotInlineSpellings(string $source, ?Closure $preserveQuote = null): string
     {
         $comments = [];
         $this->maskCodeAndDestinations($source, opaqueOptions: [
@@ -1540,7 +1544,7 @@ trait NormalizesDjotStructure
             }
         }
         $mask = $this->djotEmphasisMask($source);
-        $source = preg_replace_callback('/(?:\{\})+|[ \t]+\\\\[ \t]*(?=\n)|\{[\'\"]|[\'\"]\}/', function (array $match) use ($mask, $source): string {
+        $source = preg_replace_callback('/(?:\{\})+|[ \t]+\\\\[ \t]*(?=\n)|\{[\'\"]|[\'\"]\}/', function (array $match) use ($mask, $source, $preserveQuote): string {
             [$text, $at] = $match[0];
             if ($mask[$at] !== $source[$at] || trim(substr($mask, $at, strlen($text))) === '' || ($this->isDjotEscaped($source, $at) && !str_contains($text, '\\'))) {
                 return $text;
@@ -1559,6 +1563,10 @@ trait NormalizesDjotStructure
                 return substr($text, 0, $end - $at) . '\\';
             }
             if (str_starts_with($text, '{}')) {
+                return $text;
+            }
+
+            if ($preserveQuote !== null && $preserveQuote($at)) {
                 return $text;
             }
 
