@@ -306,13 +306,13 @@ final class TableBlockBuilder
                 $mergedCells = $cellAccumulator->contents();
                 // Continuation text on a span marker belongs to the cell the marker
                 // resolves into, which the span walk names below (T6).
-                foreach ($baseCells as $idx => $base) {
-                    $base = trim($base, ' ');
+                foreach ($baseCells as $idx => $rawBase) {
+                    $base = trim($rawBase, ' ');
                     $merged = $mergedCells[$idx] ?? $base;
                     if (
                         $merged === $base
                         || ($cellAttributes[$idx] ?? '') !== ''
-                        || !(($this->getTableParser)()->isRowspanMarker($base) || ($this->getTableParser)()->isColspanMarker($base))
+                        || !(($this->getTableParser)()->isRowspanMarker($base) || ($this->getTableParser)()->isColspanMarker($rawBase))
                     ) {
                         continue;
                     }
