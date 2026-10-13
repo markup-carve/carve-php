@@ -1535,6 +1535,13 @@ trait NormalizesDjotStructure
             },
         ]);
         foreach (array_reverse($comments, true) as $start => $end) {
+            if ($removeAll) {
+                $attrs = $this->readDjotWordAttributes($source, $start);
+                if ($attrs !== null && $attrs['source'] !== '{}') {
+                    continue;
+                }
+                $end = $attrs['end'] ?? $end;
+            }
             if ($removeAll || ($source[$end - 2] !== '%' && str_contains(substr($source, $start + 2, $end - $start - 2), '{'))) {
                 $source = substr($source, 0, $start) . '{%%}' . substr($source, $end);
             }
