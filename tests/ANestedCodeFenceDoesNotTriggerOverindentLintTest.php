@@ -16,7 +16,7 @@ class ANestedCodeFenceDoesNotTriggerOverindentLintTest extends TestCase
         $html = CarveConverter::create()->convert($source);
 
         self::assertStringContainsString("<li>child\n<code></code>\n          <pre><code></code></pre>", $html);
-        self::assertStringContainsString("      <pre><code></code></pre>", $html);
+        self::assertStringContainsString('      <pre><code></code></pre>', $html);
         self::assertNotContains('list-item-block-overindented', array_column((new SourceLinter())->lint($source), 'rule'));
     }
 }

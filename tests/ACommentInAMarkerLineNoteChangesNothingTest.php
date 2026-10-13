@@ -21,7 +21,9 @@ class ACommentInAMarkerLineNoteChangesNothingTest extends TestCase
         );
     }
 
-    /** @return iterable<string, array{string}> */
+    /**
+     * @return iterable<string, array{string}>
+     */
     public static function noteComments(): iterable
     {
         yield 'adjacent comment' => ["- [^n]: text\n    %% c\n    ```\n    code\n    ```\nafter [^n]\n"];

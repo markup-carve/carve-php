@@ -145,6 +145,7 @@ final class TableBlockBuilder
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
+        $columnOriginContent = [];
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -410,7 +411,7 @@ final class TableBlockBuilder
             // Build the row's cells. Spans are already resolved in the grid above,
             // so every entry in $processedCells emits exactly one cell; its
             // gridColumn keys per-column alignment, matching the carve-js renderer.
-            /** @var array<array{cell: \MarkupCarve\Carve\Node\Block\TableCell, colPosition: int}> $rowCellData */
+            /** @var array<array{cell: \MarkupCarve\Carve\Node\Block\TableCell, colPosition: int, content: string}> $rowCellData */
             $rowCellData = [];
             foreach ($processedCells as $cellData) {
                 $colspan = $cellData['colspan'];
@@ -444,7 +445,7 @@ final class TableBlockBuilder
                     // marker (no target) is eligible, same as before it kept
                     // its own row slot.
                     if (!isset($consumedColumnSet[$col])) {
-                        $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+                        $rowCellData[] = ['cell' => $cell, 'colPosition' => $col, 'content' => ''];
                     }
 
                     continue;
@@ -518,7 +519,7 @@ final class TableBlockBuilder
                 if ($trimmedContent !== '' && $this->isPlainTableText($trimmedContent) && $this->appendPlainRebuiltCellText($cell, $cellData, $trimmedContent)) {
                     $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
                     $row->appendChild($cell);
-                    $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+                    $rowCellData[] = ['cell' => $cell, 'colPosition' => $col, 'content' => $trimmedContent];
 
                     continue;
                 }
@@ -534,20 +535,27 @@ final class TableBlockBuilder
                 // cannot match and rightly declines.
                 $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
                 $row->appendChild($cell);
-                $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+                $rowCellData[] = ['cell' => $cell, 'colPosition' => $col, 'content' => $trimmedContent];
             }
 
             // Each `^` the walk resolved grows the cell above it by one row; the
             // rest of its row strip resolved into the same cell.
             $nextOrigin = [];
+            $nextOriginContent = [];
             foreach ($consumedRowspanColumns as $col) {
                 $origin = $columnOrigin[$col] ?? null;
                 if ($origin instanceof TableCell) {
+                    $content = $columnOriginContent[$col] ?? '';
                     if (isset($rowspanContinuations[$col])) {
-                        $origin->appendChild(new Text(' ' . implode(' ', $rowspanContinuations[$col])));
+                        $content = trim($content . ' ' . implode(' ', $rowspanContinuations[$col]), ' ');
+                        $origin->setChildren([]);
+                        ($this->getInlineParser)()->parse($origin, $content, $baseLineForRow);
+                        $origin->setPos(null);
+                        $this->state->session->unplaceableNodeIds[spl_object_id($origin)] = true;
                     }
                     $origin->setRowspan($origin->getRowspan() + 1);
                     $nextOrigin[$col] = $origin;
+                    $nextOriginContent[$col] = $content;
                 }
             }
 
@@ -556,8 +564,10 @@ final class TableBlockBuilder
             // `^` just carried down. A column a colspan merely covers has none.
             foreach ($rowCellData as $cellInfo) {
                 $nextOrigin[$cellInfo['colPosition']] = $cellInfo['cell'];
+                $nextOriginContent[$cellInfo['colPosition']] = $cellInfo['content'];
             }
             $columnOrigin = $nextOrigin;
+            $columnOriginContent = $nextOriginContent;
 
             $table->appendChild($row);
             CycleCollection::checkpoint();

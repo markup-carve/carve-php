@@ -19,7 +19,9 @@ class AContinuationAfterARowspanMarkerJoinsTheOriginTest extends TestCase
         self::assertStringContainsString($secondRow, $html);
     }
 
-    /** @return iterable<string, array{string, string, string}> */
+    /**
+     * @return iterable<string, array{string, string, string}>
+     */
     public static function rows(): iterable
     {
         yield 'continuation after span' => [
@@ -27,10 +29,17 @@ class AContinuationAfterARowspanMarkerJoinsTheOriginTest extends TestCase
             '<tr><td rowspan="2">a more</td><td>b</td></tr>',
             '<tr><td>c d</td></tr>',
         ];
+
         yield 'continuation before span' => [
             "| a | b |\n+ more | d |\n| ^ | c |\n",
             '<tr><td rowspan="2">a more</td><td>b d</td></tr>',
             '<tr><td>c</td></tr>',
+        ];
+
+        yield 'inline run crosses the span continuation' => [
+            "| *a | b |\n| ^ | c |\n+ b* | d |\n",
+            '<tr><td rowspan="2"><strong>a b</strong></td><td>b</td></tr>',
+            '<tr><td>c d</td></tr>',
         ];
     }
 }
