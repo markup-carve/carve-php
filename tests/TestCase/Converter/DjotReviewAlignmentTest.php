@@ -401,6 +401,7 @@ class DjotReviewAlignmentTest extends TestCase
     {
         self::assertNotContains('structure-unspellable', array_column((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code'), $source);
     }
+
     public function testReconciledNoteAndAttributeBoundaries(): void
     {
         $cases = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-reconciliation-boundaries.json'), true, flags: JSON_THROW_ON_ERROR);
