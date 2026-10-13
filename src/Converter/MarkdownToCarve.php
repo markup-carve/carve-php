@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
+use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Figure;
@@ -19,12 +20,15 @@ use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
@@ -105,11 +109,11 @@ class MarkdownToCarve
 
     /**
      * When true, carry `*[HTML]: HyperText` across as a Carve abbreviation
-     * definition (PHP Markdown Extra's spelling). Default false: in CommonMark
-     * the line is a paragraph, and left bare it disappeared from the render
-     * while every later `HTML` became an `<abbr>`.
+     * definition (PHP Markdown Extra's spelling). On by default, because the
+     * Markdown target writes that line (CARVE-P11-033 T1); false keeps it
+     * literal text.
      */
-    protected bool $convertAbbreviations = false;
+    protected bool $convertAbbreviations = true;
 
     /**
      * Normalized labels whose first reference definition has an empty
@@ -299,7 +303,7 @@ class MarkdownToCarve
         bool $convertMath = false,
         bool $convertHighlight = false,
         bool $convertInlineFootnotes = false,
-        bool $convertAbbreviations = false,
+        bool $convertAbbreviations = true,
         bool $convertFencedDivs = false,
         bool $convertAttributes = false,
         bool $convertRawHtml = false,
@@ -438,6 +442,152 @@ class MarkdownToCarve
     }
 
     /**
+     * An `<abbr>` whose title is the expansion a definition in the document
+     * gives its text comes back as the plain term that definition resolves
+     * (CARVE-P11-033 T1). Only a span spelled exactly as the abbr import
+     * writes it is replaced.
+     */
+    protected function foldDefinedAbbreviations(string $carve): string
+    {
+        $document = (new BlockParser(false, false, false, true))->parse($carve);
+        $expansions = [];
+        $spans = [];
+        $stack = [$document];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node instanceof AbbreviationDefinition && !isset($expansions[$node->getAbbr()])) {
+                $expansions[$node->getAbbr()] = $node->getExpansion();
+            }
+            $children = $node->getChildren();
+            $pos = $node->getPos();
+            // The span's text must itself resolve as the abbreviation, or the
+            // plain term would come back without one.
+            if (
+                $node instanceof Span && $pos !== null && count($children) === 1 && $children[0] instanceof Abbreviation
+                && array_keys($node->getAttributes()) === ['abbr'] && $node->getAttribute('abbr') === $children[0]->getTitle()
+            ) {
+                $term = '';
+                foreach ($children[0]->getChildren() as $text) {
+                    $term .= $text instanceof Text ? $text->getContent() : "\0";
+                }
+                $spans[] = [$pos->startOffset, $pos->endOffset, $term];
+            }
+            foreach ($children as $child) {
+                $stack[] = $child;
+            }
+        }
+        if ($expansions === []) {
+            return $carve;
+        }
+        usort($spans, static fn (array $a, array $b): int => $b[0] <=> $a[0]);
+        foreach ($spans as [$start, $end, $term]) {
+            $expansion = $expansions[$term] ?? null;
+            if ($expansion === null || substr($carve, $start, $end - $start) !== '[' . $term . ']{abbr="' . $expansion . '"}') {
+                continue;
+            }
+            $carve = substr($carve, 0, $start) . $term . substr($carve, $end);
+        }
+
+        return $carve;
+    }
+
+    /**
+     * Join a marker whose payload spans lines into one entry (CARVE-P11-063).
+     * The entry keeps the raw lines, so an unlifted marker comes back
+     * verbatim; `spanned` holds the comment with each later line's host
+     * prefix removed. The scan for the closing `-->` only moves forward.
+     *
+     * @param array<int, string> $raw
+     * @param array<int, true> $htmlLines
+     *
+     * @return array{0: list<string>, 1: list<int>, 2: array<int, true>, 3: array<int, string>}
+     */
+    protected function joinSpannedCarrierMarkers(array $raw, array $htmlLines): array
+    {
+        $lines = [];
+        $lineNumbers = [];
+        $markerLines = [];
+        $spanned = [];
+        $paragraphLines = [];
+        $close = 0;
+        $count = count($raw);
+        for ($at = 0; $at < $count; $at++) {
+            $line = $raw[$at];
+            if (isset($this->carrierParagraphLines[$at])) {
+                $paragraphLines[count($lines)] = true;
+            }
+            if (isset($htmlLines[$at])) {
+                $host = $this->carrierHostPrefix($line);
+                $head = substr($line, strlen($host));
+                if (str_starts_with($head, CarrierMarkers::HEAD) && !str_contains($head, '-->')) {
+                    $close = max($close, $at + 1);
+                    while ($close < $count && !str_contains($raw[$close], '-->')) {
+                        $close++;
+                    }
+                    if ($close < $count) {
+                        $continuation = preg_replace('/[^>\t]/', ' ', preg_replace('/\[[ xX]\][ \t]+$/D', '', $host) ?? $host) ?? $host;
+                        $comment = $head;
+                        for ($next = $at + 1; $next <= $close; $next++) {
+                            $comment .= "\n" . $this->withoutCarrierHost($raw[$next], $continuation);
+                        }
+                        if (CarrierMarkers::marker($comment) !== null) {
+                            $markerLines[count($lines)] = true;
+                            $spanned[count($lines)] = $comment;
+                            $lines[] = implode("\n", array_slice($raw, $at, $close - $at + 1));
+                            $lineNumbers[] = $at + 1;
+                            $at = $close;
+
+                            continue;
+                        }
+                    }
+                }
+                $markerLines[count($lines)] = true;
+            }
+            $lines[] = $line;
+            $lineNumbers[] = $at + 1;
+        }
+        $this->carrierParagraphLines = $paragraphLines;
+
+        return [$lines, $lineNumbers, $markerLines, $spanned];
+    }
+
+    /**
+     * A bare div's opener and every closer are the same bytes, `:::`
+     * (CARVE-P11-063), so which one a payload is follows from the open
+     * containers: a bare fence of at most the innermost opener's width closes
+     * it, any other opens. An opener gets the trailing space an older export
+     * wrote, which the rest of the import still reads as an opener.
+     *
+     * @param array<int, string> $payloads
+     *
+     * @return array<int, string>
+     */
+    protected function classifyBareFencePayloads(array $payloads): array
+    {
+        $open = [];
+        foreach ($payloads as $at => $payload) {
+            $width = CarrierMarkers::fenceWidth($payload);
+            if ($width === 0) {
+                continue;
+            }
+            if (!CarrierMarkers::isCloser($payload)) {
+                $open[] = $width;
+
+                continue;
+            }
+            if ($open !== [] && $width <= $open[count($open) - 1]) {
+                array_pop($open);
+
+                continue;
+            }
+            $payloads[$at] = $payload . ' ';
+            $open[] = $width;
+        }
+
+        return $payloads;
+    }
+
+    /**
      * A line with the recorded host prefix taken off, for the fallback lines
      * travelling under an opener. A block quote writes its blank lines as a
      * bare `>`, which the opener's own prefix does not cover.
@@ -475,7 +625,10 @@ class MarkdownToCarve
             return $markdown;
         }
 
-        $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
+        [$lines, $lineNumbers, $markerLines, $spanned] = $this->joinSpannedCarrierMarkers(
+            explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown)),
+            $htmlLines,
+        );
         $payloads = [];
         $depths = [];
         $hosts = [];
@@ -487,11 +640,11 @@ class MarkdownToCarve
         // every indent and behind every host prefix, which a fence scan over
         // the raw lines could not (markup-carve/carve#2850).
         foreach ($lines as $at => $line) {
-            if (!isset($htmlLines[$at])) {
+            if (!isset($markerLines[$at])) {
                 continue;
             }
             $host = $this->carrierHostPrefix($line);
-            $marker = CarrierMarkers::marker(substr($line, strlen($host)));
+            $marker = CarrierMarkers::marker($spanned[$at] ?? substr($line, strlen($host)));
             $payload = $marker['payload'] ?? null;
             $depth = $marker['depth'] ?? 1;
             if ($payload !== null && ($depth > 1 || ($payload !== '[' && !str_starts_with($payload, ']{') && !str_starts_with($payload, '</#')))) {
@@ -504,6 +657,7 @@ class MarkdownToCarve
         if (!$seen) {
             return $markdown;
         }
+        $payloads = $this->classifyBareFencePayloads($payloads);
         $pairs = [];
         $stack = [];
         $balanced = true;
@@ -573,7 +727,7 @@ class MarkdownToCarve
                         'warning',
                         'degraded',
                         'fallback',
-                        'line:' . ($at + 1),
+                        'line:' . $lineNumbers[$at],
                     );
                 }
             }
@@ -1253,20 +1407,28 @@ class MarkdownToCarve
                     continue;
                 }
             }
-            if ($item['kind'] === 'close' && $item['text'] === '' && ($item['depth'] ?? 1) > 1 && str_contains($item['lead'], '>')) {
+            if ($item['kind'] === 'close' && $item['text'] === '' && str_contains($item['lead'], '>')) {
                 $next = $at + 1;
                 while (isset($items[$next]) && $items[$next]['text'] === '') {
                     $next++;
                 }
-                if (!isset($items[$next]) || $items[$next]['kind'] === 'close') {
+                // A quoted closer that ends the document leaves no blank quote line.
+                if (!isset($items[$next]) || (($item['depth'] ?? 1) > 1 && $items[$next]['kind'] === 'close')) {
                     $emptyCloser = true;
 
                     continue;
                 }
             }
             $emptyCloser = $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead']) === '';
-            $spelled[] = $item['text'] === '' && trim($item['lead']) === ''
-                ? '' : $item['lead'] . $item['text'];
+            // The space classifyBareFencePayloads gave a bare opener is not
+            // source, and a payload spanning lines continues behind the
+            // lead's continuation (CARVE-P11-063).
+            $text = $item['kind'] === 'open' && preg_match('/^:{3,} $/D', $item['text']) === 1 ? rtrim($item['text']) : $item['text'];
+            if ($item['kind'] !== null && str_contains($text, "\n")) {
+                $text = str_replace("\n", "\n" . (preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead']), $text);
+            }
+            $spelled[] = $text === '' && trim($item['lead']) === ''
+                ? '' : $item['lead'] . $text;
         }
 
         return rtrim(implode("\n", $spelled), " \t\n") . "\n";
@@ -2994,6 +3156,9 @@ class MarkdownToCarve
 
             return $carve;
         }
+        if (!$this->importingFootnoteBody && $this->convertAbbreviations && str_contains($carve, '{abbr="')) {
+            $carve = $this->foldDefinedAbbreviations($carve);
+        }
         if (!$this->importingFootnoteBody && str_contains($carve, '@')) {
             $converter = CarveConverter::carve();
             $document = $converter->parse($frontmatter === [] ? $carve : "\n" . $carve);
@@ -3084,7 +3249,7 @@ class MarkdownToCarve
     {
         $value = $this->convert($markdown);
         $supportedDialect = !$this->convertMath && !$this->convertHighlight && !$this->convertInlineFootnotes
-            && !$this->convertAbbreviations && !$this->convertFencedDivs && !$this->convertAttributes && !$this->convertRawHtml;
+            && !($this->convertAbbreviations && preg_match('/^[ \t]*\*\[/m', $markdown) === 1) && !$this->convertFencedDivs && !$this->convertAttributes && !$this->convertRawHtml;
         $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis || $this->boundaryDiagnostics !== [], $supportedDialect);
         if (($result->diagnostics[0]->code ?? null) === 'literal-text-verified') {
             $row = $result->diagnostics[0];

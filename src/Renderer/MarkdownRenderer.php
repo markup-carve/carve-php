@@ -74,6 +74,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
@@ -362,6 +363,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @var array<string, true>
      */
     protected array $referencedLinkDefinitions = [];
+
+    /**
+     * CARVE-P11-028: definitions a roundtrip export may name from a native reference link.
+     *
+     * @var array<string, \MarkupCarve\Carve\Node\Block\LinkReferenceDefinition>
+     */
+    protected array $nativeReferences = [];
 
     protected int $renderDepth = 0;
 
@@ -703,6 +711,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // place, and this node exists precisely so this renderer can too
         // (carve-php#708).
         $this->referencedLinkDefinitions = $this->roundTripMode ? [] : ReferencedLinkDefinitions::labels($document);
+        $this->nativeReferences = $this->roundTripMode ? $this->nativeReferenceDefinitions($document) : [];
         $markdown = $this->renderChildren($document);
         $residual = $this->renderResidualAbbreviationDefinitions($document);
         if ($residual !== '') {
@@ -4118,16 +4127,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderLink(Link $node): string
     {
-        if ($this->roundTripMode && $node->getReferenceLabel() !== null && !$node->isFromHeadingReference()) {
-            return $this->guardLiteralCharacters($node->getRawReferenceLabel() ?? '[' . $this->renderChildren($node) . '][' . $node->getReferenceLabel() . ']');
-        }
         $destination = (string)$node->getDestination();
         // A fragment naming a heading this target writes goes to its GFM slug
         // (PART 11 §11); any other destination keeps the authored one (§11a).
         $slug = str_starts_with($destination, '#') ? ($this->gfmSlugs[substr($destination, 1)] ?? null) : null;
+        $definition = $slug === null ? $this->nativeReferenceFor($node) : null;
         // BEFORE the label, because the label is inside the link and
         // `CARVE-P2-024` orders losses by document position.
-        $url = $slug !== null ? '#' . $this->guardLiteralCharacters($slug) : $this->encodeMarkdownDestination($destination, $node);
+        $url = $slug !== null ? '#' . $this->guardLiteralCharacters($slug) : ($definition !== null ? '' : $this->encodeMarkdownDestination($destination, $node));
         $this->linkTextDepth++;
         $ancestors = $this->delimiterAncestors;
         $this->delimiterAncestors = [];
@@ -4137,6 +4144,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $this->delimiterAncestors = $ancestors;
             $this->linkTextDepth--;
         }
+        if ($definition !== null) {
+            $collapsed = str_ends_with($node->getRawReferenceLabel() ?? '', '[]') && $text === $definition->getLabel();
+
+            return $collapsed ? '[' . $text . '][]' : '[' . $text . '][' . $definition->getLabel() . ']';
+        }
         $title = $this->markdownTitle($node);
 
         if ($title !== null) {
@@ -4144,6 +4156,50 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
 
         return '[' . $text . '](' . $url . ')';
+    }
+
+    /**
+     * Top-level definitions whose label Markdown reads back as the same one
+     * label: a label Markdown would case-fold onto another, or cannot write,
+     * keeps its links inline.
+     *
+     * @return array<string, \MarkupCarve\Carve\Node\Block\LinkReferenceDefinition>
+     */
+    protected function nativeReferenceDefinitions(Document $document): array
+    {
+        $groups = [];
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof LinkReferenceDefinition) {
+                $groups[mb_strtoupper(mb_strtolower(LabelKey::normalize($child->getLabel())))][] = $child;
+            }
+        }
+        $definitions = [];
+        foreach ($groups as $group) {
+            $label = $group[0]->getLabel();
+            if (count($group) !== 1 || preg_match('/\S/u', $label) !== 1 || preg_match('/[[\]\\\n]/', $label) === 1 || mb_strlen($label) > 999) {
+                continue;
+            }
+            $definitions[LabelKey::normalize($label)] = $group[0];
+        }
+
+        return $definitions;
+    }
+
+    /**
+     * The definition a resolved link is written against natively, if it can be (CARVE-P11-028).
+     */
+    protected function nativeReferenceFor(Link $node): ?LinkReferenceDefinition
+    {
+        $label = $node->getReferenceLabel();
+        if (!$this->roundTripMode || $label === null || $node->isFromHeadingReference() || $node->getAttributeEntries() !== []) {
+            return null;
+        }
+        $definition = $this->nativeReferences[LabelKey::normalize($label)] ?? null;
+        if ($definition === null || $definition->getHref() !== $node->getDestination() || $definition->getTitle() !== $node->getTitle()) {
+            return null;
+        }
+
+        return $definition;
     }
 
     /**

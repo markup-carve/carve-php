@@ -23,7 +23,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @phpstan-type Fixture array{id: string, source: string, html: string, attribute: string, value: string|null, defaultValue: string|null, lossCodes: list<string>, carriers: array<string, string|null>, ordinaryAttributes: array<string, string|null>, carrierText: array<string, string|list<string>>, expectedNodes: list<array<string, mixed>>, fallbackNodes: list<array<string, mixed>>, fallbackHtml: string, carrierHosts: list<array{attribute: string, element: string}>, importModes: list<string>, forbiddenExportAttributes: list<string>, carrierFragments: list<string>, forbiddenTypes: list<string>, forbiddenSourceSubstrings: list<string>, forbiddenAstSubstrings: list<string>, forbiddenRenderedSubstrings: list<string>, requiresDiagnostic: bool, kept: bool, diagnosticControlHtml: string|null, expectedAbsentFields: list<array{type: string, field: string}>, forbiddenFieldValues: list<array{type: string, field: string, value: mixed}>}
+ * @phpstan-type Fixture array{id: string, source: string, html: string, attribute: string, value: string|null, defaultValue: string|null, lossCodes: list<string>, carriers: array<string, string|null>, ordinaryAttributes: array<string, string|null>, carrierText: array<string, string|list<string>>, expectedNodes: list<array<string, mixed>>, fallbackNodes: list<array<string, mixed>>, fallbackHtml: string, carrierHosts: list<array{attribute: string, element: string}>, importModes: list<string>, forbiddenExportAttributes: list<string>, carrierFragments: list<string>, ordinaryFragments: list<string>, forbiddenOrdinaryFragments: list<string>, defaultExportOnly: bool, forbiddenTypes: list<string>, forbiddenSourceSubstrings: list<string>, forbiddenAstSubstrings: list<string>, forbiddenRenderedSubstrings: list<string>, requiresDiagnostic: bool, kept: bool, diagnosticControlHtml: string|null, expectedAbsentFields: list<array{type: string, field: string}>, forbiddenFieldValues: list<array{type: string, field: string, value: mixed}>}
  */
 class SharedRoundtripExportAcceptanceTest extends TestCase
 {
@@ -59,6 +59,19 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
      * @var list<string>
      */
     private const RETIRED = ['data-carve-src', 'data-djot-src'];
+
+    /**
+     * Rows still marked ahead of the pin that this engine already implements (carve-js 3c98f9fb).
+     *
+     * @var array<string>
+     */
+    private const PORTED_AHEAD_OF_PIN = [
+        'bare-div',
+        'definition-list-wrapped-term',
+        'reference-link-full',
+        'reference-link-collapsed',
+        'markdown-abbreviation-definition',
+    ];
 
     /**
      * @phpstan-param Fixture $fixture
@@ -351,7 +364,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                     continue;
                 }
                 // The shared contract marks rows no engine is bound to yet; nested Markdown markers wait on carve-php#3279.
-                if (($raw[$kind][$index]['aheadOfPin'] ?? false) === true) {
+                if (($raw[$kind][$index]['aheadOfPin'] ?? false) === true && !in_array($fixture['id'], self::PORTED_AHEAD_OF_PIN, true)) {
                     continue;
                 }
                 foreach ($kind === 'importNegative' ? $fixture['importModes'] : [null] as $mode) {
@@ -499,8 +512,17 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
      */
     private function assertMarkdownExportImport(array $fixture): void
     {
-        $ordinary = new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: false);
-        self::assertStringNotContainsString('<!-- carve:', $ordinary->convert($fixture['source']));
+        $ordinary = (new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: false))->convert($fixture['source']);
+        self::assertStringNotContainsString('<!-- carve:', $ordinary);
+        foreach ($fixture['ordinaryFragments'] as $fragment) {
+            self::assertStringContainsString($fragment, $ordinary);
+        }
+        foreach ($fixture['forbiddenOrdinaryFragments'] as $fragment) {
+            self::assertStringNotContainsString($fragment, $ordinary);
+        }
+        if ($fixture['defaultExportOnly']) {
+            return;
+        }
         $exporter = new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: true);
         $report = $exporter->convertWithReport($fixture['source']);
         $exported = $report->value;
@@ -581,6 +603,9 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                 'importModes' => self::strings($row['importModes'] ?? []),
                 'forbiddenExportAttributes' => self::strings($row['forbiddenExportAttributes'] ?? []),
                 'carrierFragments' => self::strings($row['carrierFragments'] ?? []),
+                'ordinaryFragments' => self::strings($row['ordinaryFragments'] ?? []),
+                'forbiddenOrdinaryFragments' => self::strings($row['forbiddenOrdinaryFragments'] ?? []),
+                'defaultExportOnly' => self::boolean($row['defaultExportOnly'] ?? false),
                 'forbiddenTypes' => self::strings($row['forbiddenTypes'] ?? []),
                 'forbiddenSourceSubstrings' => self::strings($row['forbiddenSourceSubstrings'] ?? []),
                 'forbiddenAstSubstrings' => self::strings($row['forbiddenAstSubstrings'] ?? []),
