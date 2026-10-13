@@ -20,6 +20,7 @@ final class DjotEmphasis
      * @param array<int, array{end: int, source: string}> $attributes
      * @param callable|null $onFlattened
      * @param list<int> $cellBoundaries
+     * @param bool $omitQuoteDelimiters
      */
     public static function convert(
         string $source,
@@ -28,10 +29,11 @@ final class DjotEmphasis
         array $attributes = [],
         ?callable $onFlattened = null,
         array $cellBoundaries = [],
+        bool $omitQuoteDelimiters = false,
     ): string {
         $paired = null;
 
-        return self::process($source, $mask, $convert, $attributes, $paired, $onFlattened, $cellBoundaries);
+        return self::process($source, $mask, $convert, $attributes, $paired, $onFlattened, $cellBoundaries, $omitQuoteDelimiters);
     }
 
     /**
@@ -57,6 +59,7 @@ final class DjotEmphasis
      * @param array<int, int>|null $paired
      * @param callable|null $onFlattened
      * @param list<int> $cellBoundaries
+     * @param bool $omitQuoteDelimiters
      */
     private static function process(
         string $source,
@@ -66,6 +69,7 @@ final class DjotEmphasis
         ?array &$paired = null,
         ?callable $onFlattened = null,
         array $cellBoundaries = [],
+        bool $omitQuoteDelimiters = false,
     ): string {
         $cells = array_fill_keys($cellBoundaries, true);
         $validBraces = [];
@@ -129,8 +133,13 @@ final class DjotEmphasis
                 $literalDashes[$i - 1] = true;
             }
         }
+        $kinds = $omitQuoteDelimiters ? "_*~^\"'" : '_*~^';
         /** @var array<string, list<array{start: int, end: int, forced: bool}>> $openers */
-        $openers = ['_' => [], '*' => [], '~' => [], '^' => [], '{_' => [], '{*' => [], '{~' => [], '{^' => []];
+        $openers = [];
+        foreach (str_split($kinds) as $kind) {
+            $openers[$kind] = $openers['{' . $kind] = [];
+        }
+        $omittedQuoteBraces = [];
         /** @var list<\MarkupCarve\Carve\Converter\DjotEmphasisSpan> $pairs */
         $pairs = [];
         $structural = [];
@@ -240,7 +249,7 @@ final class DjotEmphasis
 
                 continue;
             }
-            if ($ch !== '_' && $ch !== '*' && !str_contains('~^', $ch)) {
+            if (!str_contains($kinds, $ch)) {
                 continue;
             }
             if ($ch === '^' && $captionLine && $i === $structuralEnd && ($i === $lineStart || str_contains(" \t", $source[$i - 1])) && isset($source[$i + 1]) && str_contains(" \t", $source[$i + 1])) {
@@ -267,7 +276,16 @@ final class DjotEmphasis
             }
             $forcedOpen = $i > 0 && $source[$i - 1] === '{' && $mask[$i - 1] === '{' && $i - 1 !== $lastEscaped;
             $forcedClose = ($source[$i + 1] ?? '') === '}';
-            $canOpen = $forcedOpen || (!$forcedClose && isset($source[$i + 1]) && !str_contains(" \t\r\n", $source[$i + 1]));
+            if ($omitQuoteDelimiters && ($ch === '"' || $ch === "'")) {
+                if ($forcedOpen) {
+                    $omittedQuoteBraces[$i - 1] = true;
+                }
+                if ($forcedClose && !$forcedOpen) {
+                    $omittedQuoteBraces[$i + 1] = true;
+                }
+            }
+            $singleQuoteOpens = $ch !== "'" || $i === 0 || str_contains(" \t\r\n\"'-([", $source[$i - 1]);
+            $canOpen = $forcedOpen || (!$forcedClose && isset($source[$i + 1]) && !str_contains(" \t\r\n", $source[$i + 1]) && $singleQuoteOpens);
             $canClose = !$forcedOpen && ($forcedClose || ($i > 0 && !str_contains(" \t\r\n", $source[$i - 1])));
             $key = ($forcedClose ? '{' : '') . $ch;
             $opener = $openers[$key] === [] ? null : $openers[$key][array_key_last($openers[$key])];
@@ -396,7 +414,7 @@ final class DjotEmphasis
 
         $bracketCloses = array_fill_keys(array_column($bracketPairs, 1), true);
 
-        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, $literalDashes, Closure::fromCallable($convert), $attributes, $bracketCloses, $validBraceClosers, $validBraces, $onFlattened === null ? null : Closure::fromCallable($onFlattened)))->convert($roots);
+        return (new DjotEmphasisRenderer($source, $mask, $structural, $literalBrackets, $literalDashes, Closure::fromCallable($convert), $attributes, $bracketCloses, $validBraceClosers, $validBraces, $onFlattened === null ? null : Closure::fromCallable($onFlattened), $omittedQuoteBraces, $omitQuoteDelimiters))->convert($roots);
     }
 
     public static function structuralPrefixEnd(string $line): int

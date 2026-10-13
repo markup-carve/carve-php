@@ -42,6 +42,8 @@ final class DjotEmphasisRenderer
      * @param array<int, true> $validBraces
      * @param array<int, true> $validBraceClosers
      * @param array<int, true> $bracketCloses
+     * @param array<int, true> $omittedQuoteBraces
+     * @param bool $omitQuoteDelimiters
      * @param \Closure(int): void|null $onFlattened
      */
     public function __construct(
@@ -56,6 +58,8 @@ final class DjotEmphasisRenderer
         private readonly array $validBraceClosers = [],
         private readonly array $validBraces = [],
         private readonly ?Closure $onFlattened = null,
+        private readonly array $omittedQuoteBraces = [],
+        private readonly bool $omitQuoteDelimiters = false,
     ) {
         $this->literalPrefix = DjotPlaceholderPrefix::choose($source, "\0DJOTLITERAL\0");
         $lineStart = 0;
@@ -156,6 +160,9 @@ final class DjotEmphasisRenderer
 
                 continue;
             }
+            if (isset($this->omittedQuoteBraces[$i])) {
+                continue;
+            }
             $ch = $this->source[$i];
             if ($ch === '\\' && ($this->source[$i + 1] ?? '') !== "\n") {
                 $text .= substr($this->source, $i, min(2, $end - $i));
@@ -225,10 +232,13 @@ final class DjotEmphasisRenderer
             }
         }
         $content = $this->body($pair->openEnd, $pair->close, $pair->children, $outer + [$pair->kind => true]);
+        if ($pair->kind === '"' || $pair->kind === "'") {
+            return $content;
+        }
         $delimiter = match ($pair->kind) {
             '_' => '/', '~' => ',', '^' => '^', '=' => '=', default => '*'
         };
-        $forced = str_contains('~^', $pair->kind) || $pair->forced || $scope || str_starts_with($content, "\0") || str_ends_with($content, "\0")
+        $forced = $this->omitQuoteDelimiters || str_contains('~^', $pair->kind) || $pair->forced || $scope || str_starts_with($content, "\0") || str_ends_with($content, "\0")
                 || ($pair->start > 0 && preg_match('/[A-Za-z0-9_]/', $this->source[$pair->start - 1]) === 1)
                 || preg_match('/[A-Za-z0-9_]/', $this->source[$pair->end] ?? '') === 1
                 || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
