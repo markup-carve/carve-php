@@ -179,10 +179,8 @@ class ProseMirrorCorpusTest extends TestCase
         $threw = [];
 
         foreach ($files as $file) {
-            if (
-                CorpusPopulation::awaitsBlankTableRowPort($file)
-                || basename($file) === '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-36.crv'
-            ) {
+            // carve-php#3323: the bridge re-spells this span's covered row.
+            if (basename($file) === '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-36.crv') {
                 continue;
             }
             $source = (string)file_get_contents($file);

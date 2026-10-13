@@ -166,12 +166,11 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
             'three columns' => ["|  |  |  |\n| --- | --- | --- |\n| 1 | 2 | 3 |\n", "| 1 | 2 | 3 |\n"],
             'inside a block quote' => ["> |  |  |\n> | --- | --- |\n> | 1 | 2 |\n", "> | 1 | 2 |\n"],
             'inside a list item' => ["- |  |  |\n  | --- | --- |\n  | 1 | 2 |\n", "- | 1 | 2 |\n"],
-            'a blank body row' => ["| a | b |\n| --- | --- |\n|  |  |\n| 3 | 4 |\n", "|= a |= b |\n| 3 | 4 |\n"],
         ];
     }
 
     #[DataProvider('scaffoldingRows')]
-    public function testARowWithNoCarveSpellingIsDropped(string $markdown, string $carve): void
+    public function testAnEmptyHeaderRowIsDroppedAsScaffolding(string $markdown, string $carve): void
     {
         $this->assertSame($carve, $this->carve($markdown));
     }
@@ -207,6 +206,11 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
         $this->assertSame($carve, $this->carve($markdown));
     }
 
+    public function testABlankBodyRowIsKeptAsARowOfEmptyCells(): void
+    {
+        $this->assertSame("|= a |= b |\n| | |\n| 3 | 4 |\n", $this->carve("| a | b |\n| --- | --- |\n|  |  |\n| 3 | 4 |\n"));
+    }
+
     public function testATableWithHeadersStillRoundTrips(): void
     {
         $carve = "|= A |= B |\n| 1 | 2 |\n";
@@ -221,7 +225,7 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
             array_filter($result->diagnostics, static fn ($diagnostic): bool => $diagnostic->code === 'structure-unspellable'),
         );
         $this->assertSame(
-            ['Dropped a table row of 2 blank cells; Carve spells no row whose every cell is blank'],
+            ['Dropped an empty header row of 2 cells; a headerless GFM table has no Carve header'],
             array_values($messages),
         );
     }

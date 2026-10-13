@@ -2745,16 +2745,6 @@ final class HtmlAstBuilder
                 ++$column;
             }
             if ($cells !== []) {
-                // A list table spells a row of empty cells, so only the pipe form drops it.
-                $blank = !$listForm && self::every(
-                    $cells,
-                    static fn (array $cell): bool => self::cellWritesBlank($cell),
-                );
-                if ($blank && $this->sourceSafe) {
-                    $this->session->droppedBlankTableRows[$rowElement] = null;
-
-                    continue;
-                }
                 $row = HtmlImportNodes::tableRow($cells);
                 if (!$listForm) {
                     $this->attachAttrs($row, $rowElement);
@@ -3019,29 +3009,6 @@ final class HtmlAstBuilder
         }
 
         return $widths;
-    }
-
-    /**
-     * @phpstan-param TableCellNode $cell
-     *
-     * @param array $cell
-     */
-    private static function cellWritesBlank(array $cell): bool
-    {
-        if (isset($cell['span']) || isset($cell['align']) || isset($cell['valign']) || ($cell['attrs'] ?? []) !== []) {
-            return false;
-        }
-        foreach ($cell['children'] as $child) {
-            $type = $child['type'];
-            if ($type === 'hard_break' || $type === 'soft_break') {
-                continue;
-            }
-            if ($type !== 'text' || trim(self::stringValue($child['value'] ?? null)) !== '') {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private function tableHasBlockCell(DOMElement $table): bool

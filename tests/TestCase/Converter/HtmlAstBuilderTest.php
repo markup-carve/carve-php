@@ -51,9 +51,9 @@ class HtmlAstBuilderTest extends TestCase
             . '<tbody></tbody><tbody><tr><th>b</th></tr><tr><td>c</td></tr></tbody></table>',
         );
         $table = $tree['children'][0];
-        self::assertCount(3, $table['rows']);
+        self::assertCount(4, $table['rows']);
         self::assertSame([
-            ['headRows' => 0, 'bodyRows' => 1],
+            ['headRows' => 0, 'bodyRows' => 2],
             ['headRows' => 0, 'bodyRows' => 0],
             ['headRows' => 1, 'bodyRows' => 1],
         ], $table['rowGroups']['bodies']);

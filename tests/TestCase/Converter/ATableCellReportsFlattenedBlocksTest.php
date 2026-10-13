@@ -44,13 +44,13 @@ class ATableCellReportsFlattenedBlocksTest extends TestCase
         );
     }
 
-    public function testAnHrDropsItsCellRowAndReportsBothLosses(): void
+    public function testAnHrLeavesItsCellEmptyAndReportsTheDrop(): void
     {
         $result = (new HtmlToCarve())->convertWithReport('<table><tr><td><hr></td></tr></table>');
 
-        $this->assertSame('', trim($result->value));
+        $this->assertSame('| |', trim($result->value));
         $this->assertSame(
-            [['structure-unspellable', '/table[1]/tr[1]'], ['element-dropped', '/table[1]/tr[1]/td[1]/hr[1]']],
+            [['element-dropped', '/table[1]/tr[1]/td[1]/hr[1]']],
             array_map(
                 static fn (array $row): array => [$row['code'], $row['path']],
                 $result->report()['diagnostics'],

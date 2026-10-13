@@ -29,7 +29,6 @@ use MarkupCarve\Carve\Extension\WikilinksExtension;
 use MarkupCarve\Carve\Performance\BorrowedExtensionPlan;
 use MarkupCarve\Carve\Performance\BorrowedHtmlLayout;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
-use MarkupCarve\Carve\Test\TestCase\CorpusPopulation;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -201,9 +200,6 @@ CRV;
         $accepted = ['tier2' => 0, 'events' => 0];
         $acceptedFiles = ['tier2' => [], 'events' => []];
         foreach ($paths as $path) {
-            if (CorpusPopulation::awaitsBlankTableRowPort($path)) {
-                continue;
-            }
             $source = file_get_contents($path);
             self::assertIsString($source);
             foreach (['tier2' => $this->tierTwo(), 'events' => $this->events()] as $profile => $extensions) {
@@ -232,8 +228,9 @@ CRV;
             self::assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-2.crv', $files, $profile);
             self::assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-3.crv', $files, $profile);
         }
-        // Corpus 551 adds three link documents on both configured routes.
-        self::assertSame(['tier2' => 69, 'events' => 69], $accepted, 'A configured fast-path routing change needs explicit review.');
+        // Corpus 551 adds three link documents on both configured routes;
+        // CARVE-P9-082 makes 589-32 a table both routes take.
+        self::assertSame(['tier2' => 70, 'events' => 70], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]

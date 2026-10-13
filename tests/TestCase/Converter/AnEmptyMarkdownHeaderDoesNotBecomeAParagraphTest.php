@@ -99,7 +99,7 @@ final class AnEmptyMarkdownHeaderDoesNotBecomeAParagraphTest extends TestCase
     {
         $markdown = "| A | B |\n| --- | --- |\n| 1 | 2 |\n| | |\n| 3 | 4 |\n";
         $imported = (new MarkdownToCarve())->convert($markdown);
-        $this->assertSame("|= A |= B |\n| 1 | 2 |\n| 3 | 4 |\n", $imported);
+        $this->assertSame("|= A |= B |\n| 1 | 2 |\n| | |\n| 3 | 4 |\n", $imported);
         $this->assertSame(1, substr_count($this->html($imported), '<table>'));
     }
 
