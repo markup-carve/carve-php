@@ -198,21 +198,21 @@ class NewRoundtripCarriersTest extends TestCase
         $importer = new MarkdownToCarve();
         $imported = $importer->convert($markdown);
         $this->assertFalse($importer->hadDamagedCarrierMarkers());
-        $this->assertSame(":: Carve\n: A markup language.\n\n  *inner*\n\n  def\n", $imported);
+        $this->assertSame(":: Carve\n: A markup language.\n\n  :: inner\n  : def\n", $imported);
     }
 
-    public function testOnlyOutermostDefinitionListIsCarried(): void
+    public function testNestedDefinitionListIsCarried(): void
     {
         $source = ":: Outer\n: :: Inner\n  : Inside.\n\n  After.\n";
         $renderer = new MarkdownRenderer();
         $renderer->setRoundTripMode(true);
         $markdown = CarveConverter::create(renderer: $renderer)->convert($source);
-        $this->assertStringNotContainsString('<!-- carve: :: Inner -->', $markdown);
+        $this->assertStringContainsString('<!-- carve:2 :: Inner -->', $markdown);
         $this->assertSame(1, substr_count($markdown, '<!-- carve: -->'));
         $importer = new MarkdownToCarve();
         $imported = $importer->convert($markdown);
         $this->assertFalse($importer->hadDamagedCarrierMarkers());
-        $expected = ":: Outer\n: *Inner*\n\n  Inside.\n\n  After.\n";
+        $expected = $source;
         $this->assertSame(CarveConverter::create()->convert($expected), CarveConverter::create()->convert($imported));
         $codec = new AstCodec();
         $before = $codec->encode(CarveConverter::create()->parse($expected));

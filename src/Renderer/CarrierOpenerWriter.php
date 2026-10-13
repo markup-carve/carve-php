@@ -85,6 +85,11 @@ final class CarrierOpenerWriter extends CarveRenderer
         return $this->renderAttrs($node);
     }
 
+    public function codeFenceOpener(CodeBlock $node): string
+    {
+        return explode("\n", $this->renderCodeBlock($node), 2)[0];
+    }
+
     public function inlineAttributes(Node $node): string
     {
         return $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder(), '>');

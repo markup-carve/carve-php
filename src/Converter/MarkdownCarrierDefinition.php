@@ -10,7 +10,7 @@ final class MarkdownCarrierDefinition
 
     public ?int $marker = null;
 
-    public function __construct(public string $base, public string $original)
+    public function __construct(public string $base, public string $original, public int $depth = 1)
     {
     }
 }
