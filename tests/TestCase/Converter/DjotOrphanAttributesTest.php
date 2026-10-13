@@ -17,12 +17,12 @@ class DjotOrphanAttributesTest extends TestCase
                 ["{#id} at beginning\n", '<p> at beginning</p>'],
                 ["After {#id} space\n{.class}\n", "<p>After  space\n</p>"],
                 ["not a [span] {#id}.\n", '<p>not a [span] .</p>'],
-                ["{#id .class}\n\nA paragraph\n", '<p>A paragraph</p>'],
-                ["{.a}\n{.b}\n\npara", '<p>para</p>'],
+                ["{#id .class}\n\nA paragraph\n", '<p id="id" class="class">A paragraph</p>'],
+                ["{.a}\n{.b}\n\npara", '<p class="a b">para</p>'],
                 ["{.a}\n{.b}", ''],
-                ["{.a}\n{.b}\n\n[r]: u\n\n[x][r]", '<p><a href="u">x</a></p>'],
+                ["{.a}\n{.b}\n\n[r]: u\n\n[x][r]", '<p><a href="u" class="a b">x</a></p>'],
                 ["{.a}\n{.b}\n[r]: u\n\n[x][r]", '<p><a href="u" class="a b">x</a></p>'],
-                ["{.a}\n\n{.b}\n[r]: u\n\n[x][r]", '<p><a href="u" class="b">x</a></p>'],
+                ["{.a}\n\n{.b}\n[r]: u\n\n[x][r]", '<p><a href="u" class="a b">x</a></p>'],
                 ['[span]{#id}', '<p><span id="id">span</span></p>'],
                 ['`x`{.c}', '<p><code class="c">x</code></p>'],
                 ['<http://x.y>{.c}', '<p><a href="http://x.y" class="c">http://x.y</a></p>'],
@@ -37,10 +37,10 @@ class DjotOrphanAttributesTest extends TestCase
     {
         foreach (
             [
-                ["> {.a}\n> {.b}\n>\n> para", '<blockquote><p>para</p></blockquote>'],
-                ["> {.a}\n> {.b}\n\npara", '<blockquote></blockquote><p>para</p>'],
+                ["> {.a}\n> {.b}\n>\n> para", '<blockquote><p class="a b">para</p></blockquote>'],
+                ["> {.a}\n> {.b}\n\npara", '<blockquote></blockquote><p class="a b">para</p>'],
                 ["{.a}\n> {.b}\n\n", '<blockquote class="a"></blockquote>'],
-                ["{.a}\n> {.b}\n>\n> para", '<blockquote class="a"><p>para</p></blockquote>'],
+                ["{.a}\n> {.b}\n>\n> para", '<blockquote class="a"><p class="b">para</p></blockquote>'],
                 ["```\n{.a}\n{.b}\n\npara\n```", "<pre><code>{.a}\n{.b}\n\npara\n</code></pre>"],
             ] as [$source, $expected]
         ) {
