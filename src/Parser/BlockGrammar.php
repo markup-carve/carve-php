@@ -74,6 +74,13 @@ final class BlockGrammar
     public const FOOTNOTE_BODY_COLUMN = 2;
 
     /**
+     * A line holding only an image, which the layout checker reads as a block.
+     *
+     * @var string
+     */
+    public const NOTE_ENDING_IMAGE_LINE = '/^!\[[^\]]*\]\([^)]*\)[ \t]*$/';
+
+    /**
      * Footnote separators follow ABBREVIATION_DEFINITION_PATTERN. A leading
      * tab belongs to the body, where block parsing treats it as indentation
      * (PART 9 §24 C1).
