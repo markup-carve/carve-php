@@ -1168,6 +1168,8 @@ class CarveCorpusTest extends TestCase
         'a-caption-scope-resets-at-a-structural-only-line',
         // CARVE-P9-082 (carve 46b3d3f): a delimited row of blank cells is a row.
         'an-explicitly-delimited-row-of-blank-cells-is-a-table',
+        'a-closed-fence-in-a-nested-child-leaves-no-paragraph-open',
+        'a-code-line-left-of-an-authored-base-fence-opener-is-measured-from-that-base',
     ];
 
     /**
