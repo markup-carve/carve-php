@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -312,6 +313,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             CaptionNumber::class => 'renderCaptionNumber',
             NonBreakingSpace::class => 'renderNonBreakingSpace',
             SoftBreak::class => 'renderSoftBreak',
+            CellWrap::class => 'renderCellWrap',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
             Ruby::class => 'renderRuby',
@@ -2548,6 +2550,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $attributes['class'] = implode(' ', [$baseClass, ...array_unique($classes)]);
         }
         $attrs = $this->renderAttributeArray($attributes, 'div');
+        // PART 10 §13a: a `<div>` with no attribute is any foreign div, so a bare one is marked.
+        if ($attrs === '' && $this->roundTripMode) {
+            $attrs = ' data-carve-div';
+        }
 
         return ['<div' . $attrs . '>', $titleLine, '</div>'];
     }
@@ -2579,7 +2585,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $html = $this->frameBlockContainer(
-            '<div' . $this->renderAttributeArray($attrs, 'div') . '>',
+            '<div' . ($this->roundTripMode ? ' data-carve-line-block' : '') . $this->renderAttributeArray($attrs, 'div') . '>',
             rtrim($inner, "\n"),
             '</div>',
         );
@@ -3260,6 +3266,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $this->softBreakGuard();
     }
 
+    protected function renderCellWrap(): string
+    {
+        return ' ';
+    }
+
     protected function renderHardBreak(): string
     {
         return ($this->xhtml ? '<br />' : '<br>') . $this->inlineBreakGuard();
@@ -3697,8 +3708,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderSubstitution(Substitution $node): string
     {
-        return '<del>' . $this->renderChildren($node->getOld()) . '</del>'
+        $pair = '<del>' . $this->renderChildren($node->getOld()) . '</del>'
             . '<ins>' . $this->renderChildren($node->getNew()) . '</ins>';
+
+        return $this->roundTripMode ? '<span data-carve-substitution>' . $pair . '</span>' : $pair;
     }
 
     protected function renderAbbreviation(Abbreviation $node): string

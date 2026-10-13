@@ -248,6 +248,11 @@ final class NodeType
     /**
      * @var string
      */
+    public const CELL_WRAP = 'cell_wrap';
+
+    /**
+     * @var string
+     */
     public const HARD_BREAK = 'hard_break';
 
     /**

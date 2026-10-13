@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -133,7 +134,7 @@ final class TableCellBlockFlattener
 
             return $copy;
         }
-        if ($node instanceof HardBreak || $node instanceof SoftBreak) {
+        if ($node instanceof HardBreak || $node instanceof SoftBreak || $node instanceof CellWrap) {
             return new Text(' ');
         }
         $inline = fn (InlineNode $child): InlineNode => self::inline($child, $keepHardBreaks);

@@ -583,7 +583,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testLineBlockWithParagraphChildrenPreservesSeparateLines(): void
     {
-        $result = $this->converter->convert('<div class="line-block"><p>one</p><p>two</p></div>');
+        $result = $this->converter->convert('<div data-carve-line-block class="line-block"><p>one</p><p>two</p></div>');
 
         $this->assertSame("::: |\none\n\ntwo\n:::\n", $result);
     }

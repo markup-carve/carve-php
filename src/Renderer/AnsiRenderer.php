@@ -33,6 +33,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -698,6 +699,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $node instanceof HardBreak => "\n",
                 $node instanceof NonBreakingSpace => "\0",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
+                $node instanceof CellWrap => ' ',
                 $node instanceof Superscript => $this->renderSuperscript($node),
                 $node instanceof Subscript => $this->renderSubscript($node),
                 $node instanceof Highlight => $this->renderHighlight($node),

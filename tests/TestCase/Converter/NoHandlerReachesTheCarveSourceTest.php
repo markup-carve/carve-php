@@ -52,7 +52,7 @@ class NoHandlerReachesTheCarveSourceTest extends TestCase
             // `<aside>` above, and a separate writer with a separate skip list.
             'a round-tripped admonition div' => ['<div class="admonition note" %s="steal()" data-carve-admonition-type="note"><p>q</p></div>'],
             // processLineBlock().
-            'a line block' => ['<div class="line-block" %s="steal()"><p>a<br>b</p></div>'],
+            'a line block' => ['<div data-carve-line-block class="line-block" %s="steal()"><p>a<br>b</p></div>'],
             // getElementAttributes(), the writer that always had the rule.
             'a paragraph' => ['<p %s="steal()">q</p>'],
         ];

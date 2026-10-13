@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -320,6 +321,9 @@ class ProseMirrorRenderer
         $rows = [];
         foreach ($tableRows as $index => $row) {
             $this->noteUnrepresentableState($row);
+            if ($row->getContinuationLines() > 0) {
+                $this->degraded['table_row'] = 'the editor has no continuation line, so the `+` lines join their cells';
+            }
             $rowOut = ['type' => 'tableRow'];
             // A row's own attributes. `renderTableRows` builds the row node
             // directly rather than going through the generic block path, which
@@ -664,6 +668,7 @@ class ProseMirrorRenderer
         return match (true) {
             $node instanceof NonBreakingSpace => "\u{00A0}",
                 $node instanceof SoftBreak => "\n",
+            $node instanceof CellWrap => ' ',
             $node instanceof EscapedText => $node->getContent(),
             $node instanceof RawText => $node->getContent(),
             $node instanceof SmartPunctuation => $node->getGlyph(),

@@ -19,6 +19,15 @@ final class TableCellAccumulator
     private array $fragments = [];
 
     /**
+     * The continuation line each fragment came from, 0 for the row's own line.
+     *
+     * @var array<int, list<int>>
+     */
+    private array $fragmentLines = [];
+
+    private int $line = 0;
+
+    /**
      * @var array<int, int>
      */
     private array $open = [];
@@ -59,6 +68,7 @@ final class TableCellAccumulator
 
             return;
         }
+        $line = $this->line++;
         foreach ($cells as $index => $cell) {
             $this->fragments[$index] ??= [];
             $fragment = trim($cell, ' ');
@@ -66,6 +76,7 @@ final class TableCellAccumulator
                 continue;
             }
             $this->fragments[$index][] = $fragment;
+            $this->fragmentLines[$index][] = $line;
             $width = $this->parser->advanceCodeSpanDelimiter($fragment, $this->open[$index] ?? 0);
             if ($width > 0) {
                 $this->open[$index] = $width;
@@ -93,6 +104,32 @@ final class TableCellAccumulator
     public function contents(): array
     {
         return $this->legacyCells ?? array_map(static fn (array $fragments): string => implode(' ', $fragments), $this->fragments);
+    }
+
+    /**
+     * Where each continuation fragment joins its cell: the offset of the
+     * joining space in `contents()`, mapped to the continuation line.
+     *
+     * @return array<int, array<int, int>>
+     */
+    public function wraps(): array
+    {
+        if ($this->legacyCells !== null) {
+            return [];
+        }
+        $wraps = [];
+        foreach ($this->fragments as $index => $fragments) {
+            $offset = 0;
+            foreach ($fragments as $at => $fragment) {
+                if ($at > 0) {
+                    $wraps[$index][$offset] = $this->fragmentLines[$index][$at];
+                    $offset++;
+                }
+                $offset += strlen($fragment);
+            }
+        }
+
+        return $wraps;
     }
 
     private function updateLegacyDelimiters(): void
