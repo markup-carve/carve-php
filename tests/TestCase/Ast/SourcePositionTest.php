@@ -405,15 +405,11 @@ class SourcePositionTest extends TestCase
     }
 
     /**
-     * The line ending keeps its own span, in the form a line ending has.
-     *
-     * The break is no longer appended by the block layer with a span it chose;
-     * it is the soft break the single parse produced, promoted. Its offsets are
-     * resolved through the stanza's map, which needs a segment for the joined
-     * newline - no literal run reaches it, so without one the break resolved
-     * its start and not its end and lost its position entirely.
+     * PART 12 section 4 leaves a position off a soft break promoted to a
+     * line-block hard break. The newline exists, but the resulting node is
+     * reassembled rather than authored as a hard break.
      */
-    public function testAVerseBreakIsStillPlacedOverItsLineEnding(): void
+    public function testAVerseBreakOmitsItsReassembledPosition(): void
     {
         $source = "::: |\nRoses are red,\n  Violets are blue.\n:::\n";
         $document = (new BlockParser(trackPositions: true))->parse($source);
@@ -428,16 +424,7 @@ class SourcePositionTest extends TestCase
         }
 
         $this->assertNotNull($break, 'the stanza break was not found');
-        $pos = $break->getPos();
-        $this->assertNotNull($pos, 'the line ending is measured and must be placed');
-        $this->assertSame(
-            "\n",
-            substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset),
-            'the span does not cover the newline that ends the line',
-        );
-        $this->assertSame(2, $pos->startLine);
-        $this->assertSame(3, $pos->endLine);
-        $this->assertSame(1, $pos->endColumn);
+        $this->assertNull($break->getPos());
     }
 
     public function testAVerseBreakBeforeARemovedCommentStillEndsOnTheNextSourceLine(): void
@@ -462,31 +449,20 @@ class SourcePositionTest extends TestCase
     }
 
     /**
-     * The break lands on the NEWLINE even when a dropped space sits before it.
-     *
-     * The discriminating shape, and the one a fixture on well-formed input
-     * cannot reach. A line ending's text offset means two things at once - the
-     * exclusive end of the text before it, and the start of the newline - and
-     * they are the same byte until a trailing one-column run is dropped. Then
-     * they are one apart, and a break resolved through the map took the earlier
-     * reading and was stamped over the discarded space: a span selecting `" "`
-     * where the node is a line ending. Wrong, not merely absent, which is the
-     * grade PART 12 §4 cares about.
-     *
-     * @return array<string, array{0: string, 1: int}>
+     * @return array<string, array{string}>
      */
     public static function breakShapeProvider(): array
     {
         return [
-            'nothing between the text and the ending' => ["::: |\na b\nc\n:::\n", 9],
-            'a dropped one-column trailing run' => ["::: |\na b \nc\n:::\n", 10],
-            'a preserved trailing gap' => ["::: |\na b  \nc\n:::\n", 11],
-            'a leading indent on the NEXT line' => ["::: |\na b\n  c\n:::\n", 9],
+            'nothing between the text and the ending' => ["::: |\na b\nc\n:::\n"],
+            'a dropped one-column trailing run' => ["::: |\na b \nc\n:::\n"],
+            'a preserved trailing gap' => ["::: |\na b  \nc\n:::\n"],
+            'a leading indent on the next line' => ["::: |\na b\n  c\n:::\n"],
         ];
     }
 
     #[DataProvider('breakShapeProvider')]
-    public function testTheBreakCoversTheNewlineAndNothingElse(string $source, int $expectedStart): void
+    public function testReassembledBreaksOmitPositionsAcrossWhitespaceShapes(string $source): void
     {
         $document = (new BlockParser(trackPositions: true))->parse($source);
 
@@ -495,14 +471,7 @@ class SourcePositionTest extends TestCase
                 continue;
             }
 
-            $pos = $node->getPos();
-            $this->assertNotNull($pos, 'the line ending is measured and must be placed');
-            $this->assertSame($expectedStart, $pos->startOffset);
-            $this->assertSame(
-                "\n",
-                substr($source, $pos->startOffset, $pos->endOffset - $pos->startOffset),
-                'the span must select the newline, not the whitespace before it',
-            );
+            $this->assertNull($node->getPos());
 
             return;
         }
