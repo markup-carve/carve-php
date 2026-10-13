@@ -1317,13 +1317,16 @@ class MarkdownToCarve
                     }
                     $following = $items[$after];
                     if ($following['kind'] === null && $following['text'] === '') {
-                        if (($item['styleBlankBeforeOuter'] ?? false)) {
-                            $next = $after + 1;
-                            while (isset($items[$next]) && $items[$next]['text'] === '') {
-                                $next++;
+                        $next = $after + 1;
+                        while (isset($items[$next]) && $items[$next]['text'] === '') {
+                            $next++;
+                        }
+                        if (isset($items[$next])) {
+                            if (strlen($items[$next]['lead']) > strlen($lead) || preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$next]['text']) !== 1) {
+                                break;
                             }
-                            if (isset($items[$next]) && strlen($items[$next]['lead']) < strlen($lead) && preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$next]['text']) === 1) {
-                                continue;
+                            if (($item['styleBlankBeforeOuter'] ?? false) && strlen($items[$next]['lead']) < strlen($lead)) {
+                                break;
                             }
                         }
                         unset($items[$after]);
