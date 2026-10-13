@@ -1348,5 +1348,89 @@
   {
     "source": "> > - ```a``` b\n> > c\n> > - d",
     "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<code>a</code> b\nc\n</li>\n<li>\nd\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> > c\n> > - d\n> >\n> >   {.x}\n> >\n> > - e",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a\nc</p>\n</li>\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - a\n> > > c\n> > > - d\n> > >\n> > >   {.x}\n> > >\n> > > - e",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a\nc</p>\n</li>\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > > c\n> > > > - d\n> > > >\n> > > >   {.x}\n> > > >\n> > > > - e",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a\nc</p>\n</li>\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ] ```\n_e_",
+    "html": "<ol>\n<li>\n[ ] <code>\n_e_</code>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ] ```\n> _e_",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] <code>\n_e_</code>\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "> > 1. [ ] ```\n> > _e_",
+    "html": "<blockquote>\n<blockquote>\n<ol>\n<li>\n[ ] <code>\n_e_</code>\n</li>\n</ol>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> [^a]: x\n>\n>   > [^b]: y\n>   >\n>   >     - z\n>   >\n>   >       {.c}\n>\n>   q",
+    "html": "<blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > [^a]: x\n> >\n> >   > [^b]: y\n> >   >\n> >   >     - z\n> >   >\n> >   >       {.c}\n> >\n> >   q",
+    "html": "<blockquote>\n<blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > [^a]: x\n> > >\n> > >   > [^b]: y\n> > >   >\n> > >   >     - z\n> > >   >\n> > >   >       {.c}\n> > >\n> > >   q",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > [^n]: y\n> >\n> >     - x\n> >\n> >       {.a}\n>\n> p[^n]",
+    "html": "<blockquote>\n<blockquote>\n</blockquote>\n<p class=\"a\">p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</blockquote>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>y</p>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "> > > [^n]: y\n> > >\n> > >     - x\n> > >\n> > >       {.a}\n> >\n> > p[^n]",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n</blockquote>\n<p class=\"a\">p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</blockquote>\n</blockquote>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>y</p>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "> > > > [^n]: y\n> > > >\n> > > >     - x\n> > > >\n> > > >       {.a}\n> > >\n> > > p[^n]",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n</blockquote>\n<p class=\"a\">p<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</blockquote>\n</blockquote>\n</blockquote>\n<section role=\"doc-endnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>y</p>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<p><a href=\"#fnref1\" role=\"doc-backlink\">↩︎</a></p>\n</li>\n</ol>\n</section>\n"
+  },
+  {
+    "source": "> > - outer\n> >\n> >   {.a}\n> >\n> >   - inner\n> >\n> > - peer",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>outer</p>\n<ul class=\"a\">\n<li>\ninner\n</li>\n</ul>\n</li>\n<li>\n<p>peer</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - outer\n> > >\n> > >   {.a}\n> > >\n> > >   - inner\n> > >\n> > > - peer",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>outer</p>\n<ul class=\"a\">\n<li>\ninner\n</li>\n</ul>\n</li>\n<li>\n<p>peer</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - outer\n> > > >\n> > > >   {.a}\n> > > >\n> > > >   - inner\n> > > >\n> > > > - peer",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>outer</p>\n<ul class=\"a\">\n<li>\ninner\n</li>\n</ul>\n</li>\n<li>\n<p>peer</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "- x\n\n  {.a}\n\n* y\n\n  {.b}\n\n* z",
+    "html": "<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<ul class=\"a\">\n<li>\n<p>y</p>\n</li>\n<li class=\"b\">\n<p>z</p>\n</li>\n</ul>\n"
+  },
+  {
+    "source": "> - x\n> \n>   {.a}\n> \n> * y\n> \n>   {.b}\n> \n> * z",
+    "html": "<blockquote>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<ul class=\"a\">\n<li>\n<p>y</p>\n</li>\n<li class=\"b\">\n<p>z</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - x\n> > \n> >   {.a}\n> > \n> > * y\n> > \n> >   {.b}\n> > \n> > * z",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>x</p>\n</li>\n</ul>\n<ul class=\"a\">\n<li>\n<p>y</p>\n</li>\n<li class=\"b\">\n<p>z</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> >\n> >   - b\n> > c\n> >\n> >     {.x}\n> >\n> >   - e\n> >\n> > - f",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\n<p>b\nc</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</li>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - a\n> > >\n> > >   - b\n> > > c\n> > >\n> > >     {.x}\n> > >\n> > >   - e\n> > >\n> > > - f",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\n<p>b\nc</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</li>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > >\n> > > >   - b\n> > > > c\n> > > >\n> > > >     {.x}\n> > > >\n> > > >   - e\n> > > >\n> > > > - f",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\n<p>b\nc</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</li>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
   }
 ]

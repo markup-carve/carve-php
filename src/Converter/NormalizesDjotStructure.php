@@ -189,6 +189,9 @@ trait NormalizesDjotStructure
                         }
                     }
                 }
+                if ($frame !== null && $indent > $frame['column']) {
+                    $stack[array_key_last($stack)]['attributes'] = [];
+                }
                 if ($frame !== null && $indent === $frame['column']) {
                     array_pop($stack);
                 }
