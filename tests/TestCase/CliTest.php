@@ -834,7 +834,7 @@ class CliTest extends TestCase
         $this->assertSame(2, $refused['exit']);
         $this->assertStringContainsString(
             '--allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened'
-            . ', carrier-attribute-dropped or definition-list-flattened',
+            . ', carrier-attribute-dropped, definition-list-flattened or list-style-dropped',
             $refused['err'],
         );
     }
@@ -903,5 +903,17 @@ class CliTest extends TestCase
         $this->assertSame(0, $allowed['exit']);
         $this->assertNotSame('', $allowed['out']);
         $this->assertSame(2, $invalid['exit']);
+    }
+
+    public function testListStyleLossCanBeAllowed(): void
+    {
+        $source = "a. one\n";
+        $denied = $this->runCliInput(['--markdown', '--strict-losses'], $source);
+        $allowed = $this->runCliInput(['--markdown', '--strict-losses', '--allow-loss', 'list-style-dropped'], $source);
+
+        $this->assertSame(1, $denied['exit']);
+        $this->assertSame(0, $allowed['exit']);
+        $this->assertSame("1. one\n", $allowed['out']);
+        $this->assertSame('', $allowed['err']);
     }
 }

@@ -3065,6 +3065,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderList(ListBlock $node): string
     {
+        if ($node->getListType() === ListBlock::TYPE_ORDERED && $node->getStyle() !== null) {
+            $this->recordListStyleDropped($node, $node->getStyle());
+        }
         $override = $this->listMarkerOverride;
         $this->listMarkerOverride = null;
         $this->listDepth++;
