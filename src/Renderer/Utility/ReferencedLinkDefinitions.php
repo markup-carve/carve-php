@@ -4,9 +4,14 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer\Utility;
 
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Figure;
+use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\LabelKey;
 
@@ -22,14 +27,6 @@ final class ReferencedLinkDefinitions
         $seen = [];
         while ($stack !== []) {
             $value = array_pop($stack);
-            if (is_array($value)) {
-                array_push($stack, ...array_values($value));
-
-                continue;
-            }
-            if (!is_object($value)) {
-                continue;
-            }
             $id = spl_object_id($value);
             if (isset($seen[$id])) {
                 continue;
@@ -39,12 +36,22 @@ final class ReferencedLinkDefinitions
                 $href = $value instanceof Link ? $value->getDestination() : $value->getSource();
                 $labels[self::key($value->getReferenceLabel(), $href ?? '', $value->getTitle())] = true;
             }
-            foreach ((array)$value as $key => $field) {
-                if (str_ends_with((string)$key, "\0parent") || str_ends_with((string)$key, "\0extensionPayload")) {
-                    continue;
+            array_push($stack, ...$value->getChildren());
+            if ($value instanceof Div) {
+                array_push($stack, ...$value->getHeaderNodes(), ...$value->getLabelNodes());
+            }
+            if ($value instanceof Figure || $value instanceof Table) {
+                array_push($stack, ...($value->getShortCaption() ?? []));
+            }
+            if ($value instanceof FigureGroup || $value instanceof Table) {
+                $caption = $value->getCaption();
+                if ($caption !== null) {
+                    $stack[] = $caption;
                 }
-                if (is_object($field) || is_array($field)) {
-                    $stack[] = $field;
+            }
+            if ($value instanceof Ruby) {
+                foreach ($value->getPairs() as $pair) {
+                    array_push($stack, ...$pair['base'], ...$pair['annotation']);
                 }
             }
         }

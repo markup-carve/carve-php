@@ -698,7 +698,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // `parse(fmt(x)) != parse(x)`. carve-js and carve-rs both keep it in
         // place, and this node exists precisely so this renderer can too
         // (carve-php#708).
-        $this->referencedLinkDefinitions = ReferencedLinkDefinitions::labels($document);
+        $this->referencedLinkDefinitions = $this->roundTripMode ? [] : ReferencedLinkDefinitions::labels($document);
         $markdown = $this->renderChildren($document);
         $residual = $this->renderResidualAbbreviationDefinitions($document);
         if ($residual !== '') {
