@@ -19,6 +19,11 @@ final class HtmlImportSession
     public ?DOMDocument $builtDocument = null;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, string>
+     */
+    public SplObjectStorage $supFootnoteTargets;
+
+    /**
      * @var \SplObjectStorage<\DOMNode, int>
      */
     public SplObjectStorage $pathSiblingIndices;
@@ -240,6 +245,7 @@ final class HtmlImportSession
         $this->endnoteItemLabels = new SplObjectStorage();
         $this->referencedEndnoteItems = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
+        $this->supFootnoteTargets = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();
         $this->droppedEmptyElements = new SplObjectStorage();

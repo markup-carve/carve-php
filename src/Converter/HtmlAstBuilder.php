@@ -513,6 +513,33 @@ final class HtmlAstBuilder
                 }
             }
         }
+        $supReferences = [];
+        foreach ($root->getElementsByTagName('sup') as $reference) {
+            for ($ancestor = $reference->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
+                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre', 'template'], true)) {
+                    continue 2;
+                }
+            }
+            if (preg_match('/^fnref[0-9]+(?:-[0-9]+)?$/D', $reference->getAttribute('id')) === 1) {
+                $supReferences[$reference->getAttribute('id')] = $reference;
+            }
+        }
+        foreach ($allEndnoteItems as $item) {
+            $target = $item->getAttribute('id');
+            if ($target === '') {
+                continue;
+            }
+            foreach ($item->getElementsByTagName('a') as $backlink) {
+                if ($backlink->getAttribute('role') !== 'doc-backlink') {
+                    continue;
+                }
+                $reference = $supReferences[substr($backlink->getAttribute('href'), 1)] ?? null;
+                if ($reference !== null) {
+                    $this->session->supFootnoteTargets[$reference] = '#' . $target;
+                    $this->session->footnoteTargets[$target] = true;
+                }
+            }
+        }
         $footnoteAnchors = [];
         foreach ($root->getElementsByTagName('a') as $anchor) {
             if (
@@ -4314,6 +4341,10 @@ final class HtmlAstBuilder
         }
 
         $tag = strtolower(HtmlDomLoader::elementName($node));
+        if ($tag === 'sup' && isset($this->session->supFootnoteTargets[$node])) {
+            return $this->inlineSupFootnote($node);
+        }
+
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
@@ -4837,6 +4868,50 @@ final class HtmlAstBuilder
             $this->session->inlineTypeStack = $outerKinds;
             $this->session->nativeInlineDepth--;
         }
+    }
+
+    /**
+     * @return list<ImportedNode>
+     */
+    private function inlineSupFootnote(DOMElement $node): array
+    {
+        $fragment = substr($this->session->supFootnoteTargets[$node], 1);
+        $endnote = $this->session->endnoteItems[$fragment] ?? null;
+        HtmlCarrierNames::consumeAttribute($node, 'id');
+        $label = HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label');
+        if (self::isValidFootnoteCarrierLabel($label)) {
+            $reference = ['type' => 'footnote_ref', 'label' => $label];
+            $this->attachAttrs($reference, $node, ['id']);
+
+            return [$reference];
+        }
+        if (
+            $endnote !== null && HtmlCarrierNames::consumePresence($endnote, 'data-carve-inline-footnote')
+            && !isset($this->session->activeInlineFootnotes[$fragment])
+        ) {
+            $this->session->activeInlineFootnotes[$fragment] = true;
+            $previous = $this->session->inFootnoteDefinition;
+            $this->session->inFootnoteDefinition = true;
+            try {
+                $inline = [];
+                foreach ($this->blocks($this->children($endnote)) as $block) {
+                    array_push($inline, ...$this->projectToInlines($block));
+                }
+            } finally {
+                $this->session->inFootnoteDefinition = $previous;
+                unset($this->session->activeInlineFootnotes[$fragment]);
+            }
+
+            $reference = ['type' => 'inline_footnote', 'inline' => $inline];
+            $this->attachAttrs($reference, $node, ['id']);
+
+            return [$reference];
+        }
+
+        $reference = ['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)];
+        $this->attachAttrs($reference, $node, ['id']);
+
+        return [$reference];
     }
 
     /**
