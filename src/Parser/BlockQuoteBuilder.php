@@ -631,6 +631,23 @@ final class BlockQuoteBuilder
                 return true;
             }
         }
+        if ($floor > 0 && $at >= $floor && !$blockStart) {
+            $row = ($this->getTableParser)()->isTableRow($inner)
+                || ($state['inTable'] && ($this->getTableParser)()->isContinuationRow($inner));
+            if (
+                $row
+                || preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $inner) === 1
+                || preg_match('/^([-*_])\\1{2,}[ \t]*$/', $inner) === 1
+                || $this->isReferenceDefinitionLine($inner)
+                || (($host['kinds'][array_key_last($host['kinds'])] ?? null) === 'item'
+                    && (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $inner) === 1 || $this->isBlockAttributeLine($inner)))
+            ) {
+                $state['inTable'] = $row;
+                $state['paragraphOpen'] = false;
+
+                return true;
+            }
+        }
         $open = ($this->getFencedBlockParser)()->parseRawBlockOpener($inner)
             ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($inner);
         if ($open === null || $floor === 0) {

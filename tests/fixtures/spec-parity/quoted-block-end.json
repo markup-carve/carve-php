@@ -1,0 +1,22 @@
+[
+  {
+    "id": "562-a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph-2",
+    "source": "> - a\n>     ```\n>     ~~~\n>     code\n>     ~~~\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>a\n<code></code>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n"
+  },
+  {
+    "id": "562-a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph-3",
+    "source": "> - b\n>   - c\n>       text\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>b\n      <ul>\n        <li>c\ntext\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n"
+  },
+  {
+    "id": "562-a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph-4",
+    "source": "- ::: |\n  - ```\ntail\n",
+    "html": "<ul>\n  <li>\n    <div class=\"line-block\">\n      <p>- <code>\ntail</code></p>\n    </div>\n  </li>\n</ul>\n"
+  },
+  {
+    "id": "562-a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph",
+    "source": "> - b\n>   - c\n>       # h\ntail\n",
+    "html": "<blockquote>\n  <ul>\n    <li>b\n      <ul>\n        <li>c\n          <h1 id=\"h\">h</h1>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>\n"
+  }
+]
