@@ -81,7 +81,7 @@ trait ReportsDjotLosses
             $quoteDepths[$n] = substr_count(substr($line, 0, $this->djotContentStart($line)), '>');
             $offset += strlen($line) + 1;
         }
-        if (max($quoteDepths) > 1) {
+        if (max($quoteDepths) > 0) {
             $this->normalizeDjotStructure($source, onLiteralQuote: static function (int $line, int $depth) use (&$quoteDepths): void {
                 $quoteDepths[$line] = $depth;
             });

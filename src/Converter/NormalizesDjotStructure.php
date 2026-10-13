@@ -1880,6 +1880,11 @@ trait NormalizesDjotStructure
         $pipeMask = str_contains($source, '|') ? $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false, 'autolinks' => false, 'attributeValues' => false, 'comments' => false]) : '';
         $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $pipeMask) : [];
         $quoteDepths = array_map(fn (string $line): int => substr_count(substr($line, 0, $this->djotContentStart($line)), '>'), $lines);
+        if (max($quoteDepths) > 0) {
+            $this->normalizeDjotStructure($source, onLiteralQuote: static function (int $line, int $depth) use (&$quoteDepths): void {
+                $quoteDepths[$line] = $depth;
+            });
+        }
         $bracketDepths = [];
         $labelCache = [];
         $rowIndex = 0;

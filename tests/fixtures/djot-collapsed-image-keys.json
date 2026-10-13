@@ -2756,5 +2756,19 @@
     "key": "x",
     "loss": true,
     "blankAlt": false
+  },
+  {
+    "source": "x\n> ![a\n> b][]\n\n[a > b]: img",
+    "html": "<p>x\n&gt; <img alt=\"a\n&gt; b\" src=\"img\"></p>\n",
+    "key": "",
+    "loss": false,
+    "blankAlt": false
+  },
+  {
+    "source": "> x\n> > [a\n> > \\`b][]\n\n[a > `b]: /u",
+    "html": "<blockquote>\n<p>x\n&gt; <a href=\"/u\">a\n&gt; `b</a></p>\n</blockquote>\n",
+    "key": "",
+    "loss": false,
+    "blankAlt": false
   }
 ]
