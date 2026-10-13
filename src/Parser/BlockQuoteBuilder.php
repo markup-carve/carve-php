@@ -7,7 +7,6 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
-use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
