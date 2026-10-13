@@ -100,6 +100,8 @@ final class BlockContinuationScanner
      * tolerate a leading indentation run. The index is therefore a SUPERSET of
      * what any view can match, and "no closer ahead" holds for every view. It only
      * ever refutes; a positive answer sends the caller to the real scan.
+     * With $columnZeroCode, the cache checks the current line set before using
+     * exact column-zero closers as final answers.
      *
      * @param array<string> $lines
      * @param bool $columnZeroCode Use exact column-zero code closers as final answers.
@@ -110,7 +112,16 @@ final class BlockContinuationScanner
     {
         $cache =&$this->state->frame->fenceCloserIndexCache;
         if ($columnZeroCode) {
-            $cache =&$this->state->frame->literalFenceCloserIndexCache;
+            $byCount =&$this->state->frame->literalFenceCloserIndexCache;
+            $byCount ??= [];
+            $lineCount = count($lines);
+            if (!isset($byCount[$lineCount]) || $byCount[$lineCount]['lines'] !== $lines) {
+                if (!isset($byCount[$lineCount]) && count($byCount) >= 2) {
+                    unset($byCount[array_key_first($byCount)]);
+                }
+                $byCount[$lineCount] = ['lines' => $lines, 'index' => null];
+            }
+            $cache =&$byCount[$lineCount]['index'];
         }
         if ($cache === null) {
             $comment = [];

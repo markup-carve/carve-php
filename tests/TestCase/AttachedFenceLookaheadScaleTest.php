@@ -75,4 +75,22 @@ class AttachedFenceLookaheadScaleTest extends TestCase
     {
         $this->assertScanScalesLinearly($this->converter, $unit, '', 'unclosable ' . trim($unit), self::REPEATS);
     }
+
+    public function testQuotedCodeOpenersDoNotRescanACloserAtTheEnd(): void
+    {
+        // The final bare fence is a possible closer for every quoted opener.
+        // Checking each opener by walking the remaining lines is quadratic.
+        $unit = "> Item\n> ```js\n> content\n\n";
+        $this->assertConversionScalesLinearly(
+            function (string $source): void {
+                $this->converter->parse($source);
+            },
+            str_repeat($unit, 500) . "```\n",
+            str_repeat($unit, 2000) . "```\n",
+            'quoted code with a distant closer',
+            500,
+            2000,
+            maxPerByteRatio: 1.8,
+        );
+    }
 }

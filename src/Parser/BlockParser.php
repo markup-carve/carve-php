@@ -7222,8 +7222,18 @@ class BlockParser
             return false;
         }
 
-        // Reuse the collector's closer matcher so the interruption lookahead can
-        // never accept a closer the fence collector would reject (no drift).
+        // The literal index is cached against this exact line set. Its answer
+        // matches the built-in closer rule, including column zero.
+        if ($this->fencedBlockParser::class === FencedBlockParser::class) {
+            return $this->codeCloserPossible(
+                $this->fenceCloserIndex($lines, true)['code'],
+                $char,
+                $length,
+                $index,
+            );
+        }
+
+        // A custom fence parser may accept a different closer spelling.
         for ($i = $index + 1; $i < $count; $i++) {
             if ($this->fencedBlockParser->isCodeFenceCloser($lines[$i], $char, $length)) {
                 return true;
