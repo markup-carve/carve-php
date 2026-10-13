@@ -204,6 +204,9 @@ class MarkdownToCarve
 
     private bool $nativeCodeSlot = false;
 
+    // The caller writes every converted line as it stands, so a code value may add one.
+    private bool $breakableCodeSlot = false;
+
     /**
      * The source line the inline run under conversion starts on, so a loss
      * inside it names a line of the INPUT rather than an index into the folded
@@ -2939,7 +2942,13 @@ class MarkdownToCarve
             if ($inlineRun !== null) {
                 $body = $inlineRun['body'];
                 $i = $inlineRun['end'];
-                $parts = explode("\n", $this->convertInlineFormatting($body));
+                $previousBreakable = $this->breakableCodeSlot;
+                $this->breakableCodeSlot = $listCols === [] && preg_match('/^[ \t]*>/', $line) !== 1;
+                try {
+                    $parts = explode("\n", $this->convertInlineFormatting($body));
+                } finally {
+                    $this->breakableCodeSlot = $previousBreakable;
+                }
                 foreach ($parts as $at => &$part) {
                     $part = ($at === 0 ? $inlineRun['first'] : $inlineRun['next']) . $part;
                 }
@@ -2947,11 +2956,14 @@ class MarkdownToCarve
                 $converted = implode("\n", $parts);
             } else {
                 $previousCodeSlot = $this->nativeCodeSlot;
+                $previousBreakable = $this->breakableCodeSlot;
                 $this->nativeCodeSlot = !$isHeading && !$isList && $listCols === [] && preg_match('/^[ \t]*>/', $body) !== 1;
+                $this->breakableCodeSlot = $this->nativeCodeSlot;
                 try {
                     $converted = $this->convertInlineFormatting($body, $isHeading || !$this->nextLineContinuesThisParagraph($body, $lines[$i + 1] ?? '', $isList));
                 } finally {
                     $this->nativeCodeSlot = $previousCodeSlot;
+                    $this->breakableCodeSlot = $previousBreakable;
                 }
             }
 
@@ -7078,6 +7090,40 @@ class MarkdownToCarve
                     $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
                     if (count($read) === 1 && count($children) === 1 && $children[0] instanceof Code && $children[0]->getContent() === str_replace(["\r\n", "\r"], "\n", $value)) {
                         return $protect(rtrim($source, "\n"), $match[0]);
+                    }
+                } catch (SourceUnspellableException) {
+                }
+            }
+            $before = substr($line, 0, $offset);
+            // An empty code run is spellable only as an unclosed run ending its paragraph.
+            if (
+                $value === ''
+                && $terminal
+                && !$table
+                && preg_match('/(?:^|[\p{L}\p{N} \t\n.,;:?)\'"-])$/u', $before) === 1
+                && preg_match('/^[ \t]*$/', substr($line, $offset + strlen($match[0]))) === 1
+            ) {
+                return $protect('``', $match[0]);
+            }
+            // A line break in the value continues the paragraph when the caller keeps added lines.
+            if (
+                $this->breakableCodeSlot
+                && str_contains($value, "\n")
+                && !str_contains($value, "\r")
+                && !$table
+                && preg_match('/^[ \t]*#{1,6}(?:[ \t]|$)/', $line) !== 1
+                && preg_match('/[!$\\\\`\x00{}\]]$/', $before) !== 1
+            ) {
+                $document = new Document();
+                $paragraph = new Paragraph();
+                $paragraph->appendChild(new Code($value));
+                $document->appendChild($paragraph);
+                try {
+                    $written = rtrim((new CarveRenderer())->render($document), "\n");
+                    $read = (new CarveConverter())->parse('x ' . $written . " y\n")->getChildren();
+                    $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
+                    if (count($read) === 1 && count($children) === 3 && $children[1] instanceof Code && $children[1]->getContent() === $value) {
+                        return $protect($written, $match[0]);
                     }
                 } catch (SourceUnspellableException) {
                 }
