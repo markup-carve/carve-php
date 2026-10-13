@@ -16,6 +16,8 @@ class QuoteAndFootnoteFirstBlockTest extends TestCase
         yield 'quote takes table' => ["> +\n|= a | < |= b |\n", '<blockquote>'];
         yield 'quote takes paragraph' => ["> +\nflush\n", '<blockquote><p>flush</p></blockquote>'];
         yield 'note takes fence' => ["see[^a]\n\n[^a]: +\n```\nx\n```\n", '<pre><code>x'];
+        yield 'attached paragraph ends before next quoted line' => ["> +\nflush\n> more\n", "<p>flush</p>\n  <p>more</p>"];
+        yield 'nested quote releases line after fence' => ["> > +\n```\nx\n```\nlazy\n", "</blockquote>\n<p>lazy</p>"];
         yield 'bare quote keeps plus' => ["> +\n", '<blockquote><p>+</p></blockquote>'];
         yield 'quote before blank keeps plus' => ["> +\n\nafter\n", '<blockquote><p>+</p></blockquote>'];
         yield 'bare note keeps plus' => ["see[^a]\n\n[^a]: +\n", '<p>+<a href='];

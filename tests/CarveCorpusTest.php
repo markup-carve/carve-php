@@ -50,6 +50,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-block-quote-and-a-footnote-body-take-the-first-block-form',
         'a-fence-that-leaves-a-closed-nested-item-opens-in-the-host-it-lands-in',
         'a-footnote-definition-past-a-box-s-column-is-hoisted',
         'a-comment-between-a-heading-and-a-colon-fence-leaves-the-fence-an-opener',
