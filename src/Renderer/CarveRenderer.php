@@ -3424,6 +3424,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     continue;
                 }
                 if ($node instanceof InlineNode) {
+                    if (
+                        $node instanceof Code && $this->inLineBlock > 0
+                        && preg_match('/\n:{' . ($this->colonFenceDepth + 2) . '}[ \t]*(?:\n|$)/', $node->getContent()) === 1
+                    ) {
+                        $lastBreak = strrpos($out, "\n");
+                        $prefix = $lastBreak === false ? $out : substr($out, $lastBreak + 1);
+                        if (preg_match('/^[ \t\x{00A0}]*$/u', $prefix) === 1) {
+                            $replacement = str_replace("\u{00A0}", $this->verbatimSentinels[0], $prefix);
+                            $out = substr($out, 0, strlen($out) - strlen($prefix)) . $replacement;
+                            $prefix = $replacement;
+                        }
+                        if ($this->inlineDepth > 1 || preg_match('/^(?:[ \t]|' . preg_quote($this->verbatimSentinels[0], '/') . ')*$/', $prefix) !== 1) {
+                            throw new SourceUnspellableException('code', 'a line-block fence span needs its own delimiter lines');
+                        }
+                    }
                     $prevChar = $this->lastBoundary($nodes[$i - 1] ?? null);
                     $rendered = $this->renderInlineAtRunEnd(
                         $node,
@@ -4724,7 +4739,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private function guardCodeLines(string $written, string $nodeType = 'code'): string
     {
-        $marker = '/\n(?=>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*] +|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +)/';
+        $colon = $this->colonFenceDepth > 0 ? '|:{' . ($this->colonFenceDepth + 2) . '}[ \t]*(?:\n|$)' : '';
+        $marker = '/\n(?=>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +' . $colon . ')/';
         if ($this->inTerm && preg_match($marker, $written)) {
             throw new SourceUnspellableException($nodeType, 'a block marker on a continuation line ends the definition term');
         }
@@ -4732,7 +4748,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $written;
         }
 
-        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*] +|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +))/';
+        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +' . $colon . '))/';
 
         return (string)preg_replace($marker, "\n" . str_repeat($this->verbatimSentinels[7], match ($nodeType) {
             'math' => 3, 'raw_inline' => 4, 'literal_inline' => 5, default => 2
@@ -4768,7 +4784,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $hidesLineBlockCloser = $this->inLineBlock > 0
             && preg_match('/\n:{' . ($this->colonFenceDepth + 2) . '}[ \t]*(?:\n|$)/', $content) === 1;
-        if ($hidesLineBlockCloser && !$canPairFence) {
+        if (
+            $hidesLineBlockCloser && (!$canPairFence || preg_match('/^[\r\n]/', $content) !== 1
+            || preg_match('/\n[ \t\x{00A0}]*\z/u', $content) !== 1)
+        ) {
             throw new SourceUnspellableException('code', 'a prefixed or suffixed verbatim span cannot hide a line-block closer');
         }
         $fence = $hidesLineBlockCloser ? $this->safeFence($content, 3) : $this->codeSpanFence($content);
@@ -5343,7 +5362,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $sentinel = preg_quote($this->verbatimSentinels[7], '/');
         $guard = '(?<!' . $sentinel . ')(?:' . $sentinel . '){2,5}(?!' . $sentinel . ')';
         $text = (string)preg_replace_callback(
-            '/^([ \t>]*)(' . $guard . ')([>:\[*0-9A-Za-z-])/m',
+            '/^([ \t>]*)(' . $guard . ')([>:\[*+.0-9A-Za-z-])/m',
             static fn (array $m): string => (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ') . $m[3],
             $text,
         );
@@ -5355,7 +5374,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $text = $this->restoreFootnoteCodeGuard($text);
         $text = (string)preg_replace_callback(
-            '/^([ \t>]*)' . '(' . $this->verbatimLineGuardPattern() . ')([>:\[*0-9A-Za-z-])/m',
+            '/^([ \t>]*)' . '(' . $this->verbatimLineGuardPattern() . ')([>:\[*+.0-9A-Za-z-])/m',
             fn (array $m): string => ($m[2] === $this->verbatimSentinels[7] && $m[3] === '[' ? $m[1] . ' ' : (str_contains($m[1], '>') ? substr($m[1], 0, (int)strrpos($m[1], '>') + 1) . '  ' : ' ')) . $m[3],
             $text,
         );
