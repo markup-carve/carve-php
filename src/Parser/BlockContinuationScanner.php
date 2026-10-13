@@ -1242,7 +1242,8 @@ final class BlockContinuationScanner
                     && !$this->sourceFenceCloserInView($lines, $i, $noteFence, $column, true)
                 ) {
                     $trailingState->openParagraph = false;
-                    $authoredFenceOwnsLazy = true;
+                    // An unclosed run after a nested definition ends with the item.
+                    $authoredFenceOwnsLazy = !$sawNestedNote;
                 }
                 // A completed floor block leaves the following authored block
                 // to the same body reparse instead of stripping its base twice.
