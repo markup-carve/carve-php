@@ -11,6 +11,8 @@ use MarkupCarve\Carve\Node\ContentNodeInterface;
  */
 class RawInline extends InlineNode implements ContentNodeInterface
 {
+    use CarriesCellWraps;
+
     public function __construct(
         protected string $content = '',
         protected string $format = '',
