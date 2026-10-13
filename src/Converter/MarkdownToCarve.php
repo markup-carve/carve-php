@@ -528,7 +528,11 @@ class MarkdownToCarve
         }
         $balanced = $balanced && $stack === [];
         if ($balanced) {
+            $droppedCaptions = [];
             foreach ($payloads as $at => $payload) {
+                if (isset($droppedCaptions[$at])) {
+                    continue;
+                }
                 $width = CarrierMarkers::fenceWidth($payload);
                 $opener = $width > 0 && !CarrierMarkers::isCloser($payload);
                 $closer = $pairs[$at] ?? null;
@@ -552,6 +556,15 @@ class MarkdownToCarve
                     unset($payloads[$at], $depths[$at]);
                     if ($closer !== null) {
                         unset($payloads[$closer]);
+                        // A composite figure's caption marker belongs to the pair it follows.
+                        $caption = $closer + 1;
+                        while (isset($lines[$caption]) && trim($this->withoutCarrierHost($lines[$caption], $hosts[$closer])) === '') {
+                            $caption++;
+                        }
+                        if (isset($payloads[$caption]) && CarrierMarkers::isCaption($payloads[$caption]) && $hosts[$caption] === $hosts[$closer]) {
+                            unset($payloads[$caption], $depths[$caption]);
+                            $droppedCaptions[$caption] = true;
+                        }
                     }
                     $this->carrierDiagnostics[] = new MigrationDiagnostic(
                         'carrier-marker-dropped',
