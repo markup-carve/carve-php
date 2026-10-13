@@ -507,5 +507,837 @@
   {
     "source": "- [ ] ```\n        _c_\n  ```",
     "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<pre><code>  _c_\n</code></pre>\n</li>\n</ul>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nA. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\na. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\ni. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nI. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "- a\n\n  > {.x}\n\n- b",
+    "html": "<ul>\n<li>\n<p>a</p>\n<blockquote>\n</blockquote>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n"
+  },
+  {
+    "source": "> - a\n>\n>   > {.x}\n>\n> - b",
+    "html": "<blockquote>\n<ul>\n<li>\n<p>a</p>\n<blockquote>\n</blockquote>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "- a\n\n  > {.x}\n\n* b",
+    "html": "<ul>\n<li>\n<p>a</p>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n<ul class=\"x\">\n<li>\nb\n</li>\n</ul>\n"
+  },
+  {
+    "source": "- a\n\n  > {.x}\n\n# b",
+    "html": "<ul>\n<li>\n<p>a</p>\n<blockquote>\n</blockquote>\n</li>\n</ul>\n<section id=\"b\">\n<h1 class=\"x\">b</h1>\n</section>\n"
+  },
+  {
+    "source": "1. a\n\n   > {.x}\n\n2. b",
+    "html": "<ol>\n<li>\n<p>a</p>\n<blockquote>\n</blockquote>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\n1. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nb. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nB. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\ni. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nii. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nI. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nII. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nv. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"5\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nc. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"100\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "1. x\n\n   {.a}\n\nd. y",
+    "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"500\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"5\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"100\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "2. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"2\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"500\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\n1. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\n2. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\na. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nb. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nA. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nB. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nii. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nI. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nII. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nv. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nc. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "a. x\n\n   {.a}\n\nd. y",
+    "html": "<ol type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "b. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"2\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\n1. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\n2. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\na. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nb. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nA. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nB. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\ni. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nii. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nI. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nII. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nv. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"5\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nc. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"100\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "A. x\n\n   {.a}\n\nd. y",
+    "html": "<ol type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"500\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"5\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"100\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "B. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"2\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"500\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\n1. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\n2. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"9\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"9\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nA. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nB. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\ni. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nii. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nII. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nv. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nc. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "i. x\n\n   {.a}\n\nd. y",
+    "html": "<ol type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "ii. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"2\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\n1. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\n2. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\na. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nb. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"9\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"9\" type=\"A\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\ni. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nii. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nI. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nII. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nv. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"5\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nc. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"100\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "I. x\n\n   {.a}\n\nd. y",
+    "html": "<ol type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"500\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"5\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"6\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"100\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "II. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"2\" type=\"I\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"500\" type=\"i\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"22\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"22\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "v. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"5\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"a\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "vi. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"6\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"3\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"3\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "c. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"100\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\n1. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\n2. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\na. y",
+    "html": "<ol start=\"4\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nb. y",
+    "html": "<ol start=\"4\" type=\"a\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nA. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nB. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\ni. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nii. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nI. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nII. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol start=\"2\" type=\"I\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nv. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nvi. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nc. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "d. x\n\n   {.a}\n\nd. y",
+    "html": "<ol start=\"500\" type=\"i\">\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n<p>y</p>\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> {.a}\n\n{.b}\n\np",
+    "html": "<blockquote>\n</blockquote>\n<p class=\"a b\">p</p>\n"
+  },
+  {
+    "source": "> {#one}\n\n{#two}\n\np",
+    "html": "<blockquote>\n</blockquote>\n<p id=\"two\">p</p>\n"
+  },
+  {
+    "source": "> > {.a}\n>\n> {.b}\n>\n> p",
+    "html": "<blockquote>\n<blockquote>\n</blockquote>\n<p class=\"a b\">p</p>\n</blockquote>\n"
+  },
+  {
+    "source": "> > {#one}\n>\n> {#two}\n>\n> p",
+    "html": "<blockquote>\n<blockquote>\n</blockquote>\n<p id=\"two\">p</p>\n</blockquote>\n"
+  },
+  {
+    "source": "> intro\n>\n> > - a\n> >\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<p>intro</p>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> intro\n> > - a\n> >\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<p>intro\n&gt; - a\n&gt;\n&gt;   \n&gt;\n&gt; - b</p>\n</blockquote>\n"
+  },
+  {
+    "source": "> - outer\n>\n>   > - inner\n>   >\n>   >   {.x}\n>   >\n>   > - peer",
+    "html": "<blockquote>\n<ul>\n<li>\n<p>outer</p>\n<blockquote>\n<ul>\n<li>\n<p>inner</p>\n</li>\n<li class=\"x\">\n<p>peer</p>\n</li>\n</ul>\n</blockquote>\n</li>\n</ul>\n</blockquote>\n"
+  },
+  {
+    "source": "> - outer\n>\n>   > - inner\n>   >\n>   >   {.x}\n>   >\n>   > - peer\n>\n>   {.y}\n>\n> - end",
+    "html": "<blockquote>\n<ul>\n<li>\n<p>outer</p>\n<blockquote>\n<ul>\n<li>\n<p>inner</p>\n</li>\n<li class=\"x\">\n<p>peer</p>\n</li>\n</ul>\n</blockquote>\n</li>\n<li class=\"y\">\n<p>end</p>\n</li>\n</ul>\n</blockquote>\n"
   }
 ]

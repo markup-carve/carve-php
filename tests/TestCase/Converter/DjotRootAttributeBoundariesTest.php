@@ -69,6 +69,17 @@ class DjotRootAttributeBoundariesTest extends TestCase
             }
         }
         $html = implode('', $parts);
+        $html = preg_replace_callback('/<([a-zA-Z][a-zA-Z0-9-]*)([^<>]*)>/', static function (array $tag): string {
+            preg_match_all('/([a-zA-Z][a-zA-Z0-9-]*)(?:="([^"]*)")?/', $tag[2], $attributes, PREG_SET_ORDER);
+            usort($attributes, static fn (array $a, array $b): int => strcmp($a[1], $b[1]));
+            $text = '';
+            foreach ($attributes as $attribute) {
+                $text .= ' ' . $attribute[1] . (isset($attribute[2]) ? '="' . $attribute[2] . '"' : '');
+            }
+
+            return '<' . $tag[1] . $text . '>';
+        }, $html) ?? $html;
+
         $html = preg_replace('/ (?:scope="col"|aria-label="[^"]*"|data-delim="[^"]*"|data-task-state="[^"]*")/', '', $html) ?? $html;
         $html = preg_replace_callback('/<input[^>]*>\s*/', static fn (array $match): string => str_contains($match[0], ' checked') ? '<input checked>' : '<input>', $html) ?? $html;
         $html = preg_replace('/<\/?(?:thead|tbody)>/', '', $html) ?? $html;

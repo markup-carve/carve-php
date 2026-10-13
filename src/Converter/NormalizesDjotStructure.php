@@ -18,6 +18,33 @@ trait NormalizesDjotStructure
      * @param string $source
      * @param int $depth
      */
+    private function djotListKind(string $marker): string
+    {
+        if (preg_match('/[0-9A-Za-z]+/', $marker, $match) !== 1) {
+            return $marker;
+        }
+        $label = $match[0];
+        $mask = ctype_digit($label) ? 1 : ($label === strtolower($label) ? 2 : 8);
+        if (preg_match('/^[ivxlcdm]+$/i', $label) === 1) {
+            $mask = (strlen($label) === 1 ? $mask : 0) | ($label === strtolower($label) ? 4 : 16);
+        }
+
+        return $mask . ':' . (preg_replace('/[0-9A-Za-z]+/', '', $marker) ?? $marker);
+    }
+
+    private function sharedDjotListKind(?string $prior, string $current): ?string
+    {
+        if ($prior === $current) {
+            return $current;
+        }
+        if (preg_match('/^(\d+):(.*)$/', $prior ?? '', $first) !== 1 || preg_match('/^(\d+):(.*)$/', $current, $second) !== 1 || $first[2] !== $second[2]) {
+            return null;
+        }
+        $common = (int)$first[1] & (int)$second[1];
+
+        return $common !== 0 ? $common . ':' . $first[2] : null;
+    }
+
     private function djotDestinationLines(string $source, int $depth): string
     {
         if (!str_contains($source, "\n")) {
@@ -412,8 +439,14 @@ trait NormalizesDjotStructure
 
                     continue;
                 }
-                $kind = ($itemMatch[1] !== '' ? $itemMatch[1] : (preg_replace('/[0-9A-Za-z]+/', '1', $itemMatch[2]) ?? $itemMatch[2])) . ($itemMatch[1] !== '' && preg_match('/^\[[ xX]\][ \t]+/', substr($text, strlen($itemMatch[0]) - 1)) === 1 ? ':task' : '');
+                $kind = ($itemMatch[1] !== '' ? $itemMatch[1] : $this->djotListKind($itemMatch[2])) . ($itemMatch[1] !== '' && preg_match('/^\[[ xX]\][ \t]+/', substr($text, strlen($itemMatch[0]) - 1)) === 1 ? ':task' : '');
                 $nested = $parent !== null && $indent > $parent->column;
+                $sharedKind = $this->sharedDjotListKind($priorKind, $kind);
+                $sameKind = $sharedKind !== null;
+                if ($parent !== null && !$nested && $sharedKind !== null) {
+                    $kind = $sharedKind;
+                    $parent->kind = $kind;
+                }
                 if ($parent === null || $nested) {
                     $lists[] = new DjotListContext(
                         $indent,
@@ -423,7 +456,7 @@ trait NormalizesDjotStructure
                         $itemMatch[1] === '*' ? '*' : '-',
                         count($out),
                     );
-                } elseif ($kind !== $parent->kind) {
+                } elseif (!$sameKind) {
                     if (trim($out !== [] ? $out[array_key_last($out)] : '') !== '') {
                         $out[] = rtrim($quote);
                     }
@@ -444,7 +477,7 @@ trait NormalizesDjotStructure
                 $headingMarker = '';
                 $attached = [];
                 foreach ($carriedAttributes as $attribute) {
-                    if ($parent !== null && !$nested && $kind === $priorKind && $attribute['depth'] === $quoteDepth && $attribute['owner'] >= $indent) {
+                    if ($parent !== null && !$nested && $sameKind && $attribute['depth'] === $quoteDepth && $attribute['owner'] >= $indent) {
                         $attached[] = substr($attribute['attributes'], 1, -1);
                     } else {
                         $out[] = $quote . str_repeat(' ', $context->target) . $attribute['attributes'];
@@ -472,7 +505,7 @@ trait NormalizesDjotStructure
                 if ($itemQuote) {
                     $depth = $quoteDepth + substr_count($itemQuoteMatch[0], '>');
                 }
-                $paragraph = !$rows[$n] && !$rawFencedItem && !$itemDiv && !$itemHeading && !str_contains($body, "\x00DJOTNOTEATTR\x00");
+                $paragraph = !$emptyItem && !$rows[$n] && !$rawFencedItem && !$itemDiv && !$itemHeading && !str_contains($body, "\x00DJOTNOTEATTR\x00");
                 $blank = $itemDiv;
 
                 continue;

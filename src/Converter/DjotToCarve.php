@@ -277,8 +277,10 @@ class DjotToCarve
         $carve = strtr($carve, $orphanSpans + $strongSpans);
         $dropInherited = array_fill_keys(array_keys($inherited), '');
         $carve = strtr($carve, $dropInherited);
-        $carve = preg_replace_callback('/^[ \t>]*' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00\n(?:[ \t>]*\n)*([ \t>]*)([-*+]|[^ \t\n]+)([ \t]+)/m', static fn (array $match): string => $match[2] . $match[3] . ($itemAttributeValues[(int)$match[1]] ?? '') . $match[4], $carve) ?? $carve;
-        $carve = preg_replace_callback('/([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
+        if ($itemAttributeValues !== []) {
+            $carve = preg_replace_callback('/^[ \t>]*' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00\n(?:[ \t>]*\n)*([ \t>]*)([-*+]|[^ \t\n]+)([ \t]+)/m', static fn (array $match): string => $match[2] . $match[3] . ($itemAttributeValues[(int)$match[1]] ?? '') . $match[4], $carve) ?? $carve;
+            $carve = preg_replace_callback('/([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
+        }
         if ($preserveHeadingIds) {
             $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
         }
@@ -1762,7 +1764,7 @@ class DjotToCarve
                 }
                 $alone = $at === $first && $at + strlen($attrs) === $last;
                 $previous = trim(preg_replace('/^(?:(?:[ \t]*>)+[ \t]*)?/', '', $lines[$index - 1] ?? '') ?? '');
-                $block = (!$this->djotCommentContinuesParagraph($source, $lineOffsets[$index] + $at) || $index === 0 || $previous === '' || preg_match('/^\{.*\}$/', $previous) === 1 || preg_match('/^(?:`{3,}|~{3,}|:{3,}|#{1,6} |[-*+] |[0-9]+[.)] |> |:{1,2} |(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|\|.*\||\[[^\]]+\]:)/', $previous) === 1);
+                $block = $alone && ($index === 0 || $previous === '' || preg_match('/^\{.*\}$/', $previous) === 1 || preg_match('/^(?:`{3,}|~{3,}|:{3,}|#{1,6} |[-*+] |[0-9]+[.)] |> |:{1,2} |(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|\|.*\||\[[^\]]+\]:)/', $previous) === 1 || !$this->djotCommentContinuesParagraph($source, $lineOffsets[$index] + $at));
                 if ($alone && $block) {
                     if (!isset($dangling[$index])) {
                         continue;
@@ -3176,8 +3178,17 @@ class DjotToCarve
                         $end += strlen($prefix[0] ?? '');
                     }
                     $end += strspn(substr($target, $end), " \t");
-                    $moved[$following][] = substr($target, 0, $end) . substr($context['body'], $context['indent']);
+                    $ownerEnd = 0;
+                    for ($level = 0; $level < $destinationDepth; $level++) {
+                        preg_match('/^[ \t]*>(?:[ \t]|$)/', substr($context['prefix'], $ownerEnd), $ownerPrefix);
+                        $ownerEnd += strlen($ownerPrefix[0] ?? '');
+                    }
+                    $ownerIndent = strspn(substr($context['prefix'], $ownerEnd), " \t");
+                    $targetPrefix = $ownerIndent > 0 ? substr($context['prefix'], 0, $ownerEnd) . str_repeat(' ', $ownerIndent) : substr($target, 0, $end);
+                    $moved[$following][] = $targetPrefix . substr($context['body'], $context['indent']);
                     $lines[$n] = rtrim($context['prefix']);
+                } elseif ($destinationDepth !== null && $context['depth'] <= $destinationDepth) {
+                    $following = $n;
                 }
             } elseif (trim($context['body']) === '') {
                 if ($destinationDepth !== null) {
