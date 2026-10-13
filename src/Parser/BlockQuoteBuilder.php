@@ -294,7 +294,8 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
-                && !($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
+                && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
+                    && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0)
                 && !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i)
             ) {
                 $lazyState['colonClaims'] = array_values(array_filter($lazyState['colonClaims'], static fn (array $claim): bool => $claim['body']));
@@ -628,6 +629,9 @@ final class BlockQuoteBuilder
         }
         $host['absorbing'] = !$blockStart && $paragraph && ($host['absorbing'] ?? false);
         $div = ($this->getFencedBlockParser)()->parseDivFenceOpener($inner);
+        if ($div !== null && $floor === 0 && $at === 0 && $state['innerDepth'] === 0 && $div['className'] === '|') {
+            $state['colonClaims'][] = ['length' => $div['length'], 'column' => 0, 'body' => false, 'literal' => true, 'base' => 0];
+        }
         if ($floor > 0 && $div === null && preg_match('/^:{3,}/', $inner) === 1) {
             $host['absorbing'] = true;
         }
