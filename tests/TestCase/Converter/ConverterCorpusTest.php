@@ -56,10 +56,7 @@ class ConverterCorpusTest extends TestCase
     /**
      * @var array<string, string>
      */
-    private const AHEAD_OF_PIN = [
-        // CARVE-P11-033 T1 (markup-carve/carve#3120): Markdown import reads the definition by default.
-        '02-markdown-an-abbreviation-definition-stays-text' => '<p><abbr title="HyperText Markup Language">HTML</abbr> is a language.</p>',
-    ];
+    private const AHEAD_OF_PIN = [];
 
     /**
      * @throws \RuntimeException
