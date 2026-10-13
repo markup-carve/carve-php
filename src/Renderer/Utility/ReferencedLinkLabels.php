@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Renderer\Utility;
 
-use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Node;
 
 final class ReferencedLinkLabels
 {

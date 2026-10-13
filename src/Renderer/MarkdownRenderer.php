@@ -26,7 +26,6 @@ use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
-use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkLabels;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -79,6 +78,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkLabels;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -327,7 +327,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected array $gfmSlugs = [];
 
-    /** @var array<string, true> */
+    /**
+     * @var array<string, true>
+     */
     protected array $referencedLinkLabels = [];
 
     /**

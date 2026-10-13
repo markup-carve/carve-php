@@ -19,7 +19,9 @@ final class UnderlineMarkdownRoundTripTest extends TestCase
         $codec = new AstCodec();
 
         self::assertSame("<u>z</u>/y/\n", $markdown);
-        self::assertSame($codec->encode(CarveConverter::create()->parse($source))['children'],
-            $codec->encode(CarveConverter::create()->parse($imported))['children']);
+        self::assertSame(
+            $codec->encode(CarveConverter::create()->parse($source))['children'],
+            $codec->encode(CarveConverter::create()->parse($imported))['children'],
+        );
     }
 }

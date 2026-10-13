@@ -11,7 +11,9 @@ use PHPUnit\Framework\TestCase;
 
 final class QuotedListMarkerPositionTest extends TestCase
 {
-    /** @return array<string, array{string}> */
+    /**
+     * @return array<string, array{string}>
+     */
     public static function quotedLists(): array
     {
         return [
