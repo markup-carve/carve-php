@@ -73,9 +73,9 @@ final class BlockParseFrame
     public ?array $fenceCloserIndexCache = null;
 
     /**
-     * Exact column-zero code closers for literal colon-fence bodies.
+     * Exact column-zero code closers for up to two line sets.
      *
-     * @var array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}|null
+     * @var array<int, array{lines: array<string>, index: array{comment: array<int, int>, colon: array<int, int>, code: array<string, array{runs: array<int, int>, lastAtLeast: array<int, int>}>}|null}>|null
      */
     public ?array $literalFenceCloserIndexCache = null;
 
