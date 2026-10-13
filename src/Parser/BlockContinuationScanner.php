@@ -1379,7 +1379,7 @@ final class BlockContinuationScanner
                         $unclosedNoteText = $markerNoteItem && !$sawNestedNote
                             && (!$leadNoteHadBlank || $this->endsOnParagraphText($itemLines))
                             && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                            && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
+                            && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken, true)
                             && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
                             && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken)
                             && !$this->fenceClosesWithinColumn($lines, $i, $opener, $column, $noteCloserMemo);
@@ -1395,7 +1395,7 @@ final class BlockContinuationScanner
                                 && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken);
                             $closedNoteBodyFence = $markerNoteItem && ($trailingState->inFootnoteBody || !$sawNestedNote)
                                 && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                                && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
+                                && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken, true)
                                 && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
                                 && (
                                     $this->fenceClosesWithinColumn($lines, $i, $opener, $column, $noteCloserMemo)
@@ -3906,12 +3906,12 @@ final class BlockContinuationScanner
      * @param int $cursor first line not yet read, kept across calls
      * @param bool $broken set once a line falls below the column
      */
-    private function noteKeepsItsBody(array $itemLines, int &$cursor, bool &$broken): bool
+    private function noteKeepsItsBody(array $itemLines, int &$cursor, bool &$broken, bool $forFence = false): bool
     {
         for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
             $text = ltrim($itemLines[$cursor], " \t");
-            $broken = $text !== ''
-                && IndentationHelper::getLeadingColumns($itemLines[$cursor]) < BlockGrammar::FOOTNOTE_BODY_COLUMN;
+            $broken = ($text !== '' && IndentationHelper::getLeadingColumns($itemLines[$cursor]) < BlockGrammar::FOOTNOTE_BODY_COLUMN)
+                || (!$forFence && str_starts_with($text, '%%'));
         }
 
         return !$broken;

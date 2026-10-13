@@ -1518,6 +1518,12 @@ final class ListBlockBuilder
             // A table at the note's column after a comment still belongs to the note.
             $comment = ltrim($candidate, " \t");
             $commentEndsNote = str_starts_with($comment, '%%');
+            if ($commentEndsNote && IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) >= $noteBodyColumn
+                && $j + 1 < $count
+                && IndentationHelper::getLeadingColumns($lines[$j + 1], $noteBodyColumn) >= $noteBodyColumn
+                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($lines[$j + 1], " \t"), 0)) {
+                $commentEndsNote = false;
+            }
             if ($commentEndsNote && !str_starts_with($comment, '%%%')) {
                 $nextIsNoteTable = IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) >= $noteBodyColumn
                     && $j + 1 < $count
