@@ -2994,6 +2994,7 @@ class DjotToCarve
 
     private function normalizeImageQuoteSpellings(string $source): string
     {
+        $source = $this->normalizeDjotInlineComments($source);
         if (!$this->omitQuoteDelimiters && str_contains($source, '![')) {
             $source = $this->replaceImageLabels($source, $this->maskCodeAndDestinations($source), function (array $match, bool $completeTarget): string {
                 $label = $match[1][0];
@@ -3001,17 +3002,54 @@ class DjotToCarve
                     return $match[0][0];
                 }
 
-                return '![' . substr($this->normalizeDjotInlineSpellings('DJOTALT ' . $label), 8) . ']';
+                $wire = [];
+                $mask = $this->djotEmphasisMask($label, true, $wire);
+                $emptyAttributeEnd = 0;
+                $label = preg_replace_callback('/\{[\"\']|[\"\']\}|\{\}/', function (array $match) use ($label, $mask, $wire, &$emptyAttributeEnd): string {
+                    [$token, $at] = $match[0];
+                    if ($at < $emptyAttributeEnd) {
+                        return '';
+                    }
+                    if ($this->isDjotEscaped($label, $at)) {
+                        return $token;
+                    }
+                    if ($token === '{}' && ($wire[$at]['source'] ?? '') === '{}' && !($at > 0 && $label[$at - 1] === ']')) {
+                        $emptyAttributeEnd = $wire[$at]['end'];
+
+                        return '{%%}';
+                    }
+                    if ($mask[$at] !== $label[$at]) {
+                        return $token;
+                    }
+
+                    return match ($token) {
+                        "{'" => '‘', "'}" => '’', '{"' => '“', '"}' => '”',
+                        default => $token,
+                    };
+                }, $label, -1, $count, PREG_OFFSET_CAPTURE) ?? $label;
+
+                return '![' . $label . ']';
             }, true);
         }
         $positions = [];
         if (!$this->omitQuoteDelimiters && str_contains($source, '![')) {
-            $this->replaceImageLabels($source, $this->maskCodeAndDestinations($source), static function (array $match) use ($source, &$positions): string {
+            $mask = $this->maskCodeAndDestinations($source);
+            $imageLines = $this->djotImageLineOwners($source, $mask);
+            $line = 0;
+            $this->replaceImageLabels($source, $mask, function (array $match) use ($source, &$positions, $imageLines, &$line): string {
                 [$image, $at] = $match[0];
-                if (substr($source, $at + strlen($image), 2) === '[]') {
+                if (substr($source, $at + strlen($image), 2) === '[]' || str_starts_with($match[1][0], '^') || preg_match('/\n[ \t]*\n/', $match[1][0]) === 1) {
                     return $image;
                 }
                 $label = $match[1][0];
+                while ($imageLines[$line]['end'] <= $at) {
+                    $line++;
+                }
+                $owner = $imageLines[$line];
+                $layout = $this->djotImageAltLayout($label, $owner['quotes'], $owner['itemColumn'], $owner['itemQuote'], $owner['div']);
+                if (!$layout['valid']) {
+                    return $image;
+                }
                 for ($i = 0, $length = strlen($label); $i < $length; $i++) {
                     if ($label[$i] === '"' || $label[$i] === "'") {
                         $positions[$at + 2 + $i] = $positions[$at + 1 + $i] = true;

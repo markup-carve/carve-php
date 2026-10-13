@@ -47,7 +47,15 @@ class DjotImageQuoteChildTextTest extends TestCase
     private function nodeShape(DOMNode $node): mixed
     {
         if ($node instanceof DOMText) {
-            $value = preg_replace('/[\t\r\n ]+/', ' ', $node->data) ?? $node->data;
+            $literalCode = false;
+            for ($ancestor = $node->parentNode; $ancestor !== null; $ancestor = $ancestor->parentNode) {
+                if (in_array($ancestor->nodeName, ['code', 'pre'], true)) {
+                    $literalCode = true;
+
+                    break;
+                }
+            }
+            $value = $literalCode ? $node->data : (preg_replace('/[\t\r\n ]+/', ' ', $node->data) ?? $node->data);
             if ($node->parentNode !== null && in_array($node->parentNode->nodeName, ['p', 'li', 'blockquote', 'td', 'th'], true)) {
                 if ($node->previousSibling === null) {
                     $value = ltrim($value, ' ');

@@ -1584,6 +1584,26 @@
     "html": "<ul>\n<li>\n<img alt=\"xay\" src=\"img\">\n</li>\n</ul>\n"
   },
   {
+    "source": "![{\"a\"} ` b `][c",
+    "html": "<p>![“a” <code> b </code>][c</p>\n"
+  },
+  {
+    "source": "![{\"a\"} x{{}}y][c",
+    "html": "<p>![“a” x{}y][c</p>\n"
+  },
+  {
+    "source": "x {% a { b} y\n\n![{\"q\"\nr\"}](img)",
+    "html": "<p>x  y</p>\n<p><img alt=\"q&quot;\nr\" src=\"img\"></p>\n"
+  },
+  {
+    "source": "> ![{\"a\"}\n{.x}\nb](img)",
+    "html": "<blockquote>\n<p>![“a”</p>\n</blockquote>\n<p class=\"x\">b](img)</p>\n"
+  },
+  {
+    "source": "![\\\n{\"a\"}][oops",
+    "html": "<p>![<br>\n“a”][oops</p>\n"
+  },
+  {
     "source": "![![{\"a\"}](img)](",
     "html": "<p>![<img alt=\"a\" src=\"img\">](</p>\n"
   },

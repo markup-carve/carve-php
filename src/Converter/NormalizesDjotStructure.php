@@ -1525,11 +1525,7 @@ trait NormalizesDjotStructure
         return false;
     }
 
-    /**
-     * @param string $source
-     * @param \Closure(int): bool|null $preserveQuote
-     */
-    private function normalizeDjotInlineSpellings(string $source, ?Closure $preserveQuote = null): string
+    private function normalizeDjotInlineComments(string $source): string
     {
         $comments = [];
         $this->maskCodeAndDestinations($source, opaqueOptions: [
@@ -1543,6 +1539,16 @@ trait NormalizesDjotStructure
                 $source = substr($source, 0, $start) . '{%%}' . substr($source, $end);
             }
         }
+        return $source;
+    }
+
+    /**
+     * @param string $source
+     * @param \Closure(int): bool|null $preserveQuote
+     */
+    private function normalizeDjotInlineSpellings(string $source, ?Closure $preserveQuote = null): string
+    {
+        $source = $this->normalizeDjotInlineComments($source);
         $mask = $this->djotEmphasisMask($source);
         $source = preg_replace_callback('/(?:\{\})+|[ \t]+\\\\[ \t]*(?=\n)|\{[\'\"]|[\'\"]\}/', function (array $match) use ($mask, $source, $preserveQuote): string {
             [$text, $at] = $match[0];
