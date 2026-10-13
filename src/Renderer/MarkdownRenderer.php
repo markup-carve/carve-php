@@ -413,6 +413,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     private int $carrierDepth = 0;
 
+    private ?int $footnoteStyleDepth = null;
+
+    private ?ListBlock $footnoteOpeningList = null;
+
     /**
      * Lazily built HTML renderer used to serialize raw HTML attributes, including
      * the default inline mark fallback. The emitted attributes are validated and
@@ -1863,7 +1867,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $previous = $this->previousList;
         $kind = $node->getListType() === ListBlock::TYPE_ORDERED ? 'ordered' : 'bullet';
-        $this->listMarkerOverride = $previous !== null && $previous[0] === $kind
+        $this->listMarkerOverride = $previous !== null && $previous[0] === $kind && !$this->carriesListStyle($node)
             ? $this->otherListMarker($kind, $previous[1])
             : null;
         $this->previousList = null;
@@ -3068,7 +3072,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderList(ListBlock $node): string
     {
-        if ($node->getListType() === ListBlock::TYPE_ORDERED && $node->getStyle() !== null) {
+        $styleCarrier = $this->carriesListStyle($node);
+        if ($node->getListType() === ListBlock::TYPE_ORDERED && $node->getStyle() !== null && !$styleCarrier) {
             $this->recordListStyleDropped($node, $node->getStyle());
         }
         $override = $this->listMarkerOverride;
@@ -3153,7 +3158,50 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $this->listDepth--;
         $this->lastListMarker = $marker ?? '-';
 
-        return $output . ($this->listDepth === 0 ? "\n" : '');
+        $styleMarker = '';
+        if ($styleCarrier) {
+            $style = $node->getStyle();
+            $first = $this->carriedOrderedMarker($node->getStart(), $style);
+            $second = preg_match('/^[ivxlcdm]$/i', $first) === 1 && count($items) > 1
+                ? ' ' . $this->carriedOrderedMarker($node->getStart() + 1, $style) . ($node->getMarker() === ')' ? ')' : '.') : '';
+            $styleMarker = CarrierMarkers::line($first . ($node->getMarker() === ')' ? ')' : '.') . $second) . "\n";
+        }
+
+        return $styleMarker . $output . ($this->listDepth === 0 ? "\n" : '');
+    }
+
+    protected function carriesListStyle(ListBlock $node): bool
+    {
+        if (!$this->roundTripMode || $this->tableCellDepth > 0 || $node->getListType() !== ListBlock::TYPE_ORDERED || $node->getStyle() === null) {
+            return false;
+        }
+
+        return $this->footnoteStyleDepth === null
+            || ($this->renderDepth === $this->footnoteStyleDepth && $this->listDepth === 0 && $node !== $this->footnoteOpeningList);
+    }
+
+    protected function carriedOrderedMarker(int $number, ?string $style): string
+    {
+        return match ($style) {
+            'a' => chr((($number - 1) % 26) + 97),
+            'A' => chr((($number - 1) % 26) + 65),
+            'i', 'I' => $this->carriedRomanMarker($number, $style === 'i'),
+            default => (string)$number,
+        };
+    }
+
+    protected function carriedRomanMarker(int $number, bool $lower): string
+    {
+        $values = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+        $out = '';
+        foreach ($values as [$value, $token]) {
+            while ($number >= $value) {
+                $out .= $token;
+                $number -= $value;
+            }
+        }
+
+        return $lower ? strtolower($out) : $out;
     }
 
     protected function renderListItem(ListItem $node): string
@@ -3799,7 +3847,17 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderFootnote(Footnote $node): string
     {
-        $content = $this->containerContent(fn (): string => $this->renderChildren($node));
+        $outerDepth = $this->footnoteStyleDepth;
+        $outerOpening = $this->footnoteOpeningList;
+        $this->footnoteStyleDepth = $this->renderDepth + 1;
+        $first = $node->getChildren()[0] ?? null;
+        $this->footnoteOpeningList = $first instanceof ListBlock ? $first : null;
+        try {
+            $content = $this->containerContent(fn (): string => $this->renderChildren($node));
+        } finally {
+            $this->footnoteStyleDepth = $outerDepth;
+            $this->footnoteOpeningList = $outerOpening;
+        }
         $lines = explode("\n", $content);
         $firstLine = array_shift($lines);
         $content = $firstLine . "\n" . $this->prefixContinuationLines($lines, '    ');

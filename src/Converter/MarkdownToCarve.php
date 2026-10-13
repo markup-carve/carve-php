@@ -341,7 +341,7 @@ class MarkdownToCarve
      * The carrier payloads this conversion lifted out of the source, in the
      * order their marker lines appeared.
      *
-     * @var list<array{payload: string, depth: int, closer: bool, caption: bool, fence: bool, fenceTightAfter: bool, equation: string|null}>
+     * @var list<array{payload: string, depth: int, closer: bool, caption: bool, fence: bool, fenceTightAfter: bool, style: bool, equation: string|null}>
      */
     protected array $carrierSlots = [];
 
@@ -539,6 +539,8 @@ class MarkdownToCarve
                     $valid = AttributeParser::isValidPayload(substr($payload, 1, -1));
                 } elseif (CarrierMarkers::isCodeFence($payload)) {
                     $valid = $this->codeFenceCarrierInfo($payload) !== null;
+                } elseif ($this->carrierListStyle($payload) !== null) {
+                    $valid = preg_match('/(?:^|[ \t>])(?:[-+*]|[0-9]+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?$/D', $hosts[$at]) !== 1;
                 } else {
                     $valid = $width > 0 || CarrierMarkers::isCaption($payload)
                         || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
@@ -661,6 +663,7 @@ class MarkdownToCarve
                 'caption' => CarrierMarkers::isCaption($payload),
                 'fence' => CarrierMarkers::isCodeFence($payload),
                 'fenceTightAfter' => CarrierMarkers::isCodeFence($payload) && $this->carrierFenceTightAfter($lines, $at, $host),
+                'style' => $this->carrierListStyle($payload) !== null,
                 'equation' => $equation,
             ];
             // The writer emitted the opener's title and label, and a group
@@ -791,7 +794,7 @@ class MarkdownToCarve
                     && (preg_replace('/[^>\t]/', ' ', $hosts[$at + 1]) ?? $hosts[$at + 1])
                 === (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]);
                 $lostBlock = $sameHost
-                    && !str_starts_with($nextMarker, ':: ') && !CarrierMarkers::isCodeFence($nextMarker)
+                    && !str_starts_with($nextMarker, ':: ') && !CarrierMarkers::isCodeFence($nextMarker) && $this->carrierListStyle($nextMarker) === null
                     && (CarrierMarkers::fenceWidth($nextMarker) === 0 || CarrierMarkers::isCloser($nextMarker));
                 if (!str_ends_with($payload, '}') || !AttributeParser::isValidPayload(substr($payload, 1, -1)) || $next === '' || $lostBlock) {
                     return false;
@@ -843,6 +846,16 @@ class MarkdownToCarve
 
                 continue;
             }
+            if ($this->carrierListStyle($payload) !== null) {
+                if (
+                    preg_match('/^[0-9]+[.)][ \t]+\S/', $next) !== 1 || isset($payloads[$at + 1])
+                    || preg_match('/^\[\^[^]]+\]:[ \t]*$/D', trim($lines[$at - 1] ?? '')) === 1
+                ) {
+                    return false;
+                }
+
+                continue;
+            }
             $width = CarrierMarkers::fenceWidth($payload);
             if ($width === 0) {
                 return false;
@@ -887,6 +900,36 @@ class MarkdownToCarve
         }
 
         return $info;
+    }
+
+    protected function carrierListStyle(string $payload, ?int $start = null): ?string
+    {
+        if (preg_match('/^([A-Za-z]+[.)])(?: ([A-Za-z]+[.)]))?$/D', $payload, $markers) !== 1) {
+            return null;
+        }
+        if (isset($markers[2])) {
+            $source = $markers[1] . " item\n" . $markers[2] . " item\n";
+        } else {
+            $first = substr($markers[1], 0, -1);
+            if ($start !== null && preg_match('/^[IVXLCDM]$/i', $first) === 1) {
+                $roman = ['i' => 1, 'v' => 5, 'x' => 10, 'l' => 50, 'c' => 100, 'd' => 500, 'm' => 1000][strtolower($first)];
+                if ($roman === $start) {
+                    return ctype_lower($first) ? 'i' : 'I';
+                }
+                if (ord(strtolower($first)) - 96 === $start) {
+                    return ctype_lower($first) ? 'a' : 'A';
+                }
+            }
+            $source = $markers[1] . " item\n";
+        }
+        $lists = (new CarveConverter())->parse($source)->getChildren();
+        $list = $lists[0] ?? null;
+
+        if (isset($markers[2]) && (count($lists) !== 1 || !$list instanceof ListBlock || count($list->getChildren()) !== 2)) {
+            return null;
+        }
+
+        return $list instanceof ListBlock && $list->getListType() === ListBlock::TYPE_ORDERED ? $list->getStyle() : null;
     }
 
     /**
@@ -973,7 +1016,7 @@ class MarkdownToCarve
                     }
                 }
             }
-            $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
+            $kind = $slot['style'] ? 'style' : ($slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open'));
             $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence'], 'fenceTightAfter' => $slot['fenceTightAfter'], 'depth' => $slot['depth']];
         }
         $items = $this->anchorCarrierClosers($items);
@@ -1034,7 +1077,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($definitions[$last]->marker !== null && !($item['fence'] ?? false)) {
+            if ($definitions[$last]->marker !== null && !($item['fence'] ?? false) && $item['kind'] !== 'style') {
                 $lead = $item['text'] === '' ? $definitions[$last]->base
                     : $definitions[$last]->base . '  ' . substr($item['lead'], strlen($definitions[$last]->original));
                 $wasPending = $definitions[$last]->pending && $item['text'] !== '';
@@ -1052,6 +1095,7 @@ class MarkdownToCarve
                 ];
             }
         }
+        $items = $this->restoreListStyleMarkers($items);
         $spelled = [];
         $emptyCloser = false;
         $tightFenceCloser = null;
@@ -1124,6 +1168,81 @@ class MarkdownToCarve
         }
 
         return rtrim(implode("\n", $spelled), " \t\n") . "\n";
+    }
+
+    /**
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items
+     *
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}>
+     */
+    protected function restoreListStyleMarkers(array $items): array
+    {
+        foreach ($items as $at => $item) {
+            if ($item['kind'] !== 'style') {
+                continue;
+            }
+            $below = $at + 1;
+            while (isset($items[$below]) && $items[$below]['kind'] === null && $items[$below]['text'] === '') {
+                $below++;
+            }
+            if (!isset($items[$below]) || preg_match('/^([0-9]+)([.)])([ \t]+.*)$/D', $items[$below]['text'], $first) !== 1) {
+                continue;
+            }
+            $start = (int)$first[1];
+            $style = $this->carrierListStyle($item['text'], $start);
+            if ($style === null) {
+                continue;
+            }
+            $lead = $items[$below]['lead'];
+            $counter = $start;
+            $delimiter = $first[2];
+            for ($cursor = $below, $last = array_key_last($items); $cursor <= $last; $cursor++) {
+                if (!isset($items[$cursor])) {
+                    continue;
+                }
+                $line = $items[$cursor];
+                if ($line['text'] === '') {
+                    continue;
+                }
+                if ($line['lead'] !== $lead) {
+                    if (strlen($line['lead']) > strlen($lead)) {
+                        continue;
+                    }
+
+                    break;
+                }
+                if (preg_match('/^([0-9]+)([.)])([ \t]+.*)$/D', $line['text'], $marker) !== 1 || (int)$marker[1] !== $counter || $marker[2] !== $delimiter) {
+                    break;
+                }
+                $line['text'] = $this->carrierStyledNumber($counter, $style) . $delimiter . $marker[3];
+                $items[$cursor] = $line;
+                $counter++;
+            }
+            for ($drop = $at; $drop < $below; $drop++) {
+                unset($items[$drop]);
+            }
+        }
+
+        return array_values($items);
+    }
+
+    protected function carrierStyledNumber(int $number, string $style): string
+    {
+        if ($style === 'a' || $style === 'A') {
+            $letter = chr((($number - 1) % 26) + 97);
+
+            return $style === 'A' ? strtoupper($letter) : $letter;
+        }
+        $values = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+        $roman = '';
+        foreach ($values as [$value, $token]) {
+            while ($number >= $value) {
+                $roman .= $token;
+                $number -= $value;
+            }
+        }
+
+        return $style === 'i' ? strtolower($roman) : $roman;
     }
 
     /**
@@ -1265,6 +1384,43 @@ class MarkdownToCarve
         return $out;
     }
 
+    protected function emptyFootnoteStyleMarker(string $markdown): bool
+    {
+        $lines = explode("\n", $markdown);
+        $fence = null;
+        foreach ($lines as $at => $line) {
+            $content = ltrim($line, " \t>");
+            if ($fence !== null) {
+                if (
+                    preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $content, $close) === 1
+                    && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)
+                ) {
+                    $fence = null;
+                }
+
+                continue;
+            }
+            if (preg_match('/^(`{3,}|~{3,})/', $content, $open) === 1) {
+                $fence = $open[1];
+
+                continue;
+            }
+            if (preg_match('/^\[\^[^]]+\]:[ \t]*$/D', $content) !== 1) {
+                continue;
+            }
+            $marker = CarrierMarkers::marker(ltrim($lines[$at + 1] ?? ''));
+            $next = ltrim($lines[$at + 2] ?? '');
+            if (
+                $marker !== null && $this->carrierListStyle($marker['payload']) !== null
+                && preg_match('/^[0-9]+[.)][ \t]+\S/', $next) === 1
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Convert Markdown text to Carve text.
      *
@@ -1273,6 +1429,17 @@ class MarkdownToCarve
     public function convert(string $markdown): string
     {
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
+        if (!$this->carrierFallbackMode && $this->emptyFootnoteStyleMarker($markdown)) {
+            $this->carrierFallbackMode = true;
+            try {
+                $fallback = $this->convert($markdown);
+            } finally {
+                $this->carrierFallbackMode = false;
+            }
+            $this->carrierDamaged = true;
+
+            return $fallback;
+        }
         // PART 11 §10s: WHICH MARKER-SHAPED LINES ARE MARKERS comes from the
         // block structure this importer derives, not from a flat scan of the
         // source. A flat scan cannot tell a marker standing at a list item's
