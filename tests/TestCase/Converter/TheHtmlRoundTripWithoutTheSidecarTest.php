@@ -50,8 +50,6 @@ class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
             'nested ordered lists' => ["1. First\n\n   1. Nested one\n\n   2. Nested two\n\n2. Second\n"],
             'a definition list' => [":: Term\n: Definition text here\n"],
             'a numbered footnote' => ["Text[^1].\n\n[^1]: The note.\n"],
-            'a line block' => ["::: |\nLine one\nLine two\nLine three\n:::\n"],
-            'a line block with attributes' => ["{.poem}\n::: |\nRoses are red\nViolets are blue\n:::\n"],
             'an escaped backslash' => ["A backslash: \\\\ here.\n"],
             // The renderer's own slug IS case-preserving, so an authored id
             // differing from it only in case is authored and must be kept.
@@ -87,6 +85,15 @@ class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
     public static function degradedProvider(): array
     {
         return [
+            // Without its roundtrip carrier a line block is the `::: line-block` admonition (PART 10 §13a).
+            'a line block' => [
+                "::: |\nLine one\nLine two\nLine three\n:::\n",
+                "::: line-block\nLine one\\\nLine two\\\nLine three\n:::\n",
+            ],
+            'a line block with attributes' => [
+                "{.poem}\n::: |\nRoses are red\nViolets are blue\n:::\n",
+                "{.line-block}\n::: poem\nRoses are red\\\nViolets are blue\n:::\n",
+            ],
             // A reference link and an inline link render to the same anchor.
             'a reference link' => [
                 "See [the documentation][docs] for more info.\n\n[docs]: https://example.com/docs\n",

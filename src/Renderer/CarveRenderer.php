@@ -2285,7 +2285,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $classes = $node->getClassEntries();
 
         return $classes !== []
-            && $classes[0] !== 'line-block'
             && preg_match('/^[A-Za-z0-9_][\w-]*$/D', $classes[0]) === 1;
     }
 

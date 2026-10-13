@@ -141,7 +141,7 @@ class AnImportedNestedContainerIsAFormatterFixedPointTest extends TestCase
      */
     public function testACloserShapedVerseLineIsEscapedRatherThanWidenedAround(): void
     {
-        $imported = (new HtmlToCarve())->convert('<div class="line-block">:::<br>b</div>');
+        $imported = (new HtmlToCarve())->convert('<div data-carve-line-block class="line-block">:::<br>b</div>');
 
         $this->assertSame("::: |\n\\:::\nb\n:::\n", $imported);
         $this->assertSame(
