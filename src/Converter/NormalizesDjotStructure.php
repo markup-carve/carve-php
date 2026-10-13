@@ -732,7 +732,7 @@ trait NormalizesDjotStructure
 
                 continue;
             }
-            $rawFencedItem = preg_match('/^(?:[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|(?:(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)[`~]{3,}/', $text) === 1;
+            $rawFencedItem = preg_match('/^(?:[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|(?:(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)(?:`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $text) === 1;
             $rawReferenceItem = preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+\[(?!\^)[^\]\n]+\]:/', $text) === 1;
             $fencedItemOpener = $rawFencedItem && preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+/', $visible) === 1;
             $wholeAttributes = str_starts_with($visible, '{') && ($this->readDjotWordAttributes($raw, $indent)['end'] ?? -1) === strlen($raw);
@@ -1166,8 +1166,15 @@ trait NormalizesDjotStructure
             $attrs = str_starts_with($visible, '{') ? $this->readDjotWordAttributes($raw, $rawIndent) : null;
             $attributeLine = $attrs !== null && $attrs['end'] === strlen($raw);
             if ($attributeLine && !$paragraph && $holdItemAttributes !== null) {
-                $owner = $lists === [] ? null : $lists[array_key_last($lists)];
-                if ($owner !== null && $owner->depth === $quoteDepth && $indent > $owner->column && $attrs['source'] !== '{}') {
+                $owner = null;
+                for ($key = count($lists) - 1; $key >= 0; $key--) {
+                    if ($lists[$key]->depth === $quoteDepth && $indent > $lists[$key]->column) {
+                        $owner = $lists[$key];
+
+                        break;
+                    }
+                }
+                if ($owner !== null && $attrs['source'] !== '{}') {
                     $heldLoose = preg_match('/\x00DJOTITEMATTR\x00(?:\d+\x00)?B\d+\x00$/', $out[$owner->start - 2] ?? '') === 1;
                     if ($blank && !$heldLoose && !str_contains($out[$owner->start], "{loose}\n")) {
                         $start = $out[$owner->start];
