@@ -400,7 +400,7 @@ trait NormalizesDjotStructure
                     $attributes = str_starts_with($content, '{') ? $this->readDjotWordAttributes($content, 0) : null;
                     if ($attributes !== null && $attributes['end'] === strlen($content)) {
                         $noteOwner->pendingAttributes[] = $attributes['source'];
-                        $noteOwner->pendingPrefix = '  ' . $inlineQuote['prefix'];
+                        $noteOwner->pendingPrefix = '  ' . ($child ? '' : $inlineQuote['prefix']);
                         $noteOwner->pendingParentPrefix = $quote;
                         $out[] = $noteHead[1] . substr($body, 0, strlen($body) - strlen($content)) . $emptyNote;
                     } else {
@@ -420,6 +420,9 @@ trait NormalizesDjotStructure
                 continue;
             }
             if ($text === '') {
+                if ($noteOwner !== null && $quoteDepth <= $noteOwner->depth) {
+                    $noteOwner->pendingPrefix = '  ';
+                }
                 while ($lists !== [] && $lists[array_key_last($lists)]->depth > $quoteDepth) {
                     array_pop($lists);
                 }

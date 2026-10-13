@@ -78,5 +78,25 @@
   {
     "source": "> - a\n>\n>   {.k}\n>   # h\n",
     "html": "<blockquote><ul><li><p>a</p><h1 class=\"k\" id=\"h\">h</h1></li></ul></blockquote>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: > {.c}\n\n  > inside\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><blockquote></blockquote><blockquote class=\"c\"><p>inside</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: > {.c}\n\n  inside\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><blockquote></blockquote><p class=\"c\">inside<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: - > {.c}\n    > inside\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><ul><li><blockquote></blockquote></li></ul><blockquote class=\"c\"><p>inside</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: 1. > {.c}\n    > inside\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><ol><li><blockquote></blockquote></li></ol><blockquote class=\"c\"><p>inside</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: > {.c}\n  >\n  > inside\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><blockquote><p class=\"c\">inside</p></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   }
 ]
