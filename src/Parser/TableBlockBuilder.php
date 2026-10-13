@@ -290,6 +290,9 @@ final class TableBlockBuilder
                 $cellAccumulator ??= new TableCellAccumulator(($this->getTableParser)(), $mergedCells);
                 $openRuns = $cellAccumulator->openDelimiters();
                 $continuationCells = ($this->getTableParser)()->parseContinuationCells($lines[$i], $openRuns);
+                // A continuation joins the row above by column. A cell past
+                // that row's width has no column to join and cannot add one.
+                $continuationCells = array_slice($continuationCells, 0, count($baseCells));
                 foreach ($this->continuationCellSourceChunks($i, $lines[$i], $openRuns) as $idx => $chunks) {
                     if ($chunks === []) {
                         continue;
