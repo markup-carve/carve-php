@@ -4967,8 +4967,8 @@ class BlockParser
     }
 
     /**
-     * Decide whether a list item's lead content is a colon-fence opener with
-     * item-owned body beneath it.
+     * Compatibility hook for a colon opener on an item's marker line.
+     * The source-view parameters remain available to parser subclasses.
      *
      * Used to keep a marker-line opener and its item-owned continuation lines
      * in one block stream so the div/admonition parser captures its body.
@@ -5373,8 +5373,8 @@ class BlockParser
                 $retainedBelowComment = true;
             } elseif (
                 $retainedBelowComment
-                && (!$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
-                    || $this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0))
+                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
+                && !$this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0)
             ) {
                 $bodyLine = ltrim($nextLine, " \t");
                 $bodyLines[] = $bodyLine;

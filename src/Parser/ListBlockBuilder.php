@@ -1600,13 +1600,26 @@ final class ListBlockBuilder
             }
         }
         if ($firstVisible !== null && ($this->getFencedBlockParser)()->parseDivFenceOpener($firstVisible) !== null) {
+            $lazyParagraph = false;
+            $afterHostedComment = false;
             foreach ($lines as $index => $candidate) {
+                if (IndentationHelper::isBlankLine($candidate)) {
+                    $lazyParagraph = false;
+                } elseif (str_starts_with($candidate, BlockGrammar::LAZY_FRAME)) {
+                    $lazyParagraph = true;
+                }
                 if ($eligible !== null && !isset($eligible[$index])) {
+                    if ($index > 0 && !IndentationHelper::isBlankLine($candidate)) {
+                        $lazyParagraph = true;
+                    }
+
                     continue;
                 }
                 $subject = ltrim($candidate, " \t");
+                $afterHostedComment = $afterHostedComment || $this->isCommentLineOrFence($subject);
                 if (
-                    $subject !== $candidate && (($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0)
+                    !$lazyParagraph && $subject !== $candidate
+                    && ((($index === 1 || $afterHostedComment) && ($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0))
                     || ($this->getFencedBlockParser)()->parseDivFenceOpener($subject) !== null)
                 ) {
                     return true;
@@ -1642,7 +1655,7 @@ final class ListBlockBuilder
                     // A definition at the parent's minimum releases the child.
                     if (
                         preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
-                        || preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $line) === 1
+                        || ($hasBlank && preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $line) === 1)
                         || ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) !== null
                         || ($this->getFencedBlockParser)()->parseFencedCommentOpener($line) !== null
                     ) {
@@ -1680,6 +1693,8 @@ final class ListBlockBuilder
         $probeNestedColumns = $leadNestedColumn === null ? [] : [$leadNestedColumn];
         $probeAfterBlank = false;
         $skipUntil = -1;
+        $probeHadCodeFence = false;
+        $hasRetainedTab = null;
         foreach ($lines as $index => $line) {
             if ($beforeLeadNote !== null && $index === $leadNoteTextEnd + 1) {
                 $probeNestedColumns = $beforeLeadNote;
@@ -1709,11 +1724,20 @@ final class ListBlockBuilder
             ) {
                 continue;
             }
-            if ($leadNoteTextEnd < 0 && $probeNestedColumns !== [] && $base > 0 && $base < end($probeNestedColumns)) {
+            if (
+                ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
+                && ($probeNestedColumns === [] || $base >= end($probeNestedColumns))
+            ) {
+                $probeHadCodeFence = true;
+            }
+            if (
+                !$probeHadCodeFence && $leadNoteTextEnd < 0 && $probeNestedColumns !== [] && $base > 0 && $base < end($probeNestedColumns)
+                && !($hasRetainedTab ??= str_contains(implode("\n", $lines), "\t"))
+            ) {
                 $subject = ltrim($line, " \t");
                 $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject)
                     ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($subject);
-                if ($fence !== null && !$this->continuations->sourceFenceCloserInView($lines, $index, $fence, $base)) {
+                if ($fence !== null && !$this->continuations->sourceFenceCloserInView($lines, $index, $fence, $base, true)) {
                     return false;
                 }
             }
@@ -2151,6 +2175,16 @@ final class ListBlockBuilder
                 break;
             }
         }
+        $protectedPrefixEnd = -1;
+        if ($firstContentLine !== null && ($this->getListParser)()->parseListItemMarker($lines[$firstContentLine]) !== null) {
+            foreach ($lines as $lineIndex => $chunkLine) {
+                if ($lineIndex > $firstContentLine && preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $chunkLine) === 1) {
+                    $protectedPrefixEnd = $lineIndex;
+
+                    break;
+                }
+            }
+        }
         $leadNoteTextEnd = $this->leadNoteTextEnd($lines);
         $afterBlank = false;
         $blockState = new TrailingBlockState();
@@ -2162,6 +2196,9 @@ final class ListBlockBuilder
         $descendantFenceClosers = null;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
+            if ($i < $protectedPrefixEnd) {
+                continue;
+            }
             if ($beforeLeadNote !== null && $i === $leadNoteTextEnd + 1) {
                 // The note's marker lines were text, so they opened no level.
                 $nestedColumns = $beforeLeadNote;
@@ -2424,8 +2461,14 @@ final class ListBlockBuilder
                         $length = $div['length'];
                         $closer = $this->colonFenceEnd($lines, $i, $length, $count, null);
                         $end = $closer === -1 ? $count - 1 : $closer;
+                        $firstBody = ltrim($lines[$i + 1] ?? '', " \t");
+                        $bodyStartsWithCode = $div['className'] !== '|'
+                            && (($this->getFencedBlockParser)()->parseCodeFenceOpener($firstBody) !== null
+                                || ($this->getFencedBlockParser)()->parseRawBlockOpener($firstBody) !== null);
                         if ($includeSublists) {
                             $i = $this->containerExtentBeforeADefinition($lines, $i, $end);
+                        } elseif (!$bodyStartsWithCode) {
+                            $i = $end;
                         }
                         $afterBlank = false;
 
@@ -2497,7 +2540,7 @@ final class ListBlockBuilder
                         true,
                     );
                 }
-                if ($minimumColonIsLiteral) {
+                if ($minimumColonIsLiteral || ($blockState->openParagraph && $blockState->nestedListSeen)) {
                     $afterBlank = false;
 
                     continue;

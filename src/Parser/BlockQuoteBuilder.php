@@ -294,6 +294,8 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
+                && !(preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
+                    && preg_match('/^(?:[ \t]*(?:[-+*]|[0-9]+[.)])[ \t]+)*[ \t]*::[ \t]/', $innerLines[array_key_last($innerLines)] ?? '') === 1)
                 && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
                     && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0)
                 && !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i)
