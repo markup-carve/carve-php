@@ -1792,6 +1792,28 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             }
         }
 
+        if (
+            $this->roundTripMode && $this->tableCellDepth === 0
+            && ($node instanceof Link || $node instanceof Image || $node instanceof Span || $node instanceof HeadingRef)
+        ) {
+            $attributes = (new CarrierOpenerWriter())->inlineAttributes($node);
+            if (
+                ($node instanceof Link || $node instanceof Image) && $rawReference === null
+                && ($node instanceof Image || $this->linkTextDepth === 0) && $attributes !== ''
+            ) {
+                $tail = substr($output, strlen(rtrim($output, "\n")));
+                $output = rtrim($output, "\n") . $this->literalCarrierLine($attributes) . $tail;
+            } elseif ($node instanceof Span) {
+                $output = $this->literalCarrierLine('[') . $output
+                    . $this->literalCarrierLine(']' . ($attributes === '' ? '{}' : $attributes));
+            } elseif (
+                $node instanceof HeadingRef && $node->getHref() !== null && $this->linkTextDepth === 0
+                && isset($this->gfmSlugs[substr($node->getHref(), 1)])
+            ) {
+                $output = $this->literalCarrierLine('</#' . $node->getTargetId() . '>') . $output;
+            }
+        }
+
         return $output;
     }
 
@@ -2675,7 +2697,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderParagraph(Paragraph $node): string
     {
-        return $this->protectParagraphListMarkers($this->renderChildren($node)) . "\n\n";
+        $content = $this->renderChildren($node);
+        if ($this->roundTripMode && str_contains($content, CarrierMarkers::PREFIX)) {
+            $content = preg_replace('/^((?:<!-- carve: (?:(?! -->)[^\n])* -->)*)[ \t]+/', '$1', $content) ?? $content;
+            $content = preg_replace('/[ \t]+((?:<!-- carve: (?:(?! -->)[^\n])* -->)*)$/D', '$1', $content) ?? $content;
+        }
+
+        return $this->protectParagraphListMarkers($content) . "\n\n";
     }
 
     /**

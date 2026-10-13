@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Util\CarrierMarkers;
 
 /**
  * Spells a container's Carve opener and closer for a PART 11 §10s carrier
@@ -67,7 +68,7 @@ final class CarrierOpenerWriter extends CarveRenderer
 
         return [
             'prelude' => array_slice($lines, 0, $open),
-            'opener' => $lines[$open],
+            'opener' => CarrierMarkers::isCloser($lines[$open]) ? $lines[$open] . ' ' : $lines[$open],
             'closer' => $lines[$close],
             'postlude' => $postlude,
         ];
@@ -82,6 +83,11 @@ final class CarrierOpenerWriter extends CarveRenderer
         }
 
         return $this->renderAttrs($node);
+    }
+
+    public function inlineAttributes(Node $node): string
+    {
+        return $this->renderAttrList($node->getAttributeEntries(), $node->getAttributeOrder(), '>');
     }
 
     public function inlinePayload(Node $node, string $prefix): string

@@ -1,0 +1,296 @@
+[
+  {
+    "id": "export-0",
+    "source": "[x]{.c} text\n",
+    "markdown": "<!-- carve: [ -->x<!-- carve: ]{.c} --> text\n",
+    "html": "<p><span class=\"c\">x</span> text</p>",
+    "codes": []
+  },
+  {
+    "id": "export-1",
+    "source": "[a [b]{.i} c]{.o}\n",
+    "markdown": "<!-- carve: [ -->a <!-- carve: [ -->b<!-- carve: ]{.i} --> c<!-- carve: ]{.o} -->\n",
+    "html": "<p><span class=\"o\">a <span class=\"i\">b</span> c</span></p>",
+    "codes": []
+  },
+  {
+    "id": "export-2",
+    "source": "[[x](u){.k}]{.c}\n",
+    "markdown": "<!-- carve: [ -->[x](u)<!-- carve: {.k} --><!-- carve: ]{.c} -->\n",
+    "html": "<p><span class=\"c\"><a href=\"u\" class=\"k\">x</a></span></p>",
+    "codes": []
+  },
+  {
+    "id": "export-3",
+    "source": "[l](u){data-x=\"a-->b\"}\n",
+    "markdown": "[l](u)<!-- carve: {data-x=\"a--\\>b\"} -->\n",
+    "html": "<p><a href=\"u\" data-x=\"a--&gt;b\">l</a></p>",
+    "codes": []
+  },
+  {
+    "id": "export-4",
+    "source": "*[x]{.c}*\n",
+    "markdown": "**<!-- carve: [ -->x<!-- carve: ]{.c} -->**\n",
+    "html": "<p><strong><span class=\"c\">x</span></strong></p>",
+    "codes": []
+  },
+  {
+    "id": "export-5",
+    "source": "[*x*]{.c}\n",
+    "markdown": "<!-- carve: [ -->**x**<!-- carve: ]{.c} -->\n",
+    "html": "<p><span class=\"c\"><strong>x</strong></span></p>",
+    "codes": []
+  },
+  {
+    "id": "export-6",
+    "source": "a[x]{.c}b\n",
+    "markdown": "a<!-- carve: [ -->x<!-- carve: ]{.c} -->b\n",
+    "html": "<p>a<span class=\"c\">x</span>b</p>",
+    "codes": []
+  },
+  {
+    "id": "export-7",
+    "source": "[x]{.c}[y]{.d}\n",
+    "markdown": "<!-- carve: [ -->x<!-- carve: ]{.c} --><!-- carve: [ -->y<!-- carve: ]{.d} -->\n",
+    "html": "<p><span class=\"c\">x</span><span class=\"d\">y</span></p>",
+    "codes": []
+  },
+  {
+    "id": "export-8",
+    "source": "[[x]{.c}](u){.k}\n",
+    "markdown": "[<!-- carve: [ -->x<!-- carve: ]{.c} -->](u)<!-- carve: {.k} -->\n",
+    "html": "<p><a href=\"u\" class=\"k\"><span class=\"c\">x</span></a></p>",
+    "codes": []
+  },
+  {
+    "id": "export-9",
+    "source": "[l](u){data-x=\"a--\\>b\"}\n",
+    "markdown": "[l](u)<!-- carve: {data-x=\"a--\\>b\"} -->\n",
+    "html": "<p><a href=\"u\" data-x=\"a--&gt;b\">l</a></p>",
+    "codes": []
+  },
+  {
+    "id": "export-10",
+    "source": "[x]{abbr=why .c}\n",
+    "markdown": "<!-- carve: [ --><abbr title=\"why\">x</abbr><!-- carve: ]{abbr=why .c} -->\n",
+    "html": "<p><abbr title=\"why\" class=\"c\">x</abbr></p>",
+    "codes": []
+  },
+  {
+    "id": "export-11",
+    "source": "[x]{abbr=why}\n",
+    "markdown": "<!-- carve: [ --><abbr title=\"why\">x</abbr><!-- carve: ]{abbr=why} -->\n",
+    "html": "<p><abbr title=\"why\">x</abbr></p>",
+    "codes": []
+  },
+  {
+    "id": "export-12",
+    "source": "# Rise\n\nSee </#Rise>.\n",
+    "markdown": "# Rise\n\nSee <!-- carve: </#Rise> -->[Rise](#rise).\n",
+    "html": "<section id=\"Rise\">\n  <h1>Rise</h1>\n  <p>See <a href=\"#Rise\">Rise</a>.</p>\n</section>",
+    "codes": []
+  },
+  {
+    "id": "export-13",
+    "source": "# Café\n\nSee </#Café>.\n",
+    "markdown": "# Café\n\nSee <!-- carve: </#Café> -->[Café](#café).\n",
+    "html": "<section id=\"Café\">\n  <h1>Café</h1>\n  <p>See <a href=\"#Café\">Café</a>.</p>\n</section>",
+    "codes": []
+  },
+  {
+    "id": "export-14",
+    "source": "See ![a](i.png){width=300} here.\n",
+    "markdown": "See ![a](i.png)<!-- carve: {width=300} --> here.\n",
+    "html": "<p>See <img src=\"i.png\" alt=\"a\" width=\"300\"> here.</p>",
+    "codes": []
+  },
+  {
+    "id": "export-15",
+    "source": "| [x]{.c} | [l](u){.k} |\n|---|---|\n",
+    "markdown": "| x | [l](u) |\n| --- | --- |\n",
+    "html": "<table>\n  <thead>\n    <tr><th scope=\"col\">x</th><th scope=\"col\"><a href=\"u\">l</a></th></tr>\n  </thead>\n</table>",
+    "codes": []
+  },
+  {
+    "id": "export-16",
+    "source": "`[x]{.c}`\n",
+    "markdown": "`[x]{.c}`\n",
+    "html": "<p><code>[x]{.c}</code></p>",
+    "codes": []
+  },
+  {
+    "id": "export-17",
+    "source": "![[x]{.c}](i.png)\n",
+    "markdown": "![\\[x\\]{.c}](i.png)\n",
+    "html": "<img src=\"i.png\" alt=\"[x]{.c}\">",
+    "codes": []
+  },
+  {
+    "id": "export-18",
+    "source": "[ x ]{.c}\n",
+    "markdown": "<!-- carve: [ -->x<!-- carve: ]{.c} -->\n",
+    "html": "<p><span class=\"c\">x</span></p>",
+    "codes": []
+  },
+  {
+    "id": "export-19",
+    "source": "[x]{.c}\ntail\n",
+    "markdown": "<!-- carve: [ -->x<!-- carve: ]{.c} -->\ntail\n",
+    "html": "<p><span class=\"c\">x</span>\ntail</p>",
+    "codes": []
+  },
+  {
+    "id": "export-20",
+    "source": "- [x]{.c}\n",
+    "markdown": "- <!-- carve: [ -->x<!-- carve: ]{.c} -->\n",
+    "html": "<ul>\n  <li><span class=\"c\">x</span></li>\n</ul>",
+    "codes": []
+  },
+  {
+    "id": "export-21",
+    "source": "> [x]{.c}\n",
+    "markdown": "> <!-- carve: [ -->x<!-- carve: ]{.c} -->\n",
+    "html": "<blockquote><p><span class=\"c\">x</span></p></blockquote>",
+    "codes": []
+  },
+  {
+    "id": "import-0",
+    "markdown": "bad <!-- carve: garbage --> here. [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p>bad <!-- carve: garbage --> here. <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-1",
+    "markdown": "bad <!-- carve: {key=\"unterminated} --> here. [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p>bad <!-- carve: {key=\"unterminated} --> here. <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-2",
+    "markdown": "bad <!-- carve: {.lost} --> here. [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p>bad <!-- carve: {.lost} --> here. <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-3",
+    "markdown": "bad <!-- carve: </#lost> --> here. [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p>bad <!-- carve: </#lost> --> here. <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-4",
+    "markdown": "<!-- carve: garbage --> text [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p><!-- carve: garbage --> text <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-5",
+    "markdown": "<!-- carve: {key=\"unterminated} --> text [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p><!-- carve: {key=\"unterminated} --> text <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-6",
+    "markdown": "<!-- carve: {.lost} --> text [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p><!-- carve: {.lost} --> text <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-7",
+    "markdown": "<!-- carve: </#lost> --> text [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<p><!-- carve: </#lost> --> text <a href=\"u\" class=\"kept\">ok</a></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-8",
+    "markdown": "a <!-- carve: [ -->x<!-- carve: ]{.c} --> b\n",
+    "html": "<p>a <span class=\"c\">x</span> b</p>",
+    "codes": []
+  },
+  {
+    "id": "import-9",
+    "markdown": "[l][ref]<!-- carve: {.c} -->\n\n[ref]: u\n",
+    "html": "<p><a href=\"u\" class=\"c\">l</a></p>",
+    "codes": []
+  },
+  {
+    "id": "import-10",
+    "markdown": "[l]<!-- carve: {.c} -->\n\n[l]: u\n",
+    "html": "<p><a href=\"u\" class=\"c\">l</a></p>",
+    "codes": []
+  },
+  {
+    "id": "import-11",
+    "markdown": "<https://example.com><!-- carve: {.c} -->\n",
+    "html": "<p><a href=\"https://example.com\" class=\"c\">https://example.com</a></p>",
+    "codes": []
+  },
+  {
+    "id": "import-12",
+    "markdown": "[l](u)<!-- carve: {one=\"a\\\"b\"} --><!-- carve: {.new} -->\n",
+    "html": "<p><a href=\"u\" class=\"new\">l</a></p>",
+    "codes": []
+  },
+  {
+    "id": "import-13",
+    "markdown": "<!-- carve: [ -->lost\n\n[ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<!-- carve: [ -->lost\n<p><a href=\"u\">ok</a><!-- carve: {.kept} --></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-14",
+    "markdown": "<!-- carve: ]{.c} --> text [ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<!-- carve: ]{.c} --> text [ok](u)<!-- carve: {.kept} -->",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-15",
+    "markdown": "<!-- carve: ::: note -->\n\n[ok](u)<!-- carve: {.kept} -->\n",
+    "html": "<!-- carve: ::: note -->\n<p><a href=\"u\">ok</a><!-- carve: {.kept} --></p>",
+    "codes": [
+      "carrier-markers-damaged"
+    ]
+  },
+  {
+    "id": "import-16",
+    "markdown": "<!-- carve: ::: note -->\n<!-- carve: garbage -->\nBody.\n<!-- carve: ::: -->\n",
+    "html": "<aside class=\"admonition note\" aria-label=\"Note\">\n  <!-- carve: garbage -->\n  <p>Body.</p>\n</aside>",
+    "codes": [
+      "carrier-marker-dropped"
+    ]
+  },
+  {
+    "id": "import-17",
+    "markdown": "<!-- carve: ::: { -->\nBody.\n<!-- carve: ::: -->\n\n<!-- carve: ::: note -->\nGood.\n<!-- carve: ::: -->\n",
+    "html": "<!-- carve: ::: { -->\n<p>Body.</p>\n<!-- carve: ::: -->\n<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>Good.</p>\n</aside>",
+    "codes": [
+      "carrier-marker-dropped"
+    ]
+  },
+  {
+    "id": "import-18",
+    "markdown": "`<!-- carve: [ -->`\n\n```\n<!-- carve: ]{.c} -->\n```\n",
+    "html": "<p><code>&lt;!-- carve: [ --&gt;</code></p>\n<pre><code>&lt;!-- carve: ]{.c} --&gt;\n</code></pre>",
+    "codes": []
+  }
+]

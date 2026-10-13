@@ -363,6 +363,11 @@ class MarkdownToCarve
     protected bool $carrierFallbackMode = false;
 
     /**
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    protected array $carrierDiagnostics = [];
+
+    /**
      * The placeholder a lifted marker line stands in as, unique in the source.
      */
     protected string $carrierToken = '';
@@ -463,6 +468,7 @@ class MarkdownToCarve
         $this->carrierSlots = [];
         $this->carrierLiteralText = [];
         $this->carrierDamaged = false;
+        $this->carrierDiagnostics = [];
         $this->carrierToken = '';
         if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::PREFIX)) {
             return $markdown;
@@ -484,7 +490,7 @@ class MarkdownToCarve
             }
             $host = $this->carrierHostPrefix($line);
             $payload = CarrierMarkers::payload(substr($line, strlen($host)));
-            if ($payload !== null) {
+            if ($payload !== null && $payload !== '[' && !str_starts_with($payload, ']{') && !str_starts_with($payload, '</#')) {
                 $payloads[$at] = $payload;
                 $hosts[$at] = $host;
                 $seen = true;
@@ -493,8 +499,63 @@ class MarkdownToCarve
         if (!$seen) {
             return $markdown;
         }
-        if (!$this->carrierSetBalances($payloads, $lines, $hosts)) {
+        $pairs = [];
+        $stack = [];
+        $balanced = true;
+        foreach ($payloads as $at => $payload) {
+            $width = CarrierMarkers::fenceWidth($payload);
+            if ($width === 0) {
+                continue;
+            }
+            if (CarrierMarkers::isCloser($payload)) {
+                $opener = array_pop($stack);
+                if ($opener === null || CarrierMarkers::fenceWidth($payloads[$opener]) !== $width) {
+                    $balanced = false;
+                } else {
+                    $pairs[$opener] = $at;
+                }
+            } else {
+                if ($stack !== [] && $width <= CarrierMarkers::fenceWidth($payloads[end($stack)])) {
+                    $balanced = false;
+                }
+                $stack[] = $at;
+            }
+        }
+        $balanced = $balanced && $stack === [];
+        if ($balanced) {
+            foreach ($payloads as $at => $payload) {
+                $width = CarrierMarkers::fenceWidth($payload);
+                $opener = $width > 0 && !CarrierMarkers::isCloser($payload);
+                $closer = $pairs[$at] ?? null;
+                if ($opener && $closer !== null) {
+                    $children = (new CarveConverter())->parse($payload . "\n" . $payloads[$closer] . "\n")->getChildren();
+                    $valid = count($children) === 1 && !$children[0] instanceof Paragraph;
+                } elseif (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
+                    $valid = AttributeParser::isValidPayload(substr($payload, 1, -1));
+                } else {
+                    $valid = $width > 0 || CarrierMarkers::isCaption($payload)
+                        || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
+                }
+                if (!$valid) {
+                    unset($payloads[$at]);
+                    if ($closer !== null) {
+                        unset($payloads[$closer]);
+                    }
+                    $this->carrierDiagnostics[] = new MigrationDiagnostic(
+                        'carrier-marker-dropped',
+                        ($opener ? 'Dropped carrier marker pair with an invalid opener: ' : 'Dropped carrier marker with an invalid payload: ')
+                            . substr($lines[$at], strlen($hosts[$at])),
+                        'warning',
+                        'degraded',
+                        'fallback',
+                        'line:' . ($at + 1),
+                    );
+                }
+            }
+        }
+        if (!$balanced || !$this->carrierSetBalances($payloads, $lines, $hosts)) {
             $this->carrierDamaged = true;
+            $this->carrierDiagnostics = [];
 
             return $markdown;
         }
@@ -1010,6 +1071,10 @@ class MarkdownToCarve
         // below, before the conversion proper reads any of it.
         $carrierOriginal = $markdown;
         $markdown = $this->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
+        $inlineCarriers = new InlineCarrierReader();
+        if (!$this->carrierFallbackMode && !$this->carrierDamaged) {
+            $markdown = $inlineCarriers->prepare($markdown);
+        }
         $this->unspellableOrderedTasks = [];
         $this->flattenedEmphasis = false;
         $this->tableUnderWay = [];
@@ -2359,6 +2424,27 @@ class MarkdownToCarve
         $captionMarkers = count(array_filter($this->carrierSlots, static fn (array $slot): bool => $slot['caption']));
         $beforeCaptions = $captionMarkers === 0 ? 0 : $this->attachedCaptionCount(CarveConverter::create()->parse($carve));
         $carve = strtr($this->restoreCarrierMarkers($carve), $this->carrierLiteralText);
+        $carve = $inlineCarriers->restore($carve);
+        foreach ($inlineCarriers->dropped as $marker) {
+            $this->carrierDiagnostics[] = new MigrationDiagnostic(
+                'carrier-markers-damaged',
+                'Dropped carrier marker with an invalid payload: ' . $marker,
+                'warning',
+                'degraded',
+                'fallback',
+            );
+        }
+        if ($inlineCarriers->damaged) {
+            $this->carrierFallbackMode = true;
+            try {
+                $carve = $this->convert($carrierOriginal);
+            } finally {
+                $this->carrierFallbackMode = false;
+            }
+            $this->carrierDamaged = true;
+
+            return $carve;
+        }
         if ($captionMarkers > 0 && $this->attachedCaptionCount(CarveConverter::create()->parse($carve)) !== $beforeCaptions + $captionMarkers) {
             $this->carrierFallbackMode = true;
             try {
@@ -2426,7 +2512,13 @@ class MarkdownToCarve
     {
         $result = $this->assessedFidelityReport($markdown);
         if (!$this->carrierDamaged) {
-            return $result;
+            return $this->carrierDiagnostics === [] ? $result : new MigrationResult(
+                $result->value,
+                $result->sourceFormat,
+                [...$result->diagnostics, ...$this->carrierDiagnostics],
+                $result->mode,
+                $result->adapter,
+            );
         }
 
         // PART 11 §10s: one row for the set, no partial reconstruction. The

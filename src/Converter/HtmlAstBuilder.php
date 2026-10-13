@@ -4317,6 +4317,20 @@ final class HtmlAstBuilder
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
+        if ($tag === 'span' && HtmlCarrierNames::peekPresence($node, 'data-carve-caption-number')) {
+            $bare = true;
+            foreach ($node->attributes as $attribute) {
+                $bare = $bare && HtmlCarrierNames::canonicalName($attribute->name) === 'data-carve-caption-number';
+            }
+            foreach ($node->childNodes as $child) {
+                $bare = $bare && $child instanceof DOMText;
+            }
+            if ($bare) {
+                HtmlCarrierNames::consumePresence($node, 'data-carve-caption-number');
+
+                return [['type' => 'caption_number']];
+            }
+        }
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
             return [];
         }
@@ -4572,6 +4586,15 @@ final class HtmlAstBuilder
                 $span['attrs'] = $attrs;
             }
 
+            if ($tag === 'span' && $attrs === [] && $node->attributes->length > 0
+                && !self::hasConflictingTextCarriers($node)
+                && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
+                && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+                && $this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
+                $this->keepRaw($node);
+
+                return [['type' => 'raw_inline', 'content' => rtrim(HtmlDomLoader::serialize($node), "\n"), 'format' => 'html']];
+            }
             if ($tag === 'span' && $attrs === []) {
                 if ($span['children'] === []) {
                     $this->session->droppedEmptyElements[$node] = null;
@@ -4771,6 +4794,37 @@ final class HtmlAstBuilder
     private function inlineLink(DOMElement $node): array
     {
         $href = $node->getAttribute('href');
+        if (HtmlCarrierNames::peekPresence($node, 'data-carve-xref') && preg_match('/^#[^> \n\r]+$/D', $href) === 1) {
+            HtmlCarrierNames::consumePresence($node, 'data-carve-xref');
+            $contradiction = self::isReferenceCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-ref'))
+                || HtmlCarrierNames::consumePresence($node, 'data-carve-autolink')
+                || self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));
+            if ($contradiction) {
+                $this->session->contradictoryLinkCarriers[$node] = null;
+                $link = ['type' => 'link', 'href' => $href, 'children' => $this->inlines($this->children($node))];
+                if ($node->hasAttribute('title')) {
+                    $link['title'] = $node->getAttribute('title');
+                }
+                $this->attachAttrs($link, $node, ['href', 'title']);
+
+                return [$link];
+            }
+            $reference = ['type' => 'heading_ref', 'target' => substr($href, 1)];
+            $attrs = $this->attrs($node, ['href']);
+            if ($attrs !== []) {
+                $reference['attrs'] = $attrs;
+            }
+            HtmlCarrierNames::consumeAttribute($node, 'href');
+            foreach ($node->attributes as $attribute) {
+                $name = strtolower(HtmlDomLoader::attributeName($attribute));
+                if (($name === 'id' && isset($attrs['id'])) || ($name === 'class' && isset($attrs['classes']))
+                    || array_key_exists($name, $attrs['keyValues'] ?? [])) {
+                    HtmlCarrierNames::consumeAttribute($node, $name);
+                }
+            }
+
+            return [$reference];
+        }
         $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
         $markedReference = strtolower($node->getAttribute('role')) === 'doc-noteref'
             || self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));

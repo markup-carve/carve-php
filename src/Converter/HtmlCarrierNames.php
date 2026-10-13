@@ -49,6 +49,7 @@ final class HtmlCarrierNames
         'admonition-type',
         'autolink',
         'col-widths',
+        'caption-number',
         'escaped',
         'explicit-id',
         'generated-id',
@@ -72,6 +73,7 @@ final class HtmlCarrierNames
         'src',
         'tab-title',
         'tight',
+        'xref',
     ];
 
     /**
