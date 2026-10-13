@@ -7,7 +7,11 @@
   {
     "id": "review3-p5-0",
     "source": "- t\n  \t> q\n   \t{.c}\n\t\t%% c\n  \t ````\n \t{.c}\n \t```\n",
-    "html": "<ul><li>t\n    <blockquote><p>q</p></blockquote><p class=\"c\"><code></code></p><pre class=\"c\"><code></code></pre></li></ul>"
+    "html": "<ul><li>t\n    <blockquote><p>q</p></blockquote><pre class=\"c\"><code>  {.c}\n  ```\n</code></pre></li></ul>",
+    "classification": "C",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "evidence": "reports/ci-reference-parity-triage.json"
   },
   {
     "id": "failed-admission-0",

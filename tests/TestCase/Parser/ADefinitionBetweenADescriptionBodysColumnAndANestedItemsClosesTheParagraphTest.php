@@ -310,11 +310,8 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     }
 
     /**
-     * THE COMMENT CONTROL DOES NOT MOVE. §10 I5's column exemption already had
-     * it end the paragraph at every column, so a change scoped to the two
-     * definition kinds must leave the whole band alone.
-     *
-     * Byte-identical before and after, at every column from 0 to 7.
+     * Comment retention uses the pinned column controls (CARVE-P9-053).
+     * The column-2 nested-item owner remains a checker/reference conflict.
      *
      * @return array<string, array{0: int}>
      */
@@ -337,7 +334,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     {
         $source = ":: t\n:  - a\n" . str_repeat(' ', $column) . "%% c\ntail";
         $html = $this->converter->convert($source);
-        $this->assertSame(($column === 2 ? self::ENDED : trim(PinnedOracleHtml::forSource($source))), trim($html));
+        $this->assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
     }
 
     /**

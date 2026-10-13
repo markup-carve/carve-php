@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\TestCase;
 
 class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
@@ -23,13 +24,11 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         }
     }
 
-    public function testQuotedLazyDemotionRetainsTheListHost(): void
+    public function testAnEmptyQuotedDivReleasesTheListHost(): void
     {
         $source = "> - ::: box\n> lazy\n>   :::\n- tail\n";
         $html = (new CarveConverter())->convert($source);
-        $this->assertStringContainsString("<li>::: box\nlazy", $html);
-        $this->assertStringContainsString("<div>\n\n", $html);
-        $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
+        $this->assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
     }
 
     public function testEstablishedBodyRetainsItsCloserAcrossQuotedLazyText(): void
@@ -87,13 +86,16 @@ class AQuotedLiteralDivKeepsItsHostStateTest extends TestCase
         $this->assertStringNotContainsString("<p>body\n- next</p>", $html);
     }
 
-    public function testLiteralAndDemotedBodiesAlsoCloseTheirRealDiv(): void
+    public function testLiteralAndEmptyBodiesKeepTheirFollowingListOwners(): void
     {
         foreach (["|\n>     body", 'box'] as $body) {
             $source = "> - a\n>   - ::: " . $body . "\n>  - next\n>     :::\n- tail\n";
             $html = (new CarveConverter())->convert($source);
-            $expected = $body === 'box' ? "<li>::: box\n- next" : "<p>body<br>\n- next</p>";
-            $this->assertStringContainsString($expected, $html);
+            if ($body === 'box') {
+                $this->assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
+            } else {
+                $this->assertStringContainsString("<p>body<br>\n- next</p>", $html);
+            }
             $this->assertStringEndsWith("</blockquote>\n<ul>\n  <li>tail</li>\n</ul>\n", $html);
         }
     }

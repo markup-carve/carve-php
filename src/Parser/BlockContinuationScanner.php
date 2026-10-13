@@ -3477,9 +3477,7 @@ final class BlockContinuationScanner
                 $lastInteriorNewline,
                 false,
             );
-            // A marker-line div remains a candidate until its body reaches
-            // the item's content column. Below-column prose still demotes an
-            // unestablished opener; an established body keeps its real closer.
+            // A marker-line div opener leaves no paragraph until its body supplies one.
             if ($inner->inDiv && $inner->fence === null) {
                 $state->nestedDiv = $inner;
                 $state->nestedDivHosts = [];
@@ -3498,7 +3496,7 @@ final class BlockContinuationScanner
                 $firstMarker = ($this->getListParser)()->markerContentOffset($line, $at);
                 $state->nestedColumn = $firstMarker === null ? 0 : $firstMarker - $at;
                 $state->nestedDivBody = false;
-                $state->openParagraph = true;
+                $state->openParagraph = false;
 
                 return $state;
             }

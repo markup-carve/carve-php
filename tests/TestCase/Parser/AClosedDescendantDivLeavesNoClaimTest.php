@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\TestCase;
 
 class AClosedDescendantDivLeavesNoClaimTest extends TestCase
@@ -134,12 +135,11 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);
     }
 
-    public function testAnUnestablishedOpenerStillDemotes(): void
+    public function testAMarkerLineOpenerLeavesNoLazyClaim(): void
     {
-        $html = (new CarveConverter())->convert("- a\n  - ::: box\nlazy\n");
-        $this->assertStringNotContainsString('class="box"', $html);
-        $this->assertStringContainsString('::: box', $html);
-        $this->assertStringContainsString('lazy', $html);
+        $source = "- a\n  - ::: box\nlazy\n";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
     }
 
     public function testAnEmptyContinuationDivLeavesNoClaim(): void

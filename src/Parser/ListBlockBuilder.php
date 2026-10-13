@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Builds list blocks and rebases item bodies.
@@ -1599,6 +1600,19 @@ final class ListBlockBuilder
                 break;
             }
         }
+        $hasBlankBoundary = false;
+        if ($hasBlank) {
+            $sawBlank = false;
+            foreach ($lines as $candidate) {
+                if (IndentationHelper::isBlankLine($candidate)) {
+                    $sawBlank = true;
+                } elseif ($sawBlank) {
+                    $hasBlankBoundary = true;
+
+                    break;
+                }
+            }
+        }
         if ($firstVisible !== null && ($this->getFencedBlockParser)()->parseDivFenceOpener($firstVisible) !== null) {
             $lazyParagraph = false;
             $afterHostedComment = false;
@@ -1616,11 +1630,40 @@ final class ListBlockBuilder
                     continue;
                 }
                 $subject = ltrim($candidate, " \t");
+                $markerStart = IndentationHelper::pastLeadingWhitespace($candidate);
+                $bottom = ($this->getListParser)()->markerWalkOffset($candidate, $markerStart);
+                $literalHead = $bottom === null
+                    ? null : ($this->getFencedBlockParser)()->parseDivFenceOpener(substr($candidate, $bottom));
+                if ($literalHead !== null && $literalHead['className'] === '|') {
+                    if (!$hasBlankBoundary) {
+                        break;
+                    }
+                    $bodyColumn = IndentationHelper::getLeadingColumns($candidate);
+                    $walk = $markerStart;
+                    while (($head = ($this->getListParser)()->markerHeadAt($candidate, $walk)) !== null) {
+                        $bodyColumn += $this->listMarkerWidth(substr($candidate, $walk, $head['content'] - $walk), [
+                            'type' => $head['name'],
+                            'content' => '',
+                            'attributesWidth' => $head['attrs'],
+                        ]);
+                        $walk = $head['content'];
+                    }
+                    $next = $lines[$index + 1] ?? '';
+                    $emptyLiteral = IndentationHelper::getLeadingColumns($next, $bodyColumn + 1) === $bodyColumn
+                        && ($this->getFencedBlockParser)()->isDivFenceCloser(
+                            IndentationHelper::stripLeadingColumns($next, $bodyColumn),
+                            $literalHead['length'],
+                        );
+                    if (!$emptyLiteral) {
+                        break;
+                    }
+                }
                 $afterHostedComment = $afterHostedComment || $this->isCommentLineOrFence($subject);
                 if (
                     !$lazyParagraph && $subject !== $candidate
                     && ((($index === 1 || $afterHostedComment) && ($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0))
-                    || ($this->getFencedBlockParser)()->parseDivFenceOpener($subject) !== null)
+                    || ($this->getFencedBlockParser)()->parseDivFenceOpener($subject) !== null
+                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $subject) === 1)
                 ) {
                     return true;
                 }
@@ -1655,7 +1698,7 @@ final class ListBlockBuilder
                     // A definition at the parent's minimum releases the child.
                     if (
                         preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $line) === 1
-                        || ($hasBlank && preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $line) === 1)
+                        || ($hasBlank && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $line) === 1)
                         || ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) !== null
                         || ($this->getFencedBlockParser)()->parseFencedCommentOpener($line) !== null
                     ) {
@@ -1731,7 +1774,8 @@ final class ListBlockBuilder
                 $probeHadCodeFence = true;
             }
             if (
-                !$probeHadCodeFence && $leadNoteTextEnd < 0 && $probeNestedColumns !== [] && $base > 0 && $base < end($probeNestedColumns)
+                !$hasBlankBoundary && !$probeHadCodeFence && $leadNoteTextEnd < 0
+                && $probeNestedColumns !== [] && $base > 0 && $base < end($probeNestedColumns)
                 && !($hasRetainedTab ??= str_contains(implode("\n", $lines), "\t"))
             ) {
                 $subject = ltrim($line, " \t");
@@ -2177,8 +2221,10 @@ final class ListBlockBuilder
         }
         $protectedPrefixEnd = -1;
         if ($firstContentLine !== null && ($this->getListParser)()->parseListItemMarker($lines[$firstContentLine]) !== null) {
+            $prefixHasFence = false;
             foreach ($lines as $lineIndex => $chunkLine) {
-                if ($lineIndex > $firstContentLine && preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $chunkLine) === 1) {
+                $prefixHasFence = $prefixHasFence || ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($chunkLine, " \t"), 0);
+                if ($prefixHasFence && $lineIndex > $firstContentLine && preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $chunkLine) === 1) {
                     $protectedPrefixEnd = $lineIndex;
 
                     break;
@@ -2210,7 +2256,7 @@ final class ListBlockBuilder
 
                 continue;
             }
-            if (preg_match('/^(?:#{1,6} |([-*_])\1{2,}[ \t]*$)/', $line) === 1) {
+            if (preg_match('/^(?:#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '|([-*_])\1{2,}[ \t]*$)/', $line) === 1) {
                 $unclosedFenceBase = null;
             }
             if ($i > $minimumColonEnd && $eligible !== null && ($line[0] ?? '') === ':') {
@@ -2503,7 +2549,10 @@ final class ListBlockBuilder
                 continue;
             }
             $opener = IndentationHelper::stripLeadingColumns($line, $base);
-            if ($i <= $minimumColonEnd && ReferenceDefinitionExtractor::isDefinitionHead($opener)) {
+            if (
+                $i <= $minimumColonEnd && ReferenceDefinitionExtractor::isDefinitionHead($opener)
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $opener) !== 1
+            ) {
                 continue;
             }
             if (

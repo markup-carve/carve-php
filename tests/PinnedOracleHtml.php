@@ -13,8 +13,10 @@ final class PinnedOracleHtml
         static $html = null;
         if ($html === null) {
             $html = [];
-            foreach (json_decode((string)file_get_contents(__DIR__ . '/fixtures/spec-parity/comment-control-columns.json'), true, 512, JSON_THROW_ON_ERROR) as $row) {
-                $html[$row['source']] = $row['html'];
+            foreach (['comment-control-columns', 'ci-triage-controls'] as $fixture) {
+                foreach (json_decode((string)file_get_contents(__DIR__ . '/fixtures/spec-parity/' . $fixture . '.json'), true, 512, JSON_THROW_ON_ERROR) as $row) {
+                    $html[$row['source']] = $row['html'];
+                }
             }
         }
 
