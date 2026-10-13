@@ -24,4 +24,12 @@ class AFenceAfterAClosedNestedLineBlockOpensInTheBoxTest extends TestCase
 
         self::assertStringContainsString("<li>x\n<code></code></li>", $html);
     }
+
+    public function testAColonRunWithoutANestedLiteralStillClosesTheBox(): void
+    {
+        $source = "::: warning\n- item\n  :::\n```\n:::\nafter\n";
+        $html = CarveConverter::create()->convert($source);
+
+        self::assertStringContainsString("<pre><code></code></pre>\n</aside>\n<p>after</p>", $html);
+    }
 }

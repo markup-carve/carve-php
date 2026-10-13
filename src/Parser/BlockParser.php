@@ -3324,12 +3324,11 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
-            $unclosedCode = $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]);
+            $unclosedCode = $nestingAware ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]) : null;
             if (
                 $nestingAware && $unclosedCode !== null
                 && IndentationHelper::getLeadingColumns($lines[$i]) === 0
-                && $innerLines !== []
-                && preg_match('/^[ \t]+:{3,}[ \t]*$/', $innerLines[count($innerLines) - 1]) === 1
+                && $this->closedNestedLiteralBeforeFence($innerLines)
                 && !$this->hasCodeFenceCloserAhead($lines, $i, $unclosedCode['char'], $unclosedCode['length'])
             ) {
                 for (; $i < $count; $i++) {
@@ -3400,6 +3399,37 @@ class BlockParser
             'consumed' => $i - $start,
             'closed' => $closed,
         ];
+    }
+
+    /**
+     * @param list<string> $innerLines
+     */
+    private function closedNestedLiteralBeforeFence(array $innerLines): bool
+    {
+        $last = $innerLines[count($innerLines) - 1] ?? '';
+        $column = IndentationHelper::getLeadingColumns($last);
+        if ($column === 0) {
+            return false;
+        }
+        for ($i = count($innerLines) - 2; $i >= 0; $i--) {
+            $line = $innerLines[$i];
+            if (IndentationHelper::getLeadingColumns($line) >= $column) {
+                continue;
+            }
+            $trimmed = ltrim($line, " \t");
+            $marker = $this->listParser->parseListItemMarker($trimmed);
+            $offset = $marker === null ? null : $this->listParser->markerContentOffset($trimmed);
+            $literal = $marker === null ? null : $this->fencedBlockParser->parseDivFenceOpener($marker['content']);
+
+            return $offset !== null && $literal !== null && $literal['className'] === '|'
+                && IndentationHelper::getLeadingColumns($line) + $offset === $column
+                && $this->fencedBlockParser->isDivFenceCloser(
+                    IndentationHelper::stripLeadingColumns($last, $column),
+                    $literal['length'],
+                );
+        }
+
+        return false;
     }
 
     /**

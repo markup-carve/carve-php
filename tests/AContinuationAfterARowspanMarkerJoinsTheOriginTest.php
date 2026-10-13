@@ -19,6 +19,13 @@ class AContinuationAfterARowspanMarkerJoinsTheOriginTest extends TestCase
         self::assertStringContainsString($secondRow, $html);
     }
 
+    public function testUnconsumedSpanMarkerKeepsItsContinuation(): void
+    {
+        $html = CarveConverter::create()->convert("| a | < |\n| ^ | ^ |\n+ more | x |\n");
+
+        self::assertStringContainsString('more', $html);
+    }
+
     /**
      * @return iterable<string, array{string, string, string}>
      */

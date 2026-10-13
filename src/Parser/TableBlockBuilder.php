@@ -340,6 +340,15 @@ final class TableBlockBuilder
             // to column-origin tracking below, exactly as it was before it had
             // a cell of its own.
             $resolved = $this->callResolveRowSpans($mergedCellsWithAttrs, $columnOrigin);
+            foreach ($rowspanContinuations as $col => $fragments) {
+                if (isset($mergedCellsWithAttrs[$col]) && !in_array($col, $resolved['consumedRowspanColumns'], true)) {
+                    $mergedCellsWithAttrs[$col]['content'] .= ' ' . implode(' ', $fragments);
+                    $mergedCellsWithAttrs[$col]['verbatim'] = false;
+                }
+            }
+            if ($rowspanContinuations !== []) {
+                $resolved = $this->callResolveRowSpans($mergedCellsWithAttrs, $columnOrigin);
+            }
             $processedCells = $resolved['cells'];
             $consumedRowspanColumns = $resolved['consumedRowspanColumns'];
             $consumedColspanColumns = $resolved['consumedColspanColumns'];

@@ -1677,6 +1677,12 @@ final class ListBlockBuilder
                     if (!$hasBlankBoundary) {
                         for ($later = $index + 1, $total = count($lines); $later + 1 < $total; $later++) {
                             if (
+                                !IndentationHelper::isBlankLine($lines[$later])
+                                && IndentationHelper::getLeadingColumns($lines[$later]) < $bodyColumn
+                            ) {
+                                break;
+                            }
+                            if (
                                 IndentationHelper::getLeadingColumns($lines[$later]) === $bodyColumn
                                 && ($this->getFencedBlockParser)()->isDivFenceCloser(
                                     IndentationHelper::stripLeadingColumns($lines[$later], $bodyColumn),
@@ -2621,11 +2627,12 @@ final class ListBlockBuilder
                         $closer = $this->colonFenceEnd($lines, $i, $length, $count, null);
                         $end = $closer === -1 ? $count - 1 : $closer;
                         $firstBody = ltrim($lines[$i + 1] ?? '', " \t");
+                        $definitionExtent = $this->containerExtentBeforeADefinition($lines, $i, $end);
                         $bodyStartsWithCode = $div['className'] !== '|'
                             && (($this->getFencedBlockParser)()->parseCodeFenceOpener($firstBody) !== null
                                 || ($this->getFencedBlockParser)()->parseRawBlockOpener($firstBody) !== null);
-                        if ($includeSublists || $this->containerExtentBeforeADefinition($lines, $i, $end) < $end) {
-                            $i = $this->containerExtentBeforeADefinition($lines, $i, $end);
+                        if ($includeSublists || $definitionExtent < $end) {
+                            $i = $definitionExtent;
                         } elseif (!$bodyStartsWithCode) {
                             $i = $end;
                         }
