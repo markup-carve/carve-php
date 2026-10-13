@@ -3779,11 +3779,16 @@ final class BlockContinuationScanner
     {
         $count = count($itemLines);
         $lead = (string)preg_replace(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, '$2', $itemLines[0] ?? '');
-        if (
-            $count < 2
-            || !($this->isCommentLineOrFence($lead) || $this->isBlockElementStart($lead) || $this->startsNewBlock($lead))
-            || preg_match('/^([ \t]*)(\S+)( +)/', $itemLines[$count - 1], $match) !== 1
-        ) {
+        if (!($this->isCommentLineOrFence($lead) || $this->isBlockElementStart($lead) || $this->startsNewBlock($lead))) {
+            return PHP_INT_MAX;
+        }
+        // A list or quote on the marker line sits at the note's body column.
+        if ($count < 2) {
+            return preg_match('/^(\S+)( +)/', $lead, $match) === 1 && !$this->isCommentLineOrFence($lead)
+                ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN + strlen($match[1]) + strlen($match[2])
+                : PHP_INT_MAX;
+        }
+        if (preg_match('/^([ \t]*)(\S+)( +)/', $itemLines[$count - 1], $match) !== 1) {
             return PHP_INT_MAX;
         }
 

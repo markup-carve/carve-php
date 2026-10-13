@@ -55,6 +55,12 @@ class AClosedFenceUnderAMarkerLineNoteOpensInTheNoteTest extends TestCase
                 . "<dl><dt>term</dt></dl><ul><li>child\n          <pre><code>code\n</code></pre></li></ul>" . self::BACKLINK . '</li></ol></section>',
         ];
 
+        yield 'at the content column of a list on the marker line' => [
+            "- [^n]: - child\n      ```\n      code\n      ```\nafter [^n]\n",
+            '<ul><li></li></ul><p>after ' . self::NOTE_REF . '</p>' . $notes
+                . "<ul><li>child\n          <pre><code>code\n</code></pre></li></ul>" . self::BACKLINK . '</li></ol></section>',
+        ];
+
         yield 'inside a quote' => [
             "> - [^n]: text\n>     ```\n>     code\n>     ```\n> after [^n]\n",
             '<blockquote><ul><li></li></ul><p>after ' . self::NOTE_REF . '</p></blockquote>' . $notes

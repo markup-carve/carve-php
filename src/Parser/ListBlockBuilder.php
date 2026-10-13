@@ -2295,7 +2295,8 @@ final class ListBlockBuilder
                 }
             }
             // A closed fence at a marker-line note's body column opens in the note (CARVE-P2-017).
-            if ($i === $leadNoteFenceLine && IndentationHelper::getLeadingColumns($line) === BlockGrammar::FOOTNOTE_BODY_COLUMN) {
+            $noteFenceColumn = IndentationHelper::getLeadingColumns($line);
+            if ($i === $leadNoteFenceLine && $noteFenceColumn >= BlockGrammar::FOOTNOTE_BODY_COLUMN) {
                 $noteFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"));
                 if ($noteFence !== null) {
                     for ($j = $i + 1; $j < $count; $j++) {
@@ -2305,7 +2306,10 @@ final class ListBlockBuilder
                         if (IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN) {
                             break;
                         }
-                        $payload = IndentationHelper::stripLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN);
+                        if (IndentationHelper::getLeadingColumns($lines[$j]) !== $noteFenceColumn) {
+                            continue;
+                        }
+                        $payload = IndentationHelper::stripLeadingColumns($lines[$j], $noteFenceColumn);
                         if (($this->getFencedBlockParser)()->isCodeFenceCloser($payload, $noteFence['fence'][0], strlen($noteFence['fence']))) {
                             $i = $j;
 
