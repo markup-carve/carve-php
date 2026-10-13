@@ -94,4 +94,34 @@ class NestedDefinitionCarrierDepthTest extends TestCase
         $converter = new CarveConverter();
         self::assertSame($converter->convert($source), $converter->convert($imported));
     }
+
+    public function testDefinitionCloserKeepsSeparateQuotesSeparate(): void
+    {
+        $source = "> :: O\n> : x\n\n> after\n";
+        $renderer = new MarkdownRenderer();
+        $renderer->setRoundTripMode(true);
+        $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
+        $imported = (new MarkdownToCarve())->convert($markdown);
+        $converter = new CarveConverter();
+        self::assertSame($converter->convert($source), $converter->convert($imported));
+    }
+
+    public function testSiblingDefinitionsKeepTheirOwner(): void
+    {
+        foreach (
+            [
+                ":: O\n: :: I\n  : x\n  : y\n: z\n",
+                "> :: O\n> : :: I\n>   : x\n>   : y\n> : z\n",
+            ] as $source
+        ) {
+            $renderer = new MarkdownRenderer();
+            $renderer->setRoundTripMode(true);
+            $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
+            $importer = new MarkdownToCarve();
+            $imported = $importer->convert($markdown);
+            $converter = new CarveConverter();
+            self::assertSame($converter->convert($source), $converter->convert($imported));
+            self::assertFalse($importer->hadDamagedCarrierMarkers());
+        }
+    }
 }

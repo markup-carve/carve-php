@@ -1008,13 +1008,19 @@ class MarkdownToCarve
             if ($definitions[$last]->marker !== null && !($item['fence'] ?? false)) {
                 $lead = $item['text'] === '' ? $definitions[$last]->base
                     : $definitions[$last]->base . '  ' . substr($item['lead'], strlen($definitions[$last]->original));
-                if ($definitions[$last]->pending && $item['text'] !== '') {
+                $wasPending = $definitions[$last]->pending && $item['text'] !== '';
+                if ($wasPending) {
                     $lead = $definitions[$last]->base . ': ' . substr($item['lead'], strlen($definitions[$last]->original));
                     $marker = $definitions[$last]->marker;
                     $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
                     $definitions[$last]->pending = false;
                 }
-                $items[$at] = ['lead' => $lead, 'text' => $item['text'], 'kind' => $item['kind']];
+                $items[$at] = [
+                    'lead' => $lead,
+                    'text' => $item['text'],
+                    'kind' => $wasPending ? 'definition' : $item['kind'],
+                    'depth' => $definitions[$last]->depth,
+                ];
             }
         }
         $spelled = [];
@@ -1044,6 +1050,17 @@ class MarkdownToCarve
             if ($emptyCloser && $item['text'] === '') {
                 continue;
             }
+            if ($item['kind'] === 'close' && $item['text'] === '' && ($item['depth'] ?? 1) > 1) {
+                $next = $at + 1;
+                while (isset($items[$next]) && $items[$next]['text'] === '') {
+                    $next++;
+                }
+                if (isset($items[$next]) && $items[$next]['kind'] === 'definition' && ($items[$next]['depth'] ?? 1) < $item['depth']) {
+                    $emptyCloser = true;
+
+                    continue;
+                }
+            }
             if ($item['kind'] === 'close' && $item['text'] === '' && ($item['depth'] ?? 1) > 1 && str_contains($item['lead'], '>')) {
                 $next = $at + 1;
                 while (isset($items[$next]) && $items[$next]['text'] === '') {
@@ -1055,7 +1072,7 @@ class MarkdownToCarve
                     continue;
                 }
             }
-            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '';
+            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead']) === '';
             $spelled[] = $item['text'] === '' && trim($item['lead']) === ''
                 ? '' : $item['lead'] . $item['text'];
         }
@@ -1141,7 +1158,7 @@ class MarkdownToCarve
             $above = $before >= 0 ? $items[$before]['kind'] : null;
             $below = $end < $count ? $items[$end]['kind'] : null;
             $marker = null;
-            if ($below === 'close' || $below === 'caption') {
+            if ($below === 'close' || $below === 'caption' || $below === 'definition') {
                 $marker = $items[$end];
             } elseif ($above === 'open') {
                 $marker = $items[$before];
@@ -1154,7 +1171,7 @@ class MarkdownToCarve
             if ($marker !== null) {
                 for ($drop = $at; $drop < $end; $drop++) {
                     $blankLead = rtrim($items[$drop]['lead']);
-                    $markerLead = rtrim($marker['kind'] === 'open' ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead']);
+                    $markerLead = rtrim(in_array($marker['kind'], ['open', 'definition'], true) ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead']);
                     if (($marker['depth'] ?? 1) > 1 && str_contains($blankLead, '>') && str_contains($markerLead, '>')) {
                         $blankLead = preg_replace('/[ \t]+/', ' ', substr($blankLead, strcspn($blankLead, '>'))) ?? $blankLead;
                         $markerLead = preg_replace('/[ \t]+/', ' ', substr($markerLead, strcspn($markerLead, '>'))) ?? $markerLead;
@@ -1184,6 +1201,7 @@ class MarkdownToCarve
                 && (end($out)['kind'] === 'close' || end($out)['kind'] === 'caption')
                 && $item['kind'] !== 'close'
                 && $item['kind'] !== 'caption'
+                && $item['kind'] !== 'definition'
                 && $item['text'] !== ''
                 // A closer and what follows take a blank line between them only
                 // where they are SIBLINGS. A list item opening after a closer
