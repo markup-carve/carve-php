@@ -4749,11 +4749,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($this->inTerm && preg_match($marker, $written)) {
             throw new SourceUnspellableException($nodeType, 'a block marker on a continuation line ends the definition term');
         }
-        if ($this->inLineBlock > 0 || $nodeType === 'code') {
+        if ($this->inLineBlock > 0) {
             return $written;
         }
 
-        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +' . $colon . '))/';
+        $listMarkers = $nodeType === 'code' && $this->listDepth === 0
+            ? ''
+            : '|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +';
+        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]' . $listMarkers . $colon . '))/';
 
         return (string)preg_replace($marker, "\n" . str_repeat($this->verbatimSentinels[7], match ($nodeType) {
             'math' => 3, 'raw_inline' => 4, 'literal_inline' => 5, default => 2
