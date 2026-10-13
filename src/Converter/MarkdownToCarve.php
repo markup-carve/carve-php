@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
@@ -532,6 +533,8 @@ class MarkdownToCarve
                     $valid = count($children) === 1 && !$children[0] instanceof Paragraph;
                 } elseif (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
                     $valid = AttributeParser::isValidPayload(substr($payload, 1, -1));
+                } elseif (CarrierMarkers::isCodeFence($payload)) {
+                    $valid = $this->codeFenceCarrierInfo($payload) !== null;
                 } else {
                     $valid = $width > 0 || CarrierMarkers::isCaption($payload)
                         || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
@@ -645,6 +648,7 @@ class MarkdownToCarve
                 'payload' => $payload,
                 'closer' => $closer,
                 'caption' => CarrierMarkers::isCaption($payload),
+                'fence' => CarrierMarkers::isCodeFence($payload),
                 'equation' => $equation,
             ];
             // The writer emitted the opener's title and label, and a group
@@ -737,7 +741,7 @@ class MarkdownToCarve
                     && (preg_replace('/[^>\t]/', ' ', $hosts[$at + 1]) ?? $hosts[$at + 1])
                 === (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]);
                 $lostBlock = $sameHost
-                    && !str_starts_with($nextMarker, ':: ')
+                    && !str_starts_with($nextMarker, ':: ') && !CarrierMarkers::isCodeFence($nextMarker)
                     && (CarrierMarkers::fenceWidth($nextMarker) === 0 || CarrierMarkers::isCloser($nextMarker));
                 if (!str_ends_with($payload, '}') || !AttributeParser::isValidPayload(substr($payload, 1, -1)) || $next === '' || $lostBlock) {
                     return false;
@@ -778,6 +782,17 @@ class MarkdownToCarve
 
                 continue;
             }
+            if (CarrierMarkers::isCodeFence($payload)) {
+                if (
+                    $this->codeFenceCarrierInfo($payload) === null
+                    || preg_match('/^[ \t]{0,3}(?:`{3,}|~{3,})/', $next) !== 1
+                    || isset($payloads[$at + 1])
+                ) {
+                    return false;
+                }
+
+                continue;
+            }
             $width = CarrierMarkers::fenceWidth($payload);
             if ($width === 0) {
                 return false;
@@ -796,6 +811,32 @@ class MarkdownToCarve
         }
 
         return $open === [] && $definitions === [];
+    }
+
+    /**
+     * The canonical title and label following a code fence's language token.
+     */
+    protected function codeFenceCarrierInfo(string $payload): ?string
+    {
+        if (preg_match('/^(`{3,}|~{3,})(.*)$/D', $payload, $match) !== 1) {
+            return null;
+        }
+        $children = (new CarveConverter())->parse($payload . "\n" . $match[1] . "\n")->getChildren();
+        $block = $children[0] ?? null;
+        if (
+            count($children) !== 1 || !$block instanceof CodeBlock
+            || ($block->getHeader() === null && $block->getLabel() === null)
+        ) {
+            return null;
+        }
+        $info = $match[2];
+        if ($block->getLanguage() !== null) {
+            $info = preg_replace('/^[ \t]*\S+[ \t]*/', '', $info) ?? $info;
+        } else {
+            $info = ltrim($info, " \t");
+        }
+
+        return $info;
     }
 
     protected function attachedCaptionCount(Node $node): int
@@ -827,7 +868,7 @@ class MarkdownToCarve
         // any, produced it: 'open' for an opener or the attribute line
         // travelling with it, 'close' for a bare closer, 'caption' for a
         // composite figure's caption line.
-        /** @var list<array{lead: string, text: string, kind: string|null}> $items */
+        /** @var list<array{lead: string, text: string, kind: string|null, fence?: bool}> $items */
         $items = [];
         foreach (explode("\n", $carve) as $line) {
             // THE PREFIX IS WHATEVER STANDS BEFORE THE TOKEN rather than a
@@ -855,7 +896,7 @@ class MarkdownToCarve
                 }
             }
             $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
-            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind];
+            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence']];
         }
         $items = $this->anchorCarrierClosers($items);
         $definitions = [];
@@ -911,7 +952,25 @@ class MarkdownToCarve
         }
         $spelled = [];
         $emptyCloser = false;
-        foreach ($this->separateCarrierLines($items) as $item) {
+        $items = $this->separateCarrierLines($items);
+        for ($at = 0, $count = count($items); $at < $count; $at++) {
+            $item = $items[$at];
+            if ($item['fence'] ?? false) {
+                $info = $this->codeFenceCarrierInfo($item['text']);
+                $below = $at + 1;
+                while (isset($items[$below]) && $items[$below]['kind'] === null && $items[$below]['text'] === '') {
+                    $below++;
+                }
+                if (
+                    $info !== null && isset($items[$below])
+                    && preg_match('/^(`{3,}|~{3,})(.*)$/D', $items[$below]['text'], $fence) === 1
+                ) {
+                    $language = trim($fence[2]);
+                    $items[$below]['text'] = $fence[1] . $language . ($language === '' ? '' : ' ') . $info;
+
+                    continue;
+                }
+            }
             if ($emptyCloser && $item['text'] === '') {
                 continue;
             }

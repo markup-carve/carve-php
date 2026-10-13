@@ -84,6 +84,11 @@ final class CarrierMarkers
         return preg_match('/^\^[ \t]/', $payload) === 1;
     }
 
+    public static function isCodeFence(string $payload): bool
+    {
+        return preg_match('/^(?:`{3,}|~{3,})/', $payload) === 1;
+    }
+
     /**
      * Whether a colon-fence payload is a bare closer.
      */

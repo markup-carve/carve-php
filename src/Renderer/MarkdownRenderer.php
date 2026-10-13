@@ -3046,7 +3046,10 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $infoSeparator = str_starts_with($backticks, '~') && str_starts_with($info, '~') ? ' ' : '';
 
-        return $backticks . $infoSeparator . $info . $sentinel . "\n"
+        $carrier = $this->roundTripMode && ($node->getHeader() !== null || $label !== null && $label !== '')
+            ? $this->literalCarrierLine((new CarrierOpenerWriter())->codeFenceOpener($node)) . "\n" : '';
+
+        return $carrier . $backticks . $infoSeparator . $info . $sentinel . "\n"
             . $content . $closerSeparator . $backticks . $sentinel . "\n\n";
     }
 
