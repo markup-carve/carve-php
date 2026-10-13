@@ -684,6 +684,8 @@ final class BlockContinuationScanner
         $markerRunCursor = 1;
         $noteCloserMemo = [];
         $noteSourceCursor = $i;
+        $leaveCursor = 1;
+        $leaveBroken = false;
         $noteSourceBroken = false;
         $markerRunBroken = false;
         $leadNoteHadBlank = false;
@@ -781,8 +783,12 @@ final class BlockContinuationScanner
             $nextTrimmed = ltrim($nextLine, " \t");
             // Below a nested definition in a marker-line note, a line under the item's column leaves the list.
             if (
-                $markerNoteItem && $sawNestedNote && $nextIndent < $contentIndent && $trailingState->fence === null
-                && $nestedNoteBodyColumn !== null
+                $markerNoteItem && $nextIndent < $contentIndent
+                && (($sawNestedNote && $nestedNoteBodyColumn !== null) || (
+                    $leadNoteHadBlank && !$sawNestedNote
+                    && $this->noteChildContentColumn($itemLines, $contentIndent, true) !== PHP_INT_MAX
+                    && $this->leadNoteExtendsThrough($itemLines, $leaveCursor, $leaveBroken)
+                ))
                 && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
             ) {
                 break;

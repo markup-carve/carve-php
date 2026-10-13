@@ -35,6 +35,11 @@ class AnUnclosedFenceAfterANestedNoteEndsWithTheItemTest extends TestCase
             '<ul><li></li></ul><p>after ' . self::REFS . '</p>',
         ];
 
+        yield 'a list the note opened after a blank leaves no lazy claim' => [
+            "- [^n]: text\n\n    - child\nlazy tail\n\nafter [^n]\n",
+            '<ul><li></li></ul><p>lazy tail</p><p>after <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>',
+        ];
+
         yield 'after a nested note holding a term, in a quote' => [
             "> - [^a]: text\n>     more\n>     [^b]: text\n> \n>       :: t\n>     ~~~\n>     code\n> after [^a] [^b]\n",
             "<blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after " . self::REFS . '</p></blockquote>',
