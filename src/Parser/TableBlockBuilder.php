@@ -145,6 +145,10 @@ final class TableBlockBuilder
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
+        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string}> $cellBuilds */
+        $cellBuilds = [];
+        /** @var array<int, true> $rejoined */
+        $rejoined = [];
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -241,6 +245,10 @@ final class TableBlockBuilder
                                 if (($columnOrigin[$cellIndex] ?? null) === $cell) {
                                     $columnOrigin[$cellIndex] = $headerCell;
                                 }
+                                if (isset($cellBuilds[spl_object_id($cell)])) {
+                                    $cellBuilds[spl_object_id($headerCell)] = ['cell' => $headerCell] + $cellBuilds[spl_object_id($cell)];
+                                    unset($cellBuilds[spl_object_id($cell)]);
+                                }
                                 $cellIndex++;
                             }
                         }
@@ -273,6 +281,8 @@ final class TableBlockBuilder
             $i++;
 
             $cellAccumulator = null;
+            $baseChunkCounts = array_map(count(...), $cellSourceChunks);
+            $baseCells = $mergedCells;
             // Check for continuation rows (lines starting with +)
             while ($i < $count && ($this->getTableParser)()->isContinuationRow($lines[$i])) {
                 $cellAccumulator ??= new TableCellAccumulator(($this->getTableParser)(), $mergedCells);
@@ -290,8 +300,29 @@ final class TableBlockBuilder
                 $i++;
             }
 
+            /** @var array<int, array{text: string, chunks: list<array{int, int, string}>}> $markerJoins */
+            $markerJoins = [];
             if ($cellAccumulator !== null) {
                 $mergedCells = $cellAccumulator->contents();
+                // Continuation text on a span marker belongs to the cell the marker
+                // resolves into, which the span walk names below (T6).
+                foreach ($baseCells as $idx => $base) {
+                    $base = trim($base, ' ');
+                    $merged = $mergedCells[$idx] ?? $base;
+                    if (
+                        $merged === $base
+                        || ($cellAttributes[$idx] ?? '') !== ''
+                        || !(($this->getTableParser)()->isRowspanMarker($base) || ($this->getTableParser)()->isColspanMarker($base))
+                    ) {
+                        continue;
+                    }
+                    $markerJoins[$idx] = [
+                        'text' => trim(substr($merged, strlen($base)), ' '),
+                        'chunks' => array_slice($cellSourceChunks[$idx] ?? [], $baseChunkCounts[$idx] ?? 0),
+                    ];
+                    $mergedCells[$idx] = $base;
+                    $cellSourceChunks[$idx] = array_slice($cellSourceChunks[$idx] ?? [], 0, $baseChunkCounts[$idx] ?? 0);
+                }
             }
 
             // Rebuild cellsWithAttrs with merged content
@@ -492,37 +523,40 @@ final class TableBlockBuilder
                     AttributeParser::applyToNode($cell, $cellData['attributes']);
                 }
                 $trimmedContent = trim($marker['content'], ' ');
-                $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
-                    ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
-                $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
-                if (count($cellData['sourceChunks']) > 1) {
-                    $cellSpan = null;
-                    $this->state->session->unplaceableNodeIds[spl_object_id($cell)] = true;
-                }
-                // The text's OWN extent inside the cell: the cell span covers
-                // the padding too, so the text is located within the raw slice
-                // the split kept for exactly this.
-                $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
-                if ($trimmedContent !== '' && $this->isPlainTableText($trimmedContent) && $this->appendPlainRebuiltCellText($cell, $cellData, $trimmedContent)) {
-                    $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
-                    $row->appendChild($cell);
-                    $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
-
-                    continue;
-                }
-                if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
-                    $text = new Text($trimmedContent);
-                    $text->setPos($cellMap?->spanFor(0, $trimmedContent) ?? $cellTextSpan);
-                    $cell->appendChild($text);
-                } else {
-                    ($this->getInlineParser)()->parse($cell, $trimmedContent, $baseLineForRow, sourceMap: $cellMap);
-                }
-                // Prefer the measured extent: it covers the cell even when its
-                // text was rewritten (an escaped pipe), where a text lookup
-                // cannot match and rightly declines.
-                $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+                $this->fillCellContent($cell, $cellData, $baseLineForRow, $trimmedContent);
                 $row->appendChild($cell);
                 $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+                $cellBuilds[spl_object_id($cell)] = ['cell' => $cell, 'cellData' => $cellData, 'line' => $baseLineForRow, 'content' => $trimmedContent];
+            }
+
+            // A marker's continuation text joins the cell it resolved into, in
+            // row-major order; a blocked marker renders empty and keeps none.
+            if ($markerJoins !== []) {
+                $rowspanSet = array_flip($consumedRowspanColumns);
+                ksort($markerJoins);
+                foreach ($markerJoins as $col => $join) {
+                    $origin = null;
+                    if (isset($consumedColumnSet[$col]) && !isset($rowspanSet[$col])) {
+                        foreach ($rowCellData as $cellInfo) {
+                            if ($cellInfo['colPosition'] <= $col) {
+                                $origin = $cellInfo['cell'];
+                            }
+                        }
+                    } elseif (isset($rowspanSet[$col])) {
+                        for ($k = $col; $k >= 0 && $origin === null && isset($rowspanSet[$k]); $k--) {
+                            $origin = $columnOrigin[$k] ?? null;
+                        }
+                    }
+                    if (!$origin instanceof TableCell || $join['text'] === '' || !isset($cellBuilds[spl_object_id($origin)])) {
+                        continue;
+                    }
+                    $build = &$cellBuilds[spl_object_id($origin)];
+                    $build['content'] = $build['content'] === '' ? $join['text'] : $build['content'] . ' ' . $join['text'];
+                    $build['cellData']['sourceChunks'] = array_merge($build['cellData']['sourceChunks'], $join['chunks']);
+                    $build['cellData']['verbatim'] = false;
+                    unset($build);
+                    $rejoined[spl_object_id($origin)] = true;
+                }
             }
 
             // Each `^` the walk resolved grows the cell above it by one row; the
@@ -543,9 +577,23 @@ final class TableBlockBuilder
                 $nextOrigin[$cellInfo['colPosition']] = $cellInfo['cell'];
             }
             $columnOrigin = $nextOrigin;
+            // Only a column origin can still absorb a later row's marker.
+            $live = $rejoined;
+            foreach ($columnOrigin as $origin) {
+                $live[spl_object_id($origin)] = true;
+            }
+            $cellBuilds = array_intersect_key($cellBuilds, $live);
 
             $table->appendChild($row);
             CycleCollection::checkpoint();
+        }
+
+        foreach (array_keys($rejoined) as $id) {
+            $build = $cellBuilds[$id];
+            foreach ($build['cell']->getChildren() as $child) {
+                $build['cell']->removeChild($child);
+            }
+            $this->fillCellContent($build['cell'], $build['cellData'], $build['line'], $build['content']);
         }
 
         // A separator-only table is valid (creates empty table)
@@ -583,6 +631,45 @@ final class TableBlockBuilder
         // Caption parsing is now handled by tryParseCaption
 
         return $i - $start;
+    }
+
+    /**
+     * Fill a cell's inline content and position from its collected source.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>} $cellData
+     * @param int $baseLineForRow
+     * @param string $trimmedContent
+     */
+    private function fillCellContent(TableCell $cell, array $cellData, int $baseLineForRow, string $trimmedContent): void
+    {
+        $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
+            ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
+        $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
+        if (count($cellData['sourceChunks']) > 1) {
+            $cellSpan = null;
+            $this->state->session->unplaceableNodeIds[spl_object_id($cell)] = true;
+        }
+        // The text's OWN extent inside the cell: the cell span covers
+        // the padding too, so the text is located within the raw slice
+        // the split kept for exactly this.
+        $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
+        if ($trimmedContent !== '' && $this->isPlainTableText($trimmedContent) && $this->appendPlainRebuiltCellText($cell, $cellData, $trimmedContent)) {
+            $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+
+            return;
+        }
+        if ($trimmedContent !== '' && $this->isPlainText($trimmedContent)) {
+            $text = new Text($trimmedContent);
+            $text->setPos($cellMap?->spanFor(0, $trimmedContent) ?? $cellTextSpan);
+            $cell->appendChild($text);
+        } else {
+            ($this->getInlineParser)()->parse($cell, $trimmedContent, $baseLineForRow, sourceMap: $cellMap);
+        }
+        // Prefer the measured extent: it covers the cell even when its
+        // text was rewritten (an escaped pipe), where a text lookup
+        // cannot match and rightly declines.
+        $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
     }
 
     /**
