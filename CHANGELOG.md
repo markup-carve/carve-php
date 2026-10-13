@@ -9,47 +9,15 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-### Fixed
-
-- Keep adjacent verbatim spans separate when a payload ends in a backslash, including empty siblings and transparent wrappers.
-
-- Markdown fragment links to headings with hard breaks use GitHub’s text anchor (#3043).
-
-- Markdown export preserves terminal hard breaks and hard breaks in headings with inline HTML. A break-only paragraph stays a paragraph in GFM readers.
-- Markdown import preserves HTML code payloads, decodes CommonMark character references, keeps adjacent spans separate and reports code that must remain raw HTML.
-
-- Nested list continuation claims follow the current paragraph. Formatting preserves parent paragraphs after sublists, and quoted fence lookahead keeps source indentation and quote depth (carve-php#3036).
-- Markdown code spans preserve significant edge spaces. Empty spans and payloads containing tabs or newlines use an inline HTML fallback that preserves the code text.
-
-- HTML code-block import keeps sibling text, omits active payloads and reports discarded child markup, comments and attributes (carve-php#3024).
-
-- Markdown export uses a safe tilde fence for headers and labels containing backticks (carve-php#3017).
-- Markdown import drops blank table rows that Carve cannot spell, including
-  the empty header added for a headerless table. Lists and quotes keep their
-  table bodies, and each omitted row has a migration loss report
-- Markdown imports with omitted blank table rows keep their list and quote
-  containers and preserve boundaries between adjacent lists. The imported
-  source is formatted canonically after a row is omitted
-  (markup-carve/carve#2840).
-- HTML import reports markup discarded inside code spans and flattens line breaks in pipe-table code spans without breaking the row.
-- HTML import reports markup discarded inside code spans and flattens line breaks in pipe-table code spans without breaking the row (#3011).
-- Formatting keeps raw reference-label brackets available to enclosing labels without adding destination escapes inside consumed reference keys (carve-php#3018).
-
-- HTML import reports discarded code-span markup, attributes and comments, and removes active subtree text. Pipe-cell line breaks are folded only when writing source (carve-php#3011).
-
-- Formatting preserves literal backslashes in cross-reference targets. Targets with no source spelling are refused (carve-php#3009).
-
-- Ordered-list formatting and HTML import keep adjacent alphabetic and Roman lists separate. A hard list boundary also ends the dialect lookahead (carve-php#2993).
-
-- A lone ordered-list letter follows the shared Roman/alphabetic tie-break. HTML import retains unspellable numbering styles on decimal markers so the start value survives (carve-php#2993).
-
-- A raw block converted to code by a profile keeps its original source position (markup-carve/carve#2801).
-
-- Markdown import separates front matter from its body and normalizes thematic-break collisions so formatting the imported source leaves it unchanged (carve-php#2977).
-
 ## [0.1.12] - 2026-10-08
 
 ### Breaking
+- Markdown import reads `*[TERM]: expansion` as an abbreviation definition by default, and an `<abbr>` whose title matches the defined expansion imports as the plain term. Pass `convertAbbreviations: false` to keep the old literal reading (#3327).
+- HTML import reads a line block only from its `data-carve-line-block` carrier, so a bare `<div class="line-block">` now imports as the `::: line-block` admonition. Roundtrip export carries a bare div, a line block and a substitution (#3324, #3334).
+- `HtmlToCarve` loses the `trustedRoundTrip` parameter and the stored-source import path. No extension writes `data-carve-src`, and an incoming `data-carve-src` or `data-djot-src` is consumed in every mode and never re-emitted. Code groups, callouts, mermaid and tabs import from their own HTML (#3145, #3164, #3181, #3202, #3208).
+- One roundtrip export option covers HTML and Markdown: `MarkdownRenderer::setRoundTripMode()`, `CarveConverter(roundTripMode: true)` and `carve --roundtrip` for `--html` or `--markdown` (#3145).
+- Roundtrip carriers are spelled `data-carve-*` instead of `data-djot-*`; import still reads the old spelling. Every import mode consumes them, a carrier leads the authored attributes and wins a name collision, and the displaced attribute is reported (#3081, #3082, #3083, #3086, #3215, #3218).
+- AST JSON publishes `delim` only for `)` and `bulletChar` only for `*`. An ordered list with `)` renders `data-delim=")"`, and ordered lists no longer write `data-marker` (#2986, #3008, #3086).
 
 - Image alt text resolves ASCII punctuation escapes, including `\|` in
   tables. Literal backslashes before punctuation must be doubled. Native
@@ -69,6 +37,15 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
   0.1.8 and its message followed; the id did not (carve#2772).
 
 ### Added
+- New render and migration loss codes: `carrier-attribute-dropped`, `carrier-marker-dropped`, `carrier-markers-damaged`, `list-delimiter-changed`, `list-style-dropped` and `djot-footnote-definition-attributes-dropped`. `--allow-loss` accepts them and `definition-list-flattened` (#3013, #3033, #3083, #3274, #3301, #3311, #3316).
+- `--smart-typography quotes-source` and `SmartTypographyMode::QuotesSource` keep source quotes while dashes, ellipses and symbols still resolve (#3067).
+- Nested braced emphasis parses, formats and imports from HTML, Markdown and Djot (#3070).
+- Task lists render `class="task-list"` and checked items `data-task-state="x"`, and HTML import reads them back with all four extended states (#3071).
+- AST contract 1.1 publishes a table's authored `separatorWidths`, and formatting keeps the separator row. Readers still accept 1.0 (#3093).
+- Table continuation rows stay in the tree as `cell_wrap` nodes with `table_row.continuationLines`, and verbatim spans carry `cellWraps` (#3335, #3337).
+- Roundtrip Markdown export carries element-less containers, composite figure captions, containers inside lists and quotes, definition list depth, fence titles and labels, list styles and reference links (#3033, #3044, #3074, #3209, #3262, #3301, #3311, #3327).
+- Roundtrip HTML export carries code block labels and attribute lines, definition lists, captions, cross-references, caption numbers and tab titles (#3162, #3181, #3262).
+- Markdown migration reports construct fidelity with source `line:N` paths, and reports dropped destinations, language tokens, trailing raw-span whitespace and decoded whitespace (#2972, #2996, #3004, #3041, #3054, #3057, #3078).
 
 - `Node::getPreviousSibling()` returns the preceding child of the parent. Custom parent nodes retain their `getChildren()` behavior (#2935).
 - `getClassEntries()` returns the authored class entries unsplit and `hasClassEntry()` compares whole entries, beside the split names `getClassList()` reports (#2939, #2940).
@@ -76,10 +53,44 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Markdown table import explains an unescaped code-span pipe, a mismatched header width and an omitted body cell with a warning naming the source line it came from (#2943, #2945).
 
 ### Changed
+- A bare `---` block becomes front matter only when it has the shape of a mapping; a typed opener always opens front matter. The importer writes the canonical opener and closer (#2973, #2974, #2976, #2983, #2987, #3005).
+- Smart quotes decide direction from more than the preceding character, and a quote after a line break opens (#2991, #3056, #3068).
+- A raw HTML block escaped by safe mode renders as a code block in its format. A raw fence ending at EOF keeps its termination in `raw_block.content` (#2975, #3109).
+- A row with opening and closing pipes is a table row even when all its cells are blank, and `|< |` is an empty left-aligned cell (#3325, #3333).
+- Table spans follow the T5 walk: a span never covers another cell, and continuation text joins the cell the walk resolves within the source row width (#3290, #3299, #3309, #3321, #3328, #3339).
+- A below-column line continues a paragraph only when one is open at the deepest frame; otherwise it closes the list (#3073, #3099, #3211, #3213, #3216, #3230, #3234).
+- `> +` and `[^a]: +` open a first-block form when a flush-left block follows (#3318, #3324).
+- An empty quote takes no caption (#3092, #3101).
+- Markdown export writes attributes on inline HTML fallbacks and keeps a CriticMarkup deletion apart from a classed strike (#3014, #3027, #3148).
 
 - Reduced memory used by fence indexes with packed range maxima and replacement metadata limited to the mutable tail (#2930).
 
 ### Fixed
+- Writing Carve source refuses a thematic break in a table cell, at any depth, instead of dropping it and writing an empty cell (#3350).
+
+- A fence closer below its authored base is measured after the line's available prefix: a matching run closes the fence and a shorter run stays payload (#3343).
+
+- Plain text blanks a denied destination in an unused link definition and reports one `destination-denied` loss (#3348).
+
+- Djot import keeps delimiter scopes, escaped spans, braced openers and forced closers as Djot reads them, without regex stack limits (#2979, #2981, #2988, #2999, #3020, #3021, #3030, #3052).
+- Djot import preserves attribute values, invalid and empty attribute groups, attribute ownership across blank and list boundaries, and footnote definition attributes (#3001, #3006, #3013, #3040, #3091, #3313).
+- Djot import preserves block ownership, table boundaries and captions, empty footnotes, autolink brackets, image quote text and opaque labels, and writes Carve that reads back the same way (#2967, #3034, #3042, #3045, #3055, #3062, #3089, #3274, #3342).
+- Markdown import separates front matter from its body and writes block separators, colliding breaks and percent runs the way the writer does, so `carve fmt --check` accepts the output (#2977, #2982, #2993, #2997, #3054, #3061).
+- Markdown import drops blank table rows Carve cannot spell while keeping list and quote containers, and reads back underline and other inline HTML constructs (#3015, #3016).
+- Markdown import preserves HTML code payloads, links across code boundaries, quoted list fences, GFM bare autolinks, destination escapes, reference definition containers and URL labels, and imports spellable HTML code as code (#3047, #3065, #3088, #3097, #3156, #3184, #3196, #3333).
+- Markdown export preserves link and image titles, label brackets, hard breaks, code-span whitespace, nested emphasis, literal image alt text, multi-block footnotes, tight lists around styled sublists, callback output and GitHub heading anchors. Backtick headers get a tilde fence (#2968, #2969, #3017, #3029, #3039, #3043, #3104, #3105, #3155, #3163, #3316).
+- HTML import keeps nested formatting across span scopes, code-block and code-span text, footnote carrier labels, and image reference fields, and reports the markup it discards (#2992, #3011, #3024, #3103, #3114, #3118, #3150, #3158).
+- Formatting reaches a fixed point for escaped braced closers, quoted attributes, cross-reference targets, reference brackets, adjacent verbatim spans, multiline verbatim payloads, trailing escaped spaces and `!` before a highlight (#2988, #2995, #3009, #3018, #3048, #3094, #3095, #3180).
+- List items keep their paragraphs, fences, comments and nested definitions in the right owner after empty leads, separating blanks, dedents and quoted lazy markers (#3036, #3059, #3076, #3079, #3087, #3154, #3165, #3173, #3176, #3185, #3190, #3198, #3205, #3239, #3248, #3340).
+- Quoted items, colon divs and line blocks release continuation at the right line after closed containers, comments, code spans and dedented fences (#3116, #3124, #3127, #3130, #3132, #3138, #3139, #3141, #3143, #3144, #3149, #3179).
+- Definition terms keep fences, comments, attributes and content-column text in the term or description that owns them (#3187, #3193, #3199, #3214, #3226, #3236, #3276, #3287, #3289).
+- Footnote definitions keep their body: a nested definition stays at its parent's column, and a marker-line note keeps the lines at its body column (#3026, #3206, #3254, #3262, #3281, #3292, #3295, #3299).
+- Rendering, formatting and Markdown export no longer fail or corrupt text when the document, symbols or labels occupy the private-use marker characters (#3106, #3107, #3108, #3146, #3153).
+- A static math block keeps its display delimiters, images stay inline in inline hosts, and a no-break space in an attribute value stays itself (#3003, #3007, #3077).
+- Table cell hard breaks and discarded short-caption fields are reported as render losses (#3032, #3035).
+- Unclosed CODE and RAW fences include their final EOF line in source spans. An unclosed `<code>` in a heading gains no section separator, and a very deep tree reaches the depth error instead of crashing (#3072, #3152, #3160).
+- ANSI output dims unused link definitions, and a definition used only inside link text counts as unused (#3289).
+- Adjacent alphabetic and Roman ordered lists stay separate, a lone letter follows the shared tie-break, and a raw block converted to code by a profile keeps its source position (#2993).
 
 - `getClassList()` returns class names again: each authored entry is split on HTML whitespace, so `{.a class="b c"}` lists `a`, `b` and `c`, and `hasClass('b')` is true for `class="b c"` as it was in 0.1.9. The merged `class` attribute does not move (#2939, #2940).
 - An editorial comment keeps its boundary on the Markdown target, which wraps it in a `critic-comment` span with the content escaped as ordinary text. Plain text and ANSI output is unchanged and each comment reports one render-loss row (#2964, carve#2791).
@@ -99,6 +110,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Djot import keeps opaque content opaque: an autolink label survives footnote aliasing and delimiter conversion, a fence keeps its code and owner after indentation is mapped to Carve, a reference definition keeps its value literal, and a converted URL keeps IPv6 authority brackets, raw backslashes and Djot's email priority (#2962).
 
 ### Performance
+- Djot import scans structural prefixes, comment context and delimiters in linear passes (#2994, #3112).
+- Short literal span contents skip recursive inline parsing (#3122).
+- Markdown import and export skip unneeded emphasis checks, delimiter caches and loose-list reparsing (#3167, #3183, #3188).
 
 - Joined adjacent text nodes once during HTML import and AST encoding and validation, avoiding repeated copies of growing text runs. Inline padding trims scan only the suffix (#2931).
 - Paced garbage collection across large HTML imports to avoid repeated scans of live trees (#2932).
