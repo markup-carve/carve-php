@@ -1432,5 +1432,65 @@
   {
     "source": "> > > > - a\n> > > >\n> > > >   - b\n> > > > c\n> > > >\n> > > >     {.x}\n> > > >\n> > > >   - e\n> > > >\n> > > > - f",
     "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\n<p>b\nc</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</li>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> >   - a\n> >\n> >     {.x}\n> > p\n> >   - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n</ul>\n<p class=\"x\">p\n- b</p>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > >   - a\n> > >\n> > >     {.x}\n> > > p\n> > >   - b",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n</ul>\n<p class=\"x\">p\n- b</p>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > >   - a\n> > > >\n> > > >     {.x}\n> > > > p\n> > > >   - b",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n</ul>\n<p class=\"x\">p\n- b</p>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> > {.k} c\n> > - d\n> >\n> >   {.x}\n> >\n> > - e",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a\n c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - a\n> > > {.k} c\n> > > - d\n> > >\n> > >   {.x}\n> > >\n> > > - e",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a\n c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > > {.k} c\n> > > > - d\n> > > >\n> > > >   {.x}\n> > > >\n> > > > - e",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a\n c</p>\n</li>\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> > {.k}\n> > - d\n> >\n> >   {.x}\n> >\n> > - e",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\na\n</li>\n</ul>\n<ul class=\"k\">\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > - a\n> > > {.k}\n> > > - d\n> > >\n> > >   {.x}\n> > >\n> > > - e",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n</li>\n</ul>\n<ul class=\"k\">\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > > {.k}\n> > > > - d\n> > > >\n> > > >   {.x}\n> > > >\n> > > > - e",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n</li>\n</ul>\n<ul class=\"k\">\n<li>\n<p>d</p>\n</li>\n<li class=\"x\">\n<p>e</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> >\n> >   - b\n> >\n> > - f\n\n{.z}\nq",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n</ul>\n</li>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n<p class=\"z\">q</p>\n"
+  },
+  {
+    "source": "> > > - a\n> > >\n> > >   - b\n> > >\n> > > - f\n> \n> {.z}\n> q",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n</ul>\n</li>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n<p class=\"z\">q</p>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > >\n> > > >   - b\n> > > >\n> > > > - f\n> > \n> > {.z}\n> > q",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n</ul>\n</li>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n<p class=\"z\">q</p>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> >\n> >   - b\n> > >\n> > - f\n\n{.z}\nq",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n</ul>\n</li>\n</ul>\n<blockquote>\n</blockquote>\n<ul>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n<p class=\"z\">q</p>\n"
+  },
+  {
+    "source": "> > > - a\n> > >\n> > >   - b\n> > > >\n> > > - f\n> \n> {.z}\n> q",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n</ul>\n</li>\n</ul>\n<blockquote>\n</blockquote>\n<ul>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n<p class=\"z\">q</p>\n</blockquote>\n"
+  },
+  {
+    "source": "> > > > - a\n> > > >\n> > > >   - b\n> > > > >\n> > > > - f\n> > \n> > {.z}\n> > q",
+    "html": "<blockquote>\n<blockquote>\n<blockquote>\n<blockquote>\n<ul>\n<li>\na\n<ul>\n<li>\nb\n</li>\n</ul>\n</li>\n</ul>\n<blockquote>\n</blockquote>\n<ul>\n<li>\nf\n</li>\n</ul>\n</blockquote>\n</blockquote>\n<p class=\"z\">q</p>\n</blockquote>\n</blockquote>\n"
   }
 ]

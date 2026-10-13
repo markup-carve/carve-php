@@ -114,7 +114,7 @@ trait NormalizesDjotStructure
                     unset($frames[$level]);
                 }
             }
-            if ($depth > $previousDepth && isset($frames[$previousDepth])) {
+            if ($depth > $previousDepth && isset($frames[$previousDepth]) && $frames[$previousDepth] !== []) {
                 $ownerIndex = array_key_last($frames[$previousDepth]);
                 $frames[$previousDepth][$ownerIndex]['attributes'] = [];
             }
@@ -133,6 +133,7 @@ trait NormalizesDjotStructure
             while ($stack !== [] && $stack[array_key_last($stack)]['column'] > $indent) {
                 array_pop($stack);
             }
+            $frames[$depth] = $stack;
             $frame = $stack !== [] ? $stack[array_key_last($stack)] : null;
             if (preg_match('/^([-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+/', $visible, $item) === 1) {
                 if ($depth === $priorDepth && $priorParagraph && ($frame === null || $indent > $frame['column'])) {
