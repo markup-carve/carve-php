@@ -68,6 +68,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
@@ -655,7 +656,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
-                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkLabels[$node->getLabel()])
+                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkLabels[LabelKey::normalize($node->getLabel())])
                     ? '' : $this->style($this->stripControls(CarveRenderer::referenceDefinitionLine($node)), self::DIM) . "\n\n",
                 $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),

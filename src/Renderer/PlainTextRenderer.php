@@ -62,6 +62,7 @@ use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
@@ -400,7 +401,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
-                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkLabels[$node->getLabel()])
+                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkLabels[LabelKey::normalize($node->getLabel())])
                     ? '' : $this->stripControls(CarveRenderer::referenceDefinitionLine($node)) . "\n\n",
                 $node instanceof RawBlock => $this->dropRaw($node, 'block'),
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),

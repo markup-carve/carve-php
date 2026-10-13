@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Renderer\Utility;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 
 final class ReferencedLinkLabels
 {
@@ -22,7 +23,7 @@ final class ReferencedLinkLabels
             if ($node instanceof Link || $node instanceof Image) {
                 $label = $node->getReferenceLabel();
                 if ($label !== null && !($node instanceof Link && $node->isFromHeadingReference())) {
-                    $labels[$label] = true;
+                    $labels[LabelKey::normalize($label)] = true;
                 }
             }
             foreach ($node->getChildren() as $child) {

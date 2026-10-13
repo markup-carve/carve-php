@@ -26,4 +26,13 @@ final class UnusedLinkReferenceDefinitionTest extends TestCase
         self::assertSame("t\n", CarveConverter::plainText()->convert($source));
         self::assertStringNotContainsString('[r]:', CarveConverter::ansi()->convert($source));
     }
+
+    public function testNormalizedReferenceLabelSuppressesTheDefinition(): void
+    {
+        $source = "See [x][foo  bar].\n\n[foo bar]: /url\n";
+
+        self::assertSame("See [x](/url).\n", CarveConverter::markdown()->convert($source));
+        self::assertSame("See x.\n", CarveConverter::plainText()->convert($source));
+        self::assertStringNotContainsString('[foo bar]:', CarveConverter::ansi()->convert($source));
+    }
 }

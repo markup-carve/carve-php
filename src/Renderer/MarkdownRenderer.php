@@ -74,6 +74,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
@@ -1697,7 +1698,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof AbbreviationDefinition
             => $this->renderAbbreviationDefinition($node),
             $node instanceof LinkReferenceDefinition => $this->roundTripMode
-                || !isset($this->referencedLinkLabels[$node->getLabel()])
+                || !isset($this->referencedLinkLabels[LabelKey::normalize($node->getLabel())])
                 ? $this->renderLinkReferenceDefinition($node) : '',
             $node instanceof RawBlock => $this->renderRawBlock($node),
             $node instanceof BlockQuote => $this->renderBlockQuote($node),
