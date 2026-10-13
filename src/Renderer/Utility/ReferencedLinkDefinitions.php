@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Ruby;
@@ -52,6 +53,11 @@ final class ReferencedLinkDefinitions
             if ($value instanceof Ruby) {
                 foreach ($value->getPairs() as $pair) {
                     array_push($stack, ...$pair['base'], ...$pair['annotation']);
+                }
+            }
+            if ($value instanceof CitationGroup) {
+                foreach ($value->getItems() as $item) {
+                    array_push($stack, ...($item['prefix'] ?? []), ...($item['locator'] ?? []), ...($item['suffix'] ?? []));
                 }
             }
         }
