@@ -4313,7 +4313,7 @@ final class HtmlAstBuilder
         if ($node instanceof DOMText) {
             $value = $this->session->preserveInlineWhitespace
                 ? $node->textContent
-                : (preg_replace('/[ \t\n\f\r]+/', ' ', $node->textContent) ?? $node->textContent);
+                : (preg_replace('/[ \t]*[\n\f\r][ \t\n\f\r]*| +/', ' ', $node->textContent) ?? $node->textContent);
 
             return $value === '' ? [] : [HtmlImportNodes::text($value)];
         }
