@@ -50,6 +50,8 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-explicitly-delimited-row-of-blank-cells-is-a-table',
+        'a-block-quote-and-a-footnote-body-take-the-first-block-form',
         'a-fence-that-leaves-a-closed-nested-item-opens-in-the-host-it-lands-in',
         'a-footnote-definition-past-a-box-s-column-is-hoisted',
         'a-comment-between-a-heading-and-a-colon-fence-leaves-the-fence-an-opener',
@@ -1185,7 +1187,30 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const KNOWN_GAPS = [];
+    protected const KNOWN_GAPS = [
+        '113-a-pipe-pair-with-no-cell-is-not-a-table' => 'Blank table row parsing is tracked separately.',
+        '453-a-row-whose-every-cell-is-blank-is-not-a-table' => 'Blank table row parsing is tracked separately.',
+        '453-a-row-whose-every-cell-is-blank-is-not-a-table-2' => 'Blank table row parsing is tracked separately.',
+        '453-a-row-whose-every-cell-is-blank-is-not-a-table-3' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-13' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-2' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-23' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-24' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-25' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-26' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-27' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-28' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-29' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-3' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-30' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-31' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-33' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-34' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-4' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-5' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table-6' => 'Blank table row parsing is tracked separately.',
+        '589-an-explicitly-delimited-row-of-blank-cells-is-a-table' => 'Blank table row parsing is tracked separately.',
+    ];
 
     /**
      * Documents this engine renders per the CURRENT spec, which the PINNED

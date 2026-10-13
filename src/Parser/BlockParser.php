@@ -5318,6 +5318,23 @@ class BlockParser
         $bodyLines = [$content];
         $commentSpan = new CollectedCommentSpan();
         $bodyLineMap = [$this->sourceLineFor($start)];
+        if (
+            trim($content, " \t") === '+' && isset($lines[$i])
+            && !IndentationHelper::isBlankLine($lines[$i])
+            && $this->continuationAttachesAtColumnZero($i)
+        ) {
+            [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
+                $lines,
+                $i,
+                $count,
+                static fn (string $candidate): bool => (bool)preg_match('/^\[\^[^\]]+\]:/', $candidate),
+            );
+            if ($attached !== []) {
+                $bodyLines = $attached;
+                $bodyLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedLineMap);
+                $i = $end;
+            }
+        }
         // Tracked for the same reason the list-item collectors track it: inside
         // an open fence a whitespace-only source line is a verbatim line, so
         // what lies past the body column is content rather than a blank

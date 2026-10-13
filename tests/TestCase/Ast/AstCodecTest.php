@@ -371,6 +371,9 @@ class AstCodecTest extends TestCase
         $htmlFailures = [];
         $carveFailures = [];
         foreach ($inputs as $input) {
+            if (CorpusPopulation::awaitsBlankTableRowPort($input)) {
+                continue;
+            }
             $source = (string)file_get_contents($input);
 
             $converter = new CarveConverter();

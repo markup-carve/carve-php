@@ -502,7 +502,12 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         $source = (new MarkdownToCarve())->convert($exported);
         $converter = new CarveConverter();
         self::assertTrue(self::matchesProjection((new AstCodec())->encode($converter->parse($source)), $fixture['expectedNodes']));
-        self::assertSame(trim($converter->convert($fixture['source'])), trim($converter->convert($source)));
+        $originalHtml = trim($converter->convert($fixture['source']));
+        $importedHtml = trim($converter->convert($source));
+        if (in_array('list-delimiter-changed', $fixture['lossCodes'], true)) {
+            $importedHtml = str_replace(' data-delim=")"', '', $importedHtml);
+        }
+        self::assertSame($originalHtml, $importedHtml);
     }
 
     /**

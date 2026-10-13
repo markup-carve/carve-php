@@ -233,12 +233,41 @@ final class BlockQuoteBuilder
         $lazyState = self::initialBlockQuoteLazyState();
         $codeCloserMemo = [];
 
-        $innerLines[] = $content;
-        $innerLineMap[] = $this->sourceLineFor($start);
-        $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
-
         $i = $start + 1;
         $count = count($lines);
+        $nestedFirstBlock = preg_match('/^(?:> )+\+[ \t]*$/D', $content) === 1
+            && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
+            && IndentationHelper::getLeadingColumns($lines[$i]) === 0;
+        $firstBlock = trim($content, " \t") === '+' && isset($lines[$i])
+            && !IndentationHelper::isBlankLine($lines[$i])
+            && IndentationHelper::getLeadingColumns($lines[$i]) === 0;
+        if ($firstBlock) {
+            [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+            $innerLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $rawLineMap);
+            $firstBlock = $innerLines !== [];
+        }
+        if (!$firstBlock) {
+            $innerLines[] = $content;
+            $innerLineMap[] = $this->sourceLineFor($start);
+            $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
+            if ($nestedFirstBlock) {
+                [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+                foreach ($attached as $index => $attachedLine) {
+                    $innerLines[] = $attachedLine;
+                    $innerLineMap[] = $this->sourceLineFor($attachedLineMap[$index]);
+                }
+                if ($attached !== []) {
+                    $innerLines[] = '';
+                    $innerLineMap[] = -1;
+                    $lazyState['paragraphOpen'] = false;
+                }
+                $i = $end;
+            }
+        } else {
+            $innerLines[] = '';
+            $innerLineMap[] = -1;
+            $lazyState['paragraphOpen'] = false;
+        }
 
         while ($i < $count) {
             $currentLine = $lines[$i];

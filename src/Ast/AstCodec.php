@@ -167,6 +167,7 @@ class AstCodec
         'block_extension.fallback', 'block_extension.name', 'directive.children', 'directive.kind',
         'ruby.pairs', 'section.children', 'small_caps.children',
         'block_quote.children',
+        'cell_wrap.line',
         'citation.key', 'citation.pos', 'citation.suppressAuthor',
         'citation_definition.children', 'citation_definition.key',
         'citation_group.items', 'citation_group.raw',
