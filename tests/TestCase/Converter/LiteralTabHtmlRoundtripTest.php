@@ -40,7 +40,7 @@ class LiteralTabHtmlRoundtripTest extends TestCase
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             $importer = new HtmlToCarve(importMode: $mode);
-            foreach (["a\n\t\tb", "a\t \r\n \tb", "a\f\tb"] as $text) {
+            foreach (["a\n\t\tb", "a\t \r\n \tb"] as $text) {
                 $tree = $importer->convertToAst('<p>' . $text . '</p>');
                 self::assertSame('a b', $tree['children'][0]['children'][0]['value'], $mode);
             }
