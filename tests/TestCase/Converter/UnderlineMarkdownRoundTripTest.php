@@ -24,4 +24,13 @@ final class UnderlineMarkdownRoundTripTest extends TestCase
             $codec->encode(CarveConverter::create()->parse($imported))['children'],
         );
     }
+
+    public function testStrayClosingUnderlineTagDoesNotExposeSlashEmphasis(): void
+    {
+        $source = '</u>/abc/ x';
+        $imported = (new MarkdownToCarve())->convert($source);
+
+        self::assertSame("<p></u>/abc/ x</p>\n", CarveConverter::create()->convert($imported));
+        self::assertStringContainsString('\\/abc/', $imported);
+    }
 }

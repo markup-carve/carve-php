@@ -7516,11 +7516,11 @@ class MarkdownToCarve
         while (str_contains($line, $nativeTagPrefix)) {
             $nativeTagPrefix .= 'N';
         }
-        $line = preg_replace_callback('~(?<=</u>)/(?=[A-Za-z0-9])~i', static function (array $match) use (&$nativeTags, $nativeTagPrefix): string {
+        $line = preg_replace_callback('~<u>[^<]+</u>/(?=[A-Za-z0-9])~i', static function (array $match) use (&$nativeTags, $nativeTagPrefix): string {
             $token = $nativeTagPrefix . count($nativeTags) . "\0";
-            $nativeTags[$token] = $match[0];
+            $nativeTags[$token] = '/';
 
-            return $token;
+            return substr($match[0], 0, -1) . $token;
         }, $line) ?? $line;
         $line = preg_replace_callback('/<\/?(?:code|mark|ins|del|s|sup|sub|strong|b|em|i|u)>/i', static function (array $match) use (&$nativeTags, $nativeTagPrefix): string {
             $token = $nativeTagPrefix . count($nativeTags) . "\0";
