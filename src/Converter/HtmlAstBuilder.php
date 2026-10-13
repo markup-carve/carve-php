@@ -5078,6 +5078,7 @@ final class HtmlAstBuilder
 
             return [$autolink];
         }
+        /** @var ImportedNode $link */
         $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
         if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref') && !$contradictory) {
             if (
