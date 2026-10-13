@@ -168,6 +168,8 @@ class ListStyleDroppedTest extends TestCase
             'quote' => ["> q\n<!-- carve: a. -->\n1. one\n", "> q\n\na. one\n"],
             'adjacent lists' => ["<!-- carve: a. -->\n1. one\n<!-- carve: b. -->\n2. two\n", "a. one\n\nb. two\n"],
             'table' => ["| a |\n|---|\n| b |\n<!-- carve: a. -->\n1. one\n", "|= a |\n| b |\n\na. one\n"],
+            'nested bullet' => ["- outer\n  <!-- carve: a. -->\n  1. one\n  2. two\n- next\n", "- outer\n  a. one\n  b. two\n- next\n"],
+            'nested ordered' => ["1. outer\n   <!-- carve: a. -->\n   1. one\n2. next\n", "1. outer\n   a. one\n2. next\n"],
         ];
     }
 

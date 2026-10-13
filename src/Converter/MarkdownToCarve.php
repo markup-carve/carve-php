@@ -646,14 +646,16 @@ class MarkdownToCarve
             }
             $styleMarker = $this->carrierListStyle($payload) !== null;
             $blankHost = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
+            $insideItem = $at > 0 && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$at - 1], $listStart) === 1
+                && strlen($host) >= strlen($listStart[0]);
             if (
                 $styleMarker && $at > 0 && trim($this->withoutCarrierHost($lines[$at - 1], $host)) !== ''
-                && !str_starts_with($payloads[$at - 1] ?? '', '{')
+                && !str_starts_with($payloads[$at - 1] ?? '', '{') && !$insideItem
             ) {
                 $out[] = $blankHost;
             }
             $out[] = $host . $token . count($this->carrierSlots) . 'Z';
-            if ($styleMarker) {
+            if ($styleMarker && !$insideItem) {
                 $out[] = $blankHost;
             }
             $equation = null;
