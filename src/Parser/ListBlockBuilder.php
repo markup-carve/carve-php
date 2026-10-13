@@ -1170,13 +1170,20 @@ final class ListBlockBuilder
                 && ($this->getFencedBlockParser)()->parseDivFenceOpener($itemContent) !== null
             ) {
                 $split = count($itemLines);
+                foreach ($itemLines as $candidate => $entry) {
+                    if ($candidate > 0 && $this->isCommentLineOrFence($entry)) {
+                        $split = $candidate;
+
+                        break;
+                    }
+                }
                 foreach (array_keys($authoredBaseEligible) as $candidate) {
                     if ($candidate > 0) {
                         $split = min($split, $candidate);
                     }
                 }
                 $itemLines = [
-                    implode("\n", array_map(BlockGrammar::stripLazyFrame(...), array_slice($itemLines, 0, $split))),
+                    BlockGrammar::LAZY_FRAME . implode("\n", array_map(BlockGrammar::stripLazyFrame(...), array_slice($itemLines, 0, $split))),
                     ...array_slice($itemLines, $split),
                 ];
                 $itemLineMap = [
