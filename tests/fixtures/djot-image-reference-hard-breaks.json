@@ -423,5 +423,225 @@
     "name": "backslashes-4",
     "source": "![a [b\\\\\\\\\nx][r] c](img)\n\n[r]: u",
     "alt": "a b\\\\\nx c"
+  },
+  {
+    "name": "leaf-0-inline",
+    "source": "![a \\ b c](img)",
+    "alt": "a b c"
+  },
+  {
+    "name": "leaf-0-reference",
+    "source": "![a \\ b c][outer]\n\n[outer]: img",
+    "alt": "a b c"
+  },
+  {
+    "name": "leaf-2-inline",
+    "source": "![a don't c](img)",
+    "alt": "a don't c"
+  },
+  {
+    "name": "leaf-2-reference",
+    "source": "![a don't c][outer]\n\n[outer]: img",
+    "alt": "a don't c"
+  },
+  {
+    "name": "leaf-3-inline",
+    "source": "![a -- b c](img)",
+    "alt": "a -- b c"
+  },
+  {
+    "name": "leaf-3-reference",
+    "source": "![a -- b c][outer]\n\n[outer]: img",
+    "alt": "a -- b c"
+  },
+  {
+    "name": "leaf-4-inline",
+    "source": "![a ... b c](img)",
+    "alt": "a ... b c"
+  },
+  {
+    "name": "leaf-4-reference",
+    "source": "![a ... b c][outer]\n\n[outer]: img",
+    "alt": "a ... b c"
+  },
+  {
+    "name": "leaf-5-inline",
+    "source": "![a [b][r]\\ c](img)",
+    "alt": "a bc"
+  },
+  {
+    "name": "leaf-5-reference",
+    "source": "![a [b][r]\\ c][outer]\n\n[outer]: img",
+    "alt": "a bc"
+  },
+  {
+    "name": "leaf-6-inline",
+    "source": "![a [b][r][^n] c](img)",
+    "alt": "a b c"
+  },
+  {
+    "name": "leaf-6-reference",
+    "source": "![a [b][r][^n] c][outer]\n\n[outer]: img",
+    "alt": "a b c"
+  },
+  {
+    "name": "leaf-7-inline",
+    "source": "![a b c](img)",
+    "alt": "a b c"
+  },
+  {
+    "name": "leaf-7-reference",
+    "source": "![a b c][outer]\n\n[outer]: img",
+    "alt": "a b c"
+  },
+  {
+    "name": "leaf-8-inline",
+    "source": "![a `b -- \"x\" \\ c` d](img)",
+    "alt": "a b -- &quot;x&quot; \\ c d"
+  },
+  {
+    "name": "leaf-8-reference",
+    "source": "![a `b -- \"x\" \\ c` d][outer]\n\n[outer]: img",
+    "alt": "a b -- &quot;x&quot; \\ c d"
+  },
+  {
+    "name": "leaf-9-inline",
+    "source": "![a \\\"b\\\" c](img)",
+    "alt": "a &quot;b&quot; c"
+  },
+  {
+    "name": "leaf-9-reference",
+    "source": "![a \\\"b\\\" c][outer]\n\n[outer]: img",
+    "alt": "a &quot;b&quot; c"
+  },
+  {
+    "name": "markup-key-image",
+    "source": "![_a_\nb][]\n\n[_a_ b]: u",
+    "alt": null,
+    "href": null
+  },
+  {
+    "name": "markup-key-link",
+    "source": "[foo\n`x`][]\n\n[foo `x`]: /u",
+    "alt": null,
+    "href": null
+  },
+  {
+    "name": "markup-key-positive",
+    "source": "![_a_\nb][]\n\n[a b]: u",
+    "alt": "a\nb",
+    "href": null
+  },
+  {
+    "name": "padded-key",
+    "source": "![a\nb][]\n\n[ a b ]: u",
+    "alt": "a\nb",
+    "href": null
+  },
+  {
+    "name": "escaped-bang",
+    "source": "\\![a\nb][]\n\n[a b]: u",
+    "alt": null,
+    "href": "u"
+  },
+  {
+    "name": "list-exit-quote",
+    "source": "- x\n\n> ![c\n> d][]\n\n[c d]: /2",
+    "alt": "c\nd",
+    "href": null
+  },
+  {
+    "name": "spaced-key-0-link",
+    "source": "[a  b][]\n\n[a  b]: /u",
+    "alt": null,
+    "href": "/u"
+  },
+  {
+    "name": "spaced-key-0-image",
+    "source": "![a  b][]\n\n[a  b]: /u",
+    "alt": "a  b",
+    "href": null
+  },
+  {
+    "name": "spaced-key-1-link",
+    "source": "[ a][]\n\n[ a]: /u",
+    "alt": null,
+    "href": "/u"
+  },
+  {
+    "name": "spaced-key-1-image",
+    "source": "![ a][]\n\n[ a]: /u",
+    "alt": " a",
+    "href": null
+  },
+  {
+    "name": "spaced-key-2-link",
+    "source": "[a\tb][]\n\n[a\tb]: /u",
+    "alt": null,
+    "href": "/u"
+  },
+  {
+    "name": "spaced-key-2-image",
+    "source": "![a\tb][]\n\n[a\tb]: /u",
+    "alt": "a\tb",
+    "href": null
+  },
+  {
+    "name": "spaced-key-3-link",
+    "source": "[a\nb][]\n\n[a\tb]: /u",
+    "alt": null,
+    "href": "/u"
+  },
+  {
+    "name": "spaced-key-3-image",
+    "source": "![a\nb][]\n\n[a\tb]: /u",
+    "alt": "a\nb",
+    "href": null
+  },
+  {
+    "name": "spaced-key-4-link",
+    "source": "[a  b][]\n\n[ a\tb ]: /u",
+    "alt": null,
+    "href": "/u"
+  },
+  {
+    "name": "spaced-key-4-image",
+    "source": "![a  b][]\n\n[ a\tb ]: /u",
+    "alt": "a  b",
+    "href": null
+  },
+  {
+    "name": "unattached-attribute-0",
+    "source": "![a {.x} b](img)",
+    "alt": "a  b",
+    "href": null
+  },
+  {
+    "name": "masked-close-False-link",
+    "source": "[a `c][]` d\n\n[a `c]: u",
+    "alt": null,
+    "href": null,
+    "code": "c][]"
+  },
+  {
+    "name": "masked-close-False-!",
+    "source": "![a `c][]` d\n\n[a `c]: u",
+    "alt": null,
+    "href": null,
+    "code": "c][]"
+  },
+  {
+    "name": "masked-close-True-link",
+    "source": "[a\n`c][]` d\n\n[a c]: u",
+    "alt": null,
+    "href": null,
+    "code": "c][]"
+  },
+  {
+    "name": "masked-close-True-!",
+    "source": "![a\n`c][]` d\n\n[a c]: u",
+    "alt": null,
+    "href": null,
+    "code": "c][]"
   }
 ]

@@ -424,7 +424,19 @@ class DjotReviewAlignmentTest extends TestCase
             $imported = (new DjotToCarve())->convert($case['source']);
             $html = (new CarveConverter())->convert($imported);
             preg_match('/<img\b[^>]*\balt="([^"]*)"/', $html, $match);
-            self::assertSame($case['alt'], $match[1] ?? null, $case['source'] . "\n" . $imported);
+            self::assertSame(
+                isset($case['alt']) ? html_entity_decode($case['alt'], ENT_QUOTES | ENT_HTML5) : null,
+                isset($match[1]) ? html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5) : null,
+                $case['source'] . "\n" . $imported,
+            );
+            if (array_key_exists('code', $case)) {
+                preg_match('/<code\b[^>]*>(.*?)<\/code>/s', $html, $code);
+                self::assertSame($case['code'], $code[1] ?? null, $case['source'] . "\n" . $imported);
+            }
+            if (array_key_exists('href', $case)) {
+                preg_match('/<a\b[^>]*\bhref="([^"]*)"/', $html, $link);
+                self::assertSame($case['href'], $link[1] ?? null, $case['source'] . "\n" . $imported);
+            }
         }
     }
 }
