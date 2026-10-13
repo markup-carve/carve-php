@@ -92,42 +92,42 @@
   {
     "id": "unchanged-unmatched-1-```",
     "source": "> - ::: box\n>   - ::: |\n>     ```\n>     :::\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-1-```",
     "source": "> - ::: box\n>   - ::: |\n>       ```\n>     :::\n>       ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div>\n            :::bad\n:::\n- tail\n          </li></ul></div></li></ul></blockquote>"
   },
   {
     "id": "unchanged-unmatched-1-~~~",
     "source": "> - ::: box\n>   - ::: |\n>     ~~~\n>     :::\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-1-~~~",
     "source": "> - ::: box\n>   - ::: |\n>       ~~~\n>     :::\n>       ~~~\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n            :::bad\n:::\n          </li></ul></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n:::<br>\n&nbsp;&nbsp;~~~</p></div>\n            :::bad\n:::\n- tail\n          </li></ul></div></li></ul></blockquote>"
   },
   {
     "id": "unchanged-unmatched-2-```",
     "source": "> > - ::: box\n> >   - ::: |\n> >     ```\n> >     :::\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-2-```",
     "source": "> > - ::: box\n> >   - ::: |\n> >       ```\n> >     :::\n> >       ```\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code>\n:::\n</code></p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div>\n              :::bad\n:::\n- tail\n            </li></ul></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "unchanged-unmatched-2-~~~",
     "source": "> > - ::: box\n> >   - ::: |\n> >     ~~~\n> >     :::\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li><li>tail</li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~</p></div><div><p>:::bad</p></div></li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "unchanged-overindented-2-~~~",
     "source": "> > - ::: box\n> >   - ::: |\n> >       ~~~\n> >     :::\n> >       ~~~\n> >     :::\n> >     :::bad\n> >     :::\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>~~~<br>\n:::<br>\n~~~</p></div>\n              :::bad\n:::\n            </li></ul></div></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n:::<br>\n&nbsp;&nbsp;~~~</p></div>\n              :::bad\n:::\n- tail\n            </li></ul></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "M1 far closer after blank, same col",
@@ -222,12 +222,12 @@
   {
     "id": "authored-gap-canonical-closer",
     "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>     ```\n>     :::\n>     :::bad\n>     :::\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::\n:::bad\n:::\n- tail</code></p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::\n:::bad\n:::</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "authored-gap-lazy-tail",
     "source": "> - ::: box\n>   -   ::: |\n>       ```\n>       :::\n>     ```\n>     :::\nlazy\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::\nlazy</code></p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p><code></code></p></div></li></ul><p><code>\n:::</code></p></div></li></ul></blockquote><p>lazy</p>"
   },
   {
     "id": "unchanged-review4-1",

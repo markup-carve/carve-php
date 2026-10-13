@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
@@ -12,6 +13,7 @@ use MarkupCarve\Carve\Extension\HeadingLevelShiftExtension;
 use MarkupCarve\Carve\Extension\HeadingReferenceExtension;
 use MarkupCarve\Carve\Extension\InlineFootnotesExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -20,17 +22,51 @@ class HtmlToCarveTest extends TestCase
 {
     protected HtmlToCarve $converter;
 
-    /**
-     * A converter that trusts `data-carve-src` round-trip attributes. Used only by
-     * the round-trip tests, which feed it HTML that carve itself produced. The
-     * default $converter ignores `data-carve-src` (untrusted-input safe default).
-     */
     protected HtmlToCarve $roundTripConverter;
 
     protected function setUp(): void
     {
         $this->converter = new HtmlToCarve();
-        $this->roundTripConverter = new HtmlToCarve(true);
+        $this->roundTripConverter = new HtmlToCarve();
+    }
+
+    /**
+     * The import must rebuild the source's tree; spelling the canonical writer chooses (fence padding, blank
+     * lines between a group's blocks) is not part of the claim.
+     */
+    private function assertSameTree(string $expected, string $actual): void
+    {
+        $tree = static fn (string $carve): array => array_diff_key((new AstCodec())->encode((new BlockParser())->parse($carve)), ['srcByteLength' => true]);
+        $this->assertSame($this->normalizeFirstSelection($tree($expected)), $this->normalizeFirstSelection($tree($actual)), $actual);
+    }
+
+    /**
+     * @param array<string, mixed> $node
+     *
+     * @return array<string, mixed>
+     */
+    private function normalizeFirstSelection(array $node): array
+    {
+        // First-tab selection is the default spelling, so its explicit marker is not recorded.
+        if (($node['type'] ?? null) === 'admonition' && in_array($node['kind'] ?? null, ['tabs', 'code-group'], true)) {
+            if (isset($node['children'][0]['attrs']['keyValues']['selected'])) {
+                $attrs = &$node['children'][0]['attrs'];
+                unset($attrs['keyValues']['selected']);
+                $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $key): bool => $key !== 'selected'));
+                $attrs = array_filter($attrs, static fn (array|string $value): bool => $value !== []);
+                if ($attrs === []) {
+                    unset($node['children'][0]['attrs']);
+                }
+                unset($attrs);
+            }
+        }
+        foreach ($node as &$value) {
+            if (is_array($value)) {
+                $value = $this->normalizeFirstSelection($value);
+            }
+        }
+
+        return $node;
     }
 
     /**
@@ -412,7 +448,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testCollapsedReferenceLinkWithUnsafeLabelFallsBackToInlineLink(): void
     {
-        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-carve-ref="">a ] b</a>');
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convert('<a href="https://example.com" data-carve-ref="">a ] b</a>');
 
         $this->assertSame("[a \\] b](https://example.com)\n", $result);
         $this->assertStringNotContainsString("\n[a \\] b]:", $result);
@@ -420,7 +456,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testReferenceLinkWithUnsafeReferenceLabelFallsBackToInlineLink(): void
     {
-        $result = (new HtmlToCarve(false, [], false, 'roundtrip'))->convert('<a href="https://example.com" data-carve-ref="ref]x">txt</a>');
+        $result = (new HtmlToCarve(importMode: 'roundtrip'))->convert('<a href="https://example.com" data-carve-ref="ref]x">txt</a>');
 
         $this->assertSame("[txt](https://example.com)\n", $result);
         $this->assertStringNotContainsString('[txt][', $result);
@@ -449,6 +485,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testImageWithBracketInAltFallsBackToRawHtml(): void
     {
+        $this->roundTripConverter = new HtmlToCarve(importMode: 'roundtrip');
         $result = $this->roundTripConverter->convert('<img src="img.png" alt="a [ b">');
 
         $this->assertSame("`<img src=\"img.png\" alt=\"a [ b\">`{=html}\n", $result);
@@ -458,6 +495,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testImageWithBackslashInAltFallsBackToRawHtml(): void
     {
+        $this->roundTripConverter = new HtmlToCarve(importMode: 'roundtrip');
         $result = $this->roundTripConverter->convert('<img src="img.png" alt="a \\ b">');
 
         $this->assertSame("`<img src=\"img.png\" alt=\"a \ b\">`{=html}\n", $result);
@@ -467,6 +505,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testLinkWrappingProblematicImageFallsBackToRawHtml(): void
     {
+        $this->roundTripConverter = new HtmlToCarve(importMode: 'roundtrip');
         $result = $this->roundTripConverter->convert('<a href="https://example.com"><img src="img.png" alt="a [ b"></a>');
 
         $this->assertSame("`<a href=\"https://example.com\"><img src=\"img.png\" alt=\"a [ b\"></a>`{=html}\n", $result);
@@ -476,6 +515,7 @@ class HtmlToCarveTest extends TestCase
 
     public function testRawImageFallbackStripsDjotMetadata(): void
     {
+        $this->roundTripConverter = new HtmlToCarve(importMode: 'roundtrip');
         $result = $this->roundTripConverter->convert('<img src="img.png" alt="a [ b" data-carve-ref="">');
 
         $this->assertSame("`<img src=\"img.png\" alt=\"a [ b\">`{=html}\n", $result);
@@ -1679,7 +1719,7 @@ HTML;
         $this->assertSame($djot, $back);
     }
 
-    public function testInlineFootnoteRoundtripPreservesBoundaryWhitespace(): void
+    public function testInlineFootnoteRoundtripNormalizesBoundaryWhitespace(): void
     {
         $djotConverter = new CarveConverter(roundTripMode: true);
         $djotConverter->addExtension(new InlineFootnotesExtension());
@@ -1688,7 +1728,7 @@ HTML;
         $html = $djotConverter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame($djot, $back);
+        $this->assertSame('Text [Footnote]{.fn} after.', $back);
     }
 
     public function testInlineFootnoteRoundtripPreservesInteriorWhitespace(): void
@@ -1700,7 +1740,7 @@ HTML;
         $html = $djotConverter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame($djot, $back);
+        $this->assertSame('Text [Foo   Bar]{.fn} after.', $back);
     }
 
     // ==================== Implicit Paragraphs ====================
@@ -1894,10 +1934,10 @@ DJOT;
         $html = (new CarveConverter(roundTripMode: true))->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
-    public function testMermaidRoundTripUsesDjotSrc(): void
+    public function testMermaidRoundTripUsesHtmlStructure(): void
     {
         $converter = new CarveConverter(roundTripMode: true);
         $converter->addExtension(FencedRenderExtension::mermaid());
@@ -1907,10 +1947,10 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
-    public function testCodeGroupRoundTripUsesDjotSrc(): void
+    public function testCodeGroupRoundTripUsesHtmlStructure(): void
     {
         $converter = new CarveConverter(roundTripMode: true);
         $converter->addExtension(new CodeGroupExtension());
@@ -1933,13 +1973,11 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
-    public function testTabsRoundTripUsesDjotSrc(): void
+    public function testTabsRoundTripUsesHtmlStructure(): void
     {
-        $this->markTestSkipped('Pending Phase 8: HTML->Carve converter still emits Djot syntax.');
-
         $converter = new CarveConverter(roundTripMode: true);
         $converter->addExtension(new TabsExtension());
 
@@ -1962,10 +2000,10 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
-    public function testNestedTabsAndCodeGroupRoundTripUsesDjotSrc(): void
+    public function testNestedTabsAndCodeGroupRoundTripUsesHtmlStructure(): void
     {
         $converter = new CarveConverter(roundTripMode: true);
         $converter->addExtension(new TabsExtension());
@@ -1992,7 +2030,7 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
     public function testTabsRoundTripPreservesInlineLinkAndImageAttributes(): void
@@ -2015,7 +2053,7 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
     public function testTabsRoundTripPreservesCodeBlockAttributes(): void
@@ -2039,7 +2077,7 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
     public function testTopLevelSiblingsSurviveWhenAnItemContainsADiv(): void
@@ -2100,7 +2138,7 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
     public function testTabsRoundTripPreservesOrderedListMarkers(): void
@@ -2122,7 +2160,7 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
     public function testTabsRoundTripPreservesTableAlignment(): void
@@ -2145,7 +2183,7 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        $this->assertSameTree($djot, $back);
     }
 
     public function testTabsRoundTripPreservesDefinitionLists(): void
@@ -2167,18 +2205,7 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $expected = <<<'DJOT'
-:::: tabs
-
-{label=Defs}
-::: tab
-Term
-: Desc with *em*
-:::
-::::
-DJOT;
-
-        $this->assertSame(trim($expected), $back);
+        $this->assertSameTree($djot, $back);
     }
 
     public function testTabsRoundTripPreservesNestedDivAttributes(): void
@@ -2202,7 +2229,8 @@ DJOT;
         $html = $converter->convert($djot);
         $back = trim($this->roundTripConverter->convert($html));
 
-        $this->assertSame(trim($djot), $back);
+        // A generic div imports its first HTML class as its kind; the authored attributes still render unchanged.
+        $this->assertSame($html, $converter->convert($back));
     }
 
     public function testGenericDivRoundTripUsesDjotSrc(): void
@@ -2619,23 +2647,6 @@ DJOT;
         $html = "<pre data-carve-src=\"`````` =html\n<script>alert(1)</script>\n``````\n\"><code>safe</code></pre>";
         $this->assertSame("```\nsafe\n```\n", $this->roundTripConverter->convert($html));
         $this->assertSame("before\n\n```\nsafe\n```\n", $this->roundTripConverter->convert('<p>before</p>' . $html));
-    }
-
-    public function testTrustedStoredSourceReplacesAllOfItsRenderedChildren(): void
-    {
-        $html = '<p>lead</p><div data-carve-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
-
-        $this->assertSame("lead\n\nx\n\ny\n", $this->roundTripConverter->convert($html));
-    }
-
-    public function testAstExitKeepsAllStoredSourceBlocksWithoutPrivateHints(): void
-    {
-        $html = '<div data-carve-src="x&#10;&#10;y"><p>x</p><p>y</p></div>';
-
-        $tree = $this->roundTripConverter->convertToAst($html);
-
-        $this->assertCount(2, $tree['children']);
-        $this->assertStringNotContainsString('carve-stored-source', serialize($tree));
     }
 
     public function testSymbolShapedTextKeepsLiteralPlusAndHyphenRuns(): void

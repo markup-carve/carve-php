@@ -342,12 +342,16 @@
   {
     "id": "boundary-3-0-# heading-2-False",
     "source": "- a\n  - a\n    - a\n\n      ::: |\n      %%%\n  # heading\n      %%%\n      :::\n",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li>a\n        <ul>\n          <li>a\n            <div class=\"line-block\">\n              <p></p>\n            </div>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <h1 id=\"heading\">heading</h1>\n    :::\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>a\n        <ul>\n          <li>a\n            <div class=\"line-block\">\n              <p></p>\n            </div>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <h1 id=\"heading\">heading</h1>\n    <div>\n\n    </div>\n  </li>\n</ul>",
+    "classification": "C",
+    "checker_pin": "078a5922",
+    "reference_head": "21e28d03",
+    "evidence": "reports/ci-reference-parity-triage.json"
   },
   {
     "id": "boundary-3-0-# heading-4-True",
     "source": "- a\n  - a\n    - a\n\n      ::: |\n      %%%\n      opaque\n      %%%\n    # heading\n      %%%\n      :::\n",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li>a\n        <ul>\n          <li>a\n            <div class=\"line-block\">\n              <p><br>\nopaque<br>\n</p>\n            </div>\n          </li>\n        </ul>\n        <h1 id=\"heading\">heading</h1>\n        :::\n      </li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>a\n        <ul>\n          <li>a\n            <div class=\"line-block\">\n              <p><br>\nopaque<br>\n</p>\n            </div>\n          </li>\n        </ul>\n        <h1 id=\"heading\">heading</h1>\n        <div>\n\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>"
   },
   {
     "id": "boundary-3-0-> quote-4-False",
@@ -492,6 +496,6 @@
   {
     "id": "review-parent-release-2",
     "source": "- * q\n\n    %%\n a\n    ~~~\n",
-    "html": "<ul><li><ul><li>q</li></ul>\n    a\n~~~\n  </li></ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>q</li>\n    </ul>\n  </li>\n</ul>\n<p>a\n~~~</p>"
   }
 ]

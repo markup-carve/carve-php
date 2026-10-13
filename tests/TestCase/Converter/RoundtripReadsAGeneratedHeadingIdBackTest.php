@@ -9,42 +9,6 @@ use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * `roundtrip` mode's input is THIS ENGINE'S OWN OUTPUT by definition, so a
- * heading id there was GENERATED - and re-emitting it CHANGES THE RENDER,
- * because `HtmlRenderer` writes a generated id after every authored attribute
- * and an authored one in the slot it was written in. `{.k}` and `{.k #H}` are
- * therefore two different documents. carve-rs ruled it in carve-rs#1354 and
- * carve-rs#1355, carve-js ported it, and carve-php had no carve-out at all
- * (carve-php#1699).
- *
- * ## Which element carries the id
- *
- * A TOP-LEVEL heading is wrapped: `# H` renders
- * `<section id="H"><h1>H</h1></section>` and the `<h1>` carries no id. That id
- * belongs to the SECTION, which processSection() already answers for. A heading
- * INSIDE a container is not sectioned, so the id sits on the `<h1>` itself.
- * This carve-out is that second placement, and it is the only one where the id
- * is a heading attribute.
- *
- * ## Both halves, and why neither alone is enough
- *
- * POSITION - the id sits after every authored attribute, with only the
- * `data-source-line` render annotation allowed to follow it.
- *
- * VALUE - it equals the DEFAULT slug of the heading's own plain text, or that
- * slug with the `-N` dedup tail, which starts at 2 because the first occurrence
- * takes the bare base.
- *
- * Position alone eats an id an author wrote LAST (`{.k #Other}`); value
- * equality alone cannot tell `{.k}` from an id an author wrote FIRST whose
- * value happens to be the slug (`{#H .k}`). Both controls are below, and each
- * is the one the other half would fail.
- *
- * THE DEFAULT SLUG ONLY, which is the limit the importer already accepts for
- * every other derived attribute: it cannot know which heading-id options the
- * render used, so a value no default equals is kept.
- */
 class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
 {
     /**
@@ -109,7 +73,7 @@ class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
      * @param string $generated
      */
     #[DataProvider('droppedProvider')]
-    public function testRoundtripDropsItAndTheOtherTwoModesKeepIt(string $html, string $authored, string $generated): void
+    public function testAnUnmarkedIdIsAuthoredAndAMarkedIdIsGenerated(string $html, string $authored, string $generated): void
     {
         $written = self::written($html);
 
@@ -117,7 +81,11 @@ class RoundtripReadsAGeneratedHeadingIdBackTest extends TestCase
         // input there. Losing it is the regression the other two engines had.
         $this->assertSame($authored, $written['safe']);
         $this->assertSame($authored, $written['semantic']);
-        $this->assertSame($generated, $written['roundtrip']);
+        $this->assertSame($authored, $written['roundtrip']);
+        $marked = self::written(preg_replace('/(<h1[^>]*)(>)/', '$1 data-carve-generated-id="1"$2', $html) ?? $html);
+        foreach ($marked as $source) {
+            $this->assertSame($generated, $source);
+        }
     }
 
     /**

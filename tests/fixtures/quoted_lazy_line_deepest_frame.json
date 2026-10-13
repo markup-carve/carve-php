@@ -1,0 +1,157 @@
+[
+  {
+    "id": "ticket-after",
+    "source": "> - a\n>     - child\n>     ```\n>   ```\nafter\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul><pre><code></code></pre></li></ul></blockquote><p>after</p>"
+  },
+  {
+    "id": "ticket-marker",
+    "source": "> - a\n>     - child\n>     ```\n>   ```\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul><pre><code></code></pre></li></ul></blockquote><ul><li>next</li></ul>"
+  },
+  {
+    "id": "nested-paragraph-bullet",
+    "source": "> - a\n>   - child\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n- next</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-paragraph-ordered",
+    "source": "> - a\n>   - child\n1. next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n1. next</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-paragraph-after-blank",
+    "source": "> - a\n>\n>   - child\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n- next</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "nested-paragraph-second-line",
+    "source": "> - a\n>   - child\n>   more\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\nmore\n- next</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "div-lead-keeps-no-frame",
+    "source": "> - - ::: box\n: body\n- tail\n",
+    "html": "<blockquote><ul><li><ul><li><div class=\"box\"></div></li></ul></li></ul></blockquote><p>: body\n- tail</p>"
+  },
+  {
+    "id": "closed-fence-1",
+    "source": "> - a\n>   - child\n>   ```\n>    ```\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n<code></code>\n- next</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "closed-fence-2",
+    "source": "> - a\n>     - child\n>     ```\n>    ```\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n<code></code>\n- next</li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "closed-fence-3",
+    "source": "> - a\n>   1. child\n>   ```\n>    ```\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ol><li>child\n<code></code>\n- next</li></ol></li></ul></blockquote>"
+  },
+  {
+    "id": "closed-fence-4",
+    "source": "> - a\n>     1. child\n>     ```\n>    ```\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ol><li>child\n<code></code>\n- next</li></ol></li></ul></blockquote>"
+  },
+  {
+    "id": "closed-fence-5",
+    "source": "> 1. a\n>    - child\n>    ```\n>     ```\n- next\n",
+    "html": "<blockquote><ol><li>a\n      <ul><li>child\n<code></code>\n- next</li></ul></li></ol></blockquote>"
+  },
+  {
+    "id": "closed-fence-6",
+    "source": "> 1. a\n>      - child\n>      ```\n>     ```\n- next\n",
+    "html": "<blockquote><ol><li>a\n      <ul><li>child\n<code></code>\n- next</li></ul></li></ol></blockquote>"
+  },
+  {
+    "id": "closed-fence-7",
+    "source": "> 1. a\n>    1. child\n>    ```\n>     ```\n- next\n",
+    "html": "<blockquote><ol><li>a\n      <ol><li>child\n<code></code>\n- next</li></ol></li></ol></blockquote>"
+  },
+  {
+    "id": "closed-fence-8",
+    "source": "> 1. a\n>      1. child\n>      ```\n>     ```\n- next\n",
+    "html": "<blockquote><ol><li>a\n      <ol><li>child\n<code></code>\n- next</li></ol></li></ol></blockquote>"
+  },
+  {
+    "id": "closed-fence-9",
+    "source": "> > - a\n> >   - child\n> >   ```\n> >    ```\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child\n<code></code>\n- next</li></ul></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "closed-fence-10",
+    "source": "> > - a\n> >     - child\n> >     ```\n> >    ```\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child\n<code></code>\n- next</li></ul></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "closed-fence-11",
+    "source": "> > - a\n> >   1. child\n> >   ```\n> >    ```\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child\n<code></code>\n- next</li></ol></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "closed-fence-12",
+    "source": "> > - a\n> >     1. child\n> >     ```\n> >    ```\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child\n<code></code>\n- next</li></ol></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "closed-fence-13",
+    "source": "> > 1. a\n> >    - child\n> >    ```\n> >     ```\n- next\n",
+    "html": "<blockquote><blockquote><ol><li>a\n        <ul><li>child\n<code></code>\n- next</li></ul></li></ol></blockquote></blockquote>"
+  },
+  {
+    "id": "closed-fence-14",
+    "source": "> > 1. a\n> >      - child\n> >      ```\n> >     ```\n- next\n",
+    "html": "<blockquote><blockquote><ol><li>a\n        <ul><li>child\n<code></code>\n- next</li></ul></li></ol></blockquote></blockquote>"
+  },
+  {
+    "id": "closed-fence-15",
+    "source": "> > 1. a\n> >    1. child\n> >    ```\n> >     ```\n- next\n",
+    "html": "<blockquote><blockquote><ol><li>a\n        <ol><li>child\n<code></code>\n- next</li></ol></li></ol></blockquote></blockquote>"
+  },
+  {
+    "id": "closed-fence-16",
+    "source": "> > 1. a\n> >      1. child\n> >      ```\n> >     ```\n- next\n",
+    "html": "<blockquote><blockquote><ol><li>a\n        <ol><li>child\n<code></code>\n- next</li></ol></li></ol></blockquote></blockquote>"
+  },
+  {
+    "id": "div-paragraph-1",
+    "source": "> - a\n>     - child\n>     ::: box\n>     text\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child</li></ul><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "div-paragraph-2",
+    "source": "> - a\n>     - child\n>       ::: box\n>       text\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ul><li>child\n          <div class=\"box\"><p>text\n- next</p></div></li></ul></li></ul></blockquote>"
+  },
+  {
+    "id": "div-paragraph-3",
+    "source": "> - a\n>     1. child\n>     ::: box\n>     text\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "div-paragraph-4",
+    "source": "> - a\n>     1. child\n>       ::: box\n>       text\n- next\n",
+    "html": "<blockquote><ul><li>a\n      <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "div-paragraph-5",
+    "source": "> > - a\n> >     - child\n> >     ::: box\n> >     text\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child</li></ul><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "div-paragraph-6",
+    "source": "> > - a\n> >     - child\n> >       ::: box\n> >       text\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ul><li>child\n            <div class=\"box\"><p>text\n- next</p></div></li></ul></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "div-paragraph-7",
+    "source": "> > - a\n> >     1. child\n> >     ::: box\n> >     text\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "div-paragraph-8",
+    "source": "> > - a\n> >     1. child\n> >       ::: box\n> >       text\n- next\n",
+    "html": "<blockquote><blockquote><ul><li>a\n        <ol><li>child</li></ol><div class=\"box\"><p>text\n- next</p></div></li></ul></blockquote></blockquote>"
+  }
+]

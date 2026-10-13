@@ -1,0 +1,7 @@
+[
+  {
+    "id": "565-a-tab-is-content-in-a-heading-key-and-in-a-cross-reference-id-4",
+    "source": "a </#no\tpe> b\n",
+    "html": "<p>a &lt;/#no\tpe&gt; b</p>\n"
+  }
+]

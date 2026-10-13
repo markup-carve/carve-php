@@ -184,4 +184,16 @@ class HeadingLevelShiftExtensionTest extends TestCase
 
         $this->assertStringContainsString('data-carve-source-level="1"', $html);
     }
+
+    public function testGeneratedSourceLevelsSurviveReservedAttributeFiltering(): void
+    {
+        foreach (["{data-carve-source-level=6}\n# H\n", "> {data-carve-source-level=6}\n> # H\n"] as $source) {
+            $converter = new CarveConverter(roundTripMode: true);
+            $converter->addExtension(new HeadingLevelShiftExtension(shift: 1));
+            $result = $converter->convertWithReport($source);
+            self::assertStringContainsString('data-carve-source-level="1"', $result->value);
+            self::assertStringNotContainsString('data-carve-source-level="6"', $result->value);
+            self::assertSame('data-carve-source-level', $result->losses[0]['attribute']);
+        }
+    }
 }

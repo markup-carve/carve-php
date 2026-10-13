@@ -1,0 +1,142 @@
+[
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/flush-left body and closer",
+    "source": "- - ``` x\ncode\n```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/body indented one below column",
+    "source": "- - ``` x\n code\n ```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/three levels deep",
+    "source": "- - - ``` x\ncode\n```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code class=\"language-x\"></code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/a quoted fence needs marked body lines",
+    "source": "> - ``` x\ncode\n```\n",
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code class=\"language-x\"></code></pre>\n    </li>\n  </ul>\n</blockquote>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/ordered markers",
+    "source": "1. 1. ``` x\ncode\n```\n",
+    "html": "<ol>\n  <li>\n    <ol>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ol>\n  </li>\n</ol>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/tilde fence",
+    "source": "- - ~~~ x\ncode\n~~~\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n~~~</p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/no info string",
+    "source": "- - ```\ncode\n```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/no closer at all",
+    "source": "- - ``` x\ncode\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code</p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/closer is only line below",
+    "source": "- - ``` x\n```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<pre><code></code></pre>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/trailing lazy item",
+    "source": "- - ``` x\ncode\n```\n- lazy\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code>\n- lazy</code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/a closer with body below it",
+    "source": "- - ``` x\na\n```\nb\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>a\n<code>\nb</code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/two closing runs",
+    "source": "- - ``` x\na\n```\nb\n```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>a</p>\n<pre><code>b\n</code></pre>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/outermost depth 1 (control)",
+    "source": "- ``` x\ncode\n```\n",
+    "html": "<ul>\n  <li>\n    <pre><code class=\"language-x\"></code></pre>\n  </li>\n</ul>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/body at content column (control)",
+    "source": "- - ``` x\n    code\n    ```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/blank line above body (control)",
+    "source": "- - ``` x\n\ncode\n```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/colon container on lead (control)",
+    "source": "- - ::: d\nbody\n:::\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>body</p>\n<div>\n\n</div>"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-```-closed",
+    "source": ":: t\n: - ``` x\ncode\n```\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-```-unterminated",
+    "source": ":: t\n: - ``` x\ncode\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-~~~-closed",
+    "source": ":: t\n: - ~~~ x\ncode\n~~~\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>\n"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-~~~-unterminated",
+    "source": ":: t\n: - ~~~ x\ncode\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-infoless",
+    "source": ":: t\n: - ```\ncode\n```\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/ctrl-item-host",
+    "source": "- - ``` x\ncode\n```\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code></code></p>"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/ctrl-fn-host",
+    "source": "[^f]: b\n\n  - ``` x\n  code\n  ```\n\nx[^f]\n",
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>b</p>\n      <ul>\n        <li>\n          <pre><code class=\"language-x\"></code></pre>\n        </li>\n      </ul>\n      <p>code\n<code></code><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455-2",
+    "source": ":: t\n: - ~~~ x\ncode\n~~~\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n~~~</p>\n"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455-3",
+    "source": ":: t\n: - ```\ncode\n```\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455-4",
+    "source": ":: t\n: - ``` x\ncode\n\n:: t2\n: plain\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code</p>\n<dl>\n  <dt>t2</dt>\n  <dd>plain</dd>\n</dl>\n"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/corpus/455",
+    "source": ":: t\n: - ``` x\ncode\n```\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>code\n<code></code></p>\n"
+  },
+  {
+    "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-body-lead-not-a-fence-is-unframed",
+    "source": ":: t\n: - plain\ncont\n",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>plain\ncont</li>\n    </ul>\n  </dd>\n</dl>"
+  }
+]

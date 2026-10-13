@@ -13,6 +13,6 @@ final class LabelKey
 
     public static function normalize(string $label): string
     {
-        return trim((string)preg_replace('/[ \t\n\f\r]+/', ' ', $label), ' ');
+        return trim((string)preg_replace('/ +/', ' ', $label), ' ');
     }
 }

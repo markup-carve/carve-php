@@ -34,11 +34,8 @@ use Throwable;
  *
  * SECURITY: this converter is NOT a sanitizer. Its output is Carve markup
  * that may still contain content derived from the input; render untrusted input
- * with safe mode enabled on the downstream renderer. By default the converter
- * IGNORES any `data-carve-src` round-trip attribute on the input (it would
- * otherwise be emitted verbatim as raw Carve, allowing a crafted attribute to
- * inject a raw-HTML block). Only enable round-trip extraction via the
- * constructor flag when the HTML is TRUSTED (e.g. produced by carve itself).
+ * with safe mode enabled on the downstream renderer. Legacy source attributes
+ * are reserved and consumed in every import mode.
  *
  * @phpstan-consistent-constructor
  */
@@ -267,13 +264,6 @@ class HtmlToCarve
     protected const DERIVES_NOTHING = ['aria-label' => []];
 
     /**
-     * When true, trust and re-emit a `data-carve-src` round-trip attribute on the
-     * input. Default false: untrusted HTML must not be able to smuggle raw Carve
-     * (incl. a raw-HTML block) through that attribute.
-     */
-    protected bool $trustStoredSource = false;
-
-    /**
      * Maps a CSS `text-align` value to the class name that should carry it.
      *
      * Empty by default: `style` is skipped wholesale, so block alignment is
@@ -316,13 +306,10 @@ class HtmlToCarve
 
     protected int $maxDiagnostics = 1000;
 
-    protected bool $usedStoredRoundTripSource = false;
-
     /**
-     * @param bool $trustStoredSource Re-emit `data-carve-src` stored Carve source verbatim; trusted HTML only; implies importMode 'roundtrip'; carriers are always read.
      * @param array<string, string> $alignmentClasses text-align value => class name
      * @param bool $listTableForBlockCells Emit `::: list-table` for a table with block-content cells.
-     * @param string|null $importMode How unsupported HTML is handled: safe, semantic or roundtrip; null selects the trust-dependent default.
+     * @param string $importMode How unsupported HTML is handled: safe, semantic or roundtrip.
      * @param string $importAdapter Source generator whose markup conventions are recognized.
      * @param int $maxDiagnostics Maximum number of detailed import diagnostics.
      * @param array<string, string> $labels The `labels` map the HTML was RENDERED with, keyed as in HtmlRenderer::LABEL_DEFAULTS
@@ -330,22 +317,17 @@ class HtmlToCarve
      * @throws \InvalidArgumentException
      */
     public function __construct(
-        bool $trustStoredSource = false,
         array $alignmentClasses = [],
         bool $listTableForBlockCells = false,
-        ?string $importMode = null,
+        string $importMode = 'safe',
         string $importAdapter = 'generic',
         int $maxDiagnostics = 1000,
         protected array $labels = [],
     ) {
-        $importMode ??= $trustStoredSource ? 'roundtrip' : 'safe';
         $modes = ['safe', 'semantic', 'roundtrip'];
         $adapters = ['generic', 'tiptap', 'prosemirror', 'ckeditor', 'tinymce', 'word', 'google-docs'];
         if (!in_array($importMode, $modes, true)) {
             throw new InvalidArgumentException('Unknown HTML import mode: ' . $importMode);
-        }
-        if ($trustStoredSource && $importMode !== 'roundtrip') {
-            throw new InvalidArgumentException("trustStoredSource requires importMode 'roundtrip': stored source may hold raw HTML that a safe or semantic import filters out");
         }
         if (!in_array($importAdapter, $adapters, true)) {
             throw new InvalidArgumentException('Unknown HTML import adapter: ' . $importAdapter);
@@ -353,7 +335,6 @@ class HtmlToCarve
         if ($maxDiagnostics < 0) {
             throw new InvalidArgumentException('maxDiagnostics must not be negative');
         }
-        $this->trustStoredSource = $trustStoredSource;
         $this->alignmentClasses = array_change_key_case($alignmentClasses);
         $this->listTableForBlockCells = $listTableForBlockCells;
         $this->importMode = $importMode;
@@ -371,8 +352,7 @@ class HtmlToCarve
      * distinct contexts were found where the two disagreed, five of them
      * patched one at a time before the next one appeared: a pipe row versus a
      * list-table item, a caption, a `<td>` with no owning table, a table nested
-     * in a cell, the stored source `trustStoredSource` emits without converting
-     * its descendants, and the footnote definitions the `word` and
+     * in a cell, and the footnote definitions the `word` and
      * `google-docs` adapters move out of a cell before serialization
      * (carve-php#1346).
      *
@@ -438,30 +418,36 @@ class HtmlToCarve
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
         $this->droppedReferenceCarriers = null;
+        $this->contradictoryLinkCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
         $this->unwrappedSameKindImportSpans = null;
+        $this->unwrappedBareImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
         $this->mergedImportDefinitionLists = null;
         $this->flattenedImportSummaryBlocks = null;
         $this->foldedImportCodeSpans = null;
-        $this->storedSourceImportElements = null;
-        $this->foldedStoredImportCodeSpans = null;
         $this->nativeImportCodeSpans = null;
         $this->nativeImportCodeBlocks = null;
-        $this->projectedStoredImportBlocks = null;
+        $this->consumedExtensionElements = null;
         $this->retainedListTypes = null;
         $this->entrylessImportDefinitionLists = [];
         $this->displacedImportFigureAttributes = [];
     }
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, bool>|null
+     */
+    private ?SplObjectStorage $consumedExtensionElements = null;
+
     private function captureBuiltImport(HtmlImportSession $session): void
     {
         $this->droppedFootnoteLabelCarriers = $session->droppedFootnoteLabelCarriers;
         $this->droppedReferenceCarriers = $session->droppedReferenceCarriers;
+        $this->contradictoryLinkCarriers = $session->contradictoryLinkCarriers;
         $this->sourceTablePartitions = $session->retainedTablePartitions;
         $this->builtImportDocument = $session->builtDocument;
         $this->retainedListTypes = $session->retainedListTypes;
@@ -469,17 +455,16 @@ class HtmlToCarve
         $this->keptRawImportElements = $session->keptRawElements;
         $this->droppedEmptyImportElements = $session->droppedEmptyElements;
         $this->unwrappedSameKindImportSpans = $session->unwrappedSameKindSpans;
+        $this->unwrappedBareImportSpans = $session->unwrappedBareSpans;
         $this->droppedEmptyImportHeadings = $session->droppedEmptyHeadings;
         $this->urlListImportCarriers = $session->urlListCarriers;
         $this->droppedBlankImportRows = $session->droppedBlankTableRows;
         $this->mergedImportDefinitionLists = $session->mergedDefinitionLists;
         $this->flattenedImportSummaryBlocks = $session->flattenedSummaryBlocks;
         $this->foldedImportCodeSpans = $session->foldedCodeSpans;
-        $this->storedSourceImportElements = $session->storedSourceElements;
-        $this->foldedStoredImportCodeSpans = $session->foldedStoredCodeSpans;
         $this->nativeImportCodeSpans = $session->nativeCodeSpans;
         $this->nativeImportCodeBlocks = $session->nativeCodeBlocks;
-        $this->projectedStoredImportBlocks = $session->projectedStoredBlocks;
+        $this->consumedExtensionElements = $session->consumedExtensionElements;
         $this->displacedImportFigureAttributes = $session->displacedFigureAttributes;
     }
 
@@ -511,7 +496,6 @@ class HtmlToCarve
         $builder = new HtmlAstBuilder(
             $this->listTableForBlockCells,
             $this->importMode,
-            $this->trustStoredSource,
             false,
             $this->alignmentClasses,
             $this->labels,
@@ -520,7 +504,6 @@ class HtmlToCarve
         try {
             $this->astImportSession = $result->session;
             $this->captureBuiltImport($result->session);
-            $this->usedStoredRoundTripSource = $this->trustStoredSource && $this->singleStoredRoundTripSource($normalized) !== null;
             $this->inspectedAst = $result;
             $this->inspectedImportSourceBytes = strlen($html);
             $diagnostics = $this->inspectImportLoss($html);
@@ -559,11 +542,6 @@ class HtmlToCarve
         $this->inspectedContentKey = null;
         $this->survivingImportAttributes = null;
         $this->emittedImportValues = [];
-
-        if ($this->usedStoredRoundTripSource) {
-            // No HTML descendants were imported; the stored source was returned verbatim.
-            return [];
-        }
 
         $this->listTableInspection = new SplObjectStorage();
         $this->tableCommentShapes = new SplObjectStorage();
@@ -743,24 +721,16 @@ class HtmlToCarve
      */
     protected function inspectImportNode(DOMNode $node, string $path, array &$diagnostics): void
     {
-        if (!$node instanceof DOMElement) {
-            return;
-        }
-        if ($this->storedSourceImportElements !== null && isset($this->storedSourceImportElements[$node])) {
-            $projectedBlocks = $this->projectedStoredImportBlocks;
-            if ($projectedBlocks !== null && isset($projectedBlocks[$node])) {
-                $projection = $projectedBlocks[$node];
-                if ($projection['projected']) {
-                    $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Projected stored block structure into an inline-only slot', 'warning', $path);
-                }
-                if ($projection['dropped']) {
-                    $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped stored content with no inline spelling', 'warning', $path);
-                }
-            }
-            if ($this->foldedStoredImportCodeSpans !== null && isset($this->foldedStoredImportCodeSpans[$node])) {
-                $this->addImportDiagnostic($diagnostics, 'structure-unspellable', 'Flattened a line break in stored code or math inside a table cell: a table row is one line', 'warning', $path);
+        if ($node instanceof DOMElement && isset($this->consumedExtensionElements[$node])) {
+            $consumesChildren = $this->consumedExtensionElements[$node];
+            $this->inspectImportAttributes($node, strtolower(HtmlDomLoader::elementName($node)), $path, $diagnostics);
+            if (!$consumesChildren) {
+                $this->inspectImportChildren($node, strtolower(HtmlDomLoader::elementName($node)), $path, $diagnostics);
             }
 
+            return;
+        }
+        if (!$node instanceof DOMElement) {
             return;
         }
         $tag = strtolower(HtmlDomLoader::elementName($node));
@@ -952,7 +922,7 @@ class HtmlToCarve
 
             // A `<math>` with no TeX leaves as text or not at all, and its one
             // row covers the attributes riding on it.
-            $mathLeaves = $tag === 'math' && !$this->trustStoredSource && $this->resolveMathTex($node)['tier'] === 4;
+            $mathLeaves = $tag === 'math' && $this->resolveMathTex($node)['tier'] === 4;
             // No item, no list: its one row covers the attributes it would have
             // written (carve#2367); a refused one keeps its own row.
             $emptyList = in_array($tag, ['ul', 'ol'], true) && !$this->hasListItemChild($node);
@@ -1434,8 +1404,7 @@ class HtmlToCarve
     private function directAstCellFlattens(DOMElement $node): bool
     {
         if (
-            $this->usedStoredRoundTripSource
-            || (!$this->isFlattenedInACaption(strtolower(HtmlDomLoader::elementName($node))) && strtolower(HtmlDomLoader::elementName($node)) !== 'tr')
+            (!$this->isFlattenedInACaption(strtolower(HtmlDomLoader::elementName($node))) && strtolower(HtmlDomLoader::elementName($node)) !== 'tr')
             || $this->directAstCaptionFlattens($node)
             || $this->directAstUnwraps($node)
             || strtolower(HtmlDomLoader::elementName($node)) === 'figure'
@@ -1459,8 +1428,7 @@ class HtmlToCarve
     {
         $tag = strtolower(HtmlDomLoader::elementName($node));
         if (
-            $this->usedStoredRoundTripSource
-            || !in_array($tag, $this->blockElements, true)
+            !in_array($tag, $this->blockElements, true)
             || $this->directAstCaptionFlattens($node)
             || $this->directAstCellFlattens($node)
             || $this->directAstUnwraps($node)
@@ -1557,6 +1525,9 @@ class HtmlToCarve
     private function directAstUnwraps(DOMElement $node): bool
     {
         $tag = strtolower(HtmlDomLoader::elementName($node));
+        if ($tag === 'span' && isset($this->unwrappedBareImportSpans[$node])) {
+            return true;
+        }
         if ($tag === 'aside') {
             $classes = preg_split('/\s+/', trim($node->getAttribute('class'))) ?: [];
 
@@ -1659,7 +1630,7 @@ class HtmlToCarve
             return isset($this->keptRawImportElements[$node]);
         }
 
-        // Stored source and standalone inspection bypass the builder's identity map.
+        // Standalone inspection bypasses the builder's identity map.
         return $this->emittedKeepsElementBytes($node);
     }
 
@@ -2126,6 +2097,12 @@ class HtmlToCarve
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting footnote label and inline footnote carriers on <' . $tag . '>', 'warning', $path);
         }
 
+        if (isset($this->contradictoryLinkCarriers[$node])) {
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', (HtmlCarrierNames::peekPresence($node, 'data-carve-xref')
+                ? 'Dropped contradictory cross-reference carriers on <'
+                : 'Dropped contradictory autolink and reference carriers on <') . $tag . '>', 'warning', $path);
+        }
+
         if (isset($this->droppedReferenceCarriers[$node])) {
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped conflicting or unspellable reference carrier on <' . $tag . '>', 'info', $path);
         }
@@ -2225,7 +2202,7 @@ class HtmlToCarve
      */
     protected function importWouldRefuseAttribute(string $tag, string $name): bool
     {
-        if ($name === 'data-carve-src') {
+        if (HtmlCarrierNames::isReserved($name)) {
             return true;
         }
         if (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
@@ -2293,7 +2270,7 @@ class HtmlToCarve
                 $subject = 'event-handler attribute ' . $name;
             } elseif ($sink) {
                 $subject = 'injection-sink attribute ' . $name;
-            } elseif ($name === 'data-carve-src') {
+            } elseif (HtmlCarrierNames::isReserved($name)) {
                 $subject = 'round-trip marker attribute ' . $name;
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $subject = $name;
@@ -2415,6 +2392,45 @@ class HtmlToCarve
         return $this->importWouldRefuseAttribute($tag, $name) || HtmlRenderer::attributeValueHasDeniedScheme($name, $value);
     }
 
+    private function isGeneratedExtensionAttribute(DOMElement $node, string $tag, string $name): bool
+    {
+        if ($name === 'id' && preg_match('/^h[1-6]$/D', $tag) === 1 && HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id') === '0') {
+            return true;
+        }
+        if (!isset($this->consumedExtensionElements[$node])) {
+            return false;
+        }
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated')) {
+            return $name === 'class' || in_array($name, explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-group-generated')), true);
+        }
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated') && in_array($name, explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true)) {
+            return true;
+        }
+        $parent = $node->parentNode;
+        $generated = $tag === 'section' && (!$parent instanceof DOMElement || !in_array(HtmlCarrierNames::consumeAttribute($parent, 'data-carve-ext'), ['tabs', 'code-group'], true)) ? [] : ['class'];
+        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-language')) {
+            $generated = array_merge($generated, ['role', 'data-carve-fence-language', 'data-carve-fence-content', 'data-carve-label']);
+            if ($node->getAttribute('aria-label') === (preg_split('/\s+/', trim($node->getAttribute('class')))[0] ?? '')) {
+                $generated[] = 'aria-label';
+            }
+        } elseif ($tag === 'b') {
+            $generated[] = 'data-callout';
+        } elseif (in_array($tag, ['input', 'button', 'label'], true)) {
+            $generated = array_merge($generated, ['id', 'type', 'name', 'checked', 'for', 'role', 'aria-selected', 'aria-controls', 'tabindex']);
+        } elseif (HtmlCarrierNames::consumePresence($node, 'data-carve-tab-title')) {
+            $generated = array_merge($generated, ['hidden', 'data-carve-tab-title']);
+        } elseif ($tag === 'div') {
+            $generated = array_merge($generated, ['role', 'aria-label', 'data-carve-ext', 'data-carve-label', 'data-carve-explicit-id']);
+            if ($node->getAttribute('role') === 'tabpanel') {
+                $generated = array_merge($generated, ['id', 'aria-labelledby', 'hidden']);
+            } elseif (!HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id') && $node->parentNode instanceof DOMElement && isset($this->consumedExtensionElements[$node->parentNode])) {
+                $generated[] = 'id';
+            }
+        }
+
+        return in_array($name, $generated, true);
+    }
+
     /**
      * @param \DOMElement $node
      * @param string $tag
@@ -2438,8 +2454,45 @@ class HtmlToCarve
             $covered = $this->spelledAttributeNames($node);
         }
         $displaced = !$preserved && $tag === 'figure' ? ($this->displacedImportFigureAttributes[$path] ?? []) : [];
+        $conflictingNames = [];
+        if (!$preserved && HtmlAstBuilder::hasConflictingIdCarriers($node)) {
+            $conflictingNames = ['data-carve-explicit-id', 'data-carve-generated-id'];
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped contradictory explicit and generated id carriers on <' . $tag . '>', 'warning', $path);
+        }
+        if (!$preserved && HtmlAstBuilder::hasConflictingTextCarriers($node)) {
+            $conflictingNames = array_merge($conflictingNames, ['data-carve-escaped', 'data-carve-raw']);
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped contradictory escaped and raw carriers on <' . $tag . '>', 'warning', $path);
+        }
         foreach ($node->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
+            $canonical = HtmlCarrierNames::canonicalName($name);
+            if (
+                !$preserved && $tag === 'a' && (HtmlCarrierNames::wasUsed($node, 'data-carve-xref') || HtmlCarrierNames::wasUsed($node, 'data-djot-xref'))
+                && !isset($this->contradictoryLinkCarriers[$node]) && HtmlCarrierNames::wasUsed($node, $name)
+            ) {
+                continue;
+            }
+            if (!$preserved && $canonical === 'data-carve-ext' && HtmlCarrierNames::wasUsed($node, $name)) {
+                continue;
+            }
+            if (in_array($canonical, $conflictingNames, true)) {
+                continue;
+            }
+            if (!$preserved && HtmlCarrierNames::isReserved($name)) {
+                $value = HtmlCarrierNames::peekAttribute($node, $canonical);
+                $invalid = match ($canonical) {
+                    'data-carve-label' => !HtmlAstBuilder::isValidCodeLabel($value),
+                    'data-carve-raw' => !HtmlAstBuilder::isValidRawCarrierFormat($value),
+                    'data-carve-footnote-label' => !HtmlAstBuilder::isValidFootnoteCarrierLabel($value),
+                    default => false,
+                };
+                if ($invalid && $name !== $canonical && $node->hasAttribute($canonical)) {
+                    continue;
+                }
+                if ($invalid) {
+                    $name = $canonical;
+                }
+            }
             if ($preserved) {
                 // ONLY THE ATTRIBUTES THIS IMPORTER WOULD HAVE REFUSED.
                 //
@@ -2462,24 +2515,25 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped event-handler attribute ' . $name . ' on <' . $tag . '>', 'warning', $path);
             } elseif ($tag === 'hr' && $name === 'data-char' && in_array($attribute->value, ['-', '*', '_'], true)) {
                 continue;
-            } elseif (
-                $name === 'data-carve-src'
-                && !($this->trustStoredSource && $this->importMode === 'roundtrip')
-            ) {
-                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . ">: the semantic span's marker owns that key", 'warning', $path);
             } elseif ($tag === 'ol' && $name === 'start' && filter_var($attribute->value, FILTER_VALIDATE_INT) === 1) {
                 // The native default preserves this value without an attribute.
                 continue;
-            } elseif ($name === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
+            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid footnote carrier label on <' . $tag . '>', 'warning', $path);
-            } elseif ($name === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
+            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid code block label on <' . $tag . '>', 'warning', $path);
-            } elseif ($name === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
+            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
-            } elseif ($name === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
+            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid raw format carrier on <' . $tag . '>', 'warning', $path);
+            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-id-slot' && !HtmlCarrierNames::wasUsed($node, $name)) {
+                $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid heading id slot carrier on <' . $tag . '>', 'info', $path);
+            } elseif (HtmlCarrierNames::isReserved($name)) {
+                if (!HtmlCarrierNames::wasUsed($node, $name)) {
+                    $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
+                }
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
                 // Read as instruction or as content, never written back as an
                 // attribute - so asking the output for it is the wrong
@@ -2522,6 +2576,8 @@ class HtmlToCarve
                 // again. The `element-unwrapped` row already names what became
                 // of the element.
                 continue;
+            } elseif ($this->isGeneratedExtensionAttribute($node, $tag, $name)) {
+                continue;
             } elseif ($this->isDerivedImportAttribute($node, $name, $attribute->value)) {
                 continue;
             } elseif (in_array($name, ['colspan', 'rowspan'], true) && in_array($tag, ['td', 'th'], true) && $this->cellIsWrittenAsAListTableItem($node)) {
@@ -2537,6 +2593,9 @@ class HtmlToCarve
             ) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . '>: its value spans a line break, which a Carve attribute value cannot', 'warning', $path);
             } elseif (in_array($name, $this->astImportSession?->retainedTableAttributes[$path] ?? [], true)) {
+                continue;
+            } elseif ($name === 'id' && isset($this->consumedExtensionElements[$node]) && (HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated') || HtmlCarrierNames::consumePresence($node, 'data-carve-fence-language'))) {
+                // The builder retained this authored extension ID.
                 continue;
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped unsupported attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
@@ -2676,6 +2735,11 @@ class HtmlToCarve
                 continue;
             }
             if (!$child instanceof DOMElement) {
+                continue;
+            }
+            if (isset($this->consumedExtensionElements[$child]) && $this->consumedExtensionElements[$child]) {
+                $this->inspectImportAttributes($child, strtolower(HtmlDomLoader::elementName($child)), $this->importChildPath($path, $child, $index + 1), $diagnostics);
+
                 continue;
             }
             $childPath = $this->importChildPath($path, $child, $index + 1);
@@ -3017,10 +3081,6 @@ class HtmlToCarve
             return;
         }
 
-        if ($this->trustStoredSource) {
-            return;
-        }
-
         if (HtmlAstBuilder::linearMathText($node) !== null) {
             $this->addImportDiagnostic(
                 $diagnostics,
@@ -3269,40 +3329,11 @@ class HtmlToCarve
     }
 
     /**
-     * Is this attribute READ by the conversion rather than written by it?
+     * Is this attribute read by the conversion rather than written by it?
      *
-     * A tag/name question, on the axis that stays one: it asks HOW an attribute
-     * is represented, never WHERE the serializer happens to be. Both families
-     * below are consumed by the conversion that reads them - their meaning
-     * enters the document as content or as a decision, not as an attribute - so
-     * looking for them in an attribute position asks something that was never
-     * true, of an import that lost nothing.
-     *
-     * A RESERVED CARRIER IS THE IMPORTER'S OWN PROTOCOL, not the author's
-     * content. The names `HtmlCarrierNames` enumerates carry instructions to
-     * this converter: `data-carve-src` re-emits stored source,
-     * `data-carve-raw` restores a raw block, `data-carve-footnote-label` names
-     * a footnote. None is ever written to the output, so a rule that asked the
-     * output would report every one of them as dropped on every round-tripped
-     * document. They were not dropped; they were obeyed.
-     *
-     * THE SET IS THE ENUMERATION, NOT THE PREFIX. `data-carve-stored-source`
-     * and `data-carve-tree-kind` are author attributes the suite writes, and a
-     * prefix test would have swallowed both. A document carrying the
-     * deprecated `data-djot-` spelling has already been canonicalized by
-     * `HtmlDomLoader`, so only the canonical name reaches here.
-     *
-     * `<math>`'s THREE ATTRIBUTES ARE THE EQUATION. `alttext` is the TeX the
-     * tier-2 conversion emits as the math content, `display` picks the
-     * delimiter that content is wrapped in, and `xmlns` declares the namespace
-     * the element already is. The value of `alttext="x^2"` comes back as the
-     * math `$`x^2`$` - fully preserved, and nowhere near an attribute position.
-     * Reading it is what the separate `encoding-assumed` diagnostic already
-     * describes.
-     *
-     * The generated `scope` on a `<th>` is skipped below for the same reason
-     * from the other direction: an attribute the importer itself puts there and
-     * takes back is not a loss the author suffered.
+     * A reserved carrier is the importer's own protocol, and `<math>`'s
+     * `alttext`, `display` and `xmlns` are the equation itself: neither is ever
+     * written back as an attribute.
      */
     protected function importAttributeIsReadNotWritten(string $tag, string $name): bool
     {
@@ -3473,9 +3504,6 @@ class HtmlToCarve
         $tokens = preg_split('/\s+/', $value, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $survived = true;
         foreach ($tokens as $token) {
-            if ($token === 'mermaid' && $this->inspectedElement !== null && HtmlAstBuilder::isMermaidFenceElement($this->inspectedElement)) {
-                continue;
-            }
             if (!$this->consumeSurvivingAttribute($this->importSurvivorKey('class', $token))) {
                 $survived = false;
             }
@@ -3801,14 +3829,15 @@ class HtmlToCarve
         $this->sourceTablePartitions = [];
         $this->sourcePartitionDiagnostics = [];
         $this->displacedImportFigureAttributes = [];
-        $this->usedStoredRoundTripSource = false;
         $this->builtImportDocument = null;
         $this->droppedFootnoteLabelCarriers = null;
         $this->droppedReferenceCarriers = null;
+        $this->contradictoryLinkCarriers = null;
         $this->summaryImportTitles = null;
         $this->keptRawImportElements = null;
         $this->droppedEmptyImportElements = null;
         $this->unwrappedSameKindImportSpans = null;
+        $this->unwrappedBareImportSpans = null;
         $this->droppedEmptyImportHeadings = null;
         $this->urlListImportCarriers = null;
         $this->droppedBlankImportRows = null;
@@ -3816,16 +3845,9 @@ class HtmlToCarve
             return '';
         }
         $normalized = $this->normalizeHtmlForDirectAst($html);
-        $storedSource = $this->singleStoredRoundTripSource($normalized);
-        if ($storedSource !== null) {
-            $this->usedStoredRoundTripSource = true;
-
-            return rtrim($storedSource, "\n") . "\n";
-        }
         $builder = new HtmlAstBuilder(
             $this->listTableForBlockCells,
             $this->importMode,
-            $this->trustStoredSource,
             true,
             $this->alignmentClasses,
             $this->labels,
@@ -3850,55 +3872,6 @@ class HtmlToCarve
         }
 
         return $source;
-    }
-
-    private function singleStoredRoundTripSource(string $html): ?string
-    {
-        if (!$this->trustStoredSource) {
-            return null;
-        }
-        $document = HtmlDomLoader::fragment($html);
-        $root = $document->getElementsByTagName('carve-import-root')->item(0);
-        if (!$root instanceof DOMElement) {
-            return null;
-        }
-        $element = null;
-        foreach ($root->childNodes as $child) {
-            if ($child instanceof DOMText && trim($child->textContent) === '') {
-                continue;
-            }
-            if (!$child instanceof DOMElement || $element instanceof DOMElement) {
-                return null;
-            }
-            $element = $child;
-        }
-
-        return $element instanceof DOMElement && !HtmlDomLoader::isCoreCodeBlock($element) && $element->hasAttribute('data-carve-src')
-            ? $this->reconstructStoredSource(html_entity_decode(
-                $element->getAttribute('data-carve-src'),
-                ENT_QUOTES | ENT_HTML5,
-                'UTF-8',
-            ))
-            : null;
-    }
-
-    private function reconstructStoredSource(string $source): string
-    {
-        return (string)preg_replace_callback(
-            '/`(<(th|td|dt|dd)\b[^>]*>.*?<\/\2>)`\{=html\}/is',
-            function (array $match): string {
-                return trim((new static(
-                    false,
-                    $this->alignmentClasses,
-                    $this->listTableForBlockCells,
-                    $this->importMode,
-                    $this->importAdapter,
-                    $this->maxDiagnostics,
-                    $this->labels,
-                ))->convert($match[1]));
-            },
-            $source,
-        );
     }
 
     private function normalizeHtmlForDirectAst(string $html): string
@@ -4334,6 +4307,7 @@ class HtmlToCarve
 
         if (
             ($tag === 'pre' || $tag === 'div')
+            && (!HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated') || in_array('aria-label', explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true))
             && $classes !== []
             && strtolower($node->getAttribute('role')) === 'img'
         ) {
@@ -5080,9 +5054,19 @@ class HtmlToCarve
     private ?SplObjectStorage $droppedReferenceCarriers = null;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $contradictoryLinkCarriers = null;
+
+    /**
      * @var \SplObjectStorage<\DOMElement, string|null>|null
      */
     private ?SplObjectStorage $unwrappedSameKindImportSpans = null;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>|null
+     */
+    private ?SplObjectStorage $unwrappedBareImportSpans = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null
@@ -5122,27 +5106,12 @@ class HtmlToCarve
     /**
      * @var \SplObjectStorage<\DOMElement, null>|null
      */
-    private ?SplObjectStorage $storedSourceImportElements = null;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>|null
-     */
-    private ?SplObjectStorage $foldedStoredImportCodeSpans = null;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>|null
-     */
     private ?SplObjectStorage $nativeImportCodeSpans = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, array{code: ?\DOMElement, lang: ?string}>|null
      */
     private ?SplObjectStorage $nativeImportCodeBlocks = null;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, array{projected: bool, dropped: bool}>|null
-     */
-    private ?SplObjectStorage $projectedStoredImportBlocks = null;
 
     /**
      * Paths of the `<dl>` elements left with no entry to write.

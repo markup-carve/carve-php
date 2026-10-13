@@ -7,6 +7,7 @@
     <file>tests/</file>
 
     <exclude-pattern>*/vendor/*</exclude-pattern>
+    <exclude-pattern>*/tests/spec/*</exclude-pattern>
 
     <rule ref="PhpCollective"/>
 

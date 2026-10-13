@@ -21,6 +21,7 @@ use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -71,6 +72,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -402,6 +404,11 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected HeadingIdTracker $headingIdTracker;
 
+    /**
+     * @var array<string, true>
+     */
+    protected array $referencedLinkDefinitions = [];
+
     protected int $renderDepth = 0;
 
     /**
@@ -573,6 +580,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     public function render(Document $document): string
     {
         $this->headingIdTracker->reset();
+        $this->referencedLinkDefinitions = ReferencedLinkDefinitions::labels($document);
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
         // PART 11 §10f: a definition line can be written ABOVE the occurrence
@@ -647,6 +655,8 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
+                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])
+                    ? '' : $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node)), "\n"), self::DIM) . "\n\n",
                 $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),

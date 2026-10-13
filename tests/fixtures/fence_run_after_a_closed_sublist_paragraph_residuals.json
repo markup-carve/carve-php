@@ -1,0 +1,42 @@
+[
+  {
+    "id": "```-False-text-False-4-after",
+    "source": "- outer\n  - para\n    ```\n  text\n    ```\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul>text<code>after</code></li></ul>"
+  },
+  {
+    "id": "```-False-> q-False-4-after",
+    "source": "- outer\n  - para\n    ```\n  > q\n    ```\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><blockquote><p>q<code>after</code></p></blockquote></li></ul>"
+  },
+  {
+    "id": "```-True-text-False-4-after",
+    "source": "- outer\n  - para\n    ```\n    code\n  text\n    ```\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul>text<code>after</code></li></ul>"
+  },
+  {
+    "id": "```-True-> q-False-4-after",
+    "source": "- outer\n  - para\n    ```\n    code\n  > q\n    ```\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><blockquote><p>q<code>after</code></p></blockquote></li></ul>"
+  },
+  {
+    "id": "~~~-False-text-False-4-after",
+    "source": "- outer\n  - para\n    ~~~\n  text\n    ~~~\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul>text ~~~ after</li></ul>"
+  },
+  {
+    "id": "~~~-False-> q-False-4-after",
+    "source": "- outer\n  - para\n    ~~~\n  > q\n    ~~~\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code></code></pre></li></ul><blockquote><p>q ~~~ after</p></blockquote></li></ul>"
+  },
+  {
+    "id": "~~~-True-text-False-4-after",
+    "source": "- outer\n  - para\n    ~~~\n    code\n  text\n    ~~~\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul>text ~~~ after</li></ul>"
+  },
+  {
+    "id": "~~~-True-> q-False-4-after",
+    "source": "- outer\n  - para\n    ~~~\n    code\n  > q\n    ~~~\nafter\n",
+    "html": "<ul><li>outer<ul><li>para<pre><code>code</code></pre></li></ul><blockquote><p>q ~~~ after</p></blockquote></li></ul>"
+  }
+]

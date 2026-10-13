@@ -1,0 +1,147 @@
+[
+  {
+    "id": "host-closer-bullet-child-open-3-close-2-backtick",
+    "source": "- a\n    - child\n   ```\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-3-close-2-backtick-payload",
+    "source": "- a\n    - child\n   ```\n   code\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-3-close-2-tilde",
+    "source": "- a\n    - child\n   ~~~\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-3-close-2-tilde-payload",
+    "source": "- a\n    - child\n   ~~~\n   code\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-4-close-2-backtick",
+    "source": "- a\n    - child\n    ```\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-4-close-2-backtick-payload",
+    "source": "- a\n    - child\n    ```\n    code\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-4-close-2-tilde",
+    "source": "- a\n    - child\n    ~~~\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-4-close-2-tilde-payload",
+    "source": "- a\n    - child\n    ~~~\n    code\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-5-close-2-backtick",
+    "source": "- a\n    - child\n     ```\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-5-close-2-backtick-payload",
+    "source": "- a\n    - child\n     ```\n     code\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-5-close-2-tilde",
+    "source": "- a\n    - child\n     ~~~\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-bullet-child-open-5-close-2-tilde-payload",
+    "source": "- a\n    - child\n     ~~~\n     code\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-3-close-2-backtick",
+    "source": "- a\n    1. child\n   ```\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-3-close-2-backtick-payload",
+    "source": "- a\n    1. child\n   ```\n   code\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-3-close-2-tilde",
+    "source": "- a\n    1. child\n   ~~~\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-3-close-2-tilde-payload",
+    "source": "- a\n    1. child\n   ~~~\n   code\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-4-close-2-backtick",
+    "source": "- a\n    1. child\n    ```\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-4-close-2-backtick-payload",
+    "source": "- a\n    1. child\n    ```\n    code\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-4-close-2-tilde",
+    "source": "- a\n    1. child\n    ~~~\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-4-close-2-tilde-payload",
+    "source": "- a\n    1. child\n    ~~~\n    code\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-5-close-2-backtick",
+    "source": "- a\n    1. child\n     ```\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-5-close-2-backtick-payload",
+    "source": "- a\n    1. child\n     ```\n     code\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-5-close-2-tilde",
+    "source": "- a\n    1. child\n     ~~~\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "host-closer-ordered-child-open-5-close-2-tilde-payload",
+    "source": "- a\n    1. child\n     ~~~\n     code\n  ~~~\nafter\n",
+    "html": "<ul><li>a\n    <ol><li>child</li></ol><pre><code>code\n</code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "control-bullet-child-open-4-close-4-backtick-after",
+    "source": "- a\n    - child\n    ```\n    ```\nafter\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "control-no-child-open-4-close-2-backtick-after",
+    "source": "- a\n    ```\n  ```\nafter\n",
+    "html": "<ul><li>a\n    <pre><code></code></pre></li></ul><p>after</p>"
+  },
+  {
+    "id": "control-bullet-child-open-4-close-2-backtick-after",
+    "source": "- a\n    - child\n    ```\n  ```\n  after\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre>\n    after\n  </li></ul>"
+  },
+  {
+    "id": "control-bullet-child-open-4-close-2-backtick---next",
+    "source": "- a\n    - child\n    ```\n  ```\n- next\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code></code></pre></li><li>next</li></ul>"
+  },
+  {
+    "id": "control-bullet-child-open-4-close-2-backtick-payload-end",
+    "source": "- a\n    - child\n    ```\n    code\n  ```\n",
+    "html": "<ul><li>a\n    <ul><li>child</li></ul><pre><code>code\n</code></pre></li></ul>"
+  }
+]

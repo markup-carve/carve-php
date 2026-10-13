@@ -150,7 +150,6 @@ class IncludeConformanceTest extends TestCase
     {
         /** @var array<string, mixed> $expected */
         $expected = $vector['expected'];
-
         $out = [
             [
                 'label' => 'html mismatch',

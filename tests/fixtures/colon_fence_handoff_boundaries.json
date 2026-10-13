@@ -187,7 +187,7 @@
   {
     "id": "boundary-C2x",
     "source": "> - ::: box\n>   - ::: |\n>     :::\n>    x\n>    %% c\n> ```\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p>x</p><p><code></code></p></div></li></ul></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"></div></li></ul><p>x</p></div></li></ul><pre><code></code></pre></blockquote>"
   },
   {
     "id": "boundary-C3",

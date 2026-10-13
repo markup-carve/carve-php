@@ -65,15 +65,30 @@ class ImportAttributePolicyParityTest extends TestCase
         }
     }
 
-    public function testIgnoredNestedSourceMarkersAreReported(): void
+    public function testLegacyNestedSourceMarkersAreReported(): void
     {
-        foreach (['safe', 'semantic'] as $mode) {
-            foreach (['data-carve-src', 'data-carve-src'] as $name) {
+        foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
+            foreach (['data-carve-src', 'data-djot-src'] as $name) {
                 $result = (new HtmlToCarve(importMode: $mode))->convertWithReport("<form><p {$name}=\"stored\">text</p></form>");
-                $rows = array_values(array_filter($result->report()['diagnostics'], fn (array $row): bool => $row['code'] === 'attribute-dropped'));
-                $this->assertCount(1, $rows);
-                $this->assertSame('info', $rows[0]['severity']);
-                $this->assertSame('/form[1]/p[1]', $rows[0]['path']);
+                $rows = $result->report()['diagnostics'];
+                $this->assertCount(2, $rows);
+                $this->assertSame($mode === 'roundtrip' ? 'raw-preserved' : 'element-unwrapped', $rows[0]['code']);
+                $this->assertSame($mode === 'roundtrip' ? 'attribute-preserved' : 'attribute-dropped', $rows[1]['code']);
+                $this->assertSame('info', $rows[1]['severity']);
+                $this->assertSame('/form[1]/p[1]', $rows[1]['path']);
+                $this->assertSame(
+                    $mode === 'roundtrip'
+                        ? 'Preserved round-trip marker attribute ' . $name . ' on <p> inside the raw HTML <form> is kept as'
+                        : 'Dropped round-trip marker attribute ' . $name . ' on <p>',
+                    $rows[1]['message'],
+                );
+                if ($mode === 'roundtrip') {
+                    $this->assertStringContainsString('<form><p ' . $name . '="stored">text</p></form>', $result->value);
+                } else {
+                    $this->assertStringNotContainsString($name, $result->value);
+                    $this->assertStringNotContainsString('stored', $result->value);
+                }
+                $this->assertStringContainsString('text', $result->value);
             }
         }
     }

@@ -1,0 +1,112 @@
+[
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content-2",
+    "source": "# a ``x ` %% b`` c\n",
+    "html": "<section id=\"a-x-b-c\">\n  <h1>a <code>x ` %% b</code> c</h1>\n</section>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content-3",
+    "source": "{#raw-heading}\n# a `x %% b`{=html} c\n",
+    "html": "<section id=\"raw-heading\">\n  <h1>a x %% b c</h1>\n</section>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content-4",
+    "source": "# a `x %% b` c %% hidden\n",
+    "html": "<section id=\"a-x-b-c\">\n  <h1>a <code>x %% b</code> c</h1>\n</section>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content-5",
+    "source": "> # a `x %% b` c\n",
+    "html": "<blockquote>\n  <h1 id=\"a-x-b-c\">a <code>x %% b</code> c</h1>\n</blockquote>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content-6",
+    "source": "# a !`x %% b` c\n",
+    "html": "<section id=\"a-x-b-c\">\n  <h1>a x %% b c</h1>\n</section>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content-7",
+    "source": "# %% hidden\n",
+    "html": "<section id=\"s\">\n  <h1></h1>\n</section>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content-8",
+    "source": "# a\t%% hidden\n",
+    "html": "<section id=\"a-hidden\">\n  <h1>a\t%% hidden</h1>\n</section>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/516-a-heading-comment-preserves-code-span-content",
+    "source": "# a `x %% b` c\n",
+    "html": "<section id=\"a-x-b-c\">\n  <h1>a <code>x %% b</code> c</h1>\n</section>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-10",
+    "source": "::: note [%% hidden]\nbody\n:::\n",
+    "html": "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p class=\"div-label\"></p>\n  <p>body</p>\n</aside>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-11",
+    "source": "a%%b and 50%% stay\n",
+    "html": "<p>a%%b and 50%% stay</p>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-12",
+    "source": "[a\t%% hidden](/u)\n",
+    "html": "<p><a href=\"/u\">a\t%% hidden</a></p>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-13",
+    "source": "[%% hidden](/u)\n",
+    "html": "<p><a href=\"/u\"></a></p>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-2",
+    "source": "a  %% hidden\n",
+    "html": "<p>a</p>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-3",
+    "source": ":: a\t%% hidden\n: d\n",
+    "html": "<dl>\n  <dt>a\t%% hidden</dt>\n  <dd>d</dd>\n</dl>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-4",
+    "source": ":: %% hidden\n: d\n",
+    "html": "<dl>\n  <dt></dt>\n  <dd>d</dd>\n</dl>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-5",
+    "source": "| a\t%% hidden | b |\n|---|---|\n| 1 | 2 |\n",
+    "html": "<table>\n  <thead>\n    <tr><th scope=\"col\">a\t%% hidden</th><th scope=\"col\">b</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>1</td><td>2</td></tr>\n  </tbody>\n</table>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-6",
+    "source": "| %% hidden | b |\n|---|---|\n| 1 | 2 |\n",
+    "html": "<table>\n  <thead>\n    <tr><th scope=\"col\"></th><th scope=\"col\">b</th></tr>\n  </thead>\n  <tbody>\n    <tr><td>1</td><td>2</td></tr>\n  </tbody>\n</table>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-7",
+    "source": "![alt](u)\n^ cap\t%% hidden\n",
+    "html": "<figure>\n  <img src=\"u\" alt=\"alt\">\n  <figcaption>cap\t%% hidden</figcaption>\n</figure>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-8",
+    "source": "![alt](u)\n^ %% hidden\n",
+    "html": "<figure>\n  <img src=\"u\" alt=\"alt\">\n  <figcaption></figcaption>\n</figure>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator-9",
+    "source": "::: note [a\t%% hidden]\nbody\n:::\n",
+    "html": "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p class=\"div-label\">a\t%% hidden</p>\n  <p>body</p>\n</aside>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/518-a-trailing-comment-takes-a-tab-a-run-start-and-its-whole-separator",
+    "source": "a\t%% hidden\n",
+    "html": "<p>a\t%% hidden</p>\n"
+  },
+  {
+    "id": "trailing-comment-space-separator/tab-before-comment-space",
+    "source": "a\t %% c\n",
+    "html": "<p>a\t</p>\n"
+  }
+]

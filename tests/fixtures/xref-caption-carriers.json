@@ -1,0 +1,916 @@
+[
+  {
+    "id": "safe/data-carve/0",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-carve-xref=\"anything\" title=\"tip\" class=\"c\">generated <em>label</em></a><span data-carve-caption-number>arbitrary text</span></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "H"
+      },
+      {
+        "type": "caption_number"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "safe/data-carve/1",
+    "mode": "safe",
+    "html": "<p><a href=\"x\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/2",
+    "mode": "safe",
+    "html": "<p><a href=\"#a b\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#a b"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/3",
+    "mode": "safe",
+    "html": "<p><span data-carve-caption-number class=\"c\">1</span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/4",
+    "mode": "safe",
+    "html": "<p><span data-carve-caption-number><em>1</em></span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/5",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-ref=\"r\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/6",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-autolink>H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/7",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-footnote-label=\"n\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/8",
+    "mode": "safe",
+    "html": "<p><a href=\"x\" data-carve-xref data-carve-ref=\"r\">x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "ref": "r",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-carve/9",
+    "mode": "safe",
+    "html": "<p><a href=\"#a&#9;b\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "a\tb"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "safe/data-djot/0",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-djot-xref=\"anything\" title=\"tip\" class=\"c\">generated <em>label</em></a><span data-djot-caption-number>arbitrary text</span></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "H"
+      },
+      {
+        "type": "caption_number"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "safe/data-djot/1",
+    "mode": "safe",
+    "html": "<p><a href=\"x\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/2",
+    "mode": "safe",
+    "html": "<p><a href=\"#a b\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#a b"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/3",
+    "mode": "safe",
+    "html": "<p><span data-djot-caption-number class=\"c\">1</span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/4",
+    "mode": "safe",
+    "html": "<p><span data-djot-caption-number><em>1</em></span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/5",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-ref=\"r\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/6",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-autolink>H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/7",
+    "mode": "safe",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-footnote-label=\"n\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/8",
+    "mode": "safe",
+    "html": "<p><a href=\"x\" data-djot-xref data-djot-ref=\"r\">x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "ref": "r",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "safe/data-djot/9",
+    "mode": "safe",
+    "html": "<p><a href=\"#a&#9;b\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "a\tb"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "semantic/data-carve/0",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-carve-xref=\"anything\" title=\"tip\" class=\"c\">generated <em>label</em></a><span data-carve-caption-number>arbitrary text</span></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "H"
+      },
+      {
+        "type": "caption_number"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "semantic/data-carve/1",
+    "mode": "semantic",
+    "html": "<p><a href=\"x\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/2",
+    "mode": "semantic",
+    "html": "<p><a href=\"#a b\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#a b"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/3",
+    "mode": "semantic",
+    "html": "<p><span data-carve-caption-number class=\"c\">1</span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/4",
+    "mode": "semantic",
+    "html": "<p><span data-carve-caption-number><em>1</em></span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/5",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-ref=\"r\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/6",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-autolink>H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/7",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-footnote-label=\"n\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/8",
+    "mode": "semantic",
+    "html": "<p><a href=\"x\" data-carve-xref data-carve-ref=\"r\">x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "ref": "r",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-carve/9",
+    "mode": "semantic",
+    "html": "<p><a href=\"#a&#9;b\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "a\tb"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "semantic/data-djot/0",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-djot-xref=\"anything\" title=\"tip\" class=\"c\">generated <em>label</em></a><span data-djot-caption-number>arbitrary text</span></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "H"
+      },
+      {
+        "type": "caption_number"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "semantic/data-djot/1",
+    "mode": "semantic",
+    "html": "<p><a href=\"x\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/2",
+    "mode": "semantic",
+    "html": "<p><a href=\"#a b\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#a b"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/3",
+    "mode": "semantic",
+    "html": "<p><span data-djot-caption-number class=\"c\">1</span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/4",
+    "mode": "semantic",
+    "html": "<p><span data-djot-caption-number><em>1</em></span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/5",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-ref=\"r\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/6",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-autolink>H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/7",
+    "mode": "semantic",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-footnote-label=\"n\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/8",
+    "mode": "semantic",
+    "html": "<p><a href=\"x\" data-djot-xref data-djot-ref=\"r\">x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "ref": "r",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "semantic/data-djot/9",
+    "mode": "semantic",
+    "html": "<p><a href=\"#a&#9;b\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "a\tb"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "roundtrip/data-carve/0",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-carve-xref=\"anything\" title=\"tip\" class=\"c\">generated <em>label</em></a><span data-carve-caption-number>arbitrary text</span></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "H"
+      },
+      {
+        "type": "caption_number"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "roundtrip/data-carve/1",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"x\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-carve/2",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#a b\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#a b"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-carve/3",
+    "mode": "roundtrip",
+    "html": "<p><span data-carve-caption-number class=\"c\">1</span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-carve/4",
+    "mode": "roundtrip",
+    "html": "<p><span data-carve-caption-number><em>1</em></span></p>",
+    "projection": [],
+    "diagnostics": []
+  },
+  {
+    "id": "roundtrip/data-carve/5",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-ref=\"r\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-carve/6",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-autolink>H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-carve/7",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-carve-xref data-carve-footnote-label=\"n\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-carve/8",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"x\" data-carve-xref data-carve-ref=\"r\">x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "ref": "r",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-carve/9",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#a&#9;b\" data-carve-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "a\tb"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "roundtrip/data-djot/0",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-djot-xref=\"anything\" title=\"tip\" class=\"c\">generated <em>label</em></a><span data-djot-caption-number>arbitrary text</span></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "H"
+      },
+      {
+        "type": "caption_number"
+      }
+    ],
+    "diagnostics": []
+  },
+  {
+    "id": "roundtrip/data-djot/1",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"x\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-djot/2",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#a b\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#a b"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-djot/3",
+    "mode": "roundtrip",
+    "html": "<p><span data-djot-caption-number class=\"c\">1</span></p>",
+    "projection": [],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-djot/4",
+    "mode": "roundtrip",
+    "html": "<p><span data-djot-caption-number><em>1</em></span></p>",
+    "projection": [],
+    "diagnostics": []
+  },
+  {
+    "id": "roundtrip/data-djot/5",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-ref=\"r\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-djot/6",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-autolink>H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-djot/7",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#H\" data-djot-xref data-djot-footnote-label=\"n\">H</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "href": "#H"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "warning"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-djot/8",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"x\" data-djot-xref data-djot-ref=\"r\">x</a></p>",
+    "projection": [
+      {
+        "type": "link",
+        "ref": "r",
+        "href": "x"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "attribute-dropped",
+        "severity": "info"
+      }
+    ]
+  },
+  {
+    "id": "roundtrip/data-djot/9",
+    "mode": "roundtrip",
+    "html": "<p><a href=\"#a&#9;b\" data-djot-xref>x</a></p>",
+    "projection": [
+      {
+        "type": "heading_ref",
+        "target": "a\tb"
+      }
+    ],
+    "diagnostics": []
+  }
+]

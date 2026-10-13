@@ -37,7 +37,7 @@ class ARoundTripMarkerIsConsumedInEveryImportModeTest extends TestCase
     public function testBreakAndLinkMarkers(string $mode): void
     {
         $html = "<hr data-char=\"*\">\n<p><a href=\"/x\" data-carve-ref=\"r\">a</a></p>\n";
-        $importer = new HtmlToCarve(false, [], false, $mode);
+        $importer = new HtmlToCarve(importMode: $mode);
 
         self::assertSame("***\n\n[a][r]\n\n[r]: /x\n", $importer->convert($html));
 
@@ -54,11 +54,41 @@ class ARoundTripMarkerIsConsumedInEveryImportModeTest extends TestCase
     public function testImageMarker(string $mode): void
     {
         $html = '<img src="/i.png" alt="a" data-carve-ref="r">';
-        $importer = new HtmlToCarve(false, [], false, $mode);
+        $importer = new HtmlToCarve(importMode: $mode);
 
         self::assertSame("![a][r]\n\n[r]: /i.png\n", $importer->convert($html));
 
         $image = $importer->convertToAstWithReport($html)->value['children'][0];
         self::assertArrayNotHasKey('data-carve-ref', $image['attrs']['keyValues'] ?? []);
+    }
+
+    #[DataProvider('modes')]
+    public function testLegacySourceNeverSuppliesSourceOrAuthoredAttributes(string $mode): void
+    {
+        foreach (['data-carve-src', 'data-djot-src', 'DATA-CARVE-SRC', 'DATA-DJOT-SRC'] as $name) {
+            foreach (['<p %s="*stored*">shown</p>', '<p>lead</p><div %s="*stored*"><p>shown</p></div>'] as $template) {
+                $importer = new HtmlToCarve(importMode: $mode);
+                $html = sprintf($template, $name);
+                $source = $importer->convertWithReport($html);
+                $ast = $importer->convertToAstWithReport($html);
+                $this->assertStringContainsString('shown', $source->value);
+                $this->assertStringNotContainsString('stored', $source->value);
+                $this->assertStringNotContainsString(strtolower($name), strtolower($source->value));
+                $this->assertStringNotContainsString('stored', json_encode($ast->value, JSON_THROW_ON_ERROR));
+                $this->assertStringNotContainsString(strtolower($name), strtolower(json_encode($ast->value, JSON_THROW_ON_ERROR)));
+                $tag = str_starts_with($template, '<p %s') ? 'p' : 'div';
+                $path = $tag === 'p' ? '/p[1]' : '/div[2]';
+                $expected = [
+                    'code' => 'attribute-dropped',
+                    'message' => 'Dropped round-trip marker attribute ' . strtolower($name) . ' on <' . $tag . '>',
+                    'severity' => 'info',
+                    'fidelity' => 'dropped',
+                    'confidence' => 'exact',
+                    'path' => $path,
+                ];
+                $this->assertSame([$expected], $source->report()['diagnostics']);
+                $this->assertSame([$expected], $ast->report()['diagnostics']);
+            }
+        }
     }
 }

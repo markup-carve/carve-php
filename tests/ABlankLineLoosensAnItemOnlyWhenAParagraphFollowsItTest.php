@@ -153,26 +153,15 @@ class ABlankLineLoosensAnItemOnlyWhenAParagraphFollowsItTest extends TestCase
     }
 
     /**
-     * THE BOUND ON THE SKIP, and the reason it is not unconditional.
-     *
-     * A container that is the item's WHOLE body is not one block among several,
-     * so its interior blank does separate two of the item's rendered blocks
-     * (markup-carve/carve#1602). The identical five lines reach the looseness
-     * scan in both shapes - only the caller knows whether a block precedes
-     * them - which is why the scan is TOLD rather than left to read it off the
-     * lines.
-     *
-     * Corpus 362-3. No HTML can show this: the item holds only the container,
-     * so `<li>` wraps no paragraph either way and `list.tight` is the only
-     * place the answer appears.
+     * A blank inside the item's only container leaves the item tight.
      */
-    public function testAContainerThatIsTheWholeItemBodyStillLoosens(): void
+    public function testAContainerThatIsTheWholeItemBodyStaysTight(): void
     {
         $document = $this->converter->parse("- ::: d\n  b\n\n  tail\n");
         $list = $document->getChildren()[0];
 
         $this->assertInstanceOf(ListBlock::class, $list);
-        $this->assertFalse($list->isTight(), 'the skip was widened past the block it was written for');
+        $this->assertTrue($list->isTight());
     }
 
     /**

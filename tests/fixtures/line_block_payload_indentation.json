@@ -1,0 +1,107 @@
+[
+  {
+    "id": "ticket-tilde-quoted",
+    "source": "> - ::: |\n>     ~~~\n>     x\n>   :::\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n&nbsp;&nbsp;x</p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "ticket-backtick-quoted",
+    "source": "> - ::: |\n>     ```\n>     x\n>     ```\n>   :::\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n&nbsp;&nbsp;x\n&nbsp;&nbsp;</code></p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "tilde-item",
+    "source": "- ::: |\n    ~~~\n    x\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n&nbsp;&nbsp;x</p></div></li></ul>"
+  },
+  {
+    "id": "backtick-item",
+    "source": "- ::: |\n    ```\n    x\n    ```\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n&nbsp;&nbsp;x\n&nbsp;&nbsp;</code></p></div></li></ul>"
+  },
+  {
+    "id": "ordered-item",
+    "source": "1. ::: |\n     ~~~\n     x\n   :::\n",
+    "html": "<ol><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n&nbsp;&nbsp;x</p></div></li></ol>"
+  },
+  {
+    "id": "one-column-past",
+    "source": "- ::: |\n   ```\n   x\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;<code>\n&nbsp;x</code></p></div></li></ul>"
+  },
+  {
+    "id": "unclosed-run",
+    "source": "- ::: |\n    ```\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code></code></p></div></li></ul>"
+  },
+  {
+    "id": "heading-shaped",
+    "source": "- ::: |\n    # h\n    - x\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;# h<br>\n&nbsp;&nbsp;- x</p></div></li></ul>"
+  },
+  {
+    "id": "table-shaped",
+    "source": "- ::: |\n    | a |\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;| a |</p></div></li></ul>"
+  },
+  {
+    "id": "quote-shaped",
+    "source": "- ::: |\n    > q\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;&gt; q</p></div></li></ul>"
+  },
+  {
+    "id": "nested-item",
+    "source": "- a\n  - ::: |\n      ~~~\n      x\n    :::\n",
+    "html": "<ul><li>a\n    <ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n&nbsp;&nbsp;x</p></div></li></ul></li></ul>"
+  },
+  {
+    "id": "quote-depth-two",
+    "source": "> > - ::: |\n> >     ~~~\n> >     x\n> >   :::\n",
+    "html": "<blockquote><blockquote><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n&nbsp;&nbsp;x</p></div></li></ul></blockquote></blockquote>"
+  },
+  {
+    "id": "ordinary-line-control",
+    "source": "> - ::: |\n>     y\n>     x\n>   :::\n",
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;y<br>\n&nbsp;&nbsp;x</p></div></li></ul></blockquote>"
+  },
+  {
+    "id": "at-column-control",
+    "source": "- ::: |\n  ~~~\n    x\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>~~~<br>\n&nbsp;&nbsp;x</p></div></li></ul>"
+  },
+  {
+    "id": "root-control",
+    "source": "::: |\n  ~~~\n  x\n:::\n",
+    "html": "<div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n&nbsp;&nbsp;x</p></div>"
+  },
+  {
+    "id": "paired-runs-shield-tilde",
+    "source": "- ::: |\n    ~~~\n  :::\n    ~~~\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;~~~<br>\n:::<br>\n&nbsp;&nbsp;~~~</p></div></li></ul>"
+  },
+  {
+    "id": "paired-runs-shield-backtick",
+    "source": "- ::: |\n    ```\n  :::\n    ```\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div></li></ul>"
+  },
+  {
+    "id": "paired-runs-shield-root",
+    "source": "::: |\n  ```\n:::\n  ```\n:::\n",
+    "html": "<div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div>"
+  },
+  {
+    "id": "paired-runs-shield-after-paragraph",
+    "source": "- a\n\n  ::: |\n    ```\n  :::\n    ```\n  :::\n",
+    "html": "<ul><li>a\n    <div class=\"line-block\"><p>&nbsp;&nbsp;<code>\n:::\n&nbsp;&nbsp;</code></p></div></li></ul>"
+  },
+  {
+    "id": "at-column-opener-indented-run-control",
+    "source": "- ::: |\n  ```\n  :::\n    ```\n  :::\n",
+    "html": "<ul><li><div class=\"line-block\"><p><code></code></p></div><code></code><div></div></li></ul>"
+  },
+  {
+    "id": "whitespace-only-payload-line",
+    "source": "- +\n::: |\n   \n:::\n",
+    "html": "<ul><li><div class=\"line-block\"></div></li></ul>"
+  }
+]

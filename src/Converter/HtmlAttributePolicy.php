@@ -24,6 +24,7 @@ final class HtmlAttributePolicy
             || $lower === 'srcdoc'
             || $lower === 'formaction'
             || HtmlCarrierNames::isReserved($lower)
+            || HtmlCarrierNames::isStoredSourceMarker($lower)
             || in_array($name, $skip, true)
             || in_array($lower, $skip, true);
     }
@@ -53,7 +54,7 @@ final class HtmlAttributePolicy
         $order = [];
         foreach ($node->attributes as $attribute) {
             $name = strtolower(HtmlDomLoader::attributeName($attribute));
-            if (isset($skip[$name]) || self::isStripped($name, []) || ($name === 'role' && $derivedRole($attribute->value))) {
+            if (isset($skip[$name]) || (HtmlCarrierNames::canonicalName($name) === 'data-carve-ext' && HtmlCarrierNames::wasUsed($node, HtmlDomLoader::attributeName($attribute))) || self::isStripped($name, []) || ($name === 'role' && $derivedRole($attribute->value))) {
                 continue;
             }
             if ($name === 'id') {

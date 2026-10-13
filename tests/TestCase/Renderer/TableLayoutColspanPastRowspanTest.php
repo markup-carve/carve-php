@@ -11,8 +11,8 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A column reserved by a rowspan from an earlier row is not available to a later
- * cell's colspan, so the span skips past it -- which is what the `<` marker does
- * when it scans left past a consumed cell.
+ * cell's colspan. Since carve#3047 the `<` beside such a column is blocked and
+ * renders empty, so every target keeps the row as wide as the header.
  *
  * The colspan loop pushed its continuation fillers without consulting the active
  * rowspans, so a spanning cell wrote over the reserved column and the rowspan
@@ -66,14 +66,15 @@ class TableLayoutColspanPastRowspanTest extends TestCase
     }
 
     /**
-     * The HTML target was always right here, and stays right: it computes its own
-     * layout rather than going through TableLayout.
+     * The HTML target computes its own layout rather than going through
+     * TableLayout; the blocked `<` is an empty cell there too.
      */
-    public function testTheHtmlTargetIsUnchanged(): void
+    public function testTheHtmlTargetBlocksTheColspan(): void
     {
         $html = $this->converter->convert(self::SOURCE);
 
-        $this->assertStringContainsString('colspan="2"', $html);
+        $this->assertStringContainsString('<tr><td>p</td><td></td><td>e</td></tr>', $html);
+        $this->assertStringNotContainsString('colspan', $html);
         $this->assertStringContainsString('rowspan="2"', $html);
     }
 

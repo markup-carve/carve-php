@@ -1089,7 +1089,7 @@ class InlineParser
                     $content = substr($content, 1);
                 }
                 $content = rtrim($content, " \t");
-                $textBuffer = rtrim($textBuffer, " \t");
+                $textBuffer = rtrim($textBuffer, ' ');
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
                 $comment = new Comment($content);
@@ -1247,7 +1247,7 @@ class InlineParser
             if ($char === '<' && ($text[$pos + 1] ?? '') === '/' && ($text[$pos + 2] ?? '') === '#') {
                 if (
                     $this->crossrefBodyCanEnd($text, $pos + 3)
-                    && preg_match('/\G<\/#([^> \t\r\n]+)>/u', $text, $hm, 0, $pos)
+                    && preg_match('/\G<\/#([^> \r\n]+)>/u', $text, $hm, 0, $pos)
                 ) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
@@ -1490,7 +1490,7 @@ class InlineParser
                     $lookAhead++;
                 }
                 if ($lookAhead < $length && $text[$lookAhead] === "\n") {
-                    $textBuffer = rtrim($textBuffer, " \t");
+                    $textBuffer = rtrim($textBuffer, ' ');
                     $this->appendHardBreak($parent, $textBuffer, $pos, $lookAhead + 1);
                     $pos = $lookAhead + 1;
 
@@ -1684,7 +1684,7 @@ class InlineParser
 
         $previous = $pos > 0 ? $text[$pos - 1] : '';
 
-        return $previous === '' || $previous === ' ' || $previous === "\t" || $previous === "\n";
+        return $previous === '' || $previous === ' ' || $previous === "\n";
     }
 
     protected function flushText(Node $parent, string $text): void
@@ -5369,7 +5369,7 @@ class InlineParser
                 return false;
             }
         }
-        $end = $from + strcspn($text, " \t\r\n>", $from);
+        $end = $from + strcspn($text, " \r\n>", $from);
         if ($text[$end] === '>') {
             return true;
         }

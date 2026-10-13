@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -59,13 +60,11 @@ class ClosedCommentFenceKeepsTheNextLineTest extends TestCase
     /**
      * A retained marker below the content column remains paragraph text.
      */
-    public function testABelowColumnMarkerStaysText(): void
+    public function testAMarkerAfterACommentAtTheColumnOpensItsOwnList(): void
     {
-        $html = $this->html("- a\n  %%% x\n  y\n  %%%\n - s\n");
-
-        $this->assertStringContainsString('- s', $html, "the author's line vanished");
-        $this->assertSame(1, substr_count($html, '<ul>'));
-        $this->assertStringNotContainsString('%%%', $html);
+        $source = "- a\n  %%% x\n  y\n  %%%\n - s\n";
+        $expected = PinnedOracleHtml::forSource($source);
+        $this->assertSame((string)preg_replace('/\s+/', ' ', $expected . "\n"), $this->html($source));
     }
 
     /**

@@ -1,0 +1,264 @@
+[
+  {
+    "id": "safe/0",
+    "mode": "safe",
+    "html": "<form data-djot-ext=\"tabs\" data-carve-label=\"q\"><p data-djot-tight=\"true\">x</p></form>\n<p data-carve-label=\"l\" id=\"k\">para</p>\n",
+    "source": "x\n\n{#k}\npara\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/form[1]"
+      ],
+      [
+        "attribute-dropped",
+        "info",
+        "/form[1]"
+      ],
+      [
+        "attribute-dropped",
+        "info",
+        "/form[1]/p[1]"
+      ],
+      [
+        "attribute-dropped",
+        "info",
+        "/p[3]"
+      ],
+      [
+        "element-unwrapped",
+        "info",
+        "/form[1]"
+      ]
+    ]
+  },
+  {
+    "id": "safe/1",
+    "mode": "safe",
+    "html": "<p>a <span data-carve-label=\"x\">x</span> b</p>",
+    "source": "a x b\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[1]/span[2]"
+      ],
+      [
+        "element-unwrapped",
+        "info",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "safe/2",
+    "mode": "safe",
+    "html": "<p>a <span data-djot-label=\"x\">x</span> b</p>",
+    "source": "a x b\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[1]/span[2]"
+      ],
+      [
+        "element-unwrapped",
+        "info",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "safe/3",
+    "mode": "safe",
+    "html": "<p>a <span data-carve-label=\"x\" class=\"c\">x</span> b</p>",
+    "source": "a [x]{.c} b\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "safe/4",
+    "mode": "safe",
+    "html": "<p>a <span class=\"c\">x</span> b</p>",
+    "source": "a [x]{.c} b\n",
+    "diagnostics": []
+  },
+  {
+    "id": "semantic/0",
+    "mode": "semantic",
+    "html": "<form data-djot-ext=\"tabs\" data-carve-label=\"q\"><p data-djot-tight=\"true\">x</p></form>\n<p data-carve-label=\"l\" id=\"k\">para</p>\n",
+    "source": "x\n\n{#k}\npara\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/form[1]"
+      ],
+      [
+        "attribute-dropped",
+        "info",
+        "/form[1]"
+      ],
+      [
+        "attribute-dropped",
+        "info",
+        "/form[1]/p[1]"
+      ],
+      [
+        "attribute-dropped",
+        "info",
+        "/p[3]"
+      ],
+      [
+        "element-unwrapped",
+        "info",
+        "/form[1]"
+      ]
+    ]
+  },
+  {
+    "id": "semantic/1",
+    "mode": "semantic",
+    "html": "<p>a <span data-carve-label=\"x\">x</span> b</p>",
+    "source": "a x b\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[1]/span[2]"
+      ],
+      [
+        "element-unwrapped",
+        "info",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "semantic/2",
+    "mode": "semantic",
+    "html": "<p>a <span data-djot-label=\"x\">x</span> b</p>",
+    "source": "a x b\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[1]/span[2]"
+      ],
+      [
+        "element-unwrapped",
+        "info",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "semantic/3",
+    "mode": "semantic",
+    "html": "<p>a <span data-carve-label=\"x\" class=\"c\">x</span> b</p>",
+    "source": "a [x]{.c} b\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "semantic/4",
+    "mode": "semantic",
+    "html": "<p>a <span class=\"c\">x</span> b</p>",
+    "source": "a [x]{.c} b\n",
+    "diagnostics": []
+  },
+  {
+    "id": "roundtrip/0",
+    "mode": "roundtrip",
+    "html": "<form data-djot-ext=\"tabs\" data-carve-label=\"q\"><p data-djot-tight=\"true\">x</p></form>\n<p data-carve-label=\"l\" id=\"k\">para</p>\n",
+    "source": "```=html\n<form data-djot-ext=\"tabs\" data-carve-label=\"q\"><p data-djot-tight=\"true\">x</p></form>\n```\n\n{#k}\npara\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[3]"
+      ],
+      [
+        "attribute-preserved",
+        "info",
+        "/form[1]"
+      ],
+      [
+        "attribute-preserved",
+        "info",
+        "/form[1]/p[1]"
+      ],
+      [
+        "raw-preserved",
+        "warning",
+        "/form[1]"
+      ]
+    ]
+  },
+  {
+    "id": "roundtrip/1",
+    "mode": "roundtrip",
+    "html": "<p>a <span data-carve-label=\"x\">x</span> b</p>",
+    "source": "a `<span data-carve-label=\"x\">x</span>`{=html} b\n",
+    "diagnostics": [
+      [
+        "attribute-preserved",
+        "info",
+        "/p[1]/span[2]"
+      ],
+      [
+        "raw-preserved",
+        "warning",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "roundtrip/2",
+    "mode": "roundtrip",
+    "html": "<p>a <span data-djot-label=\"x\">x</span> b</p>",
+    "source": "a `<span data-djot-label=\"x\">x</span>`{=html} b\n",
+    "diagnostics": [
+      [
+        "attribute-preserved",
+        "info",
+        "/p[1]/span[2]"
+      ],
+      [
+        "raw-preserved",
+        "warning",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "roundtrip/3",
+    "mode": "roundtrip",
+    "html": "<p>a <span data-carve-label=\"x\" class=\"c\">x</span> b</p>",
+    "source": "a [x]{.c} b\n",
+    "diagnostics": [
+      [
+        "attribute-dropped",
+        "info",
+        "/p[1]/span[2]"
+      ]
+    ]
+  },
+  {
+    "id": "roundtrip/4",
+    "mode": "roundtrip",
+    "html": "<p>a <span class=\"c\">x</span> b</p>",
+    "source": "a [x]{.c} b\n",
+    "diagnostics": []
+  }
+]

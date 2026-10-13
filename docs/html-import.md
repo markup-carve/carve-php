@@ -8,12 +8,8 @@ The loss report, the diagnostic `path` locator, and the import modes.
 | --- | --- |
 | Export `roundTripMode` / `--roundtrip` | Adds carriers to output. Any import mode reads them; this is not a trust decision. |
 | `importMode`: `safe`, `semantic`, `roundtrip` | Decides what happens to HTML Carve cannot spell. `roundtrip` keeps it as raw `{=html}`. |
-| `trustStoredSource` | Re-emits `data-carve-src` verbatim. Use only with trusted input; implies `roundtrip` import mode. |
 
-Omitting `importMode` selects `safe`, or `roundtrip` when `trustStoredSource`
-is true. Combining stored-source trust with explicit `safe` or `semantic`
-throws `InvalidArgumentException`. Export options do not select an import mode
-or trust setting.
+Omitting `importMode` selects `safe`. Export options do not select an import mode.
 
 HTML import uses PHP's native HTML5 parser on PHP 8.4 and later. On PHP 8.2 and
 8.3 it keeps the legacy libxml parser. Both paths require `ext-dom` when importing
@@ -60,25 +56,144 @@ nested list. The Markdown target writes a list table as a pipe table either way.
 $carve = (new HtmlToCarve(listTableForBlockCells: true))->convert($html);
 ~~~
 
-When trusted `data-carve-src` returns stored Carve source verbatim, the report has
-no diagnostics. The HTML descendants are not imported in that path.
-
 ## Roundtrip carrier names
 
 The attributes a roundtrip export writes so an import can recover a distinction
 the HTML has no spelling for are the `data-carve-*` names PART 10 section 13a
 reserves. The renderer writes that spelling only.
 
+The export option is off by default. `CarveConverter` takes it as a constructor
+argument, a renderer through `setRoundTripMode()`, and the CLI as `--roundtrip`:
+
+~~~ php
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\HtmlRenderer;
+
+$html = (new CarveConverter(roundTripMode: true))->convert($source);
+
+$renderer = (new HtmlRenderer())->setRoundTripMode(true);
+$html = (new CarveConverter(renderer: $renderer))->convert($source);
+~~~
+
+~~~
+bin/carve --roundtrip input.crv
+~~~
+
+This source:
+
+~~~
+* item
+
+```php [Example]
+echo 1;
+```
+~~~
+
+renders under the option to:
+
+~~~ html
+<ul data-marker="*">
+  <li>item</li>
+</ul>
+<pre data-carve-label="Example"><code class="language-php">echo 1;
+</code></pre>
+~~~
+
+The core renderer writes the rows of PART 10 section 13a, under the option only:
+
+| Attribute | Element | Value |
+| --- | --- | --- |
+| `data-marker` | `<ul>` | The bullet marker, where it is not `-`. |
+| `data-char` | `<hr>` | The thematic-break character, where it is not `-`. |
+| `data-carve-explicit-id` | `<section>`, `<h1>`-`<h6>` | `1`: the id was authored. It rides the heading where no section wraps it. |
+| `data-carve-ref` | `<a>`, `<img>` | The reference label the link or image resolved by. |
+| `data-carve-autolink` | `<a>` | `1`: the link was written as an autolink. |
+| `data-carve-footnote-label` | `<a>`, `<li>` | The footnote label, on the reference and on the endnote item. |
+| `data-carve-inline-footnote` | `<li>` | `1`: the endnote came from an inline footnote. |
+| `data-carve-raw` | `<span>` | The raw inline's format. The span's text holds its content. |
+| `data-carve-escaped` | `<span>` | No value. The span holds one escaped character. |
+| `data-carve-abbreviations` | `<template>` | No value. The text holds the abbreviation definitions, one per line. |
+| `data-carve-col-widths` | `<table>` | The separator row's dash widths, comma-joined. |
+| `data-carve-label` | `<pre>` | The code block's bracketed label. |
+| `data-carve-generated-id` | `<section>`, `<h1>`-`<h6>` | Presence: the id was generated. |
+| `data-carve-id-slot` | `<section>` | The authored id's position among the heading's attributes, counted from 0. Omitted at 0. |
+| `data-carve-tight` | `<ul>`, `<ol>` | Presence: the list is tight although an item's paragraph keeps its `<p>`. |
+
+A carrier follows the element's structural attributes (`type`, `start`,
+`data-delim`, `href`, `src`, `alt`, `title`) and precedes the attributes the
+author wrote:
+
+~~~
+{.c}
+1) {.x}
+   a
+2) b
+~~~
+
+~~~ html
+<ol data-delim=")" data-carve-tight="1" class="c">
+  <li><p class="x">a</p></li>
+  <li>b</li>
+</ol>
+~~~
+
+Roundtrip export drops reserved carrier names on every node and reports one
+`carrier-attribute-dropped` loss for each authored attribute. This includes
+`data-djot-` aliases. Default export keeps authored attributes.
+
+Extensions write carriers of their own; see
+[Roundtrip carriers](extensions.md#roundtrip-carriers).
+
+An import recovers the distinctions in these tables. It does not return
+byte-identical source:
+
+- A raw block has no carrier. One whose format HTML cannot write is dropped with
+  a `raw-format-dropped` render loss, with or without the option.
+- A raw inline whose format HTML cannot write reports `raw-format-dropped` with
+  or without the option. Under the option `data-carve-raw` carries it as well.
+- A task marker `[X]` returns as `[x]`.
+- A collapsed reference `[r][]` and a full reference `[r][r]` both return as
+  `[r][]`.
+
 Documents exported by earlier versions carry the same names under a
 `data-djot-*` prefix. The importer accepts that spelling as a **deprecated
-alias**: it is canonicalized on load, the `data-carve-` name wins where an
-element carries both, and the alias is consumed either way, so a document that
-arrives with it leaves without it.
+alias**: it reads the alias as the `data-carve-` name, the `data-carve-` name
+wins where an element carries both, and the alias is consumed either way, so a
+document that arrives with it leaves without it.
+
+Every reserved carrier that import consumes without reading it, including an
+alias that lost to the `data-carve-` name, gets a report row:
+`attribute-dropped` at `info` on an element the importer rewrites, and
+`attribute-preserved` on an element `roundtrip` mode keeps as raw HTML. Kept raw
+HTML is never rewritten: its carriers keep their authored names, values and
+order.
+
+`data-carve-src` is reserved without a row. No renderer writes it, and import
+consumes it and its `data-djot-src` alias in every mode without reading Carve
+source from the value. The import report names each one: `attribute-dropped`
+at `info` on an element the importer rewrites, and `attribute-preserved` on an
+element `roundtrip` mode keeps as raw HTML, whose bytes keep the attribute as
+written. Default export passes an authored one through. Roundtrip export drops
+it and reports `carrier-attribute-dropped`.
 
 The reserved set is an enumeration, not a prefix. A `data-carve-` or
 `data-djot-` name the enumeration does not list is an ordinary authored
 attribute and is imported as one. `MarkupCarve\Carve\Converter\HtmlCarrierNames`
-holds the list.
+holds the list, including the carriers consumed by the bundled PHP extensions.
+
+Every import mode consumes the names in the table. A value outside its carrier's
+grammar is dropped and reported. An id slot requires an explicit-id carrier,
+decimal digits, and a value no larger than the heading's surviving attribute
+count. An invalid slot places the id first. An unmarked heading id is authored
+in every mode; an unmarked section id equal to its heading's slug is generated.
+
+
+Two carriers that contradict each other on one element restore neither meaning.
+An `<a>` carrying both `data-carve-autolink` and a valid `data-carve-ref` imports
+as an inline link with one `attribute-dropped` warning. An endnote carrying both
+a footnote label and the inline-footnote flag imports as an ordinary numbered
+note with the same warning. The other contradictory pairs are explicit-id with
+generated-id and escaped with raw. This is a closed list.
 
 Each diagnostic carries a `path` locating what was lost. It is a human-readable
 locator that all three engines spell the same way, and although it borrows

@@ -149,6 +149,41 @@ graceful-degradation guarantee is met by the core caption floor (step 3).
 The CLI exposes the mode via `bin/carve --static` (HTML format only); see
 `examples/static-render-demo.php` for a runnable interactive-vs-static demo.
 
+## Roundtrip carriers
+
+Under roundtrip export (`roundTripMode: true`, `--roundtrip`) these extensions
+write carriers beside the core ones listed in
+[Roundtrip carrier names](html-import.md#roundtrip-carrier-names). Default
+export writes none of them, and the HTML importer consumes each in every mode.
+
+| Extension | Attribute | Element | Value |
+| --- | --- | --- | --- |
+| `AdmonitionExtension` | `data-carve-admonition-type` | Container | The div's type word. |
+| `AdmonitionExtension` | `data-carve-admonition-title` | Container | The quoted header, when one is written. |
+| `HeadingReferenceExtension` | `data-carve-heading-ref` | `<a>` | The target heading text. |
+| `HeadingReferenceExtension` | `data-carve-heading-ref-display` | `<a>` | The display text, when it differs from the target. |
+| `HeadingLevelShiftExtension` | `data-carve-source-level` | `<h1>`-`<h6>` | The heading's level before the shift. |
+| `InlineFootnotesExtension` | `data-carve-inline-footnote-html` | Reference `<a>` | The note's rendered HTML. |
+| `InlineFootnotesExtension` | `data-carve-inline-footnote-class` | Reference `<a>` | The configured `cssClass`, when it is not `fn`. |
+| `TabsExtension` | `data-carve-ext` | Wrapper | `tabs`. |
+| `TabsExtension` | `data-carve-group-generated` | Wrapper, panel | Names of the attributes the extension generated, space-separated. |
+| `TabsExtension` | `data-carve-label` | Panel | The tab's opener label. |
+| `TabsExtension` | `data-carve-tab-title` | Title heading | No value, or `authored-hidden` where the heading has its own `hidden`. |
+| `TabsExtension` | `data-carve-explicit-id` | Panel | `1`: the tab has an authored id. |
+| `TabsExtension` | `data-carve-selected` | Panel, static mode | No value. Marks the selected tab. |
+| `CodeGroupExtension` | `data-carve-ext` | Wrapper | `code-group`. |
+| `CodeGroupExtension` | `data-carve-group-generated` | Wrapper | Names of the attributes the extension generated, space-separated. |
+| `CodeGroupExtension` | `data-carve-selected` | Panel, static mode | No value. Marks the selected block. |
+| `CodeGroupExtension` | `data-carve-ext` | `<div>` around `highlighter` output | `code-block`. |
+| `CodeGroupExtension` | `data-carve-fence-content` | `<div>` around `highlighter` output | The code block's content. |
+| `CodeGroupExtension` | `data-carve-fence-language` | `<div>` around `highlighter` output | The language word. |
+| `CodeGroupExtension` | `data-carve-label` | `<div>` around `highlighter` output | The bracketed label, when one is written. |
+| `CodeCalloutsExtension` | `data-carve-label` | `<pre>` | The bracketed label, when one is written. |
+| `FencedRenderExtension` | `data-carve-fence-language` | Rendered element | The language word. |
+| `FencedRenderExtension` | `data-carve-fence-content` | Rendered element | The code block's content. |
+| `FencedRenderExtension` | `data-carve-fence-generated` | Rendered element | Names of the attributes the extension generated, space-separated. |
+| `FencedRenderExtension` | `data-carve-label` | Rendered element | The bracketed label, when one is written. |
+
 ## Links and references
 
 ### AutolinkExtension
@@ -887,12 +922,44 @@ Content for the second tab.
 ::::
 ~~~
 
+Roundtrip export adds `data-carve-label` to a panel when its tab has an opener
+label. The value is the label production's interior, with the same validation
+as a code-block label. When a heading supplies the tab title, the panel keeps
+that heading at its original position, including its inline markup and attributes,
+with `hidden` and `data-carve-tab-title`. A tab without either title has no title
+carrier. An authored `hidden` attribute is identified by
+`data-carve-tab-title="authored-hidden"` and survives import. Default export adds
+neither carrier.
+
+These are TabsExtension's own carriers under PART 10 §13a, "AN EXTENSION WRITES
+ITS OWN CARRIERS". Both names are reserved and consumed on import in every mode;
+they never become authored attributes. The importer recognizes the extension's
+CSS and ARIA control and panel wiring and restores labels, title headings and
+nested panel content.
+
+Roundtrip export adds `data-carve-ext="tabs"` or `data-carve-ext="code-group"`
+to the respective root wrapper. `data-carve-ext` is reserved and consumed on
+import in every mode. With this carrier, the importer checks element names,
+control and label pairing, and panel roles without requiring default CSS
+classes. The first wrapper and tab-panel class is generated; remaining classes
+are authored. Without the carrier, recognition requires the default classes.
+
+Static roundtrip output keeps panel metadata on its `<section>` elements and
+marks the selected panel with `data-carve-selected`. Import restores the group
+and omits the generated label headings. It validates the whole group before
+restoring title-heading attributes. Code-group panels accept ordinary code,
+fenced-render output, figure-wrapped fences and callout code blocks.
+
+Import omits `{selected}` on the first tab because it is the default; later selected tabs keep it.
+
 ### CodeGroupExtension
 
 Converts a div with class `code-group` containing several code blocks into a
 tabbed code interface, ideal for showing the same step in multiple languages.
 Tab labels come from the code fence info using `[Label]` suffix syntax, falling
 back to the language name or "Code N". HTML output only.
+
+Import omits `{selected}` on the first code block because it is the default; later selected blocks keep it.
 
 Constructor options:
 
@@ -1001,8 +1068,17 @@ language word. These carry fields, without fence delimiters or attribute syntax.
 A bracketed label uses `data-carve-label`. The default HTML importer reads these
 carriers in every import mode on a named image wrapper containing one SVG or
 image. It validates the language token and UTF-8 content, rejecting control
-characters other than tabs and line endings. Interactive Mermaid imports from
-its named `<pre>` text; a `<pre><code>` with class `mermaid` remains ordinary code.
+characters other than tabs and line endings. Roundtrip interactive export
+uses the language and label carriers for every fenced-render configuration.
+The importer reads text from a classed `<pre>` or `<div>`, or JSON from its
+single `<script type="application/json">` child. JSON export also carries the
+original content so escaping a script terminator preserves the fence body. Without a build renderer, roundtrip static export keeps
+the source in `<pre><code>` and carries its language and bracketed label on
+`<pre>`. The importer consumes the generated wrapper class when the language
+carrier and code element match this fallback structure. The class alone is not
+a carrier: without a valid language carrier, `<pre class="mermaid" role="img">`
+and a `<pre><code>` with class `mermaid` import as code blocks carrying the
+class, so default export of a fence does not import as one.
 
 Constructor options:
 

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Renderer;
 
 use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Node;
+use SplObjectStorage;
 
 trait RenderLossCollectorTrait
 {
@@ -59,6 +60,11 @@ trait RenderLossCollectorTrait
      */
     private array $seenEditorialCommentLosses = [];
 
+    /**
+     * @var \SplObjectStorage<\MarkupCarve\Carve\Node\Node, array<string, true>>|null
+     */
+    private ?SplObjectStorage $seenCarrierAttributeLosses = null;
+
     public function beginRenderLossCollection(string $target, int $maximum): void
     {
         if ($maximum < 0) {
@@ -71,6 +77,7 @@ trait RenderLossCollectorTrait
         $this->renderLosses = [];
         $this->seenRubyLosses = [];
         $this->seenEditorialCommentLosses = [];
+        $this->seenCarrierAttributeLosses = new SplObjectStorage();
     }
 
     public function finishRenderLossCollection(): array
@@ -226,6 +233,14 @@ trait RenderLossCollectorTrait
         if ($this->renderLossTarget === null) {
             return;
         }
+        // A node's attributes are read more than once in a render; the row is owed once.
+        $this->seenCarrierAttributeLosses ??= new SplObjectStorage();
+        $seen = $this->seenCarrierAttributeLosses[$node] ?? [];
+        if (isset($seen[$attribute])) {
+            return;
+        }
+        $seen[$attribute] = true;
+        $this->seenCarrierAttributeLosses[$node] = $seen;
         $this->renderLossTotal++;
         $this->renderLossCounts['carrier-attribute-dropped'] = ($this->renderLossCounts['carrier-attribute-dropped'] ?? 0) + 1;
         if (count($this->renderLosses) >= $this->renderLossMaximum) {
@@ -236,7 +251,29 @@ trait RenderLossCollectorTrait
             'target' => $this->renderLossTarget,
             'nodeType' => $nodeType,
             'attribute' => $attribute,
-            'message' => sprintf('Dropped authored attribute %s displaced by a roundtrip carrier', $attribute),
+            'message' => sprintf('Dropped authored attribute %s reserved for roundtrip import', $attribute),
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
+    protected function recordDefinitionListFlattened(Node $node): void
+    {
+        if ($this->renderLossTarget === null) {
+            return;
+        }
+        $this->renderLossTotal++;
+        $this->renderLossCounts['definition-list-flattened'] = ($this->renderLossCounts['definition-list-flattened'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'definition-list-flattened',
+            'target' => $this->renderLossTarget,
+            'nodeType' => 'block',
+            'message' => 'Flattened a definition list without roundtrip markers',
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();

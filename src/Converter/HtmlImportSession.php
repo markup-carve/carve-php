@@ -19,6 +19,11 @@ final class HtmlImportSession
     public ?DOMDocument $builtDocument = null;
 
     /**
+     * @var \SplObjectStorage<\DOMElement, string>
+     */
+    public SplObjectStorage $supFootnoteTargets;
+
+    /**
      * @var \SplObjectStorage<\DOMNode, int>
      */
     public SplObjectStorage $pathSiblingIndices;
@@ -40,6 +45,11 @@ final class HtmlImportSession
      * @var \SplObjectStorage<\DOMElement, string|null>
      */
     public SplObjectStorage $unwrappedSameKindSpans;
+
+    /**
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $unwrappedBareSpans;
 
     /**
      * @var \SplObjectStorage<\DOMElement, null>
@@ -110,27 +120,12 @@ final class HtmlImportSession
     /**
      * @var \SplObjectStorage<\DOMElement, null>
      */
-    public SplObjectStorage $storedSourceElements;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
-    public SplObjectStorage $foldedStoredCodeSpans;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, null>
-     */
     public SplObjectStorage $nativeCodeSpans;
 
     /**
      * @var \SplObjectStorage<\DOMElement, array{code: ?\DOMElement, lang: ?string}>
      */
     public SplObjectStorage $nativeCodeBlocks;
-
-    /**
-     * @var \SplObjectStorage<\DOMElement, array{projected: bool, dropped: bool}>
-     */
-    public SplObjectStorage $projectedStoredBlocks;
 
     public ?bool $tableCellAllowsEmptyCode = null;
 
@@ -195,6 +190,13 @@ final class HtmlImportSession
     public SplObjectStorage $droppedReferenceCarriers;
 
     /**
+     * Links whose autolink and reference carriers contradict each other.
+     *
+     * @var \SplObjectStorage<\DOMElement, null>
+     */
+    public SplObjectStorage $contradictoryLinkCarriers;
+
+    /**
      * The bracket text an ordered task item's checkbox is written as, keyed by
      * the `<input>` element's object id.
      *
@@ -222,8 +224,6 @@ final class HtmlImportSession
 
     public bool $inInlineProjection = false;
 
-    public bool $flattensStoredBlocks = false;
-
     public bool $preserveInlineWhitespace = false;
 
     /**
@@ -231,17 +231,26 @@ final class HtmlImportSession
      */
     public SplObjectStorage $retainedListTypes;
 
+    /**
+     * @var \SplObjectStorage<\DOMElement, bool>
+     */
+    public SplObjectStorage $consumedExtensionElements;
+
     public function __construct()
     {
+        $this->consumedExtensionElements = new SplObjectStorage();
         $this->droppedFootnoteLabelCarriers = new SplObjectStorage();
         $this->droppedReferenceCarriers = new SplObjectStorage();
+        $this->contradictoryLinkCarriers = new SplObjectStorage();
         $this->endnoteItemLabels = new SplObjectStorage();
         $this->referencedEndnoteItems = new SplObjectStorage();
         $this->retainedListTypes = new SplObjectStorage();
+        $this->supFootnoteTargets = new SplObjectStorage();
         $this->pathSiblingIndices = new SplObjectStorage();
         $this->summaryTitles = new SplObjectStorage();
         $this->droppedEmptyElements = new SplObjectStorage();
         $this->unwrappedSameKindSpans = new SplObjectStorage();
+        $this->unwrappedBareSpans = new SplObjectStorage();
         $this->droppedEmptyHeadings = new SplObjectStorage();
         $this->urlListCarriers = new SplObjectStorage();
         $this->codeLanguageWrappers = new SplObjectStorage();
@@ -251,10 +260,7 @@ final class HtmlImportSession
         $this->flattenedSummaryBlocks = new SplObjectStorage();
         $this->tableBlockCells = new SplObjectStorage();
         $this->foldedCodeSpans = new SplObjectStorage();
-        $this->storedSourceElements = new SplObjectStorage();
-        $this->foldedStoredCodeSpans = new SplObjectStorage();
         $this->nativeCodeSpans = new SplObjectStorage();
         $this->nativeCodeBlocks = new SplObjectStorage();
-        $this->projectedStoredBlocks = new SplObjectStorage();
     }
 }

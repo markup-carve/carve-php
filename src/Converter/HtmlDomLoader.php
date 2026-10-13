@@ -53,22 +53,12 @@ final class HtmlDomLoader
 
     public static function load(string $html): DOMDocument
     {
-        $document = self::loadDocument($html);
-        HtmlCarrierNames::canonicalize($document);
-
-        return $document;
+        return self::loadDocument($html);
     }
 
-    /**
-     * Canonicalize the deprecated carrier spelling once, at the one chokepoint
-     * every importer loads its input through (PART 10 section 13c).
-     */
     public static function fragment(string $html, string $rootName = 'carve-import-root'): DOMDocument
     {
-        $document = self::fragmentDocument($html, $rootName);
-        HtmlCarrierNames::canonicalize($document);
-
-        return $document;
+        return self::fragmentDocument($html, $rootName);
     }
 
     private static function loadDocument(string $html): DOMDocument

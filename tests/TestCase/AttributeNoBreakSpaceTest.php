@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Extension\AdmonitionExtension;
 use MarkupCarve\Carve\Extension\CodeGroupExtension;
 use MarkupCarve\Carve\Extension\FencedRenderExtension;
@@ -51,8 +52,11 @@ class AttributeNoBreakSpaceTest extends TestCase
 
         $html = $converter->convert(":::: tabs\n::: tab\n# A" . self::NBSP . "B\nbody\n:::\n::::");
 
-        $this->assertStringContainsString('# A' . self::NBSP . 'B', $html);
-        $this->assertDoesNotMatchRegularExpression('/data-carve-src="[^"]*&nbsp;/', $html);
+        $this->assertStringContainsString('aria-label="A' . self::NBSP . 'B"', $html);
+        $this->assertStringContainsString('data-carve-tab-title', $html);
+        $this->assertStringContainsString('>A&nbsp;B</h1>', $html);
+        $this->assertStringContainsString('# A' . self::NBSP . 'B', (new HtmlToCarve())->convert($html));
+        $this->assertStringNotContainsString('data-carve-src', $html);
     }
 
     public function testCodeGroupRoundTripCarrierKeepsTheRawCharacter(): void
@@ -62,7 +66,9 @@ class AttributeNoBreakSpaceTest extends TestCase
 
         $html = $converter->convert('{k="A' . self::NBSP . 'B"}' . "\n::: code-group\n``` php\nx\n```\n:::");
 
-        $this->assertDoesNotMatchRegularExpression('/data-carve-src="[^"]*&nbsp;/', $html);
+        $this->assertStringContainsString('k="A' . self::NBSP . 'B"', $html);
+        $this->assertStringNotContainsString('k="A&nbsp;B"', $html);
+        $this->assertStringNotContainsString('data-carve-src', $html);
     }
 
     public function testAdmonitionTitleCarrierKeepsTheRawCharacterWhileTheTitleTextTakesTheEntity(): void

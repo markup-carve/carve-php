@@ -33,11 +33,13 @@ class EveryImportModeRebuildsNonHtmlRawCarriersTest extends TestCase
         $expected = $reconstructs ? 'a `<b>y</b>`{=' . $format . "} b\n" : "a <b>y</b> b\n";
         $converter = new HtmlToCarve(importMode: $mode);
 
+        $rows = $reconstructs ? [] : ['Dropped round-trip marker attribute data-carve-raw on <span>'];
+
         $result = $converter->convertWithReport($html);
         $this->assertSame($expected, $result->value);
-        $this->assertSame([], $result->diagnostics);
+        $this->assertSame($rows, array_column($result->diagnostics, 'message'));
         $ast = $converter->convertToAstWithReport($html);
-        $this->assertSame([], $ast->diagnostics);
+        $this->assertSame($rows, array_column($ast->diagnostics, 'message'));
         $types = array_column($ast->value['children'][0]['children'], 'type');
         $this->assertSame($reconstructs, in_array('raw_inline', $types, true));
     }

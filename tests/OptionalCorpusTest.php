@@ -29,6 +29,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Throwable;
 use function array_keys;
 use function basename;
 use function class_exists;
@@ -336,6 +337,23 @@ class OptionalCorpusTest extends TestCase
         );
 
         if ($disposition === 'known-gap') {
+            if ($crv !== null && $expected !== null && isset(self::featureRunners()[$feature])) {
+                $converter = self::featureRunners()[$feature]($this->rendererForTarget($target));
+                if ($converter !== null) {
+                    try {
+                        $actual = $converter->convert($crv);
+                    } catch (Throwable) {
+                        $actual = null;
+                    }
+                    if ($actual !== null) {
+                        $this->assertNotSame(
+                            $this->normalize($expected),
+                            $this->normalize($actual),
+                            "{$slug} now matches the pinned corpus: delete its KNOWN_GAPS entry",
+                        );
+                    }
+                }
+            }
             foreach ([$slug . ' (' . $target . ')', $slug] as $key) {
                 if (isset(self::KNOWN_GAPS[$key])) {
                     $this->markTestIncomplete(self::KNOWN_GAPS[$key]);

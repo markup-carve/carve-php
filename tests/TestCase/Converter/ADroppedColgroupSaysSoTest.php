@@ -194,7 +194,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
             $this->assertSame(['element-dropped'], array_column($this->rows($this->diagnostics($html, $mode)), 'code'), $mode);
         }
 
-        $trusted = (new HtmlToCarve(trustStoredSource: true))->convertWithReport($html)->diagnostics;
+        $trusted = (new HtmlToCarve())->convertWithReport($html)->diagnostics;
         $this->assertSame(['element-dropped'], array_column($this->rows($trusted), 'code'));
     }
 

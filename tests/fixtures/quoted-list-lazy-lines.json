@@ -1,7 +1,7 @@
 [
   {
     "source": "> - ::: box\ntail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>::: box\ntail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
   },
   {
     "source": "> - ::: box\n\ntail\n",
@@ -13,7 +13,7 @@
   },
   {
     "source": "> - ::: box\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>::: box\n- tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
   },
   {
     "source": "> - ::: box\n\n- tail\n",
@@ -25,7 +25,7 @@
   },
   {
     "source": "> - ::: box\n: body\n",
-    "html": "<blockquote>\n  <ul>\n    <li>::: box\n: body</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
   },
   {
     "source": "> - ::: box\n\n: body\n",
@@ -33,7 +33,7 @@
   },
   {
     "source": "> - ::: box\n: body\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>::: box\n: body\n- tail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
   },
   {
     "source": "> - ::: box\n\n: body\n- tail\n",
@@ -41,7 +41,7 @@
   },
   {
     "source": "> - ::: box\n> tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>::: box\ntail</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>tail</p>\n</blockquote>"
   },
   {
     "source": "> - ::: box\n\n> tail\n",
@@ -73,7 +73,7 @@
   },
   {
     "source": "> - ::: box\n> : body\n",
-    "html": "<blockquote>\n  <ul>\n    <li>::: box\n: body</li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <div class=\"box\">\n\n      </div>\n    </li>\n  </ul>\n  <p>: body</p>\n</blockquote>"
   },
   {
     "source": "> - ::: box\n\n> : body\n",
@@ -209,7 +209,7 @@
   },
   {
     "source": "> - :: term\n: body\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n        <dd>body</dd>\n      </dl>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <dl>\n        <dt>term</dt>\n      </dl>\n    </li>\n  </ul>\n</blockquote>\n<p>: body</p>"
   },
   {
     "source": "> - :: term\n\n: body\n",
@@ -1717,7 +1717,7 @@
   },
   {
     "source": "> - - ::: box\ntail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
   },
   {
     "source": "> - - ::: box\n\ntail\n",
@@ -1725,7 +1725,7 @@
   },
   {
     "source": "> - - ::: box\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
   },
   {
     "source": "> - - ::: box\n\n- tail\n",
@@ -1733,7 +1733,7 @@
   },
   {
     "source": "> - - ::: box\n* tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n* tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
   },
   {
     "source": "> - - ::: box\n\n* tail\n",
@@ -1741,7 +1741,7 @@
   },
   {
     "source": "> - - ::: box\n1. tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n1. tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
   },
   {
     "source": "> - - ::: box\n\n1. tail\n",
@@ -1749,7 +1749,7 @@
   },
   {
     "source": "> - - ::: box\n: body\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n: body\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
   },
   {
     "source": "> - - ::: box\n\n: body\n- tail\n",
@@ -1773,7 +1773,7 @@
   },
   {
     "source": "> - - ::: box\n```\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n<code></code></li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
   },
   {
     "source": "> - - ::: box\n\n```\n",
@@ -2861,7 +2861,7 @@
   },
   {
     "source": ">  - - ```\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code>- tail\n</code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <pre><code></code></pre>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - ```\n\n>   - tail\n",
@@ -2877,7 +2877,7 @@
   },
   {
     "source": ">  - - ::: box\ntail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\ntail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>tail</p>"
   },
   {
     "source": ">  - - ::: box\n\ntail\n",
@@ -2885,7 +2885,7 @@
   },
   {
     "source": ">  - - ::: box\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
   },
   {
     "source": ">  - - ::: box\n\n- tail\n",
@@ -2893,7 +2893,7 @@
   },
   {
     "source": ">  - - ::: box\n* tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n* tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ul>\n  <li>tail</li>\n</ul>"
   },
   {
     "source": ">  - - ::: box\n\n* tail\n",
@@ -2901,7 +2901,7 @@
   },
   {
     "source": ">  - - ::: box\n1. tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n1. tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<ol>\n  <li>tail</li>\n</ol>"
   },
   {
     "source": ">  - - ::: box\n\n1. tail\n",
@@ -2909,7 +2909,7 @@
   },
   {
     "source": ">  - - ::: box\n: body\n- tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n: body\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<p>: body\n- tail</p>"
   },
   {
     "source": ">  - - ::: box\n\n: body\n- tail\n",
@@ -2933,7 +2933,7 @@
   },
   {
     "source": ">  - - ::: box\n```\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n<code></code></li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>\n<pre><code></code></pre>"
   },
   {
     "source": ">  - - ::: box\n\n```\n",
@@ -2957,7 +2957,7 @@
   },
   {
     "source": ">  - - ::: box\n>   - tail\n",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>::: box\n- tail</li>\n      </ul>\n    </li>\n  </ul>\n</blockquote>"
+    "html": "<blockquote>\n  <ul>\n    <li>\n      <ul>\n        <li>\n          <div class=\"box\">\n\n          </div>\n        </li>\n      </ul>\n    </li>\n  </ul>\n  <ul>\n    <li>tail</li>\n  </ul>\n</blockquote>"
   },
   {
     "source": ">  - - ::: box\n\n>   - tail\n",

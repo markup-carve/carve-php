@@ -14,22 +14,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * Carve -> HTML -> Carve with NO sidecar: the importer reconstructs the source
- * from the rendered HTML alone.
- *
- * `RoundTripThroughTheSidecarTest` runs its whole population with
- * `roundTripMode` and `trustStoredSource` on, so the HTML carries the original
- * Carve in `data-carve-src` and the importer reads it back verbatim. That proves
- * the attribute survives a render, which is real - but it is not the claim the
- * class name makes, and for a construct that emits the attribute the assertion
- * is a memo lookup rather than a reconstruction (markup-carve/carve-php#1603).
- *
- * MEASURED at carve-php `78eff68`, running that class with both flags off: of
- * its 80 reachable round trips, 22 come back unchanged and 58 do not. This
- * class is where the two claims are separated, and it pins BOTH sides - because
- * the 58 are not defects. HTML import is lossy by design and reports what it
- * drops; the point of writing the degradations down is that nothing anywhere
- * recorded them, so any of them could move without a single test noticing.
+ * HTML reconstruction without roundtrip export carriers.
+ * The providers pin both recovered sources and documented losses.
  */
 class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
 {
@@ -39,9 +25,6 @@ class TheHtmlRoundTripWithoutTheSidecarTest extends TestCase
 
     protected function setUp(): void
     {
-        // NEITHER flag. A converter in `roundTripMode` writes the source into
-        // the HTML and a `trustStoredSource` importer reads it back, which is
-        // the memo this class exists to do without.
         $this->converter = new CarveConverter();
         $this->converter->addExtension(new CodeGroupExtension());
         $this->converter->addExtension(new TabsExtension());

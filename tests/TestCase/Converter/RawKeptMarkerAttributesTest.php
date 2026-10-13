@@ -9,11 +9,13 @@ use PHPUnit\Framework\TestCase;
 
 class RawKeptMarkerAttributesTest extends TestCase
 {
-    public function testRetainedMarkersHaveRowsWithoutReportingOrdinaryAttributes(): void
+    public function testLegacySourceIsConsumedEvenInsideRawHtml(): void
     {
-        foreach (['data-carve-src', 'data-carve-src'] as $name) {
+        foreach (['data-carve-src', 'data-djot-src'] as $name) {
             $html = '<form ' . $name . '="x" data-user="y"><cite cite="u" data-user="v">text</cite></form>';
             $result = (new HtmlToCarve(importMode: 'roundtrip'))->convertWithReport($html);
+            $this->assertStringContainsString($name . '="x"', $result->value);
+            $this->assertStringContainsString('data-user="y"', $result->value);
             $rows = [];
             foreach ($result->diagnostics as $row) {
                 if ($row->code === 'attribute-preserved') {

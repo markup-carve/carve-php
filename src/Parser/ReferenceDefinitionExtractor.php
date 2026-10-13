@@ -91,7 +91,7 @@ class ReferenceDefinitionExtractor
         // the label `^` - which `reference_label` admits, being neither `]`
         // nor `@`. Excluding every `[^` left that line as paragraph text, where
         // carve-js and carve-rs both render nothing.
-        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?!@)(?!\^[^\]]+\]:)([^\]]+)\]: [ \t]*(.*)$/s', $line, $matches) !== 1) {
+        if (($line[0] ?? '') !== '[' || preg_match('/^\[(?!@)(?!\^[^\]]+\]:)([^\]]+)\]: +(.*)$/s', $line, $matches) !== 1) {
             return null;
         }
 
@@ -99,14 +99,7 @@ class ReferenceDefinitionExtractor
         // with LabelKey so links, images and definitions share one algorithm.
         $label = $matches[1];
 
-        // The LEADING side of the destination is trimmed and the trailing side
-        // is not, which is the anchor's whole point. A Unicode space before the
-        // destination is padding the separator did not name and the destination
-        // does not start with (corpus 121 pins `[a]: <U+202F>javascript:…`
-        // resolving, with the scheme probe emptying the href); the same
-        // character AFTER the destination is content, and content after the
-        // production is what the anchor rejects.
-        $tail = self::ltrimUnicodeWhitespace($matches[2]);
+        $tail = $matches[2];
 
         // `link_destination` reads to the first whitespace, and it reads the
         // braces of `[a]: /u{.c}` along with everything else - which is why that
@@ -248,26 +241,6 @@ class ReferenceDefinitionExtractor
         }
 
         return null;
-    }
-
-    /**
-     * Strip Unicode whitespace from the destination's LEADING side only.
-     *
-     * `trim()` only knows ASCII, which left invisible characters at the front
-     * of a link destination - the spoofing shape the scheme probe exists to
-     * catch (carve#352, carve#404). Zero-width characters (U+200B, U+FEFF) are
-     * not whitespace and are deliberately preserved.
-     *
-     * The TRAILING side used to be stripped by the same call and is not any
-     * more: after the destination a Unicode space is content, and content after
-     * the production is what the end-of-line anchor rejects
-     * (markup-carve/carve#911).
-     */
-    private static function ltrimUnicodeWhitespace(string $value): string
-    {
-        $trimmed = preg_replace('/^[\p{Z}\x{0009}-\x{000D}\x{0085}]+/u', '', $value);
-
-        return $trimmed ?? ltrim($value);
     }
 
     /**

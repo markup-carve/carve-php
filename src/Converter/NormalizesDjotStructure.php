@@ -99,7 +99,10 @@ trait NormalizesDjotStructure
         };
         $table = false;
         $fenceParser = new FencedBlockParser();
+        $emptyItemAt = null;
         foreach ($lines as $n => $original) {
+            $emptyItem = false;
+            $emptyItemColumn = null;
             $masked = $mask[$n];
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $original, $quoteMatch);
             $physicalQuote = $quoteMatch[0] ?? '';
@@ -389,6 +392,13 @@ trait NormalizesDjotStructure
                     $depth = $quoteDepth;
                     $quoteBoundary = rtrim($quoteForCarve());
                 }
+                if ($emptyItemAt !== null && $quoteDepth > $emptyItemAt[0] && strspn($original, " \t") < $emptyItemAt[1] + 2) {
+                    $out[] = $emptyItemAt[2];
+                    $original = ltrim($original, " \t");
+                    $paragraph = false;
+                    $nativeRemainder = ltrim($nativeRemainder, " \t");
+                    $lists = [];
+                }
                 if ($paragraph && $quoteDepth > $depth && !$outsideQuoteItem) {
                     $markerAt = strlen($this->djotClosedQuoteBoundary($quoteForCarve(), max(0, $depth - ($noteOwner->depth ?? 0)))) - 1;
                     $written = $originalForCarve($nativeRemainder);
@@ -405,6 +415,7 @@ trait NormalizesDjotStructure
                 $headingMarker = '';
                 $blank = true;
                 $table = false;
+                $emptyItemAt = null;
 
                 continue;
             }
@@ -431,7 +442,43 @@ trait NormalizesDjotStructure
             $blockStart = $outsideQuoteItem || ($quoteDepth > $depth && !$paragraph) || $row || $fences[$n] !== $original
                 || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\|)/', $visible) === 1
                 || (preg_match('/^(?:[*-][ \t]*){3,}$/', $visible) === 1 && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) === 1);
+            if (
+                ($blank || !$paragraph || ($lists !== [] && $quoteDepth === $depth))
+                && preg_match('/^(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text) === 1
+                && $visible === $text
+                && $fences[$n] === $original
+            ) {
+                // Carve spells an empty item with a continuation marker. A lone
+                // `+` already is that marker and stays as written.
+                $text = rtrim($text, " \t") . ' +';
+                $visible = $text;
+                $paragraph = false;
+                $emptyItem = true;
+            }
+            if (
+                ($blank || !$paragraph || ($lists !== [] && $quoteDepth === $depth)) && $visible === $text && $fences[$n] === $original
+                && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) !== 1
+                && preg_match('/^((?:(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+)+)(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text, $emptyNested) === 1
+            ) {
+                $text = rtrim($text, " \t") . ' +';
+                $visible = $text;
+                $paragraph = false;
+                $emptyItem = true;
+                [$nestedWidth] = $this->leadingIndent((string)preg_replace('/[^ \t]/', ' ', $emptyNested[1]));
+                $emptyItemColumn = $indent + $nestedWidth;
+            }
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+[^ \t]/', $visible, $itemMatch) === 1;
+            // The marker would attach a flush-left block; a blank keeps it out.
+            if (
+                $emptyItemAt !== null && !$emptyItem
+                && (
+                    ($quoteDepth === $emptyItemAt[0] && !$item && $indent <= $emptyItemAt[1])
+                    || ($quoteDepth > $emptyItemAt[0] && $emptyItemAt[0] === $depth && strspn($original, " \t") <= $emptyItemAt[1])
+                )
+            ) {
+                $out[] = $emptyItemAt[2];
+            }
+            $emptyItemAt = $emptyItem ? [$quoteDepth, $emptyItemColumn ?? $indent, rtrim($quote)] : null;
             if ($outsideQuoteItem) {
                 $paragraph = false;
                 $quoteBoundary = rtrim($quoteForCarve());

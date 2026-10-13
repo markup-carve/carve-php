@@ -225,6 +225,9 @@ class IncludeSecurityConformanceTest extends TestCase
         $unread = array_values(array_diff(array_unique($seen), self::KNOWN_KEYS));
         sort($unread);
         self::assertSame([], $unread);
+        $stale = array_values(array_diff(self::KNOWN_KEYS, array_unique($seen)));
+        sort($stale);
+        self::assertSame([], $stale, 'KNOWN_KEYS lists keys absent from the corpus: ' . implode(', ', $stale));
     }
 
     public function testAnswersEveryObservableTheCorpusExpects(): void

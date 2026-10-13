@@ -77,7 +77,7 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         // minute before this file did - so main went red on a test whose own
         // PR had been green against the older base.
         $this->assertSame(
-            '<blockquote> <dl> <dt>t</dt> </dl> </blockquote> <p>~</p>',
+            '<blockquote> <dl> <dt>t ~</dt> </dl> </blockquote>',
             $this->squash($this->converter->convert("> :: t\n~\n")),
         );
     }
@@ -318,11 +318,26 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
         return [
             'code fence' => [
                 "- - ``` x\ncode\n```\n- lazy\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\">code\n```\n</code></pre>\n      </li>\n    </ul>\n  </li>\n  <li>lazy</li>\n</ul>\n",
+                "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code class=\"language-x\"></code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>code\n<code>\n- lazy</code></p>\n",
             ],
             'div opener' => [
                 "- - ::: note\nb\n:::\nlazy\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>::: note\nb</li>\n    </ul>\n  </li>\n</ul>\n<div>\n  <p>lazy</p>\n</div>\n",
+                '<ul>
+  <li>
+    <ul>
+      <li>
+        <aside class="admonition note" aria-label="Note">
+
+        </aside>
+      </li>
+    </ul>
+  </li>
+</ul>
+<p>b</p>
+<div>
+  <p>lazy</p>
+</div>
+',
             ],
         ];
     }

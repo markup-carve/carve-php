@@ -96,7 +96,18 @@ class ColonFenceAuthoredBaseTest extends TestCase
             ["- head\n\n\t  ::: box\n\t  a\n    :::\n\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::</p>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n\t:::\n\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::</p>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n   \t:::\n\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::</p>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>\n"],
-            ["- a\n\n  ::: box\n    ```\n  :::\n    ```\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p><code></code></p>\n    </div>\n    <pre><code>:::\n</code></pre>\n  </li>\n  <li>b</li>\n</ul>\n"],
+            [
+                "- a\n\n  ::: box\n    ```\n  :::\n    ```\n  :::\n- b\n", '<ul>
+  <li>a
+    <div class="box">
+      <pre><code>:::
+</code></pre>
+    </div>
+  </li>
+  <li>b</li>
+</ul>
+',
+            ],
             ["- a\n\n  ::: box\n    ::: inner\n    x\n    :::\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>::: inner\nx\n:::</p>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- a\n\n  ::: box\n  x\n   :::\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>x\n:::</p>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- a\n  ::: box\n  x\n   :::\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>x\n:::</p>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],

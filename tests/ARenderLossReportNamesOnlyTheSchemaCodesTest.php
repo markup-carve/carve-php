@@ -75,10 +75,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheFiveCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheSixCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'definition-list-flattened'],
             self::schemaCodes(),
         );
     }
@@ -141,6 +141,12 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
             $seen[$loss['code']] = true;
         }
 
+        $flatRenderer = new MarkdownRenderer();
+        $flatRenderer->setRoundTripMode(true);
+        $flat = (new CarveConverter(renderer: $flatRenderer))->convertWithReport(":: Outer\n: body\n\n  :: Inner\n  : inner body\n");
+        foreach ($flat->losses as $loss) {
+            $seen[$loss['code']] = true;
+        }
         $codes = array_keys($seen);
         sort($codes);
         $permitted = self::schemaCodes();

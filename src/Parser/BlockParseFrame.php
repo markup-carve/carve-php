@@ -86,6 +86,15 @@ final class BlockParseFrame
      */
     public ?array $viewCodeClosers = null;
 
+    public ?IndexedFenceView $itemSourceFenceView = null;
+
+    public ?RangeMaximum $itemSourceBoundaryColumns = null;
+
+    /**
+     * @var array<int, int>
+     */
+    public array $itemSourceBoundaryPositions = [];
+
     public ?IndexedFenceView $descriptionFenceView = null;
 
     public ?IndexedFenceView $literalSourceFenceView = null;

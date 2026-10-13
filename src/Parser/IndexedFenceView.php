@@ -21,7 +21,7 @@ final class IndexedFenceView
     /**
      * Only the last indexed entry can change.
      *
-     * @var array{int, string, int}|null
+     * @var array{int, list<array{string, int}>}|null
      */
     private ?array $lastEntry = null;
 
@@ -51,22 +51,28 @@ final class IndexedFenceView
     private function replace(int $index, string $line): void
     {
         if ($this->lastEntry !== null && $this->lastEntry[0] === $index) {
-            [, $oldKey, $oldSlot] = $this->lastEntry;
-            $this->groups[$oldKey]['maximum']->set($oldSlot, 0);
+            foreach ($this->lastEntry[1] as [$oldKey, $oldSlot]) {
+                $this->groups[$oldKey]['maximum']->set($oldSlot, 0);
+            }
         }
         $this->lastEntry = null;
         if (preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/', $line, $match) !== 1) {
             return;
         }
-        $key = IndentationHelper::getLeadingColumns($line) . $match[1][0];
-        if (!isset($this->groups[$key])) {
-            $this->groups[$key] = ['positions' => [], 'maximum' => new RangeMaximum()];
+        $keys = [IndentationHelper::getLeadingColumns($line) . $match[1][0], '-1' . $match[1][0]];
+        $entries = [];
+        foreach ($keys as $key) {
+            if (!isset($this->groups[$key])) {
+                $this->groups[$key] = ['positions' => [], 'maximum' => new RangeMaximum()];
+            }
+            $group =&$this->groups[$key];
+            $slot = count($group['positions']);
+            $group['positions'][] = $index;
+            $group['maximum']->set($slot, strlen($match[1]));
+            $entries[] = [$key, $slot];
+            unset($group);
         }
-        $group =&$this->groups[$key];
-        $slot = count($group['positions']);
-        $group['positions'][] = $index;
-        $group['maximum']->set($slot, strlen($match[1]));
-        $this->lastEntry = [$index, $key, $slot];
+        $this->lastEntry = [$index, $entries];
     }
 
     public function contains(int $start, int $end, int $column, string $char, int $width): bool

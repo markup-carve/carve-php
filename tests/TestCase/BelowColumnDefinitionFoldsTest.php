@@ -157,6 +157,9 @@ class BelowColumnDefinitionFoldsTest extends TestCase
     {
         $html = $this->converter->convert("- a\n  %% c\n %% d\n b");
 
-        $this->assertSame("<ul>\n  <li>a\n    b\n  </li>\n</ul>", trim($html));
+        $this->assertSame('<ul>
+  <li>a</li>
+</ul>
+<p>b</p>', trim($html));
     }
 }

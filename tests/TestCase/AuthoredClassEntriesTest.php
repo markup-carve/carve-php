@@ -126,7 +126,7 @@ class AuthoredClassEntriesTest extends TestCase
         self::assertSame(['a', 'b', 'c'], $converter->parse($imported)->getChildren()[0]->getClassEntries());
     }
 
-    public function testRoundTripHtmlWritesEachClassEntrySpellably(): void
+    public function testRoundTripExtensionsKeepClassWhitespaceWithoutStoredSource(): void
     {
         $attributes = '{class="a  b" .c class=""}';
         foreach (
@@ -141,9 +141,8 @@ class AuthoredClassEntriesTest extends TestCase
             $converter->addExtension(new TabsExtension());
             $converter->addExtension(new CodeGroupExtension());
             $html = $converter->convert($source);
-            self::assertSame(1, preg_match('/data-carve-src="([^"]*)"/', $html, $match));
-            $restored = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-            self::assertStringContainsString($attributes, $restored);
+            self::assertStringContainsString('a  b c', $html);
+            self::assertStringNotContainsString('data-carve-src', $html);
         }
     }
 

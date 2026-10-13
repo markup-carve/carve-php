@@ -95,11 +95,19 @@ class ABandFollowerNeedsAnOpenParagraphTest extends TestCase
             ],
             'a comment line' => [
                 "- t\n\n  %% c\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>\n",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>
+',
             ],
             'a comment fence' => [
                 "- t\n\n  %%%\n  c\n  %%%\n z\n",
-                "<ul>\n  <li><p>t</p>\n    <p>z</p>\n  </li>\n</ul>\n",
+                '<ul>
+  <li>t</li>
+</ul>
+<p>z</p>
+',
             ],
             // The band of a NESTED item is still inside the outer one, so the
             // follower leaves the inner item and stops there.

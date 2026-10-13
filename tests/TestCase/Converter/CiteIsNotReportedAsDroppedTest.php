@@ -351,14 +351,6 @@ class CiteIsNotReportedAsDroppedTest extends TestCase
             . '</td></tr></table>';
 
         return [
-            // The stored source is emitted VERBATIM and its descendants are
-            // never converted - so the cell below never runs, and the `cite`
-            // the prediction watched being dropped by a pipe row comes back
-            // untouched from the stored text.
-            'trusted round-trip emits stored source' => [
-                '<div data-carve-src="{cite=u}&#10;&#10;&gt; q">' . $inCell . '</div>',
-                ['trustStoredSource' => true],
-            ],
             // These adapters MOVE footnote definitions out of their cell before
             // serialization, so the quote is never written through a pipe row
             // at all. The input DOM says "inside a td" right up until it isn't.

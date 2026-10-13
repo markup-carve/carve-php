@@ -25,6 +25,7 @@ use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -77,6 +78,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -355,6 +357,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected SoftBreakMode $softBreakMode = SoftBreakMode::Newline;
 
     protected HeadingIdTracker $headingIdTracker;
+
+    /**
+     * @var array<string, true>
+     */
+    protected array $referencedLinkDefinitions = [];
 
     protected int $renderDepth = 0;
 
@@ -691,6 +698,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // `parse(fmt(x)) != parse(x)`. carve-js and carve-rs both keep it in
         // place, and this node exists precisely so this renderer can too
         // (carve-php#708).
+        $this->referencedLinkDefinitions = $this->roundTripMode ? [] : ReferencedLinkDefinitions::labels($document);
         $markdown = $this->renderChildren($document);
         $residual = $this->renderResidualAbbreviationDefinitions($document);
         if ($residual !== '') {
@@ -1688,6 +1696,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof CitationDefinition => '',
             $node instanceof AbbreviationDefinition
             => $this->renderAbbreviationDefinition($node),
+            $node instanceof LinkReferenceDefinition => $this->roundTripMode
+                || !isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])
+                ? $this->renderLinkReferenceDefinition($node) : '',
             $node instanceof RawBlock => $this->renderRawBlock($node),
             $node instanceof BlockQuote => $this->renderBlockQuote($node),
             $node instanceof ListBlock => $this->renderList($node),
@@ -1786,6 +1797,28 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $attributes = (new CarrierOpenerWriter())->attributes($node);
             if ($attributes !== '') {
                 $output = $this->literalCarrierLine($attributes) . "\n" . $output;
+            }
+        }
+
+        if (
+            $this->roundTripMode && $this->tableCellDepth === 0
+            && ($node instanceof Link || $node instanceof Image || $node instanceof Span || $node instanceof HeadingRef)
+        ) {
+            $attributes = (new CarrierOpenerWriter())->inlineAttributes($node);
+            if (
+                ($node instanceof Link || $node instanceof Image) && $rawReference === null
+                && ($node instanceof Image || $this->linkTextDepth === 0) && $attributes !== ''
+            ) {
+                $tail = substr($output, strlen(rtrim($output, "\n")));
+                $output = rtrim($output, "\n") . $this->literalCarrierLine($attributes) . $tail;
+            } elseif ($node instanceof Span) {
+                $output = $this->literalCarrierLine('[') . $output
+                    . $this->literalCarrierLine(']' . ($attributes === '' ? '{}' : $attributes));
+            } elseif (
+                $node instanceof HeadingRef && $node->getHref() !== null && $this->linkTextDepth === 0
+                && isset($this->gfmSlugs[substr($node->getHref(), 1)])
+            ) {
+                $output = $this->literalCarrierLine('</#' . $node->getTargetId() . '>') . $output;
             }
         }
 
@@ -2672,7 +2705,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderParagraph(Paragraph $node): string
     {
-        return $this->protectParagraphListMarkers($this->renderChildren($node)) . "\n\n";
+        $content = $this->renderChildren($node);
+        if ($this->roundTripMode && str_contains($content, CarrierMarkers::PREFIX)) {
+            $content = preg_replace('/^((?:<!-- carve: (?:(?! -->)[^\n])* -->)*)[ \t]+/', '$1', $content) ?? $content;
+            $content = preg_replace('/[ \t]+((?:<!-- carve: (?:(?! -->)[^\n])* -->)*)$/D', '$1', $content) ?? $content;
+        }
+
+        return $this->protectParagraphListMarkers($content) . "\n\n";
     }
 
     /**
@@ -2750,7 +2789,12 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      */
     protected function protectLineShape(string $line, bool $first, array $bare): string
     {
-        $line = (string)preg_replace('/^([-+])(?=[ \t])/', '\\\\$1', $line);
+        $line = preg_replace_callback(
+            '/^([-+])(?=[ \t])/',
+            fn (array $match): string => $this->roundTripMode && $this->carrierDepth > 0 && !$first
+                ? '&#' . ord($match[1]) . ';' : '\\' . $match[1],
+            $line,
+        ) ?? $line;
         // A text `.` may still be a §8i sentinel here; it opens a list all the same.
         $dot = preg_quote($this->lookaheadSentinels['.'], '/');
         $line = (string)preg_replace_callback(
@@ -3293,6 +3337,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderDefinitionList(DefinitionList $node): string
     {
+        if ($this->roundTripMode && !$this->carriesDefinitionList($node)) {
+            $this->recordDefinitionListFlattened($node);
+        }
         // GFM has no definition list and reads a `: ` marker as text, so each
         // term is a strong paragraph and each description's blocks follow it
         // as ordinary blocks (PART 11 §10p).
@@ -3321,7 +3368,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $marker = $this->carriesDefinitionList($node) ? $this->literalCarrierLine(':') . "\n" : '';
 
-        return $content === '' ? '' : $marker . $content . "\n\n";
+        return $content === '' ? $marker : $marker . $content . "\n\n";
     }
 
     protected function renderDiv(Div $node): string
@@ -3992,8 +4039,22 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         return $title ?? (is_string($attribute) ? $attribute : null);
     }
 
+    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
+    {
+        $output = '[' . $node->getLabel() . ']: ' . $this->encodeMarkdownDestination($node->getHref());
+        $title = $node->getTitle();
+        if ($title !== null) {
+            $output .= ' "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $this->neutralizeCharacterReferences($title)) . '"';
+        }
+
+        return $output . "\n\n";
+    }
+
     protected function renderLink(Link $node): string
     {
+        if ($this->roundTripMode && $node->getReferenceLabel() !== null && !$node->isFromHeadingReference()) {
+            return $this->guardLiteralCharacters($node->getRawReferenceLabel() ?? '[' . $this->renderChildren($node) . '][' . $node->getReferenceLabel() . ']');
+        }
         $destination = (string)$node->getDestination();
         // A fragment naming a heading this target writes goes to its GFM slug
         // (PART 11 §11); any other destination keeps the authored one (§11a).
@@ -4439,7 +4500,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      *
      * @var string
      */
-    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \t\r\n]+)>/u';
+    protected const UNRESOLVED_CROSSREF_PATTERN = '/<\/#([^> \r\n]+)>/u';
 
     /**
      * Escape a text value, leaving any UNRESOLVED crossref marker readable.

@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Throwable;
 use function basename;
 use function file_exists;
 use function file_get_contents;
@@ -49,6 +50,30 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-at-sign-before-a-space-and-a-doubled-delimiter-inside-bold-italic-are-text',
+        'a-titled-footnotes-marker-names-the-endnotes-section',
+        'a-closed-fence-in-a-quoted-sub-item-after-a-lazy-line-leaves-no-paragraph',
+        'a-description-marker-followed-by-a-no-break-space-has-content',
+        'a-head-row-alignment-marker-sets-the-whole-column',
+        'a-line-block-takes-a-lazy-line-whatever-its-last-payload-line',
+        'a-quoted-term-takes-a-lazy-line',
+        'a-shifted-fence-in-a-quoted-container-s-body-stores-no-continuation-claim',
+        'an-at-column-comment-retains-nothing',
+        'an-opener-past-a-hosted-container-s-column-interrupts-its-open-paragraph',
+        'an-opener-past-a-hosted-container-s-column-opens-there',
+
+        'a-footnote-reference-in-link-text-keeps-its-id-on-the-sup',
+        'a-closed-block-leaves-no-frame-for-the-line-below',
+        'a-container-boundary-is-read-at-the-container-s-own-column',
+        'a-description-keeps-a-block-at-its-body-column-whatever-leads-the-item',
+        'a-line-block-payload-span-pairs-past-the-content-column',
+        'a-line-final-run-of-spaces-and-tabs-is-dropped-before-the-line-is-read',
+        'a-line-retained-after-a-comment-opens-a-paragraph',
+        'a-paragraph-in-a-held-container-does-not-loosen-the-item',
+        'a-quoted-item-that-ends-on-a-block-past-its-column-holds-no-paragraph',
+        'a-tab-inside-a-line-is-content-in-a-label-and-after-a-definition-marker',
+        'a-tab-is-content-in-a-heading-key-and-in-a-cross-reference-id',
+
         'an-unterminated-raw-fence-keeps-literal-payload-termination',
         'an-ordered-list-carries-its-authored-delimiter',
         'multiple-table-bodies-have-positional-source-metadata',
@@ -1165,7 +1190,20 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '107-colspan-marker-scans-left-past-a-consumed-cell' => [
+            'reason' => 'carve#3051: a `<` beside a cell that started in an earlier row is BLOCKED, so the span cannot overlap',
+            'html' => "<table>\n"
+                . '  <thead>' . "\n"
+                . '    <tr><th scope="col">p</th><th scope="col">q</th><th scope="col">r</th><th scope="col">s</th></tr>' . "\n"
+                . '  </thead>' . "\n"
+                . '  <tbody>' . "\n"
+                . '    <tr><td>a</td><td rowspan="2">b</td><td>c</td><td>d</td></tr>' . "\n"
+                . '    <tr><td>p</td><td></td><td>e</td></tr>' . "\n"
+                . '  </tbody>' . "\n"
+                . '</table>',
+        ],
+    ];
 
     protected CarveConverter $converter;
 
@@ -1348,6 +1386,16 @@ class CarveCorpusTest extends TestCase
     {
         $knownGap = self::knownGap($slug);
         if ($knownGap !== null) {
+            try {
+                $actual = $this->converter->convert($crv);
+            } catch (Throwable) {
+                $this->markTestIncomplete($knownGap);
+            }
+            $this->assertNotSame(
+                $this->normalize($html),
+                $this->normalize($actual),
+                $slug . ' now matches the pinned corpus: delete its KNOWN_GAPS entry',
+            );
             $this->markTestIncomplete($knownGap);
         }
 

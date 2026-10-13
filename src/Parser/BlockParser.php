@@ -23,7 +23,6 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
-use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
@@ -1106,7 +1105,7 @@ class BlockParser
      * Classify the leading container context of a footnote definition line, so
      * the pre-pass collects a footnote defined inside one or more nested
      * containers (carve spec #115). Strips every leading container marker --
-     * blockquote `>` and any ordered/bullet (non-task) list marker, repeatedly
+     * blockquote `>` and any list marker, repeatedly
      * and at any depth -- mirroring the reference-definition pre-pass loop, so
      * `> [^a]:`, `- [^a]:`, `> > [^a]:` and `> - [^a]:` are all recognized.
      *
@@ -1152,7 +1151,7 @@ class BlockParser
             }
 
             $head = $this->listParser->markerHeadAt($line, IndentationHelper::pastLeadingWhitespace($line, $at));
-            if ($head !== null && $head['name'] !== 'task') {
+            if ($head !== null) {
                 $budget = max(0, $budget - ($head['content'] - $at));
                 $at = $head['content'];
                 $stripped = true;
@@ -1238,13 +1237,10 @@ class BlockParser
                 continue;
             }
 
-            // Ordered/bullet list marker (non-task). Use the canonical list
-            // parser so every accepted marker (bullet `-`/`*`/`+`, decimal /
-            // alpha / roman ordered) is recognized identically to the real
-            // parser; a task marker stops the loop (its content is not a def).
+            // Use the list parser to strip every accepted marker, including tasks.
             $trimmed = ltrim($rest, " \t");
             $info = $this->listParser->parseListItemMarker($trimmed);
-            if ($info !== null && $info['type'] !== 'task') {
+            if ($info !== null) {
                 $markerWidth = strlen($rest) - strlen((string)$info['content']);
                 $budget = max(0, $budget - $markerWidth);
                 $rest = substr($rest, $markerWidth);
@@ -1375,7 +1371,7 @@ class BlockParser
             if ($child instanceof Heading) {
                 $id = $tracker->getIdForHeading($child);
                 $ids[$id] = true;
-                $label = preg_replace('/\s+/', ' ', trim($tracker->getPlainText($child))) ?? '';
+                $label = LabelKey::normalize($tracker->getPlainText($child));
                 if (!$inBlockquote && $label !== '' && !isset($index[$label])) {
                     $index[$label] = $id;
                 }
@@ -1515,7 +1511,7 @@ class BlockParser
                 // punctuation, which slugging collapses, so the id is identical.)
                 // Skips one of the two inline parses per heading.
                 if ($pendingId === null && $headingText !== '' && preg_match('/^[\p{L}\p{N} ]+$/u', $headingText) === 1) {
-                    $label = preg_replace('/\s+/', ' ', $headingText) ?? $headingText;
+                    $label = LabelKey::normalize($headingText);
                     $id = $headingIdTracker->getIdForText($label);
                     $this->state->session->headingIds[$id] = true;
                     $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
@@ -1558,7 +1554,7 @@ class BlockParser
 
                 // Register as reference if not already defined
                 // Use normalized plain text as the label (for [Heading][] style links)
-                $label = preg_replace('/\s+/', ' ', trim($plainText)) ?? $plainText;
+                $label = LabelKey::normalize($plainText);
                 $reference = new ReferenceDefinition('#' . $id, [], $i, null, true);
                 $this->registerHeadingReference($label, $reference);
             } else {
@@ -2435,7 +2431,7 @@ class BlockParser
      * `{` opener followed by many lines that never close stays LINEAR rather
      * than copying the growing run on every line.
      *
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
@@ -3038,7 +3034,7 @@ class BlockParser
             // as outside one.
             $commentOffset = null;
             $labelNodes = ContainerLabelParser::parse($label, $this->inlineParser, $commentOffset);
-            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), " \t"));
+            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), ' '));
             $div->setLabelNodes($labelNodes);
         }
 
@@ -3328,7 +3324,8 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
-            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap);
+            $skippedTo = $this->appendOpaqueColonFenceSpan($lines, $i, $innerLines, $innerLineMap)
+                ?? (end($literal) ? $this->appendIndentedLiteralRunSpan($lines, $i, $innerLines, $innerLineMap) : null);
             if ($skippedTo !== null) {
                 $i = $skippedTo;
 
@@ -3469,6 +3466,42 @@ class BlockParser
             $innerLines[] = $lines[$i];
             $innerLineMap[] = $this->sourceLineFor($i);
             if ($i > $start && $this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$i], $commentInfo['length'])) {
+                return $i + 1;
+            }
+        }
+
+        return $count;
+    }
+
+    /**
+     * A fence-shaped run indented in a literal body pairs with the next run of
+     * its kind at any column, and the pair shields the colon runs between.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param list<string> $innerLines
+     * @param list<int> $innerLineMap
+     */
+    private function appendIndentedLiteralRunSpan(array $lines, int $start, array &$innerLines, array &$innerLineMap): ?int
+    {
+        $text = ltrim($lines[$start], " \t");
+        if ($text === $lines[$start]) {
+            return null;
+        }
+        $opener = $this->fencedBlockParser->parseRawBlockOpener($text)
+            ?? $this->fencedBlockParser->parseCodeFenceOpener($text);
+        if ($opener === null) {
+            return null;
+        }
+        $char = $opener['char'] ?? $opener['fence'][0];
+        if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $start)) {
+            return null;
+        }
+        $count = count($lines);
+        for ($i = $start; $i < $count; $i++) {
+            $innerLines[] = $lines[$i];
+            $innerLineMap[] = $this->sourceLineFor($i);
+            if ($i > $start && $this->fencedBlockParser->isCodeFenceCloser(ltrim($lines[$i], " \t"), $char, $opener['length'])) {
                 return $i + 1;
             }
         }
@@ -4514,6 +4547,7 @@ class BlockParser
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $trailingState
      * @param bool $leadIsBareContinuationMarker
      * @param array<int, true> $authoredBaseEligible
+     * @param int|null $unclosedFenceBase
      *
      * @return array{0: int, 1: \MarkupCarve\Carve\Parser\TrailingBlockState}
      */
@@ -4528,8 +4562,9 @@ class BlockParser
         TrailingBlockState $trailingState,
         bool $leadIsBareContinuationMarker = false,
         array &$authoredBaseEligible = [],
+        ?int &$unclosedFenceBase = null,
     ): array {
-        return $this->continuationsMapper()->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible);
+        return $this->continuationsMapper()->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible, $unclosedFenceBase);
     }
 
     /**
@@ -4669,6 +4704,11 @@ class BlockParser
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingState($trailingState, $seedLine);
         }
+        $lead = $itemLines[0] ?? '';
+        $bottom = $this->markerFreeContent(ltrim($lead, " \t"));
+        if ($bottom !== ltrim($lead, " \t") && $this->fencedBlockParser->parseDivFenceOpener($bottom) !== null) {
+            $trailingState->openParagraph = false;
+        }
         $bareContinuationLead = $itemLines !== []
             && $this->leadBottomIsContinuationMarker((string)$itemLines[0]);
         $bareLeadQuoteState = null;
@@ -4677,6 +4717,8 @@ class BlockParser
         $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
             || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
             || $this->usesLegacyTrailingHook('nestedLeadParagraphOpenBelowAClosedFence');
+        $openCommentLength = null;
+        $openCommentColumn = 0;
         while ($i < $count) {
             $nextLine = $lines[$i];
 
@@ -4704,12 +4746,27 @@ class BlockParser
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             if ($nextIndent < $contentIndent || $isBlockQuoteLazyLine) {
                 $nextTrimmed = ltrim($nextLine, " \t");
+                // A comment span's closing run is free of the column; a payload
+                // line that misses the item's prefix ends the item before the
+                // span is classified (`CARVE-P0-005`).
+                if ($openCommentLength !== null) {
+                    if (!$this->fencedBlockParser->isFencedCommentCloserAnyColumn($nextTrimmed, $openCommentLength)) {
+                        break;
+                    }
+                    $openCommentLength = null;
+                    $itemLines[] = $this->keptCommentDelimiter($nextLine);
+                    $itemLineMap[] = $this->sourceLineFor($i);
+                    $trailingState->openParagraph = false;
+                    $i++;
+
+                    continue;
+                }
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
                 // The deepest frame decides continuation after a closed fence
                 // in either host (markup-carve/carve#2895).
-                if ($nextIndent === 0 && !$legacyNestedFence) {
+                if (!$legacyNestedFence) {
                     $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 }
                 $lastItemLine = array_key_last($itemLines);
@@ -4726,9 +4783,9 @@ class BlockParser
                         ? $this->nestedLeadParagraphOpenBelowAClosedFence($itemLines)
                         : $nestedFence->closed && $nestedFence->trailing->openParagraph);
                 if (
-                    ((!$trailingState->openParagraph || $closedNestedFence)
+                    ((!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
                         && !$nestedLeadParagraphOpen
-                        && !($trailingState->afterComment && $trailingState->nestedColumn > 0 && $nextIndent > $baseIndent))
+                        && !($trailingState->afterComment && ($trailingState->nestedColumn > 0 || $trailingState->hasOpenDiv()) && $nextIndent > $baseIndent))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
                 ) {
@@ -4835,7 +4892,26 @@ class BlockParser
             // AT OR PAST the content column, the same reading the plain-lead
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
-            if (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
+            $inCommentSpan = $openCommentLength !== null;
+            if ($inCommentSpan || $trailingState->fence === null) {
+                $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $stripped, $lines, $i);
+                if (!$inCommentSpan) {
+                    if ($openCommentLength !== null) {
+                        $openCommentColumn = IndentationHelper::getLeadingColumns($stripped);
+                    }
+                } elseif (
+                    $openCommentLength !== null
+                    && IndentationHelper::getLeadingColumns($stripped, $openCommentColumn + 1) < $openCommentColumn
+                ) {
+                    // Payload below the opener's own column: no span formed.
+                    $openCommentLength = null;
+                    $inCommentSpan = false;
+                }
+            }
+            if ($inCommentSpan && !$trailingState->hasLiteralDiv()) {
+                // Opaque payload, or the closer that travels with its opener.
+                $trailingState->openParagraph = false;
+            } elseif (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
                 $trailingState = $this->advanceTrailingState($trailingState, 'x', true);
             } else {
                 $trailingState = $trailingState->hasLiteralDiv()
@@ -4891,8 +4967,8 @@ class BlockParser
     }
 
     /**
-     * Decide whether a list item's lead content is a colon-fence opener with
-     * item-owned body beneath it.
+     * Compatibility hook for a colon opener on an item's marker line.
+     * The source-view parameters remain available to parser subclasses.
      *
      * Used to keep a marker-line opener and its item-owned continuation lines
      * in one block stream so the div/admonition parser captures its body.
@@ -4910,17 +4986,7 @@ class BlockParser
         int $count,
         int $contentIndent,
     ): bool {
-        if ($this->fencedBlockParser->parseDivFenceOpener($itemContent) === null) {
-            return false;
-        }
-
-        while ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
-            $i++;
-        }
-
-        return $i < $count
-            && !isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
-            && IndentationHelper::getLeadingColumns($lines[$i], $contentIndent) >= $contentIndent;
+        return $this->fencedBlockParser->parseDivFenceOpener($itemContent) !== null;
     }
 
     /**
@@ -5172,9 +5238,6 @@ class BlockParser
         if (trim($content, StringUtil::WHITESPACE_CHARS) === '') {
             return null;
         }
-        if ($parent instanceof ListItem && $parent->isTask()) {
-            return null;
-        }
 
         // Skip the footnote definition and any continuation lines
         $i = $start + 1;
@@ -5188,9 +5251,11 @@ class BlockParser
         // what lies past the body column is content rather than a blank
         // (CARVE-P11-016, PART 9 section 24 C5).
         $trailingState = $this->advanceFootnoteBodyFenceState(new TrailingBlockState(), $content);
+        $retainedBelowComment = false;
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $retainedBelowComment = false;
                 // A BLANK RUN continues the footnote when the body resumes
                 // after it. Must mirror the body-collection logic so a line is
                 // never skipped here without being collected there (grammar
@@ -5275,6 +5340,7 @@ class BlockParser
                 ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                 : $authoredNext >= $authoredFloor;
             if ($reaches) {
+                $retainedBelowComment = false;
                 $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
@@ -5291,6 +5357,30 @@ class BlockParser
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $i++;
+            } elseif ($trailingState->openParagraph && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))) {
+                $holder = new Document();
+                $consumed = $this->tryParseFencedComment($holder, $lines, $i)
+                    ?? $this->tryParseComment($holder, $lines, $i) ?? 1;
+                if ($consumed > 1 && IndentationHelper::getLeadingColumns($nextLine) === 0) {
+                    break;
+                }
+                for ($end = $i + $consumed; $i < $end; $i++) {
+                    $bodyLines[] = ltrim($lines[$i], " \t");
+                    $bodyLineMap[] = $this->sourceLineFor($i);
+                }
+                $trailingState->openParagraph = false;
+                $retainedBelowComment = true;
+            } elseif (
+                $retainedBelowComment
+                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
+                && !$this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0)
+            ) {
+                $bodyLine = ltrim($nextLine, " \t");
+                $bodyLines[] = $bodyLine;
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
+                $retainedBelowComment = false;
                 $i++;
             } else {
                 break;
@@ -6309,7 +6399,10 @@ class BlockParser
                 return null;
             }
 
-            $part = trim(substr($line, $pos + 1, $end - $pos - 1));
+            $part = trim(substr($line, $pos + 1, $end - $pos - 1), ' ');
+            if (!AttributeParser::inlineInteriorIsSpaceOnly($part)) {
+                return null;
+            }
             // An EMPTY `{}` is not a block-attribute block, so a line holding
             // one is not a block-attribute line - wherever it sits. Joining the
             // payloads with a space made the empty one vanish silently, so
@@ -7133,10 +7226,10 @@ class BlockParser
                     || IndentationHelper::getLeadingColumns($content) < $column
                     || (!str_starts_with($text, ':') && $this->lineOpensBlockForLooseness($text));
             }
-            if (IndentationHelper::getLeadingColumns($content) !== $column) {
+            if ($column >= 0 && IndentationHelper::getLeadingColumns($content) !== $column) {
                 continue;
             }
-            $content = IndentationHelper::stripLeadingColumns($content, $column);
+            $content = $column < 0 ? ltrim($content, " \t") : IndentationHelper::stripLeadingColumns($content, $column);
             if (
                 $char === '%'
                 ? $this->fencedBlockParser->isFencedCommentCloser($content, $length)
@@ -7347,17 +7440,6 @@ class BlockParser
         $subCol = -1;
 
         $n = count($subLines);
-        // The last line that renders anything. A colon span reaching past it
-        // and starting at line 0 IS the body, rather than one block in it.
-        $lastContentIdx = -1;
-        for ($k = $n - 1; $k >= 0; $k--) {
-            if ($subLines[$k] !== '') {
-                $lastContentIdx = $k;
-
-                break;
-            }
-        }
-
         // Track fenced-code regions: a blank line INSIDE an open fence is
         // verbatim content, not an interior block separator, so it must not
         // loosen the item (carve#326 case C; matches carve-rs / carve-js).
@@ -7412,11 +7494,9 @@ class BlockParser
             $colon = $this->fencedBlockParser->parseDivFenceOpener($authored);
             if ($colon !== null) {
                 $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
-                if (!($sourceIsTheItemBody && $k === 0 && $end > $lastContentIdx)) {
-                    $k = $end;
+                $k = $end;
 
-                    continue;
-                }
+                continue;
             }
             if ($sl !== '') {
                 // `=== 0` only needs to know whether the run reaches column 1,
@@ -8099,7 +8179,7 @@ class BlockParser
      */
     public function headingIndexKey(Node $label): string
     {
-        return trim(preg_replace('/\s+/', ' ', $this->headingIndexLabel($label)) ?? '');
+        return LabelKey::normalize($this->headingIndexLabel($label));
     }
 
     /**
@@ -8520,6 +8600,7 @@ class BlockParser
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $trailingState
      * @param bool $leadIsBareContinuationMarker
      * @param array<int, true> $authoredBaseEligible
+     * @param int|null $unclosedFenceBase
      *
      * @return array{0: int, 1: \MarkupCarve\Carve\Parser\TrailingBlockState}
      */
@@ -8534,6 +8615,7 @@ class BlockParser
         TrailingBlockState $trailingState,
         bool $leadIsBareContinuationMarker = false,
         array &$authoredBaseEligible = [],
+        ?int &$unclosedFenceBase = null,
     ): array {
         if ($this->usesLegacyTrailingHook('collectPlainListItemContinuation')) {
             [$next, $state] = $this->collectPlainListItemContinuation($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState->toArray(), $leadIsBareContinuationMarker, $authoredBaseEligible);
@@ -8541,7 +8623,7 @@ class BlockParser
             return [$next, TrailingBlockState::fromArray($state)];
         }
 
-        return $this->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible);
+        return $this->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible, $unclosedFenceBase);
     }
 
     /**
@@ -8678,6 +8760,8 @@ class BlockParser
             parseBlocksCallback: $this->parseBlocks(...),
             startsNewBlockCallback: $this->startsNewBlock(...),
             subContentHasLooseningBlankCallback: $this->subContentHasLooseningBlank(...),
+            wrappedBlockAttributeLengthCallback: $this->wrappedBlockAttributeLength(...),
+            isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             parseItemBlocksCallback: static::class !== self::class ? $this->parseItemBlocks(...) : null,
             canRepairParagraphLocallyCallback: fn (): bool => $this->blockMatchers === [],
         );
@@ -8704,7 +8788,6 @@ class BlockParser
             isReferenceDefinitionLineCallback: $this->isReferenceDefinitionLine(...),
             keptCommentDelimiterCallback: $this->keptCommentDelimiter(...),
             lastCommentFenceIndexCallback: $this->lastCommentFenceIndex(...),
-            leadBottomOpensFenceCallback: $this->leadBottomOpensFence(...),
             advanceNestedLeadFenceStateCallback: $this->advanceNestedLeadFenceState(...),
             lineOpensBlockForLoosenessCallback: $this->lineOpensBlockForLooseness(...),
             linesLeaveACommentSpanOpenCallback: $this->collectedLinesLeaveACommentSpanOpen(...),

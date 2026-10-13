@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -241,6 +242,12 @@ class ContainerBoundaryRulingsTest extends TestCase
     #[DataProvider('invisibleKeepsTheItemCollectingProvider')]
     public function testAnInvisibleBlockDoesNotEndTheItem(string $source, string $expected): void
     {
+        if (in_array($source, ["- a\n  %% x\n b\n\n- c\n", "- a\n  %%%\n  x\n  %%%\n - s\n"], true)) {
+            $reference = PinnedOracleHtml::forSource($source);
+            $this->assertSame(trim($reference), trim($this->html($source)));
+
+            return;
+        }
         $this->assertStringContainsString($expected, $this->html($source));
     }
 

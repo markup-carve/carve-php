@@ -39,7 +39,7 @@ final class BlockQuoteBuilder
      * @param \Closure(int, int): (bool) $markerSitsAtColumnCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
      * @param \Closure(array<string>, int, int, string, int, array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}>, int, bool): (bool) $quotedCodeFenceHasCloserCallback
-     * @param \Closure(array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}}, string): (bool) $trackWrappedAttributeRunCallback
+     * @param \Closure(array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}}, string): (bool) $trackWrappedAttributeRunCallback
      * @param (\Closure(array<string>, int): (int))|null $blockQuoteLazyExtentEndCallback
      */
     public function __construct(
@@ -294,7 +294,10 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
-                && !($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
+                && !(preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
+                    && $this->lastQuoteLineIsATerm($innerLines))
+                && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
+                    && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0)
                 && !$this->endsBlockQuote($currentLine, $lazyState['paragraphOpen'], $lines, $i)
             ) {
                 $lazyState['colonClaims'] = array_values(array_filter($lazyState['colonClaims'], static fn (array $claim): bool => $claim['body']));
@@ -309,10 +312,9 @@ final class BlockQuoteBuilder
                 // table, or other closed block there is no paragraph to fold
                 // into, so the list marker ENDS the quote and starts a sibling
                 // list (endsBlockQuote() handles this via paragraphOpen).
-                $innerLines[] = isset($lazyState['hosts']['initialMarkerColumn'])
-                    && $lazyState['hosts']['markers'] !== []
-                    && min($lazyState['hosts']['markers']) < $lazyState['hosts']['initialMarkerColumn']
-                    && ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
+                // Framed, so a nested item's open paragraph takes it as text
+                // too (`CARVE-P0-009`).
+                $innerLines[] = ($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     ? BlockGrammar::LAZY_FRAME . ltrim($currentLine, " \t")
                     : $currentLine;
                 $lazySourceLine = $this->sourceLineFor($i);
@@ -352,7 +354,7 @@ final class BlockQuoteBuilder
      * Track a fence at or beyond a quoted host's content column.
      *
      * @param string $content
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}} $state
      * @param array<string> $lines
      * @param int $index
      * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $memo
@@ -361,6 +363,8 @@ final class BlockQuoteBuilder
     {
         $state['hosts'] ??= ['columns' => [0], 'markers' => [], 'kinds' => [], 'fence' => null, 'pending' => null];
         $host = &$state['hosts'];
+        $afterComment = $host['commentBoundary'] ?? false;
+        unset($host['commentBoundary']);
         $afterLiteral = isset($host['inlineFenceLines']);
         $closedLiteralColumn = $host['closedLiteralColumn'] ?? 0;
         unset($host['closedLiteralColumn']);
@@ -383,12 +387,15 @@ final class BlockQuoteBuilder
                 $host['fence'] = null;
             } else {
                 if (
-                    ($column === $fence['column'] || $column === $fence['base'])
+                    ($fence['column'] < 0 || $column === $fence['column'] || $column === $fence['base'])
                     && ($fence['char'] === '%'
                         ? ($this->getFencedBlockParser)()->isFencedCommentCloser($text, $fence['length'])
                         : ($this->getFencedBlockParser)()->isCodeFenceCloser($text, $fence['char'], $fence['length']))
                 ) {
                     $host['fence'] = null;
+                    if ($fence['char'] === '%') {
+                        $host['commentBoundary'] = $column < $host['columns'][array_key_last($host['columns'])];
+                    }
                 }
                 $state['paragraphOpen'] = false;
 
@@ -398,6 +405,11 @@ final class BlockQuoteBuilder
         if ($text === '') {
             if ($host['markers'] === []) {
                 unset($host['initialMarkerColumn']);
+            }
+            // An inline run does not reach across a blank. A colon body
+            // keeps its own reading of an over-indented run.
+            if ($state['colonClaims'] === []) {
+                $host['pending'] = null;
             }
 
             return false;
@@ -426,6 +438,20 @@ final class BlockQuoteBuilder
         }
         unset($heldColon);
         $paragraph = $state['paragraphOpen'];
+        if (
+            $afterComment && ($host['kinds'][array_key_last($host['kinds']) ?? 0] ?? null) === 'item'
+            && $column > 0 && $column < $host['columns'][array_key_last($host['columns'])]
+            && (
+                $this->advanceTrailingState(new TrailingBlockState(), $text, true)->openParagraph
+                || ($this->getListParser)()->parseListItemMarker($text) !== null
+                || $column < ($host['columns'][1] ?? 0)
+                || ($state['colonClaims'] !== [] && ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
+            )
+        ) {
+            $state['paragraphOpen'] = true;
+
+            return true;
+        }
         $leftOfOutermost = $host['markers'] !== [] && $column < min($host['markers']);
         $lazyMarker = false;
         if ($paragraph && !$leftOfOutermost && ($this->getListParser)()->parseListItemMarker($text) !== null) {
@@ -438,6 +464,27 @@ final class BlockQuoteBuilder
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
+        // A fence with a closer at its own column interrupts the paragraph of
+        // a deeper host it no longer reaches (`CARVE-P0-014`); it is not text.
+        if ($foldedText && $column < $host['columns'][array_key_last($host['columns'])] && ($text[0] === '`' || $text[0] === '~')) {
+            $run = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
+                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
+            // The closer may also sit at the content column of the host the
+            // fence lands in.
+            $owner = 0;
+            foreach ($host['columns'] as $hostColumn) {
+                $owner = $hostColumn <= $column ? max($owner, $hostColumn) : $owner;
+            }
+            if (
+                $run !== null
+                && (
+                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $column)
+                    || ($owner > 0 && $owner < $column && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $owner))
+                )
+            ) {
+                $foldedText = false;
+            }
+        }
         $lazyMarker = $lazyMarker && $foldedText;
         while (
             $state['colonClaims'] !== []
@@ -462,15 +509,28 @@ final class BlockQuoteBuilder
             return true;
         }
         if ($colon !== null && $colon['literal']) {
+            // A paired comment in the literal body shields the colon runs
+            // between its delimiters, as it does in the item's own parse.
+            $literalComment = $column === $colon['column']
+                ? ($this->getFencedBlockParser)()->parseFencedCommentOpener($text)
+                : null;
+            if (
+                $literalComment !== null
+                && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, '%', $literalComment['length'], $memo, $column)
+            ) {
+                $host['fence'] = ['char' => '%', 'length' => $literalComment['length'], 'column' => $column, 'base' => $colon['base'] ?? $colon['column']];
+                $state['paragraphOpen'] = false;
+
+                return true;
+            }
             $open = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
-            if ($open !== null && $column === $colon['column']) {
+            if ($open !== null && $column >= ($colon['base'] ?? $colon['column'])) {
                 $char = $open['char'] ?? $open['fence'][0];
                 if (
-                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, $column)
-                    || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, $colon['base'] ?? $colon['column'])
+                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, -1)
                 ) {
-                    $host['fence'] = ['char' => $char, 'length' => $open['length'], 'column' => $column, 'base' => $colon['base'] ?? $colon['column']];
+                    $host['fence'] = ['char' => $char, 'length' => $open['length'], 'column' => -1, 'base' => $colon['base'] ?? $colon['column']];
                     $state['paragraphOpen'] = false;
 
                     return true;
@@ -484,6 +544,19 @@ final class BlockQuoteBuilder
             }
             $state['colonClaims'][] = $colon;
             $state['paragraphOpen'] = true;
+
+            return true;
+        }
+        // A bare run at a nested host's own floor opens that host's container;
+        // only a run off every column is the colon body's text.
+        $hostFloor = $host['columns'][array_key_last($host['columns'])];
+        if (
+            $colon !== null && !$paragraph && !($host['absorbing'] ?? false)
+            && $column === $hostFloor && $hostFloor > ($colon['base'] ?? $colon['column'])
+            && preg_match('/^:{3,}[ \t]*$/', $text) === 1
+        ) {
+            $state['colonClaims'][] = ['length' => strspn($text, ':'), 'column' => $column, 'body' => false, 'literal' => false, 'base' => $hostFloor];
+            $state['paragraphOpen'] = false;
 
             return true;
         }
@@ -558,15 +631,8 @@ final class BlockQuoteBuilder
         }
         $host['absorbing'] = !$blockStart && $paragraph && ($host['absorbing'] ?? false);
         $div = ($this->getFencedBlockParser)()->parseDivFenceOpener($inner);
-        if (
-            $floor > 0 && $colon === null && $at > $floor
-            && isset($host['initialMarkerColumn'])
-            && ($host['markers'][array_key_last($host['markers']) ?? 0] ?? $host['initialMarkerColumn']) < $host['initialMarkerColumn']
-            && preg_match('/^:{3,}[ \t]*$/', $inner) === 1
-        ) {
-            $state['paragraphOpen'] = true;
-
-            return true;
+        if ($div !== null && $floor === 0 && $at === 0 && $state['innerDepth'] === 0 && $div['className'] === '|') {
+            $state['colonClaims'][] = ['length' => $div['length'], 'column' => 0, 'body' => false, 'literal' => true, 'base' => 0];
         }
         if ($floor > 0 && $div === null && preg_match('/^:{3,}/', $inner) === 1) {
             $host['absorbing'] = true;
@@ -583,7 +649,22 @@ final class BlockQuoteBuilder
             && ($div['className'] !== '|' || $colon === null || $floor !== ($colon['base'] ?? $colon['column']) || $at <= $colon['column'])
         ) {
             $state['colonClaims'][] = ['length' => $div['length'], 'column' => $at, 'body' => false, 'literal' => $div['className'] === '|', 'base' => $floor];
-            if (!$blockStart) {
+            $state['paragraphOpen'] = false;
+
+            return true;
+        }
+        if ($floor > 0 && $at >= $floor && !$blockStart) {
+            $row = ($this->getTableParser)()->isTableRow($inner)
+                || ($state['inTable'] && ($this->getTableParser)()->isContinuationRow($inner));
+            if (
+                $row
+                || preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $inner) === 1
+                || preg_match('/^([-*_])\\1{2,}[ \t]*$/', $inner) === 1
+                || $this->isReferenceDefinitionLine($inner)
+                || (($host['kinds'][array_key_last($host['kinds']) ?? 0] ?? null) === 'item'
+                    && (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $inner) === 1 || $this->isBlockAttributeLine($inner)))
+            ) {
+                $state['inTable'] = $row;
                 $state['paragraphOpen'] = false;
 
                 return true;
@@ -616,13 +697,25 @@ final class BlockQuoteBuilder
 
             return true;
         }
-        if ($host['pending'] !== null && $char === $host['pending']['char'] && $length >= $host['pending']['length']) {
+        if (
+            $host['pending'] !== null && $char === $host['pending']['char'] && $length >= $host['pending']['length']
+            // A tilde run has no inline pairing: one that opens a fence of its
+            // own is not the pending run's end.
+            && !($char === '~' && $at > $host['pending']['column'] && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at))
+        ) {
             $host['pending'] = null;
 
             return false;
         }
         $fence = ['char' => $char, 'length' => $length, 'column' => $floor];
-        if ($at >= $floor && ($blockStart || !$paragraph || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at))) {
+        if (
+            $at >= $floor
+            && (
+                $blockStart || !$paragraph
+                || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $at)
+                || ($at > $floor && $colon === null && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $length, $memo, $floor))
+            )
+        ) {
             $host['fence'] = ['char' => $char, 'length' => $length, 'column' => $at, 'base' => $floor];
             $state['paragraphOpen'] = false;
 
@@ -638,7 +731,7 @@ final class BlockQuoteBuilder
     /**
      * A quote's lazy tracker before it has read a line.
      *
-     * @return array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}}
+     * @return array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}}
      */
     public static function initialBlockQuoteLazyState(): array
     {
@@ -660,7 +753,7 @@ final class BlockQuoteBuilder
 
     /**
      * @param string $content Inner content line (after the "> " marker is stripped).
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}} $state
      *     Running state, mutated in place.
      * @param array<string> $sourceLines
      * @param int $sourceIndex
@@ -990,7 +1083,9 @@ final class BlockQuoteBuilder
             }
 
             $trimmed = ltrim($content, " \t");
-            $atContentColumn = $trimmed === $content;
+            $hostColumns = $state['hosts']['columns'] ?? [0];
+            $atContentColumn = $trimmed === $content
+                || IndentationHelper::getLeadingColumns($content) === $hostColumns[array_key_last($hostColumns)];
             $isHeading = $atContentColumn && preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmed) === 1;
             $isThematicBreak = $atContentColumn && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1;
             $isTableRow = $atContentColumn && ($this->getTableParser)()->isTableRow($trimmed);
@@ -1059,7 +1154,6 @@ final class BlockQuoteBuilder
             || $isTableRow
             || $isContinuationRow
             || $isCommentLine
-            || $isDefinitionTerm
             || $isDefinitionLine
             || $isAttributeLine;
 
@@ -1098,6 +1192,20 @@ final class BlockQuoteBuilder
     private function endContainerAttributeScope(): void
     {
         ($this->endContainerAttributeScopeCallback)();
+    }
+
+    /**
+     * @param array<string> $lines
+     */
+    private function lastQuoteLineIsATerm(array $lines): bool
+    {
+        $last = array_key_last($lines);
+        $line = $last === null ? '' : $lines[$last];
+        $line = ContainerPrefix::afterLeadingQuoteMarkers($line);
+        $at = IndentationHelper::pastLeadingWhitespace($line);
+        $at = ($this->getListParser)()->markerWalkOffset($line, $at) ?? $at;
+
+        return preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, substr($line, $at)) === 1;
     }
 
     /**
@@ -1224,7 +1332,7 @@ final class BlockQuoteBuilder
     }
 
     /**
-     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool}} $state Mutated in place.
+     * @param array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool}} $state Mutated in place.
      * @param string $content
      */
     private function trackWrappedAttributeRun(array &$state, string $content): bool
