@@ -20,6 +20,7 @@ use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
@@ -63,6 +64,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
+use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkLabels;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
@@ -198,6 +200,9 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
      */
     protected array $deferredAbbreviationDefinitions = [];
 
+    /** @var array<string, true> */
+    protected array $referencedLinkLabels = [];
+
     /**
      * The character the placeholders are wrapped in, or '' outside render().
      */
@@ -296,6 +301,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         $this->headingIdTracker->reset();
         $this->resetExpansionBudgetForDocument($document);
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+        $this->referencedLinkLabels = ReferencedLinkLabels::collect($document);
         // PART 11 §10f: a definition line can be written ABOVE the occurrence
         // that consumes it, so whether to write it is not answerable when it is
         // reached. It goes out as a placeholder and is resolved below, once the
@@ -392,6 +398,8 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
+                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkLabels[$node->getLabel()])
+                    ? '' : $this->stripControls(CarveRenderer::referenceDefinitionLine($node)) . "\n\n",
                 $node instanceof RawBlock => $this->dropRaw($node, 'block'),
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),
                 $node instanceof ListBlock => $this->renderList($node),

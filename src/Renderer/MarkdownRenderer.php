@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
+use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkLabels;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -325,6 +326,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * @var array<string, string>
      */
     protected array $gfmSlugs = [];
+
+    /** @var array<string, true> */
+    protected array $referencedLinkLabels = [];
 
     /**
      * Kind and marker of the list written last in the current block sequence,
@@ -660,6 +664,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $this->headingIdTracker->reset();
         (new CrossReferenceResolver())->resolve($document, $this->headingIdTracker);
+        $this->referencedLinkLabels = ReferencedLinkLabels::collect($document);
 
         // Collect every heading's resolved id and the set of ids that a `</#id>`
         // points at, so a heading that IS a crossref target can emit `{#id}` and
@@ -1690,6 +1695,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof AbbreviationDefinition
             => $this->renderAbbreviationDefinition($node),
             $node instanceof LinkReferenceDefinition => $this->roundTripMode
+                || !isset($this->referencedLinkLabels[$node->getLabel()])
                 ? $this->renderLinkReferenceDefinition($node) : '',
             $node instanceof RawBlock => $this->renderRawBlock($node),
             $node instanceof BlockQuote => $this->renderBlockQuote($node),

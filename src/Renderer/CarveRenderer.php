@@ -3235,6 +3235,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $out;
     }
 
+    public static function referenceDefinitionLine(LinkReferenceDefinition $node): string
+    {
+        return (new self())->renderLinkReferenceDefinition($node);
+    }
+
     /**
      * A body holding NO blocks takes the SENTINEL `{empty}` (PART 11 §7b).
      *
