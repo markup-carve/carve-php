@@ -1050,9 +1050,6 @@ final class HtmlAstBuilder
         if ($tag === 'blockquote') {
             $quote = ['type' => 'block_quote', 'children' => $this->blocks($this->children($node))];
             $this->attachAttrs($quote, $node);
-            if (($quote['children'][0]['type'] ?? null) === 'list') {
-                $this->addHint($quote, "\0carve-leading-blank");
-            }
 
             return self::nodeList([$quote]);
         }
@@ -1856,7 +1853,7 @@ final class HtmlAstBuilder
             if ($this->validCodeLanguage($language)) {
                 $block['lang'] = $language;
             }
-            if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+            if (HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
                 $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
             }
 
@@ -1874,7 +1871,7 @@ final class HtmlAstBuilder
             if ($attrs !== []) {
                 $block['attrs'] = $attrs;
             }
-            if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+            if (HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
                 $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
             }
             foreach ($node->getElementsByTagName('*') as $generated) {
@@ -1937,7 +1934,7 @@ final class HtmlAstBuilder
                 ) {
                     $block['content'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
                 }
-                if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+                if (HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
                     $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
                 }
                 $attrs = $this->fencedExtensionAttrs($node);
@@ -2087,7 +2084,7 @@ final class HtmlAstBuilder
                 if ($attrs !== []) {
                     $block['attrs'] = $attrs;
                 }
-                if (self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($panel, 'data-carve-label'))) {
+                if (HtmlCarrierNames::consumePresence($panel, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($panel, 'data-carve-label'))) {
                     $block['label'] = HtmlCarrierNames::consumeAttribute($panel, 'data-carve-label');
                 }
             } else {
@@ -2166,7 +2163,7 @@ final class HtmlAstBuilder
 
     public static function isValidCodeLabel(string $value): bool
     {
-        return $value !== '' && strpbrk($value, "]\r\n") === false;
+        return strpbrk($value, "]\r\n") === false;
     }
 
     /**
@@ -2193,7 +2190,7 @@ final class HtmlAstBuilder
         // every all-blank payload, this engine's own output included
         // (carve-php#2726).
         $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
-        if ($code !== null && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+        if ($code !== null && HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
             $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
         }
         $class = $source->getAttribute('class');
@@ -4313,7 +4310,7 @@ final class HtmlAstBuilder
         if ($node instanceof DOMText) {
             $value = $this->session->preserveInlineWhitespace
                 ? $node->textContent
-                : (preg_replace('/[ \t\n\f\r]+/', ' ', $node->textContent) ?? $node->textContent);
+                : (preg_replace('/[ \t]*[\n\f\r][ \t\n\f\r]*| +/', ' ', $node->textContent) ?? $node->textContent);
 
             return $value === '' ? [] : [HtmlImportNodes::text($value)];
         }
@@ -5082,6 +5079,7 @@ final class HtmlAstBuilder
 
             return [$autolink];
         }
+        /** @var ImportedNode $link */
         $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
         if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref') && !$contradictory) {
             if (
@@ -5089,9 +5087,11 @@ final class HtmlAstBuilder
                 && $this->claimReference($node, $ref, $node->getAttribute('href'), $node->hasAttribute('title') ? $node->getAttribute('title') : null)
             ) {
                 $link['ref'] = $ref;
-                $collapsed = $labelText === $ref;
-                $link['rawRef'] = '[' . $labelText . ']'
-                    . ($collapsed ? '[]' : '[' . $ref . ']');
+                if (self::every($children, static fn (array $child): bool => $child['type'] === 'text')) {
+                    $collapsed = $labelText === $ref;
+                    $link['rawRef'] = '[' . $labelText . ']'
+                        . ($collapsed ? '[]' : '[' . $ref . ']');
+                }
             } else {
                 $this->session->droppedReferenceCarriers[$node] = null;
             }
@@ -5104,6 +5104,9 @@ final class HtmlAstBuilder
             $skip[] = 'aria-label';
         }
         $this->attachAttrs($link, $node, $skip);
+        if (($link['attrs'] ?? []) !== []) {
+            unset($link['rawRef']);
+        }
 
         return [$link];
     }

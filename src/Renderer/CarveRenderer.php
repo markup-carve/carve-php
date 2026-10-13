@@ -1762,10 +1762,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $quoted = implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
 
-        if ($node->getRenderHint("\0carve-leading-blank") === '1') {
-            $quoted = ">\n" . $quoted;
-        }
-
         return $quoted;
     }
 
@@ -4749,6 +4745,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +' . $colon . '))/';
+        if ($nodeType === 'code' && preg_match('/^`+\n/', $written) === 1) {
+            $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]' . $colon . '))/';
+        }
 
         return (string)preg_replace($marker, "\n" . str_repeat($this->verbatimSentinels[7], match ($nodeType) {
             'math' => 3, 'raw_inline' => 4, 'literal_inline' => 5, default => 2
@@ -5079,7 +5078,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 || $slot === 'class'
                 || $slot === "\0carve-delimiter-row"
                 || $slot === "\0carve-compact-items"
-                || $slot === "\0carve-leading-blank"
                 || $slot === "\0carve-prefix-attrs"
                 || $slot === "\0carve-indent-blank-lines"
                 || $slot === "\0carve-literal-symbol"

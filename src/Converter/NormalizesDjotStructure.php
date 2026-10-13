@@ -63,6 +63,7 @@ trait NormalizesDjotStructure
         $emptyItemAt = null;
         foreach ($lines as $n => $original) {
             $emptyItem = false;
+            $emptyItemColumn = null;
             $masked = $mask[$n];
             preg_match('/^(?:[ \t]*>(?:[ \t]|$))*/', $original, $quoteMatch);
             $quote = $quoteMatch[0] ?? '';
@@ -73,6 +74,10 @@ trait NormalizesDjotStructure
             $text = substr($raw, $indent);
             $visible = substr($view, $indent);
             if ($text === '') {
+                if ($emptyItemAt !== null && $quoteDepth > $emptyItemAt[0] && strspn($original, " \t") < $emptyItemAt[1] + 2) {
+                    $out[] = $emptyItemAt[2];
+                    $original = ltrim($original, " \t");
+                }
                 while ($divs !== [] && $quoteDepth < $divs[array_key_last($divs)]['depth']) {
                     array_pop($divs);
                 }
@@ -121,6 +126,18 @@ trait NormalizesDjotStructure
                 $paragraph = false;
                 $emptyItem = true;
             }
+            if (
+                ($blank || !$paragraph || ($lists !== [] && $quoteDepth === $depth)) && $visible === $text && $fences[$n] === $original
+                && preg_match('/^(?:[*-][ \t]*){3,}$/', $text) !== 1
+                && preg_match('/^((?:(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]+)+)(?:[-*]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)])[ \t]*$/', $text, $emptyNested) === 1
+            ) {
+                $text = rtrim($text, " \t") . ' +';
+                $visible = $text;
+                $paragraph = false;
+                $emptyItem = true;
+                [$nestedWidth] = $this->leadingIndent((string)preg_replace('/[^ \t]/', ' ', $emptyNested[1]));
+                $emptyItemColumn = $indent + $nestedWidth;
+            }
             $item = preg_match('/^(?:([-*+])|((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)))[ \t]+\S/', $visible, $itemMatch) === 1;
             // The marker would attach a flush-left block; a blank keeps it out.
             if (
@@ -132,7 +149,7 @@ trait NormalizesDjotStructure
             ) {
                 $out[] = $emptyItemAt[2];
             }
-            $emptyItemAt = $emptyItem ? [$quoteDepth, $indent, rtrim($quote)] : null;
+            $emptyItemAt = $emptyItem ? [$quoteDepth, $emptyItemColumn ?? $indent, rtrim($quote)] : null;
             if ($quoteDepth < $depth && ($blockStart || $item || $this->rejectedDjotCommentStartsBlock($visible))) {
                 if ($item && !$blank) {
                     $out[] = rtrim($quote);

@@ -7508,6 +7508,14 @@ class MarkdownToCarve
 
         $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
 
+        $nativeInlineTags = [];
+        $line = preg_replace_callback('/<\/?(?:' . $nativeInline . ')>/i', static function (array $match) use ($protect, &$nativeInlineTags): string {
+            $token = $protect($match[0]);
+            $nativeInlineTags[$token] = $match[0];
+
+            return $token;
+        }, $line) ?? $line;
+
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
         $line = $this->restoreNumericReferenceHashes($line);
         $line = str_replace('&#', '&\\#', $line);
@@ -7516,6 +7524,8 @@ class MarkdownToCarve
         $line = MarkdownEmphasis::convert($line, function (): void {
             $this->flattenedEmphasis = true;
         }, null, $protected, strikethrough: true);
+
+        $line = strtr($line, $nativeInlineTags);
 
         // ==highlight== -> =highlight=. Carve highlight is a single `=`; a
         // doubled `==x==` is literal text in Carve, so a Markdown highlight

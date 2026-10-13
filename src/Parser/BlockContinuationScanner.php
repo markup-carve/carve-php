@@ -655,6 +655,7 @@ final class BlockContinuationScanner
         $metadataSameBaseFence = null;
         $metadataSameBaseFenceIndex = -1;
         $inlineCodeParagraph = false;
+        $inlineDefinitionBody = null;
         $inlineParagraphColumn = 0;
         $inlineFenceColumn = 0;
         $unclosedFenceColumn = $unclosedFenceBase === null ? null : $contentIndent + $unclosedFenceBase;
@@ -699,7 +700,8 @@ final class BlockContinuationScanner
         $definitionBodyHasTerm = false;
         foreach ($itemLines as $seedLine) {
             $openCommentLength = $this->advanceItemCommentFence($openCommentLength, $seedLine, $lines, $i - 1);
-            $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedLine);
+            $seedHead = explode("\n", $seedLine, 2)[0];
+            $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $seedHead);
             if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($seedLine, " \t"))) {
                 $pendingDefinitionTerm = true;
                 $authoredTermColumn = $contentIndent + IndentationHelper::getLeadingColumns($seedLine);
@@ -963,12 +965,16 @@ final class BlockContinuationScanner
 
                     continue;
                 }
+                if ($inlineCodeParagraph && $openDefinitionBody === null) {
+                    $openDefinitionBody = $inlineDefinitionBody;
+                }
                 if (
                     $inlineCodeParagraph
                     && (
                         $this->isCommentLineOrFence($nextTrimmed)
                         || (
-                            IndentationHelper::getLeadingColumns($nextLine, $inlineParagraphColumn + 1) <= $inlineParagraphColumn
+                            (IndentationHelper::getLeadingColumns($nextLine, $inlineParagraphColumn + 1) <= $inlineParagraphColumn
+                                || ($openDefinitionBody !== null && IndentationHelper::getLeadingColumns($nextLine) >= $contentIndent + $openDefinitionBody))
                             && !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
                             && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed))
                         )
@@ -1304,6 +1310,7 @@ final class BlockContinuationScanner
                             }
                             if (($opener['char'] ?? $opener['fence'][0]) === '`') {
                                 $inlineCodeParagraph = true;
+                                $inlineDefinitionBody = $openDefinitionBody;
                                 $inlineParagraphColumn = $column;
                                 $inlineFenceColumn = $column;
                             }
@@ -1319,7 +1326,7 @@ final class BlockContinuationScanner
                 $stripColumn = $authoredCodeColumn !== null
                     && IndentationHelper::getLeadingColumns($nextLine, $authoredCodeColumn) >= $authoredCodeColumn
                     ? $authoredCodeColumn : $contentIndent;
-                $contentLine = $inlineAuthoredFence && !$termContinuation
+                $contentLine = $inlineAuthoredFence && !$termContinuation && $openDefinitionBody === null
                     && !($trailingState->inFootnoteBody && $column > $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
                     ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                     : IndentationHelper::stripLeadingColumns($nextLine, $stripColumn);
@@ -1728,7 +1735,9 @@ final class BlockContinuationScanner
                 $foldedAsText = true;
             } else {
                 $itemLines[] = $nextTrimmed;
-                $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
+                if (!$trailingState->openParagraph || $this->lineOpensBlockForLooseness($nextTrimmed, true)) {
+                    $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
+                }
                 $itemLineMap[] = $this->sourceLineFor($i);
             }
             if ($foldedAsText) {
