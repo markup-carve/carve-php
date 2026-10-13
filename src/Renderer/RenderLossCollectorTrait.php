@@ -259,21 +259,27 @@ trait RenderLossCollectorTrait
         $this->renderLosses[] = $loss;
     }
 
-    protected function recordDefinitionListFlattened(Node $node): void
+    protected function recordListStyleDropped(Node $node, string $style): void
     {
-        if ($this->renderLossTarget === null) {
+        if ($this->renderLossTarget !== 'markdown') {
             return;
         }
+        $styles = ['a' => 'lower-alpha', 'A' => 'upper-alpha', 'i' => 'lower-roman', 'I' => 'upper-roman'];
+        if (!isset($styles[$style])) {
+            return;
+        }
+        $name = $styles[$style];
         $this->renderLossTotal++;
-        $this->renderLossCounts['definition-list-flattened'] = ($this->renderLossCounts['definition-list-flattened'] ?? 0) + 1;
+        $this->renderLossCounts['list-style-dropped'] = ($this->renderLossCounts['list-style-dropped'] ?? 0) + 1;
         if (count($this->renderLosses) >= $this->renderLossMaximum) {
             return;
         }
         $loss = [
-            'code' => 'definition-list-flattened',
-            'target' => $this->renderLossTarget,
+            'code' => 'list-style-dropped',
+            'target' => 'markdown',
             'nodeType' => 'block',
-            'message' => 'Flattened a definition list without roundtrip markers',
+            'style' => $name,
+            'message' => sprintf('Wrote a %s ordered list as decimal while rendering markdown', $name),
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
