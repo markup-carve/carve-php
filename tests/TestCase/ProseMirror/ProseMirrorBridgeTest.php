@@ -905,6 +905,25 @@ class ProseMirrorBridgeTest extends TestCase
         $this->assertSame($result['expected'], $result['actual']);
     }
 
+    public function testAFullyCoveredRowKeepsItsAuthoredCarets(): void
+    {
+        $result = $this->roundTrip("| a | < |\n| ^ | ^ |\n");
+
+        $this->assertSame($result['expectedCarve'], $result['actualCarve']);
+        $this->assertSame($result['expected'], $result['actual']);
+        $this->assertSame(
+            [['^', '^']],
+            $result['pm']['content'][0]['content'][0]['content'][0]['attrs']['carveCoveredRowMarkers'],
+        );
+    }
+
+    public function testAShortCoveredRowDoesNotReadMissingGridCells(): void
+    {
+        $result = $this->roundTrip("| a | < |\n| ^ |\n");
+
+        $this->assertSame($result['expected'], $result['actual']);
+    }
+
     /**
      * The hook is a door, not a hole: a name nobody registered still throws,
      * so a typo cannot become a silent skip.

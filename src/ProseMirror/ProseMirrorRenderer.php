@@ -331,16 +331,32 @@ class ProseMirrorRenderer
                 $rowOut['attrs'] = $rowAttrs;
             }
             $cells = [];
-            foreach ($grid[$index] as $entry) {
+            foreach ($grid[$index] as $column => $entry) {
                 $this->noteUnrepresentableState($entry['cell']);
                 if ($entry['skip']) {
                     continue;
                 }
-                $cells[] = $this->renderResolvedTableCell(
+                $rendered = $this->renderResolvedTableCell(
                     $entry['cell'],
                     $entry['rowspan'],
                     $entry['colspan'],
                 );
+                if ($entry['rowspan'] > 1 && $entry['colspan'] > 1) {
+                    $coveredRows = [];
+                    for ($offset = 1; $offset < $entry['rowspan']; $offset++) {
+                        $markers = [];
+                        for ($covered = 0; $covered < $entry['colspan']; $covered++) {
+                            $markers[] = isset($grid[$index + $offset][$column + $covered])
+                                ? $grid[$index + $offset][$column + $covered]['cell']->getSpanMarker()
+                                : null;
+                        }
+                        $coveredRows[] = $markers;
+                    }
+                    if (is_array($rendered['attrs'])) {
+                        $rendered['attrs']['carveCoveredRowMarkers'] = $coveredRows;
+                    }
+                }
+                $cells[] = $rendered;
             }
             if ($cells !== []) {
                 $rowOut['content'] = $cells;

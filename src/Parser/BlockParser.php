@@ -3324,7 +3324,22 @@ class BlockParser
         $closed = false;
 
         while ($i < $count) {
+            $codeIndent = 0;
             $unclosedCode = $nestingAware ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$i]) : null;
+            // A plain line before a fence-shaped line in a closed line block
+            // leaves that later run to the box. Probe the shifted run only in
+            // this shape, so ordinary indented runs keep their paragraph read.
+            $plainLead = $nestingAware && $unclosedCode === null
+                && preg_match('/^[ \t]+(?:`{3,}|~{3,})/', $lines[$i]) === 1
+                && $this->closedNestedLiteralBeforeFence($innerLines, true);
+            if ($plainLead) {
+                $codeIndent = IndentationHelper::getLeadingColumns($lines[$i]);
+                if ($codeIndent > 0) {
+                    $unclosedCode = $this->fencedBlockParser->parseCodeFenceOpener(
+                        IndentationHelper::stripLeadingColumns($lines[$i], $codeIndent),
+                    );
+                }
+            }
             $boxColumn = $unclosedCode === null ? null : $this->authoredColumnOf($start, $lines[$start]);
             $nextColumn = $unclosedCode === null || !isset($lines[$i + 1])
                 ? null : $this->authoredColumnOf($i + 1, $lines[$i + 1]);
@@ -3336,8 +3351,9 @@ class BlockParser
                     || ($nextColumn === $boxColumn
                         && $this->fencedBlockParser->isDivFenceCloser($lines[$i + 1], $fenceLength))
                 )
-                && IndentationHelper::getLeadingColumns($lines[$i]) === 0
-                && $this->closedNestedLiteralBeforeFence($innerLines)
+                && (($codeIndent === 0 && ($this->closedNestedLiteralBeforeFence($innerLines)
+                    || ($innerLines === [] && $boxColumn > 0)))
+                    || $codeIndent > 0)
                 && !$this->hasCodeFenceCloserAhead($lines, $i, $unclosedCode['char'], $unclosedCode['length'])
             ) {
                 for (; $i < $count; $i++) {
@@ -3353,7 +3369,7 @@ class BlockParser
                     ) {
                         break;
                     }
-                    $innerLines[] = $lines[$i];
+                    $innerLines[] = IndentationHelper::stripLeadingColumns($lines[$i], $codeIndent);
                     $innerLineMap[] = $this->sourceLineFor($i);
                 }
                 if (
@@ -3430,8 +3446,9 @@ class BlockParser
 
     /**
      * @param list<string> $innerLines
+     * @param bool $plainLead
      */
-    private function closedNestedLiteralBeforeFence(array $innerLines): bool
+    private function closedNestedLiteralBeforeFence(array $innerLines, bool $plainLead = false): bool
     {
         $last = $innerLines[count($innerLines) - 1] ?? '';
         $column = IndentationHelper::getLeadingColumns($last);
@@ -3448,12 +3465,23 @@ class BlockParser
             $offset = $marker === null ? null : $this->listParser->markerContentOffset($trimmed);
             $literal = $marker === null ? null : $this->fencedBlockParser->parseDivFenceOpener($marker['content']);
 
-            return $offset !== null && $literal !== null && $literal['className'] === '|'
+            $closed = $offset !== null && $literal !== null && $literal['className'] === '|'
                 && IndentationHelper::getLeadingColumns($line) + $offset === $column
                 && $this->fencedBlockParser->isDivFenceCloser(
                     IndentationHelper::stripLeadingColumns($last, $column),
                     $literal['length'],
                 );
+            if (!$closed || !$plainLead) {
+                return $closed;
+            }
+            $first = ltrim($innerLines[$i + 1] ?? '', " \t");
+
+            // A closer, comment or fence is not a plain payload lead.
+            return $first !== ''
+                && !str_starts_with($first, '%%')
+                && !$this->fencedBlockParser->isDivFenceCloser($first, $literal['length'])
+                && $this->fencedBlockParser->parseCodeFenceOpener($first) === null
+                && $this->fencedBlockParser->parseRawBlockOpener($first) === null;
         }
 
         return false;

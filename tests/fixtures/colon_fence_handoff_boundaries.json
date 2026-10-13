@@ -47,7 +47,7 @@
   {
     "id": "published-dedent-g3-6298",
     "source": "> - ::: box\n>   :::: in\n>   - ::: |\n>     x\n>     :::\n>    ```\n>    - x\n>  x\n",
-    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p><code>\n- x</code></p></div></div></li></ul><p>x</p></blockquote>"
+    "html": "<blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- x\n</code></pre></div></div></li></ul><p>x</p></blockquote>"
   },
   {
     "id": "published-dedent-g3-6410",
@@ -67,7 +67,7 @@
   {
     "id": "published-dedent-g3-7316",
     "source": "> > - ::: box\n> >   :::: in\n> >   - ::: |\n> >     x\n> >     :::\n> >    ```\n> >    %% c\n> > q\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p><code></code></p></div></div></li></ul><p>q</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><div class=\"in\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>%% c\n</code></pre></div></div></li></ul><p>q</p></blockquote></blockquote>"
   },
   {
     "id": "published-dedent-g3-7526",
@@ -117,7 +117,7 @@
   {
     "id": "published-dedent-g3-17923",
     "source": "> > - ::: box\n> >   -  ::: |\n> >      x\n> >      :::\n> >     ```\n> >     - x\n> > q\n",
-    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><p><code>\n- x</code></p></div></li></ul><p>q</p></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li><div class=\"box\"><ul><li><div class=\"line-block\"><p>x</p></div></li></ul><pre><code>- x\n</code></pre></div></li></ul><p>q</p></blockquote></blockquote>"
   },
   {
     "id": "published-dedent-g3-18635",
