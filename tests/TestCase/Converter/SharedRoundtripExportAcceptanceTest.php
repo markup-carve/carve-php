@@ -504,8 +504,11 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         self::assertTrue(self::matchesProjection((new AstCodec())->encode($converter->parse($source)), $fixture['expectedNodes']));
         $originalHtml = trim($converter->convert($fixture['source']));
         $importedHtml = trim($converter->convert($source));
-        if (in_array('list-delimiter-changed', $fixture['lossCodes'], true)) {
-            $importedHtml = str_replace(' data-delim=")"', '', $importedHtml);
+        if ($fixture['id'] === 'list-delimiter-changed-between-adjacent-lists') {
+            self::assertContains('list-delimiter-changed', $fixture['lossCodes']);
+            self::assertStringContainsString("\n1) two\n", $source);
+            $importedHtml = preg_replace('/(<\/ol>\n)<ol data-delim="\)">/', '$1<ol>', $importedHtml, 1, $replaced) ?? $importedHtml;
+            self::assertSame(1, $replaced);
         }
         self::assertSame($originalHtml, $importedHtml);
     }
