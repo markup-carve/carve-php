@@ -4761,7 +4761,7 @@ class BlockParser
                 // has nothing to continue: both end the item.
                 // The deepest frame decides continuation after a closed fence
                 // in either host (markup-carve/carve#2895).
-                if ($nextIndent === 0 && !$legacyNestedFence) {
+                if (!$legacyNestedFence) {
                     $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 }
                 $lastItemLine = array_key_last($itemLines);
@@ -4778,7 +4778,7 @@ class BlockParser
                         ? $this->nestedLeadParagraphOpenBelowAClosedFence($itemLines)
                         : $nestedFence->closed && $nestedFence->trailing->openParagraph);
                 if (
-                    ((!$trailingState->openParagraph || $closedNestedFence)
+                    ((!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
                         && !$nestedLeadParagraphOpen
                         && !($trailingState->afterComment && ($trailingState->nestedColumn > 0 || $trailingState->hasOpenDiv()) && $nextIndent > $baseIndent))
                     || (!$isBlockQuoteLazyLine && $this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
@@ -8779,7 +8779,6 @@ class BlockParser
             isReferenceDefinitionLineCallback: $this->isReferenceDefinitionLine(...),
             keptCommentDelimiterCallback: $this->keptCommentDelimiter(...),
             lastCommentFenceIndexCallback: $this->lastCommentFenceIndex(...),
-            leadBottomOpensFenceCallback: $this->leadBottomOpensFence(...),
             advanceNestedLeadFenceStateCallback: $this->advanceNestedLeadFenceState(...),
             lineOpensBlockForLoosenessCallback: $this->lineOpensBlockForLooseness(...),
             linesLeaveACommentSpanOpenCallback: $this->collectedLinesLeaveACommentSpanOpen(...),

@@ -45,7 +45,6 @@ final class DefinitionListBuilder
      * @param \Closure(string): (string) $keptCommentDelimiterCallback
      * @param \Closure(array<string>, int): (int) $lastCommentFenceIndexCallback
      * @param \Closure(\MarkupCarve\Carve\Parser\NestedLeadFenceState, array<string>): (void) $advanceNestedLeadFenceStateCallback
-     * @param \Closure(string): (bool) $leadBottomOpensFenceCallback
      * @param \Closure(string, bool, bool): (bool) $lineOpensBlockForLoosenessCallback
      * @param \Closure(array<string>, \MarkupCarve\Carve\Parser\CollectedCommentSpan): (bool) $linesLeaveACommentSpanOpenCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
@@ -75,7 +74,6 @@ final class DefinitionListBuilder
         private Closure $isReferenceDefinitionLineCallback,
         private Closure $keptCommentDelimiterCallback,
         private Closure $lastCommentFenceIndexCallback,
-        private Closure $leadBottomOpensFenceCallback,
         private Closure $advanceNestedLeadFenceStateCallback,
         private Closure $lineOpensBlockForLoosenessCallback,
         private Closure $linesLeaveACommentSpanOpenCallback,
@@ -418,7 +416,6 @@ final class DefinitionListBuilder
                 }
                 $termScan = null;
                 $commentSpan = new CollectedCommentSpan();
-                $leadFence = new CollectedFenceView();
                 $bodyFenceView = new IndexedFenceView();
                 $lastOpenerKey = null;
                 $lastOpenerIsParagraph = null;
@@ -853,8 +850,8 @@ final class DefinitionListBuilder
                     // closes it. The single-line form is already answered there;
                     // this is the same rule for the form that spans lines.
                     ($this->advanceNestedLeadFenceStateCallback)($nestedLeadFence, $body);
-                    $paragraphOpen = $nestedLeadFence->closed
-                        ? $nestedLeadFence->trailing->openParagraph
+                    $paragraphOpen = $nestedLeadFence->length > 0
+                        ? ($nestedLeadFence->closed && $nestedLeadFence->trailing->openParagraph)
                         : $bodyState->openParagraph;
                     if (!$paragraphOpen || $bodyEndsWithAttribute) {
                         // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
@@ -871,21 +868,6 @@ final class DefinitionListBuilder
 
                         break;
                     }
-                    // A FLUSH-LEFT FENCE LINE IS THE OPEN NESTED FENCE'S OWN
-                    // CONTENT (markup-carve/carve#1958, corpus 455). The
-                    // interruption veto below reads the line as an opener and
-                    // ends the body on it, so the document took it for a fresh
-                    // fence, the nested one came out empty, and the entry after
-                    // it was swallowed. Column 0 is outside the body and cannot
-                    // close the fence the body's nested lead left open, so §24
-                    // C3 folds the line in as verbatim text instead; the frame
-                    // below is what keeps it text (carve-php#2868). No tracker
-                    // can answer this: a fence on an item's bottom is invisible
-                    // to both the body and the nested state, which is why
-                    // carve-php#1913 reads the lead structurally too.
-                    $nestedFenceOwnsLine = $indent === 0
-                        && $paragraphFence !== null
-                        && $this->descriptionBodyLeadFenceStaysOpen($body, $leadFence);
                     if (
                         (
                             $indent === 0
@@ -897,8 +879,8 @@ final class DefinitionListBuilder
                         && !IndentationHelper::isBlankLine($contLine)
                         && !$this->isBlockAttributeLine($trimmedCont)
                         && $this->wrappedBlockAttributeLength($lines, $i) === null
-                        && (!$this->isCommentLineOrFence($trimmedCont) || $nestedFenceOwnsLine)
-                        && (!$this->startsInterruptingBlock($trimmedCont, $lines, $i) || $nestedFenceOwnsLine)
+                        && !$this->isCommentLineOrFence($trimmedCont)
+                        && !$this->startsInterruptingBlock($trimmedCont, $lines, $i)
                     ) {
                         // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
                         // block: the tracker must read it as the lazy line it
@@ -933,20 +915,7 @@ final class DefinitionListBuilder
                         // both and folded 210 and 36 documents that every other
                         // reading keeps outside.
                         $bodyLazy[count($body)] = true;
-                        // AN UNFINISHED FENCE ON THE DESCRIPTION BODY'S NESTED
-                        // LEAD OWNS THESE LINES (markup-carve/carve-php#1913,
-                        // ruled on markup-carve/carve#1958). When the body's own
-                        // lead is a list marker whose bottom opens a fence, a
-                        // line this body folds in is the fence's verbatim body
-                        // and a flush-left closer among them is text - the same
-                        // frame carve-php#1902 gives the LIST-ITEM host, ported
-                        // to the description-body collector. Framed once, the
-                        // strip in the verbatim body suffices.
-                        $this->descriptionBodyLeadFenceStaysOpen($body, $leadFence);
-                        $body[] = (!str_starts_with($contLine, BlockGrammar::LAZY_FRAME)
-                            && $leadFence->leadOpensBlock)
-                            ? BlockGrammar::LAZY_FRAME . $contLine
-                            : $contLine;
+                        $body[] = $contLine;
                         $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 
@@ -1210,71 +1179,6 @@ final class DefinitionListBuilder
     }
 
     /**
-     * Whether the body's own nested lead opens a fence no collected entry has
-     * closed yet.
-     *
-     * @param array<string> $body Entries the description body has collected.
-     * @param \MarkupCarve\Carve\Parser\CollectedFenceView $scan
-     */
-    private function descriptionBodyLeadFenceStaysOpen(array $body, CollectedFenceView $scan): bool
-    {
-        if (!$scan->initialized) {
-            $scan->initialized = true;
-            $lead = (string)($body[0] ?? '');
-            $scan->leadOpensBlock = ($this->getListParser)()->markerContentOffset($lead) !== null
-                && $this->leadBottomOpensFence($lead);
-            if (!$scan->leadOpensBlock) {
-                return false;
-            }
-
-            $rest = $lead;
-            $contentColumn = 0;
-            while (($offset = ($this->getListParser)()->markerContentOffset($rest)) !== null) {
-                $rest = substr($rest, $offset);
-                $contentColumn += $offset;
-            }
-            $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($rest)
-                ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($rest);
-            // A LINE BLOCK ALSO ANSWERS `leadBottomOpensFence()` and has no fence
-            // closer to look for, so it is not this clause's shape.
-            if ($opener === null) {
-                return false;
-            }
-
-            $scan->column = $contentColumn;
-            $scan->opener = $opener;
-        }
-        if ($scan->opener === null || $scan->closed) {
-            return false;
-        }
-        $last = count($body) - 1;
-        for (; $scan->nextEntry < $last; $scan->nextEntry++) {
-            if ($this->collectedEntryClosesFence($body[$scan->nextEntry], $scan)) {
-                $scan->closed = true;
-
-                return false;
-            }
-            $scan->tailLength = -1;
-        }
-        if ($last >= $scan->nextEntry && strlen($body[$last]) !== $scan->tailLength) {
-            $scan->tailClosed = $this->collectedEntryClosesFence($body[$last], $scan);
-            $scan->tailLength = strlen($body[$last]);
-        }
-
-        return !$scan->tailClosed;
-    }
-
-    private function collectedEntryClosesFence(string $entry, CollectedFenceView $scan): bool
-    {
-        if ($scan->opener === null || IndentationHelper::getLeadingColumns($entry, $scan->column + 1) !== $scan->column) {
-            return false;
-        }
-        $line = IndentationHelper::stripLeadingColumns($entry, $scan->column);
-
-        return ($this->getFencedBlockParser)()->isCodeFenceCloser($line, $scan->opener['char'] ?? $scan->opener['fence'][0], $scan->opener['length']);
-    }
-
-    /**
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
      * @param int $cursor
      * @param array<string> $body
@@ -1345,11 +1249,6 @@ final class DefinitionListBuilder
     private function lastCommentFenceIndex(array $lines, int $length): int
     {
         return ($this->lastCommentFenceIndexCallback)($lines, $length);
-    }
-
-    private function leadBottomOpensFence(string $content): bool
-    {
-        return ($this->leadBottomOpensFenceCallback)($content);
     }
 
     private function lineOpensBlockForLooseness(

@@ -8,7 +8,6 @@ use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\BlockContinuationScanner;
 use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\BlockParser;
-use MarkupCarve\Carve\Parser\CollectedFenceView;
 use MarkupCarve\Carve\Parser\DefinitionListBuilder;
 use MarkupCarve\Carve\Parser\IndexedFenceView;
 use MarkupCarve\Carve\Parser\RangeMaximum;
@@ -43,20 +42,16 @@ class SourceFenceCloserViewTest extends TestCase
 
     public function testCollectedCloserRechecksAnExtendedTail(): void
     {
-        $parser = new BlockParser();
-        $builder = (new ReflectionMethod($parser, 'definitionsBuilder'))->invoke($parser);
-        $method = new ReflectionMethod($builder, 'descriptionBodyLeadFenceStaysOpen');
-        $scan = new CollectedFenceView();
+        $view = new IndexedFenceView();
         $body = ['- ```', '  ```'];
-        $this->assertFalse($method->invoke($builder, $body, $scan));
+        $view->advance($body);
+        $this->assertTrue($view->contains(1, count($body), 2, '`', 3));
         $body[1] .= "\ntext";
-        $this->assertTrue($method->invoke($builder, $body, $scan));
-        $body[] = '  body';
-        $this->assertTrue($method->invoke($builder, $body, $scan));
+        $view->advance($body);
+        $this->assertFalse($view->contains(1, count($body), 2, '`', 3));
         $body[] = '  ```';
-        $this->assertFalse($method->invoke($builder, $body, $scan));
-        $body[] = 'text';
-        $this->assertFalse($method->invoke($builder, $body, $scan));
+        $view->advance($body);
+        $this->assertTrue($view->contains(1, count($body), 2, '`', 3));
     }
 
     public function testParagraphContinuationKeepsItsFirstNonemptyLine(): void
