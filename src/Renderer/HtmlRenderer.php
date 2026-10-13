@@ -781,7 +781,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             while ($pending !== []) {
                 $current = array_pop($pending);
                 $this->getRenderableAttributes($current);
-                foreach ($current->getChildren() as $child) {
+                foreach (array_reverse($current->getChildren()) as $child) {
                     $pending[] = $child;
                 }
             }
@@ -1098,7 +1098,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             return ['data-carve-generated-id' => '1'];
         }
         $carriers = ['data-carve-explicit-id' => '1'];
-        $order = array_values(array_filter($node->getAttributeOrder(), static fn (string $slot): bool => !self::isReservedExportAttribute($slot)));
+        $surviving = $this->getRenderableAttributes($node, ['id']);
+        $order = array_values(array_filter($node->getAttributeOrder(), static fn (string $slot): bool => $slot === '#id' || array_key_exists($slot === '.class' ? 'class' : $slot, $surviving)));
         $idSlot = array_search('#id', $order, true);
         if ($idSlot !== false && $idSlot > 0) {
             $carriers['data-carve-id-slot'] = (string)$idSlot;

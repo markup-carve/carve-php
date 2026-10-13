@@ -11,6 +11,20 @@ use PHPUnit\Framework\TestCase;
 
 class FinalCarrierContractTest extends TestCase
 {
+    public function testCarrierLossesFollowDocumentOrder(): void
+    {
+        $source = "{data-carve-ref=x}\nfirst\n\n{data-carve-tight=1}\nlast\n";
+        $report = (new CarveConverter(roundTripMode: true))->convertWithReport($source);
+        self::assertSame(['data-carve-ref', 'data-carve-tight'], array_column($report->losses, 'attribute'));
+    }
+
+    public function testIdSlotCountsAttributesAfterSanitizing(): void
+    {
+        $html = (new CarveConverter(roundTripMode: true))->convert("{onclick=x .c #mine}\n# H\n");
+        self::assertStringContainsString('data-carve-id-slot="1"', $html);
+        self::assertSame("{.c #mine}\n# H\n", (new HtmlToCarve())->convert($html));
+    }
+
     public function testIdSlotCountsSurvivingAttributes(): void
     {
         $source = "{data-carve-ref=x .c #mine k=v}\n# H\n";

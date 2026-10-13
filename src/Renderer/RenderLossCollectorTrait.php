@@ -251,7 +251,7 @@ trait RenderLossCollectorTrait
             'target' => $this->renderLossTarget,
             'nodeType' => $nodeType,
             'attribute' => $attribute,
-            'message' => sprintf('Dropped authored attribute %s displaced by a roundtrip carrier', $attribute),
+            'message' => sprintf('Dropped authored attribute %s reserved for roundtrip import', $attribute),
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
