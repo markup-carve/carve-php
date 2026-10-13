@@ -2684,6 +2684,7 @@ final class BlockContinuationScanner
                 $child = $this->advanceTrailingStateCore($state->nestedDiv, $local, true);
                 $state->nestedDiv = $child;
                 $state->openParagraph = $child->openParagraph;
+                $state->afterComment = $child->afterComment;
                 $fence = $child->fence;
                 if ($fence === null) {
                     $state->fence = null;
@@ -2705,6 +2706,19 @@ final class BlockContinuationScanner
 
                 return $state;
             }
+            if (
+                $state->nestedDiv->afterComment && $column > 0
+                && (!$this->startsNewBlock($text) || ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
+            ) {
+                $child = clone $state->nestedDiv;
+                $child->openParagraph = true;
+                $child->afterComment = false;
+                $state->nestedDiv = $child;
+                $state->openParagraph = true;
+                $state->afterComment = false;
+
+                return $state;
+            }
             $marker = ($this->getListParser)()->parseListItemMarker($text);
             $structuralMarker = false;
             foreach ($state->nestedDivHosts as $host) {
@@ -2719,6 +2733,19 @@ final class BlockContinuationScanner
             $state->nestedDiv = null;
             $state->nestedDivHosts = [];
             $state->fence = null;
+        }
+        if ($state->afterComment && $state->nestedColumn > 0) {
+            $column = IndentationHelper::getLeadingColumns($line);
+            $text = ltrim($line, " \t");
+            if (
+                $state->nestedColumn > $column && $column > 0
+                && (!$this->startsNewBlock($text) || ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
+            ) {
+                $state->openParagraph = true;
+                $state->afterComment = false;
+
+                return $state;
+            }
         }
         // PART 9 §12's absorption belongs to ONE open paragraph, so it ends
         // wherever that paragraph does. Clearing it here and re-arming it only
@@ -2915,6 +2942,16 @@ final class BlockContinuationScanner
                 $state->openParagraph = false;
 
                 return $state;
+            }
+
+            $markerText = ltrim(BlockGrammar::subjectFrom($line, $at, $end), " \t");
+            $marker = ($this->getListParser)()->parseListItemMarker($markerText);
+            if (
+                $marker !== null && ($state->nestedColumn === 0
+                    || IndentationHelper::getLeadingColumns($line, $state->nestedColumn) < $state->nestedColumn)
+            ) {
+                $state->nestedColumn = IndentationHelper::getLeadingColumns($line)
+                    + $this->listMarkerWidth($markerText, $marker);
             }
 
             // A TABLE, a THEMATIC BREAK and a HEADING inside the div leave no
