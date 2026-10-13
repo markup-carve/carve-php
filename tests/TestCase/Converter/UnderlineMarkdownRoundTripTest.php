@@ -51,4 +51,14 @@ final class UnderlineMarkdownRoundTripTest extends TestCase
         self::assertSame("<p><u>z</u>/y/</p>\n", CarveConverter::create()->convert($imported));
         self::assertStringContainsString('\\/y/', $imported);
     }
+
+    public function testUnderlineAfterLiteralSlashUsesTheForcedForm(): void
+    {
+        foreach (['/<u>y</u>/', 'a/<u>y</u>/', '<u>z</u>/<u>y</u>/'] as $source) {
+            $imported = (new MarkdownToCarve())->convert($source);
+
+            self::assertStringContainsString('{_y_}', $imported);
+            self::assertStringContainsString('/<u>y</u>/', CarveConverter::create()->convert($imported));
+        }
+    }
 }

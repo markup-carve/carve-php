@@ -7609,6 +7609,23 @@ class MarkdownToCarve
             // at all (carve#2838). The bare `_x_` form is preferred, braced where
             // a bare underline would be literal: against a word character, or
             // around a whitespace-padded body.
+            $underlineSource = $line;
+            $line = preg_replace_callback(
+                '/<u>([^<]+)<\/u>/i',
+                function (array $match) use ($protect, $protected, $underlineSource): string {
+                    $before = substr($underlineSource, 0, $match[0][1]);
+                    $last = substr($before, -1);
+                    if (preg_match('/\x00P(\d+)\x00$/', $before, $token) === 1) {
+                        $last = substr($protected[(int)$token[1]] ?? '', -1);
+                    }
+
+                    return $last === '/'
+                        ? $protect('{_') . $match[1][0] . $protect('_}')
+                        : $match[0][0];
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
             $line = $replaceNativeInline('/(?<=[A-Za-z0-9])<u>([^<]+)<\/u>/i', '{_$1_}', $line);
             $line = $replaceNativeInline('/<u>([^<]+)<\/u>(?=[A-Za-z0-9])/i', '{_$1_}', $line);
             $line = $replaceNativeInline('/<u>(\s[^<]*|[^<]*\s)<\/u>/i', '{_$1_}', $line);
