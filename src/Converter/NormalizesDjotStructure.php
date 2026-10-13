@@ -256,6 +256,7 @@ trait NormalizesDjotStructure
         ?Closure $isBoundary = null,
         string $emptyNote = '%%%%',
         ?Closure $holdItemAttributes = null,
+        ?Closure $onLiteralQuote = null,
     ): string {
         if ($holdItemAttributes !== null) {
             $source = $this->deepQuotedItemAttributes($source, $holdItemAttributes);
@@ -705,6 +706,7 @@ trait NormalizesDjotStructure
                     $quoteBoundary = rtrim($quoteForCarve());
                 }
                 if ($paragraph && $quoteDepth > $depth && !$outsideQuoteItem) {
+                    $onLiteralQuote?->__invoke($n, $depth);
                     $written = $originalForCarve($nativeRemainder);
                     $position = 0;
                     $heldDepth = max(0, $depth - ($notes->last()->depth ?? 0));
@@ -955,6 +957,7 @@ trait NormalizesDjotStructure
                 continue;
             }
             if ($paragraph && $quoteDepth > $depth) {
+                $onLiteralQuote?->__invoke($n, $depth);
                 $markerAt = strlen($this->djotClosedQuoteBoundary($quoteForCarve(), max(0, $depth - ($noteOwner->depth ?? 0)))) - 1;
                 $written = $originalForCarve($nativeRemainder);
                 $out[] = substr($written, 0, $markerAt) . '\\' . substr($written, $markerAt);
@@ -1732,9 +1735,16 @@ trait NormalizesDjotStructure
      * @param string $source
      * @param bool $caretOnly
      * @param array<int, array{label: string, target: string, end: int}> $accepted
+     * @param array<string, true> $inherited
+     * @param bool $aliasesOnly
      */
-    private function normalizeDjotReferenceUses(string $source, bool $caretOnly = false, array $accepted = []): string
-    {
+    private function normalizeDjotReferenceUses(
+        string $source,
+        bool $caretOnly = false,
+        array $accepted = [],
+        array $inherited = [],
+        bool $aliasesOnly = false,
+    ): string {
         $mask = $this->maskCodeAndDestinations($source);
         $definitions = [];
         $definitionLines = [];
@@ -1783,7 +1793,7 @@ trait NormalizesDjotStructure
                 $attributeParts = [];
                 $attributeLines = [];
                 $attributeDepth = null;
-                for ($k = $n - 1; $k >= 0 && !$caretOnly; $k--) {
+                for ($k = $n - 1; $k >= 0 && !$caretOnly && !$aliasesOnly; $k--) {
                     $attributeStart = $this->djotContentStart($lines[$k]);
                     $attributePrefix = substr($lines[$k], 0, $attributeStart);
                     $prefix = substr($line, 0, $start);
@@ -1869,6 +1879,9 @@ trait NormalizesDjotStructure
         $tablePipes = [];
         $pipeMask = str_contains($source, '|') ? $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false, 'autolinks' => false, 'attributeValues' => false, 'comments' => false]) : '';
         $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $pipeMask) : [];
+        $quoteDepths = array_map(fn (string $line): int => substr_count(substr($line, 0, $this->djotContentStart($line)), '>'), $lines);
+        $bracketDepths = [];
+        $labelCache = [];
         $rowIndex = 0;
         $slashes = 0;
         for ($at = 0; $at < $length; $at++) {
@@ -1886,6 +1899,7 @@ trait NormalizesDjotStructure
             }
             if ($source[$at] === '[') {
                 $brackets[] = $at;
+                $bracketDepths[$at] = $quoteDepths[$rowIndex] ?? 0;
             } elseif ($source[$at] === ']' && $brackets !== []) {
                 $closers[array_pop($brackets)] = $at;
                 if (($source[$at + 1] ?? '') === '[') {
@@ -1938,10 +1952,14 @@ trait NormalizesDjotStructure
                 continue;
             }
             $label = $explicit === '' ? $content : $explicit;
-            $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
-            $parsedLabel = $explicit === '' && (preg_match('/[_*`{~^]/', $label) === 1 || str_contains($label, '\\'));
+            $parsedLabel = $explicit === '';
+            $formatted = $parsedLabel && strpbrk($content, "_*`{~^\"'\\[]") !== false;
             if ($parsedLabel) {
-                $label = $this->djotReferenceRenderedLabel($label);
+                $depth = $bracketDepths[$open] ?? 0;
+                $cacheKey = $depth . ':' . $label;
+                $label = $labelCache[$cacheKey] ??= $this->djotCollapsedReferenceText($label, $depth, $inherited);
+            } else {
+                $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
             }
             $key = $parsedLabel ? $this->djotReferenceDefinitionKey($label) : $this->djotReferenceKey($label);
             $matches[] = [
@@ -1952,7 +1970,7 @@ trait NormalizesDjotStructure
                 [$own, $labelEnd + 1],
                 $this->djotReferenceAttributeGroups($ownGroups),
                 $key,
-                $parsedLabel,
+                $formatted,
             ];
             $open = $end - 1;
         }
@@ -1996,7 +2014,7 @@ trait NormalizesDjotStructure
         $aliases = [];
         $needsAliases = false;
         foreach ($definitions as $key => $definition) {
-            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
+            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{'))) {
                 $needsAliases = true;
 
                 break;
@@ -2004,11 +2022,33 @@ trait NormalizesDjotStructure
         }
         if ($needsAliases) {
             foreach ($definitions as $key => $definition) {
-                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '['))) {
+                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{'))) {
                     continue;
                 }
                 $aliases[$key] = $nextAlias();
             }
+        }
+        if ($aliasesOnly) {
+            $edits = [];
+            foreach ($definitionLines as $recordLine => $record) {
+                if (isset($aliases[$record['key']])) {
+                    $edits[] = [$offsets[$recordLine] + $record['start'] + 1, $record['labelLength'], $aliases[$record['key']]];
+                }
+            }
+            foreach ($matches as $match) {
+                if (isset($aliases[$match[6]])) {
+                    $edits[] = [$match[3][1], strlen($match[3][0]), $aliases[$match[6]]];
+                }
+            }
+            usort($edits, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+            $result = '';
+            $cursor = 0;
+            foreach ($edits as [$at, $width, $value]) {
+                $result .= substr($source, $cursor, $at - $cursor) . $value;
+                $cursor = $at + $width;
+            }
+
+            return $result . substr($source, $cursor);
         }
         $movedDefinitions = [];
         $liftedAttributes = [];
