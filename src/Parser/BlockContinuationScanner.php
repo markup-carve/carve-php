@@ -3905,6 +3905,7 @@ final class BlockContinuationScanner
      * @param array<string> $itemLines
      * @param int $cursor first line not yet read, kept across calls
      * @param bool $broken set once a line falls below the column
+     * @param bool $forFence whether a comment at the body's column stays with a fence
      */
     private function noteKeepsItsBody(array $itemLines, int &$cursor, bool &$broken, bool $forFence = false): bool
     {
