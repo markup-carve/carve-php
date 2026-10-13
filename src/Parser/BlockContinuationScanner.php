@@ -671,6 +671,8 @@ final class BlockContinuationScanner
             && !$this->isBlockAttributeLine(ltrim($itemLines[0] ?? '', " \t"));
         $markerNoteItem = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $itemLines[0] ?? '') === 1;
         $nestedNoteBodyColumn = null;
+        $nestedNoteTail = null;
+        $nestedNoteTailColumn = 0;
         $sawNestedNote = false;
         $nestedNoteBlankContinues = false;
         $inBlankRun = false;
@@ -707,6 +709,9 @@ final class BlockContinuationScanner
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if ($nestedNoteTail !== null && $nestedNoteTail->fence === null) {
+                    $nestedNoteTail = null;
+                }
                 $rejectedColonFenceLength = null;
                 if (!$inBlankRun) {
                     $nestedNoteBlankContinues = $nestedNoteBodyColumn !== null
@@ -774,7 +779,29 @@ final class BlockContinuationScanner
             ) {
                 $nestedNoteBodyColumn = IndentationHelper::getLeadingColumns($nextLine) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                 $sawNestedNote = true;
+                $nestedNoteTail = null;
             }
+            if ($markerNoteItem) {
+                $noteMarker = ($this->getListParser)()->parseListItemMarker($nextTrimmed);
+                $noteColumn = IndentationHelper::getLeadingColumns($nextLine);
+                if ($nestedNoteBodyColumn !== null && $nestedNoteBodyColumn >= $contentIndent + 2 * BlockGrammar::FOOTNOTE_BODY_COLUMN && $noteMarker !== null && $noteColumn >= $nestedNoteBodyColumn && $i > 0 && IndentationHelper::isBlankLine($lines[$i - 1])) {
+                    $nestedNoteTailColumn = $noteColumn + $this->listMarkerWidth($nextTrimmed, $noteMarker);
+                    $nestedNoteTail = $this->advanceTrailingState(new TrailingBlockState(), $noteMarker['content'], true);
+                } elseif ($nestedNoteTail !== null && $noteColumn >= $nestedNoteTailColumn) {
+                    $nestedNoteTail = $this->advanceTrailingStateWithFenceLookahead(
+                        $nestedNoteTail,
+                        IndentationHelper::stripLeadingColumns($nextLine, $nestedNoteTailColumn),
+                        $lines,
+                        $i,
+                        true,
+                        $nestedNoteTailColumn,
+                    );
+                }
+                if ($noteColumn === 0 && $nestedNoteTail !== null && $nestedNoteTail->openParagraph) {
+                    $trailingState->openParagraph = true;
+                }
+            }
+
             if ($termCodeTailAfterBlank) {
                 if ($nextIndent < $contentIndent) {
                     break;
@@ -3565,7 +3592,7 @@ final class BlockContinuationScanner
         for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
             $text = ltrim($itemLines[$cursor], " \t");
             $broken = $this->isCommentLineOrFence($text)
-                || preg_match('/^\[[^\]]+\]:/', $text) === 1
+                || $this->isReferenceDefinitionLine($text)
                 || (
                     ($this->getListParser)()->parseListItemMarker($text) === null
                     && ($this->isBlockElementStart($text) || $this->startsNewBlock($text))
