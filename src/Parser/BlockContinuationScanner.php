@@ -680,6 +680,8 @@ final class BlockContinuationScanner
         $inBlankRun = false;
         $noteCursor = 1;
         $noteBroken = false;
+        $markerRunCursor = 1;
+        $markerRunBroken = false;
         $leadNoteHadBlank = false;
         $openCommentLength = null;
         // Seeded over the lead for the same reason the comment fence is: the
@@ -1278,18 +1280,28 @@ final class BlockContinuationScanner
                             || $this->listAuthoredFenceCloserAhead($lines, $i, $opener, $column, $contentIndent, $baseIndent, $authoredFenceMisses, $authoredFenceHits)
                         ) {
                             // A fence reaching a note or description body stays with that body (CARVE-P0-004).
+                            $noteBodyFence = $markerNoteItem
+                                && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                                && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken);
+                            $closedNoteBodyFence = $noteBodyFence && !$leadNoteHadBlank
+                                && $this->noteTextIsMarkerLinesOnly($itemLines, $markerRunCursor, $markerRunBroken)
+                                && $this->fenceClosesWithinColumn($lines, $i, $opener, $column);
                             if (
                                 ($nestedNoteBodyColumn === null || $column < $nestedNoteBodyColumn)
-                                && !($markerNoteItem && $leadNoteHadBlank
-                                    && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                                    && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken))
+                                && !($noteBodyFence && $leadNoteHadBlank)
                                 && (
                                     $openDefinitionBody === null
                                     || !$definitionBodyHasTerm
                                     || $column < $contentIndent + $openDefinitionBody
                                 )
                             ) {
-                                $authoredCodeColumn = $column;
+                                // Under a marker-line note the fence opens in the note on its authored base,
+                                // unless it reaches the content column of a list the note opened.
+                                if (!$closedNoteBodyFence) {
+                                    $authoredCodeColumn = $column;
+                                } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent)) {
+                                    $authoredCodeColumn = $column - BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                                }
                             }
                         } else {
                             $inlineAuthoredFence = true;
@@ -3691,6 +3703,75 @@ final class BlockContinuationScanner
     private function entryOpensContainer(string $entry): bool
     {
         return ($this->entryOpensContainerCallback)($entry);
+    }
+
+    /**
+     * Whether the marker-line note's continuation so far is folded marker lines only.
+     *
+     * @param array<string> $itemLines
+     * @param int $cursor first line not yet read, kept across calls
+     * @param bool $broken set once a line is not a marker line
+     */
+    private function noteTextIsMarkerLinesOnly(array $itemLines, int &$cursor, bool &$broken): bool
+    {
+        for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
+            $broken = ($this->getListParser)()->parseListItemMarker(ltrim($itemLines[$cursor], " \t")) === null;
+        }
+
+        return !$broken;
+    }
+
+    /**
+     * The content column of the last marker line under a marker-line note whose
+     * lead opens a block, so the markers open a list rather than fold into text.
+     * PHP_INT_MAX when the markers fold or there are none.
+     *
+     * @param array<string> $itemLines
+     * @param int $contentIndent
+     */
+    private function noteChildContentColumn(array $itemLines, int $contentIndent): int
+    {
+        $count = count($itemLines);
+        $lead = (string)preg_replace(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, '$2', $itemLines[0] ?? '');
+        if (
+            $count < 2
+            || !($this->isCommentLineOrFence($lead) || $this->isBlockElementStart($lead) || $this->startsNewBlock($lead))
+            || preg_match('/^([ \t]*)(\S+)( +)/', $itemLines[$count - 1], $match) !== 1
+        ) {
+            return PHP_INT_MAX;
+        }
+
+        return $contentIndent + IndentationHelper::getLeadingColumns($match[1] . 'x') + strlen($match[2]) + strlen($match[3]);
+    }
+
+    /**
+     * Whether the fence opened at `$column` closes there before any line drops below it.
+     *
+     * @param array<string> $lines
+     * @param int $index
+     * @param array<string, mixed> $opener
+     * @param int $column
+     */
+    private function fenceClosesWithinColumn(array $lines, int $index, array $opener, int $column): bool
+    {
+        /** @var string $fence */
+        $fence = $opener['fence'];
+        for ($j = $index + 1, $count = count($lines); $j < $count; $j++) {
+            if (IndentationHelper::isBlankLine($lines[$j])) {
+                continue;
+            }
+            if (IndentationHelper::getLeadingColumns($lines[$j], $column) < $column) {
+                return false;
+            }
+            if (
+                IndentationHelper::getLeadingColumns($lines[$j]) === $column
+                && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($lines[$j], " \t"), $fence[0], strlen($fence))
+            ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

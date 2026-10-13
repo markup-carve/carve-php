@@ -2,7 +2,7 @@
   {
     "id": "note-ticket-q1",
     "source": "> - [^n]: text\n>     - child\n>     ```\n>     code\n>     ```\nafter [^n]\n",
-    "html": "<blockquote><ul><li><pre><code>code\n</code></pre></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><pre><code>code\n</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "note-v1-q1",
@@ -12,7 +12,7 @@
   {
     "id": "note-ticket-q2",
     "source": "> > - [^n]: text\n> >     - child\n> >     ```\n> >     code\n> >     ```\nafter [^n]\n",
-    "html": "<blockquote><blockquote><ul><li><pre><code>code\n</code></pre></li></ul></blockquote></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><blockquote><ul><li></li></ul></blockquote></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><pre><code>code\n</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "note-v1-q2",
@@ -22,7 +22,7 @@
   {
     "id": "probe-q4",
     "source": "> - [^n]: text\n>     - child\n>     ```\n>     code\n>     ```\nafter [^n]\n",
-    "html": "<blockquote><ul><li><pre><code>code\n</code></pre></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><pre><code>code\n</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "probe-q6",

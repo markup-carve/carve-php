@@ -3324,10 +3324,8 @@
   {
     "id": "authored-code-hosts-13",
     "source": "- [^n]: note\n    ```\n    code\n    ```\nafter\n",
-    "html": "<ul><li><pre><code>code\n</code></pre></li></ul><p>after</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li></li></ul><p>after</p>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-14",
@@ -3364,10 +3362,8 @@
   {
     "id": "authored-code-hosts-18",
     "source": "- [^n]: note\n      ```\n      code\n      ```\nafter\n",
-    "html": "<ul><li><pre><code>code\n</code></pre></li></ul><p>after</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li></li></ul><p>after</p>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-19",
@@ -3404,10 +3400,8 @@
   {
     "id": "authored-code-hosts-23",
     "source": "- [^n]: note\n        ```\n        code\n        ```\nafter\n",
-    "html": "<ul><li><pre><code>code\n</code></pre></li></ul><p>after</p>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<ul><li></li></ul><p>after</p>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-24",
@@ -3498,10 +3492,8 @@
   {
     "id": "authored-code-hosts-37",
     "source": "> - [^n]: note\n>     ```\n>     code\n>     ```\n> after\n",
-    "html": "<blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li></li></ul><p>after</p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-38",
@@ -3538,10 +3530,8 @@
   {
     "id": "authored-code-hosts-42",
     "source": "> - [^n]: note\n>       ```\n>       code\n>       ```\n> after\n",
-    "html": "<blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li></li></ul><p>after</p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-43",
@@ -3578,10 +3568,8 @@
   {
     "id": "authored-code-hosts-47",
     "source": "> - [^n]: note\n>         ```\n>         code\n>         ```\n> after\n",
-    "html": "<blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><ul><li></li></ul><p>after</p></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-48",
@@ -3672,10 +3660,8 @@
   {
     "id": "authored-code-hosts-61",
     "source": "> > - [^n]: note\n> >     ```\n> >     code\n> >     ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-62",
@@ -3712,10 +3698,8 @@
   {
     "id": "authored-code-hosts-66",
     "source": "> > - [^n]: note\n> >       ```\n> >       code\n> >       ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": []
   },
   {
     "id": "authored-code-hosts-67",
@@ -3752,9 +3736,7 @@
   {
     "id": "authored-code-hosts-71",
     "source": "> > - [^n]: note\n> >         ```\n> >         code\n> >         ```\n> > after\n",
-    "html": "<blockquote><blockquote><ul><li><pre><code>code\n</code></pre></li></ul><p>after</p></blockquote></blockquote>",
-    "codePayloads": [
-      "code\n"
-    ]
+    "html": "<blockquote><blockquote><ul><li></li></ul><p>after</p></blockquote></blockquote>",
+    "codePayloads": []
   }
 ]

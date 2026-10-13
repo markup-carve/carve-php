@@ -2081,6 +2081,29 @@ final class ListBlockBuilder
     }
 
     /**
+     * The first line after a lead note that is not one of its folded marker lines, or -1.
+     *
+     * @param array<string> $lines
+     * @param int|null $lead
+     */
+    private function leadNoteMarkerRunEnd(array $lines, ?int $lead): int
+    {
+        if ($lead === null || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $lines[$lead]) !== 1) {
+            return -1;
+        }
+        for ($j = $lead + 1, $count = count($lines); $j < $count; $j++) {
+            if (
+                IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN
+                || ($this->getListParser)()->parseListItemMarker(ltrim($lines[$j], " \t")) === null
+            ) {
+                return $j;
+            }
+        }
+
+        return -1;
+    }
+
+    /**
      * The last line a note leading the chunk owns before a blank, a comment,
      * another definition or a block start, or -1. A marker line among them is
      * the note's own, not a list level of the item (PART 9 §16).
@@ -2232,6 +2255,7 @@ final class ListBlockBuilder
             }
         }
         $leadNoteTextEnd = $this->leadNoteTextEnd($lines);
+        $leadNoteFenceLine = $absorbLeadNoteBody ? $this->leadNoteMarkerRunEnd($lines, $firstContentLine === null ? null : (int)$firstContentLine) : -1;
         $afterBlank = false;
         $blockState = new TrailingBlockState();
         $blockStateCursor = 0;
@@ -2265,6 +2289,26 @@ final class ListBlockBuilder
                     $closer = $this->colonFenceEnd($lines, $i, $minimumDiv['length'], $count, null);
                     $minimumColonEnd = $closer === -1 ? $count - 1 : $closer;
                     $minimumColonIsLiteral = $minimumDiv['className'] === '|';
+                }
+            }
+            // A closed fence at a marker-line note's body column opens in the note (CARVE-P2-017).
+            if ($i === $leadNoteFenceLine && IndentationHelper::getLeadingColumns($line) === BlockGrammar::FOOTNOTE_BODY_COLUMN) {
+                $noteFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"));
+                if ($noteFence !== null) {
+                    for ($j = $i + 1; $j < $count; $j++) {
+                        if (IndentationHelper::isBlankLine($lines[$j])) {
+                            continue;
+                        }
+                        if (IndentationHelper::getLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN) {
+                            break;
+                        }
+                        $payload = IndentationHelper::stripLeadingColumns($lines[$j], BlockGrammar::FOOTNOTE_BODY_COLUMN);
+                        if (($this->getFencedBlockParser)()->isCodeFenceCloser($payload, $noteFence['fence'][0], strlen($noteFence['fence']))) {
+                            $i = $j;
+
+                            continue 2;
+                        }
+                    }
                 }
             }
             if ($i <= $minimumColonEnd && preg_match('/^[ \t]+:{3,}[ \t]*$/', $line) === 1) {
