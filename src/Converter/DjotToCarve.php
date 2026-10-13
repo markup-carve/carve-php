@@ -12,7 +12,6 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
-use MarkupCarve\Carve\Renderer\PlainTextRenderer;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
@@ -290,7 +289,7 @@ class DjotToCarve
             $label = $layout['normalized'];
             [$label, $scalars] = $this->protectImageAltScalars($label);
             $continuations = $layout['continuations'];
-            $renderer = new PlainTextRenderer();
+            $renderer = new DjotImageChildTextRenderer();
             if (str_contains($label, "\n")) {
                 $renderer->setSoftBreakMode(SoftBreakMode::Newline);
             }
@@ -3160,15 +3159,11 @@ class DjotToCarve
                 $opens = [];
             }
             if ($mask[$at] === '[' && !$this->isDjotEscaped($source, $at)) {
-                $parent = array_key_last($opens);
-                if ($parent !== null) {
-                    $opens[$parent]['nested'] = true;
-                }
-                $opens[] = ['at' => $at, 'nested' => false];
+                $opens[] = $at;
             } elseif ($mask[$at] === ']' && !$this->isDjotEscaped($source, $at)) {
                 $open = array_pop($opens);
-                if ($open !== null && !$open['nested'] && $open['at'] > 0 && $source[$open['at'] - 1] === '!' && $mask[$open['at'] - 1] === '!' && !$this->isDjotEscaped($source, $open['at'] - 1) && in_array($source[$at + 1] ?? '', ['(', '['], true)) {
-                    $closes[$open['at'] - 1] = $at;
+                if ($open !== null && $open > 0 && $source[$open - 1] === '!' && $mask[$open - 1] === '!' && !$this->isDjotEscaped($source, $open - 1) && in_array($source[$at + 1] ?? '', ['(', '['], true)) {
+                    $closes[$open - 1] = $at;
                 }
             }
         }
@@ -3182,8 +3177,13 @@ class DjotToCarve
                 continue;
             }
             $end = $closes[$at];
+            $image = substr($source, $at, $end + 1 - $at);
+            $replaced = $replace([[$image, $at], [substr($source, $at + 2, $end - $at - 2), $at + 2]]);
+            if ($replaced === $image) {
+                continue;
+            }
             $chunks[] = substr($source, $cursor, $at - $cursor);
-            $chunks[] = $replace([[substr($source, $at, $end + 1 - $at), $at], [substr($source, $at + 2, $end - $at - 2), $at + 2]]);
+            $chunks[] = $replaced;
             $cursor = $end + 1;
             $at = $end;
         }
@@ -3903,7 +3903,7 @@ class DjotToCarve
                         $altDefinitions[] = $pipeDefinitions[$alias];
                     }
                 }
-                $label = (new CarveConverter(smartTypography: false, renderer: new PlainTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert(($altDefinitions !== [] ? implode("\n", $altDefinitions) . "\n\n" : '') . 'DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND')));
+                $label = (new CarveConverter(smartTypography: false, renderer: new DjotImageChildTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convert(($altDefinitions !== [] ? implode("\n", $altDefinitions) . "\n\n" : '') . 'DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND')));
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
                 $label = str_replace(['\\', '[', ']'], ['\\\\', '\\[', '\\]'], $label);
             }

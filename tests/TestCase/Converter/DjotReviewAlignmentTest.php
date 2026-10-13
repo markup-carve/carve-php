@@ -413,4 +413,15 @@ class DjotReviewAlignmentTest extends TestCase
             self::assertSame($case['html'], $html, $case['source'] . "\n" . $imported);
         }
     }
+
+    public function testImageReferenceChildText(): void
+    {
+        $cases = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-image-reference-child-text.json'), true, flags: JSON_THROW_ON_ERROR);
+        foreach ($cases as $case) {
+            $imported = (new DjotToCarve())->convert($case['source']);
+            $html = (new CarveConverter())->convert($imported);
+            preg_match('/<img\b[^>]*\balt="([^"]*)"/', $html, $match);
+            self::assertSame($case['alt'], $match[1] ?? null, $case['source'] . "\n" . $imported);
+        }
+    }
 }
