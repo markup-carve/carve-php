@@ -3034,7 +3034,7 @@ class BlockParser
             // as outside one.
             $commentOffset = null;
             $labelNodes = ContainerLabelParser::parse($label, $this->inlineParser, $commentOffset);
-            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), " \t"));
+            $div->setLabel($commentOffset === null ? $label : rtrim(substr($label, 0, $commentOffset), " "));
             $div->setLabelNodes($labelNodes);
         }
 
