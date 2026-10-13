@@ -7508,7 +7508,24 @@ class MarkdownToCarve
 
         $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
 
+        // Keep exact native HTML tags intact while escaping Carve-only
+        // delimiters. A following slash pair can otherwise make the slash in
+        // </u> look like a Carve opener before the tag is converted below.
+        $nativeTags = [];
+        $line = preg_replace_callback('~(?<=</u>)/(?=[A-Za-z0-9])~i', static function (array $match) use (&$nativeTags): string {
+            $token = "\0N" . count($nativeTags) . "\0";
+            $nativeTags[$token] = $match[0];
+
+            return $token;
+        }, $line) ?? $line;
+        $line = preg_replace_callback('/<\/?(?:code|mark|ins|del|s|sup|sub|strong|b|em|i|u)>/i', static function (array $match) use (&$nativeTags): string {
+            $token = "\0N" . count($nativeTags) . "\0";
+            $nativeTags[$token] = $match[0];
+
+            return $token;
+        }, $line) ?? $line;
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
+        $line = strtr($line, $nativeTags);
         $line = $this->restoreNumericReferenceHashes($line);
         $line = str_replace('&#', '&\\#', $line);
 
