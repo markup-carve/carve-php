@@ -624,7 +624,7 @@ final class HtmlAstBuilder
         foreach (array_reverse($this->session->abbreviationDefinitions, true) as $abbr => $expansion) {
             $definition = [
                 'type' => 'abbreviation_def',
-                'abbr' => $abbr,
+                'abbr' => (string)$abbr,
                 'expansion' => $expansion,
             ];
             $this->addHint($definition, "\0carve-compact-definition");

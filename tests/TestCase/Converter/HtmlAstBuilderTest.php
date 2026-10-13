@@ -14,6 +14,15 @@ class HtmlAstBuilderTest extends TestCase
 {
     use ScalingGuardTrait;
 
+    public function testNumericAbbreviationDefinitionsKeepStringTerms(): void
+    {
+        $tree = (new HtmlAstBuilder())->build('<template data-carve-abbreviations>*[9]: nine
+*[42]: answer
+*[1a]: first</template><p>9 42 1a</p>');
+        self::assertSame(['9', '42', '1a'], array_column(array_slice($tree['children'], 0, 3), 'abbr'));
+        (new \MarkupCarve\Carve\Ast\AstCodec())->decode($tree);
+    }
+
     public function testTableSectionsKeepTheirOwnRetainedRows(): void
     {
         $tree = (new HtmlAstBuilder())->build(
