@@ -9,6 +9,7 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
+use Throwable;
 use function basename;
 use function file_exists;
 use function file_get_contents;
@@ -1385,6 +1386,16 @@ class CarveCorpusTest extends TestCase
     {
         $knownGap = self::knownGap($slug);
         if ($knownGap !== null) {
+            try {
+                $actual = $this->converter->convert($crv);
+            } catch (Throwable) {
+                $this->markTestIncomplete($knownGap);
+            }
+            $this->assertNotSame(
+                $this->normalize($html),
+                $this->normalize($actual),
+                $slug . ' now matches the pinned corpus: delete its KNOWN_GAPS entry',
+            );
             $this->markTestIncomplete($knownGap);
         }
 

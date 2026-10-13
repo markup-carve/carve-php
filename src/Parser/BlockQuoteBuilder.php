@@ -7,7 +7,6 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
-use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -295,8 +294,7 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
-                && !($parent instanceof ListItem
-                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
+                && !(preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
                     && $this->lastQuoteLineIsATerm($innerLines))
                 && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
                     && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0)
@@ -1203,6 +1201,7 @@ final class BlockQuoteBuilder
     {
         $last = array_key_last($lines);
         $line = $last === null ? '' : $lines[$last];
+        $line = ContainerPrefix::afterLeadingQuoteMarkers($line);
         $at = IndentationHelper::pastLeadingWhitespace($line);
         $at = ($this->getListParser)()->markerWalkOffset($line, $at) ?? $at;
 
