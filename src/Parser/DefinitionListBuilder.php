@@ -394,6 +394,9 @@ final class DefinitionListBuilder
                 // `:  two` may sit in one entry, and each one's continuations
                 // answer to its own column.
                 $continuationColumn = BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($m[1]);
+                $definitionSource = $this->sourceLineFor($definitionStart);
+                $authoredDefinition = $this->state->source->sourceLines[$definitionSource] ?? '';
+                $definitionOffset = strrpos($authoredDefinition, $lines[$definitionStart]);
                 $i++;
                 // First-block form (`: +`, mirroring the list `- +`): when the
                 // sole content is a lone `+`, the body is the FOLLOWING
@@ -468,6 +471,25 @@ final class DefinitionListBuilder
                 $retainedBelowComment = false;
                 while ($i < $count) {
                     $contLine = $lines[$i];
+                    $lastBody = $body === [] ? '' : $body[array_key_last($body)];
+                    if (
+                        $definitionOffset !== false
+                        && (str_starts_with($contLine, BlockGrammar::LAZY_FRAME)
+                            || str_starts_with($lastBody, BlockGrammar::LAZY_FRAME)
+                            || str_contains($lastBody, "\n"))
+                    ) {
+                        $subject = BlockGrammar::stripLazyFrame($contLine);
+                        $sourceLine = $this->sourceLineFor($i);
+                        $authored = $this->state->source->sourceLines[$sourceLine] ?? '';
+                        $sourceOffset = strrpos($authored, $subject);
+                        if (
+                            $sourceOffset !== false
+                            && $sourceOffset - $definitionOffset >= $continuationColumn
+                            && $this->lineOpensBlockForLooseness($subject, true, invisibleArms: false)
+                        ) {
+                            $contLine = str_repeat(' ', $sourceOffset - $definitionOffset) . $subject;
+                        }
+                    }
                     // Form B: `+` pull-left continuation.
                     if (preg_match('/^\+[ \t]*$/', $contLine)) {
                         $i++;

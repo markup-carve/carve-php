@@ -976,6 +976,13 @@ final class BlockContinuationScanner
                 ) {
                     $inlineCodeParagraph = false;
                 }
+                if (
+                    $inlineCodeParagraph && $openDefinitionBody !== null
+                    && IndentationHelper::getLeadingColumns($nextLine) >= $contentIndent + $openDefinitionBody
+                    && $this->startsNewBlock($nextTrimmed, $lines, $i)
+                ) {
+                    $inlineCodeParagraph = false;
+                }
                 if ($inlineCodeParagraph) {
                     $column = IndentationHelper::getLeadingColumns($nextLine, $inlineFenceColumn + 1);
                     if ($column <= $inlineFenceColumn) {
@@ -1364,7 +1371,15 @@ final class BlockContinuationScanner
                 }
                 $authoredBaseEligible[count($itemLines)] = true;
                 $itemLines[] = $contentLine;
-                $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $contentLine);
+                $nextDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $contentLine);
+                if (
+                    $nextDefinitionBody === null && $openDefinitionBody !== null
+                    && $trailingState->openParagraph
+                    && !$this->startsNewBlock($nextTrimmed, $lines, $i)
+                ) {
+                    $nextDefinitionBody = $openDefinitionBody;
+                }
+                $openDefinitionBody = $nextDefinitionBody;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 // AT OR PAST the item's content column - the branch guard is
                 // `>=` and the line was dedented BY that column to get here -
@@ -1728,7 +1743,11 @@ final class BlockContinuationScanner
                 $foldedAsText = true;
             } else {
                 $itemLines[] = $nextTrimmed;
-                $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
+                $nextDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
+                if ($nextDefinitionBody === null && $openDefinitionBody !== null && $trailingState->openParagraph && !$this->startsNewBlock($nextTrimmed, $lines, $i)) {
+                    $nextDefinitionBody = $openDefinitionBody;
+                }
+                $openDefinitionBody = $nextDefinitionBody;
                 $itemLineMap[] = $this->sourceLineFor($i);
             }
             if ($foldedAsText) {
