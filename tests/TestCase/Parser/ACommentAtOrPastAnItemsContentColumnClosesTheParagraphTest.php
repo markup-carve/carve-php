@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Test\PinnedOracleHtml;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -169,11 +170,11 @@ class ACommentAtOrPastAnItemsContentColumnClosesTheParagraphTest extends TestCas
     }
 
     #[DataProvider('descriptionBandProvider')]
-    public function testTheDescriptionHostIsUnchangedAcrossTheBand(int $column): void
+    public function testTheDescriptionHostReadsTheCommentColumn(int $column): void
     {
-        $html = $this->converter->convert(":: t\n:  a\n" . str_repeat(' ', $column) . "%% c\ntail");
-
-        $this->assertSame("<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>tail</p>", trim($html));
+        $source = ":: t\n:  a\n" . str_repeat(' ', $column) . "%% c\ntail";
+        $html = $this->converter->convert($source);
+        $this->assertSame(trim(PinnedOracleHtml::forSource($source)), trim($html));
     }
 
     /**

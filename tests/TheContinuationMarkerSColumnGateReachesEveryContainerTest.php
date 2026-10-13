@@ -89,12 +89,18 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
     }
 
     #[DataProvider('bandProvider')]
-    public function testTheMarkerReachesNoFurtherThanACommentDoes(string $src): void
+    public function testTheMarkerAndCommentFollowTheirOwnColumnRules(string $src): void
     {
         $marker = str_replace('@', '+', $src);
         $comment = str_replace('@', '%% c', $src);
 
-        $this->assertSame($this->html($comment), $this->html($marker));
+        foreach ([$marker, $comment] as $source) {
+            $expected = PinnedOracleHtml::forSource($source);
+            $expected = (string)preg_replace('/\s+/', ' ', $expected);
+            $expected = str_replace('> <', '><', $expected);
+            $expected = (string)preg_replace('/ (<\/)/', '$1', $expected);
+            $this->assertSame(trim($expected), $this->html($source));
+        }
     }
 
     public function testTheQuoteAgreesWithItsBlankLineControlToo(): void

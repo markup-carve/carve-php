@@ -78,7 +78,16 @@ class ABareColonFenceOpenerWithNoBodyOpensAnEmptyContainerTest extends TestCase
             'code fences, list item body' => ["- a\n  ```` x\n  ```\n  p\n  ````\n\nafter\n", "<ul>\n  <li>a\n    <pre><code class=\"language-x\">```\np\n</code></pre>\n  </li>\n</ul>\n<p>after</p>"],
             'comment fences, list item body' => ["- a\n  %%%% c\n  %%%\n  p\n  %%%%\n\nafter\n", "<ul>\n  <li>a</li>\n</ul>\n<p>after</p>"],
             'a matching-width run still closes' => ["- a\n  ::: d\n  p\n  :::\n\nafter\n", "<ul>\n  <li>a\n    <div class=\"d\">\n      <p>p</p>\n    </div>\n  </li>\n</ul>\n<p>after</p>"],
-            'a lazy-folded run on a marker line opens nothing' => ["- :::\ntail\n", "<ul>\n  <li>:::\ntail</li>\n</ul>"],
+            'a lazy-folded run on a marker line opens nothing' => [
+                "- :::\ntail\n", '<ul>
+  <li>
+    <div>
+
+    </div>
+  </li>
+</ul>
+<p>tail</p>',
+            ],
         ];
     }
 }

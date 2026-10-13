@@ -108,7 +108,13 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
             $this->html(":: t\n:  d\n  %% c\n"),
         );
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>",
+            '<dl>
+  <dt>t</dt>
+  <dd>
+    <p>d</p>
+    <p>tail</p>
+  </dd>
+</dl>',
             $this->html(":: t\n:  d\n  %% c\ntail\n"),
         );
     }

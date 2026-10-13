@@ -232,7 +232,7 @@
   {
     "id": "preservation-5463",
     "source": "- a\n  ```\n  c\n\t\t`````\n        %% c\n {.c}\n \t{.c}\n\nafter\n",
-    "html": "<ul><li>a\n<code>\nc\n`````</code>\n    {.c}\n{.c}\n  </li></ul><p>after</p>"
+    "html": "<ul>\n  <li>a\n<code>\nc\n`````</code></li>\n</ul>\n<p>{.c}\n{.c}</p>\n<p>after</p>"
   },
   {
     "id": "preservation-5595",

@@ -322,7 +322,22 @@ class LazyContinuationNeedsAnOpenParagraphTest extends TestCase
             ],
             'div opener' => [
                 "- - ::: note\nb\n:::\nlazy\n",
-                "<ul>\n  <li>\n    <ul>\n      <li>::: note\nb</li>\n    </ul>\n  </li>\n</ul>\n<div>\n  <p>lazy</p>\n</div>\n",
+                '<ul>
+  <li>
+    <ul>
+      <li>
+        <aside class="admonition note" aria-label="Note">
+
+        </aside>
+      </li>
+    </ul>
+  </li>
+</ul>
+<p>b</p>
+<div>
+  <p>lazy</p>
+</div>
+',
             ],
         ];
     }

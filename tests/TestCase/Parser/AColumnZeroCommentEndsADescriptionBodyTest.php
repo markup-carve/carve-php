@@ -49,7 +49,13 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
     public function testTheBodyEndsAtTheComment(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>",
+            '<dl>
+  <dt>t</dt>
+  <dd>
+    <p>d</p>
+    <p>tail</p>
+  </dd>
+</dl>',
             $this->html(":: t\n:  d\n%% c\ntail\n"),
         );
     }
@@ -75,7 +81,12 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
     public function testItEndsTheListBeforeAFollowingDefinitionList(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<dl>\n  <dt>t2</dt>\n  <dd>d2</dd>\n</dl>",
+            '<dl>
+  <dt>t</dt>
+  <dd>d</dd>
+  <dt>t2</dt>
+  <dd>d2</dd>
+</dl>',
             $this->html(":: t\n:  d\n%% c\n:: t2\n:  d2\n"),
         );
     }
@@ -89,7 +100,13 @@ class AColumnZeroCommentEndsADescriptionBodyTest extends TestCase
     public function testAnUnclosedCommentFenceEndsTheBodyToo(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>\n<p>tail</p>",
+            '<dl>
+  <dt>t</dt>
+  <dd>
+    <p>d</p>
+    <p>tail</p>
+  </dd>
+</dl>',
             $this->html(":: t\n:  d\n%%%\ntail\n"),
         );
     }

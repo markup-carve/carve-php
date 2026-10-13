@@ -332,7 +332,7 @@
   {
     "name": "nested-colon-plain-follower",
     "source": "- - ::: box\ntail\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>::: box\ntail</li>\n    </ul>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"box\">\n\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>"
   },
   {
     "name": "quoted-term-list-host",
