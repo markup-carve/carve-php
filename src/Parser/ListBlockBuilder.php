@@ -153,6 +153,9 @@ final class ListBlockBuilder
         $listSourceLine = $this->sourceLineFor($start);
         $sourceTail = rtrim($this->state->source->sourceLines[$listSourceLine] ?? '', " \t");
         $lineTail = rtrim($line, " \t");
+        if (str_contains(substr($sourceTail, 0, max(0, strlen($sourceTail) - strlen($lineTail))), '>')) {
+            $lineTail = ltrim($lineTail, " \t");
+        }
         $listOpeningColumn = $parent instanceof Document
             ? 0
             : (str_ends_with($sourceTail, $lineTail)
@@ -1023,7 +1026,7 @@ final class ListBlockBuilder
             $itemOpeningColumn = str_contains($itemPrefix, "\t")
                 && $itemMarkerColumn <= $listOpeningColumn
                 ? 0
-                : $listOpeningColumn;
+                : (str_contains($itemPrefix, '>') ? $itemMarkerColumn : $listOpeningColumn);
             // Attributes from an abutting `{...}` block attach to the <li>.
             if (isset($itemInfo['attributes'])) {
                 /** @var array<string, string|list<string>> $markerAttributes */
