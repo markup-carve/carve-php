@@ -28,7 +28,8 @@ class AContinuationCannotAddAColumnPastTheRowAboveTest extends TestCase
         $source = "| `a | z |\n+ b` | w |\n";
         $written = CarveConverter::toCarve($source);
 
-        $this->assertSame("| `a | z b` |\n+ |\n", $written);
+        // The join inside the code span is carried as cellWraps (CARVE-P12-069).
+        $this->assertSame("| `a | z |\n+ b` |\n", $written);
         $this->assertSame($written, CarveConverter::toCarve($written));
         $this->assertSame($this->cellCount($source), $this->cellCount($written));
     }
