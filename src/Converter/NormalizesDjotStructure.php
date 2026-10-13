@@ -662,7 +662,7 @@ trait NormalizesDjotStructure
                 if ($paragraph && $quoteDepth > $depth && !$outsideQuoteItem) {
                     $written = $originalForCarve($nativeRemainder);
                     $position = 0;
-                    $heldDepth = max(0, $depth - $noteOwner->depth);
+                    $heldDepth = max(0, $depth - ($notes->last()?->depth ?? 0));
                     for ($level = 0; $level < $heldDepth; $level++) {
                         preg_match('/\G[ \t]*>[ \t]?/', $written, $heldQuote, offset: $position);
                         $position += strlen($heldQuote[0] ?? '');
