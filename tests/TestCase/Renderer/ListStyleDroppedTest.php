@@ -179,6 +179,7 @@ class ListStyleDroppedTest extends TestCase
             'nested noninitial before sibling paragraph' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  - sib\n\n  para\n- next\n", "- outer\n  b. two\n  - sib\n\n  para\n\n- next\n"],
             'nested noninitial before later paragraph' => ["- outer\n  <!-- carve: a. -->\n  2. two\nlazy\n\npara\n", "{loose}\n- outer\n  b. two\n     lazy\n\npara\n"],
             'nested noninitial before another list' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  - sib\n\npara\n\n- other\n", "{loose}\n- outer\n  b. two\n  - sib\n\npara\n\n- other\n"],
+            'nested noninitial with loose siblings' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  - sib\n\n  - sib2\n- next\n", "- outer\n  b. two\n  - sib\n\n  - sib2\n\n- next\n"],
         ];
     }
 

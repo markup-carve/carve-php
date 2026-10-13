@@ -1325,6 +1325,9 @@ class MarkdownToCarve
                             if (strlen($items[$next]['lead']) > strlen($lead) || preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$next]['text']) !== 1) {
                                 break;
                             }
+                            if ($after > $lastStyled + 1 && strlen($items[$next]['lead']) === strlen($lead)) {
+                                break;
+                            }
                             if (($item['styleBlankBeforeOuter'] ?? false) && strlen($items[$next]['lead']) < strlen($lead)) {
                                 break;
                             }
