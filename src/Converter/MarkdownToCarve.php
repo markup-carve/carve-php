@@ -341,7 +341,7 @@ class MarkdownToCarve
      * The carrier payloads this conversion lifted out of the source, in the
      * order their marker lines appeared.
      *
-     * @var list<array{payload: string, depth: int, closer: bool, caption: bool, fence: bool, fenceTightAfter: bool, style: bool, equation: string|null}>
+     * @var list<array{payload: string, depth: int, closer: bool, caption: bool, fence: bool, fenceTightAfter: bool, style: bool, styleTightAfter: bool, equation: string|null}>
      */
     protected array $carrierSlots = [];
 
@@ -648,6 +648,8 @@ class MarkdownToCarve
             $blankHost = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
             $insideItem = $at > 0 && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$at - 1], $listStart) === 1
                 && strlen($host) >= strlen($listStart[0]);
+            $nextNumber = $styleMarker && preg_match('/^([0-9]+)[.)][ \t]+/', $this->withoutCarrierHost($lines[$at + 1] ?? '', $host), $number) === 1
+                ? (int)$number[1] : 1;
             if (
                 $styleMarker && $at > 0 && trim($this->withoutCarrierHost($lines[$at - 1], $host)) !== ''
                 && !str_starts_with($payloads[$at - 1] ?? '', '{') && !$insideItem
@@ -655,7 +657,7 @@ class MarkdownToCarve
                 $out[] = $blankHost;
             }
             $out[] = $host . $token . count($this->carrierSlots) . 'Z';
-            if ($styleMarker && !$insideItem) {
+            if ($styleMarker && (!$insideItem || $nextNumber !== 1)) {
                 $out[] = $blankHost;
             }
             $equation = null;
@@ -677,6 +679,7 @@ class MarkdownToCarve
                 'fence' => CarrierMarkers::isCodeFence($payload),
                 'fenceTightAfter' => CarrierMarkers::isCodeFence($payload) && $this->carrierFenceTightAfter($lines, $at, $host),
                 'style' => $styleMarker,
+                'styleTightAfter' => $styleMarker && $insideItem && $nextNumber !== 1 && $this->carrierStyleTightAfter($lines, $at, $host),
                 'equation' => $equation,
             ];
             // The writer emitted the opener's title and label, and a group
@@ -973,6 +976,31 @@ class MarkdownToCarve
         return false;
     }
 
+    /**
+     * @param list<string> $lines
+     * @param int $markerAt
+     * @param string $host
+     */
+    protected function carrierStyleTightAfter(array $lines, int $markerAt, string $host): bool
+    {
+        for ($at = $markerAt + 1, $count = count($lines); $at < $count; $at++) {
+            $line = $lines[$at];
+            if (trim($line) === '') {
+                return false;
+            }
+            if (str_starts_with($line, $host)) {
+                $body = substr($line, strlen($host));
+                if (preg_match('/^[0-9]+[.)][ \t]+/', $body) === 1 || preg_match('/^[ \t]+\S/', $body) === 1) {
+                    continue;
+                }
+            }
+
+            return preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $line) === 1;
+        }
+
+        return false;
+    }
+
     protected function attachedCaptionCount(Node $node): int
     {
         $count = $node instanceof Figure && $node->getCaption() !== null ? 1 : 0;
@@ -1002,7 +1030,7 @@ class MarkdownToCarve
         // any, produced it: 'open' for an opener or the attribute line
         // travelling with it, 'close' for a bare closer, 'caption' for a
         // composite figure's caption line.
-        /** @var list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items */
+        /** @var list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items */
         $items = [];
         foreach (explode("\n", $carve) as $line) {
             // THE PREFIX IS WHATEVER STANDS BEFORE THE TOKEN rather than a
@@ -1030,7 +1058,7 @@ class MarkdownToCarve
                 }
             }
             $kind = $slot['style'] ? 'style' : ($slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open'));
-            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence'], 'fenceTightAfter' => $slot['fenceTightAfter'], 'depth' => $slot['depth']];
+            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence'], 'fenceTightAfter' => $slot['fenceTightAfter'], 'styleTightAfter' => $slot['styleTightAfter'], 'depth' => $slot['depth']];
         }
         $items = $this->anchorCarrierClosers($items);
         $definitions = [];
@@ -1184,9 +1212,9 @@ class MarkdownToCarve
     }
 
     /**
-     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items
      *
-     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}>
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, tightFenceOpener?: string, depth?: int}>
      */
     protected function restoreListStyleMarkers(array $items): array
     {
@@ -1209,6 +1237,7 @@ class MarkdownToCarve
             $lead = $items[$below]['lead'];
             $counter = $start;
             $delimiter = $first[2];
+            $lastStyled = null;
             for ($cursor = $below, $last = array_key_last($items); $cursor <= $last; $cursor++) {
                 if (!isset($items[$cursor])) {
                     continue;
@@ -1229,7 +1258,22 @@ class MarkdownToCarve
                 }
                 $line['text'] = $this->carrierStyledNumber($counter, $style) . $delimiter . $marker[3];
                 $items[$cursor] = $line;
+                $lastStyled = $cursor;
                 $counter++;
+            }
+            if (($item['styleTightAfter'] ?? false) && $lastStyled !== null) {
+                $after = $lastStyled + 1;
+                while (isset($items[$after]) && $items[$after]['kind'] === null && $items[$after]['text'] === '') {
+                    $after++;
+                }
+                if (
+                    isset($items[$after]) && strlen($items[$after]['lead']) < strlen($lead)
+                    && preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$after]['text']) === 1
+                ) {
+                    for ($drop = $lastStyled + 1; $drop < $after; $drop++) {
+                        unset($items[$drop]);
+                    }
+                }
             }
             for ($drop = $at; $drop < $below; $drop++) {
                 unset($items[$drop]);
@@ -1268,9 +1312,9 @@ class MarkdownToCarve
      * the answer, with any list marker in it blanked out, because a closer
      * cannot repeat an item's marker.
      *
-     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items
      *
-     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}>
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, tightFenceOpener?: string, depth?: int}>
      */
     protected function anchorCarrierClosers(array $items): array
     {
@@ -1310,9 +1354,9 @@ class MarkdownToCarve
      * around it: a container's opener and closer hug its body, and what follows
      * a closer is a block of its own.
      *
-     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, tightFenceOpener?: string, depth?: int}> $items
      *
-     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, tightFenceOpener?: string, depth?: int}>
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, tightFenceOpener?: string, depth?: int}>
      */
     protected function separateCarrierLines(array $items): array
     {

@@ -170,6 +170,8 @@ class ListStyleDroppedTest extends TestCase
             'table' => ["| a |\n|---|\n| b |\n<!-- carve: a. -->\n1. one\n", "|= a |\n| b |\n\na. one\n"],
             'nested bullet' => ["- outer\n  <!-- carve: a. -->\n  1. one\n  2. two\n- next\n", "- outer\n  a. one\n  b. two\n- next\n"],
             'nested ordered' => ["1. outer\n   <!-- carve: a. -->\n   1. one\n2. next\n", "1. outer\n   a. one\n2. next\n"],
+            'nested noninitial start' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  3. three\n- next\n", "- outer\n  b. two\n  c. three\n- next\n"],
+            'nested noninitial loose' => ["- outer\n  <!-- carve: a. -->\n  2. two\n  3. three\n\n- next\n", "- outer\n  b. two\n  c. three\n\n- next\n"],
         ];
     }
 
