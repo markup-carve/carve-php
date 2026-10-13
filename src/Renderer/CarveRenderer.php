@@ -3079,6 +3079,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($block instanceof ThematicBreak) {
                     $reason = 'a thematic break has no inline spelling in a table cell';
                     $this->recordUnspellableStructure($block, $reason);
+
                     throw new SourceUnspellableException('thematic_break', $reason);
                 }
                 array_push($pending, ...$block->getChildren());
