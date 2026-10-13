@@ -3671,7 +3671,7 @@ final class HtmlAstBuilder
         if ($structuralKind !== '' || $classKindIsSpellable) {
             $kind = $structuralKind !== '' ? $structuralKind : ($classKind === 'line-block' ? '|' : $classKind);
             $container = $kind === '|'
-                ? ['type' => 'line_block', 'children' => $children]
+                ? ['type' => 'line_block', 'children' => $this->lineBlockPadding($children)]
                 : $this->namedContainer($kind, $children);
             if ($classKind !== '') {
                 unset($classes[$kindIndex]);
@@ -4623,6 +4623,43 @@ final class HtmlAstBuilder
         }
 
         return $this->inlines($this->children($node));
+    }
+
+    /**
+     * @phpstan-param list<ImportedNode> $children
+     * @phpstan-return list<ImportedNode>
+     */
+    private function lineBlockPadding(array $children): array
+    {
+        foreach ($children as &$paragraph) {
+            if ($paragraph['type'] !== 'paragraph') {
+                continue;
+            }
+            $out = [];
+            $leading = true;
+            foreach (self::nodeList($paragraph['children'] ?? []) as $inline) {
+                if ($leading && $inline['type'] === 'text'
+                    && preg_match('/^\x{00a0}+/u', self::stringValue($inline['value'] ?? null), $match) === 1) {
+                    for ($i = 0, $count = strlen($match[0]) / 2; $i < $count; $i++) {
+                        $out[] = ['type' => 'non_breaking_space'];
+                    }
+                    $rest = substr(self::stringValue($inline['value'] ?? null), strlen($match[0]));
+                    if ($rest !== '') {
+                        $out[] = HtmlImportNodes::text($rest);
+                        $leading = false;
+                    }
+                    continue;
+                }
+                $out[] = $inline;
+                if ($inline['type'] !== 'comment') {
+                    $leading = $inline['type'] === 'hard_break';
+                }
+            }
+            $paragraph['children'] = $out;
+        }
+        unset($paragraph);
+
+        return $children;
     }
 
     /**
