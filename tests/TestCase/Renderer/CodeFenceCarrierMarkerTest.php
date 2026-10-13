@@ -72,4 +72,22 @@ class CodeFenceCarrierMarkerTest extends TestCase
             self::assertFalse($importer->hadDamagedCarrierMarkers());
         }
     }
+
+    public function testFenceCarrierKeepsFollowingListItemTightness(): void
+    {
+        foreach (
+            [
+                "- a\n\n  ```js \"f\"\n  x\n  ```\n- b\n",
+                "- a\n\n  ```js \"f\"\n  x\n  ```\n\n- b\n",
+                "1. a\n\n   ```js \"f\"\n   x\n   ```\n2. b\n",
+                "1. a\n\n   ```js \"f\"\n   x\n   ```\n\n2. b\n",
+            ] as $source
+        ) {
+            $renderer = new MarkdownRenderer();
+            $renderer->setRoundTripMode(true);
+            $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
+            $importer = new MarkdownToCarve();
+            self::assertSame($source, $importer->convert($markdown));
+        }
+    }
 }
