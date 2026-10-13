@@ -4981,17 +4981,7 @@ class BlockParser
         int $count,
         int $contentIndent,
     ): bool {
-        if ($this->fencedBlockParser->parseDivFenceOpener($itemContent) === null) {
-            return false;
-        }
-
-        while ($i < $count && IndentationHelper::isBlankLine($lines[$i])) {
-            $i++;
-        }
-
-        return $i < $count
-            && !isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
-            && IndentationHelper::getLeadingColumns($lines[$i], $contentIndent) >= $contentIndent;
+        return $this->fencedBlockParser->parseDivFenceOpener($itemContent) !== null;
     }
 
     /**
