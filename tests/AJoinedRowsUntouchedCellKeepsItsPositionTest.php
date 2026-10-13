@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -135,20 +136,22 @@ class AJoinedRowsUntouchedCellKeepsItsPositionTest extends TestCase
     }
 
     /**
-     * INTENDED SURVIVOR, and the reason the fix is narrow: the cell the
-     * continuation actually rebuilt stays UNPLACED. Its value is assembled
-     * from two authored chunks with the row's closing `|` and the `+` marker
-     * between them, so no offset pair selects it - which is what carve-js and
-     * carve-rs publish, and what `markup-carve/carve#1393` waives.
+     * The cell the continuation rebuilt holds a `cell_wrap` at the join
+     * (CARVE-P12-069), so each text beside it is a slice of its own line.
      */
-    public function testTheJoinedCellItselfStaysUnplaced(): void
+    public function testTheJoinedCellPlacesEachPiece(): void
     {
-        $cells = $this->cells($this->parse("|= a |= b |\n+ cont |\n"));
-        $text = $cells[0]->getChildren()[0];
+        $source = "|= a |= b |\n+ cont |\n";
+        $children = $this->cells($this->parse($source))[0]->getChildren();
 
-        $this->assertInstanceOf(Text::class, $text);
-        $this->assertSame('a cont', $text->getContent());
-        $this->assertNull($text->getPos(), 'a value spanning the join was given a span it is not a slice of');
+        $this->assertCount(3, $children);
+        $this->assertInstanceOf(CellWrap::class, $children[1]);
+        foreach ([$children[0], $children[2]] as $text) {
+            $this->assertInstanceOf(Text::class, $text);
+            $position = $text->getPos();
+            $this->assertNotNull($position);
+            $this->assertSame($text->getContent(), substr($source, $position->startOffset, $position->endOffset - $position->startOffset));
+        }
     }
 
     /**

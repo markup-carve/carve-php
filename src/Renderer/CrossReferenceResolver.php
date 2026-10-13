@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
@@ -558,7 +559,7 @@ class CrossReferenceResolver
                 $text .= $child->getContent();
             } elseif ($child instanceof NonBreakingSpace) {
                 $text .= "\u{00A0}";
-            } elseif ($child instanceof SoftBreak || $child instanceof HardBreak) {
+            } elseif ($child instanceof SoftBreak || $child instanceof HardBreak || $child instanceof CellWrap) {
                 $text .= ' ';
             } elseif ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {
                 // An inline literal renders as visible prose (§27), so its

@@ -587,6 +587,8 @@ class Profile
         // no host can act on, and turned an allowed figure's `<figcaption>` into
         // a paragraph.
         NodeType::CAPTION,
+        // Renders as the space it replaced (CARVE-P12-069).
+        NodeType::CELL_WRAP,
     ];
 
     /**

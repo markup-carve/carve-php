@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -312,6 +313,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             CaptionNumber::class => 'renderCaptionNumber',
             NonBreakingSpace::class => 'renderNonBreakingSpace',
             SoftBreak::class => 'renderSoftBreak',
+            CellWrap::class => 'renderCellWrap',
             HardBreak::class => 'renderHardBreak',
             Span::class => 'renderSpan',
             Ruby::class => 'renderRuby',
@@ -3262,6 +3264,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderSoftBreak(): string
     {
         return $this->softBreakGuard();
+    }
+
+    protected function renderCellWrap(): string
+    {
+        return ' ';
     }
 
     protected function renderHardBreak(): string

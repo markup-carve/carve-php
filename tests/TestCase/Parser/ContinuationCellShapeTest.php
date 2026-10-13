@@ -6,23 +6,19 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A cell rebuilt from `+` continuation rows is ONE text node (carve-php#612).
+ * A cell rebuilt from `+` continuation rows keeps one `cell_wrap` marker per
+ * join (CARVE-P12-069), with a text node per source line between them.
  *
  * The node SHAPE is the contract, not just whether positions are present:
  * PART 12 says a consumer written against one implementation must be able to
- * read another's output, and carve-js emits a single node here.
- *
- * This exists because span-correctness testing could not catch the regression
- * that made it three. Every one of those three spans was correct - sliced back
- * out of the source it matched its value exactly - so a check that verifies
- * spans reports perfect health on a structurally divergent tree. Three healthy
- * spans read exactly like one.
+ * read another's output, and carve-js emits this shape.
  */
 class ContinuationCellShapeTest extends TestCase
 {
@@ -64,7 +60,7 @@ class ContinuationCellShapeTest extends TestCase
         return $found;
     }
 
-    public function testAContinuationCellIsASingleTextNode(): void
+    public function testAContinuationCellKeepsAMarkerPerJoin(): void
     {
         $carve = "|= Feature |= Description        |\n"
             . "| Complex  | A long description |\n"
@@ -72,26 +68,19 @@ class ContinuationCellShapeTest extends TestCase
             . "+          | across lines.      |\n";
 
         $cells = $this->cells($this->parseWithPositions($carve));
-        $rebuilt = $this->cellTexts($cells[3]);
+        $shape = array_map(
+            static fn (Node $child): string => $child instanceof CellWrap ? 'wrap:' . $child->getLine() : $child->getType() . ':' . ($child instanceof Text ? $child->getContent() : ''),
+            $cells[3]->getChildren(),
+        );
 
-        $this->assertCount(1, $rebuilt, 'a rebuilt cell must not be split into one node per source chunk');
-        $this->assertSame('A long description that continues across lines.', $rebuilt[0]->getContent());
+        $this->assertSame(['text:A long description', 'wrap:1', 'text:that continues', 'wrap:2', 'text:across lines.'], $shape);
     }
 
     /**
-     * And it is deliberately UNPLACED.
-     *
-     * Its content is not a contiguous slice of the source - the `+ |` markers
-     * sit between the pieces - and this repo requires a text span to slice back
-     * to its value exactly (SourcePositionTest). A span over the whole region
-     * would break that rule; one span per chunk would break the node shape.
-     * carve-js leaves it unplaced for the same reason, so this is parity rather
-     * than a gap.
-     *
-     * Inline nodes that land on an authored chunk are still placed; only the
-     * all-plain rebuilt text is not.
+     * Each text between the markers is a contiguous slice of its own line, so
+     * it is placed and slices back to its value.
      */
-    public function testTheRebuiltCellIsDeliberatelyUnplaced(): void
+    public function testEachPieceSlicesBackToItsLine(): void
     {
         $carve = "|= Feature |= Description        |\n"
             . "| Complex  | A long description |\n"
@@ -99,12 +88,11 @@ class ContinuationCellShapeTest extends TestCase
             . "+          | across lines.      |\n";
 
         $cells = $this->cells($this->parseWithPositions($carve));
-        $rebuilt = $this->cellTexts($cells[3]);
-
-        $this->assertNull(
-            $rebuilt[0]->getPos(),
-            'a value assembled from non-adjacent source has no span it can slice back to',
-        );
+        foreach ($this->cellTexts($cells[3]) as $text) {
+            $pos = $text->getPos();
+            $this->assertNotNull($pos);
+            $this->assertSame($text->getContent(), mb_substr($carve, $pos->startOffset, $pos->endOffset - $pos->startOffset, 'UTF-8'));
+        }
     }
 
     public function testASingleLineCellIsUnchanged(): void
