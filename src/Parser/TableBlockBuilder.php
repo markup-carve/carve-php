@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableCellAccumulator;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
+use MarkupCarve\Carve\Renderer\TableSpanGrid;
 use MarkupCarve\Carve\Util\CycleCollection;
 
 /**
@@ -144,13 +145,6 @@ final class TableBlockBuilder
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
-        // Columns the most recently parsed row consumed via a `<` (keyed by
-        // column, present = consumed). Only ever needed for the ONE row that
-        // might get promoted to a header on the very next line - referenced
-        // there to avoid seeding a column origin for a placeholder that
-        // covers no real cell of its own (a `^` under it must still degrade
-        // to an empty cell, matching the ordinary body-row walk below).
-        $lastRowConsumedColspanColumnSet = [];
 
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -243,13 +237,8 @@ final class TableBlockBuilder
                                 // The promoted header cell replaces the original, so
                                 // repoint the rowspan origin to the NEW cell (else a
                                 // later `^` extends the detached old cell and the
-                                // header rowspan is lost). A placeholder this row's
-                                // own `<` consumed is not seeded -- a colspan does
-                                // not claim the columns it merely covers, so a `^`
-                                // under a covered column has no origin and degrades
-                                // to an empty cell (matching the body-row grid walk
-                                // and carve-js / carve-rs).
-                                if (!isset($lastRowConsumedColspanColumnSet[$cellIndex])) {
+                                // header rowspan is lost).
+                                if (($columnOrigin[$cellIndex] ?? null) === $cell) {
                                     $columnOrigin[$cellIndex] = $headerCell;
                                 }
                                 $cellIndex++;
@@ -342,7 +331,6 @@ final class TableBlockBuilder
             $consumedRowspanColumns = $resolved['consumedRowspanColumns'];
             $consumedColspanColumns = $resolved['consumedColspanColumns'];
             $consumedColumnSet = array_flip(array_merge($consumedRowspanColumns, $consumedColspanColumns));
-            $lastRowConsumedColspanColumnSet = array_flip($consumedColspanColumns);
 
             // Carve header row: every cell is "=" prefixed (|= Header |).
             // No separator row is used. Whether a cell opens with a header
@@ -537,29 +525,24 @@ final class TableBlockBuilder
                 $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
             }
 
-            // Resolve rowspan markers: each consumed `^` extends the cell open in
-            // its column from a row above. Multiple `^` against one origin extend
-            // it only once per row. The grid pass already flagged which columns
-            // hold a consumed `^` ($consumedRowspanColumns).
-            $extendedCells = [];
+            // Each `^` the walk resolved grows the cell above it by one row; the
+            // rest of its row strip resolved into the same cell.
+            $nextOrigin = [];
             foreach ($consumedRowspanColumns as $col) {
                 $origin = $columnOrigin[$col] ?? null;
                 if ($origin instanceof TableCell) {
-                    $originId = spl_object_id($origin);
-                    if (!isset($extendedCells[$originId])) {
-                        $origin->setRowspan($origin->getRowspan() + 1);
-                        $extendedCells[$originId] = true;
-                    }
+                    $origin->setRowspan($origin->getRowspan() + 1);
+                    $nextOrigin[$col] = $origin;
                 }
             }
 
-            // Carry each emitted cell down as the open origin for its grid column.
-            // Only the cell's own start column is seeded (matching the carve-js
-            // renderer, where a colspan does not claim the columns it merely
-            // covers); a column consumed by a `^` keeps the origin above it.
+            // The next row's `^` resolves against the cell covering its column
+            // whose left edge is that column: a cell this row starts, or one a
+            // `^` just carried down. A column a colspan merely covers has none.
             foreach ($rowCellData as $cellInfo) {
-                $columnOrigin[$cellInfo['colPosition']] = $cellInfo['cell'];
+                $nextOrigin[$cellInfo['colPosition']] = $cellInfo['cell'];
             }
+            $columnOrigin = $nextOrigin;
 
             $table->appendChild($row);
             CycleCollection::checkpoint();
@@ -615,73 +598,34 @@ final class TableBlockBuilder
      */
     public function resolveRowSpans(array $mergedCellsWithAttrs, array $columnOrigin): array
     {
-        // Parallel per-column state (keyed by grid column = source index). Plain
-        // scalar maps so the colspan++ / skip mutations stay simple for the
-        // static analyzer.
-        $count = count($mergedCellsWithAttrs);
-        /** @var array<int, bool> $skip */
-        $skip = array_fill(0, $count, false);
-        /** @var array<int, bool> $empty */
-        $empty = array_fill(0, $count, false);
-        /** @var array<int, int> $colspan */
-        $colspan = array_fill(0, $count, 1);
-        /** @var array<int, string|null> $spanMarkers */
-        $spanMarkers = array_fill(0, $count, null);
-        $consumedRowspanColumns = [];
-        $consumedColspanColumns = [];
-        $lastAvailable = null;
-
+        // The T5 walk is shared with the renderer and the list-table extension
+        // (TableSpanGrid::walkRow). $columnOrigin names, per column, the cell
+        // covering that column in the previous row whose left edge is it.
+        $markers = [];
         foreach ($mergedCellsWithAttrs as $col => $cellData) {
-            $isColspanMarker = $cellData['attributes'] === ''
-                && ($this->getTableParser)()->isColspanMarker($cellData['content']);
-            $isRowspanMarker = $cellData['attributes'] === ''
-                && ($this->getTableParser)()->isRowspanMarker($cellData['content']);
-
             // A cell carrying attributes is never a bare span marker, so its
             // `<`/`^` content is literal (carve-js / carve-rs parity).
-            if ($isColspanMarker) {
-                // Always its own placeholder cell (carve-js parity, uniform
-                // row width); consumed on top of that when a target exists.
-                $empty[$col] = true;
-                $spanMarkers[$col] = '<';
-
-                if ($col > 0) {
-                    $left = $lastAvailable;
-                    if ($left !== null) {
-                        // Merge into the available cell to the left: its
-                        // reported width grows by one column, and this column
-                        // is consumed (its own reported width stays 1).
-                        $colspan[$left] = ($colspan[$left] ?? 1) + 1;
-                        $skip[$col] = true;
-                        $consumedColspanColumns[] = $col;
-                    }
-                    // Ran off the left edge: stays an unconsumed empty cell (a
-                    // later `<` can still grow it).
-                }
-
-                if (!($skip[$col] ?? false)) {
-                    $lastAvailable = $col;
-                }
-
-                continue;
-            }
-
-            if ($isRowspanMarker) {
-                // Always its own placeholder cell; consumed only when an
-                // origin is actually open above it (resolved in the rowspan
-                // pass). With no cell above it is a degenerate marker.
-                $empty[$col] = true;
-                $spanMarkers[$col] = '^';
-
-                if (isset($columnOrigin[$col])) {
-                    $skip[$col] = true;
-                    $consumedRowspanColumns[] = $col;
+            $marker = null;
+            if ($cellData['attributes'] === '') {
+                if (($this->getTableParser)()->isColspanMarker($cellData['content'])) {
+                    $marker = '<';
+                } elseif (($this->getTableParser)()->isRowspanMarker($cellData['content'])) {
+                    $marker = '^';
                 }
             }
-            if (!($skip[$col] ?? false)) {
-                $lastAvailable = $col;
-            }
+            $markers[$col] = $marker;
         }
+        $above = [];
+        foreach ($columnOrigin as $col => $origin) {
+            $above[$col] = $origin->getColspan();
+        }
+        $walk = TableSpanGrid::walkRow($markers, $above);
+        $skip = $walk['skip'];
+        $colspan = $walk['colspan'];
+        $spanMarkers = $markers;
+        $empty = array_map(static fn (?string $marker): bool => $marker !== null, $markers);
+        $consumedRowspanColumns = $walk['rowspanSkips'];
+        $consumedColspanColumns = $walk['colspanSkips'];
 
         // Every column emits a cell now - a consumed column's own width is 1;
         // the width it contributed lives on the cell it merged into.

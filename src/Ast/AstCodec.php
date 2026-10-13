@@ -36,6 +36,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Profile;
 use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\TableSpanGrid;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
@@ -2388,27 +2389,26 @@ class AstCodec
             return;
         }
 
-        if ($node instanceof TableRow) {
-            // The reference has no row flag: a header row is one whose cells are
-            // header cells, so recompute rather than invent a field. PART 11 §10n
-            // gives a placeholder to the cell whose span covers it, so its own
-            // flag does not vote.
-            $cells = array_filter(
-                $node->getChildren(),
-                static fn ($cell): bool => !$cell instanceof TableCell || $cell->getSpanMarker() === null,
-            );
-            $allHeaders = $cells !== [];
-            foreach ($cells as $cell) {
-                if (!$cell instanceof TableCell || !$cell->isHeader()) {
-                    $allHeaders = false;
-
-                    break;
-                }
-            }
-            self::writeProperty($node, 'isHeader', $allHeaders);
-        }
-
         if ($node instanceof Table) {
+            // The reference has no row flag: a header row owns a cell that is
+            // not a placeholder, and every cell it owns is a header cell. A
+            // placeholder the T5 walk resolves belongs to the cell covering it,
+            // so it does not vote; a blocked one is a cell the row owns and
+            // votes with its own flag (carve#3047).
+            $rows = array_values(array_filter($node->getChildren(), static fn ($row): bool => $row instanceof TableRow));
+            foreach (TableSpanGrid::resolve($node) as $index => $gridRow) {
+                $owned = array_filter($gridRow, static fn (array $entry): bool => !$entry['skip']);
+                $allHeaders = array_filter($owned, static fn (array $entry): bool => $entry['cell']->getSpanMarker() === null) !== [];
+                foreach ($owned as $entry) {
+                    if (!$entry['cell']->isHeader()) {
+                        $allHeaders = false;
+
+                        break;
+                    }
+                }
+                self::writeProperty($rows[$index], 'isHeader', $allHeaders);
+            }
+
             // A column's alignment is on the wire ONCE, on the header cells,
             // because that is where the delimiter row declares it (carve#784).
             // This engine's renderer aligns each body cell from its own node,
