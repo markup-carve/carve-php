@@ -3328,24 +3328,23 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function carriesDefinitionList(Node $node): bool
     {
-        if (!$this->roundTripMode || $this->tableCellDepth > 0) {
-            return false;
-        }
-        $lists = $node instanceof DefinitionList ? 1 : 0;
+        return $this->roundTripMode && $this->tableCellDepth === 0;
+    }
+
+    protected function definitionListDepth(Node $node): int
+    {
+        $depth = $node instanceof DefinitionList ? 1 : 0;
         for ($parent = $node->getParent(); $parent !== null; $parent = $parent->getParent()) {
-            if ($parent instanceof DefinitionList && ++$lists > 1) {
-                return false;
+            if ($parent instanceof DefinitionList) {
+                $depth++;
             }
         }
 
-        return true;
+        return $depth;
     }
 
     protected function renderDefinitionList(DefinitionList $node): string
     {
-        if ($this->roundTripMode && !$this->carriesDefinitionList($node)) {
-            $this->recordDefinitionListFlattened($node);
-        }
         // GFM has no definition list and reads a `: ` marker as text, so each
         // term is a strong paragraph and each description's blocks follow it
         // as ordinary blocks (PART 11 §10p).
@@ -3357,13 +3356,13 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // Each term and description already ends in a blank line, so a tight
         // item can drop that one separator before an interrupting block.
         return $this->carriesDefinitionList($node)
-            ? $output . $this->literalCarrierLine('') . "\n\n" : $output;
+            ? $output . $this->literalCarrierLine('', $this->definitionListDepth($node)) . "\n\n" : $output;
     }
 
     protected function renderDefinitionTerm(DefinitionTerm $node): string
     {
         $marker = $this->carriesDefinitionList($node)
-            ? $this->literalCarrierLine((new CarrierOpenerWriter())->inlinePayload($node, ':: ')) . "\n" : '';
+            ? $this->literalCarrierLine((new CarrierOpenerWriter())->inlinePayload($node, ':: '), $this->definitionListDepth($node)) . "\n" : '';
 
         return $marker . $this->renderWrappedChildren($node, '**', '<strong>', '</strong>') . "\n\n";
     }
@@ -3372,7 +3371,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $content = $this->containerContent(fn (): string => $this->renderChildren($node));
 
-        $marker = $this->carriesDefinitionList($node) ? $this->literalCarrierLine(':') . "\n" : '';
+        $marker = $this->carriesDefinitionList($node) ? $this->literalCarrierLine(':', $this->definitionListDepth($node)) . "\n" : '';
 
         return $content === '' ? $marker : $marker . $content . "\n\n";
     }
@@ -4730,9 +4729,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         ) ?? $text;
     }
 
-    private function literalCarrierLine(string $payload): string
+    private function literalCarrierLine(string $payload, int $depth = 1): string
     {
-        return CarrierMarkers::line($this->guardLiteralCharacters($payload));
+        return CarrierMarkers::line($this->guardLiteralCharacters($payload), $depth);
     }
 
     /**

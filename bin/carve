@@ -485,8 +485,8 @@ function parseArgs(array $argv): array
             }
             $options['maxConversionDiagnostics'] = (int)$argv[++$i];
         } elseif ($arg === '--allow-loss') {
-            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'definition-list-flattened', 'list-style-dropped'], true)) {
-                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened, carrier-attribute-dropped, definition-list-flattened or list-style-dropped\n");
+            if (!in_array(($argv[$i + 1] ?? null), ['raw-format-dropped', 'ruby-flattened', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped'], true)) {
+                fwrite(STDERR, "Error: --allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened, carrier-attribute-dropped or list-style-dropped\n");
                 exit(2);
             }
             $options['allowLoss'][] = $argv[++$i];
@@ -694,7 +694,7 @@ Rendering:
   --report-losses FILE     Write the machine-readable render-loss report (`-` for stderr)
   --allow-loss CODE        Permit raw-format-dropped, ruby-flattened,
                            editorial-comment-flattened, carrier-attribute-dropped
-                           definition-list-flattened, or list-style-dropped
+                           or list-style-dropped
                            (repeatable)
   --max-render-losses N    Bound detailed losses while retaining the full count (default 100)
   --report-conversion-diagnostics FILE

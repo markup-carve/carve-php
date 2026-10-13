@@ -341,7 +341,7 @@ class MarkdownToCarve
      * The carrier payloads this conversion lifted out of the source, in the
      * order their marker lines appeared.
      *
-     * @var list<array{payload: string, closer: bool, caption: bool, equation: string|null}>
+     * @var list<array{payload: string, depth: int, closer: bool, caption: bool, fence: bool, equation: string|null}>
      */
     protected array $carrierSlots = [];
 
@@ -395,7 +395,7 @@ class MarkdownToCarve
      */
     protected function markdownHtmlBlockLines(string $markdown): array
     {
-        if (!str_contains($markdown, CarrierMarkers::PREFIX)) {
+        if (!str_contains($markdown, CarrierMarkers::HEAD)) {
             return [];
         }
         $all = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
@@ -429,7 +429,7 @@ class MarkdownToCarve
      */
     protected function carrierHostPrefix(string $line): string
     {
-        $at = strpos($line, CarrierMarkers::PREFIX);
+        $at = strpos($line, CarrierMarkers::HEAD);
         if ($at === false) {
             return '';
         }
@@ -471,12 +471,13 @@ class MarkdownToCarve
         $this->carrierDamaged = false;
         $this->carrierDiagnostics = [];
         $this->carrierToken = '';
-        if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::PREFIX)) {
+        if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::HEAD)) {
             return $markdown;
         }
 
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         $payloads = [];
+        $depths = [];
         $hosts = [];
         $seen = false;
         // A MARKER IS A LINE THE BLOCK STRUCTURE READ AS HTML. A code
@@ -490,9 +491,12 @@ class MarkdownToCarve
                 continue;
             }
             $host = $this->carrierHostPrefix($line);
-            $payload = CarrierMarkers::payload(substr($line, strlen($host)));
-            if ($payload !== null && $payload !== '[' && !str_starts_with($payload, ']{') && !str_starts_with($payload, '</#')) {
+            $marker = CarrierMarkers::marker(substr($line, strlen($host)));
+            $payload = $marker['payload'] ?? null;
+            $depth = $marker['depth'] ?? 1;
+            if ($payload !== null && ($depth > 1 || ($payload !== '[' && !str_starts_with($payload, ']{') && !str_starts_with($payload, '</#')))) {
                 $payloads[$at] = $payload;
+                $depths[$at] = $depth;
                 $hosts[$at] = $host;
                 $seen = true;
             }
@@ -540,7 +544,7 @@ class MarkdownToCarve
                         || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
                 }
                 if (!$valid) {
-                    unset($payloads[$at]);
+                    unset($payloads[$at], $depths[$at]);
                     if ($closer !== null) {
                         unset($payloads[$closer]);
                     }
@@ -556,7 +560,10 @@ class MarkdownToCarve
                 }
             }
         }
-        if (!$balanced || !$this->carrierSetBalances($payloads, $lines, $hosts)) {
+        if (
+            !$balanced || !$this->carrierDepthsPair($payloads, $depths)
+            || !$this->carrierSetBalances($payloads, $lines, $hosts, $depths)
+        ) {
             $this->carrierDamaged = true;
             $this->carrierDiagnostics = [];
 
@@ -646,6 +653,7 @@ class MarkdownToCarve
             }
             $this->carrierSlots[] = [
                 'payload' => $payload,
+                'depth' => $depths[$at],
                 'closer' => $closer,
                 'caption' => CarrierMarkers::isCaption($payload),
                 'fence' => CarrierMarkers::isCodeFence($payload),
@@ -716,21 +724,59 @@ class MarkdownToCarve
     }
 
     /**
-     * Whether a marker set records a structure at all: every opener closed by a
-     * bare fence of its own width, every attribute line against an opener, and
-     * nothing left open.
+     * Definition markers pair at their stated depth.
      *
+     * @param array<int, string> $payloads
+     * @param array<int, int> $depths
+     */
+    protected function carrierDepthsPair(array $payloads, array $depths): bool
+    {
+        $lists = [];
+        foreach ($payloads as $at => $payload) {
+            $depth = $depths[$at] ?? 1;
+            $term = preg_match('/^::[ \t]/', $payload) === 1;
+            if (!$term && $payload !== ':' && $payload !== '') {
+                if ($depth > 1) {
+                    return false;
+                }
+
+                continue;
+            }
+            $open = count($lists);
+            if ($term) {
+                if ($depth === $open) {
+                    $lists[$open - 1] = false;
+                } elseif ($depth === $open + 1 && ($depth === 1 || $lists[$open - 1])) {
+                    $lists[] = false;
+                } else {
+                    return false;
+                }
+            } elseif ($depth !== $open) {
+                return false;
+            } elseif ($payload === ':') {
+                $lists[$open - 1] = true;
+            } else {
+                array_pop($lists);
+            }
+        }
+
+        return $lists === [];
+    }
+
+    /**
      * @param array<int, string> $payloads
      * @param list<string> $lines
      * @param array<int, string> $hosts
+     * @param array<int, int> $depths
      */
-    protected function carrierSetBalances(array $payloads, array $lines, array $hosts): bool
+    protected function carrierSetBalances(array $payloads, array $lines, array $hosts, array $depths): bool
     {
         $open = [];
         $definitions = [];
         $previousAt = null;
         $previousPayload = null;
         foreach ($payloads as $at => $payload) {
+            $listDepth = $depths[$at] ?? 1;
             $next = $this->withoutCarrierHost($lines[$at + 1] ?? '', $hosts[$at]);
             $nestedTerm = $previousAt === $at - 1 && $previousPayload === ':';
             $previousAt = $at;
@@ -752,8 +798,8 @@ class MarkdownToCarve
             if (str_starts_with($payload, ':: ')) {
                 $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
                 $last = count($definitions) - 1;
-                if ($last < 0 || $definitions[$last]['key'] !== $key || $nestedTerm) {
-                    $definitions[] = ['key' => $key];
+                if ($last < 0 || $definitions[$last]['key'] !== $key || $definitions[$last]['depth'] < $listDepth || $nestedTerm) {
+                    $definitions[] = ['key' => $key, 'depth' => $listDepth];
                 }
                 if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
                     return false;
@@ -764,7 +810,7 @@ class MarkdownToCarve
             if ($payload === ':' || $payload === '') {
                 $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
                 $last = count($definitions) - 1;
-                if ($last < 0 || $definitions[$last]['key'] !== $key) {
+                if ($last < 0 || $definitions[$last]['key'] !== $key || $definitions[$last]['depth'] !== $listDepth) {
                     return false;
                 }
                 if ($payload === '') {
@@ -868,7 +914,7 @@ class MarkdownToCarve
         // any, produced it: 'open' for an opener or the attribute line
         // travelling with it, 'close' for a bare closer, 'caption' for a
         // composite figure's caption line.
-        /** @var list<array{lead: string, text: string, kind: string|null, fence?: bool}> $items */
+        /** @var list<array{lead: string, text: string, kind: string|null, fence?: bool, depth?: int}> $items */
         $items = [];
         foreach (explode("\n", $carve) as $line) {
             // THE PREFIX IS WHATEVER STANDS BEFORE THE TOKEN rather than a
@@ -896,23 +942,33 @@ class MarkdownToCarve
                 }
             }
             $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
-            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence']];
+            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence'], 'depth' => $slot['depth']];
         }
         $items = $this->anchorCarrierClosers($items);
         $definitions = [];
         foreach ($items as $at => $item) {
             $last = count($definitions) - 1;
             if ($item['kind'] !== null && str_starts_with($item['text'], ':: ')) {
-                if ($last < 0 || $definitions[$last]->pending) {
+                $depth = $item['depth'] ?? 1;
+                if ($last < 0 || $definitions[$last]->pending || $definitions[$last]->depth < $depth) {
                     $original = preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead'];
                     $base = $last < 0 ? $original : $definitions[$last]->base . '  ';
-                    if ($last >= 0 && $definitions[$last]->marker !== null) {
+                    if ($last >= 0 && $definitions[$last]->depth < $depth) {
+                        $items[$at]['lead'] = $base;
+                        if ($definitions[$last]->pending && $definitions[$last]->marker !== null) {
+                            $items[$at]['lead'] = $definitions[$last]->base . ': ';
+                            $marker = $definitions[$last]->marker;
+                            $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
+                            $definitions[$last]->pending = false;
+                        }
+                    }
+                    if ($last >= 0 && $definitions[$last]->marker !== null && $definitions[$last]->depth === $depth) {
                         $items[$at] = ['lead' => $definitions[$last]->base . ': ', 'text' => $item['text'], 'kind' => $item['kind']];
                         $marker = $definitions[$last]->marker;
                         $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
                         $definitions[$last]->pending = false;
                     }
-                    $definitions[] = new MarkdownCarrierDefinition($base, $original);
+                    $definitions[] = new MarkdownCarrierDefinition($base, $original, $depth);
                 } else {
                     $items[$at] = ['lead' => $definitions[$last]->base, 'text' => $item['text'], 'kind' => $item['kind']];
                 }
@@ -975,7 +1031,8 @@ class MarkdownToCarve
                 continue;
             }
             $emptyCloser = $item['kind'] === 'close' && $item['text'] === '';
-            $spelled[] = $item['lead'] . $item['text'];
+            $spelled[] = $item['text'] === '' && trim($item['lead']) === ''
+                ? '' : $item['lead'] . $item['text'];
         }
 
         return rtrim(implode("\n", $spelled), " \t\n") . "\n";
@@ -991,9 +1048,9 @@ class MarkdownToCarve
      * the answer, with any list marker in it blanked out, because a closer
      * cannot repeat an item's marker.
      *
-     * @param list<array{lead: string, text: string, kind: string|null}> $items
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, depth?: int}> $items
      *
-     * @return list<array{lead: string, text: string, kind: string|null}>
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, depth?: int}>
      */
     protected function anchorCarrierClosers(array $items): array
     {
@@ -1033,9 +1090,9 @@ class MarkdownToCarve
      * around it: a container's opener and closer hug its body, and what follows
      * a closer is a block of its own.
      *
-     * @param list<array{lead: string, text: string, kind: string|null}> $items
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, depth?: int}> $items
      *
-     * @return list<array{lead: string, text: string, kind: string|null}>
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, depth?: int}>
      */
     protected function separateCarrierLines(array $items): array
     {
