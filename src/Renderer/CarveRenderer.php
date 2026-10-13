@@ -2799,14 +2799,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             }
         }
         // A colspan cell is always written plain (`| < |`), so a header row can
-        // keep the native `|=` form when its span markers form a TRAILING run
-        // of colspans after at least one real header cell: each `<` absorbs into
-        // the `|=` header on its left, and the row is still promoted by those
-        // markers. Every other span shape needs a delimiter row: a leading span
-        // has no `|=` anchor before it, a real cell after a span would have to
-        // be written `|=< K` (an aligned header, not the promoted data cell),
-        // and a trailing rowspan (`^`) does not absorb left, so a first-row
-        // `| ^ |` is not a header cell and the row falls out of the header.
+        // keep the native `|=` form when every span marker in it is a colspan
+        // after at least one real header cell: each `<` absorbs into the `|=`
+        // header on its left, and a real cell after the run is its own `|=`
+        // cell (corpus section 579). A leading span has no `|=` anchor before
+        // it, and a rowspan (`^`) does not absorb left, so those still need a
+        // delimiter row.
         $needsDelimiter = $forceDelimiter;
         if ($headerRow) {
             $headerCellsRow = array_values(array_filter(
@@ -2825,8 +2823,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $trailingColspansOnly = $firstSpan >= 1;
                 $headerCellCount = count($headerCellsRow);
                 for ($column = $firstSpan; $column < $headerCellCount; $column++) {
-                    // '<' is the colspan marker (rowspan is '^').
-                    if ($headerCellsRow[$column]->getSpanMarker() !== '<') {
+                    // '<' is the colspan marker (rowspan is '^'); a real `|=` cell after a run keeps the form.
+                    $marker = $headerCellsRow[$column]->getSpanMarker();
+                    if ($marker !== null && $marker !== '<') {
                         $trailingColspansOnly = false;
 
                         break;
