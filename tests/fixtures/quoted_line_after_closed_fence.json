@@ -187,7 +187,7 @@
   {
     "id": "matrix-q4049",
     "source": "> > - [^n]: text\n> >     ~~~\n> >   code\n> >   x\n> >       ~~~\n> >   ~~~\n- tail\n",
-    "html": "<blockquote><blockquote><ul><li><pre><code>code\nx\n  ~~~\n</code></pre></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><blockquote><ul><li>code\nx\n        <pre><code></code></pre></li></ul></blockquote></blockquote><ul><li>tail</li></ul>"
   },
   {
     "id": "matrix-q4365",

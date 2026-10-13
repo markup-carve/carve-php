@@ -216,7 +216,7 @@
   {
     "id": "matrix-n6557",
     "source": "> - [^n]: text\n>     - child\n>     more\n>     ```\nafter [^n]\n",
-    "html": "<blockquote><ul><li><pre><code>after [^n]\n</code></pre></li></ul></blockquote>"
+    "html": "<blockquote><ul><li></li></ul><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child\nmore\n<code></code><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n6600",
@@ -306,7 +306,7 @@
   {
     "id": "matrix-n7082",
     "source": "- [^n]: text\n    - child\n    ```\n\n  x\n    # h\nafter [^n]\n",
-    "html": "<ul><li><pre><code>\nx\n# h\n</code></pre></li></ul><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><p>x</p><h1 id=\"h\">h</h1></li></ul><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child\n<code></code><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n7114",

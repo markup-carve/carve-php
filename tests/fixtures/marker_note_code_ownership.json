@@ -1407,37 +1407,37 @@
   {
     "id": "continued-review-B-f4-body0",
     "source": "- [^n]: text\n    ```\ncode\n    ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code></code></pre></li></ul><p>code<code>after [^n]</code></p>"
+    "html": "<ul><li></li></ul><p>code<code>after [^n]</code></p>"
   },
   {
     "id": "continued-review-B-f4-body2",
     "source": "- [^n]: text\n    ```\n  code\n    ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code>code</code></pre></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li>code<code>after [^n]</code></li></ul>"
   },
   {
     "id": "continued-review-B-f6-body0",
     "source": "- [^n]: text\n      ```\ncode\n      ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code></code></pre></li></ul><p>code<code>after [^n]</code></p>"
+    "html": "<ul><li></li></ul><p>code<code>after [^n]</code></p>"
   },
   {
     "id": "continued-review-B-f6-body2",
     "source": "- [^n]: text\n      ```\n  code\n      ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code>code</code></pre></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li>code<code>after [^n]</code></li></ul>"
   },
   {
     "id": "continued-review-B-f6-body4",
     "source": "- [^n]: text\n      ```\n    code\n      ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code>code</code></pre></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text</p><pre><code>code</code></pre><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-review-B-unclosed4",
     "source": "- [^n]: text\n    ```\n    code\nafter [^n]\n",
-    "html": "<ul><li><pre><code>code</code></pre></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text<code>code</code><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-review-B-unclosed-sib",
     "source": "- [^n]: text\n    - child\n    ```\n    code\n- sib\nafter [^n]\n",
-    "html": "<ul><li><pre><code>code</code></pre></li><li>sib after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li><li>sib after<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text - child<code>code</code><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "continued-review-B-tilde-literal",
@@ -1652,12 +1652,12 @@
   {
     "id": "continued-review-G-fence-holds-marker",
     "source": "- [^n]: text\n    more\n    ```\n- notsib\n    ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code></code></pre></li><li>notsib<code>after [^n]</code></li></ul>"
+    "html": "<ul><li></li><li>notsib<code>after [^n]</code></li></ul>"
   },
   {
     "id": "continued-review-G-fence-first-holds-marker",
     "source": "- [^n]: text\n    ```\n- notsib\n    ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code></code></pre></li><li>notsib<code>after [^n]</code></li></ul>"
+    "html": "<ul><li></li><li>notsib<code>after [^n]</code></li></ul>"
   },
   {
     "id": "continued-review-G-comment",
@@ -1767,12 +1767,12 @@
   {
     "id": "continued-review-L-more-fence-body0",
     "source": "- [^n]: text\n    more\n    ```\ncode0\n    ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code></code></pre></li></ul><p>code0<code>after [^n]</code></p>"
+    "html": "<ul><li></li></ul><p>code0<code>after [^n]</code></p>"
   },
   {
     "id": "continued-review-L-child-fence-body0",
     "source": "- [^n]: text\n    - child\n    ```\ncode0\n    ```\nafter [^n]\n",
-    "html": "<ul><li><pre><code></code></pre></li></ul><p>code0<code>after [^n]</code></p>"
+    "html": "<ul><li></li></ul><p>code0<code>after [^n]</code></p>"
   },
   {
     "id": "continued-review-L-more-blank-tail0",
