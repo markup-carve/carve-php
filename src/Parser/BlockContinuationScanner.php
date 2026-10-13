@@ -3686,7 +3686,11 @@ final class BlockContinuationScanner
         ) === 1
             || preg_match('/[ \t]*([-*_])\1{2,}[ \t]*$/A', $line, $ignored, 0, $at) === 1;
         $state->absorbingFence = $wasAbsorbing && !$endsTheParagraph;
-        $state->openParagraph = true;
+        // A nested item that is only a heading leaves no paragraph open, so an
+        // unclosed fence at this column opens a block (CARVE-P0-014).
+        $nestedItem = ($this->getListParser)()->parseListItemMarker(ltrim(substr($line, $at), " \t"));
+        $state->openParagraph = $nestedItem === null
+            || preg_match('/#{1,6}[ \t]+' . StringUtil::NON_WHITESPACE_CLASS . '/A', $nestedItem['content']) !== 1;
         // PROSE INSIDE A QUOTE'S LAZY RUN IS STILL THE QUOTE'S PARAGRAPH
         // (markup-carve/carve#1905). A blank line cleared the flag above and
         // never arrives here, which is what leaves the blank-line escape the
