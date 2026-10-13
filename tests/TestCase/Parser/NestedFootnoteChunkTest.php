@@ -27,12 +27,13 @@ final class NestedFootnoteChunkTest extends TestCase
         $this->assertStringNotContainsString('<blockquote>', $notes);
     }
 
-    public function testAMarkerLineNoteKeepsTheListOpenerOutsideItsBody(): void
+    public function testAMarkerLineNoteOwnsAQuoteAtItsBodyColumn(): void
     {
+        // Corpus section 580 (markup-carve/carve#3056).
         $html = (new CarveConverter())->convert("- [^n]: p\n    > q\n\nr[^n]\n");
         [$list, $notes] = explode('<section role="doc-endnotes"', $html);
-        $this->assertStringContainsString('<blockquote><p>q</p></blockquote>', $list);
-        $this->assertStringNotContainsString('<blockquote>', $notes);
+        $this->assertStringNotContainsString('<blockquote>', $list);
+        $this->assertStringContainsString('<blockquote><p>q</p></blockquote>', $notes);
     }
 
     public function testAPlusAttachedNoteOwnsItsBody(): void
