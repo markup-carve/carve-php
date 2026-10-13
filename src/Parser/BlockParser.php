@@ -5318,9 +5318,11 @@ class BlockParser
         $bodyLines = [$content];
         $commentSpan = new CollectedCommentSpan();
         $bodyLineMap = [$this->sourceLineFor($start)];
-        if (trim($content, " \t") === '+' && isset($lines[$i])
+        if (
+            trim($content, " \t") === '+' && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
-            && $this->continuationAttachesAtColumnZero($i)) {
+            && $this->continuationAttachesAtColumnZero($i)
+        ) {
             [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
                 $lines,
                 $i,
