@@ -1314,12 +1314,13 @@ final class BlockContinuationScanner
                             $noteBodyFence = $markerNoteItem
                                 && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
                                 && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken);
-                            $closedNoteBodyFence = $noteBodyFence && !$leadNoteHadBlank
-                                && $this->noteTextIsMarkerLinesOnly($itemLines, $markerRunCursor, $markerRunBroken)
+                            $closedNoteBodyFence = $markerNoteItem && $trailingState->inFootnoteBody
+                                && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                                && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
                                 && $this->fenceClosesWithinColumn($lines, $i, $opener, $column);
                             if (
                                 ($nestedNoteBodyColumn === null || $column < $nestedNoteBodyColumn)
-                                && !($noteBodyFence && $leadNoteHadBlank)
+                                && !($noteBodyFence && $leadNoteHadBlank && !$closedNoteBodyFence)
                                 && (
                                     $openDefinitionBody === null
                                     || !$definitionBodyHasTerm
@@ -1330,7 +1331,7 @@ final class BlockContinuationScanner
                                 // unless it reaches the content column of a list the note opened.
                                 if (!$closedNoteBodyFence) {
                                     $authoredCodeColumn = $column;
-                                } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent)) {
+                                } elseif ($column < $this->noteChildContentColumn($itemLines, $contentIndent, $leadNoteHadBlank)) {
                                     $authoredCodeColumn = $column - BlockGrammar::FOOTNOTE_BODY_COLUMN;
                                 }
                             }
@@ -3752,16 +3753,17 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Whether the marker-line note's continuation so far is folded marker lines only.
+     * Whether the marker-line note still runs: an attribute or image line in it hands the next block to the item.
      *
      * @param array<string> $itemLines
      * @param int $cursor first line not yet read, kept across calls
-     * @param bool $broken set once a line is not a marker line
+     * @param bool $broken set once an attribute line is read
      */
-    private function noteTextIsMarkerLinesOnly(array $itemLines, int &$cursor, bool &$broken): bool
+    private function noteKeepsItsBody(array $itemLines, int &$cursor, bool &$broken): bool
     {
         for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
-            $broken = ($this->getListParser)()->parseListItemMarker(ltrim($itemLines[$cursor], " \t")) === null;
+            $text = ltrim($itemLines[$cursor], " \t");
+            $broken = $this->isBlockAttributeLine($text) || preg_match(BlockGrammar::NOTE_ENDING_IMAGE_LINE, $text) === 1;
         }
 
         return !$broken;
@@ -3774,18 +3776,33 @@ final class BlockContinuationScanner
      *
      * @param array<string> $itemLines
      * @param int $contentIndent
+     * @param bool $afterBlank a blank in the note makes its marker lines a list
      */
-    private function noteChildContentColumn(array $itemLines, int $contentIndent): int
+    private function noteChildContentColumn(array $itemLines, int $contentIndent, bool $afterBlank): int
     {
         $count = count($itemLines);
         $lead = (string)preg_replace(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, '$2', $itemLines[0] ?? '');
-        if (!($this->isCommentLineOrFence($lead) || $this->isBlockElementStart($lead) || $this->startsNewBlock($lead))) {
+        if (
+            !($this->isCommentLineOrFence($lead) || $this->isBlockElementStart($lead) || $this->startsNewBlock($lead))
+            && !$afterBlank
+        ) {
             return PHP_INT_MAX;
         }
         // A list or quote on the marker line sits at the note's body column.
         if ($count < 2) {
             return preg_match('/^(\S+)( +)/', $lead, $match) === 1 && !$this->isCommentLineOrFence($lead)
                 ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN + strlen($match[1]) + strlen($match[2])
+                : PHP_INT_MAX;
+        }
+        $last = ltrim($itemLines[$count - 1], " \t");
+        $leadTerm = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $lead) === 1;
+        if (
+            ($this->getListParser)()->parseListItemMarker($last) === null
+            && !($leadTerm && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $last) === 1)
+        ) {
+            // A term keeps the fence below it as its own text.
+            return !$afterBlank && $leadTerm
+                ? $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
                 : PHP_INT_MAX;
         }
         if (preg_match('/^([ \t]*)(\S+)( +)/', $itemLines[$count - 1], $match) !== 1) {

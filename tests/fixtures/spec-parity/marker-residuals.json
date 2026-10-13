@@ -17,7 +17,7 @@
   {
     "id": "nested-marker-note-closer/nested-48",
     "source": "- [^a]: text\n    - child\n    [^b]: \n      - c2\n    ~~~\n    code\n    ~~~\nafter [^a] [^b]\n",
-    "html": "<ul>\n  <li>\n    <pre><code>code\n</code></pre>\n  </li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\n- child\n[^b]:\n- c2<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<ul>\n  <li></li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\n- child\n[^b]:\n- c2</p>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "nested-marker-note-closer/nested-58",
@@ -47,7 +47,7 @@
   {
     "id": "nested-marker-note-closer/nested-144",
     "source": "- [^a]: text\n    more\n    [^b]: \n      - c2\n    ~~~\n    code\n    ~~~\nafter [^a] [^b]\n",
-    "html": "<ul>\n  <li>\n    <pre><code>code\n</code></pre>\n  </li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\nmore\n[^b]:\n- c2<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<ul>\n  <li></li>\n</ul>\n<p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\nmore\n[^b]:\n- c2</p>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "nested-marker-note-closer/nested-195",
@@ -67,7 +67,7 @@
   {
     "id": "nested-marker-note-closer/nested-240",
     "source": "> - [^a]: text\n>     - child\n>     [^b]: \n>       - c2\n>     ~~~\n>     code\n>     ~~~\n> after [^a] [^b]\n> ",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\n- child\n[^b]:\n- c2<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\n- child\n[^b]:\n- c2</p>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "nested-marker-note-closer/nested-250",
@@ -97,6 +97,6 @@
   {
     "id": "nested-marker-note-closer/nested-336",
     "source": "> - [^a]: text\n>     more\n>     [^b]: \n>       - c2\n>     ~~~\n>     code\n>     ~~~\n> after [^a] [^b]\n> ",
-    "html": "<blockquote>\n  <ul>\n    <li>\n      <pre><code>code\n</code></pre>\n    </li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\nmore\n[^b]:\n- c2<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<blockquote>\n  <ul>\n    <li></li>\n  </ul>\n  <p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^b]</p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>text\nmore\n[^b]:\n- c2</p>\n      <pre><code>code\n</code></pre>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">\u21a9</a></p>\n    </li>\n  </ol>\n</section>"
   }
 ]

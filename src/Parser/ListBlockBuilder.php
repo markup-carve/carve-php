@@ -2259,6 +2259,15 @@ final class ListBlockBuilder
         }
         $leadNoteTextEnd = $this->leadNoteTextEnd($lines);
         $leadNoteFenceLine = $absorbLeadNoteBody ? $this->leadNoteMarkerRunEnd($lines, $firstContentLine === null ? null : (int)$firstContentLine) : -1;
+        $leadNoteExtentEnd = $leadNoteFenceLine >= 0 ? $this->footnoteDefinitionBodyExtent($lines, (int)$firstContentLine, $count) : -1;
+        for ($j = $leadNoteFenceLine; $j >= 0 && $j <= $leadNoteExtentEnd; $j++) {
+            $text = ltrim($lines[$j], " \t");
+            if (($this->isBlockAttributeLineCallback)($text) || preg_match(BlockGrammar::NOTE_ENDING_IMAGE_LINE, $text) === 1) {
+                $leadNoteExtentEnd = $j - 1;
+
+                break;
+            }
+        }
         $afterBlank = false;
         $blockState = new TrailingBlockState();
         $blockStateCursor = 0;
@@ -2296,7 +2305,7 @@ final class ListBlockBuilder
             }
             // A closed fence at a marker-line note's body column opens in the note (CARVE-P2-017).
             $noteFenceColumn = IndentationHelper::getLeadingColumns($line);
-            if ($i === $leadNoteFenceLine && $noteFenceColumn >= BlockGrammar::FOOTNOTE_BODY_COLUMN) {
+            if ($i >= $leadNoteFenceLine && $i <= $leadNoteExtentEnd && $noteFenceColumn >= BlockGrammar::FOOTNOTE_BODY_COLUMN) {
                 $noteFence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"));
                 if ($noteFence !== null) {
                     for ($j = $i + 1; $j < $count; $j++) {

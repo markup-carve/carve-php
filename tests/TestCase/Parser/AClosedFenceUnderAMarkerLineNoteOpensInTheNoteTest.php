@@ -61,6 +61,18 @@ class AClosedFenceUnderAMarkerLineNoteOpensInTheNoteTest extends TestCase
                 . "<ul><li>child\n          <pre><code>code\n</code></pre></li></ul>" . self::BACKLINK . '</li></ol></section>',
         ];
 
+        yield 'after a continuation line of the note paragraph' => [
+            "- [^n]: text\n    plain\n    ```\n    code\n    ```\nafter [^n]\n",
+            '<ul><li></li></ul><p>after ' . self::NOTE_REF . '</p>' . $notes
+                . "<p>text\nplain</p><pre><code>code\n</code></pre>" . self::BACKLINK . '</li></ol></section>',
+        ];
+
+        yield 'in a description body the note opened after a blank' => [
+            "- [^n]: :: term\n\n    : desc\n      ```\n      code\n      ```\nafter [^n]\n",
+            '<ul><li></li></ul><p>after ' . self::NOTE_REF . '</p>' . $notes
+                . "<dl><dt>term</dt><dd><p>desc</p><pre><code>code\n</code></pre></dd></dl>" . self::BACKLINK . '</li></ol></section>',
+        ];
+
         yield 'inside a quote' => [
             "> - [^n]: text\n>     ```\n>     code\n>     ```\n> after [^n]\n",
             '<blockquote><ul><li></li></ul><p>after ' . self::NOTE_REF . '</p></blockquote>' . $notes
