@@ -77,7 +77,7 @@
   {
     "id": "UnfinishedFenceOnANestedLeadOwnsItsBodyTest/colon container on lead (control)",
     "source": "- - ::: d\nbody\n:::\n",
-    "html": "<ul>\n  <li>\n    <ul>\n      <li>::: d\nbody</li>\n    </ul>\n  </li>\n</ul>\n<div>\n\n</div>"
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>body</p>\n<div>\n\n</div>"
   },
   {
     "id": "AnUnfinishedFenceInADescriptionBodyOwnsItsBodyTest/dd-```-closed",

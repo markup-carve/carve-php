@@ -874,6 +874,29 @@ final class ListBlockBuilder
                     if ($subLines !== []) {
                         $before = count($lastItem->getChildren());
                         $this->callParseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible, null, $unclosedFenceBase);
+                        $children = $lastItem->getChildren();
+                        $previousList = $before > 0 ? $children[$before - 1] : null;
+                        $nextList = $children[$before] ?? null;
+                        if ($previousList instanceof DefinitionList && $nextList instanceof DefinitionList
+                            && $previousList->getAttributeEntries() === [] && $nextList->getAttributeEntries() === []
+                            && $previousList->isLoose() === $nextList->isLoose()) {
+                            $terms = $nextList->getChildren();
+                            $nextList->setChildren([]);
+                            foreach ($terms as $term) {
+                                $previousList->appendChild($term);
+                            }
+                            $startPos = $previousList->getPos();
+                            $endPos = $nextList->getPos();
+                            if ($startPos !== null && $endPos !== null) {
+                                $previousList->setPos(new SourceSpan(
+                                    $startPos->startLine, $endPos->endLine,
+                                    $startPos->startColumn, $endPos->endColumn,
+                                    $startPos->startOffset, $endPos->endOffset,
+                                ));
+                            }
+                            $lastItem->removeChild($nextList);
+                            $before--;
+                        }
                         $visibleContinuation = array_filter(
                             array_slice($lastItem->getChildren(), $before),
                             static fn (Node $child): bool => !$child instanceof Comment,
@@ -1679,6 +1702,14 @@ final class ListBlockBuilder
                 && ($this->getFencedBlockParser)()->parseFencedCommentOpenerAnyColumn($line) === null
             ) {
                 continue;
+            }
+            if ($leadNoteTextEnd < 0 && $probeNestedColumns !== [] && $base > 0 && $base < end($probeNestedColumns)) {
+                $subject = ltrim($line, " \t");
+                $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject)
+                    ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($subject);
+                if ($fence !== null && !$this->continuations->sourceFenceCloserInView($lines, $index, $fence, $base)) {
+                    return false;
+                }
             }
             while ($probeNestedColumns !== [] && $base < end($probeNestedColumns)) {
                 array_pop($probeNestedColumns);

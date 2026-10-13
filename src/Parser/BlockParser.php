@@ -4704,6 +4704,11 @@ class BlockParser
         foreach ($itemLines as $seedLine) {
             $trailingState = $this->advanceTrailingState($trailingState, $seedLine);
         }
+        $lead = $itemLines[0] ?? '';
+        $bottom = $this->markerFreeContent(ltrim($lead, " \t"));
+        if ($bottom !== ltrim($lead, " \t") && $this->fencedBlockParser->parseDivFenceOpener($bottom) !== null) {
+            $trailingState->openParagraph = false;
+        }
         $bareContinuationLead = $itemLines !== []
             && $this->leadBottomIsContinuationMarker((string)$itemLines[0]);
         $bareLeadQuoteState = null;
@@ -5250,6 +5255,7 @@ class BlockParser
         while ($i < $count) {
             $nextLine = $lines[$i];
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $retainedBelowComment = false;
                 // A BLANK RUN continues the footnote when the body resumes
                 // after it. Must mirror the body-collection logic so a line is
                 // never skipped here without being collected there (grammar
@@ -5334,6 +5340,7 @@ class BlockParser
                 ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                 : $authoredNext >= $authoredFloor;
             if ($reaches) {
+                $retainedBelowComment = false;
                 $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
@@ -5364,8 +5371,9 @@ class BlockParser
                 }
                 $trailingState->openParagraph = false;
                 $retainedBelowComment = true;
-            } elseif ($retainedBelowComment && !IndentationHelper::isBlankLine($nextLine)
-                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)) {
+            } elseif ($retainedBelowComment
+                && (!$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
+                    || $this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0))) {
                 $bodyLine = ltrim($nextLine, " \t");
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);

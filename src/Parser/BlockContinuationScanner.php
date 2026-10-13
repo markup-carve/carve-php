@@ -673,6 +673,7 @@ final class BlockContinuationScanner
         $nestedNoteBodyColumn = null;
         $nestedNoteTail = null;
         $nestedNoteTailColumn = 0;
+        $releasedNoteParagraphColumn = null;
         $sawNestedNote = false;
         $nestedNoteBlankContinues = false;
         $inBlankRun = false;
@@ -687,6 +688,7 @@ final class BlockContinuationScanner
         $pendingDefinitionTerm = false;
         // A term keeps its authored base until a blank or a sibling opener (CARVE-P0-004).
         $authoredTermColumn = null;
+        $authoredFenceOwnsLazy = false;
         $pendingTermFence = null;
         $termCodeTailEligible = true;
         $termCodeTailFence = null;
@@ -774,6 +776,15 @@ final class BlockContinuationScanner
                 $itemOwnFenceRuns = false;
             }
             if ($nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $nestedNoteBodyColumn) < $nestedNoteBodyColumn) {
+                if ($trailingState->fence !== null && $trailingState->fence->column >= $nestedNoteBodyColumn - $contentIndent) {
+                    $trailingState->fence = null;
+                    $trailingState->openParagraph = false;
+                    $trailingState->inFootnoteBody = false;
+                }
+                $released = ltrim($nextLine, " \t");
+                $releasedNoteParagraphColumn = !$this->isBlockElementStart($released, $lines, $i)
+                    && !$this->startsNewBlock($released, $lines, $i)
+                    ? IndentationHelper::getLeadingColumns($nextLine) : null;
                 $nestedNoteBodyColumn = null;
             }
             if (
@@ -1058,6 +1069,14 @@ final class BlockContinuationScanner
                         || ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
                         || $this->isCommentLineOrFence($nextTrimmed))
                 ) {
+                    if (IndentationHelper::getLeadingColumns($nextLine) === $authoredTermColumn
+                        && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
+                        && $pendingTermFence === null) {
+                        $pendingDefinitionTerm = false;
+                        $authoredFenceOwnsLazy = true;
+                        $trailingState->openParagraph = false;
+                        $inlineCodeParagraph = false;
+                    }
                     $authoredTermColumn = null;
                 }
                 $authoredTermContinuation = $authoredTermColumn !== null
@@ -1151,7 +1170,7 @@ final class BlockContinuationScanner
                         $minimumFenceBase = true;
                         if (
                             $itemOwnFenceRuns && !$markerNoteItem && $openDefinitionBody === null && !$pendingDefinitionTerm && !$pendingAttachedAttributes
-                            && $trailingState->openParagraph && !$trailingState->afterComment
+                            && $trailingState->openParagraph
                             && !$this->isCommentLineOrFence(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t"))
                         ) {
                             $unclosedFenceColumn ??= $contentIndent;
@@ -1182,8 +1201,17 @@ final class BlockContinuationScanner
                         $floorParagraphWitness = true;
                     }
                 }
-                $inlineAuthoredFence = $inlineCodeParagraph || $termContinuation || $failedReplayFence;
+                $releasedNoteFenceText = $releasedNoteParagraphColumn !== null && $trailingState->openParagraph
+                    && IndentationHelper::getLeadingColumns($nextLine) > $releasedNoteParagraphColumn
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
+                $inlineAuthoredFence = $inlineCodeParagraph || $termContinuation || $failedReplayFence || $releasedNoteFenceText;
                 $failedFenceColumn = null;
+                if ($markerNoteItem && $trailingState->inFootnoteBody
+                    && $column <= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)) {
+                    $trailingState->openParagraph = false;
+                    $authoredFenceOwnsLazy = true;
+                }
                 // A completed floor block leaves the following authored block
                 // to the same body reparse instead of stripping its base twice.
                 if (
@@ -1208,7 +1236,7 @@ final class BlockContinuationScanner
                         && IndentationHelper::isBlankLine($lines[$i - 1])
                     )
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
-                    && !$inlineCodeParagraph
+                    && !$inlineCodeParagraph && !$releasedNoteFenceText
                 ) {
                     $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
                         ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
@@ -1262,6 +1290,7 @@ final class BlockContinuationScanner
                     && IndentationHelper::getLeadingColumns($nextLine, $authoredCodeColumn) >= $authoredCodeColumn
                     ? $authoredCodeColumn : $contentIndent;
                 $contentLine = $inlineAuthoredFence && !$termContinuation
+                    && !($trailingState->inFootnoteBody && $column > $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
                     ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                     : IndentationHelper::stripLeadingColumns($nextLine, $stripColumn);
                 if (
@@ -1360,6 +1389,13 @@ final class BlockContinuationScanner
                                 $authoredCodeColumn ?? $contentIndent,
                                 $authoredCodeColumn !== null,
                             ))));
+                if ($releasedNoteParagraphColumn !== null && $column === $releasedNoteParagraphColumn
+                    && $trailingState->fence === null && !$this->isBlockElementStart($nextTrimmed, $lines, $i)
+                    && !$this->startsNewBlock($nextTrimmed, $lines, $i)) {
+                    $trailingState->openParagraph = true;
+                    $trailingState->inFootnoteBody = false;
+                    $trailingState->afterInvisible = false;
+                }
                 if (
                     $nestedNoteBodyColumn !== null
                     && IndentationHelper::getLeadingColumns($nextLine, $nestedNoteBodyColumn) >= $nestedNoteBodyColumn
@@ -1528,6 +1564,17 @@ final class BlockContinuationScanner
                 // tracker fed the source line shut the fence at it and let the
                 // run below leave the item.
                 $trailingState = $this->advanceTrailingState($trailingState, $framed);
+                $i++;
+
+                continue;
+            }
+
+            if ($authoredFenceOwnsLazy && $trailingState->fence !== null
+                && !$this->isBlockElementStart($nextTrimmed, $lines, $i)
+                && !$this->startsNewBlock($nextTrimmed, $lines, $i)
+                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
                 $i++;
 
                 continue;
@@ -2838,6 +2885,15 @@ final class BlockContinuationScanner
         // Re-armed only by the two branches that set `nestedColumn`.
         $nestedIsQuoteOnEntry = $state->nestedIsQuote;
         $state->nestedIsQuote = false;
+        if ($wasQuoteParagraph && $state->nestedColumn > 0 && $state->fence === null
+            && IndentationHelper::getLeadingColumns($line, $state->nestedColumn) >= $state->nestedColumn
+            && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)) {
+            $state->openParagraph = true;
+            $state->quoteParagraph = true;
+            $state->nestedIsQuote = true;
+
+            return $state;
+        }
         // A FOOTNOTE DEFINITION IS THE ONE INVISIBLE BLOCK WITH A BODY, so it
         // is the only one whose further-indented line continues it rather than
         // being the container's own prose.
