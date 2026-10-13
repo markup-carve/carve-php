@@ -417,7 +417,7 @@ final class TableBlockBuilder
                     // The alignment here is the COLUMN's, taken so the empty
                     // cell lines up; the cell carries no marker of its own, so
                     // it is not explicit.
-                    $cell = new TableCell($isHeaderRow, $alignment, 1, $colspan, null, false);
+                    $cell = new TableCell(false, $alignment, 1, $colspan, null, false);
                     $cell->setSpanMarker($cellData['spanMarker']);
                     // The marker character occupies a real slice of this line,
                     // so the cell gets a position the same way an ordinary cell
