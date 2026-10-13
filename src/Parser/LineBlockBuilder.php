@@ -639,6 +639,19 @@ final class LineBlockBuilder
                 }
             }
 
+            $nextPosition = ($parent->getChildren()[$index + 1] ?? null)?->getPos();
+            if ($span !== null && $nextPosition !== null && $nextPosition->startLine > $span->startLine) {
+                $span = new SourceSpan(
+                    $span->startLine,
+                    $nextPosition->startLine,
+                    $span->startColumn,
+                    $nextPosition->startColumn,
+                    $span->startOffset,
+                    $nextPosition->startOffset,
+                    $span->file,
+                );
+            }
+
             if ($inline instanceof HardBreak) {
                 $inline->setPos($span);
 
