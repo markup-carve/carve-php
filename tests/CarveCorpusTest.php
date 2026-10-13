@@ -1189,7 +1189,20 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '107-colspan-marker-scans-left-past-a-consumed-cell' => [
+            'reason' => 'carve#3051: a `<` beside a cell that started in an earlier row is BLOCKED, so the span cannot overlap',
+            'html' => "<table>\n"
+                . '  <thead>' . "\n"
+                . '    <tr><th scope="col">p</th><th scope="col">q</th><th scope="col">r</th><th scope="col">s</th></tr>' . "\n"
+                . '  </thead>' . "\n"
+                . '  <tbody>' . "\n"
+                . '    <tr><td>a</td><td rowspan="2">b</td><td>c</td><td>d</td></tr>' . "\n"
+                . '    <tr><td>p</td><td></td><td>e</td></tr>' . "\n"
+                . '  </tbody>' . "\n"
+                . '</table>',
+        ],
+    ];
 
     protected CarveConverter $converter;
 

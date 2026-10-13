@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
+use MarkupCarve\Carve\Renderer\TableSpanGrid;
 
 /**
  * Renders `::: list-table` blocks as real HTML `<table>` markup, with the
@@ -456,9 +457,10 @@ class ListTableExtension implements ExtensionInterface
     }
 
     /**
-     * Resolve `^` / `<` markers into a positional grid using the pipe-table
-     * span walk. A caret below a consumed colspan position stays empty unless
-     * a visible span already covers it.
+     * Resolve `^` / `<` markers with the pipe-table span walk
+     * (TableSpanGrid::resolveMarkers). A merged marker is flagged `skip`; a marker
+     * with no origin, or whose span would cover another cell, stays a
+     * rendered-empty cell.
      *
      * @param array<array<\MarkupCarve\Carve\Node\Block\ListItem>> $rows
      * @param int $headerRows Number of leading rows that form the `<thead>`.
@@ -472,10 +474,10 @@ class ListTableExtension implements ExtensionInterface
     {
         $footerStart ??= count($rows);
         // Build the positional grid: one entry per source cell, in source order.
-        /** @var array<array<int, GridEntry>> $grid */
+        /** @var list<list<GridEntry>> $grid */
         $grid = [];
         foreach ($rows as $cells) {
-            /** @var array<int, GridEntry> $gridRow */
+            /** @var list<GridEntry> $gridRow */
             $gridRow = [];
             foreach ($cells as $cell) {
                 $gridRow[] = [
@@ -489,65 +491,18 @@ class ListTableExtension implements ExtensionInterface
             $grid[] = $gridRow;
         }
 
-        // Per source column, the last row index (above the current one) whose
-        // cell is not skipped - the nearest source a `^` can extend.
-        $lastNonSkip = [];
-        $colspanOrigins = [];
-        $rowCount = count($grid);
-        for ($r = 0; $r < $rowCount; $r++) {
-            $colCount = count($grid[$r]);
-            $lastVisible = null;
-            for ($c = 0; $c < $colCount; $c++) {
-                // Span updates preserve every entry's keys.
-                /** @var array<array<int, GridEntry>> $grid */
-                $grid = $grid;
-                $entry = $grid[$r][$c];
-                if ($entry['skip']) {
-                    continue;
-                }
-
-                if ($entry['marker'] === '^' && $r > 0) {
-                    $up = $lastNonSkip[$c] ?? null;
-                    $consumedSource = $up !== null && ($grid[$up][$c]['skip'] ?? false);
-                    $coveredByVisibleSpan = false;
-                    if ($consumedSource) {
-                        $left = $colspanOrigins[$up][$c] ?? null;
-                        $origin = $left !== null ? $grid[$up][$left] : null;
-                        $coveredByVisibleSpan = $left !== null && $origin !== null
-                            && $left + $origin['colspan'] > $c
-                            && $up + $origin['rowspan'] > $r;
-                    }
-                    if ($up !== null && isset($grid[$up][$c]) && (!$consumedSource || $coveredByVisibleSpan)) {
-                        $grid[$up][$c]['rowspan'] = $grid[$up][$c]['rowspan'] + 1;
-                        $grid[$r][$c]['skip'] = true;
-                    }
-                } elseif ($entry['marker'] === '<' && $c > 0) {
-                    $left = $lastVisible;
-                    if ($left !== null) {
-                        $grid[$r][$left]['colspan'] = $grid[$r][$left]['colspan'] + 1;
-                        $grid[$r][$c]['skip'] = true;
-                        $colspanOrigins[$r][$c] = $left;
-                    }
-                }
-                if (!$grid[$r][$c]['skip']) {
-                    $lastVisible = $c;
-                }
-
-                // A consumed colspan position still covers this source column.
-                // A caret below it is absorbed into that invisible position.
-                if (!$grid[$r][$c]['skip'] || $entry['marker'] === '<') {
-                    $lastNonSkip[$c] = $r;
-                }
+        $markers = array_map(static fn (array $gridRow): array => array_column($gridRow, 'marker'), $grid);
+        foreach (TableSpanGrid::resolveMarkers($markers) as $r => $spans) {
+            foreach ($spans as $c => $span) {
+                $grid[$r][$c] = $span + $grid[$r][$c];
             }
         }
+        $rowCount = count($grid);
 
         // Warn (rather than silently corrupt) when a rowspan reaches past the
         // last row - a `^` chain longer than the rows beneath its origin. The
         // spanning cell is then clamped to the table by the browser, but the
         // author likely has a typo, so surface it (pipe-table / carve-js parity).
-        // The in-place span mutations above leave PHPStan unable to prove the
-        // entry shape is still sealed, so re-assert it (no key is ever unset).
-        /** @var array<array<int, GridEntry>> $resolved */
         $resolved = $grid;
         foreach ($resolved as $rowIndex => $gridRow) {
             foreach ($gridRow as $entry) {
