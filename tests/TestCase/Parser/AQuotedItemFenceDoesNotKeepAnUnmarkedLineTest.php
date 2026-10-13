@@ -90,7 +90,7 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
         );
     }
 
-    public function testRunsBetweenTheContentAndOpenerColumnsStayPayload(): void
+    public function testRunsBetweenTheContentAndOpenerColumnsCloseOnTheirAvailablePrefix(): void
     {
         foreach (['```', '~~~', '```=html', '~~~=html'] as $opener) {
             foreach ([4, 6] as $column) {
@@ -99,10 +99,9 @@ class AQuotedItemFenceDoesNotKeepAnUnmarkedLineTest extends TestCase
                     $runPad = str_repeat(' ', $runColumn);
                     $run = substr($opener, 0, 3);
                     $source = "> - a\n>\n> {$pad}{$opener}\n> {$pad}x\n> {$runPad}{$run}\n>   after\nflush\n";
-                    $payload = "x\n" . str_repeat(' ', $runColumn - 2) . "{$run}\nafter\n";
-                    $block = str_ends_with($opener, '=html') ? $payload : "<pre><code>{$payload}</code></pre>\n";
+                    $block = str_ends_with($opener, '=html') ? "x\n" : "<pre><code>x\n</code></pre>\n";
                     $this->assertSame(
-                        "<blockquote>\n  <ul>\n    <li>a\n      {$block}    </li>\n  </ul>\n</blockquote>\n<p>flush</p>\n",
+                        "<blockquote>\n  <ul>\n    <li>a\n      {$block}      after\n    </li>\n  </ul>\n</blockquote>\n<p>flush</p>\n",
                         (new CarveConverter())->convert($source),
                         $source,
                     );

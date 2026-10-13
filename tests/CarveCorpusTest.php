@@ -55,6 +55,7 @@ class CarveCorpusTest extends TestCase
         'a-footnote-definition-past-a-box-s-column-is-hoisted',
         'a-comment-between-a-heading-and-a-colon-fence-leaves-the-fence-an-opener',
         'a-fence-past-the-column-after-an-attribute-line-opens-on-its-authored-base',
+        'a-fence-closer-below-the-authored-base-is-measured-as-its-payload',
         'a-comment-in-a-marker-line-note-changes-nothing',
         'a-comment-closes-a-marker-line-note-s-paragraph-and-an-unclosed-fence-below-it-opens-in-the-note',
         'a-link-definition-or-an-attribute-line-past-a-box-s-column-opens-on-its-authored-base',

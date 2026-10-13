@@ -3148,8 +3148,11 @@ final class BlockContinuationScanner
             // Inside a fenced code block: stay code (no open paragraph) until
             // the matching closer is seen. The closer itself is still part of
             // the code block, so the trailing block remains code.
+            $column = IndentationHelper::getLeadingColumns($line);
+            // Column-zero boundaries and div ownership are settled by their
+            // container walks. An interior lower run closes here.
             if (
-                ($state->fence->pairedInline || IndentationHelper::getLeadingColumns($line) === $state->fence->column)
+                ($state->fence->pairedInline || $column === $state->fence->column || (!$state->inDiv && $column > 0 && $column < $state->fence->column))
                 && ($this->getFencedBlockParser)()->isCodeFenceCloser(BlockGrammar::subjectFrom($line, $at, $end), $state->fence->char, $state->fence->length)
             ) {
                 $state->fence = null;

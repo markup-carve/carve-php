@@ -2,7 +2,7 @@
   {
     "id": "non-tab-stop-raw-base",
     "source": "- a\n  > q\n\t\t[^n]: f\n  # h\n\t  ```=html\n\t- s\n    ``` \n\t```make\n    \t```\t\nafter\n",
-    "html": "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"h\">h</h1>\n    - s\n  ``` \n  ```make\n  </li>\n</ul>\n<p>after</p>\n"
+    "html": "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n    <h1 id=\"h\">h</h1>\n    - s\n    <pre><code class=\"language-make\"></code></pre>\n  </li>\n</ul>\n<p>after</p>\n"
   },
   {
     "id": "review3-p5-0",
@@ -36,7 +36,7 @@
   {
     "id": "earlier-attributes-1",
     "source": "1. a\n   - \n \t\t{.c}\n \t%% c\n   \t```\n\t````\n  y\n",
-    "html": "<ol><li>a\n-\n    <pre class=\"c\"><code> ````\n</code></pre></li></ol><p>y</p>"
+    "html": "<ol><li>a\n-\n    <pre class=\"c\"><code></code></pre></li></ol><p>y</p>"
   },
   {
     "id": "review-fuzz-0",
