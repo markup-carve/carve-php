@@ -372,6 +372,13 @@ final class BlockQuoteBuilder
         unset($host['inlineFenceLines']);
         $column = IndentationHelper::getLeadingColumns($content);
         $text = ltrim($content, " \t");
+        // A line below a note's body column releases it. A later heading at
+        // that column must not close the paragraph of a different host.
+        foreach ($host['kinds'] as $hostIndex => $kind) {
+            if ($kind === 'note' && $text !== '' && $column < $host['columns'][$hostIndex + 1]) {
+                $host['noteBodyBroken'][$hostIndex] = true;
+            }
+        }
         if ($text === '') {
             // Blanks inside opaque spans or before the colon owner also make
             // this quoted body ineligible for the narrow inline handoff.
@@ -464,6 +471,18 @@ final class BlockQuoteBuilder
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
+        foreach ($host['kinds'] as $hostIndex => $kind) {
+            if (
+                $kind === 'note' && !($host['noteBodyBroken'][$hostIndex] ?? false)
+                && $column === $host['columns'][$hostIndex + 1]
+                && (preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $text) === 1
+                    || ($this->getTableParser)()->isTableRow($text))
+            ) {
+                $foldedText = false;
+
+                break;
+            }
+        }
         // A fence with a closer at its own column interrupts the paragraph of
         // a deeper host it no longer reaches (`CARVE-P0-014`); it is not text.
         if ($foldedText && $column < $host['columns'][array_key_last($host['columns'])] && ($text[0] === '`' || $text[0] === '~')) {
@@ -611,6 +630,7 @@ final class BlockQuoteBuilder
                 $host['markers'][] = $at;
                 $host['columns'][] = $at + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                 $host['kinds'][] = 'note';
+                $host['noteBodyBroken'][array_key_last($host['kinds'])] = false;
             }
 
             break;

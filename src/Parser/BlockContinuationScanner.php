@@ -672,6 +672,10 @@ final class BlockContinuationScanner
             && !$this->isBlockAttributeLine(ltrim($itemLines[0] ?? '', " \t"));
         $hasDescendantList = false;
         $markerNoteItem = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $itemLines[0] ?? '') === 1;
+        // Track the note's blank and a marker released to the item separately.
+        // Both stop mattering once a line leaves the item's content column.
+        $releasedNoteMarker = false;
+        $noteBlankAfterCodeFence = false;
         $nestedNoteBodyColumn = null;
         $nestedNoteTail = null;
         $nestedNoteTailColumn = 0;
@@ -727,6 +731,12 @@ final class BlockContinuationScanner
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if (!$inBlankRun) {
+                    // The run is inline text in the quoted note, so the blank
+                    // cannot split the note before its next body-column marker.
+                    $noteBlankAfterCodeFence = $markerNoteItem && $trailingState->quoteParagraph
+                        && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($itemLines[count($itemLines) - 1] ?? '', " \t")) !== null;
+                }
                 $recentDefinitionBodyColumn = null;
                 $recentDefinitionParagraph = false;
                 if ($nestedNoteTail !== null && $nestedNoteTail->fence === null) {
@@ -742,6 +752,8 @@ final class BlockContinuationScanner
                 $authoredTermColumn = null;
                 $floorInlineLength = null;
                 $inlineCodeParagraph = false;
+                $definitionContinuesBlank = $openDefinitionBody !== null
+                    && $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $openDefinitionBody);
                 if (
                     ($trailingState->fence !== null)
                     || $trailingState->hasOpenDiv()
@@ -755,14 +767,18 @@ final class BlockContinuationScanner
                             true,
                         ) !== null
                     )
+                    || (
+                        $markerNoteItem && !$sawNestedNote
+                        && $noteBlankAfterCodeFence
+                        && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
+                        && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
+                        && $this->footnoteBodyResumesAfter($lines, $i, $count, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, false) !== null
+                    )
                     || $nestedNoteBlankContinues
                     || $openCommentLength !== null
                     || $termCodeTailFence !== null
                     || ($unclosedFenceColumn !== null && $itemOwnFenceRuns && !$markerNoteItem)
-                    || (
-                        $openDefinitionBody !== null
-                        && $this->definitionBodyContinuesPastBlank($lines, $i, $count, $contentIndent, $openDefinitionBody)
-                    )
+                    || $definitionContinuesBlank
                 ) {
                     if ($termCodeTailFence !== null) {
                         $termCodeTailAfterBlank = true;
@@ -783,11 +799,37 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            $blankChildMarkerAtBoundary = $noteBlankAfterCodeFence;
+            if ($nextIndent < $contentIndent) {
+                $noteBlankAfterCodeFence = false;
+                $releasedNoteMarkerAtBoundary = $releasedNoteMarker;
+                $releasedNoteMarker = false;
+            } else {
+                $releasedNoteMarkerAtBoundary = false;
+            }
+            if (
+                $markerNoteItem && $nextIndent === $contentIndent
+                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+            ) {
+                $releasedNoteMarker = true;
+            }
+            // A code run after a marker below a note's body column cannot
+            // carry that marker's paragraph across the containing item's floor.
+            if (
+                $markerNoteItem && $releasedNoteMarkerAtBoundary && $nextIndent < $contentIndent && $inlineCodeParagraph
+                && !$leadNoteHadBlank && $this->noteHoldsABlock($itemLines, $blockCursor, $blockFound)
+            ) {
+                break;
+            }
             // Below a nested definition in a marker-line note, a line under the item's column leaves the list.
             if (
                 $markerNoteItem && $nextIndent < $contentIndent
-                && (($sawNestedNote && $nestedNoteBodyColumn !== null) || (!$sawNestedNote && !$leadNoteHadBlank && $this->noteHoldsABlock($itemLines, $blockCursor, $blockFound)) || (
+                && (($sawNestedNote && $nestedNoteBodyColumn !== null) || (
+                    !$sawNestedNote && !$leadNoteHadBlank
+                    && $this->noteHoldsABlock($itemLines, $blockCursor, $blockFound)
+                ) || (
                     $leadNoteHadBlank && !$sawNestedNote
+                    && (!$blankChildMarkerAtBoundary || !$trailingState->openParagraph)
                     && (
                         $this->noteChildContentColumn($itemLines, $contentIndent, true) !== PHP_INT_MAX
                         || $this->noteHoldsABlock($itemLines, $blockCursor, $blockFound)
