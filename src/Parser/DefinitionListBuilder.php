@@ -491,7 +491,8 @@ final class DefinitionListBuilder
                         if (
                             $relativeColumn !== null
                             && $relativeColumn >= $continuationColumn
-                            && ($restoredDivLength !== null || !$formABlockOpen)
+                            && ($restoredDivLength !== null || !$formABlockOpen
+                                || (bool)preg_match('/(?:^|\n)[ \t]*(?:`{3,}|~{3,})/', BlockGrammar::stripLazyFrame($lastBody)))
                             && ($restoredDivLength !== null
                                 || $this->lineOpensBlockForLooseness($subject, true, invisibleArms: false))
                         ) {

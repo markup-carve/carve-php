@@ -1315,9 +1315,6 @@ final class BlockContinuationScanner
                             ) {
                                 $authoredCodeColumn = $column;
                             }
-                            if ($descriptionBlockFence) {
-                                $trailingState->openParagraph = false;
-                            }
                         } else {
                             $inlineAuthoredFence = true;
                             $failedFenceColumn = $column;

@@ -48,5 +48,30 @@
     "id": "tabbed quote stays in description",
     "source": "- :: a\n  : p\n    ```\n\t  > q\n",
     "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>\n        <p>p\n<code></code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "lazy-below-fence",
+    "source": "- :: t\n  : p\n    ```\n ```\n    > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code>\n</code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "lazy-below-text",
+    "source": "- :: t\n  : p\n    ```\n  x\n    :::\n    d\n    :::\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>p\n<code>\nx</code></p>\n        <div>\n          <p>d</p>\n        </div>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "multiline",
+    "source": "- :: a\n  : p\n    more\n    ```\n      > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>\n        <p>p\nmore\n<code></code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "table-multiline",
+    "source": "- :: a\n  :   | a |\n      p\n      ```\n        > q\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>a</dt>\n      <dd>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n        <p>p\n<code></code></p>\n        <blockquote><p>q</p></blockquote>\n      </dd>\n    </dl>\n  </li>\n</ul>"
+  },
+  {
+    "id": "table-fence",
+    "source": "- :: t\n  :   | a |\n      ```\n  ```\ntext\n",
+    "html": "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <table>\n          <tbody>\n            <tr><td>a</td></tr>\n          </tbody>\n        </table>\n        <pre><code></code></pre>\n      </dd>\n    </dl>\n    <pre><code>text\n</code></pre>\n  </li>\n</ul>"
   }
 ]
