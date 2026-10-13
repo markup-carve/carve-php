@@ -1323,9 +1323,9 @@ final class BlockContinuationScanner
                             && !$recentDefinitionParagraph
                             && $column >= $contentIndent + $openDefinitionBody;
                         // An unclosed run in a marker-line note's open paragraph is that paragraph's text.
-                        $unclosedNoteText = $markerNoteItem && !$leadNoteHadBlank && !$sawNestedNote
+                        $unclosedNoteText = $markerNoteItem && !$sawNestedNote
+                            && (!$leadNoteHadBlank || $this->endsOnParagraphText($itemLines))
                             && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                            && $this->noteChildContentColumn($itemLines, $contentIndent, false) === PHP_INT_MAX
                             && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
                             && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
                             && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken)
@@ -3785,6 +3785,23 @@ final class BlockContinuationScanner
     private function entryOpensContainer(string $entry): bool
     {
         return ($this->entryOpensContainerCallback)($entry);
+    }
+
+    /**
+     * Whether the last collected line leaves a paragraph open: plain text or a list item's text.
+     *
+     * @param array<string> $itemLines
+     */
+    private function endsOnParagraphText(array $itemLines): bool
+    {
+        $last = ltrim($itemLines[count($itemLines) - 1] ?? '', " \t");
+
+        if ($last === '' || str_starts_with($last, BlockGrammar::LAZY_FRAME) || $this->isCommentLineOrFence($last)) {
+            return false;
+        }
+
+        return ($this->getListParser)()->parseListItemMarker($last) !== null
+            || (!$this->isBlockElementStart($last) && !$this->startsNewBlock($last));
     }
 
     /**

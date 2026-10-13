@@ -38,6 +38,12 @@ class AnUnclosedRunInAMarkerLineNoteIsNoteTextTest extends TestCase
             '<ul><li></li></ul><p>after ' . $ref . ' [^b]</p>' . $notes
                 . "<p>text\n- child\n[^b]:\n- c2\n~~~\ncode" . self::BACKLINK . '</p></li></ol></section>',
         ];
+
+        yield 'in a second note paragraph after a blank' => [
+            "- [^a]: text\n    more\n    [^b]: \n\n      more\n      ~~~\n      code\nafter [^a] [^b]\n",
+            '<ul><li></li></ul><p>after ' . $ref . ' [^b]</p>' . $notes
+                . "<p>text\nmore\n[^b]:</p><p>more\n~~~\ncode" . self::BACKLINK . '</p></li></ol></section>',
+        ];
     }
 
     #[DataProvider('rows')]
