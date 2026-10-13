@@ -1642,5 +1642,9 @@
   {
     "source": "{'outside'}\n\n!['inside'](img)",
     "html": "<p>‘outside’</p>\n<p><img alt=\"inside\" src=\"img\"></p>\n"
+  },
+  {
+    "source": "![x{%\"a\"}][c",
+    "html": "<p>![x][c</p>\n"
   }
 ]

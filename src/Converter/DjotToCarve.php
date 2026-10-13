@@ -3002,6 +3002,7 @@ class DjotToCarve
                     return $match[0][0];
                 }
 
+                $label = $this->normalizeDjotInlineComments($label, true);
                 $wire = [];
                 $mask = $this->djotEmphasisMask($label, true, $wire);
                 $emptyAttributeEnd = 0;

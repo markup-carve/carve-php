@@ -1525,7 +1525,7 @@ trait NormalizesDjotStructure
         return false;
     }
 
-    private function normalizeDjotInlineComments(string $source): string
+    private function normalizeDjotInlineComments(string $source, bool $removeAll = false): string
     {
         $comments = [];
         $this->maskCodeAndDestinations($source, opaqueOptions: [
@@ -1535,10 +1535,11 @@ trait NormalizesDjotStructure
             },
         ]);
         foreach (array_reverse($comments, true) as $start => $end) {
-            if ($source[$end - 2] !== '%' && str_contains(substr($source, $start + 2, $end - $start - 2), '{')) {
+            if ($removeAll || ($source[$end - 2] !== '%' && str_contains(substr($source, $start + 2, $end - $start - 2), '{'))) {
                 $source = substr($source, 0, $start) . '{%%}' . substr($source, $end);
             }
         }
+
         return $source;
     }
 
