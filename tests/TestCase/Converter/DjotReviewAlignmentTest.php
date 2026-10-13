@@ -416,7 +416,10 @@ class DjotReviewAlignmentTest extends TestCase
 
     public function testImageReferenceChildText(): void
     {
-        $cases = json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-image-reference-child-text.json'), true, flags: JSON_THROW_ON_ERROR);
+        $cases = array_merge(
+            json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-image-reference-child-text.json'), true, flags: JSON_THROW_ON_ERROR),
+            json_decode(file_get_contents(__DIR__ . '/../../fixtures/djot-image-reference-hard-breaks.json'), true, flags: JSON_THROW_ON_ERROR),
+        );
         foreach ($cases as $case) {
             $imported = (new DjotToCarve())->convert($case['source']);
             $html = (new CarveConverter())->convert($imported);

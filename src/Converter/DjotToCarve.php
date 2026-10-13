@@ -3895,7 +3895,7 @@ class DjotToCarve
                 }
             }
             $destination = $this->djotDestinationLines($rawDestination, $owner['depth']);
-            if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && str_contains($label, '[')) {
+            if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && !str_contains($authoredLabel, "\n") && str_contains($label, '[')) {
                 $altDefinitions = [];
                 preg_match_all('/\[(carve-djot-pipe-target-[0-9]+)\]/', $label, $altAliases);
                 foreach ($altAliases[1] as $alias) {

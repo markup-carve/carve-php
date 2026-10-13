@@ -1,0 +1,362 @@
+[
+  {
+    "name": "hard-root-inline-link-unresolved",
+    "source": "![a [b\\\nx][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-root-inline-link-defined",
+    "source": "![a [b\\\nx][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-root-inline-image-unresolved",
+    "source": "![a ![b\\\nx][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-root-inline-image-defined",
+    "source": "![a ![b\\\nx][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-root-reference-link-unresolved",
+    "source": "![a [b\\\nx][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-root-reference-link-defined",
+    "source": "![a [b\\\nx][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-root-reference-image-unresolved",
+    "source": "![a ![b\\\nx][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-root-reference-image-defined",
+    "source": "![a ![b\\\nx][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-inline-link-unresolved",
+    "source": "> ![a [b\\\n> x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-inline-link-defined",
+    "source": "> ![a [b\\\n> x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-inline-image-unresolved",
+    "source": "> ![a ![b\\\n> x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-inline-image-defined",
+    "source": "> ![a ![b\\\n> x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-reference-link-unresolved",
+    "source": "> ![a [b\\\n> x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-reference-link-defined",
+    "source": "> ![a [b\\\n> x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-reference-image-unresolved",
+    "source": "> ![a ![b\\\n> x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quote-reference-image-defined",
+    "source": "> ![a ![b\\\n> x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-inline-link-unresolved",
+    "source": "- ![a [b\\\n  x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-inline-link-defined",
+    "source": "- ![a [b\\\n  x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-inline-image-unresolved",
+    "source": "- ![a ![b\\\n  x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-inline-image-defined",
+    "source": "- ![a ![b\\\n  x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-reference-link-unresolved",
+    "source": "- ![a [b\\\n  x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-reference-link-defined",
+    "source": "- ![a [b\\\n  x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-reference-image-unresolved",
+    "source": "- ![a ![b\\\n  x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-list-reference-image-defined",
+    "source": "- ![a ![b\\\n  x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-inline-link-unresolved",
+    "source": "> - ![a [b\\\n>   x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-inline-link-defined",
+    "source": "> - ![a [b\\\n>   x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-inline-image-unresolved",
+    "source": "> - ![a ![b\\\n>   x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-inline-image-defined",
+    "source": "> - ![a ![b\\\n>   x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-reference-link-unresolved",
+    "source": "> - ![a [b\\\n>   x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-reference-link-defined",
+    "source": "> - ![a [b\\\n>   x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-reference-image-unresolved",
+    "source": "> - ![a ![b\\\n>   x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "hard-quoted-list-reference-image-defined",
+    "source": "> - ![a ![b\\\n>   x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-inline-link-unresolved",
+    "source": "![a [b\nx][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-inline-link-defined",
+    "source": "![a [b\nx][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-inline-image-unresolved",
+    "source": "![a ![b\nx][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-inline-image-defined",
+    "source": "![a ![b\nx][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-reference-link-unresolved",
+    "source": "![a [b\nx][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-reference-link-defined",
+    "source": "![a [b\nx][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-reference-image-unresolved",
+    "source": "![a ![b\nx][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-root-reference-image-defined",
+    "source": "![a ![b\nx][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-inline-link-unresolved",
+    "source": "> ![a [b\n> x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-inline-link-defined",
+    "source": "> ![a [b\n> x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-inline-image-unresolved",
+    "source": "> ![a ![b\n> x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-inline-image-defined",
+    "source": "> ![a ![b\n> x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-reference-link-unresolved",
+    "source": "> ![a [b\n> x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-reference-link-defined",
+    "source": "> ![a [b\n> x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-reference-image-unresolved",
+    "source": "> ![a ![b\n> x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quote-reference-image-defined",
+    "source": "> ![a ![b\n> x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-inline-link-unresolved",
+    "source": "- ![a [b\n  x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-inline-link-defined",
+    "source": "- ![a [b\n  x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-inline-image-unresolved",
+    "source": "- ![a ![b\n  x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-inline-image-defined",
+    "source": "- ![a ![b\n  x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-reference-link-unresolved",
+    "source": "- ![a [b\n  x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-reference-link-defined",
+    "source": "- ![a [b\n  x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-reference-image-unresolved",
+    "source": "- ![a ![b\n  x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-list-reference-image-defined",
+    "source": "- ![a ![b\n  x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-inline-link-unresolved",
+    "source": "> - ![a [b\n>   x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-inline-link-defined",
+    "source": "> - ![a [b\n>   x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-inline-image-unresolved",
+    "source": "> - ![a ![b\n>   x][r] c](img)\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-inline-image-defined",
+    "source": "> - ![a ![b\n>   x][r] c](img)\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-reference-link-unresolved",
+    "source": "> - ![a [b\n>   x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-reference-link-defined",
+    "source": "> - ![a [b\n>   x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-reference-image-unresolved",
+    "source": "> - ![a ![b\n>   x][r] c][outer]\n\n[outer]: img\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "soft-quoted-list-reference-image-defined",
+    "source": "> - ![a ![b\n>   x][r] c][outer]\n\n[outer]: img\n\n[r]: u\n",
+    "alt": "a b\nx c"
+  },
+  {
+    "name": "list-heading",
+    "source": "- ![a [b\\\n  # x][r] c](img)",
+    "alt": "a b\n# x c"
+  },
+  {
+    "name": "list-item",
+    "source": "- ![a [b\\\n  - x][r] c](img)",
+    "alt": "a b\n- x c"
+  },
+  {
+    "name": "ordered-quote",
+    "source": "1. ![a [b\\\n   > x][r] c](img)",
+    "alt": "a b\n&gt; x c"
+  },
+  {
+    "name": "quote-soft",
+    "source": "> ![a\n> [b][r] c](img)",
+    "alt": "a\nb c"
+  },
+  {
+    "name": "list-soft",
+    "source": "- ![a [b](u)\n  c](img)",
+    "alt": "a b\nc"
+  },
+  {
+    "name": "backslashes-2",
+    "source": "![a [b\\\\\nx][r] c](img)\n\n[r]: u",
+    "alt": "a b\\\nx c"
+  },
+  {
+    "name": "backslashes-3",
+    "source": "![a [b\\\\\\\nx][r] c](img)\n\n[r]: u",
+    "alt": "a b\\\nx c"
+  },
+  {
+    "name": "backslashes-4",
+    "source": "![a [b\\\\\\\\\nx][r] c](img)\n\n[r]: u",
+    "alt": "a b\\\\\nx c"
+  }
+]
