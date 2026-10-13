@@ -85,9 +85,9 @@ final class ReferencedLinkDefinitions
         return serialize([LabelKey::normalize($label), $href, $title]);
     }
 
-    public static function line(LinkReferenceDefinition $node): string
+    public static function line(LinkReferenceDefinition $node, ?string $href = null): string
     {
-        $line = '[' . $node->getLabel() . ']: ' . $node->getHref();
+        $line = '[' . $node->getLabel() . ']:' . ($href === '' ? '' : ' ') . ($href ?? $node->getHref());
         if ($node->getTitle() !== null) {
             $line .= ' "' . QuotedSlotEscaper::escape($node->getTitle()) . '"';
         }

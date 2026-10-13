@@ -10,6 +10,21 @@ use PHPUnit\Framework\TestCase;
 
 class AnUnusedLinkDefinitionSurvivesEveryTextTargetTest extends TestCase
 {
+    public function testPlainTextBlanksAndReportsDeniedUnusedDefinition(): void
+    {
+        $source = "Text.\n\n[x]: /u\n\n[y]: javascript:alert(3)\n";
+        $converter = CarveConverter::plainText();
+        $result = $converter->convertWithReport($source);
+
+        self::assertSame("Text.\n\n[x]: /u\n\n[y]:\n", $result->value);
+        self::assertSame($converter->convert($source), $result->value);
+        self::assertSame(1, $result->totalLosses);
+        self::assertSame(['destination-denied' => 1], $result->lossCounts);
+        self::assertSame('destination-denied', $result->losses[0]['code']);
+        self::assertSame('plain', $result->losses[0]['target']);
+        self::assertSame(5, $result->losses[0]['pos']['startLine']);
+    }
+
     public function testUnusedUsedShadowedAndImageDefinitions(): void
     {
         foreach (['markdown', 'plainText', 'ansi'] as $target) {

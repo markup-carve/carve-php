@@ -401,8 +401,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
-                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])
-                    ? '' : $this->stripControls(ReferencedLinkDefinitions::line($node)),
+                $node instanceof LinkReferenceDefinition => $this->renderLinkReferenceDefinition($node),
                 $node instanceof RawBlock => $this->dropRaw($node, 'block'),
                 $node instanceof BlockQuote => $this->renderBlockQuote($node),
                 $node instanceof ListBlock => $this->renderList($node),
@@ -630,6 +629,17 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         }
 
         return str_replace("\0", ' ', $text);
+    }
+
+    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
+    {
+        if (isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])) {
+            return '';
+        }
+
+        $href = $this->blankDeniedDestination($this->stripControls($node->getHref()), self::DESTINATION_SINK_LINK, $node);
+
+        return $this->stripControls(ReferencedLinkDefinitions::line($node, $href));
     }
 
     protected function renderParagraph(Paragraph $node): string
