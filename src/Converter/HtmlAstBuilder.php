@@ -1050,10 +1050,6 @@ final class HtmlAstBuilder
         if ($tag === 'blockquote') {
             $quote = ['type' => 'block_quote', 'children' => $this->blocks($this->children($node))];
             $this->attachAttrs($quote, $node);
-            if (($quote['children'][0]['type'] ?? null) === 'list') {
-                $this->addHint($quote, "\0carve-leading-blank");
-            }
-
             return self::nodeList([$quote]);
         }
         if ($tag === 'pre') {

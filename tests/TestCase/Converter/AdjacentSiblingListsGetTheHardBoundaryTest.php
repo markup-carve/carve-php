@@ -79,7 +79,7 @@ class AdjacentSiblingListsGetTheHardBoundaryTest extends TestCase
             // left rather than as bare blank lines.
             'two lists inside a block quote' => [
                 '<blockquote><ul><li>a</li></ul><ul><li>b</li></ul></blockquote>',
-                ">\n> - a\n>\n>\n>\n> - b\n",
+                "> - a\n>\n>\n>\n> - b\n",
             ],
         ];
     }
@@ -284,7 +284,7 @@ class AdjacentSiblingListsGetTheHardBoundaryTest extends TestCase
         $quoted = $this->converter->convert(
             '<blockquote><ul><li>a</li></ul><p></p><ul><li>b</li></ul></blockquote>',
         );
-        $this->assertSame(">\n> - a\n>\n>\n>\n> - b\n", $quoted);
+        $this->assertSame("> - a\n>\n>\n>\n> - b\n", $quoted);
         $this->assertSame(2, substr_count((new CarveConverter())->convert($quoted), '<ul>'));
 
         // Three lists in the source - the item's own, and the two inside it.

@@ -1762,10 +1762,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $quoted = implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
 
-        if ($node->getRenderHint("\0carve-leading-blank") === '1') {
-            $quoted = ">\n" . $quoted;
-        }
-
         return $quoted;
     }
 
