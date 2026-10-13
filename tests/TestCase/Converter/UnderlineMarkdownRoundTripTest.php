@@ -43,4 +43,12 @@ final class UnderlineMarkdownRoundTripTest extends TestCase
             self::assertStringContainsString('/y/</p>', CarveConverter::create()->convert($imported));
         }
     }
+
+    public function testRawHtmlModeKeepsTheSlashAfterAnUnderlineLiteral(): void
+    {
+        $imported = (new MarkdownToCarve(convertRawHtml: true))->convert('<u>z</u>/y/');
+
+        self::assertSame("<p><u>z</u>/y/</p>\n", CarveConverter::create()->convert($imported));
+        self::assertStringContainsString('\\/y/', $imported);
+    }
 }
