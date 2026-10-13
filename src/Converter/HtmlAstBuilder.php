@@ -5089,9 +5089,11 @@ final class HtmlAstBuilder
                 && $this->claimReference($node, $ref, $node->getAttribute('href'), $node->hasAttribute('title') ? $node->getAttribute('title') : null)
             ) {
                 $link['ref'] = $ref;
-                $collapsed = $labelText === $ref;
-                $link['rawRef'] = '[' . $labelText . ']'
-                    . ($collapsed ? '[]' : '[' . $ref . ']');
+                if (self::every($children, static fn (array $child): bool => $child['type'] === 'text')) {
+                    $collapsed = $labelText === $ref;
+                    $link['rawRef'] = '[' . $labelText . ']'
+                        . ($collapsed ? '[]' : '[' . $ref . ']');
+                }
             } else {
                 $this->session->droppedReferenceCarriers[$node] = null;
             }
@@ -5104,6 +5106,9 @@ final class HtmlAstBuilder
             $skip[] = 'aria-label';
         }
         $this->attachAttrs($link, $node, $skip);
+        if (($link['attrs'] ?? []) !== []) {
+            unset($link['rawRef']);
+        }
 
         return [$link];
     }
