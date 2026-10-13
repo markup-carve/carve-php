@@ -94,6 +94,10 @@ trait NormalizesDjotStructure
             $definitionIndent = $ended->parentDefinition;
             $paragraph = false;
             $headingMarker = '';
+            $parentList = $lists === [] ? null : $lists[array_key_last($lists)];
+            foreach ($ended->pendingAttributes as $attributes) {
+                $out[] = $quoteBoundary . str_repeat(' ', $parentList !== null ? $parentList->target + $parentList->content : 0) . $attributes;
+            }
 
             return $notes->last();
         };
@@ -145,7 +149,7 @@ trait NormalizesDjotStructure
             while ($noteOwner !== null && $fences[$n] === $original && ($text !== '' || $quoteDepth > $noteOwner->depth)) {
                 $ownerColumn = $quoteDepth > $noteOwner->depth ? ($quoteColumns[$noteOwner->depth] ?? 0) : $indent;
                 $outside = $quoteDepth < $noteOwner->depth || $ownerColumn <= $noteOwner->column;
-                $block = ($isBoundary !== null && $isBoundary($original)) || $noteHead !== null || $quoteDepth > $noteOwner->depth || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[|]|[`~]{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|\[[^\]\n]+\]:)/', $visible) === 1
+                $block = ($isBoundary !== null && $isBoundary($original)) || $noteHead !== null || $quoteDepth > $noteOwner->depth || preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|[|]|[`~]{3,}|[-*+](?:[ \t]|$)|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)](?:[ \t]|$)|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)(?:[ \t]|$)|\[[^\]\n]+\]:)/', $visible) === 1
                     || (str_starts_with($visible, '{') && ($this->readDjotWordAttributes($visible, 0)['end'] ?? -1) === strlen($visible));
                 if ($outside && !($paragraph && !$blank && !$block && $quoteDepth <= $noteOwner->depth)) {
                     $noteOwner = $endNote($notes);
@@ -156,6 +160,23 @@ trait NormalizesDjotStructure
                     break;
                 }
             }
+            if ($noteOwner !== null && $text !== '') {
+                $attributes = str_starts_with($text, '{') ? $this->readDjotWordAttributes($text, 0) : null;
+                if ($attributes !== null && $attributes['end'] === strlen($text) && $noteOwner->pendingAttributes !== []) {
+                    $noteOwner->pendingAttributes[] = $attributes['source'];
+                    $paragraph = false;
+                    $blank = true;
+
+                    continue;
+                }
+                if ($noteOwner->pendingAttributes !== []) {
+                    $out[] = '';
+                    foreach ($noteOwner->pendingAttributes as $attributes) {
+                        $out[] = '  ' . $attributes;
+                    }
+                    $noteOwner->pendingAttributes = [];
+                }
+            }
             if ($noteOwner !== null && $fences[$n] !== $original) {
                 $host = $noteOwner->depth > 0 ? strlen($this->djotClosedQuoteBoundary($original, $noteOwner->depth - 1)) : 0;
                 $payload = substr($original, $host);
@@ -163,7 +184,7 @@ trait NormalizesDjotStructure
                     $payload = preg_replace('/^[ \t]/', '', $payload) ?? $payload;
                 }
                 $payloadIndent = strspn($payload, " \t");
-                if (!isset($noteOwner->fenceColumn) && $payloadIndent <= $noteOwner->column && preg_match('/^(`{3,}|~{3,})/', substr($payload, $payloadIndent)) === 1) {
+                if (!isset($noteOwner->fenceColumn) && $payloadIndent <= $noteOwner->column && preg_match('/^(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)*(`{3,}|~{3,})/', substr($payload, $payloadIndent)) === 1) {
                     while ($noteOwner !== null && $payloadIndent <= $noteOwner->column) {
                         $noteOwner = $endNote($notes);
                     }
@@ -305,6 +326,17 @@ trait NormalizesDjotStructure
                 if ($inlineNoteItem === null && $quotedNoteItem === null && ($quoteDepth > 0 || ($lists === [] && $out !== [] && trim($out[array_key_last($out)]) !== ''))) {
                     $out[] = rtrim($quoteForCarve());
                 }
+                for ($pending = count($out) - 1; $pending >= 0; $pending--) {
+                    $pendingText = trim($out[$pending]);
+                    if ($pendingText === '') {
+                        continue;
+                    }
+                    $attributes = str_starts_with($pendingText, '{') ? $this->readDjotWordAttributes($pendingText, 0) : null;
+                    if ($attributes === null || $attributes['end'] !== strlen($pendingText)) {
+                        break;
+                    }
+                    array_splice($out, $pending, 1);
+                }
                 $noteOwner = new DjotNoteContext($quoteDepth, $noteIndent, $out, $lists, $divs, $depth, $quoteBoundary, $embeddedListOwner, $opaqueQuoteOwner, $definitionIndent, $noteOwner === null && $quoteDepth === 0 && $noteIndent === 0 && $lists === [] ? count($out) : null, $embeddedOwners);
                 $notes->push($noteOwner);
                 $out = $lists = $divs = [];
@@ -315,6 +347,9 @@ trait NormalizesDjotStructure
                 $nestedFirstBody = false;
                 while (true) {
                     $body = $noteHead[2];
+                    if (preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]*$/', $body) === 1) {
+                        $body = rtrim($body, " \t") . ' +';
+                    }
                     $childBody = $body;
                     $child = preg_match('/^((?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)(?=[^ \t])/', $body, $childMatch) === 1;
                     if ($child) {
@@ -358,12 +393,18 @@ trait NormalizesDjotStructure
                     $context = $child ? $lists[array_key_last($lists)] : null;
                     $contentColumn = $context !== null ? $context->target + $context->content : 2;
                     $quoteBoundary = rtrim($quoteForCarve() . str_repeat(' ', $contentColumn) . $inlineQuote['prefix']);
-                    $out[] = $noteHead[1] . $this->compactDjotListPrefix($body);
                     $content = $inlineQuote['body'];
+                    $attributes = str_starts_with($content, '{') ? $this->readDjotWordAttributes($content, 0) : null;
+                    if ($attributes !== null && $attributes['end'] === strlen($content)) {
+                        $noteOwner->pendingAttributes[] = $attributes['source'];
+                        $out[] = $noteHead[1] . substr($body, 0, strlen($body) - strlen($content)) . $emptyNote;
+                    } else {
+                        $out[] = $noteHead[1] . ($child && $childBody === '+' ? $emptyNote . "\n  " : '') . $this->compactDjotListPrefix($body);
+                    }
                     if (preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $content, $inlineDiv) === 1) {
                         $divs[] = ['width' => strlen($inlineDiv[1]), 'prefix' => str_repeat(' ', $contentColumn) . $inlineQuote['prefix'], 'depth' => $depth, 'start' => $lineOffsets[$n], 'invalid' => $fenceParser->parseDivFenceOpener($content)['invalidMetadata'] ?? false] + ($context !== null ? ['itemColumn' => $context->column + 1] : []);
                     }
-                    $paragraph = !($rows[$n] ?? false) && $content !== '' && preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\[[^\]\n]*\]:|(?:[*-][ \t]*){3,}$)/', $content) !== 1 && preg_match('/^(`{3,}|~{3,})[ \t]*[a-zA-Z0-9_+#.-]*$/', $content) !== 1;
+                    $paragraph = !($rows[$n] ?? false) && $content !== '' && !($child && $content === '+') && !(str_starts_with($content, '{') && ($this->readDjotWordAttributes($content, 0)['end'] ?? -1) === strlen($content)) && preg_match('/^(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]*$/', $content) !== 1 && preg_match('/^(?:#{1,6}(?:[ \t]|$)|:{3,}|\[[^\]\n]*\]:|(?:[*-][ \t]*){3,}$)/', $content) !== 1 && preg_match('/^(`{3,}|~{3,})[ \t]*[a-zA-Z0-9_+#.-]*$/', $content) !== 1;
                     preg_match('/^(#{1,6})(?:[ \t]|$)/', $content, $noteHeading);
                     $headingMarker = $noteHeading[1] ?? '';
                     $blank = !$paragraph;

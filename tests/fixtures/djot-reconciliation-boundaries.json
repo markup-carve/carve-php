@@ -1,0 +1,66 @@
+[
+  {
+    "source": "r[^n]\n\n[^n]: x\n-\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><ul><li></li></ul><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>x<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: x\n1.\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><ol><li></li></ol><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>x<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: x\n- ```\n  code\n  ```\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><ul><li><pre><code>code\n</code></pre></li></ul><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>x<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: {.c}\nfoo\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"c\">foo</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: > {.c}\nfoo\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"c\">foo</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><blockquote></blockquote><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: *\nfoo\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p>foo</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><ul><li></li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "x\n\n  {#id}\n\n# h\n",
+    "html": "<p>x</p><section id=\"id\"><h1>h</h1></section>"
+  },
+  {
+    "source": "> x\n>\n>  {.k}\n>\n> # h\n",
+    "html": "<blockquote><p>x</p><h1 class=\"k\" id=\"h\">h</h1></blockquote>"
+  },
+  {
+    "source": "[]:*\n",
+    "html": ""
+  },
+  {
+    "source": "r[^n]\n\n[^n]: {.c}\n  inside\n\nfoo\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p>foo</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p class=\"c\">inside<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: x\n* ~~~\n  code\n  ~~~\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><ul><li><pre><code>code\n</code></pre></li></ul><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>x<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: {.c}\n  {.d}\n  inside\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p class=\"c d\">inside<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n][^m]\n\n[^n]: {.c}\n[^m]: x\n\nfoo\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><p>foo</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li><li id=\"fn2\"><p>x<a href=\"#fnref2\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: {.c}\n  {.d}\n\n  inside\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p class=\"c d\">inside<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: {.c}\n  {.d}\n  # h\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><h1 class=\"c d\" id=\"h\">h</h1><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  },
+  {
+    "source": "r[^n]\n\n[^n]: {.c}\n  {.d}\nfoo\n",
+    "html": "<p>r<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><p class=\"c d\">foo</p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
+  }
+]

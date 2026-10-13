@@ -1954,7 +1954,7 @@ class DjotToCarve
                         $target = $nextBlock[$index];
                         if ($target >= 0) {
                             $targetPrefix = $targetPrefixes[$target];
-                            if (substr_count(substr($line, 0, $first), '>') > substr_count($targetPrefix, '>')) {
+                            if (substr_count(substr($line, 0, $first), '>') > substr_count($targetPrefix, '>') || (substr_count(substr($line, 0, $first), '>') === substr_count($targetPrefix, '>') && substr($line, 0, $first) !== $targetPrefix)) {
                                 if ($targetPrefixes[$index] === substr($line, 0, $first)) {
                                     foreach ($moved[$index] ?? [] as $pending) {
                                         $moved[$target][] = $pending;
@@ -4187,11 +4187,14 @@ class DjotToCarve
                     $target .= $nextToken;
                     $end++;
                 }
+                if ($match[1] === '') {
+                    $lines[$n] = $separator . substr($line, 0, $at);
+                }
                 $nextByte = $content[strlen($match[1]) + 3] ?? '';
                 if ($accepted !== null) {
                     $accepted[$n] = ['label' => $match[1], 'target' => $target, 'end' => $end];
                 }
-                if ($end > $n || $target !== '' && $nextByte !== ' ') {
+                if ($match[1] !== '' && ($end > $n || $target !== '' && $nextByte !== ' ')) {
                     $lines[$n] = $separator . substr($line, 0, $at) . '[' . $match[1] . ']:' . ($target !== '' ? ' ' . $target : '');
                 }
                 if ($end > $n) {

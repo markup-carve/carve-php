@@ -9,6 +9,11 @@ final class DjotNoteContext
     public ?int $fenceColumn = null;
 
     /**
+     * @var list<string>
+     */
+    public array $pendingAttributes = [];
+
+    /**
      * @param int $depth
      * @param int $column
      * @param list<string> $parentOut
