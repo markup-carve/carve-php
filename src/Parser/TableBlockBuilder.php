@@ -273,11 +273,23 @@ final class TableBlockBuilder
             $i++;
 
             $cellAccumulator = null;
+            $rowspanContinuations = [];
             // Check for continuation rows (lines starting with +)
             while ($i < $count && ($this->getTableParser)()->isContinuationRow($lines[$i])) {
                 $cellAccumulator ??= new TableCellAccumulator(($this->getTableParser)(), $mergedCells);
                 $openRuns = $cellAccumulator->openDelimiters();
                 $continuationCells = ($this->getTableParser)()->parseContinuationCells($lines[$i], $openRuns);
+                foreach ($continuationCells as $col => $fragment) {
+                    if (
+                        ($cellAttributes[$col] ?? '') === ''
+                        && ($this->getTableParser)()->isRowspanMarker($cellsWithAttrs[$col]['content'] ?? '')
+                        && isset($columnOrigin[$col])
+                        && trim($fragment, ' ') !== ''
+                    ) {
+                        $rowspanContinuations[$col][] = trim($fragment, ' ');
+                        $continuationCells[$col] = '';
+                    }
+                }
                 foreach ($this->continuationCellSourceChunks($i, $lines[$i], $openRuns) as $idx => $chunks) {
                     if ($chunks === []) {
                         continue;
@@ -531,6 +543,9 @@ final class TableBlockBuilder
             foreach ($consumedRowspanColumns as $col) {
                 $origin = $columnOrigin[$col] ?? null;
                 if ($origin instanceof TableCell) {
+                    if (isset($rowspanContinuations[$col])) {
+                        $origin->appendChild(new Text(' ' . implode(' ', $rowspanContinuations[$col])));
+                    }
                     $origin->setRowspan($origin->getRowspan() + 1);
                     $nextOrigin[$col] = $origin;
                 }
