@@ -11,6 +11,8 @@ use MarkupCarve\Carve\Node\ContentNodeInterface;
  */
 class Math extends InlineNode implements ContentNodeInterface
 {
+    use CarriesCellWraps;
+
     /**
      * @param string $content
      * @param bool $display

@@ -474,6 +474,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private ?string $footnoteCodeGuard = null;
 
+    /**
+     * The verbatim node about to be written carries these `+` joins.
+     *
+     * @var array<array{offset: int, line: int, row?: int}>|null
+     */
+    private ?array $pendingVerbatimCellWraps = null;
+
     private ?ReferenceDefinitionExtractor $verbatimDefinitions = null;
 
     /**
@@ -3913,6 +3920,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     ): string {
         $this->ensureWriterState();
         $withAttrs = fn (string $body): string => $body . $this->renderAttrs($node);
+        $this->pendingVerbatimCellWraps = $node instanceof Code || $node instanceof Math || $node instanceof RawInline ? $node->getCellWraps() : null;
         // An unresolved reference renders as the source the author
         // wrote, never as a link (PART 12 section 3a).
         $rawReference = UnresolvedReference::sourceOf($node);
@@ -4785,6 +4793,29 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $this->safeFence($content, 1);
     }
 
+    /**
+     * @param string $content
+     * @param array<array{offset: int, line: int, row?: int}> $cellWraps
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     *
+     * @return string
+     */
+    private function markVerbatimCellWraps(string $content, array $cellWraps): string
+    {
+        $chars = mb_str_split($content, 1, 'UTF-8');
+        $previous = -1;
+        foreach ($cellWraps as $wrap) {
+            if ($wrap['offset'] <= $previous || ($chars[$wrap['offset']] ?? null) !== ' ') {
+                throw new SourceUnspellableException('code', 'a cellWraps offset does not name a joining space in ascending order');
+            }
+            $chars[$wrap['offset']] = "\x02" . ($wrap['row'] ?? 0) . ',' . $wrap['line'] . "\x03";
+            $previous = $wrap['offset'];
+        }
+
+        return implode('', $chars);
+    }
+
     protected function renderCode(string $content): string
     {
         return $this->renderCodeWithUnclosed($content, false);
@@ -4843,6 +4874,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private function renderCodeWithUnclosed(string $content, bool $allowUnclosed, bool $canPairFence = false): string
     {
+        $cellWraps = $this->pendingVerbatimCellWraps;
+        $this->pendingVerbatimCellWraps = null;
         if (str_contains($content, "\r")) {
             $content = str_replace(["\r\n", "\r"], "\n", $content);
         }
@@ -4874,7 +4907,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // padded: it is emitted verbatim and read back unchanged. Padding it
         // instead grew the span by two spaces on every fmt pass. One-sided space
         // is left as-is (the parser only strips when both sides are spaces).
-        $needsPad = str_starts_with($content, '`')
+        // A join the padding strip took sits at a boundary offset; it is
+        // written as that pad space, so the pad is forced (CARVE-P12-069).
+        $boundaryStart = null;
+        $boundaryEnd = null;
+        if ($cellWraps !== null && $this->tableCellDepth > 0) {
+            $length = mb_strlen($content, 'UTF-8');
+            $interior = [];
+            foreach ($cellWraps as $wrap) {
+                if ($wrap['offset'] === 0 && !str_starts_with($content, ' ')) {
+                    $boundaryStart = $wrap;
+                } elseif ($wrap['offset'] === $length) {
+                    $boundaryEnd = $wrap;
+                } else {
+                    $interior[] = $wrap;
+                }
+            }
+            $cellWraps = $interior;
+        }
+        $needsPad = $boundaryStart !== null || $boundaryEnd !== null
+            || str_starts_with($content, '`')
             || str_ends_with($content, '`')
             || (str_starts_with($content, ' ')
                 && str_ends_with($content, ' ')
@@ -4894,6 +4946,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $content = (string)preg_replace_callback('/\n([ \t\x{00A0}]*)\z/u', static fn (array $match): string => "\n" . str_replace("\u{00A0}", ' ', $match[1]), $content);
         }
 
+        // The pad is decided on the joined value above; only then does each
+        // joining space become the marker renderTable() cuts the row at.
+        if ($cellWraps !== null && $this->tableCellDepth > 0) {
+            $content = $this->markVerbatimCellWraps($content, $cellWraps);
+        }
+
         // Block normalization removes a pad before a newline. An unclosed
         // span at the end of the run keeps the value without that pad.
         if (
@@ -4908,8 +4966,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             throw new SourceUnspellableException('code', 'a leading newline loses its padding where the code span cannot run to the end');
         }
 
+        $marker = static fn (?array $wrap): string => $wrap === null ? ' ' : "\x02" . ($wrap['row'] ?? 0) . ',' . $wrap['line'] . "\x03";
+
         return $needsPad
-            ? $fence . ' ' . $content . ' ' . $fence
+            ? $fence . $marker($boundaryStart) . $content . $marker($boundaryEnd) . $fence
             : $fence . $content . $fence;
     }
 

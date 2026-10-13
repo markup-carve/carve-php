@@ -2520,6 +2520,67 @@ class InlineParser
     }
 
     /**
+     * The `+` joins inside a verbatim payload that starts at `$start` in
+     * `$text`. The scanner skips the payload, so its joins would otherwise
+     * vanish; a join consumed as padding has no space left and is dropped.
+     *
+     * A join whose space the padding strip took sits at the boundary: offset 0
+     * after the opener, the value's length before the closer.
+     *
+     * @param string $text
+     * @param int $start
+     * @param string $payload
+     * @param int $pad Spaces the padding strip took on each side.
+     *
+     * @return array<array{offset: int, line: int, row?: int}>|null
+     */
+    protected function verbatimCellWraps(string $text, int $start, string $payload, int $pad = 0): ?array
+    {
+        if ($this->cellWraps === []) {
+            return null;
+        }
+        $wraps = [];
+        $end = $start + strlen($payload);
+        foreach ($this->cellWraps as $at => [$line, $row]) {
+            $at -= $this->textOrigin;
+            if ($at < $start - $pad || $at >= $end + $pad || $text[$at] !== ' ') {
+                continue;
+            }
+            $offset = match (true) {
+                $at < $start => 0,
+                $at >= $end => mb_strlen($payload, 'UTF-8'),
+                default => mb_strlen(substr($text, $start, $at - $start), 'UTF-8'),
+            };
+            $wrap = ['offset' => $offset, 'line' => $line];
+            if ($row > 0) {
+                $wrap['row'] = $row;
+            }
+            $wraps[$at] = $wrap;
+        }
+        ksort($wraps);
+
+        return $wraps === [] ? null : array_values($wraps);
+    }
+
+    /**
+     * @template T of \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline|\MarkupCarve\Carve\Node\Inline\Math
+     *
+     * @param T $node
+     * @param string $text
+     * @param int $start
+     * @param string $payload
+     * @param int $pad
+     *
+     * @return T
+     */
+    private function withVerbatimCellWraps(Code|RawInline|Math $node, string $text, int $start, string $payload, int $pad = 0): Code|RawInline|Math
+    {
+        $node->setCellWraps($this->verbatimCellWraps($text, $start, $payload, $pad));
+
+        return $node;
+    }
+
+    /**
      * @return array{node: \MarkupCarve\Carve\Node\Inline\Code|\MarkupCarve\Carve\Node\Inline\RawInline, pos: int}|null
      */
     protected function parseCodeSpan(string $text, int $pos): ?array
@@ -2556,7 +2617,7 @@ class InlineParser
                 $remaining = rtrim(substr($text, $contentStart), $this->runStripCharacters);
 
                 return [
-                    'node' => new Code($remaining),
+                    'node' => $this->withVerbatimCellWraps(new Code($remaining), $text, $contentStart, $remaining),
                     'pos' => $length,
                 ];
             }
@@ -2581,9 +2642,11 @@ class InlineParser
             }
 
             // Found exact match
-            $content = substr($text, $contentStart, $closePos - $contentStart);
+            $padded = substr($text, $contentStart, $closePos - $contentStart);
 
-            $content = $this->stripVerbatimPadding($content);
+            $content = $this->stripVerbatimPadding($padded);
+            $pad = intdiv(strlen($padded) - strlen($content), 2);
+            $payloadStart = $contentStart + $pad;
 
             // Check for raw inline format: `...`{=format}
             // Format must be ONLY {=format} with no other attributes
@@ -2599,7 +2662,7 @@ class InlineParser
                         $endPos = $formatEnd + 1;
 
                         return [
-                            'node' => new RawInline($content, $format),
+                            'node' => $this->withVerbatimCellWraps(new RawInline($content, $format), $text, $payloadStart, $content, $pad),
                             'pos' => $endPos,
                         ];
                     }
@@ -2609,6 +2672,7 @@ class InlineParser
             }
 
             $code = new Code($content);
+            $code->setCellWraps($this->verbatimCellWraps($text, $payloadStart, $content, $pad));
 
             // Check for trailing attributes: `code`{.class}{.more}
             // But NOT if there was a {= pattern (failed raw inline attempt should be literal)
@@ -2630,7 +2694,7 @@ class InlineParser
         $remaining = rtrim(substr($text, $contentStart), $this->runStripCharacters);
 
         return [
-            'node' => new Code($remaining),
+            'node' => $this->withVerbatimCellWraps(new Code($remaining), $text, $contentStart, $remaining),
             'pos' => $length,
         ];
     }
@@ -5729,7 +5793,7 @@ class InlineParser
             // newlines took the removed lines' own positions with them, so the
             // writer had no line left to put the comments back on.
             return [
-                'node' => new Math($content, $display),
+                'node' => $this->withVerbatimCellWraps(new Math($content, $display), $text, $contentStart, $content),
                 'pos' => $length,
             ];
         }
@@ -5738,10 +5802,11 @@ class InlineParser
         // as a code span (carve-js and carve-rs both do). Without it the content
         // kept its padding while the serializer padded it again, so `` $` x ` ``
         // grew by two spaces on every fmt pass.
-        $content = $this->stripVerbatimPadding(
-            substr($text, $contentStart, $closePos - $contentStart),
-        );
+        $padded = substr($text, $contentStart, $closePos - $contentStart);
+        $content = $this->stripVerbatimPadding($padded);
         $node = new Math($content, $display);
+        $pad = intdiv(strlen($padded) - strlen($content), 2);
+        $node->setCellWraps($this->verbatimCellWraps($text, $contentStart + $pad, $content, $pad));
 
         // A trailing `{...}` applies attributes to the math span (math reuses the
         // code-span attribute slot). EXCEPT `{=format}`, the raw-inline form,
