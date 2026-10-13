@@ -85,7 +85,9 @@ trait NormalizesDjotStructure
             return $source;
         }
         $lines = explode("\n", $source);
-        $masks = explode("\n", $this->maskCodeAndDestinations($source));
+        $maskedSource = $this->maskCodeAndDestinations($source);
+        $masks = explode("\n", $maskedSource);
+        $tableRows = str_contains($source, '|') ? $this->djotTableRows($source, $maskedSource) : [];
         $frames = [];
         $before = [];
         $offset = 0;
@@ -103,16 +105,34 @@ trait NormalizesDjotStructure
             $visible = substr($masks[$row], strlen($prefix) + $indent);
             $at = $offset + strlen($prefix) + $indent;
             $offset += strlen($line) + 1;
+            $openingColumn = 0;
+            if ($depth > $previousDepth) {
+                $prefixEnd = 0;
+                for ($level = 0; $level < $previousDepth; $level++) {
+                    preg_match('/^[ \t]*>(?:[ \t]|$)/', substr($prefix, $prefixEnd), $part);
+                    $prefixEnd += strlen($part[0] ?? '');
+                }
+                $openingColumn = strspn($prefix, " \t", $prefixEnd);
+            }
+            $endsItem = false;
+            if ($text === '' && ($masks[$row][strrpos($prefix, '>') ?: 0] ?? '') === '>') {
+                foreach ($frames[$previousDepth] ?? [] as $owner) {
+                    $endsItem = $endsItem || $owner['column'] >= $openingColumn;
+                }
+            }
             if ($literalDepth !== null && $depth <= $literalDepth) {
                 $literalDepth = null;
             }
-            if ($depth > $previousDepth && $previousParagraph) {
+            if ($depth > $previousDepth && $previousParagraph && !$endsItem) {
                 $literalDepth = $previousDepth;
             }
             foreach (array_keys($frames) as $level) {
                 if ($level > $depth) {
                     unset($frames[$level]);
                 }
+            }
+            if ($depth > $previousDepth && ($text === '' || !$previousParagraph) && ($masks[$row][strrpos($prefix, '>') ?: 0] ?? '') === '>') {
+                $frames[$previousDepth] = array_values(array_filter($frames[$previousDepth] ?? [], static fn (array $owner): bool => $owner['column'] < $openingColumn));
             }
             if ($depth > $previousDepth && isset($frames[$previousDepth]) && $frames[$previousDepth] !== []) {
                 $ownerIndex = array_key_last($frames[$previousDepth]);
@@ -122,7 +142,7 @@ trait NormalizesDjotStructure
             $priorParagraph = $previousParagraph;
             $previousDepth = $depth;
             $wholeAttributes = str_starts_with($visible, '{') && ($this->readDjotWordAttributes($body, $indent)['end'] ?? -1) === strlen(rtrim($body));
-            $previousParagraph = $text !== '' && !$wholeAttributes && preg_match('/^(?:[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|\[(?:\^)?[^\]\n]*\]:)/', $visible) !== 1;
+            $previousParagraph = $text !== '' && !($tableRows[$row] ?? false) && preg_match('/^(?:`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $text) !== 1 && !$wholeAttributes && preg_match('/^(?:[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|#{1,6}(?:[ \t]|$)|:{3,}|[`~]{3,}|\[(?:\^)?[^\]\n]*\]:)/', $visible) !== 1;
             if ($literalDepth !== null && $depth > $literalDepth) {
                 continue;
             }
