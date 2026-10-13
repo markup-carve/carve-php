@@ -705,6 +705,10 @@ final class BlockContinuationScanner
                 $authoredTermColumn = $contentIndent + IndentationHelper::getLeadingColumns($seedLine);
             }
         }
+        // The item tracker can report a paragraph even when the description's
+        // last child is a table. Keep the body's own paragraph answer for I4.
+        $recentDefinitionBodyColumn = $openDefinitionBody;
+        $recentDefinitionParagraph = false;
         // A span opened on the MARKER LINE is the item's first block
         // (`CARVE-P0-007`), so it retains nothing for a below-column follower.
         $spanFromMarkerLine = $openCommentLength !== null;
@@ -712,6 +716,8 @@ final class BlockContinuationScanner
             $nextLine = $lines[$i];
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                $recentDefinitionBodyColumn = null;
+                $recentDefinitionParagraph = false;
                 if ($nestedNoteTail !== null && $nestedNoteTail->fence === null) {
                     $nestedNoteTail = null;
                 }
@@ -766,6 +772,11 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            if ($openDefinitionBody !== null) {
+                $recentDefinitionBodyColumn = $openDefinitionBody;
+            } elseif (!$trailingState->openParagraph) {
+                $recentDefinitionBodyColumn = null;
+            }
             if ($nextIndent >= $contentIndent && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null) {
                 $hasDescendantList = true;
             }
@@ -977,8 +988,10 @@ final class BlockContinuationScanner
                     $inlineCodeParagraph = false;
                 }
                 if (
-                    $inlineCodeParagraph && $openDefinitionBody !== null
-                    && IndentationHelper::getLeadingColumns($nextLine) >= $contentIndent + $openDefinitionBody
+                    $inlineCodeParagraph && $recentDefinitionBodyColumn !== null
+                    && $recentDefinitionParagraph
+                    && $trailingState->openParagraph
+                    && IndentationHelper::getLeadingColumns($nextLine) >= $contentIndent + $recentDefinitionBodyColumn
                     && $this->startsNewBlock($nextTrimmed, $lines, $i)
                 ) {
                     $inlineCodeParagraph = false;
@@ -1279,8 +1292,12 @@ final class BlockContinuationScanner
                         ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
                     $column = IndentationHelper::getLeadingColumns($nextLine);
                     if ($opener !== null && $column > $contentIndent) {
+                        $descriptionBlockFence = $openDefinitionBody !== null
+                            && !$recentDefinitionParagraph
+                            && $column >= $contentIndent + $openDefinitionBody;
                         if (
                             !$trailingState->openParagraph
+                            || $descriptionBlockFence
                             || $legacyRawAdmission
                             || $this->listAuthoredFenceCloserAhead($lines, $i, $opener, $column, $contentIndent, $baseIndent, $authoredFenceMisses, $authoredFenceHits)
                         ) {
@@ -1297,6 +1314,9 @@ final class BlockContinuationScanner
                                 )
                             ) {
                                 $authoredCodeColumn = $column;
+                            }
+                            if ($descriptionBlockFence) {
+                                $trailingState->openParagraph = false;
                             }
                         } else {
                             $inlineAuthoredFence = true;
@@ -1371,15 +1391,19 @@ final class BlockContinuationScanner
                 }
                 $authoredBaseEligible[count($itemLines)] = true;
                 $itemLines[] = $contentLine;
-                $nextDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $contentLine);
-                if (
-                    $nextDefinitionBody === null && $openDefinitionBody !== null
-                    && $trailingState->openParagraph
-                    && !$this->startsNewBlock($nextTrimmed, $lines, $i)
+                $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $contentLine);
+                if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $contentLine, $definitionMatch) === 1) {
+                    $bodyHead = $definitionMatch[2];
+                    $recentDefinitionParagraph = !$this->isBlockElementStart($bodyHead) && !$this->startsNewBlock($bodyHead);
+                } elseif (
+                    $openDefinitionBody !== null
+                    && IndentationHelper::getLeadingColumns($contentLine) >= $openDefinitionBody
+                    && !$this->isBlockElementStart(ltrim($contentLine, " \t"))
+                    && !$this->startsNewBlock(ltrim($contentLine, " \t"))
+                    && !($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($contentLine, " \t"), 0)
                 ) {
-                    $nextDefinitionBody = $openDefinitionBody;
+                    $recentDefinitionParagraph = true;
                 }
-                $openDefinitionBody = $nextDefinitionBody;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 // AT OR PAST the item's content column - the branch guard is
                 // `>=` and the line was dedented BY that column to get here -
@@ -1743,11 +1767,7 @@ final class BlockContinuationScanner
                 $foldedAsText = true;
             } else {
                 $itemLines[] = $nextTrimmed;
-                $nextDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
-                if ($nextDefinitionBody === null && $openDefinitionBody !== null && $trailingState->openParagraph && !$this->startsNewBlock($nextTrimmed, $lines, $i)) {
-                    $nextDefinitionBody = $openDefinitionBody;
-                }
-                $openDefinitionBody = $nextDefinitionBody;
+                $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
                 $itemLineMap[] = $this->sourceLineFor($i);
             }
             if ($foldedAsText) {

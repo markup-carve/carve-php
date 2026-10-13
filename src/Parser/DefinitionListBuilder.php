@@ -396,7 +396,7 @@ final class DefinitionListBuilder
                 $continuationColumn = BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($m[1]);
                 $definitionSource = $this->sourceLineFor($definitionStart);
                 $authoredDefinition = $this->state->source->sourceLines[$definitionSource] ?? '';
-                $definitionOffset = strrpos($authoredDefinition, $lines[$definitionStart]);
+                $definitionColumn = self::authoredSubjectColumn($authoredDefinition, $lines[$definitionStart]);
                 $i++;
                 // First-block form (`: +`, mirroring the list `- +`): when the
                 // sole content is a lone `+`, the body is the FOLLOWING
@@ -469,25 +469,38 @@ final class DefinitionListBuilder
                 $bodyAttributeThrough = -1;
                 $bodyEndsWithAttribute = false;
                 $retainedBelowComment = false;
+                $restoredDivLength = null;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     $lastBody = $body === [] ? '' : $body[array_key_last($body)];
+                    // A containing item may have erased this line's indent while
+                    // folding an unmatched run. Read its authored column before
+                    // deciding whether a visible opener reaches this body.
                     if (
-                        $definitionOffset !== false
+                        $definitionColumn !== null
                         && (str_starts_with($contLine, BlockGrammar::LAZY_FRAME)
                             || str_starts_with($lastBody, BlockGrammar::LAZY_FRAME)
-                            || str_contains($lastBody, "\n"))
+                            || str_contains($lastBody, "\n")
+                            || $restoredDivLength !== null)
                     ) {
                         $subject = BlockGrammar::stripLazyFrame($contLine);
                         $sourceLine = $this->sourceLineFor($i);
                         $authored = $this->state->source->sourceLines[$sourceLine] ?? '';
-                        $sourceOffset = strrpos($authored, $subject);
+                        $authoredColumn = self::authoredSubjectColumn($authored, $subject);
+                        $relativeColumn = $authoredColumn === null ? null : $authoredColumn - $definitionColumn;
                         if (
-                            $sourceOffset !== false
-                            && $sourceOffset - $definitionOffset >= $continuationColumn
-                            && $this->lineOpensBlockForLooseness($subject, true, invisibleArms: false)
+                            $relativeColumn !== null
+                            && $relativeColumn >= $continuationColumn
+                            && ($restoredDivLength !== null || !$formABlockOpen)
+                            && ($restoredDivLength !== null
+                                || $this->lineOpensBlockForLooseness($subject, true, invisibleArms: false))
                         ) {
-                            $contLine = str_repeat(' ', $sourceOffset - $definitionOffset) . $subject;
+                            $contLine = str_repeat(' ', $relativeColumn) . $subject;
+                            if ($restoredDivLength !== null && ($this->getFencedBlockParser)()->isDivFenceCloser($subject, $restoredDivLength)) {
+                                $restoredDivLength = null;
+                            } elseif ($restoredDivLength === null) {
+                                $restoredDivLength = ($this->getFencedBlockParser)()->parseDivFenceOpener($subject)['length'] ?? null;
+                            }
                         }
                     }
                     // Form B: `+` pull-left continuation.
@@ -1237,6 +1250,26 @@ final class DefinitionListBuilder
         }
 
         return substr($entry, $start, strcspn($entry, "\n", $start));
+    }
+
+    private static function authoredSubjectColumn(string $line, string $subject): ?int
+    {
+        $line = rtrim($line, " \t");
+        if ($subject === '' || !str_ends_with($line, $subject)) {
+            return null;
+        }
+
+        $end = strlen($line) - strlen($subject);
+        $column = 0;
+        for ($i = 0; $i < $end; $i++) {
+            if ($line[$i] === "\t") {
+                $column += IndentationHelper::TAB_STOP - ($column % IndentationHelper::TAB_STOP);
+            } elseif ((ord($line[$i]) & 0xC0) !== 0x80) {
+                $column++;
+            }
+        }
+
+        return $column;
     }
 
     /**
