@@ -637,7 +637,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
             return '';
         }
 
-        $href = $this->blankDeniedDestination($this->stripControls($node->getHref()), self::DESTINATION_SINK_LINK, $node);
+        $href = $this->stripControls($this->blankDeniedDestination($node->getHref(), self::DESTINATION_SINK_LINK, $node));
 
         return $this->stripControls(ReferencedLinkDefinitions::line($node, $href));
     }
