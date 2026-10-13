@@ -224,22 +224,23 @@ class NewRoundtripCarriersTest extends TestCase
     /**
      * @return array<string, array{string}>
      */
-    public static function invalidLabelProvider(): array
+    public static function labelProvider(): array
     {
         return ['empty' => [''], 'bracket' => ['bad]label'], 'newline' => ["bad\nlabel"], 'carriage return' => ["bad\rlabel"]];
     }
 
-    #[DataProvider('invalidLabelProvider')]
-    public function testInvalidLabelsAreConsumed(string $label): void
+    #[DataProvider('labelProvider')]
+    public function testLabelsAreConsumed(string $label): void
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             $html = '<pre data-carve-label="' . htmlspecialchars($label, ENT_QUOTES) . '"><code>x</code></pre>';
             $importer = new HtmlToCarve(importMode: $mode);
             $tree = $importer->convertToAst($html);
-            $this->assertProjection($tree, ['type' => 'code_block', 'label' => null]);
+            $this->assertProjection($tree, ['type' => 'code_block', 'label' => $label === '' ? '' : null]);
             $this->assertStringNotContainsString('data-carve-label', json_encode($tree, JSON_THROW_ON_ERROR));
             $diagnostics = $importer->convertWithReport($html)->diagnostics;
-            $this->assertNotEmpty(array_filter($diagnostics, static fn ($row): bool => $row->code === 'attribute-dropped'));
+            $dropped = array_filter($diagnostics, static fn ($row): bool => $row->code === 'attribute-dropped');
+            $this->assertSame($label !== '', $dropped !== []);
         }
     }
 
