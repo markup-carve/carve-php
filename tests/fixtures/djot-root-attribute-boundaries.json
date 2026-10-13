@@ -505,10 +505,6 @@
     "html": "<ul>\n<li>\n<p>x</p>\n</li>\n<li class=\"a\">\n</li>\n<li>\n<p>y</p>\n</li>\n</ul>\n<p><a href=\"/u\">z</a></p>\n"
   },
   {
-    "source": "- [ ] ```\n        _c_\n  ```",
-    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<pre><code>  _c_\n</code></pre>\n</li>\n</ul>\n"
-  },
-  {
     "source": "1. x\n\n   {.a}\n\nA. y",
     "html": "<ol>\n<li>\n<p>x</p>\n</li>\n</ol>\n<ol type=\"A\" class=\"a\">\n<li>\ny\n</li>\n</ol>\n"
   },

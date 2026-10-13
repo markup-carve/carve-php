@@ -109,6 +109,11 @@ class DjotRootAttributeBoundariesTest extends TestCase
     private static function normalize(string $html): string
     {
         $parts = preg_split('/(<[^>]+>)/', $html, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [];
+        $codeText = [];
+        $codePrefix = 'DJOTCODETEXT';
+        while (str_contains($html, $codePrefix)) {
+            $codePrefix .= 'X';
+        }
         $inCode = false;
         $inBacklink = false;
         foreach ($parts as $n => $part) {
@@ -124,7 +129,9 @@ class DjotRootAttributeBoundariesTest extends TestCase
             } elseif ($part === '</code>') {
                 $inCode = false;
             } elseif ($inCode && !str_starts_with($part, '<')) {
-                $parts[$n] = htmlspecialchars(html_entity_decode($part, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_NOQUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+                $token = $codePrefix . count($codeText) . 'Z';
+                $codeText[$token] = htmlspecialchars(html_entity_decode($part, ENT_QUOTES | ENT_HTML5, 'UTF-8'), ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML5, 'UTF-8');
+                $parts[$n] = $token;
             } elseif (!$inCode && !str_starts_with($part, '<')) {
                 $parts[$n] = preg_replace('/[ \t\r\n]+/', ' ', $part) ?? $part;
             }
@@ -148,6 +155,6 @@ class DjotRootAttributeBoundariesTest extends TestCase
         $html = preg_replace('/(<(?:li|p)(?: [^>]*)?>)[ \t\r\n]+/', '$1', $html) ?? $html;
         $html = preg_replace('/[ \t\r\n]+(<\/(?:li|p)>)/', '$1', $html) ?? $html;
 
-        return preg_replace('/\n[ \t]+(<(?:ul|ol|blockquote|table)(?:\s|>))/', "\n$1", $html) ?? $html;
+        return strtr(preg_replace('/\n[ \t]+(<(?:ul|ol|blockquote|table)(?:\s|>))/', "\n$1", $html) ?? $html, $codeText);
     }
 }
