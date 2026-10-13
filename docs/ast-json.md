@@ -177,6 +177,12 @@ Plain text and ANSI print the bare comment text and report one
 `editorial-comment-flattened` loss per comment. The CLI accepts
 `--allow-loss editorial-comment-flattened` for it.
 
+A Markdown reader merges two adjacent ordered lists that share a delimiter, so
+the writer gives the second list the other one (`1)` after `1.`). When that changes an ordered list's authored delimiter, Markdown
+reports one `list-delimiter-changed` loss with `delim` (authored) and
+`emittedDelim` (written), with or without `--roundtrip`. The CLI accepts
+`--allow-loss list-delimiter-changed` for it.
+
 ## A code payload keeps its line endings
 
 `code_block.content` is the payload text, kept as written, including the break

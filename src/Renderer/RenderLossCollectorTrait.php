@@ -287,6 +287,30 @@ trait RenderLossCollectorTrait
         $this->renderLosses[] = $loss;
     }
 
+    protected function recordListDelimiterChanged(Node $node, string $delim, string $emittedDelim): void
+    {
+        if ($this->renderLossTarget !== 'markdown' || $delim === $emittedDelim) {
+            return;
+        }
+        $this->renderLossTotal++;
+        $this->renderLossCounts['list-delimiter-changed'] = ($this->renderLossCounts['list-delimiter-changed'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'list-delimiter-changed',
+            'target' => 'markdown',
+            'nodeType' => 'block',
+            'delim' => $delim,
+            'emittedDelim' => $emittedDelim,
+            'message' => sprintf('Changed an ordered list delimiter from %s to %s while rendering markdown', $delim, $emittedDelim),
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
     protected function recordEditorialCommentFlattened(Node $node): void
     {
         if ($this->renderLossTarget === null || isset($this->seenEditorialCommentLosses[spl_object_id($node)])) {

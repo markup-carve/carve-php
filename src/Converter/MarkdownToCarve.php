@@ -659,7 +659,22 @@ class MarkdownToCarve
             }
             $styleMarker = $this->carrierListStyle($payload) !== null;
             $blankHost = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
-            $insideItem = $at > 0 && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$at - 1], $listStart) === 1
+            // A style marker after the item's own paragraph still belongs to
+            // that item: step back over the blank line and the paragraph's
+            // continuation lines to the item's marker line.
+            $opener = $at - 1;
+            if ($styleMarker) {
+                while ($opener > 0 && trim($lines[$opener], " \t>") === '') {
+                    $opener--;
+                }
+                while (
+                    $opener > 0 && str_starts_with($lines[$opener], $host) && trim($lines[$opener - 1], " \t>") !== ''
+                    && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$opener]) !== 1
+                ) {
+                    $opener--;
+                }
+            }
+            $insideItem = $opener >= 0 && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$opener], $listStart) === 1
                 && strlen($host) >= strlen($listStart[0]);
             $nextNumber = $styleMarker && preg_match('/^([0-9]+)[.)][ \t]+/', $this->withoutCarrierHost($lines[$at + 1] ?? '', $host), $number) === 1
                 ? (int)$number[1] : 1;
@@ -692,7 +707,7 @@ class MarkdownToCarve
                 'fence' => CarrierMarkers::isCodeFence($payload),
                 'fenceTightAfter' => CarrierMarkers::isCodeFence($payload) && $this->carrierFenceTightAfter($lines, $at, $host),
                 'style' => $styleMarker,
-                'styleTightAfter' => $styleMarker && $insideItem && $nextNumber !== 1 && $this->carrierStyleTightAfter($lines, $at, $host),
+                'styleTightAfter' => $styleMarker && $insideItem && $this->carrierStyleTightAfter($lines, $at, $host),
                 'styleBlankBeforeOuter' => $styleMarker && $this->carrierStyleBlankBeforeOuter($lines, $at, $host),
                 'equation' => $equation,
             ];
@@ -1000,13 +1015,21 @@ class MarkdownToCarve
         for ($at = $markerAt + 1, $count = count($lines); $at < $count; $at++) {
             $line = $lines[$at];
             if (trim($line) === '') {
-                for ($next = $at + 1; $next < $count; $next++) {
-                    if (trim($lines[$next]) !== '') {
-                        return false;
-                    }
+                $next = $at + 1;
+                while ($next < $count && trim($lines[$next]) === '') {
+                    $next++;
                 }
+                if ($next === $count) {
+                    return true;
+                }
+                // A loose styled list keeps going after its blank line.
+                $body = str_starts_with($lines[$next], $host) ? substr($lines[$next], strlen($host)) : null;
+                if ($body === null || preg_match('/^[0-9]+[.)][ \t]+/', $body) !== 1) {
+                    return false;
+                }
+                $at = $next - 1;
 
-                return true;
+                continue;
             }
             if (str_starts_with($line, $host)) {
                 $body = substr($line, strlen($host));

@@ -190,4 +190,33 @@ class ListStyleDroppedTest extends TestCase
         self::assertSame($expected, $report->value);
         self::assertNotContains('carrier-markers-damaged', array_column($report->diagnostics, 'code'));
     }
+
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function tightOuterLists(): array
+    {
+        return [
+            'lettered from a' => ["- first\n\n  a. one\n  b. two\n- second\n"],
+            'lettered from b' => ["- first\n\n  b. one\n  c. two\n- second\n"],
+            'roman' => ["- first\n\n  i) one\n  ii) two\n- second\n"],
+            'after a continued paragraph' => ["- first\n  more\n\n  a. one\n  b. two\n- second\n"],
+            'loose sublist' => ["- first\n\n  a. one\n\n  b. two\n- second\n"],
+            'ordered outer' => ["1. first\n\n   A. one\n   B. two\n2. second\n"],
+            'quoted' => ["> - first\n>\n>   a. one\n>   b. two\n> - second\n"],
+            'nested twice' => ["- x\n  - first\n\n    a. one\n    b. two\n  - second\n- y\n"],
+            'loose outer' => ["- first\n\n  a. one\n  b. two\n\n- second\n"],
+        ];
+    }
+
+    #[DataProvider('tightOuterLists')]
+    public function testAStyledSublistKeepsItsOuterListsTightness(string $source): void
+    {
+        $renderer = new MarkdownRenderer();
+        $renderer->setRoundTripMode(true);
+        $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
+        $imported = (new MarkdownToCarve())->convert($markdown);
+
+        self::assertSame($source, $imported);
+    }
 }
