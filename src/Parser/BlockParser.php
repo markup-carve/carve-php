@@ -7204,10 +7204,10 @@ class BlockParser
                     || IndentationHelper::getLeadingColumns($content) < $column
                     || (!str_starts_with($text, ':') && $this->lineOpensBlockForLooseness($text));
             }
-            if (IndentationHelper::getLeadingColumns($content) !== $column) {
+            if ($column >= 0 && IndentationHelper::getLeadingColumns($content) !== $column) {
                 continue;
             }
-            $content = IndentationHelper::stripLeadingColumns($content, $column);
+            $content = $column < 0 ? ltrim($content, " \t") : IndentationHelper::stripLeadingColumns($content, $column);
             if (
                 $char === '%'
                 ? $this->fencedBlockParser->isFencedCommentCloser($content, $length)

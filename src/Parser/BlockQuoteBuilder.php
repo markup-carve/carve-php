@@ -384,7 +384,7 @@ final class BlockQuoteBuilder
                 $host['fence'] = null;
             } else {
                 if (
-                    ($column === $fence['column'] || $column === $fence['base'])
+                    ($fence['column'] < 0 || $column === $fence['column'] || $column === $fence['base'])
                     && ($fence['char'] === '%'
                         ? ($this->getFencedBlockParser)()->isFencedCommentCloser($text, $fence['length'])
                         : ($this->getFencedBlockParser)()->isCodeFenceCloser($text, $fence['char'], $fence['length']))
@@ -522,13 +522,12 @@ final class BlockQuoteBuilder
             }
             $open = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
                 ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
-            if ($open !== null && $column === $colon['column']) {
+            if ($open !== null && $column >= ($colon['base'] ?? $colon['column'])) {
                 $char = $open['char'] ?? $open['fence'][0];
                 if (
-                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, $column)
-                    || $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, $colon['base'] ?? $colon['column'])
+                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $char, $open['length'], $memo, -1)
                 ) {
-                    $host['fence'] = ['char' => $char, 'length' => $open['length'], 'column' => $column, 'base' => $colon['base'] ?? $colon['column']];
+                    $host['fence'] = ['char' => $char, 'length' => $open['length'], 'column' => -1, 'base' => $colon['base'] ?? $colon['column']];
                     $state['paragraphOpen'] = false;
 
                     return true;
