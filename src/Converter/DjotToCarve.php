@@ -251,7 +251,32 @@ class DjotToCarve
                 $definitions[$definitionMatches[1][$index][0]] = true;
             }
         }
-        $source = preg_replace_callback('/(!?\[([^\[\]\n]*)\])\[\]/', static fn (array $match): string => $collapsedMask[$match[0][1]] !== ' ' && !(str_starts_with($match[2][0], '^') && strlen($match[2][0]) > 1) && isset($definitions[$match[2][0]]) ? $match[1][0] . '[' . $match[2][0] . ']' : $match[0][0], $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
+        $collapsedImageLines = null;
+        $collapsedImageLine = 0;
+        $source = preg_replace_callback('/(!?\[([^\[\]]*)\])\[\]/', function (array $match) use ($source, $collapsedMask, $definitions, &$collapsedImageLines, &$collapsedImageLine): string {
+            [$value, $at] = $match[0];
+            $key = $match[2][0];
+            if ($collapsedMask[$at] === ' ' || str_starts_with($key, '^') && strlen($key) > 1) {
+                return $value;
+            }
+            if (str_contains($key, "\n")) {
+                if (preg_match('/\n[ \t]*\n/', $key) === 1 || $this->isDjotEscaped($source, $at)) {
+                    return $value;
+                }
+                $collapsedImageLines ??= $this->djotImageLineOwners($source, $collapsedMask);
+                while ($collapsedImageLines[$collapsedImageLine]['end'] <= $at) {
+                    $collapsedImageLine++;
+                }
+                $owner = $collapsedImageLines[$collapsedImageLine];
+                $layout = $this->djotImageAltLayout($key, $owner['quotes'], $owner['itemColumn'], $owner['itemQuote'], $owner['div']);
+                if (str_starts_with($match[1][0], '!') && !$layout['valid']) {
+                    return $value;
+                }
+                $key = preg_replace('/[ \t\r\n]+/', ' ', trim(str_replace("\\\n", "\n", $layout['normalized']), " \t\r\n")) ?? $key;
+            }
+
+            return isset($definitions[$key]) ? $match[1][0] . '[' . $key . ']' : $value;
+        }, $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
         $source = $this->convertDjotBlockMarkers($source);
         $emptyTerm = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYTERM\x00");
         $source = $this->convertDefinitionLists($source, $emptyTerm);

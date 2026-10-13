@@ -14,6 +14,9 @@ final class DjotImageChildTextRenderer extends PlainTextRenderer
 {
     protected function renderNode(Node $node): string
     {
+        foreach ($node->getAttributeEntries() as $key => $_value) {
+            $node->removeAttribute((string)$key);
+        }
         $link = $node instanceof Link && $node->getReferenceLabel() !== null && $node->getDestination() === '';
         $image = $node instanceof Image && $node->getReferenceLabel() !== null && $node->getSource() === '';
         if (!$link && !$image) {

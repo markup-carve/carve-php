@@ -320,6 +320,71 @@
     "alt": "a b\nx c"
   },
   {
+    "name": "span-root",
+    "source": "![a [b]{.c}\nx](img)",
+    "alt": "a b\nx"
+  },
+  {
+    "name": "span-quote",
+    "source": "> ![a [b]{.c}\n> x](img)",
+    "alt": "a b\nx"
+  },
+  {
+    "name": "span-list",
+    "source": "- ![a [b]{.c}\n  x](img)",
+    "alt": "a b\nx"
+  },
+  {
+    "name": "span-reference",
+    "source": "![a [b]{.c}\nx][outer]\n\n[outer]: img",
+    "alt": "a b\nx"
+  },
+  {
+    "name": "span-nested",
+    "source": "![a [[b](u)]{.c}\nx](img)",
+    "alt": "a b\nx"
+  },
+  {
+    "name": "span-abbr",
+    "source": "![a [b]{abbr=\"B\"}\nx](img)",
+    "alt": "a b\nx"
+  },
+  {
+    "name": "span-abbr-single",
+    "source": "![a [b]{abbr=\"B\"} x](img)",
+    "alt": "a b x"
+  },
+  {
+    "name": "collapsed-root",
+    "source": "![a\nb][]\n\n[a b]: u",
+    "alt": "a\nb"
+  },
+  {
+    "name": "collapsed-list",
+    "source": "- ![a\n  b][]\n\n[a b]: u",
+    "alt": "a\nb"
+  },
+  {
+    "name": "collapsed-quoted-list-hard",
+    "source": "> - ![a\\\n>   b][]\n\n[a b]: u",
+    "alt": "a\nb"
+  },
+  {
+    "name": "collapsed-in-link",
+    "source": "[![a\nb][]](x)\n\n[a b]: u",
+    "alt": "a\nb"
+  },
+  {
+    "name": "collapsed-running",
+    "source": "x ![a\nb][] y\n\n[a b]: u",
+    "alt": "a\nb"
+  },
+  {
+    "name": "collapsed-attrs",
+    "source": "![a\nb][]\n\n{#k}\n[a b]: u",
+    "alt": "a\nb"
+  },
+  {
     "name": "list-heading",
     "source": "- ![a [b\\\n  # x][r] c](img)",
     "alt": "a b\n# x c"
