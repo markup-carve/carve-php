@@ -66,7 +66,15 @@ class NestedDefinitionCarrierDepthTest extends TestCase
 
     public function testNestedListRetainsItsListOrQuoteHost(): void
     {
-        foreach ([":: O\n: - :: I\n    : x\n", ":: O\n: > :: I\n  > : ib\n"] as $source) {
+        foreach (
+            [
+                ":: O\n: - :: I\n    : x\n",
+                ":: O\n: > :: I\n  > : ib\n",
+                "> :: O\n> : :: I\n>   : x\n",
+                "> :: O\n> : - :: I\n>     : x\n",
+                "> :: O\n> : > :: I\n>   > : x\n",
+            ] as $source
+        ) {
             $renderer = new MarkdownRenderer();
             $renderer->setRoundTripMode(true);
             $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
@@ -74,5 +82,16 @@ class NestedDefinitionCarrierDepthTest extends TestCase
             self::assertSame($source, $importer->convert($markdown));
             self::assertFalse($importer->hadDamagedCarrierMarkers());
         }
+    }
+
+    public function testDefinitionCloserKeepsQuoteContinuous(): void
+    {
+        $source = "> :: O\n> : x\n>\n> after\n";
+        $renderer = new MarkdownRenderer();
+        $renderer->setRoundTripMode(true);
+        $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
+        $imported = (new MarkdownToCarve())->convert($markdown);
+        $converter = new CarveConverter();
+        self::assertSame($converter->convert($source), $converter->convert($imported));
     }
 }

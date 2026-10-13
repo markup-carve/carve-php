@@ -957,7 +957,7 @@ class MarkdownToCarve
                     $original = preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead'];
                     $base = $last < 0 ? $original : $definitions[$last]->base . '  ';
                     if ($last >= 0 && $definitions[$last]->depth < $depth) {
-                        $host = $item['lead'];
+                        $host = substr($item['lead'], strlen($definitions[$last]->original));
                         if (trim($host) !== '') {
                             $base .= preg_replace_callback(
                                 '/(?:[-+*]|\d+[.)])[ \t]+$/D',
@@ -994,7 +994,7 @@ class MarkdownToCarve
                     $marker = $definitions[$last]->marker;
                     $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => ': {empty}', 'kind' => 'open'];
                 }
-                $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close'];
+                $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close', 'depth' => $item['depth'] ?? 1];
                 array_pop($definitions);
 
                 continue;
@@ -1044,8 +1044,19 @@ class MarkdownToCarve
             if ($emptyCloser && $item['text'] === '') {
                 continue;
             }
+            if ($item['kind'] === 'close' && $item['text'] === '' && ($item['depth'] ?? 1) > 1 && str_contains($item['lead'], '>')) {
+                $next = $at + 1;
+                while (isset($items[$next]) && $items[$next]['text'] === '') {
+                    $next++;
+                }
+                if (!isset($items[$next]) || $items[$next]['kind'] === 'close') {
+                    $emptyCloser = true;
+
+                    continue;
+                }
+            }
             $emptyCloser = $item['kind'] === 'close' && $item['text'] === '';
-            $spelled[] = $item['text'] === '' && ($item['kind'] === 'close' || trim($item['lead']) === '')
+            $spelled[] = $item['text'] === '' && trim($item['lead']) === ''
                 ? '' : $item['lead'] . $item['text'];
         }
 
@@ -1144,9 +1155,9 @@ class MarkdownToCarve
                 for ($drop = $at; $drop < $end; $drop++) {
                     $blankLead = rtrim($items[$drop]['lead']);
                     $markerLead = rtrim($marker['kind'] === 'open' ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead']);
-                    if (str_contains($blankLead, '>') && str_contains($markerLead, '>')) {
-                        $blankLead = strstr($blankLead, '>');
-                        $markerLead = strstr($markerLead, '>');
+                    if (($marker['depth'] ?? 1) > 1 && str_contains($blankLead, '>') && str_contains($markerLead, '>')) {
+                        $blankLead = preg_replace('/[ \t]+/', ' ', substr($blankLead, strcspn($blankLead, '>'))) ?? $blankLead;
+                        $markerLead = preg_replace('/[ \t]+/', ' ', substr($markerLead, strcspn($markerLead, '>'))) ?? $markerLead;
                     }
                     if ($blankLead !== $markerLead) {
                         $marker = null;
