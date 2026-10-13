@@ -8,6 +8,7 @@ use Closure;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
@@ -558,7 +559,7 @@ class HeadingIdTracker
         if ($child instanceof HardBreak) {
             return $hardBreakText;
         }
-        if ($child instanceof SoftBreak) {
+        if ($child instanceof SoftBreak || $child instanceof CellWrap) {
             return ' ';
         }
         if ($child instanceof Code || $child instanceof Math || $child instanceof LiteralInline) {

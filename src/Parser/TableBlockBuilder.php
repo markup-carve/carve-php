@@ -145,7 +145,7 @@ final class TableBlockBuilder
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
-        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string}> $cellBuilds */
+        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int}>, rowIndex: int}> $cellBuilds */
         $cellBuilds = [];
         /** @var array<int, true> $rejoined */
         $rejoined = [];
@@ -196,6 +196,7 @@ final class TableBlockBuilder
                     if ($lastRow instanceof TableRow) {
                         // Recreate as header row with alignments
                         $headerRow = new TableRow(true);
+                        $headerRow->setContinuationLines($lastRow->getContinuationLines());
                         // Preserve row attributes from original row
                         $headerRow->setAttributes($lastRow->getAttributeEntries());
                         // Same source, so the same span; it is a re-typing of
@@ -281,6 +282,7 @@ final class TableBlockBuilder
             $i++;
 
             $cellAccumulator = null;
+            $continuationLines = 0;
             $baseChunkCounts = array_map(count(...), $cellSourceChunks);
             $baseCells = $mergedCells;
             // Check for continuation rows (lines starting with +)
@@ -297,11 +299,13 @@ final class TableBlockBuilder
                     }
                 }
                 $cellAccumulator->append($continuationCells);
+                $continuationLines++;
                 $i++;
             }
 
-            /** @var array<int, array{text: string, chunks: list<array{int, int, string}>}> $markerJoins */
+            /** @var array<int, array{text: string, chunks: list<array{int, int, string}>, wraps: array<int, int>}> $markerJoins */
             $markerJoins = [];
+            $cellWraps = $cellAccumulator?->wraps() ?? [];
             if ($cellAccumulator !== null) {
                 $mergedCells = $cellAccumulator->contents();
                 // Continuation text on a span marker belongs to the cell the marker
@@ -316,9 +320,16 @@ final class TableBlockBuilder
                     ) {
                         continue;
                     }
+                    // Offsets relative to the joined text; -1 is the join itself.
+                    $joinWraps = [];
+                    foreach ($cellWraps[$idx] ?? [] as $at => $wrapLine) {
+                        $joinWraps[$at - strlen($base) - 1] = $wrapLine;
+                    }
+                    unset($cellWraps[$idx]);
                     $markerJoins[$idx] = [
                         'text' => trim(substr($merged, strlen($base)), ' '),
                         'chunks' => array_slice($cellSourceChunks[$idx] ?? [], $baseChunkCounts[$idx] ?? 0),
+                        'wraps' => $joinWraps,
                     ];
                     $mergedCells[$idx] = $base;
                     $cellSourceChunks[$idx] = array_slice($cellSourceChunks[$idx] ?? [], 0, $baseChunkCounts[$idx] ?? 0);
@@ -410,6 +421,8 @@ final class TableBlockBuilder
 
             // Parse regular row
             $row = new TableRow($isHeaderRow);
+            $row->setContinuationLines($continuationLines);
+            $rowIndex = count($table->getChildren());
             $rowStartSpan = $this->tableLineSpan($baseLineForRow);
             $rowEndSpan = $this->wholeLineSpan($i - 1);
             if ($rowStartSpan !== null && $rowEndSpan !== null) {
@@ -523,10 +536,11 @@ final class TableBlockBuilder
                     AttributeParser::applyToNode($cell, $cellData['attributes']);
                 }
                 $trimmedContent = trim($marker['content'], ' ');
-                $this->fillCellContent($cell, $cellData, $baseLineForRow, $trimmedContent);
+                $wraps = $this->contentWraps($cellData['content'], $trimmedContent, $cellWraps[$col] ?? []);
+                $this->fillCellContent($cell, $cellData, $baseLineForRow, $trimmedContent, $wraps);
                 $row->appendChild($cell);
                 $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
-                $cellBuilds[spl_object_id($cell)] = ['cell' => $cell, 'cellData' => $cellData, 'line' => $baseLineForRow, 'content' => $trimmedContent];
+                $cellBuilds[spl_object_id($cell)] = ['cell' => $cell, 'cellData' => $cellData, 'line' => $baseLineForRow, 'content' => $trimmedContent, 'wraps' => $wraps, 'rowIndex' => $rowIndex];
             }
 
             // A marker's continuation text joins the cell it resolved into, in
@@ -551,6 +565,13 @@ final class TableBlockBuilder
                         continue;
                     }
                     $build = &$cellBuilds[spl_object_id($origin)];
+                    $joinAt = $build['content'] === '' ? 0 : strlen($build['content']) + 1;
+                    $rowsBelow = $rowIndex - $build['rowIndex'];
+                    foreach ($join['wraps'] as $at => $wrapLine) {
+                        if ($at >= 0 || $joinAt > 0) {
+                            $build['wraps'][$joinAt + $at] = [$wrapLine, $rowsBelow];
+                        }
+                    }
                     $build['content'] = $build['content'] === '' ? $join['text'] : $build['content'] . ' ' . $join['text'];
                     $build['cellData']['sourceChunks'] = array_merge($build['cellData']['sourceChunks'], $join['chunks']);
                     $build['cellData']['verbatim'] = false;
@@ -593,7 +614,7 @@ final class TableBlockBuilder
             foreach ($build['cell']->getChildren() as $child) {
                 $build['cell']->removeChild($child);
             }
-            $this->fillCellContent($build['cell'], $build['cellData'], $build['line'], $build['content']);
+            $this->fillCellContent($build['cell'], $build['cellData'], $build['line'], $build['content'], $build['wraps']);
         }
 
         // A separator-only table is valid (creates empty table)
@@ -634,14 +655,45 @@ final class TableBlockBuilder
     }
 
     /**
+     * Move a cell's join offsets from its merged content onto the trimmed
+     * content the inline parser reads.
+     *
+     * @param string $content
+     * @param string $trimmed
+     * @param array<int, int> $wraps
+     *
+     * @return array<int, array{int, int}>
+     */
+    private function contentWraps(string $content, string $trimmed, array $wraps): array
+    {
+        if ($wraps === []) {
+            return [];
+        }
+        $delta = strlen(rtrim($content, ' ')) - strlen($trimmed);
+        if ($delta < 0 || substr($content, $delta, strlen($trimmed)) !== $trimmed) {
+            return [];
+        }
+        $mapped = [];
+        foreach ($wraps as $at => $line) {
+            $at -= $delta;
+            if ($at > 0 && ($trimmed[$at] ?? '') === ' ') {
+                $mapped[$at] = [$line, 0];
+            }
+        }
+
+        return $mapped;
+    }
+
+    /**
      * Fill a cell's inline content and position from its collected source.
      *
      * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>} $cellData
      * @param int $baseLineForRow
      * @param string $trimmedContent
+     * @param array<int, array{int, int}> $wraps
      */
-    private function fillCellContent(TableCell $cell, array $cellData, int $baseLineForRow, string $trimmedContent): void
+    private function fillCellContent(TableCell $cell, array $cellData, int $baseLineForRow, string $trimmedContent, array $wraps = []): void
     {
         $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
             ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
@@ -654,6 +706,12 @@ final class TableBlockBuilder
         // the padding too, so the text is located within the raw slice
         // the split kept for exactly this.
         $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
+        if ($wraps !== []) {
+            ($this->getInlineParser)()->parseTableCell($cell, $trimmedContent, $baseLineForRow, $cellMap, $wraps);
+            $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+
+            return;
+        }
         if ($trimmedContent !== '' && $this->isPlainTableText($trimmedContent) && $this->appendPlainRebuiltCellText($cell, $cellData, $trimmedContent)) {
             $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
 

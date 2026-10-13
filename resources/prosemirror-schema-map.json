@@ -581,6 +581,7 @@
     "escaped_text": "escaping is a source-level concern; the editor holds the escaped character as text",
     "smart_punctuation": "smart-typography output is lossy on reparse, so it is not modeled",
     "soft_break": "a soft break is whitespace in the ProseMirror model",
+    "cell_wrap": "a continuation join is the space it replaced in the ProseMirror model",
     "non_breaking_space": "a generated space becomes literal U+00A0 text; its source spelling is re-derived on write"
   },
   "preservationNodes": {

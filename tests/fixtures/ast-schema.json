@@ -55,6 +55,15 @@
     ],
     "required": []
   },
+  "cell_wrap": {
+    "fields": [
+      "line",
+      "row"
+    ],
+    "required": [
+      "line"
+    ]
+  },
   "citation": {
     "fields": [
       "key",
@@ -432,7 +441,9 @@
     "required": []
   },
   "table_row": {
-    "fields": [],
+    "fields": [
+      "continuationLines"
+    ],
     "required": []
   },
   "tag": {

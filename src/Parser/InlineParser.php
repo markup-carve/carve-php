@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CaptionNumber;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\CriticComment;
@@ -598,6 +599,42 @@ class InlineParser
      */
     protected string $runStripCharacters = " \t\n";
 
+    /**
+     * Joining spaces of a table cell's continuation lines, keyed by offset in
+     * the text `parse()` was given (CARVE-P12-069).
+     *
+     * @var array<int, array{int, int}>
+     */
+    protected array $cellWraps = [];
+
+    /**
+     * Handed from parseTableCell() to the parse() it calls, and no further.
+     *
+     * @var array<int, array{int, int}>
+     */
+    private array $pendingCellWraps = [];
+
+    /**
+     * Parse a table cell whose content joined continuation lines.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param string $text
+     * @param int $sourceLine
+     * @param \MarkupCarve\Carve\Parser\SourceMap|null $sourceMap
+     * @param array<int, array{int, int}> $cellWraps Offset of a joining space => [continuation line, rows below].
+     *
+     * @return void
+     */
+    public function parseTableCell(Node $parent, string $text, int $sourceLine, ?SourceMap $sourceMap, array $cellWraps): void
+    {
+        $this->pendingCellWraps = $cellWraps;
+        try {
+            $this->parse($parent, $text, $sourceLine, sourceMap: $sourceMap);
+        } finally {
+            $this->pendingCellWraps = [];
+        }
+    }
+
     public function parse(
         Node $parent,
         string $text,
@@ -607,6 +644,9 @@ class InlineParser
         bool $lineBlock = false,
         bool $separateQuoteScope = false,
     ): void {
+        $outerCellWraps = $this->cellWraps;
+        $this->cellWraps = $this->pendingCellWraps;
+        $this->pendingCellWraps = [];
         $this->sourceMap = $sourceMap;
         // A line break is content in a line block (markup-carve/carve#2089).
         $this->runStripCharacters = $lineBlock ? " \t" : " \t\n";
@@ -639,6 +679,7 @@ class InlineParser
         try {
             $this->parseInlines($parent, $text, separateQuoteScope: $separateQuoteScope);
         } finally {
+            $this->cellWraps = $outerCellWraps;
             $this->captionContextEnabled = $previousCaptionContext;
             $this->captionNumberEmitted = $previousCaptionNumberEmitted;
             $this->captionContextDepth = $previousCaptionContextDepth;
@@ -1021,12 +1062,28 @@ class InlineParser
             // prose and every table cell pay interpreter overhead byte by byte.
             // Byte-identical to falling through every handler (all of which
             // would decline) to the text-buffer append.
+            if ($char === ' ' && $this->cellWraps !== [] && isset($this->cellWraps[$this->textOrigin + $pos])) {
+                $this->flushText($parent, $textBuffer);
+                $textBuffer = '';
+                [$wrapLine, $wrapRow] = $this->cellWraps[$this->textOrigin + $pos];
+                $parent->appendChild(new CellWrap($wrapLine, $wrapRow));
+                $pos++;
+
+                continue;
+            }
+
             if ($sig !== null && !isset($sig[$char])) {
                 $run = strcspn($text, $sigBytes, $pos);
                 // The current byte is known not to be significant, so at least
                 // one byte must be consumed. Keep the guard defensive in case
                 // a future matcher publishes an invalid trigger set.
                 $run = max(1, $run);
+                foreach ($this->cellWraps as $wrapAt => $_) {
+                    $wrapAt -= $this->textOrigin;
+                    if ($wrapAt > $pos && $wrapAt < $pos + $run) {
+                        $run = $wrapAt - $pos;
+                    }
+                }
                 $this->noteTextStart($textBuffer, $pos, consumed: $run);
                 $textBuffer .= substr($text, $pos, $run);
                 $pos += $run;

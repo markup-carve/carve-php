@@ -9,8 +9,23 @@ namespace MarkupCarve\Carve\Node\Block;
  */
 class TableRow extends BlockNode
 {
+    /**
+     * The number of source `+` lines following this row.
+     */
+    protected int $continuationLines = 0;
+
     public function __construct(protected bool $isHeader = false)
     {
+    }
+
+    public function getContinuationLines(): int
+    {
+        return $this->continuationLines;
+    }
+
+    public function setContinuationLines(int $continuationLines): void
+    {
+        $this->continuationLines = $continuationLines;
     }
 
     public function isHeader(): bool
