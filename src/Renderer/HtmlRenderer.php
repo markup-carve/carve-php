@@ -4854,6 +4854,19 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $refId .= '-' . $refCount;
         }
 
+        $parent = $node->getParent();
+        while ($parent !== null) {
+            if ($parent instanceof Link && UnresolvedReference::renderedSourceOf($parent) === null) {
+                $carrier = $this->roundTripMode
+                    ? ' data-carve-footnote-label="' . $this->escapeAttribute($label) . '"'
+                    : '';
+
+                return '<sup id="' . $refId . '"' . $carrier
+                    . $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '>' . $number . '</sup>';
+            }
+            $parent = $parent->getParent();
+        }
+
         // Format: <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a>
         $html = '<a id="' . $refId . '" href="#fn' . $number . '" role="doc-noteref"';
 
@@ -4870,6 +4883,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderInlineFootnote(InlineFootnote $node): string
     {
         $number = $this->registerInlineFootnote(fn (): string => '<p>' . $this->renderChildren($node) . "</p>\n");
+
+        $parent = $node->getParent();
+        while ($parent !== null) {
+            if ($parent instanceof Link && UnresolvedReference::renderedSourceOf($parent) === null) {
+                return '<sup id="fnref' . $number . '"'
+                    . $this->renderAttributesExcluding($node, ['id', 'href', 'role']) . '>' . $number . '</sup>';
+            }
+            $parent = $parent->getParent();
+        }
 
         return '<a id="fnref' . $number . '" href="#fn' . $number . '" role="doc-noteref"'
             . $this->renderAttributesExcluding($node, ['id', 'href', 'role'])

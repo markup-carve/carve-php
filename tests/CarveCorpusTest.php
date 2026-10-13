@@ -49,6 +49,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-footnote-reference-in-link-text-keeps-its-id-on-the-sup',
         'a-closed-block-leaves-no-frame-for-the-line-below',
         'a-container-boundary-is-read-at-the-container-s-own-column',
         'a-description-keeps-a-block-at-its-body-column-whatever-leads-the-item',
