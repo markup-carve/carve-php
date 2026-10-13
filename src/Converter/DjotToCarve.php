@@ -1294,11 +1294,7 @@ class DjotToCarve
             }
             while ($noteColumn !== null && $content !== '' && $column + 1 < $noteColumn) {
                 if ($metadataNote && $listColumn !== null && $column >= $listColumn && $n > 0 && preg_match('/^[ \t]*$/', $lines[$n - 1]) === 1) {
-                    while (isset($reserved[$serial])) {
-                        $serial++;
-                    }
-                    $comments[$serial] = true;
-                    $lines[$n - 1] = str_repeat(' ', $listColumn) . "\x00DJOTNOTEATTR\x00" . $serial++ . "\x00";
+                    $lines[$n - 1] = str_repeat(' ', $listColumn) . '+';
                 }
                 $noteColumn = $noteParents === [] ? null : array_pop($noteParents);
                 $metadataNote = false;

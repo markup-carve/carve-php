@@ -5,7 +5,7 @@
     "lossLines": [
       5
     ],
-    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a><a id=\"fnref3\" href=\"#fn3\" role=\"doc-noteref\"><sup>3</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>m<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn3\"><p>a</p><p class=\"c\">more</p><p>tail<a href=\"#fnref3\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a><a id=\"fnref3\" href=\"#fn3\" role=\"doc-noteref\"><sup>3</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li><li id=\"fn2\"><p>m</p><p>more<a href=\"#fnref2\" role=\"doc-backlink\">↩</a></p></li><li id=\"fn3\"><p>a</p><p>tail<a href=\"#fnref3\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "parent-note-one-space",
@@ -13,7 +13,7 @@
     "lossLines": [
       3
     ],
-    "html": "<p>{.c} [^n]: note</p><p>more</p><p>x[^n]<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>m<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li><li id=\"fn2\"><p>m</p><p>more<a href=\"#fnref2\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "parent-note-tab",
@@ -21,7 +21,7 @@
     "lossLines": [
       3
     ],
-    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>m</p><p class=\"c\">more<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li><li id=\"fn2\"><p>m</p><p>more<a href=\"#fnref2\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "tab-code-opacity",
@@ -29,7 +29,7 @@
     "lossLines": [
       5
     ],
-    "html": "<pre><code>\tcode\n</code></pre>\n<p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<pre><code>\tcode\n</code></pre><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "one-space-note-body",
@@ -37,7 +37,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p class=\"c\">a</p>\n<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\na<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "indented-one-space-body",
@@ -45,7 +45,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p class=\"c\">[^n]: note\nbody</p>\n<p>x[^n]</p>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note\nbody<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "list-note-paragraphs",
@@ -53,7 +53,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ul><li><p class=\"c\">a</p><p>b</p></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><p>a</p><p>b</p></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "list-note-sibling-paragraph",
@@ -61,7 +61,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ul><li><p class=\"c\">a</p></li><li><p>b</p></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li>a</li><li>b</li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "parent-note-body",
@@ -69,7 +69,7 @@
     "lossLines": [
       3
     ],
-    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>m</p><p class=\"c\">more<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a><a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li><li id=\"fn2\"><p>m</p><p>more<a href=\"#fnref2\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "root-note-body",
@@ -77,7 +77,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p class=\"c\">[^n]: note</p><p>para2</p><p>x[^n]</p>"
+    "html": "<p>para2</p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "tab-list",
@@ -85,7 +85,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p>- {.c} [^n]: note</p><p>para2</p><p>x[^n]</p>"
+    "html": "<ul><li>para2</li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "nbsp-paragraph",
@@ -98,7 +98,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p title=\"`\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>a <code> b</code><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>a <code> b</code><a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "list-sibling",
@@ -106,7 +106,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ul><li></li><li>b</li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li><li>b</li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "after-reference",
@@ -114,7 +114,7 @@
     "lossLines": [
       2
     ],
-    "html": "<p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "reference-destination",
@@ -127,7 +127,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "root-id",
@@ -135,7 +135,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p id=\"id\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "root-value",
@@ -143,7 +143,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p title=\"a|b\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "multiple-lines",
@@ -152,19 +152,19 @@
       1,
       2
     ],
-    "html": "<p class=\"c\" id=\"id\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "empty",
     "source": "{}\n[^n]: note\n\nx[^n]",
     "lossLines": [],
-    "html": "<p>{}</p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "comment",
     "source": "{%comment%}\n[^n]: note\n\nx[^n]",
     "lossLines": [],
-    "html": "<p></p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "quote",
@@ -172,7 +172,7 @@
     "lossLines": [
       1
     ],
-    "html": "<blockquote><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "nested-quote",
@@ -180,7 +180,7 @@
     "lossLines": [
       1
     ],
-    "html": "<blockquote><blockquote><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote></blockquote><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "list",
@@ -188,7 +188,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "ordered-list",
@@ -196,7 +196,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ol><li></li></ol><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ol><li></li></ol><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "alpha-list",
@@ -204,7 +204,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ol type=\"a\"><li></li></ol><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ol type=\"a\"><li></li></ol><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "roman-list",
@@ -212,7 +212,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ol type=\"i\" start=\"4\"><li></li></ol><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ol start=\"4\" type=\"i\"><li></li></ol><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "quote-in-list",
@@ -220,7 +220,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ul><li><blockquote></blockquote></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li><blockquote></blockquote></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "list-in-quote",
@@ -228,7 +228,7 @@
     "lossLines": [
       1
     ],
-    "html": "<blockquote><ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "indented-attribute",
@@ -236,7 +236,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p>{.c}</p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "indented-definition",
@@ -244,7 +244,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p class=\"c\">[^n]: note</p><p>x[^n]</p>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "list-outdent",
@@ -252,7 +252,7 @@
     "lossLines": [
       2
     ],
-    "html": "<ul><li>a</li></ul><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li>a</li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "quote-outdent",
@@ -260,7 +260,7 @@
     "lossLines": [
       2
     ],
-    "html": "<blockquote><p>a</p></blockquote><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><p>a</p></blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "pending-quote-outdent",
@@ -268,7 +268,7 @@
     "lossLines": [
       1
     ],
-    "html": "<blockquote></blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote></blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "pending-list-outdent",
@@ -276,7 +276,7 @@
     "lossLines": [
       1
     ],
-    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "next-list-item",
@@ -284,7 +284,7 @@
     "lossLines": [
       2
     ],
-    "html": "<ul><li>a</li><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul><li>a</li><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "container-attributes",
@@ -292,7 +292,7 @@
     "lossLines": [
       2
     ],
-    "html": "<ul class=\"a\"><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<ul class=\"a\"><li></li></ul><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "quote-attributes",
@@ -300,7 +300,7 @@
     "lossLines": [
       2
     ],
-    "html": "<blockquote class=\"a\"><p class=\"b\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote class=\"a\"><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "multiline",
@@ -308,7 +308,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "multiline-value",
@@ -316,7 +316,7 @@
     "lossLines": [
       1
     ],
-    "html": "<p>{title=“a b”}</p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "multiline-quote",
@@ -324,7 +324,7 @@
     "lossLines": [
       1
     ],
-    "html": "<blockquote><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "after-fence",
@@ -332,7 +332,7 @@
     "lossLines": [
       4
     ],
-    "html": "<pre><code>code\n</code></pre>\n<p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<pre><code>code\n</code></pre><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "after-table",
@@ -340,7 +340,7 @@
     "lossLines": [
       2
     ],
-    "html": "<table><tbody><tr><td>a</td></tr></tbody></table><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<table><tr><td>a</td></tr></table><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "after-heading",
@@ -362,7 +362,7 @@
     "lossLines": [
       2
     ],
-    "html": "<hr><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<hr><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "after-div",
@@ -370,7 +370,7 @@
     "lossLines": [
       4
     ],
-    "html": "<div class=\"c\"><p>inside</p></div><p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<div class=\"c\"><p>inside</p></div><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "multiple-definitions",
@@ -379,7 +379,7 @@
       1,
       3
     ],
-    "html": "<p class=\"a b\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>y<a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li><li id=\"fn2\"><p>m<a href=\"#fnref2\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a>y<a id=\"fnref2\" href=\"#fn2\" role=\"doc-noteref\"><sup>2</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>n<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li><li id=\"fn2\"><p>m<a href=\"#fnref2\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "inside-code",
@@ -391,13 +391,13 @@
     "name": "separated",
     "source": "{.c}\n\n[^n]: note\n\nx[^n]",
     "lossLines": [],
-    "html": "<p class=\"c\">x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "inline-attributes",
     "source": "a{.c}\n\n[^n]: note\n\nx[^n]",
     "lossLines": [],
-    "html": "<p>a{.c}</p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<p><span class=\"c\">a</span></p><p>x<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\"><hr><ol><li id=\"fn1\"><p>note<a href=\"#fnref1\" role=\"doc-backlink\">↩</a></p></li></ol></section>"
   },
   {
     "name": "paragraph",
