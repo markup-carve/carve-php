@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
@@ -340,7 +341,7 @@ class MarkdownToCarve
      * The carrier payloads this conversion lifted out of the source, in the
      * order their marker lines appeared.
      *
-     * @var list<array{payload: string, closer: bool, caption: bool, equation: string|null}>
+     * @var list<array{payload: string, depth: int, closer: bool, caption: bool, fence: bool, fenceTightAfter: bool, style: bool, styleTightAfter: bool, styleBlankBeforeOuter: bool, equation: string|null}>
      */
     protected array $carrierSlots = [];
 
@@ -394,7 +395,7 @@ class MarkdownToCarve
      */
     protected function markdownHtmlBlockLines(string $markdown): array
     {
-        if (!str_contains($markdown, CarrierMarkers::PREFIX)) {
+        if (!str_contains($markdown, CarrierMarkers::HEAD)) {
             return [];
         }
         $all = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
@@ -428,7 +429,7 @@ class MarkdownToCarve
      */
     protected function carrierHostPrefix(string $line): string
     {
-        $at = strpos($line, CarrierMarkers::PREFIX);
+        $at = strpos($line, CarrierMarkers::HEAD);
         if ($at === false) {
             return '';
         }
@@ -470,12 +471,13 @@ class MarkdownToCarve
         $this->carrierDamaged = false;
         $this->carrierDiagnostics = [];
         $this->carrierToken = '';
-        if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::PREFIX)) {
+        if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::HEAD)) {
             return $markdown;
         }
 
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         $payloads = [];
+        $depths = [];
         $hosts = [];
         $seen = false;
         // A MARKER IS A LINE THE BLOCK STRUCTURE READ AS HTML. A code
@@ -489,9 +491,12 @@ class MarkdownToCarve
                 continue;
             }
             $host = $this->carrierHostPrefix($line);
-            $payload = CarrierMarkers::payload(substr($line, strlen($host)));
-            if ($payload !== null && $payload !== '[' && !str_starts_with($payload, ']{') && !str_starts_with($payload, '</#')) {
+            $marker = CarrierMarkers::marker(substr($line, strlen($host)));
+            $payload = $marker['payload'] ?? null;
+            $depth = $marker['depth'] ?? 1;
+            if ($payload !== null && ($depth > 1 || ($payload !== '[' && !str_starts_with($payload, ']{') && !str_starts_with($payload, '</#')))) {
                 $payloads[$at] = $payload;
+                $depths[$at] = $depth;
                 $hosts[$at] = $host;
                 $seen = true;
             }
@@ -523,7 +528,11 @@ class MarkdownToCarve
         }
         $balanced = $balanced && $stack === [];
         if ($balanced) {
+            $droppedCaptions = [];
             foreach ($payloads as $at => $payload) {
+                if (isset($droppedCaptions[$at])) {
+                    continue;
+                }
                 $width = CarrierMarkers::fenceWidth($payload);
                 $opener = $width > 0 && !CarrierMarkers::isCloser($payload);
                 $closer = $pairs[$at] ?? null;
@@ -532,14 +541,30 @@ class MarkdownToCarve
                     $valid = count($children) === 1 && !$children[0] instanceof Paragraph;
                 } elseif (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
                     $valid = AttributeParser::isValidPayload(substr($payload, 1, -1));
+                } elseif (CarrierMarkers::isCodeFence($payload)) {
+                    $valid = $this->codeFenceCarrierInfo($payload) !== null;
+                } elseif ($this->carrierListStyle($payload) !== null) {
+                    $valid = preg_match('/(?:^|[ \t>])(?:[-+*]|[0-9]+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?$/D', $hosts[$at]) !== 1;
                 } else {
                     $valid = $width > 0 || CarrierMarkers::isCaption($payload)
                         || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
                 }
+                if ($depths[$at] > 1 && preg_match('/^::[ \t]/', $payload) !== 1 && $payload !== ':' && $payload !== '') {
+                    $valid = false;
+                }
                 if (!$valid) {
-                    unset($payloads[$at]);
+                    unset($payloads[$at], $depths[$at]);
                     if ($closer !== null) {
                         unset($payloads[$closer]);
+                        // A composite figure's caption marker belongs to the pair it follows.
+                        $caption = $closer + 1;
+                        while (isset($lines[$caption]) && trim($this->withoutCarrierHost($lines[$caption], $hosts[$closer])) === '') {
+                            $caption++;
+                        }
+                        if (isset($payloads[$caption]) && CarrierMarkers::isCaption($payloads[$caption]) && $hosts[$caption] === $hosts[$closer]) {
+                            unset($payloads[$caption], $depths[$caption]);
+                            $droppedCaptions[$caption] = true;
+                        }
                     }
                     $this->carrierDiagnostics[] = new MigrationDiagnostic(
                         'carrier-marker-dropped',
@@ -553,7 +578,10 @@ class MarkdownToCarve
                 }
             }
         }
-        if (!$balanced || !$this->carrierSetBalances($payloads, $lines, $hosts)) {
+        if (
+            !$balanced || !$this->carrierDepthsPair($payloads, $depths)
+            || !$this->carrierSetBalances($payloads, $lines, $hosts, $depths)
+        ) {
             $this->carrierDamaged = true;
             $this->carrierDiagnostics = [];
 
@@ -629,7 +657,22 @@ class MarkdownToCarve
                     $open[] = $width;
                 }
             }
+            $styleMarker = $this->carrierListStyle($payload) !== null;
+            $blankHost = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
+            $insideItem = $at > 0 && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$at - 1], $listStart) === 1
+                && strlen($host) >= strlen($listStart[0]);
+            $nextNumber = $styleMarker && preg_match('/^([0-9]+)[.)][ \t]+/', $this->withoutCarrierHost($lines[$at + 1] ?? '', $host), $number) === 1
+                ? (int)$number[1] : 1;
+            if (
+                $styleMarker && $at > 0 && trim($this->withoutCarrierHost($lines[$at - 1], $host)) !== ''
+                && !str_starts_with($payloads[$at - 1] ?? '', '{') && !$insideItem
+            ) {
+                $out[] = $blankHost;
+            }
             $out[] = $host . $token . count($this->carrierSlots) . 'Z';
+            if ($styleMarker && (!$insideItem || $nextNumber !== 1)) {
+                $out[] = $blankHost;
+            }
             $equation = null;
             if (CarrierMarkers::isCaption($payload)) {
                 $before = $at - 1;
@@ -643,8 +686,14 @@ class MarkdownToCarve
             }
             $this->carrierSlots[] = [
                 'payload' => $payload,
+                'depth' => $depths[$at],
                 'closer' => $closer,
                 'caption' => CarrierMarkers::isCaption($payload),
+                'fence' => CarrierMarkers::isCodeFence($payload),
+                'fenceTightAfter' => CarrierMarkers::isCodeFence($payload) && $this->carrierFenceTightAfter($lines, $at, $host),
+                'style' => $styleMarker,
+                'styleTightAfter' => $styleMarker && $insideItem && $nextNumber !== 1 && $this->carrierStyleTightAfter($lines, $at, $host),
+                'styleBlankBeforeOuter' => $styleMarker && $this->carrierStyleBlankBeforeOuter($lines, $at, $host),
                 'equation' => $equation,
             ];
             // The writer emitted the opener's title and label, and a group
@@ -712,21 +761,59 @@ class MarkdownToCarve
     }
 
     /**
-     * Whether a marker set records a structure at all: every opener closed by a
-     * bare fence of its own width, every attribute line against an opener, and
-     * nothing left open.
+     * Definition markers pair at their stated depth.
      *
+     * @param array<int, string> $payloads
+     * @param array<int, int> $depths
+     */
+    protected function carrierDepthsPair(array $payloads, array $depths): bool
+    {
+        $lists = [];
+        foreach ($payloads as $at => $payload) {
+            $depth = $depths[$at] ?? 1;
+            $term = preg_match('/^::[ \t]/', $payload) === 1;
+            if (!$term && $payload !== ':' && $payload !== '') {
+                if ($depth > 1) {
+                    return false;
+                }
+
+                continue;
+            }
+            $open = count($lists);
+            if ($term) {
+                if ($depth === $open) {
+                    $lists[$open - 1] = false;
+                } elseif ($depth === $open + 1 && ($depth === 1 || $lists[$open - 1])) {
+                    $lists[] = false;
+                } else {
+                    return false;
+                }
+            } elseif ($depth !== $open) {
+                return false;
+            } elseif ($payload === ':') {
+                $lists[$open - 1] = true;
+            } else {
+                array_pop($lists);
+            }
+        }
+
+        return $lists === [];
+    }
+
+    /**
      * @param array<int, string> $payloads
      * @param list<string> $lines
      * @param array<int, string> $hosts
+     * @param array<int, int> $depths
      */
-    protected function carrierSetBalances(array $payloads, array $lines, array $hosts): bool
+    protected function carrierSetBalances(array $payloads, array $lines, array $hosts, array $depths): bool
     {
         $open = [];
         $definitions = [];
         $previousAt = null;
         $previousPayload = null;
         foreach ($payloads as $at => $payload) {
+            $listDepth = $depths[$at] ?? 1;
             $next = $this->withoutCarrierHost($lines[$at + 1] ?? '', $hosts[$at]);
             $nestedTerm = $previousAt === $at - 1 && $previousPayload === ':';
             $previousAt = $at;
@@ -737,7 +824,7 @@ class MarkdownToCarve
                     && (preg_replace('/[^>\t]/', ' ', $hosts[$at + 1]) ?? $hosts[$at + 1])
                 === (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]);
                 $lostBlock = $sameHost
-                    && !str_starts_with($nextMarker, ':: ')
+                    && !str_starts_with($nextMarker, ':: ') && !CarrierMarkers::isCodeFence($nextMarker) && $this->carrierListStyle($nextMarker) === null
                     && (CarrierMarkers::fenceWidth($nextMarker) === 0 || CarrierMarkers::isCloser($nextMarker));
                 if (!str_ends_with($payload, '}') || !AttributeParser::isValidPayload(substr($payload, 1, -1)) || $next === '' || $lostBlock) {
                     return false;
@@ -748,8 +835,8 @@ class MarkdownToCarve
             if (str_starts_with($payload, ':: ')) {
                 $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
                 $last = count($definitions) - 1;
-                if ($last < 0 || $definitions[$last]['key'] !== $key || $nestedTerm) {
-                    $definitions[] = ['key' => $key];
+                if ($last < 0 || $definitions[$last]['key'] !== $key || $definitions[$last]['depth'] < $listDepth || $nestedTerm) {
+                    $definitions[] = ['key' => $key, 'depth' => $listDepth];
                 }
                 if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
                     return false;
@@ -760,7 +847,7 @@ class MarkdownToCarve
             if ($payload === ':' || $payload === '') {
                 $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
                 $last = count($definitions) - 1;
-                if ($last < 0 || $definitions[$last]['key'] !== $key) {
+                if ($last < 0 || $definitions[$last]['key'] !== $key || $definitions[$last]['depth'] !== $listDepth) {
                     return false;
                 }
                 if ($payload === '') {
@@ -773,6 +860,27 @@ class MarkdownToCarve
             }
             if (CarrierMarkers::isCaption($payload)) {
                 if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
+                    return false;
+                }
+
+                continue;
+            }
+            if (CarrierMarkers::isCodeFence($payload)) {
+                if (
+                    $this->codeFenceCarrierInfo($payload) === null
+                    || preg_match('/^[ \t]{0,3}(?:`{3,}|~{3,})/', $next) !== 1
+                    || isset($payloads[$at + 1])
+                ) {
+                    return false;
+                }
+
+                continue;
+            }
+            if ($this->carrierListStyle($payload) !== null) {
+                if (
+                    preg_match('/^[0-9]+[.)][ \t]+\S/', $next) !== 1 || isset($payloads[$at + 1])
+                    || preg_match('/^\[\^[^]]+\]:[ \t]*$/D', trim($lines[$at - 1] ?? '')) === 1
+                ) {
                     return false;
                 }
 
@@ -796,6 +904,139 @@ class MarkdownToCarve
         }
 
         return $open === [] && $definitions === [];
+    }
+
+    /**
+     * The canonical title and label following a code fence's language token.
+     */
+    protected function codeFenceCarrierInfo(string $payload): ?string
+    {
+        if (preg_match('/^(`{3,}|~{3,})(.*)$/D', $payload, $match) !== 1) {
+            return null;
+        }
+        $children = (new CarveConverter())->parse($payload . "\n" . $match[1] . "\n")->getChildren();
+        $block = $children[0] ?? null;
+        if (
+            count($children) !== 1 || !$block instanceof CodeBlock
+            || ($block->getHeader() === null && $block->getLabel() === null)
+        ) {
+            return null;
+        }
+        $info = $match[2];
+        if ($block->getLanguage() !== null) {
+            $info = preg_replace('/^[ \t]*\S+[ \t]*/', '', $info) ?? $info;
+        } else {
+            $info = ltrim($info, " \t");
+        }
+
+        return $info;
+    }
+
+    protected function carrierListStyle(string $payload, ?int $start = null): ?string
+    {
+        if (preg_match('/^([A-Za-z]+[.)])(?: ([A-Za-z]+[.)]))?$/D', $payload, $markers) !== 1) {
+            return null;
+        }
+        if (isset($markers[2])) {
+            $source = $markers[1] . " item\n" . $markers[2] . " item\n";
+        } else {
+            $first = substr($markers[1], 0, -1);
+            if ($start !== null && preg_match('/^[IVXLCDM]$/i', $first) === 1) {
+                $roman = ['i' => 1, 'v' => 5, 'x' => 10, 'l' => 50, 'c' => 100, 'd' => 500, 'm' => 1000][strtolower($first)];
+                if ($roman === $start) {
+                    return ctype_lower($first) ? 'i' : 'I';
+                }
+                if (ord(strtolower($first)) - 96 === $start) {
+                    return ctype_lower($first) ? 'a' : 'A';
+                }
+            }
+            $source = $markers[1] . " item\n";
+        }
+        $lists = (new CarveConverter())->parse($source)->getChildren();
+        $list = $lists[0] ?? null;
+
+        if (isset($markers[2]) && (count($lists) !== 1 || !$list instanceof ListBlock || count($list->getChildren()) !== 2)) {
+            return null;
+        }
+
+        return $list instanceof ListBlock && $list->getListType() === ListBlock::TYPE_ORDERED ? $list->getStyle() : null;
+    }
+
+    /**
+     * Whether the next block begins directly after the carried code fence.
+     *
+     * @param list<string> $lines
+     * @param int $markerAt
+     * @param string $host
+     */
+    protected function carrierFenceTightAfter(array $lines, int $markerAt, string $host): bool
+    {
+        // Quote-hosted fence bodies can lose their list indent on import.
+        if (str_contains($host, '>')) {
+            return false;
+        }
+        $opener = ltrim($this->withoutCarrierHost($lines[$markerAt + 1] ?? '', $host), " \t");
+        if (preg_match('/^(`{3,}|~{3,})/', $opener, $match) !== 1) {
+            return false;
+        }
+        $run = $match[1];
+        for ($at = $markerAt + 2, $count = count($lines); $at < $count; $at++) {
+            $line = trim($this->withoutCarrierHost($lines[$at], $host));
+            if (preg_match('/^(`{3,}|~{3,})$/D', $line, $close) === 1 && $close[1][0] === $run[0] && strlen($close[1]) >= strlen($run)) {
+                return isset($lines[$at + 1]) && trim($this->withoutCarrierHost($lines[$at + 1], $host)) !== '';
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param list<string> $lines
+     * @param int $markerAt
+     * @param string $host
+     */
+    protected function carrierStyleTightAfter(array $lines, int $markerAt, string $host): bool
+    {
+        for ($at = $markerAt + 1, $count = count($lines); $at < $count; $at++) {
+            $line = $lines[$at];
+            if (trim($line) === '') {
+                for ($next = $at + 1; $next < $count; $next++) {
+                    if (trim($lines[$next]) !== '') {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+            if (str_starts_with($line, $host)) {
+                $body = substr($line, strlen($host));
+                if (preg_match('/^[0-9]+[.)][ \t]+/', $body) === 1 || preg_match('/^[ \t]+\S/', $body) === 1) {
+                    continue;
+                }
+            }
+
+            return true;
+        }
+
+        return true;
+    }
+
+    /**
+     * @param list<string> $lines
+     * @param string $host
+     * @param int $markerAt
+     */
+    protected function carrierStyleBlankBeforeOuter(array $lines, int $markerAt, string $host): bool
+    {
+        for ($at = $markerAt + 1, $count = count($lines); $at < $count; $at++) {
+            if (preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $lines[$at]) !== 1 || str_starts_with($lines[$at], $host)) {
+                continue;
+            }
+
+            return $at > 0 && trim($lines[$at - 1]) === '';
+        }
+
+        return false;
     }
 
     protected function attachedCaptionCount(Node $node): int
@@ -827,7 +1068,7 @@ class MarkdownToCarve
         // any, produced it: 'open' for an opener or the attribute line
         // travelling with it, 'close' for a bare closer, 'caption' for a
         // composite figure's caption line.
-        /** @var list<array{lead: string, text: string, kind: string|null}> $items */
+        /** @var list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items */
         $items = [];
         foreach (explode("\n", $carve) as $line) {
             // THE PREFIX IS WHATEVER STANDS BEFORE THE TOKEN rather than a
@@ -854,24 +1095,42 @@ class MarkdownToCarve
                     }
                 }
             }
-            $kind = $slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open');
-            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind];
+            $kind = $slot['style'] ? 'style' : ($slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open'));
+            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence'], 'fenceTightAfter' => $slot['fenceTightAfter'], 'styleTightAfter' => $slot['styleTightAfter'], 'styleBlankBeforeOuter' => $slot['styleBlankBeforeOuter'], 'depth' => $slot['depth']];
         }
         $items = $this->anchorCarrierClosers($items);
         $definitions = [];
         foreach ($items as $at => $item) {
             $last = count($definitions) - 1;
             if ($item['kind'] !== null && str_starts_with($item['text'], ':: ')) {
-                if ($last < 0 || $definitions[$last]->pending) {
+                $depth = $item['depth'] ?? 1;
+                if ($last < 0 || $definitions[$last]->pending || $definitions[$last]->depth < $depth) {
                     $original = preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead'];
                     $base = $last < 0 ? $original : $definitions[$last]->base . '  ';
-                    if ($last >= 0 && $definitions[$last]->marker !== null) {
+                    if ($last >= 0 && $definitions[$last]->depth < $depth) {
+                        $host = substr($item['lead'], strlen($definitions[$last]->original));
+                        if (trim($host) !== '') {
+                            $base .= preg_replace_callback(
+                                '/(?:[-+*]|\d+[.)])[ \t]+$/D',
+                                static fn (array $match): string => str_repeat(' ', strlen($match[0])),
+                                $host,
+                            ) ?? $host;
+                        }
+                        $items[$at]['lead'] = $base;
+                        if ($definitions[$last]->pending && $definitions[$last]->marker !== null) {
+                            $items[$at]['lead'] = $definitions[$last]->base . ': ' . $host;
+                            $marker = $definitions[$last]->marker;
+                            $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
+                            $definitions[$last]->pending = false;
+                        }
+                    }
+                    if ($last >= 0 && $definitions[$last]->marker !== null && $definitions[$last]->depth === $depth) {
                         $items[$at] = ['lead' => $definitions[$last]->base . ': ', 'text' => $item['text'], 'kind' => $item['kind']];
                         $marker = $definitions[$last]->marker;
                         $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
                         $definitions[$last]->pending = false;
                     }
-                    $definitions[] = new MarkdownCarrierDefinition($base, $original);
+                    $definitions[] = new MarkdownCarrierDefinition($base, $original, $depth);
                 } else {
                     $items[$at] = ['lead' => $definitions[$last]->base, 'text' => $item['text'], 'kind' => $item['kind']];
                 }
@@ -886,7 +1145,7 @@ class MarkdownToCarve
                     $marker = $definitions[$last]->marker;
                     $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => ': {empty}', 'kind' => 'open'];
                 }
-                $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close'];
+                $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close', 'depth' => $item['depth'] ?? 1];
                 array_pop($definitions);
 
                 continue;
@@ -897,29 +1156,232 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($definitions[$last]->marker !== null) {
+            if ($definitions[$last]->marker !== null && !($item['fence'] ?? false) && $item['kind'] !== 'style') {
                 $lead = $item['text'] === '' ? $definitions[$last]->base
                     : $definitions[$last]->base . '  ' . substr($item['lead'], strlen($definitions[$last]->original));
-                if ($definitions[$last]->pending && $item['text'] !== '') {
+                $wasPending = $definitions[$last]->pending && $item['text'] !== '';
+                if ($wasPending) {
                     $lead = $definitions[$last]->base . ': ' . substr($item['lead'], strlen($definitions[$last]->original));
                     $marker = $definitions[$last]->marker;
                     $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
                     $definitions[$last]->pending = false;
                 }
-                $items[$at] = ['lead' => $lead, 'text' => $item['text'], 'kind' => $item['kind']];
+                $items[$at] = [
+                    'lead' => $lead,
+                    'text' => $item['text'],
+                    'kind' => $wasPending ? 'definition' : $item['kind'],
+                    'depth' => $definitions[$last]->depth,
+                ];
             }
         }
+        $items = $this->restoreListStyleMarkers($items);
         $spelled = [];
         $emptyCloser = false;
-        foreach ($this->separateCarrierLines($items) as $item) {
+        $tightFenceCloser = null;
+        $dropFenceBlank = false;
+        $items = $this->separateCarrierLines($items);
+        for ($at = 0, $count = count($items); $at < $count; $at++) {
+            $item = $items[$at];
+            if ($dropFenceBlank) {
+                $dropFenceBlank = false;
+                if ($item['kind'] === null && $item['text'] === '') {
+                    continue;
+                }
+            }
+            if ($item['fence'] ?? false) {
+                $info = $this->codeFenceCarrierInfo($item['text']);
+                $below = $at + 1;
+                while (isset($items[$below]) && $items[$below]['kind'] === null && $items[$below]['text'] === '') {
+                    $below++;
+                }
+                if (
+                    $info !== null && isset($items[$below])
+                    && preg_match('/^(`{3,}|~{3,})(.*)$/D', $items[$below]['text'], $fence) === 1
+                ) {
+                    if (trim($item['lead']) !== '') {
+                        $items[$below]['lead'] = $item['lead'];
+                    }
+                    $language = trim($fence[2]);
+                    $items[$below]['text'] = $fence[1] . $language . ($language === '' ? '' : ' ') . $info;
+                    if ($item['fenceTightAfter'] ?? false) {
+                        $items[$below]['tightFenceOpener'] = $fence[1];
+                    }
+
+                    continue;
+                }
+            }
+            if ($item['tightFenceOpener'] ?? false) {
+                $tightFenceCloser = $item['tightFenceOpener'];
+            } elseif ($tightFenceCloser !== null && preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $item['text'], $close) === 1 && $close[1][0] === $tightFenceCloser[0] && strlen($close[1]) >= strlen($tightFenceCloser)) {
+                $tightFenceCloser = null;
+                $dropFenceBlank = true;
+            }
             if ($emptyCloser && $item['text'] === '') {
                 continue;
             }
-            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '';
-            $spelled[] = $item['lead'] . $item['text'];
+            if ($item['kind'] === 'close' && $item['text'] === '' && ($item['depth'] ?? 1) > 1) {
+                $next = $at + 1;
+                while (isset($items[$next]) && $items[$next]['text'] === '') {
+                    $next++;
+                }
+                if (isset($items[$next]) && $items[$next]['kind'] === 'definition' && ($items[$next]['depth'] ?? 1) < $item['depth']) {
+                    $emptyCloser = true;
+
+                    continue;
+                }
+            }
+            if ($item['kind'] === 'close' && $item['text'] === '' && ($item['depth'] ?? 1) > 1 && str_contains($item['lead'], '>')) {
+                $next = $at + 1;
+                while (isset($items[$next]) && $items[$next]['text'] === '') {
+                    $next++;
+                }
+                if (!isset($items[$next]) || $items[$next]['kind'] === 'close') {
+                    $emptyCloser = true;
+
+                    continue;
+                }
+            }
+            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead']) === '';
+            $spelled[] = $item['text'] === '' && trim($item['lead']) === ''
+                ? '' : $item['lead'] . $item['text'];
         }
 
         return rtrim(implode("\n", $spelled), " \t\n") . "\n";
+    }
+
+    /**
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items
+     *
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}>
+     */
+    protected function restoreListStyleMarkers(array $items): array
+    {
+        foreach ($items as $at => $item) {
+            if ($item['kind'] !== 'style') {
+                continue;
+            }
+            $below = $at + 1;
+            while (isset($items[$below]) && $items[$below]['kind'] === null && $items[$below]['text'] === '') {
+                $below++;
+            }
+            if (!isset($items[$below]) || preg_match('/^([0-9]+)([.)])([ \t]+.*)$/D', $items[$below]['text'], $first) !== 1) {
+                continue;
+            }
+            $start = (int)$first[1];
+            $style = $this->carrierListStyle($item['text'], $start);
+            if ($style === null) {
+                continue;
+            }
+            $lead = $items[$below]['lead'];
+            $counter = $start;
+            $delimiter = $first[2];
+            $lastStyled = null;
+            for ($cursor = $below, $last = array_key_last($items); $cursor <= $last; $cursor++) {
+                if (!isset($items[$cursor])) {
+                    continue;
+                }
+                $line = $items[$cursor];
+                if ($line['text'] === '') {
+                    continue;
+                }
+                if ($line['lead'] !== $lead) {
+                    if (strlen($line['lead']) > strlen($lead)) {
+                        continue;
+                    }
+
+                    break;
+                }
+                if (preg_match('/^([0-9]+)([.)])([ \t]+.*)$/D', $line['text'], $marker) !== 1 || (int)$marker[1] !== $counter || $marker[2] !== $delimiter) {
+                    break;
+                }
+                $line['text'] = $this->carrierStyledNumber($counter, $style) . $delimiter . $marker[3];
+                $items[$cursor] = $line;
+                $lastStyled = $cursor;
+                $counter++;
+            }
+            if (($item['styleTightAfter'] ?? false) && $lastStyled !== null) {
+                $onlyTrailingBlanks = true;
+                for ($look = $lastStyled + 1, $last = array_key_last($items); $look <= $last; $look++) {
+                    if (isset($items[$look]) && $items[$look]['text'] !== '') {
+                        $onlyTrailingBlanks = false;
+
+                        break;
+                    }
+                }
+                if ($onlyTrailingBlanks) {
+                    for ($look = $at - 1; $look >= 0; $look--) {
+                        if ($items[$look]['text'] === '{loose}') {
+                            unset($items[$look]);
+
+                            break;
+                        }
+                        if (preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$look]['text']) === 1) {
+                            if (isset($items[$look - 1]) && $items[$look - 1]['text'] === '{loose}') {
+                                unset($items[$look - 1]);
+                            }
+
+                            break;
+                        }
+                    }
+                }
+                for ($after = $lastStyled + 1, $last = array_key_last($items); $after <= $last; $after++) {
+                    if (!isset($items[$after])) {
+                        continue;
+                    }
+                    $following = $items[$after];
+                    if ($following['kind'] === null && $following['text'] === '') {
+                        $next = $after + 1;
+                        while (isset($items[$next]) && $items[$next]['text'] === '') {
+                            $next++;
+                        }
+                        if (isset($items[$next])) {
+                            if (strlen($items[$next]['lead']) > strlen($lead) || preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$next]['text']) !== 1) {
+                                break;
+                            }
+                            if ($after > $lastStyled + 1 && strlen($items[$next]['lead']) === strlen($lead)) {
+                                break;
+                            }
+                            if (($item['styleBlankBeforeOuter'] ?? false) && strlen($items[$next]['lead']) < strlen($lead)) {
+                                break;
+                            }
+                        }
+                        unset($items[$after]);
+
+                        continue;
+                    }
+                    if ($following['kind'] !== null) {
+                        break;
+                    }
+                    if (strlen($following['lead']) < strlen($lead) && preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $following['text']) === 1) {
+                        break;
+                    }
+                }
+            }
+            for ($drop = $at; $drop < $below; $drop++) {
+                unset($items[$drop]);
+            }
+        }
+
+        return array_values($items);
+    }
+
+    protected function carrierStyledNumber(int $number, string $style): string
+    {
+        if ($style === 'a' || $style === 'A') {
+            $letter = chr((($number - 1) % 26) + 97);
+
+            return $style === 'A' ? strtoupper($letter) : $letter;
+        }
+        $values = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
+        $roman = '';
+        foreach ($values as [$value, $token]) {
+            while ($number >= $value) {
+                $roman .= $token;
+                $number -= $value;
+            }
+        }
+
+        return $style === 'i' ? strtolower($roman) : $roman;
     }
 
     /**
@@ -932,9 +1394,9 @@ class MarkdownToCarve
      * the answer, with any list marker in it blanked out, because a closer
      * cannot repeat an item's marker.
      *
-     * @param list<array{lead: string, text: string, kind: string|null}> $items
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items
      *
-     * @return list<array{lead: string, text: string, kind: string|null}>
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}>
      */
     protected function anchorCarrierClosers(array $items): array
     {
@@ -974,9 +1436,9 @@ class MarkdownToCarve
      * around it: a container's opener and closer hug its body, and what follows
      * a closer is a block of its own.
      *
-     * @param list<array{lead: string, text: string, kind: string|null}> $items
+     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items
      *
-     * @return list<array{lead: string, text: string, kind: string|null}>
+     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}>
      */
     protected function separateCarrierLines(array $items): array
     {
@@ -1000,7 +1462,7 @@ class MarkdownToCarve
             $above = $before >= 0 ? $items[$before]['kind'] : null;
             $below = $end < $count ? $items[$end]['kind'] : null;
             $marker = null;
-            if ($below === 'close' || $below === 'caption') {
+            if ($below === 'close' || $below === 'caption' || $below === 'definition') {
                 $marker = $items[$end];
             } elseif ($above === 'open') {
                 $marker = $items[$before];
@@ -1012,7 +1474,13 @@ class MarkdownToCarve
             // quote of its own.
             if ($marker !== null) {
                 for ($drop = $at; $drop < $end; $drop++) {
-                    if (rtrim($items[$drop]['lead']) !== rtrim($marker['kind'] === 'open' ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead'])) {
+                    $blankLead = rtrim($items[$drop]['lead']);
+                    $markerLead = rtrim(in_array($marker['kind'], ['open', 'definition'], true) ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead']);
+                    if (($marker['depth'] ?? 1) > 1 && str_contains($blankLead, '>') && str_contains($markerLead, '>')) {
+                        $blankLead = preg_replace('/[ \t]+/', ' ', substr($blankLead, strcspn($blankLead, '>'))) ?? $blankLead;
+                        $markerLead = preg_replace('/[ \t]+/', ' ', substr($markerLead, strcspn($markerLead, '>'))) ?? $markerLead;
+                    }
+                    if ($blankLead !== $markerLead) {
                         $marker = null;
 
                         break;
@@ -1037,6 +1505,7 @@ class MarkdownToCarve
                 && (end($out)['kind'] === 'close' || end($out)['kind'] === 'caption')
                 && $item['kind'] !== 'close'
                 && $item['kind'] !== 'caption'
+                && $item['kind'] !== 'definition'
                 && $item['text'] !== ''
                 // A closer and what follows take a blank line between them only
                 // where they are SIBLINGS. A list item opening after a closer
@@ -1054,6 +1523,43 @@ class MarkdownToCarve
         return $out;
     }
 
+    protected function emptyFootnoteStyleMarker(string $markdown): bool
+    {
+        $lines = explode("\n", $markdown);
+        $fence = null;
+        foreach ($lines as $at => $line) {
+            $content = ltrim($line, " \t>");
+            if ($fence !== null) {
+                if (
+                    preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $content, $close) === 1
+                    && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)
+                ) {
+                    $fence = null;
+                }
+
+                continue;
+            }
+            if (preg_match('/^(`{3,}|~{3,})/', $content, $open) === 1) {
+                $fence = $open[1];
+
+                continue;
+            }
+            if (preg_match('/^\[\^[^]]+\]:[ \t]*$/D', $content) !== 1) {
+                continue;
+            }
+            $marker = CarrierMarkers::marker(ltrim($lines[$at + 1] ?? ''));
+            $next = ltrim($lines[$at + 2] ?? '');
+            if (
+                $marker !== null && $this->carrierListStyle($marker['payload']) !== null
+                && preg_match('/^[0-9]+[.)][ \t]+\S/', $next) === 1
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Convert Markdown text to Carve text.
      *
@@ -1062,6 +1568,17 @@ class MarkdownToCarve
     public function convert(string $markdown): string
     {
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
+        if (!$this->carrierFallbackMode && $this->emptyFootnoteStyleMarker($markdown)) {
+            $this->carrierFallbackMode = true;
+            try {
+                $fallback = $this->convert($markdown);
+            } finally {
+                $this->carrierFallbackMode = false;
+            }
+            $this->carrierDamaged = true;
+
+            return $fallback;
+        }
         // PART 11 §10s: WHICH MARKER-SHAPED LINES ARE MARKERS comes from the
         // block structure this importer derives, not from a flat scan of the
         // source. A flat scan cannot tell a marker standing at a list item's

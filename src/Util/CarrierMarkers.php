@@ -22,14 +22,34 @@ final class CarrierMarkers
     /**
      * @var string
      */
+    public const HEAD = '<!-- carve:';
+
+    /**
+     * @var string
+     */
     public const SUFFIX = ' -->';
 
     /**
      * Write a payload into a marker line.
      */
-    public static function line(string $payload): string
+    public static function line(string $payload, int $depth = 1): string
     {
-        return $payload === '' ? '<!-- carve: -->' : self::PREFIX . self::escape($payload) . self::SUFFIX;
+        $head = $depth > 1 ? self::HEAD . $depth : self::HEAD;
+
+        return $payload === '' ? $head . ' -->' : $head . ' ' . self::escape($payload) . self::SUFFIX;
+    }
+
+    /**
+     * @return array{payload: string, depth: int}|null
+     */
+    public static function marker(string $line): ?array
+    {
+        if (preg_match('/^<!-- carve:([2-9]|[1-9][0-9]+)?(?= )/', $line, $head) !== 1) {
+            return null;
+        }
+        $payload = self::payload(self::HEAD . substr($line, strlen($head[0])));
+
+        return $payload === null ? null : ['payload' => $payload, 'depth' => isset($head[1]) ? (int)$head[1] : 1];
     }
 
     /**
@@ -82,6 +102,11 @@ final class CarrierMarkers
     public static function isCaption(string $payload): bool
     {
         return preg_match('/^\^[ \t]/', $payload) === 1;
+    }
+
+    public static function isCodeFence(string $payload): bool
+    {
+        return preg_match('/^(?:`{3,}|~{3,})/', $payload) === 1;
     }
 
     /**
