@@ -395,6 +395,10 @@ trait NormalizesDjotStructure
                 }
                 if ($noteOwner !== null) {
                     $noteOwner->fenceColumn ??= $payloadIndent;
+                    foreach ($returnedNoteItemAttributes as $attributes) {
+                        $out[] = '  ' . $attributes;
+                    }
+                    $returnedNoteItemAttributes = [];
                     $out[] = '  ' . substr($payload, min($payloadIndent, $noteOwner->fenceColumn));
                     $paragraph = false;
                     $headingMarker = '';
@@ -656,13 +660,15 @@ trait NormalizesDjotStructure
                     $quoteBoundary = rtrim($quoteForCarve());
                 }
                 if ($paragraph && $quoteDepth > $depth && !$outsideQuoteItem) {
+                    $written = $originalForCarve($nativeRemainder);
                     $position = 0;
-                    for ($level = 0; $level < $depth; $level++) {
-                        preg_match('/^[ \t]*>[ \t]?/', substr($original, $position), $heldQuote);
+                    $heldDepth = max(0, $depth - $noteOwner->depth);
+                    for ($level = 0; $level < $heldDepth; $level++) {
+                        preg_match('/\G[ \t]*>[ \t]?/', $written, $heldQuote, offset: $position);
                         $position += strlen($heldQuote[0] ?? '');
                     }
-                    $position += strspn(substr($original, $position), " \t");
-                    $out[] = substr($original, 0, $position) . '\\' . substr($original, $position);
+                    $position += strspn($written, " \t", $position);
+                    $out[] = substr($written, 0, $position) . '\\' . substr($written, $position);
                     $blank = false;
 
                     continue;
@@ -1126,6 +1132,16 @@ trait NormalizesDjotStructure
                 continue;
             }
             $dedent = $lists !== [] ? min($indent, $lists[0]->column - $lists[0]->target) : 0;
+            if (preg_match('/^\x00DJOTITEMATTR\x00(?:\d+\x00)?(B?)\d+\x00$/', $text, $heldItemAttributes) === 1) {
+                if ($heldItemAttributes[1] !== '' && ($out !== [] ? rtrim($out[array_key_last($out)]) : '') !== rtrim($quoteForCarve())) {
+                    $out[] = rtrim($quoteForCarve());
+                }
+                $out[] = $originalForCarve($nativeRemainder);
+                $paragraph = false;
+                $blank = true;
+
+                continue;
+            }
             $attrs = str_starts_with($visible, '{') ? $this->readDjotWordAttributes($raw, $rawIndent) : null;
             $attributeLine = $attrs !== null && $attrs['end'] === strlen($raw);
             if ($attributeLine && !$paragraph && $holdItemAttributes !== null) {

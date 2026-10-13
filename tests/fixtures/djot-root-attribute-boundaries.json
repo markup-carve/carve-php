@@ -1159,5 +1159,82 @@
   {
     "source": "> > - outer\n> >   - inner\n> >\n> >     {.x}\n> >\n> >   - peer",
     "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>outer\n- inner</p>\n<ul class=\"x\">\n<li>\npeer\n</li>\n</ul>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> | t |\n> > - a\n> >\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<table>\n<tr>\n<td>t</td>\n</tr>\n</table>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> ---\n> > - a\n> >\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<hr>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> >\n> >   {#one}\n> >   {#two}\n> >\n> > - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n<li id=\"two\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > - a\n> >\n> >   {% c %}\n> >   {.x}\n> >\n> > - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "> > + z\n> > - a\n> >\n> >   {.x}\n> > - b",
+    "html": "<blockquote>\n<blockquote>\n<ul>\n<li>\nz\n</li>\n</ul>\n<ul>\n<li>\n<p>a</p>\n</li>\n<li class=\"x\">\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n</blockquote>\n"
+  },
+  {
+    "source": "- > x\n  > - a\n  >\n  >   {.x}\n  > para",
+    "html": "<ul>\n<li>\n<blockquote>\nx\n- a\npara\n</blockquote>\n</li>\n</ul>\n",
+    "nativeAst": {
+      "tag": "doc",
+      "references": {},
+      "autoReferences": {},
+      "footnotes": {},
+      "children": [
+        {
+          "tag": "bullet_list",
+          "tight": true,
+          "style": "-",
+          "children": [
+            {
+              "tag": "list_item",
+              "children": [
+                {
+                  "tag": "block_quote",
+                  "children": [
+                    {
+                      "tag": "para",
+                      "children": [
+                        {
+                          "tag": "str",
+                          "text": "x"
+                        },
+                        {
+                          "tag": "soft_break"
+                        },
+                        {
+                          "tag": "str",
+                          "text": "- a"
+                        }
+                      ]
+                    },
+                    {
+                      "tag": "para",
+                      "children": [
+                        {
+                          "tag": "str",
+                          "text": "para"
+                        }
+                      ],
+                      "attributes": {
+                        "class": "x"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
   }
 ]

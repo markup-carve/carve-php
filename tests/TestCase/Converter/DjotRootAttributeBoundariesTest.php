@@ -6,8 +6,10 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -41,6 +43,21 @@ class DjotRootAttributeBoundariesTest extends TestCase
             $items = $list->getChildren();
             $original = $nativeAst['children'][0]['children'];
             self::assertCount(count($original), $items);
+            if (($original[0]['children'][0]['tag'] ?? '') === 'block_quote') {
+                self::assertCount(1, $items);
+                $quote = $items[0]->getChildren()[0];
+                self::assertInstanceOf(BlockQuote::class, $quote);
+                $paragraphs = $quote->getChildren();
+                $nativeParagraphs = $original[0]['children'][0]['children'];
+                self::assertCount(count($nativeParagraphs), $paragraphs);
+                foreach ($paragraphs as $n => $paragraph) {
+                    self::assertInstanceOf(Paragraph::class, $paragraph);
+                    self::assertSame($nativeParagraphs[$n]['attributes']['class'] ?? '', implode(' ', $paragraph->getClassList()));
+                }
+                self::assertStringContainsString('<p class="x">para</p>', $html);
+
+                return;
+            }
             foreach ($items as $n => $item) {
                 self::assertInstanceOf(ListItem::class, $item);
                 self::assertSame($original[$n]['checkbox'] === 'checked', $item->getChecked(), $source);
@@ -71,6 +88,22 @@ class DjotRootAttributeBoundariesTest extends TestCase
         self::assertStringNotContainsString("\0", $converted);
         self::assertSame(1, preg_match_all('/<ul(?: |>)/', $html));
         self::assertSame(2, substr_count($html, 'type="checkbox"'));
+    }
+
+    public function testNestedFootnoteItemAttributesReturnBeforeTheParentFence(): void
+    {
+        $converted = (new DjotToCarve())->convert("[^a]: - x\n\n      [^b]: - y\n\n              {.c}\n\n      ```\n      z\n      ```\n\np[^a] q[^b]");
+        $html = (new CarveConverter())->convert($converted);
+        self::assertStringNotContainsString("\0", $converted);
+        self::assertStringContainsString("<pre class=\"c\"><code>z\n</code></pre>", $html);
+        self::assertStringNotContainsString('<p class="c">', $html);
+    }
+
+    public function testAFootnoteParagraphKeepsOneLiteralQuoteMarker(): void
+    {
+        $converted = (new DjotToCarve())->convert("[^n]: > a\n      > >\n\nx[^n]");
+        $html = preg_replace('/>\s+</', '><', (new CarveConverter())->convert($converted));
+        self::assertStringContainsString("<blockquote><p>a\n&gt;</p></blockquote>", $html);
     }
 
     private static function normalize(string $html): string
