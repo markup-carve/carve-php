@@ -56,7 +56,10 @@ class ConverterCorpusTest extends TestCase
     /**
      * @var array<string, string>
      */
-    private const AHEAD_OF_PIN = [];
+    private const AHEAD_OF_PIN = [
+        // CARVE-P11-033 T1 (markup-carve/carve#3120): Markdown import reads the definition by default.
+        '02-markdown-an-abbreviation-definition-stays-text' => '<p><abbr title="HyperText Markup Language">HTML</abbr> is a language.</p>',
+    ];
 
     /**
      * @throws \RuntimeException
@@ -101,7 +104,7 @@ class ConverterCorpusTest extends TestCase
 
         $carve = $this->convertCase($slug, $format, $source);
         if (isset(self::AHEAD_OF_PIN[$slug])) {
-            $this->assertNotSame(rtrim($expected, "\n"), rtrim(self::AHEAD_OF_PIN[$slug], "\n"), $slug . ' reached carve#2887; remove its ahead-of-pin expectation');
+            $this->assertNotSame(rtrim($expected, "\n"), rtrim(self::AHEAD_OF_PIN[$slug], "\n"), $slug . ' reached the pin; remove its ahead-of-pin expectation');
             $expected = self::AHEAD_OF_PIN[$slug];
         }
 
