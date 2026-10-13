@@ -710,12 +710,9 @@ class ListTableExtensionTest extends TestCase
     public function testOverlappingSpanCellsAreKeptNotDropped(): void
     {
         // Span markers only ever grow an existing cell or, when blocked, become
-        // an empty cell; a cell whose grid position falls under another cell's
-        // span is KEPT, never dropped (carve-js parity). A list-table also pads
-        // each row to the table's full column count, so the resolved grid is
-        // rectangular even when spans shorten a row - this is the one place a
-        // list-table legitimately differs from the equivalent pipe table, which
-        // does not pad. Output is byte-identical to carve-js's list-table.
+        // an empty cell; no cell is dropped. The `^` in row 2 is blocked
+        // because A covers column 2 without starting there, and the `^` in row
+        // 3 because its row strip holds a cell (T5, carve#3047).
         $djot = implode("\n", [
             '::: list-table',
             '- - A',
@@ -733,23 +730,20 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><td colspan="3">A</td><td></td></tr>',
-            '    <tr><td rowspan="2" colspan="2">A</td><td></td><td></td></tr>',
-            '    <tr><td>A</td><td>A</td></tr>',
+            '    <tr><td colspan="3">A</td></tr>',
+            '    <tr><td colspan="2">A</td><td></td></tr>',
+            '    <tr><td></td><td>A</td><td>A</td></tr>',
             '  </tbody>',
             '</table>',
         ]);
         $this->assertSame($expected, $this->render($djot));
     }
 
-    public function testCaretBelowRaggedGapExtendsNearestCellAbove(): void
+    public function testCaretBelowRaggedRowIsEmptyCell(): void
     {
-        // A `^` extends the nearest non-skipped cell in its column from any row
-        // above, even when the immediately preceding row was ragged and omitted
-        // that column: the grid pads short rows, so the column still has an open
-        // origin to continue (carve-js parity via the per-column lastNonSkip
-        // walk). Here B (row 0, column 1) gains rowspan="2" from the `^` two rows
-        // below it.
+        // The position above the `^` has no cell, so it finds no origin and
+        // renders empty, never reaching past the gap to B (T5, carve#3047),
+        // exactly as the equivalent pipe table does.
         $djot = implode("\n", [
             '::: list-table',
             '- - A',
@@ -763,8 +757,8 @@ class ListTableExtensionTest extends TestCase
         $expected = implode("\n", [
             '<table>',
             '  <tbody>',
-            '    <tr><td>A</td><td rowspan="2">B</td></tr>',
-            '    <tr><td>C</td></tr>',
+            '    <tr><td>A</td><td>B</td></tr>',
+            '    <tr><td>C</td><td></td></tr>',
             '    <tr><td>X</td><td></td></tr>',
             '  </tbody>',
             '</table>',

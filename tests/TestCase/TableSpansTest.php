@@ -588,16 +588,10 @@ HTML;
     }
 
     /**
-     * A `<` scans LEFT past a column already consumed by another span and merges
-     * into the nearest still-available content cell, becoming an empty cell only
-     * if the walk runs off the table edge (carve spec section 96, carve-js /
-     * carve-rs parity). Here the second body row is `| p | ^ | < | e |`: the `^`
-     * (column 2) continues the rowspan of `b` above it, so column 2 is consumed;
-     * the `<` (column 3) walks left, skips that consumed column, and merges into
-     * `p` (column 1), giving `p` a colspan of 2. Regression guard: carve-php used
-     * to stop at the consumed `^` and emit a separate empty cell instead.
+     * A `<` beside a cell that started in an earlier row is blocked and renders
+     * empty (T5, carve#3047): widening `p` past `b`'s rowspan would overlap it.
      */
-    public function testColspanScansLeftPastConsumedCell(): void
+    public function testColspanBesideACellFromAnEarlierRowIsBlocked(): void
     {
         $djot = <<<'DJOT'
 | p | q | r | s |
@@ -615,7 +609,7 @@ DJOT;
   </thead>
   <tbody>
     <tr><td>a</td><td rowspan="2">b</td><td>c</td><td>d</td></tr>
-    <tr><td colspan="2">p</td><td>e</td></tr>
+    <tr><td>p</td><td></td><td>e</td></tr>
   </tbody>
 </table>
 HTML;
@@ -624,13 +618,10 @@ HTML;
     }
 
     /**
-     * The scan-left walk crosses MULTIPLE consumed columns to reach the nearest
-     * available cell. Row `| p | ^ | < | < |`: `b` (column 2) continues its
-     * rowspan, and both `<` markers (columns 3 and 4) walk left past the consumed
-     * column and chain into `p`, giving it a colspan of 3 (carve-js / carve-rs
-     * parity).
+     * The first `<` is blocked by `b`'s rowspan and becomes an empty cell of this
+     * row, so the second `<` widens that empty cell (T5, carve#3047).
      */
-    public function testColspanScansLeftPastConsumedCellChained(): void
+    public function testABlockedColspanStartsACellTheNextColspanWidens(): void
     {
         $djot = <<<'DJOT'
 | p | q | r | s |
@@ -648,7 +639,7 @@ DJOT;
   </thead>
   <tbody>
     <tr><td>a</td><td rowspan="2">b</td><td>c</td><td>d</td></tr>
-    <tr><td colspan="3">p</td></tr>
+    <tr><td>p</td><td colspan="2"></td></tr>
   </tbody>
 </table>
 HTML;
@@ -854,19 +845,12 @@ DJOT;
     }
 
     /**
-     * A cell carrying both colspan and rowspan does NOT drop the cells whose
-     * grid position falls under its span. Span markers only ever GROW an
-     * existing cell's rowspan/colspan or, when blocked, become an empty cell;
-     * they never delete a sibling content cell. The cell that lands in the
-     * spanned region is rendered as-is, exactly like carve-js and carve-rs
-     * (and matching the carve spec walk-and-merge model). Regression guard: an
-     * earlier carve-php-only pass dropped such cells, diverging from both
-     * reference implementations.
+     * A `^` under a two-column cell is blocked when the rest of its row strip
+     * holds a cell: growing A would cover B (T5, carve#3047). The `^` renders
+     * empty and B is kept.
      */
-    public function testRowspanColspanIntersectionKeepsOverlappingCells(): void
+    public function testRowspanUnderAColspanIsBlockedByACellInItsStrip(): void
     {
-        // A gains colspan=2 (the `<`) and rowspan=2 (the `^` below it). The
-        // `B` in the second body row sits under A's span area but is kept.
         $djot = <<<'DJOT'
 |     | H1  | H2  |
 |-----|-----|-----|
@@ -882,8 +866,8 @@ DJOT;
     <tr><th scope="col"></th><th scope="col">H1</th><th scope="col">H2</th></tr>
   </thead>
   <tbody>
-    <tr><td>L1</td><td rowspan="2" colspan="2">A</td></tr>
-    <tr><td>L2</td><td>B</td></tr>
+    <tr><td>L1</td><td colspan="2">A</td></tr>
+    <tr><td>L2</td><td></td><td>B</td></tr>
   </tbody>
 </table>
 HTML;
@@ -891,10 +875,10 @@ HTML;
         $this->assertSame($expected, trim($html));
     }
 
-    public function testRowspanColspanIntersection3x3KeepsOverlappingCells(): void
+    public function testRowspanUnderAColspanIsBlockedAndTheNextRowExtendsTheEmptyCell(): void
     {
-        // A gains colspan=3 and rowspan=3; B/C/D/E land under its span area but
-        // are all kept (carve-js / carve-rs parity).
+        // The `^` in row L2 is blocked by B and C, so it becomes an empty cell
+        // of its own; the `^` in row L3 extends that empty cell instead of A.
         $djot = <<<'DJOT'
 |     | H1  | H2  | H3  |
 |-----|-----|-----|-----|
@@ -911,8 +895,8 @@ DJOT;
     <tr><th scope="col"></th><th scope="col">H1</th><th scope="col">H2</th><th scope="col">H3</th></tr>
   </thead>
   <tbody>
-    <tr><td>L1</td><td rowspan="3" colspan="3">A</td></tr>
-    <tr><td>L2</td><td>B</td><td>C</td></tr>
+    <tr><td>L1</td><td colspan="3">A</td></tr>
+    <tr><td>L2</td><td rowspan="2"></td><td>B</td><td>C</td></tr>
     <tr><td>L3</td><td>D</td><td>E</td></tr>
   </tbody>
 </table>

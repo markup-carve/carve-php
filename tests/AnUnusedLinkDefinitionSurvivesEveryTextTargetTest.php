@@ -31,4 +31,22 @@ class AnUnusedLinkDefinitionSurvivesEveryTextTargetTest extends TestCase
             self::assertStringNotContainsString('[r]: /u', $converter->convert("[t][r]\n\n[r]: /u\n"));
         }
     }
+
+    public function testAnsiDimsUnusedDefinition(): void
+    {
+        self::assertSame(
+            "[Text][REF]\n\n\033[2m[ref]: /u\033[0m\n",
+            CarveConverter::ansi()->convert("[Text][REF]\n\n[ref]: /u\n"),
+        );
+    }
+
+    public function testReferenceInsideLinkTextDoesNotConsumeItsDefinition(): void
+    {
+        $source = "a [t[x][r2]][r] b\n\n[r]: /u\n\n[r2]: /v\n";
+        foreach (['markdown', 'plainText', 'ansi'] as $target) {
+            $output = CarveConverter::$target()->convert($source);
+            self::assertStringContainsString('[r2]: /v', $output, $target);
+            self::assertStringNotContainsString('[r]: /u', $output, $target);
+        }
+    }
 }

@@ -1391,7 +1391,8 @@ final class BlockContinuationScanner
                 $stripColumn = $authoredCodeColumn !== null
                     && IndentationHelper::getLeadingColumns($nextLine, $authoredCodeColumn) >= $authoredCodeColumn
                     ? $authoredCodeColumn : $contentIndent;
-                $contentLine = $inlineAuthoredFence && !$termContinuation && $openDefinitionBody === null && !$unclosedNoteText
+                $contentLine = $inlineAuthoredFence && !$termContinuation
+                    && ($openDefinitionBody === null || $column < $contentIndent + $openDefinitionBody) && !$unclosedNoteText
                     && !($trailingState->inFootnoteBody && $column > $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
                     ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                     : IndentationHelper::stripLeadingColumns($nextLine, $stripColumn);

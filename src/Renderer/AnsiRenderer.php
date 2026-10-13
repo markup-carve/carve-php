@@ -656,7 +656,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
                 $node instanceof LinkReferenceDefinition => isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])
-                    ? '' : $this->stripControls(ReferencedLinkDefinitions::line($node)),
+                    ? '' : $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node)), "\n"), self::DIM) . "\n\n",
                 $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),
