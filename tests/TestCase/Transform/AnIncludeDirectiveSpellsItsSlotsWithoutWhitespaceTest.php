@@ -14,12 +14,7 @@ use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
 /**
- * How the two slots after the path are SPELLED (carve#2773, carve#2934).
- *
- * The whitespace before `#section` and before each `@key:value` is optional in
- * every position, and a tab separates as a space does. The expected slots are
- * the arbiter's - markup-carve/carve scripts/spec/include-directive.mjs - not a
- * reading of the grammar.
+ * Include slots use optional spaces; a tab remains path or slot content.
  */
 class AnIncludeDirectiveSpellsItsSlotsWithoutWhitespaceTest extends TestCase
 {
@@ -69,20 +64,22 @@ class AnIncludeDirectiveSpellsItsSlotsWithoutWhitespaceTest extends TestCase
             ['path' => 'c.crv', 'section' => 'Alpha', 'shift' => 2],
         ];
 
-        yield 'a tab separates the path from the name' => [
+        yield 'a tab remains part of the path' => [
             "{{ c.crv\t#Alpha }}",
-            ['path' => 'c.crv', 'section' => 'Alpha', 'shift' => 0],
-        ];
-
-        yield 'a tab separates an option too' => [
-            "{{ c.crv\t#Alpha\t@shift:1 }}",
-            ['path' => 'c.crv', 'section' => 'Alpha', 'shift' => 1],
+            ['path' => "c.crv\t", 'section' => 'Alpha', 'shift' => 0],
         ];
 
         yield 'the spaced control still reads the same slots' => [
             '{{ c.crv #Alpha @shift:1 }}',
             ['path' => 'c.crv', 'section' => 'Alpha', 'shift' => 1],
         ];
+    }
+
+    public function testATabInASectionNameMakesTheDirectiveMalformed(): void
+    {
+        $parsed = IncludeDirectiveSyntax::parse("{{ c.crv\t#Alpha\t@shift:1 }}");
+        self::assertNotNull($parsed);
+        self::assertSame('malformed', $parsed['error']);
     }
 
     /**
@@ -134,7 +131,7 @@ class AnIncludeDirectiveSpellsItsSlotsWithoutWhitespaceTest extends TestCase
         yield 'spaced control' => ['{{ c.crv #Alpha }}', "{#Alpha}\n# Alpha\n\nalpha text\n"];
         yield 'adjacent name' => ['{{ c.crv#Alpha }}', "{#Alpha}\n# Alpha\n\nalpha text\n"];
         yield 'quoted path, adjacent name' => ['{{ "c.crv"#Alpha }}', "{#Alpha}\n# Alpha\n\nalpha text\n"];
-        yield 'tab before the name' => ["{{ c.crv\t#Alpha }}", "{#Alpha}\n# Alpha\n\nalpha text\n"];
+
         yield 'adjacent name and option' => ['{{ c.crv#Alpha@shift:1 }}', "{#Alpha}\n## Alpha\n\nalpha text\n"];
         yield 'adjacent option after a spaced name' => ['{{ c.crv #Alpha@shift:1 }}', "{#Alpha}\n## Alpha\n\nalpha text\n"];
     }
