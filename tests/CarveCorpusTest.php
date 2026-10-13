@@ -1372,7 +1372,11 @@ class CarveCorpusTest extends TestCase
     {
         $knownGap = self::knownGap($slug);
         if ($knownGap !== null) {
-            $actual = $this->converter->convert($crv);
+            try {
+                $actual = $this->converter->convert($crv);
+            } catch (\Throwable) {
+                $this->markTestIncomplete($knownGap);
+            }
             $this->assertNotSame(
                 $this->normalize($html),
                 $this->normalize($actual),

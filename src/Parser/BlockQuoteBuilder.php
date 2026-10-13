@@ -1201,6 +1201,7 @@ final class BlockQuoteBuilder
     {
         $last = array_key_last($lines);
         $line = $last === null ? '' : $lines[$last];
+        $line = ContainerPrefix::afterLeadingQuoteMarkers($line);
         $at = IndentationHelper::pastLeadingWhitespace($line);
         $at = ($this->getListParser)()->markerWalkOffset($line, $at) ?? $at;
 
