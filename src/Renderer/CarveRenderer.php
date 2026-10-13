@@ -3073,6 +3073,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         bool $inheritedValign = false,
     ): string {
         if ($cell->hasBlockContent()) {
+            $pending = $cell->getChildren();
+            while ($pending !== []) {
+                $block = array_pop($pending);
+                if ($block instanceof ThematicBreak) {
+                    $reason = 'a thematic break has no inline spelling in a table cell';
+                    $this->recordUnspellableStructure($block, $reason);
+
+                    throw new SourceUnspellableException('thematic_break', $reason);
+                }
+                array_push($pending, ...$block->getChildren());
+            }
+        }
+        if ($cell->hasBlockContent()) {
             $this->recordUnspellableField($cell, 'blocks', 'Carve table cells cannot hold blocks');
         }
         $attrs = $this->renderAttrs($cell);
