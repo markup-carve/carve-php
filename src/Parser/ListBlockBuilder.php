@@ -1512,12 +1512,22 @@ final class ListBlockBuilder
     private function footnoteDefinitionBodyExtent(array $lines, int $start, int $count, bool $stopAtDefinition = false): int
     {
         $end = $start;
+        $noteBodyColumn = IndentationHelper::getLeadingColumns($lines[$start]) + BlockGrammar::FOOTNOTE_BODY_COLUMN;
         for ($j = $start + 1; $j < $count; $j++) {
             $candidate = $lines[$j];
-            // A lead note ends where a nested note starts; a comment keeps its reading until carve#3060 is ruled.
+            // A table at the note's column after a comment still belongs to the note.
+            $comment = ltrim($candidate, " \t");
+            $commentEndsNote = str_starts_with($comment, '%%');
+            if ($commentEndsNote && !str_starts_with($comment, '%%%')) {
+                $nextIsNoteTable = IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) >= $noteBodyColumn
+                    && $j + 1 < $count
+                    && IndentationHelper::getLeadingColumns($lines[$j + 1], $noteBodyColumn) >= $noteBodyColumn
+                    && ($this->getTableParser)()->isTableRow(ltrim($lines[$j + 1], " \t"));
+                $commentEndsNote = !$nextIsNoteTable;
+            }
             if (
                 $stopAtDefinition
-                && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($candidate, " \t")) === 1 || str_starts_with(ltrim($candidate, " \t"), '%%'))
+                && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($candidate, " \t")) === 1 || $commentEndsNote)
             ) {
                 break;
             }
