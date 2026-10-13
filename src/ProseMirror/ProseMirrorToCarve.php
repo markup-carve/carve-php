@@ -98,6 +98,8 @@ use WeakMap;
  */
 class ProseMirrorToCarve
 {
+    /** @var \WeakMap<TableCell, list<list<string|null>>>|null */
+    private ?WeakMap $coveredRowMarkers = null;
     /**
      * @var array<string, string>
      */
@@ -622,6 +624,8 @@ class ProseMirrorToCarve
         $rowspanMap = [];
         /** @var array<int, int> $rowspanWidth */
         $rowspanWidth = [];
+        /** @var array<int, list<list<string|null>>> $rowspanMarkers */
+        $rowspanMarkers = [];
 
         foreach ($table->getChildren() as $row) {
             if (!$row instanceof TableRow) {
@@ -640,7 +644,7 @@ class ProseMirrorToCarve
             $logicalCol = 0;
 
             foreach ($originalCells as $cell) {
-                $this->drainRowspans($newCells, $rowspanMap, $rowspanWidth, $logicalCol, $isHeaderRow);
+                $this->drainRowspans($newCells, $rowspanMap, $rowspanWidth, $rowspanMarkers, $logicalCol, $isHeaderRow);
 
                 $colspan = max(1, $cell->getColspan());
                 $rowspan = max(1, $cell->getRowspan());
@@ -648,6 +652,9 @@ class ProseMirrorToCarve
                 if ($rowspan > 1) {
                     $rowspanMap[$logicalCol] = ($rowspanMap[$logicalCol] ?? 0) + ($rowspan - 1);
                     $rowspanWidth[$logicalCol] = $colspan;
+                    if ($this->coveredRowMarkers !== null && isset($this->coveredRowMarkers[$cell])) {
+                        $rowspanMarkers[$logicalCol] = $this->coveredRowMarkers[$cell];
+                    }
                 }
                 $logicalCol++;
 
@@ -658,7 +665,7 @@ class ProseMirrorToCarve
                     // not here) is what flattened `| p | ^ | < | e |` back to
                     // four plain cells - the colspan continuation took the
                     // column the rowspan owned, so no `^` was ever emitted.
-                    $this->drainRowspans($newCells, $rowspanMap, $rowspanWidth, $logicalCol, $isHeaderRow);
+                    $this->drainRowspans($newCells, $rowspanMap, $rowspanWidth, $rowspanMarkers, $logicalCol, $isHeaderRow);
                     $newCells[] = $this->spanPlaceholder($isHeaderRow, '<');
                     $logicalCol++;
                 }
@@ -666,7 +673,7 @@ class ProseMirrorToCarve
 
             // Trailing rowspan continuations for a row where the last real
             // cell does not reach the table's full width.
-            $this->drainRowspans($newCells, $rowspanMap, $rowspanWidth, $logicalCol, $isHeaderRow);
+            $this->drainRowspans($newCells, $rowspanMap, $rowspanWidth, $rowspanMarkers, $logicalCol, $isHeaderRow);
 
             if (count($newCells) === count($originalCells)) {
                 // No span in this row; nothing to splice.
@@ -689,23 +696,26 @@ class ProseMirrorToCarve
      * @param array<\MarkupCarve\Carve\Node\Block\TableCell> $newCells
      * @param array<int, int> $rowspanMap
      * @param array<int, int> $rowspanWidth the colspan of the cell each pending rowspan belongs to
+     * @param array<int, list<list<string|null>>> $rowspanMarkers
      * @param bool $isHeaderRow
      * @param int $logicalCol
      */
-    protected function drainRowspans(array &$newCells, array &$rowspanMap, array &$rowspanWidth, int &$logicalCol, bool $isHeaderRow): void
+    protected function drainRowspans(array &$newCells, array &$rowspanMap, array &$rowspanWidth, array &$rowspanMarkers, int &$logicalCol, bool $isHeaderRow): void
     {
         while (($rowspanMap[$logicalCol] ?? 0) > 0) {
             $start = $logicalCol;
             $width = $rowspanWidth[$start] ?? 1;
+            $markers = isset($rowspanMarkers[$start]) ? (array_shift($rowspanMarkers[$start]) ?? []) : [];
             $newCells[] = $this->spanPlaceholder($isHeaderRow, '^');
             $rowspanMap[$start]--;
             if ($rowspanMap[$start] === 0) {
-                unset($rowspanMap[$start], $rowspanWidth[$start]);
+                unset($rowspanMap[$start], $rowspanWidth[$start], $rowspanMarkers[$start]);
             }
             $logicalCol++;
             // A cell spanning rows and columns covers its other columns with `<` (corpus section 579).
             for ($column = 1; $column < $width; $column++) {
-                $newCells[] = $this->spanPlaceholder($isHeaderRow, '<');
+                $marker = $markers[$column] ?? '<';
+                $newCells[] = $this->spanPlaceholder($isHeaderRow, in_array($marker, ['^', '<'], true) ? $marker : '<');
                 $logicalCol++;
             }
         }
@@ -717,6 +727,27 @@ class ProseMirrorToCarve
         $cell->setSpanMarker($marker);
 
         return $cell;
+    }
+
+    private function rememberCoveredRowMarkers(TableCell $cell, mixed $value): bool
+    {
+        if (!is_array($value)) {
+            return true;
+        }
+        $rows = [];
+        foreach ($value as $row) {
+            if (!is_array($row)) {
+                return true;
+            }
+            $rows[] = array_values(array_map(
+                static fn (mixed $marker): ?string => in_array($marker, ['^', '<'], true) ? $marker : null,
+                $row,
+            ));
+        }
+        $this->coveredRowMarkers ??= new WeakMap();
+        $this->coveredRowMarkers[$cell] = $rows;
+
+        return true;
     }
 
     /**
@@ -1836,6 +1867,7 @@ class ProseMirrorToCarve
                 'spanMarker',
                 is_scalar($value) ? (string)$value : null,
             ),
+            $key === 'carveCoveredRowMarkers' => $this->rememberCoveredRowMarkers($node, $value),
             $key === 'carveInheritedTextAlign' => true,
             // An `alignment` on the wire IS the cell's own marker: the
             // renderer publishes it only where the cell carries one, which
