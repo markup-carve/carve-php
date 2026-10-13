@@ -39,11 +39,31 @@ class CodeFenceCarrierMarkerTest extends TestCase
 
     public function testNestedFenceAndAttributeCarrierRoundTrip(): void
     {
-        foreach ([
-            "{.c}\n```js \"a.js\"\nx\n```\n",
-            "> ```js \"q.js\"\n> x\n> ```\n",
-            "- item\n\n  ````js \"f\" [g]\n  ```\n  ````\n",
-        ] as $source) {
+        foreach (
+            [
+                "{.c}\n```js \"a.js\"\nx\n```\n",
+                "> ```js \"q.js\"\n> x\n> ```\n",
+                "- item\n\n  ````js \"f\" [g]\n  ```\n  ````\n",
+            ] as $source
+        ) {
+            $renderer = new MarkdownRenderer();
+            $renderer->setRoundTripMode(true);
+            $markdown = (new CarveConverter(renderer: $renderer))->convert($source);
+            $importer = new MarkdownToCarve();
+            self::assertSame($source, $importer->convert($markdown));
+            self::assertFalse($importer->hadDamagedCarrierMarkers());
+        }
+    }
+
+    public function testFenceAsFirstListOrDefinitionBlockKeepsItsHost(): void
+    {
+        foreach (
+            [
+                "- ```js \"a.js\"\n  x\n  ```\n",
+                "1. ```js \"a.js\"\n   x\n   ```\n",
+                ":: T\n: ```js \"a.js\"\n  x\n  ```\n",
+            ] as $source
+        ) {
             $renderer = new MarkdownRenderer();
             $renderer->setRoundTripMode(true);
             $markdown = (new CarveConverter(renderer: $renderer))->convert($source);

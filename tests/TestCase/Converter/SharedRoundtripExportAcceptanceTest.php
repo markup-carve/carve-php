@@ -502,11 +502,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         $source = (new MarkdownToCarve())->convert($exported);
         $converter = new CarveConverter();
         self::assertTrue(self::matchesProjection((new AstCodec())->encode($converter->parse($source)), $fixture['expectedNodes']));
-        if (in_array('definition-list-flattened', $fixture['lossCodes'], true)) {
-            self::assertNotSame(trim($converter->convert($fixture['source'])), trim($converter->convert($source)));
-        } else {
-            self::assertSame(trim($converter->convert($fixture['source'])), trim($converter->convert($source)));
-        }
+        self::assertSame(trim($converter->convert($fixture['source'])), trim($converter->convert($source)));
     }
 
     /**

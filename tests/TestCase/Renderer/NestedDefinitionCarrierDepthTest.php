@@ -52,4 +52,15 @@ class NestedDefinitionCarrierDepthTest extends TestCase
         self::assertTrue($importer->hadDamagedCarrierMarkers());
         self::assertStringContainsString('<!-- carve:2 :: Inner -->', $imported);
     }
+
+    public function testDepthOnOtherMarkerDropsThatMarkerAlone(): void
+    {
+        foreach (['<!-- carve:2 {.x} -->', '<!-- carve:2 [ -->'] as $invalid) {
+            $markdown = $invalid . "\n<!-- carve: :: T -->\n**T**\n\n<!-- carve: : -->\nbody\n\n<!-- carve: -->\n";
+            $result = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
+            self::assertStringContainsString(':: T', $result->value);
+            self::assertContains('carrier-marker-dropped', array_column($result->diagnostics, 'code'));
+            self::assertNotContains('carrier-markers-damaged', array_column($result->diagnostics, 'code'));
+        }
+    }
 }

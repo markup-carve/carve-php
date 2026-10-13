@@ -543,6 +543,9 @@ class MarkdownToCarve
                     $valid = $width > 0 || CarrierMarkers::isCaption($payload)
                         || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
                 }
+                if ($depths[$at] > 1 && preg_match('/^::[ \t]/', $payload) !== 1 && $payload !== ':' && $payload !== '') {
+                    $valid = false;
+                }
                 if (!$valid) {
                     unset($payloads[$at], $depths[$at]);
                     if ($closer !== null) {
@@ -994,7 +997,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($definitions[$last]->marker !== null) {
+            if ($definitions[$last]->marker !== null && !($item['fence'] ?? false)) {
                 $lead = $item['text'] === '' ? $definitions[$last]->base
                     : $definitions[$last]->base . '  ' . substr($item['lead'], strlen($definitions[$last]->original));
                 if ($definitions[$last]->pending && $item['text'] !== '') {
@@ -1021,6 +1024,9 @@ class MarkdownToCarve
                     $info !== null && isset($items[$below])
                     && preg_match('/^(`{3,}|~{3,})(.*)$/D', $items[$below]['text'], $fence) === 1
                 ) {
+                    if (trim($item['lead']) !== '') {
+                        $items[$below]['lead'] = $item['lead'];
+                    }
                     $language = trim($fence[2]);
                     $items[$below]['text'] = $fence[1] . $language . ($language === '' ? '' : ' ') . $info;
 
