@@ -3269,8 +3269,18 @@ class DjotToCarve
             }
             $end = $open;
         }
-        if ($end < 2 * $opens || strpbrk(substr($label, 2 * $opens, $end - 2 * $opens), '[]') !== false) {
+        if ($end < 2 * $opens) {
             return $label;
+        }
+        for ($at = 2 * $opens; $at < $end; $at++) {
+            if ($label[$at] === '\\') {
+                if ($at + 1 >= $end || $label[$at + 1] === "\n" || $label[$at + 1] === "\r") {
+                    return $label;
+                }
+                $at++;
+            } elseif ($label[$at] === '[' || $label[$at] === ']') {
+                return $label;
+            }
         }
 
         return substr($label, 2 * $opens, $end - 2 * $opens);
