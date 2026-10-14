@@ -31,4 +31,16 @@ final class IndentedListAttachedParagraphTest extends TestCase
             CarveConverter::create()->convert("| a | b |\n  - +\n  line two\n"),
         );
     }
+
+    public function testFlushLeftListMarkersEndTheAttachedParagraph(): void
+    {
+        self::assertSame(
+            "<ul>\n  <li>para</li>\n</ul>\n<ol>\n  <li>c</li>\n</ol>\n",
+            CarveConverter::create()->convert("  - +\npara\n1. c\n"),
+        );
+        self::assertSame(
+            "<ul>\n  <li>para</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n",
+            CarveConverter::create()->convert("  - +\npara\n- c\n"),
+        );
+    }
 }

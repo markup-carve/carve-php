@@ -4583,6 +4583,9 @@ class BlockParser
                     IndentationHelper::isBlankLine($line)
                     // The attached block starts at document column zero even
                     // when its marker sits in an indented list.
+                    || ($lineIndent < $baseIndent
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null
+                            || $this->isContinuationMarker($trimmed)))
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
                         && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed)))
