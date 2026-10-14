@@ -24,6 +24,18 @@ class TableSpanMarkerBlockedTest extends TestCase
         yield 'astral and quote' => ["😀\n> | ^ | b |\n", 2, 5, 'There is no cell above it to extend.'];
         yield 'footnote definition' => ["x[^n]\n\n[^n]: note\n\n    | ^ | b |\n", 5, 7, 'There is no cell above it to extend.'];
         yield 'captioned table' => ["| ^ | b |\n^ Table: cap\n", 1, 3, 'There is no cell above it to extend.'];
+        yield 'shorter row above' => ["| a |\n| b | ^ |\n", 2, 7, 'There is no cell above it to extend.'];
+        yield 'pipe in a code span' => ["| `a|b` | ^ |\n+ x | y |\n", 1, 11, 'There is no cell above it to extend.'];
+    }
+
+    public function testLocatesTheMarkerAcrossLoneCrLines(): void
+    {
+        foreach (["| a | b |\r| < | c |\r+ x | y |\r", "| a | b |\r| < | c |\r"] as $source) {
+            $warnings = $this->findings($source);
+            self::assertCount(1, $warnings);
+            $start = (int)strpos($source, '<');
+            self::assertSame([2, 3, $start, $start + 1], [$warnings[0]->line, $warnings[0]->column, $warnings[0]->start, $warnings[0]->end]);
+        }
     }
 
     #[DataProvider('blockedCases')]
