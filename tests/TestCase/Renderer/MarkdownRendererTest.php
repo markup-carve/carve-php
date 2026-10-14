@@ -178,10 +178,14 @@ class MarkdownRendererTest extends TestCase
         $document = (new AstCodec())->decode([
             'type' => 'document',
             'srcByteLength' => 0,
-            'children' => [[
-                'type' => 'paragraph',
-                'children' => [['type' => 'autolink', 'text' => 'a|b@example.com', 'href' => 'mailto:a|b@example.com']],
-            ]],
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'autolink', 'text' => 'a|b@example.com', 'href' => 'mailto:a|b@example.com'],
+                    ],
+                ],
+            ],
         ]);
 
         $this->assertSame("[a|b@example.com](mailto:a%7Cb@example.com)\n", $this->renderer->render($document));
