@@ -396,6 +396,8 @@ class ProseMirrorRenderer
         }
         if ($cell->hasExplicitVerticalAlignment() && $cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
             $attrs['verticalAlign'] = $cell->getVerticalAlignment();
+        } elseif ($cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
+            $attrs['carveInheritedVerticalAlign'] = $cell->getVerticalAlignment();
         }
         $marker = $cell->getSpanMarker();
         if ($marker !== null && $marker !== '') {

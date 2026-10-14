@@ -1883,6 +1883,12 @@ class ProseMirrorToCarve
                 && !$node->hasExplicitAlignment()
                 && in_array(self::asString($value), [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)
                 => $this->setState($node, 'alignment', self::asString($value)),
+            $key === 'carveInheritedTextAlign' => true,
+            $key === 'carveInheritedVerticalAlign'
+                && !$node->hasExplicitVerticalAlignment()
+                && in_array(self::asString($value), [TableCell::VALIGN_TOP, TableCell::VALIGN_MIDDLE, TableCell::VALIGN_BOTTOM], true)
+                => $this->setState($node, 'verticalAlignment', self::asString($value)),
+            $key === 'carveInheritedVerticalAlign' => true,
             // An `alignment` on the wire IS the cell's own marker: the
             // renderer publishes it only where the cell carries one, which
             // is also how carve-rs reads it back. Recording that keeps the
