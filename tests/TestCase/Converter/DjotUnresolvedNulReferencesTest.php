@@ -18,7 +18,7 @@ class DjotUnresolvedNulReferencesTest extends TestCase
         foreach ($controls as $row) {
             if (isset($row['emptyHeading'])) {
                 $messages = array_map(static fn ($diagnostic): string => $diagnostic->message, $converter->convertWithFidelityReport($row['source'])->diagnostics);
-                $this->assertSame($row['emptyHeading'], array_any($messages, static fn (string $message): bool => str_contains($message, 'empty heading')), $row['source']);
+                $this->assertSame($row['emptyHeading'], array_filter($messages, static fn (string $message): bool => str_contains($message, 'empty heading')) !== [], $row['source']);
 
                 continue;
             }
