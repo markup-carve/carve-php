@@ -10,9 +10,11 @@ use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Node;
 use Throwable;
 
@@ -41,6 +43,8 @@ final class EscapeWindows
      */
     protected array $info = [];
 
+    protected bool $promotedImage = false;
+
     public function __construct(protected Document $document)
     {
         // Same reach as CarveRenderer::collectEscapeUnits(), minus the parent
@@ -68,6 +72,15 @@ final class EscapeWindows
                     continue;
                 }
                 if ($key === self::CHILDREN && $value instanceof Node && is_array($property) && self::isSliceable($value, $property)) {
+                    if ($value instanceof Document || $value instanceof Div) {
+                        foreach ($property as $child) {
+                            if ($child instanceof Image) {
+                                $this->promotedImage = true;
+
+                                break;
+                            }
+                        }
+                    }
                     foreach (array_values($property) as $i => $child) {
                         $stack[] = [$child, $value, $value, $i];
                     }
@@ -82,6 +95,11 @@ final class EscapeWindows
     public function document(): Document
     {
         return $this->document;
+    }
+
+    public function hasPromotedImage(): bool
+    {
+        return $this->promotedImage;
     }
 
     /**
@@ -117,6 +135,72 @@ final class EscapeWindows
         }
 
         return $ranges === [] ? null : array_values($ranges);
+    }
+
+    /**
+     * Split a wide probe across nearby sibling ranges at its first two levels.
+     *
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
+     *
+     * @return array<int, array<int, array{owner: \MarkupCarve\Carve\Node\Node, lo: int, hi: int}>>|null
+     */
+    public function windowsFor(array $units): ?array
+    {
+        if (!$this->promotedImage) {
+            // Other documents keep the original single-window search budget.
+            $window = $this->windowFor($units);
+
+            return $window === null ? null : [$window];
+        }
+        $groups = $this->unitGroupsFor($units);
+        if ($groups === null) {
+            return null;
+        }
+
+        $windows = [];
+        foreach ($groups as $group) {
+            $window = $this->windowFor($group);
+            if ($window === null) {
+                return null;
+            }
+            $windows[] = $window;
+        }
+
+        return $windows;
+    }
+
+    /**
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $units
+     *
+     * @return array<int, array<int, \MarkupCarve\Carve\Node\Node>>|null
+     */
+    private function unitGroupsFor(array $units): ?array
+    {
+        // A group covers at most this many siblings at each of the first two levels.
+        $groupWidth = 16;
+        $groups = [];
+        $low = PHP_INT_MAX;
+        $high = -1;
+        foreach ($units as $unit) {
+            $path = $this->pathOf($unit);
+            if ($path === null || $path === [] || $path[0][0] !== $this->document) {
+                return null;
+            }
+            $rootIndex = $path[0][1];
+            $low = min($low, $rootIndex);
+            $high = max($high, $rootIndex);
+            $key = (string)intdiv($rootIndex, $groupWidth);
+            if (isset($path[1])) {
+                $key .= ':' . spl_object_id($path[1][0]) . ':' . intdiv($path[1][1], $groupWidth);
+            }
+            $groups[$key][] = $unit;
+        }
+        if ($high - $low < 32 && count($units) < 128) {
+            // Small probes retain the existing single-window decision.
+            return [$units];
+        }
+
+        return array_values($groups);
     }
 
     /**
@@ -196,7 +280,7 @@ final class EscapeWindows
         }
         foreach ($children as $child) {
             if (
-                !$child instanceof BlockNode
+                (!$child instanceof BlockNode && !($child instanceof Image && ($owner instanceof Document || $owner instanceof Div)))
                 || $child instanceof TableRow
                 || $child instanceof TableCell
                 || $child instanceof Caption
