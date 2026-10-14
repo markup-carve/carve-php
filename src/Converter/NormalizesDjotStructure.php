@@ -851,6 +851,13 @@ trait NormalizesDjotStructure
 
                 continue;
             }
+            if ($definitionIndent >= 0 && $quoteDepth < $depth && preg_match('/^(?:[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|:(?:[ \t]|$))/', $visible) === 1) {
+                $definitionStack = [];
+                $definitionIndent = -1;
+                $paragraph = false;
+                $blank = true;
+                $depth = $quoteDepth;
+            }
             if (($definitionStack !== [] ? $definitionStack[array_key_last($definitionStack)] : -1) !== $definitionIndent) {
                 $definitionStack = $definitionIndent >= 0 ? [$definitionIndent] : [];
             }
@@ -872,8 +879,16 @@ trait NormalizesDjotStructure
                 $paragraph = false;
                 $blank = true;
             }
+            if ($definitionIndent >= 0 && $indent <= $definitionIndent && isset($divClosers[$lineOffsets[$n]])) {
+                $definitionStack = [];
+                $definitionIndent = -1;
+                $paragraph = false;
+                $blank = true;
+            }
             if ($definitionIndent >= 0) {
                 $out[] = $originalForCarve($nativeRemainder);
+                $depth = max($depth, $quoteDepth);
+                $quoteBoundary = rtrim($quoteForCarve());
                 $headingMarker = '';
                 $paragraph = true;
                 $blank = false;
