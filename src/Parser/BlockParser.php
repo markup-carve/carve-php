@@ -4581,7 +4581,11 @@ class BlockParser
                 $trimmed = ltrim($line, " \t");
                 if (
                     IndentationHelper::isBlankLine($line)
-                    || $lineIndent < $baseIndent
+                    // The attached block starts at document column zero even
+                    // when its marker sits in an indented list.
+                    || ($lineIndent < $baseIndent
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null
+                            || $this->isContinuationMarker($trimmed)))
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
                         && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed)))
@@ -4599,7 +4603,12 @@ class BlockParser
                 ) {
                     return true;
                 }
-                if ($this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)) {
+                // An unmarked indented line continues the open quoted
+                // paragraph. Its block-shaped text is not a new block here.
+                if (
+                    !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
+                    && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
+                ) {
                     return true;
                 }
                 $content = IndentationHelper::stripLeadingColumns($line, $baseIndent);
@@ -4737,6 +4746,9 @@ class BlockParser
      */
     protected function flushLineEndsListContinuation(string $line, ?array $lines = null, ?int $index = null): bool
     {
+        if ($this->isCaptionLine($line)) {
+            return false;
+        }
         if ($this->isBlockAttributeLine($line)) {
             return true;
         }
@@ -7010,7 +7022,7 @@ class BlockParser
     protected function endsDefinitionTerm(string $line, ?array $lines = null, ?int $index = null): bool
     {
         if ($this->isCaptionLine($line)) {
-            return false;
+            return true;
         }
 
         // AN UNTERMINATED FENCE ENDS A TERM (carve-php#2868). §10 I4 withholds

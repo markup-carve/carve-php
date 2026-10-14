@@ -111,10 +111,10 @@ class InvisibleLineEndsTheFoldTest extends TestCase
         );
     }
 
-    public function testACaptionLineFoldsIntoADefinitionTerm(): void
+    public function testACaretLineEndsADefinitionTerm(): void
     {
         $this->assertSame(
-            "<dl>\n  <dt>term\n^ cap</dt>\n</dl>",
+            "<dl>\n  <dt>term</dt>\n</dl>\n<p>^ cap</p>",
             trim($this->converter->convert(":: term\n^ cap\n")),
         );
     }
