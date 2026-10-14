@@ -4581,7 +4581,8 @@ class BlockParser
                 $trimmed = ltrim($line, " \t");
                 if (
                     IndentationHelper::isBlankLine($line)
-                    || $lineIndent < $baseIndent
+                    // The attached block starts at document column zero even
+                    // when its marker sits in an indented list.
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
                         && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed)))
@@ -4599,7 +4600,12 @@ class BlockParser
                 ) {
                     return true;
                 }
-                if ($this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)) {
+                // An unmarked indented line continues the open quoted
+                // paragraph. Its block-shaped text is not a new block here.
+                if (
+                    !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
+                    && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
+                ) {
                     return true;
                 }
                 $content = IndentationHelper::stripLeadingColumns($line, $baseIndent);
