@@ -1075,7 +1075,7 @@ trait NormalizesDjotStructure
 
                     continue;
                 }
-                $kind = ($itemMatch[1] !== '' ? $itemMatch[1] : $this->djotListKind($itemMatch[2])) . ($itemMatch[1] !== '' && preg_match('/^\[[ xX]\][ \t]+/', substr($text, strlen($itemMatch[0]) - 1)) === 1 ? ':task' : '');
+                $kind = ($itemMatch[1] !== '' ? $itemMatch[1] : $this->djotListKind($itemMatch[2])) . ($itemMatch[1] !== '' && preg_match('/^\[[ xX]\](?:[ \t]+|$)/', substr($text, strlen($itemMatch[0]) - 1)) === 1 ? ':task' : '');
                 $nested = $parent !== null && $indent > $parent->column;
                 $sharedKind = $this->sharedDjotListKind($priorKind, $kind);
                 $sameKind = $sharedKind !== null;
@@ -1110,6 +1110,9 @@ trait NormalizesDjotStructure
                 }
                 $compact = $this->compactDjotListPrefix($text);
                 $written = $itemMatch[1] !== '' ? $context->bullet . substr($compact, 1) : $compact;
+                if (preg_match('/^[-*+]\s+\[[ xX]\][ \t]*$/', $written) === 1) {
+                    $written = rtrim($written) . ' {empty}';
+                }
                 $context->continuation = false;
                 $headingMarker = '';
                 $attached = [];
