@@ -2886,7 +2886,7 @@ class DjotToCarve
                 $attributeStart = strlen($content) - strlen(ltrim($content));
                 $lineAttributes = ($content[$attributeStart] ?? '') === '{' ? $this->readDjotWordAttributes($content, $attributeStart) : null;
                 $attributeBoundary = $canNormalize && $lineAttributes !== null && $lineAttributes['end'] === strlen(rtrim($content));
-                $definitionDivBoundary = $canNormalize && preg_match('/^[ \t]*:[ \t]+:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*\r?$/', $content) === 1;
+                $definitionDivBoundary = ($canNormalize || preg_match('/^[ \t]*::[ \t]+\x00DJOTEMPTYTERM\x00/', $lines[$i - 1] ?? '') === 1) && preg_match('/^[ \t]*:[ \t]+:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*\r?$/', $content) === 1;
                 $normalizeBoundary = preg_match('/^(?:[ 	]*[-*]){3,}[ 	]*$|^[ 	]*\[(?!\^)[^\]]+\]:/', $content) === 1 || trim($content) === '' || preg_match('/^[ \t]*\[\^[^\]\n]+\]:[ \t]*$/', $content) === 1 || preg_match('/^[ \t]*(?:#{1,6} |:{3,})/', $content) === 1 || $attributeBoundary || $definitionDivBoundary;
                 $previousBlock = trim($content) === '' || preg_match('/^[ \t]*(?:[-*+] |[0-9]+[.)] |:{1,2} |#{1,6} )/', $content) === 1 || $attributeBoundary || $definitionDivBoundary;
             }
@@ -2919,11 +2919,12 @@ class DjotToCarve
         }
 
         $previousLines = $this->previousSourceLines($source);
-        $masked = preg_replace_callback('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)])[ \t]+)?:{3,}[ \t]+([A-Za-z_][A-Za-z0-9_.-]*)/m', function (array $match) use ($previousLines): string {
+        $masked = preg_replace_callback('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)]|:)[ \t]+)?:{3,}[ \t]+([A-Za-z_][A-Za-z0-9_.-]*)/m', function (array $match) use ($previousLines): string {
             [$value, $at] = $match[0];
             $name = $match[1][0];
+            $previous = $previousLines[$at] ?? '';
 
-            return trim($previousLines[$at] ?? '') === '' || preg_match('/(?:[-*+]|[0-9]+[.)])[ \t]+:{3,}/', $value) === 1 ? substr($value, 0, -strlen($name)) . $this->blanks($name) : $value;
+            return trim($previous) === '' || preg_match('/^[ \t]*::[ \t]+\x00DJOTEMPTYTERM\x00/', $previous) === 1 || preg_match('/(?:[-*+]|[0-9]+[.)])[ \t]+:{3,}/', $value) === 1 ? substr($value, 0, -strlen($name)) . $this->blanks($name) : $value;
         }, $masked, -1, $classCount, PREG_OFFSET_CAPTURE);
 
         return $masked ?? $source;

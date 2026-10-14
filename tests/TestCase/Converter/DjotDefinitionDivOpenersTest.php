@@ -24,23 +24,23 @@ class DjotDefinitionDivOpenersTest extends TestCase
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
-        $images = [];
-        foreach ($document->getElementsByTagName('*') as $image) {
-            if (in_array($image->nodeName, ['html', 'head', 'body', 'tbody'], true)) {
+        $elements = [];
+        foreach ($document->getElementsByTagName('*') as $element) {
+            if (in_array($element->nodeName, ['html', 'head', 'body', 'tbody'], true)) {
                 continue;
             }
             $depth = 0;
-            for ($parent = $image->parentNode; $parent !== null; $parent = $parent->parentNode) {
+            for ($parent = $element->parentNode; $parent !== null; $parent = $parent->parentNode) {
                 if ($parent->nodeName !== 'tbody') {
                     $depth++;
                 }
             }
-            $attributes = ['#element' => $image->nodeName, '#depth' => (string)$depth];
-            foreach ($image->attributes as $attribute) {
+            $attributes = ['#element' => $element->nodeName, '#depth' => (string)$depth];
+            foreach ($element->attributes as $attribute) {
                 if (in_array($attribute->name, ['data-delim', 'aria-label', 'data-task-state'], true)) {
                     continue;
                 }
-                if ($image->nodeName === 'input' && in_array($attribute->name, ['disabled', 'checked'], true)) {
+                if ($element->nodeName === 'input' && in_array($attribute->name, ['disabled', 'checked'], true)) {
                     $attributes[$attribute->name] = '';
 
                     continue;
@@ -49,10 +49,10 @@ class DjotDefinitionDivOpenersTest extends TestCase
                     ? str_replace(' ', '%20', $attribute->value) : $attribute->value;
             }
             ksort($attributes);
-            $images[] = $attributes;
+            $elements[] = $attributes;
         }
 
-        return $images;
+        return $elements;
     }
 
     private function text(string $html): string
@@ -79,20 +79,6 @@ class DjotDefinitionDivOpenersTest extends TestCase
             $html = $renderer->convert($converted);
             $expectedElements = $this->elements($row['html']);
             $actualElements = $this->elements($html);
-            if ($row['destinationOnly'] ?? false) {
-                $images = static function (array $elements): array {
-                    $values = [];
-                    foreach ($elements as $element) {
-                        if (isset($element['href']) || isset($element['src'])) {
-                            $values[] = array_intersect_key($element, array_flip(['href', 'src']));
-                        }
-                    }
-
-                    return $values;
-                };
-                $expectedElements = $images($expectedElements);
-                $actualElements = $images($actualElements);
-            }
             $this->assertSame($expectedElements, $actualElements, $row['source']);
             $this->assertSame($this->text($row['html']), $this->text($html), $row['source']);
         }
