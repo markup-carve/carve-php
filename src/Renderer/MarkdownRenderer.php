@@ -4173,6 +4173,25 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         }
         $title = $this->markdownTitle($node);
 
+        if ($node->isAutolink() && $title === null && $slug === null) {
+            $children = $node->getChildren();
+            if (count($children) === 1 && $children[0] instanceof Text) {
+                $label = $this->stripControls($children[0]->getContent());
+                if (
+                    preg_match('/\A[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s\\\\]+\z/u', $label) === 1
+                    && $url === $label
+                ) {
+                    return '<' . $label . '>';
+                }
+                if (
+                    $url === 'mailto:' . $label
+                    && preg_match('/\A[A-Za-z0-9.!#$%&\'*+\/=\?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+\z/', $label) === 1
+                ) {
+                    return '<' . $label . '>';
+                }
+            }
+        }
+
         if ($title !== null) {
             return '[' . $text . '](' . $url . ' "' . $this->escapeTitle($this->stripControls($title)) . '")';
         }
