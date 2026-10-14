@@ -1770,7 +1770,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof HardBreak => $this->tableCellDepth > 0 || $this->singleLineDepth > 0 ? '<br>' : "\\\n",
             $node instanceof NonBreakingSpace => "\u{00A0}",
             $node instanceof SoftBreak => $this->renderSoftBreak(),
-            $node instanceof CellWrap => ' ',
+            $node instanceof CellWrap => $node->visibleText(),
             $node instanceof Superscript => $this->renderSuperscript($node),
             $node instanceof Subscript => $this->renderSubscript($node),
             $node instanceof Highlight => $this->renderHighlight($node),

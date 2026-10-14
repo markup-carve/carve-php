@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
+use MarkupCarve\Carve\Node\Block\TableCell;
+
 /**
  * Where a `+` continuation row joined content onto a table cell (CARVE-P12-069).
  * Renders as one space; the Carve writer writes the `+` line back.
@@ -37,5 +39,14 @@ class CellWrap extends InlineNode
     public function getType(): string
     {
         return 'cell_wrap';
+    }
+
+    /**
+     * The text this wrap renders as: none when it leads its table cell, where it
+     * records the source line but separates nothing.
+     */
+    public function visibleText(): string
+    {
+        return $this->getParent() instanceof TableCell && $this->getPreviousSibling() === null ? '' : ' ';
     }
 }

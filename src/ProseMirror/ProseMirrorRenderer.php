@@ -670,7 +670,7 @@ class ProseMirrorRenderer
         return match (true) {
             $node instanceof NonBreakingSpace => "\u{00A0}",
                 $node instanceof SoftBreak => "\n",
-            $node instanceof CellWrap => ' ',
+            $node instanceof CellWrap => $node->visibleText(),
             $node instanceof EscapedText => $node->getContent(),
             $node instanceof RawText => $node->getContent(),
             $node instanceof SmartPunctuation => $node->getGlyph(),
