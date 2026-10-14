@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Event\RenderEvent;
@@ -135,7 +136,59 @@ class MarkdownRendererTest extends TestCase
     {
         $document = $this->converter->parse('<https://example.com>');
 
-        $this->assertSame("[https://example.com](https://example.com)\n", $this->renderer->render($document));
+        $this->assertSame("<https://example.com>\n", $this->renderer->render($document));
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function autolinkMarkdownCases(): array
+    {
+        return [
+            'URL' => ['<https://github.com/markup-carve>', '<https://github.com/markup-carve>'],
+            'query' => ['<https://example.com?a=1&b=2>', '<https://example.com?a=1&b=2>'],
+            'non-ASCII URL' => ['<https://example.com/café>', '<https://example.com/café>'],
+            'email' => ['<user@example.com>', '<user@example.com>'],
+            'mailto URI' => ['<mailto:user@example.com>', '<mailto:user@example.com>'],
+            'entity' => ['<https://example.com?a=1&copy;>', '[https://example.com?a=1\\&copy;](https://example.com?a=1&amp;copy;)'],
+            'title' => ['<https://example.com>{title="Example"}', '[https://example.com](https://example.com "Example")'],
+            'encoded' => ['<https://example.com/a(b)>', '[https://example.com/a(b)](https://example.com/a%28b%29)'],
+            'invalid email domain' => ['<user@-x.com>', '[user@-x.com](mailto:user@-x.com)'],
+        ];
+    }
+
+    #[DataProvider('autolinkMarkdownCases')]
+    public function testAutolinkMarkdownSpelling(string $source, string $expected): void
+    {
+        $markdown = $this->renderer->render($this->converter->parse($source));
+        $this->assertSame($expected . "\n", $markdown);
+        if ($expected === $source) {
+            $this->assertSame($source, trim((new MarkdownToCarve())->convert($markdown)));
+        }
+    }
+
+    public function testEqualLabelExplicitLinkStaysExplicit(): void
+    {
+        $source = '[https://example.com](https://example.com)';
+        $this->assertSame($source . "\n", $this->renderer->render($this->converter->parse($source)));
+    }
+
+    public function testEmailAutolinkFallsBackWhenItsDestinationNeedsEncoding(): void
+    {
+        $document = (new AstCodec())->decode([
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [
+                [
+                    'type' => 'paragraph',
+                    'children' => [
+                        ['type' => 'autolink', 'text' => 'a|b@example.com', 'href' => 'mailto:a|b@example.com'],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame("[a|b@example.com](mailto:a%7Cb@example.com)\n", $this->renderer->render($document));
     }
 
     public function testImageDestinationsEncodeMarkdownBreakoutCharacters(): void
