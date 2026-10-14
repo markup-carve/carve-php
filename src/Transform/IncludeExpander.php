@@ -540,6 +540,7 @@ class IncludeExpander implements TransformerInterface
         if (!str_contains($full, '{{')) {
             return false;
         }
+        $index = new IncludeRun($run);
 
         if (preg_match_all(IncludeDirectiveSyntax::SCAN, $full, $matches, PREG_OFFSET_CAPTURE) === false) {
             return false;
@@ -548,7 +549,7 @@ class IncludeExpander implements TransformerInterface
         $spans = [];
         foreach ($matches[0] as $match) {
             [$literal, $offset] = $match;
-            if (IncludeDirectiveSyntax::matchIsEscaped($run, $offset, strlen($literal))) {
+            if ($index->matchIsEscaped($offset, strlen($literal))) {
                 continue;
             }
             $directive = $this->parseDirective($literal);
@@ -571,11 +572,11 @@ class IncludeExpander implements TransformerInterface
         $nodes = [];
         $cursor = 0;
         foreach ($spans as $span) {
-            $nodes = [...$nodes, ...$this->sliceRun($run, $cursor, $span['start'])];
-            $nodes = [...$nodes, ...$span['nodes']];
+            array_push($nodes, ...$this->sliceRun($run, $cursor, $span['start'], $index));
+            array_push($nodes, ...$span['nodes']);
             $cursor = $span['end'];
         }
-        $nodes = [...$nodes, ...$this->sliceRun($run, $cursor, strlen($full))];
+        array_push($nodes, ...$this->sliceRun($run, $cursor, strlen($full), $index));
         $nodes = $this->mergeExpandedRun($nodes, $this->hostSpan($run));
 
         for ($remove = count($run) - 1; $remove >= 1; $remove--) {
@@ -595,19 +596,24 @@ class IncludeExpander implements TransformerInterface
      * @param list<\MarkupCarve\Carve\Node\Node> $run
      * @param int $from
      * @param int $to
+     * @param \MarkupCarve\Carve\Transform\IncludeRun|null $index The run, already indexed.
      *
      * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    protected function sliceRun(array $run, int $from, int $to): array
+    protected function sliceRun(array $run, int $from, int $to, ?IncludeRun $index = null): array
     {
+        $index ??= new IncludeRun($run);
         $out = [];
-        $offset = 0;
-        foreach ($run as $node) {
-            $text = $this->textLikeContent([$node]);
-            $start = $offset;
-            $end = $offset + strlen($text);
-            $offset = $end;
-            if ($end <= $from || $start >= $to) {
+        $count = count($run);
+        for ($i = $index->nodeAt($from); $i < $count; $i++) {
+            $node = $run[$i];
+            $text = $index->piece($i);
+            $start = $index->startOf($i);
+            $end = $start + strlen($text);
+            if ($start >= $to) {
+                break;
+            }
+            if ($end <= $from) {
                 continue;
             }
 
