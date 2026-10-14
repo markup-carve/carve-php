@@ -3,7 +3,7 @@
   "about": "Carve node type to ProseMirror node/mark name, for engines building a Carve <-> ProseMirror bridge. Carve type names are the node types of the spec's AST schema (resources/ast-schema.json), and every one of them has an entry in `types` or `unmapped`; the ProseMirror names are this package's CarveKit schema. Consumers read this rather than restating the mapping, which is how carve-php once ended up emitting `citation-group` against everyone else's underscores. `pm` is the name CarveKit registers; an optional `accepts` lists further names a bridge should recognize on the way in, for concepts a stock Tiptap extension already spells differently. Where two Carve types name the same ProseMirror node or mark, the one that is a vocabulary alias of the other carries `aliasOf` naming the type that owns the name; a bridge resolving a ProseMirror name back to a Carve type must not decide that by whatever order it happens to walk this file in.",
   "_provenance": {
     "source": "markup-carve/carve-grammars tiptap/schema-map.json",
-    "commit": "c4ab2c2b3e4e9f9bb2002b7e3e2d5d8df30349c2",
+    "commit": "264bdf5ae86daa62898ed7e04d5df10abd22ea7e",
     "refresh": "copy the complete file from carve-grammars and update commit; scripts/check-schema-map.php verifies decisions and full schema-map parity against the pin",
     "divergences": {},
     "divergencePolicy": "This vendored file must match the pinned upstream map exactly outside provenance. Change the upstream map first; local differences are not permitted.",
@@ -110,12 +110,19 @@
       "kind": "node",
       "pm": "table",
       "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
         "carveSeparatorWidths": "authored separator-row dash widths, colons excluded; its PRESENCE says the author wrote a separator row rather than `|=` header cells"
       }
     },
     "table_row": {
       "kind": "node",
-      "pm": "tableRow"
+      "pm": "tableRow",
+      "attrs": {
+        "carveContinuationLines": "how many `+` continuation lines the row was written with; omitted when 0"
+      }
     },
     "table_cell": {
       "kind": "node",
@@ -125,6 +132,7 @@
       ],
       "notes": "tableHeader for `|=` cells",
       "attrs": {
+        "carveCoverMarkers": "per row a cell spanning rows and columns covers below its first, the markers written right of its `^`; present only where one of them is `^`",
         "carveInheritedTextAlign": "effective alignment inherited from table column metadata; editor presentation only and never serialized as a cell override",
         "carveSpanMarker": "the span marker as written, where a cell carries one",
         "colspan": "omitted when 1",
@@ -156,6 +164,10 @@
       "kind": "node",
       "pm": "carveFootnote",
       "attrs": {
+        "carveAttrOrder": "the order the run's slots were WRITTEN in, as the AST records it: `#id`, `.class`, and each key by name",
+        "carveKeyValues": "authored key=values",
+        "class": "authored classes",
+        "id": "authored id",
         "label": "the label as written"
       }
     },
@@ -458,7 +470,10 @@
     },
     "strong": {
       "kind": "mark",
-      "pm": "bold"
+      "pm": "bold",
+      "attrs": {
+        "carveBoldItalic": "true where the author wrote the combined `/*...*/` delimiter"
+      }
     },
     "emphasis": {
       "kind": "mark",
