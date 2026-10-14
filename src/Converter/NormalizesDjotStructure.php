@@ -1137,14 +1137,14 @@ trait NormalizesDjotStructure
                 $body = substr($text, strlen($itemMatch[0]) - 1);
                 $itemHeading = preg_match('/^(#{1,6})(?:[ \t]+|$)/', $body, $itemHeadingMatch) === 1;
                 $headingMarker = $itemHeadingMatch[1] ?? '';
-                $itemDiv = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $body, $itemDivMatch) === 1;
+                $task = $itemMatch[1] !== '' && str_starts_with($body, '[') && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMatch) === 1;
+                $itemBody = $task ? substr($body, strlen($taskMatch[0])) : $body;
+                $itemDiv = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $itemBody, $itemDivMatch) === 1;
                 if ($itemDiv) {
-                    $divs[] = ['width' => strlen($itemDivMatch[1]), 'prefix' => $quoteForCarve() . str_repeat(' ', $context->target + $context->content), 'invalid' => $fenceParser->parseDivFenceOpener($body)['invalidMetadata'] ?? false, 'itemColumn' => $context->column + 1, 'depth' => $quoteDepth, 'start' => $lineOffsets[$n]];
+                    $divs[] = ['width' => strlen($itemDivMatch[1]), 'prefix' => $quoteForCarve() . str_repeat(' ', $context->target + $context->content), 'invalid' => $fenceParser->parseDivFenceOpener($itemBody)['invalidMetadata'] ?? false, 'itemColumn' => $context->column + 1, 'depth' => $quoteDepth, 'start' => $lineOffsets[$n]];
                 }
                 $itemQuoteDepth = 0;
                 $quoteBody = '';
-                $task = str_starts_with($body, '[') && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMatch) === 1;
-                $itemBody = $task ? substr($body, strlen($taskMatch[0])) : $body;
                 $embeddedOwners->clear();
                 $embeddedListOwner = null;
                 if (str_starts_with($itemBody, '>')) {
@@ -1425,7 +1425,7 @@ trait NormalizesDjotStructure
             $parts[] = str_replace("\t", ' ', preg_replace('/^\(([^)]+)\)/', '$1.', $compact) ?? $compact);
             $at += strlen($item[0]);
             if (in_array($item[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX]\][ \t]+/', $text, $task, 0, $at) === 1) {
-                $parts[] = $task[0];
+                $parts[] = str_replace("\t", ' ', $task[0]);
                 $at += strlen($task[0]);
             }
         }
