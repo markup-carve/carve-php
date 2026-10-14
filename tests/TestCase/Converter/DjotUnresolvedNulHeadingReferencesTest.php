@@ -27,6 +27,11 @@ class DjotUnresolvedNulHeadingReferencesTest extends TestCase
             $this->assertStringNotContainsString('class="c"', $html, $source);
             $this->assertStringNotContainsString('id="i"', $html, $source);
             $this->assertStringNotContainsString('{%comment%}', $html, $source);
+            if (isset($row['quoteOwn'])) {
+                $this->assertSame($row['quoteOwn'], substr_count($row['html'], '<blockquote>'), $source);
+                $this->assertSame($row['quoteOwn'], substr_count($html, '<blockquote>'), $source);
+                $this->assertStringNotContainsString('&gt;', $html, $source);
+            }
             $messages = array_map(static fn ($diagnostic): string => $diagnostic->message, $report->diagnostics);
             $this->assertNotEmpty(array_filter($messages, static fn (string $message): bool => str_contains($message, 'unresolved Djot')), $source);
         }

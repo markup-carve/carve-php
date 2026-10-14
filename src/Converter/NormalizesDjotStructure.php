@@ -1738,6 +1738,27 @@ trait NormalizesDjotStructure
         return $parts === [] ? '' : '{' . implode(' ', $parts) . '}';
     }
 
+    private function literalDjotReferenceAttributes(string $source, int $depth): string
+    {
+        $lines = explode("\n", $source);
+        foreach ($lines as $index => &$line) {
+            $at = 0;
+            if ($index > 0) {
+                for ($level = 0; $level < $depth; $level++) {
+                    if (preg_match('/\G[ \t]*>(?:[ \t]|$)/', $line, $prefix, offset: $at) !== 1) {
+                        break;
+                    }
+                    $at += strlen($prefix[0]);
+                }
+            }
+            $tail = substr($line, $at);
+            $line = substr($line, 0, $at) . preg_replace_callback('/[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]/', static fn (array $match): string => '\\' . $match[0], $tail);
+        }
+        unset($line);
+
+        return implode("\n", $lines);
+    }
+
     /**
      * @param string $source
      * @param bool $caretOnly
@@ -2118,7 +2139,7 @@ trait NormalizesDjotStructure
                                 break;
                             }
                             $literal = $attributes['parts'] !== []
-                                ? preg_replace_callback('/[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]/', static fn (array $match): string => '\\' . $match[0], substr($source, $attributeAt, $attributes['end'] - $attributeAt))
+                                ? $this->literalDjotReferenceAttributes(substr($source, $attributeAt, $attributes['end'] - $attributeAt), $bracketDepths[$match[2][1] - 1] ?? 0)
                                 : '';
                             $edits[] = [$attributeAt, $attributes['end'] - $attributeAt, $literal];
                             $attributeAt = $attributes['end'];
