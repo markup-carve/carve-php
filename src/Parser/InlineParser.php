@@ -3923,6 +3923,15 @@ class InlineParser
                     continue;
                 }
             }
+            // A cross-reference resolves first (PART 8), so its `}` closes nothing.
+            if ($text[$searchPos] === '<') {
+                $crossrefEnd = $this->findCrossrefEnd($text, $searchPos);
+                if ($crossrefEnd !== null) {
+                    $searchPos = $crossrefEnd;
+
+                    continue;
+                }
+            }
             // A CLOSER INSIDE A CLOSED VERBATIM RUN IS CODE, not this span's
             // closer: the run is closed by an equal-length backtick run
             // anywhere later in the block (markup-carve/carve#2079).
@@ -5030,7 +5039,7 @@ class InlineParser
                         $end = $destination[1] ?? $end;
                     }
                 } elseif ($char === '<') {
-                    $end = $this->findAutolinkEnd($text, $at);
+                    $end = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
                 } elseif ($char === '%' && $this->isLineCommentOpener($text, $at)) {
                     $lineEnd = strpos($text, "\n", $at);
                     $end = min($lineEnd === false ? $length : $lineEnd, $labels !== [] ? $labels[array_key_last($labels)] : $length);
