@@ -4318,7 +4318,7 @@ class DjotToCarve
                 }
                 $label = (new CarveConverter(smartTypography: false, renderer: new DjotImageChildTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convertImageQuoteText(($altDefinitions !== [] ? implode("\n", $altDefinitions) . "\n\n" : '') . 'DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND', true)));
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
-                $label = preg_replace_callback('/[\\\\\[\]\"\']/', static fn (array $match): string => '\\' . $match[0], $label) ?? $label;
+                $label = preg_replace_callback('/[!-\/:-@\[-`{-~]/', static fn (array $match): string => '\\' . $match[0], $label) ?? $label;
             }
             $target = preg_replace_callback(($rows[$line] ?? false) && str_contains($destination, '|') ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : ($match[0] === '\\' ? '\\\\' : rawurlencode($match[0])), $destination) ?? $destination;
             $target = preg_replace('/\](?=[\[{])/', '%5D', $target) ?? $target;
