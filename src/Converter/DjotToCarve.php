@@ -56,6 +56,8 @@ class DjotToCarve
 
     private bool $omitQuoteDelimiters = false;
 
+    private bool $nulShielded = false;
+
     private string $paragraphContextSource = '';
 
     /**
@@ -187,6 +189,8 @@ class DjotToCarve
 
     private function convertDocument(string $djot, bool $preserveHeadingIds = true): string
     {
+        $previousShield = $this->nulShielded;
+        $this->nulShielded = true;
         $this->paragraphContextSource = '';
         $this->paragraphStarts = [];
         try {
@@ -194,6 +198,7 @@ class DjotToCarve
         } finally {
             $this->paragraphContextSource = '';
             $this->paragraphStarts = [];
+            $this->nulShielded = $previousShield;
         }
     }
 
@@ -3000,7 +3005,7 @@ class DjotToCarve
         $previous = $this->omitQuoteDelimiters;
         $this->omitQuoteDelimiters = $omitQuotes;
         try {
-            return $this->convert($source);
+            return $this->nulShielded ? $this->convertDocument($source, false) : $this->convert($source);
         } finally {
             $this->omitQuoteDelimiters = $previous;
         }
@@ -3183,7 +3188,11 @@ class DjotToCarve
         if (str_contains($label, "\n")) {
             $renderer->setSoftBreakMode(SoftBreakMode::Newline);
         }
-        $plain = (new CarveConverter(smartTypography: false, renderer: $renderer))->convert(str_replace("\0U\0", "\0", $this->removeInheritedAttributeMarkers($this->convertImageQuoteText('DJOTALT ' . $protected . ' DJOTEND', $omitQuotes), $inherited)));
+        $native = $this->removeInheritedAttributeMarkers($this->convertImageQuoteText('DJOTALT ' . $protected . ' DJOTEND', $omitQuotes), $inherited);
+        if ($this->nulShielded) {
+            $native = str_replace("\0U\0", "\0", $native);
+        }
+        $plain = (new CarveConverter(smartTypography: false, renderer: $renderer))->convert($native);
 
         return strtr(preg_replace('/^DJOTALT ?| ?DJOTEND\n?$/', '', $plain) ?? $plain, $scalars);
     }
