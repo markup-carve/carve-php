@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -397,8 +398,16 @@ class CarveFormatterTest extends TestCase
         };
 
         $renderer = new CarveRenderer();
-        $under = $renderer->render($build(CarveRenderer::MAX_RENDER_DEPTH - 2));
-        $this->assertStringContainsString('body', $under);
+        $atTheParseCap = $renderer->render($build(BlockParser::MAX_NESTING_DEPTH));
+        $this->assertStringContainsString('body', $atTheParseCap);
+
+        // Between the parse cap and the ceiling no source reads back as the
+        // tree, so the writer refuses on the cap (CARVE-P9-078), not the ceiling.
+        try {
+            $renderer->render($build(CarveRenderer::MAX_RENDER_DEPTH - 2));
+            $this->fail('a tree past the parse cap was written');
+        } catch (SourceUnspellableException) {
+        }
 
         // Past the ceiling the writer refuses (§25). It used to return the
         // fences with `body` dropped, which is the failure mode that clause

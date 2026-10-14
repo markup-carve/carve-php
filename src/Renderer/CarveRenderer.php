@@ -12,6 +12,7 @@ use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockExtension;
+use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CitationDefinition;
@@ -591,7 +592,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $minimal = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_MINIMAL);
         $conservative = $this->renderWithEscapeMode($document, self::ESCAPE_MODE_CONSERVATIVE);
+        // A tree nested to the parser's cap may hold over-cap text that no
+        // spelling reads back, so its output is checked even when the forms agree.
+        $atCap = $this->nestingReachesCap($document);
         if ($minimal === $conservative) {
+            if ($atCap) {
+                $this->refuseUnlessItReadsBack($minimal, $document);
+            }
+
             return $minimal;
         }
         // The minimal form that re-parses to THIS document is the document's
@@ -609,6 +617,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($minimalTree !== null && $documentTree !== null && $minimalTree == $documentTree) {
             return $minimal;
         }
+        // Every state the narrowing visits is verified against the conservative
+        // tree, so when that is not the document's tree no state reads back
+        // either. Past the cap that is the refuse arm of CARVE-P9-078, taken
+        // before a search whose every probe re-parses the whole deep document.
+        if ($atCap) {
+            $this->refuseUnlessItReadsBack($conservative, $document);
+        }
         if ($this->escapingIsRedundant($minimal, $conservative)) {
             return $minimal;
         }
@@ -619,6 +634,62 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // reaches: the smallest unit whose minimal form fails, and section 2's
         // own test everywhere else.
         return $this->narrowEscalation($document, $conservative, $minimal);
+    }
+
+    /**
+     * Whether some block sits as deep in containers as the parser cap allows.
+     *
+     * Counted in the parser's unit: a block a container holds is one level
+     * deeper, a list or table level is charged once, to the body that holds
+     * blocks, and inline nesting is not container depth.
+     */
+    protected function nestingReachesCap(Document $document): bool
+    {
+        /** @var array<int, array{0: \MarkupCarve\Carve\Node\Node, 1: int}> $stack */
+        $stack = [];
+        foreach ($document->getChildren() as $child) {
+            $stack[] = [$child, 0];
+        }
+        while ($stack !== []) {
+            [$node, $depth] = array_pop($stack);
+            if (!$node instanceof BlockNode) {
+                continue;
+            }
+            if ($depth >= BlockParser::MAX_NESTING_DEPTH) {
+                return true;
+            }
+            $wrapper = $node instanceof ListBlock || $node instanceof Table || $node instanceof TableRow || $node instanceof DefinitionList;
+            foreach ($node->getChildren() as $child) {
+                $stack[] = [$child, $wrapper ? $depth : $depth + 1];
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * CARVE-P9-078: past the nesting cap the writer refuses rather than emit
+     * source that reads back as a different document.
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     */
+    protected function refuseUnlessItReadsBack(string $output, Document $document): void
+    {
+        // A document that cannot be canonicalized answers "cannot tell", which
+        // decides nothing here, as it decides nothing for the minimal form.
+        $documentTree = $this->sourceTree($document);
+        if ($documentTree === null) {
+            return;
+        }
+        $outputTree = $this->canonicalTree($output);
+        if ($outputTree !== null && $outputTree == $documentTree) {
+            return;
+        }
+
+        throw new SourceUnspellableException('document', sprintf(
+            'content nested past the parser nesting limit of %d has no spelling that reads back',
+            BlockParser::MAX_NESTING_DEPTH,
+        ));
     }
 
     /**
