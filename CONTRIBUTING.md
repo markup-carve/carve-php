@@ -36,12 +36,15 @@ Both matter for how long a local run takes:
   guards against a reintroduced O(n^2) inline scan. 49 data sets each convert a
   50000-repeat input several times, which is most of the suite's runtime, and
   the measurement only means anything on an unloaded machine. They run in their
-  own CI job and via `composer test-scaling`.
+  own CI job (`guards.yml`, on every push to main) and via
+  `composer test-scaling`.
 - `pcov` instruments every file under `src/` whenever the extension is enabled,
   even when nothing collects coverage. `pcov.enabled` is `PHP_INI_SYSTEM`, so it
   cannot be switched off from `phpunit.xml` or `ini_set()` - only a `-d` flag at
   startup works, which is what the composer scripts pass. `composer test-coverage`
-  leaves it on.
+  leaves it on. CI collects coverage (and uploads it to Codecov) only in the
+  nightly `guards.yml` run or when that workflow is dispatched by hand, not on
+  every push.
 
 There is a single `default` suite covering `tests/`. Part of it is driven by the
 shared spec corpus in `tests/spec`, so a spec bump can change expectations

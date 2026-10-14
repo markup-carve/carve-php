@@ -620,10 +620,20 @@ trait NormalizesDjotStructure
                     $childBody = $body;
                     $child = preg_match('/^((?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)(?=[^ \t])/', $body, $childMatch) === 1;
                     if ($child) {
-                        $lists[] = new DjotListContext($noteIndent + intdiv(strlen(mb_convert_encoding($noteHead[1], 'UTF-16LE', 'UTF-8')), 2), strlen($this->compactDjotListPrefix($childMatch[1])), 2, $this->djotListKind(trim($childMatch[1])), $childMatch[1][0] === '*' ? '*' : '-', 0, $quoteDepth, strlen($quote));
+                        $childKind = $this->djotListKind(trim($childMatch[1]));
+                        if (preg_match('/^[-*+] $/', $childMatch[1]) === 1 && preg_match('/^\[[ xX]\](?:[ \t]+|$)/', substr($body, strlen($childMatch[1]))) === 1) {
+                            $childKind .= ':task';
+                        }
+                        $lists[] = new DjotListContext($noteIndent + intdiv(strlen(mb_convert_encoding($noteHead[1], 'UTF-16LE', 'UTF-8')), 2), strlen($this->compactDjotListPrefix($childMatch[1])), 2, $childKind, $childMatch[1][0] === '*' ? '*' : '-', 0, $quoteDepth, strlen($quote));
                         $childBody = substr($body, strlen($childMatch[1]));
-                        if (preg_match('/^[-*+]/', $childMatch[1]) === 1) {
-                            $childBody = preg_replace('/^\[[ xX]\][ \t]+/', '', $childBody) ?? $childBody;
+                        if (preg_match('/^[-*+] $/', $childMatch[1]) === 1) {
+                            $childBody = preg_replace('/^\[[ xX]\](?:[ \t]+|$)/', '', $childBody) ?? $childBody;
+                            if ($this->emptyDjotTaskTailEnd($body, !isset($lines[$n + 1]) || trim($lines[$n + 1]) === '') !== null && str_starts_with($childBody, '{')) {
+                                $attributes = $this->readDjotWordAttributes($childBody, 0);
+                                if ($attributes !== null && trim(substr($childBody, $attributes['end'])) === '') {
+                                    $childBody = '';
+                                }
+                            }
                         }
                     }
                     $nestedHead = null;
@@ -668,7 +678,14 @@ trait NormalizesDjotStructure
                         $noteOwner->pendingParentPrefix = $quote;
                         $out[] = $noteHead[1] . substr($body, 0, strlen($body) - strlen($content)) . $emptyNote;
                     } else {
-                        $out[] = $noteHead[1] . ($child && $childBody === '+' ? $emptyNote . "\n  " : '') . $this->compactDjotListPrefix($body);
+                        $emptyTaskEnd = $this->emptyDjotTaskTailEnd($body, !isset($lines[$n + 1]) || trim($lines[$n + 1]) === '');
+                        $writtenBody = $this->compactDjotListPrefix($emptyTaskEnd === null ? $body : rtrim(substr($body, 0, $emptyTaskEnd), " \t") . ' ' . $emptyNote, $emptyTaskEnd !== null);
+                        if ($emptyTaskEnd !== null && str_starts_with($body, '* ')) {
+                            $writtenBody = '*' . substr($writtenBody, 1);
+                            $out[] = $noteHead[1] . $emptyNote . "\n  " . $writtenBody;
+                        } else {
+                            $out[] = $noteHead[1] . ($child && $childBody === '+' ? $emptyNote . "\n  " : '') . $writtenBody;
+                        }
                     }
                     if (preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $content, $inlineDiv) === 1) {
                         $divs[] = ['width' => strlen($inlineDiv[1]), 'prefix' => str_repeat(' ', $contentColumn) . $inlineQuote['prefix'], 'depth' => $depth, 'start' => $lineOffsets[$n], 'invalid' => $fenceParser->parseDivFenceOpener($content)['invalidMetadata'] ?? false] + ($context !== null ? ['itemColumn' => $context->column + 1] : []);
@@ -1110,7 +1127,14 @@ trait NormalizesDjotStructure
                 }
                 $compact = $this->compactDjotListPrefix($text);
                 $written = $itemMatch[1] !== '' ? $context->bullet . substr($compact, 1) : $compact;
-                if (preg_match('/^[-*+]\s+\[[ xX]\][ \t]*$/', $written) === 1) {
+                $allowTaskAttributes = !isset($lines[$n + 1]) || trim($lines[$n + 1]) === '';
+                $emptyTaskEnd = $this->emptyDjotTaskTailEnd($text, $allowTaskAttributes);
+                if ($emptyTaskEnd !== null) {
+                    $writtenEnd = $this->emptyDjotTaskTailEnd($written, $allowTaskAttributes);
+                    if ($writtenEnd !== null) {
+                        $written = rtrim(substr($written, 0, $writtenEnd)) . ' ' . $emptyNote;
+                    }
+                } elseif (preg_match('/^[-*+]\s+\[[ xX]\][ \t]*$/', $written) === 1) {
                     $written = rtrim($written) . ' {empty}';
                 }
                 $context->continuation = false;
@@ -1400,9 +1424,43 @@ trait NormalizesDjotStructure
         return substr($prefix, 0, $at + 1);
     }
 
-    private function compactDjotListPrefix(string $text): string
+    private function emptyDjotFootnoteTaskAttributes(string $line): bool
     {
-        if (!str_contains($text, '0') && !str_contains($text, '(') && !str_contains($text, "\t") && !str_contains($text, '[')) {
+        $at = strpos($line, '[^');
+        if ($at === false || preg_match('/^\[\^[^\]\n]+\]:[ \t]+(.*)$/', substr($line, $at), $head) !== 1) {
+            return false;
+        }
+
+        return str_contains($head[1], '{') && $this->emptyDjotTaskTailEnd($head[1], true) !== null;
+    }
+
+    private function emptyDjotTaskTailEnd(string $text, bool $allowAttributes): ?int
+    {
+        $at = 0;
+        $length = strlen($text);
+        while ($at < $length) {
+            if (preg_match('/\G(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+/', $text, $marker, 0, $at) !== 1) {
+                return null;
+            }
+            $at += strlen($marker[0]);
+            if (preg_match('/^[-*+] $/', $marker[0]) === 1 && preg_match('/\G\[[ xX]\](?:[ \t]+|$)/', $text, $task, 0, $at) === 1) {
+                $at += strlen($task[0]);
+                if ($at === $length) {
+                    return $at;
+                }
+                $attributes = $this->readDjotWordAttributes($text, $at);
+                if ($allowAttributes && $attributes !== null && trim(substr($text, $attributes['end'])) === '') {
+                    return $at;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function compactDjotListPrefix(string $text, bool $canonicalBullets = false): string
+    {
+        if (!$canonicalBullets && !str_contains($text, '0') && !str_contains($text, '(') && !str_contains($text, "\t") && !str_contains($text, '[') && !str_contains($text, '+')) {
             return $text;
         }
         $parts = [];
@@ -1422,6 +1480,7 @@ trait NormalizesDjotStructure
                 break;
             }
             $compact = preg_replace('/^(\(?)0+(?=[0-9])/', '$1', $item[0]) ?? $item[0];
+            $compact = preg_replace($canonicalBullets ? '/^[-*+](?=[ \t])/' : '/^\+(?=[ \t])/', '-', $compact) ?? $compact;
             $parts[] = str_replace("\t", ' ', preg_replace('/^\(([^)]+)\)/', '$1.', $compact) ?? $compact);
             $at += strlen($item[0]);
             if (in_array($item[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX\-_>?]\](?:[ \t]+|$)/', $text, $task, 0, $at) === 1) {

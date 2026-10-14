@@ -1,6 +1,7 @@
 name: Guards
 
-# Run coverage and scaling checks on main, nightly, and on demand.
+# Scaling guards run on every push to main; coverage (~17 min) runs only on
+# the nightly schedule and on demand, where the scaling guards run too.
 # Keep them outside the PR matrix to reduce runtime and runner contention.
 # These jobs must not be required PR checks: pull requests do not run them.
 # For changes affecting performance or coverage, run the branch checks with:
@@ -55,6 +56,7 @@ jobs:
         run: composer test-scaling
 
   coverage:
+    if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-latest
     name: Code Coverage
     timeout-minutes: 25
@@ -113,8 +115,9 @@ jobs:
   # opens, which is how a check stops being one.
   #
   # Same shape as the verdict step in markup-carve/carve's ast-conformance
-  # workflow: ONE tracking issue, EDITED by each later red run and CLOSED by the
-  # first green one, matched on a body marker rather than on a title so a rename
+  # workflow: ONE tracking issue, EDITED by each later red nightly run (push runs
+  # comment instead, since they skip coverage) and CLOSED by the first green
+  # nightly run, matched on a body marker rather than on a title so a rename
   # cannot fork it into two. The failing steps are read back from the run rather
   # than listed here, so a step added later cannot fail invisibly.
   verdict:
@@ -205,9 +208,20 @@ jobs:
             echo "::warning::Could not list open issues; will file a fresh ticket rather than editing one."
           fi
 
+          # A push run skips coverage, so its green says nothing about a
+          # coverage failure the ticket may hold: only a full run closes it.
+          FULL_RUN=true
+          if [ "$EVENT_NAME" = 'push' ]; then
+            FULL_RUN=false
+          fi
+
           if [ -z "$failed" ]; then
-            echo "Both guards are green on $HEAD_SHA."
+            echo "The guards that ran are green on $HEAD_SHA."
             echo "Guards green on \`$HEAD_SHA\`. Nothing filed." >> "$GITHUB_STEP_SUMMARY"
+            if [ -n "$issue" ] && [ "$FULL_RUN" = 'false' ]; then
+              echo "Leaving #$issue open: coverage did not run on this push, so only the nightly run can close it."
+              exit 0
+            fi
             if [ -n "$issue" ]; then
               if try gh issue comment "$issue" --repo "$REPO" --body \
                    "Green again: run $RUN_URL on \`$HEAD_SHA\`. Closing. The next red run files a fresh ticket rather than reopening this one, so a closed ticket always means the last run passed." \
@@ -240,6 +254,11 @@ jobs:
             echo
             printf '%s\n' "$failed"
             echo
+            if [ "$FULL_RUN" = 'false' ]; then
+              echo "Coverage does not run on push, so this run says nothing about it;"
+              echo "the nightly run reports it."
+              echo
+            fi
             echo "### Before acting on this"
             echo
             echo "\`Run scaling guards\` measures process CPU time over a 50000-repeat input, so"
@@ -259,7 +278,8 @@ jobs:
             echo "\`gh workflow run guards.yml -R $REPO --ref <branch>\`."
             echo
             echo "This ticket is filed and maintained by the workflow. It is EDITED by each"
-            echo "later red run and CLOSED by the first green one. Closing it by hand does"
+            echo "later red nightly run, COMMENTED on by a red push run, and CLOSED by the"
+            echo "first green nightly run. Closing it by hand does"
             echo "not silence it: the next red run files a new one."
           } > /tmp/guards-verdict.md
 
@@ -281,7 +301,14 @@ jobs:
           # Filing SUCCEEDS the step: the guard jobs above are already red, and a
           # green verdict job is what tells the three outcomes apart - nothing to
           # notify, notified, and could not notify.
-          if [ -n "$issue" ]; then
+          # A push run only knows about scaling, so it comments rather than
+          # replacing a body that may still list a nightly coverage failure.
+          if [ -n "$issue" ] && [ "$FULL_RUN" = 'false' ]; then
+            if try gh issue comment "$issue" --repo "$REPO" --body-file /tmp/guards-verdict.md; then
+              echo "Commented on #$issue."
+              exit 0
+            fi
+          elif [ -n "$issue" ]; then
             if try gh issue edit "$issue" --repo "$REPO" --body-file /tmp/guards-verdict.md; then
               echo "Updated #$issue."
               exit 0

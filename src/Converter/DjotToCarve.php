@@ -1621,7 +1621,7 @@ class DjotToCarve
                 $heading = false;
             }
             $boundary = $content === '' || $reference || isset($fenceLines[$n]) || $row || $div || $heading || $blockAllowed && preg_match('/^(?:[-*][ \t]*){3,}$/', $content) === 1;
-            if ($exitedNote && !$marker && str_starts_with($content, '{') && ($this->readDjotWordAttributes($content, 0)['end'] ?? -1) === strlen($content) && $n > 0 && trim($lines[$n - 1]) !== '') {
+            if ($exitedNote && !$marker && str_starts_with($content, '{') && ($this->readDjotWordAttributes($content, 0)['end'] ?? -1) === strlen($content) && $n > 0 && trim($lines[$n - 1]) !== '' && !$this->emptyDjotFootnoteTaskAttributes($lines[$n - 1])) {
                 $lines[$n] = $prefix . "\n" . $lines[$n];
             }
             $offset += strlen($line) + 1;
@@ -4723,7 +4723,9 @@ class DjotToCarve
                     }
                 }
             }
-            $separator = ($metadataExit && !$marker || $rowEntry || $definition && ($rows[$n - 1] ?? false) && !$marker && ($ownerExit || $definitionOwner === null)) && $previous !== '' ? $physicalPrefix . "\n" : '';
+            $emptyNoteTaskAttributes = !$definition && $attrs !== null && $previousNote !== false
+                && $this->emptyDjotFootnoteTaskAttributes(substr($previousLine, $previousNote));
+            $separator = ($metadataExit && !$marker || $rowEntry || $definition && ($rows[$n - 1] ?? false) && !$marker && ($ownerExit || $definitionOwner === null)) && $previous !== '' && !$emptyNoteTaskAttributes ? $physicalPrefix . "\n" : '';
             if ($separator !== '') {
                 $lines[$n] = $separator . $line;
             }
