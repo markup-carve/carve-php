@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 final class IndentedListAttachedParagraphTest extends TestCase
 {
+    /** @var string */
     private const TABLE = "<table>\n  <tbody>\n    <tr><td>a</td><td>b</td></tr>\n  </tbody>\n</table>\n";
 
     public function testFlushLeftLineAttachesToEmptyItem(): void
