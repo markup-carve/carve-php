@@ -1675,8 +1675,10 @@ class DjotToCarve
             $offset += strlen($line) + 1;
             $at = $this->djotContentStart($line);
             $prefix = substr($line, 0, $at);
-            if (preg_match('/^(:{3,})([ \t]*)([A-Za-z0-9_-]+)([ \t]*)(\r?)$/', substr($line, $at), $opener) !== 1
-                || $opener[2] === ' ') {
+            if (
+                preg_match('/^(:{3,})([ \t]*)([A-Za-z0-9_-]+)([ \t]*)(\r?)$/', substr($line, $at), $opener) !== 1
+                || $opener[2] === ' '
+            ) {
                 continue;
             }
             $mask ??= $this->maskCodeAndDestinations($source);
