@@ -30,7 +30,8 @@ final class DocumentRenderOrder
         $next = 0;
         foreach ($blocks as $block) {
             $position = $block->getPos();
-            $start = $position === null ? PHP_INT_MAX : $position->startOffset;
+            $hostOffset = $block->getRenderHint('includeHostOffset');
+            $start = $hostOffset !== null ? (int)$hostOffset : ($position === null ? PHP_INT_MAX : $position->startOffset);
             while (isset($definitions[$next]) && $definitions[$next]['offset'] < $start) {
                 $ordered[] = $definitions[$next++]['node'];
             }

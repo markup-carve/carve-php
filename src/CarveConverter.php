@@ -477,6 +477,9 @@ class CarveConverter
      */
     public function convert(string $djot): string
     {
+        if ($this->renderer instanceof MarkdownRenderer || $this->renderer instanceof PlainTextRenderer || $this->renderer instanceof AnsiRenderer) {
+            $this->parser->enablePositionTracking();
+        }
         // Check max length before parsing
         $this->enforceProfileMaxLength($djot);
 
