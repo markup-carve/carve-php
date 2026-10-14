@@ -5023,7 +5023,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             throw new SourceUnspellableException('code', 'a leading newline loses its padding where the code span cannot run to the end');
         }
 
-        $marker = static fn (?array $wrap): string => $wrap === null ? ' ' : "\x02" . ($wrap['row'] ?? 0) . ',' . $wrap['line'] . "\x03";
+        $marker = static fn (?array $wrap): string => $wrap === null ? ' ' : "\x02" . ($wrap['row'] ?? 0) . ',' . $wrap['line'] . ',' . ($wrap['col'] ?? 0) . "\x03";
 
         return $needsPad
             ? $fence . $marker($boundaryStart) . $content . $marker($boundaryEnd) . $fence
