@@ -1928,7 +1928,49 @@ trait NormalizesDjotStructure
                 $labelBarriers[$at] = $nextPipe;
             }
         }
+        $scanNestedAliases = $aliasesOnly && str_contains($source, "\0U\0") && array_any(array_keys($definitions), static fn ($key): bool => str_contains((string)$key, '�'));
+        $nativeDefinitions = $definitions;
+        if ($scanNestedAliases && str_contains($source, '#')) {
+            $nativeDefinitions = [];
+            $this->djotLosses($source, true, $nativeDefinitions);
+        }
+        $referenceLabels = [];
+        $wrapperText = [];
+        $aliasLabelText = function (int $open, int $close, int $depth) use ($scanNestedAliases, $source, $closers, $labelClosers, $escaped, $inherited, &$wrapperText, &$labelCache): string {
+            if (isset($wrapperText[$open])) {
+                return $wrapperText[$open];
+            }
+            if (!$scanNestedAliases || str_contains(substr($source, $open + 1, $close - $open - 1), "\n")) {
+                return $this->djotCollapsedReferenceText(substr($source, $open + 1, $close - $open - 1), $depth, $inherited);
+            }
+            $wrappers = [];
+            $current = $open;
+            $end = $close;
+            while (!isset($wrapperText[$current])) {
+                $wrappers[] = $current;
+                $child = ($source[$current + 1] ?? '') === '!' ? $current + 2 : $current + 1;
+                $childClose = $closers[$child] ?? null;
+                if (($source[$child] ?? '') !== '[' || $escaped[$child] !== "\0" || $childClose === null || ($source[$childClose + 1] ?? '') !== '[' || ($labelClosers[$childClose + 2] ?? -1) !== $end - 1 || ($source[$child + 1] ?? '') === '^') {
+                    $label = substr($source, $current + 1, $end - $current - 1);
+                    $cacheKey = $depth . ':' . $label;
+                    $wrapperText[$current] = $labelCache[$cacheKey] ??= $this->djotCollapsedReferenceText($label, $depth, $inherited);
+
+                    break;
+                }
+                $current = $child;
+                $end = $childClose;
+            }
+            $value = $wrapperText[$current];
+            foreach ($wrappers as $wrapper) {
+                $wrapperText[$wrapper] = $value;
+            }
+
+            return $value;
+        };
         for ($open = 0; $open < $length; $open++) {
+            if (isset($referenceLabels[$open])) {
+                continue;
+            }
             $close = $closers[$open] ?? null;
             if ($close === null || ($source[$close + 1] ?? '') !== '[') {
                 continue;
@@ -1952,8 +1994,8 @@ trait NormalizesDjotStructure
                 $end = $attrs['end'];
             }
             $explicit = substr($source, $close + 2, $labelEnd - $close - 2);
-            $content = substr($source, $open + 1, $close - $open - 1);
-            if (str_starts_with($content, '^') && strlen($content) > 1) {
+            $content = $aliasesOnly && $scanNestedAliases ? '' : substr($source, $open + 1, $close - $open - 1);
+            if (($source[$open + 1] ?? '') === '^' && $close - $open > 2) {
                 continue;
             }
             $label = $explicit === '' ? $content : $explicit;
@@ -1961,23 +2003,32 @@ trait NormalizesDjotStructure
             $formatted = $parsedLabel && strpbrk($content, "_*`{~^\"'\\[]") !== false;
             if ($parsedLabel) {
                 $depth = $bracketDepths[$open] ?? 0;
-                $cacheKey = $depth . ':' . $label;
-                $label = $labelCache[$cacheKey] ??= $this->djotCollapsedReferenceText($label, $depth, $inherited);
+                if ($aliasesOnly && $scanNestedAliases) {
+                    $label = $aliasLabelText($open, $close, $depth);
+                } else {
+                    $cacheKey = $depth . ':' . $label;
+                    $label = $labelCache[$cacheKey] ??= $aliasLabelText($open, $close, $depth);
+                }
             } else {
                 $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
             }
             $key = $parsedLabel ? $this->djotReferenceDefinitionKey($label) : $this->djotReferenceKey($label);
             $matches[] = [
-                [substr($source, $at, $end - $at), $at],
-                [substr($source, $at, $close + 1 - $at), $at],
-                [substr($source, $open + 1, $close - $open - 1), $open + 1],
+                [$aliasesOnly ? '' : substr($source, $at, $end - $at), $at],
+                [$aliasesOnly ? '' : substr($source, $at, $close + 1 - $at), $at],
+                [$content, $open + 1],
                 [substr($source, $close + 2, $labelEnd - $close - 2), $close + 2],
                 [$own, $labelEnd + 1],
                 $this->djotReferenceAttributeGroups($ownGroups),
                 $key,
                 $formatted,
+                $end,
+                $close,
             ];
-            $open = $end - 1;
+            $referenceLabels[$close + 1] = true;
+            if (!$scanNestedAliases || !array_key_exists($key, $nativeDefinitions) || $explicit !== '' && !isset($definitions[$key])) {
+                $open = $end - 1;
+            }
         }
         $useCounts = [];
         $overrideCounts = [];
@@ -2018,8 +2069,9 @@ trait NormalizesDjotStructure
         };
         $aliases = [];
         $needsAliases = false;
+        $hasSourceNuls = str_contains($source, "\0U\0");
         foreach ($definitions as $key => $definition) {
-            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0"))) {
+            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0") || $aliasesOnly && $hasSourceNuls && str_contains((string)$key, '�'))) {
                 $needsAliases = true;
 
                 break;
@@ -2027,7 +2079,7 @@ trait NormalizesDjotStructure
         }
         if ($needsAliases) {
             foreach ($definitions as $key => $definition) {
-                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0"))) {
+                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0") || $aliasesOnly && $hasSourceNuls && str_contains((string)$key, '�'))) {
                     continue;
                 }
                 $aliases[$key] = $nextAlias();
