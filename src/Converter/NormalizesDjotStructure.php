@@ -2103,10 +2103,27 @@ trait NormalizesDjotStructure
             }
             foreach ($matches as $match) {
                 $headingKey = str_replace("\0U\0", "\0", (string)$match[6]);
-                if (str_contains($headingKey, "\0") && !isset($definitions[$match[6]]) && isset($headingTargets[$headingKey])) {
-                    $start = $match[9] + 1;
-                    $target = strtr($headingTargets[$headingKey], ['\\' => '\\\\', '(' => '\\(', ')' => '\\)']);
-                    $edits[] = [$start, $match[4][1] - $start, '(' . $target . ')'];
+                if ($headingTargets !== [] && (str_contains($headingKey, "\0") || str_contains($headingKey, '�')) && !isset($definitions[$match[6]])) {
+                    if (isset($headingTargets[$headingKey])) {
+                        $start = $match[9] + 1;
+                        $target = strtr($headingTargets[$headingKey], ['\\' => '\\\\', '(' => '\\(', ')' => '\\)']);
+                        $edits[] = [$start, $match[4][1] - $start, '(' . $target . ')'];
+                    } else {
+                        $edits[] = [$match[2][1] - 1, 0, '\\'];
+                        $edits[] = [$match[9] + 1, 0, '\\'];
+                        $attributeAt = $match[4][1];
+                        while ($attributeAt < $match[8]) {
+                            $attributes = $this->readDjotWordAttributes($source, $attributeAt);
+                            if ($attributes === null) {
+                                break;
+                            }
+                            $literal = $attributes['parts'] !== []
+                                ? preg_replace_callback('/[\x21-\x2F\x3A-\x40\x5B-\x60\x7B-\x7E]/', static fn (array $match): string => '\\' . $match[0], substr($source, $attributeAt, $attributes['end'] - $attributeAt))
+                                : '';
+                            $edits[] = [$attributeAt, $attributes['end'] - $attributeAt, $literal];
+                            $attributeAt = $attributes['end'];
+                        }
+                    }
                 } elseif (isset($aliases[$match[6]])) {
                     $edits[] = [$match[3][1], strlen($match[3][0]), $aliases[$match[6]]];
                 }
