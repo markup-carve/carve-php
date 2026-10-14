@@ -71,7 +71,9 @@ class WikilinksExtension implements ExtensionInterface
 
         // Pattern: [[page]] or [[page|display text]]
         // Supports: [[Page Name]], [[folder/page]], [[page#anchor]], [[page|text]]
-        $pattern = '/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/';
+        // A backslash escapes the next character, so `\]]` never closes; a
+        // lone backslash is allowed in the page only right before `|`.
+        $pattern = '/\[\[((?:[^\]|\\\\]|\\\\[^\]|]|\\\\(?=\|))+)(?:\|((?:\\\\.|[^\]\\\\])+))?\]\]/s';
 
         // Capture urlGenerator in local variable for closure
         $urlGenerator = $this->urlGenerator ?? $this->defaultUrlGenerator();
