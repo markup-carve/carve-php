@@ -6735,7 +6735,7 @@ class MarkdownToCarve
                     continue;
                 }
                 for ($pos = $at + 2; $pos < $end; $pos++) {
-                    if ($line[$pos] === '`' || $line[$pos] === '<') {
+                    if ($line[$pos] === '`' || $line[$pos] === '<' && preg_match('/\G<\/?[A-Za-z]/', $line, offset: $pos) !== 1) {
                         $glyphs[$pos] = true;
                     }
                 }
@@ -6899,7 +6899,7 @@ class MarkdownToCarve
             return $protectCode(rtrim((new CarveRenderer())->render($document), "\n"), $span);
         };
         $line = $this->protectCodeSpans($line, $writeCodeSpan);
-        $line = preg_replace_callback('/(?<!\\\\)\[([^\[\]\n]+)\](?=\[\^([^\[\]\n]+)\])/', function (array $match) use ($protect): string {
+        $line = preg_replace_callback('/(?<!\\\\)\[(?!\^)([^\[\]\n]+)\](?=\[\^([^\[\]\n]+)\])/', function (array $match) use ($protect): string {
             $first = $this->normalizeReferenceLabel($match[1]);
 
             return in_array($match[2], $this->markdownFootnoteLabels, true) && !isset($this->definedReferenceLabels[$first])
@@ -7882,8 +7882,11 @@ class MarkdownToCarve
                     continue;
                 }
                 $paren = substr($source, $at + 1, $end - $at);
-                $label = substr($source, $open, $at - $open + 1);
                 $image = $open > 0 && $source[$open - 1] === '!';
+                if (!$image && strpbrk($paren, " \t\n") === false) {
+                    continue;
+                }
+                $label = substr($source, $open, $at - $open + 1);
                 $start = $image ? $open - 1 : $at + 1;
                 if ($start < $copied) {
                     continue;
