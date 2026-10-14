@@ -3107,7 +3107,7 @@ class DjotToCarve
                 }
 
                 return $image;
-            });
+            }, skipContainedUnchanged: true);
         }
 
         return $this->normalizeDjotInlineSpellings($source, fn (int $at): bool => $this->omitQuoteDelimiters || isset($positions[$at]));
@@ -3212,6 +3212,7 @@ class DjotToCarve
      */
     private function renderImageLabelChildText(string $label, array $inherited, bool $omitQuotes = true): string
     {
+        $label = $this->unwrapNestedImageLabel($label);
         $label = $this->djotImageLabelAttributes($label);
         [$protected, $scalars] = $this->protectImageAltScalars($label);
         $renderer = new DjotImageChildTextRenderer();
@@ -3225,6 +3226,41 @@ class DjotToCarve
         $plain = (new CarveConverter(smartTypography: false, renderer: $renderer))->convert($native);
 
         return strtr(preg_replace('/^DJOTALT ?| ?DJOTEND\n?$/', '', $plain) ?? $plain, $scalars);
+    }
+
+    private function unwrapNestedImageLabel(string $label): string
+    {
+        $length = strlen($label);
+        $opens = 0;
+        while (substr_compare($label, '![', 2 * $opens, 2) === 0) {
+            $opens++;
+        }
+        if ($opens === 0) {
+            return $label;
+        }
+        $end = $length;
+        for ($i = 0; $i < $opens; $i++) {
+            if ($end < 4 || $label[$end - 1] !== ')') {
+                return $label;
+            }
+            $open = $end - 2;
+            while ($open >= 2 * $opens && $label[$open] !== '(') {
+                if (str_contains("()[]\\\n", $label[$open])) {
+                    return $label;
+                }
+                $open--;
+            }
+            $open--;
+            if ($open < 2 * $opens || $label[$open] !== ']') {
+                return $label;
+            }
+            $end = $open;
+        }
+        if ($end < 2 * $opens || strpbrk(substr($label, 2 * $opens, $end - 2 * $opens), "[]") !== false) {
+            return $label;
+        }
+
+        return substr($label, 2 * $opens, $end - 2 * $opens);
     }
 
     /**
@@ -3454,7 +3490,7 @@ class DjotToCarve
      *
      * @return string
      */
-    private function replaceImageLabels(string $source, string $mask, Closure $replace, bool $allowIncomplete = false): string
+    private function replaceImageLabels(string $source, string $mask, Closure $replace, bool $allowIncomplete = false, bool $skipContainedUnchanged = false): string
     {
         if (!str_contains($source, '![')) {
             return $source;
@@ -3507,6 +3543,9 @@ class DjotToCarve
             $image = substr($source, $at, $end + 1 - $at);
             $replaced = $replace([[$image, $at], [substr($source, $at + 2, $end - $at - 2), $at + 2]], $completeTarget);
             if ($replaced === $image) {
+                if ($skipContainedUnchanged && $completeTarget) {
+                    $at = $end;
+                }
                 continue;
             }
             $chunks[] = substr($source, $cursor, $at - $cursor);
@@ -3790,19 +3829,39 @@ class DjotToCarve
         if (!str_contains($source, '](')) {
             return $ranges;
         }
-        if (str_contains($source, '\\') || str_contains($source, '`') || str_contains($source, '][')) {
+        if (str_contains($source, '\\') || str_contains($source, '`') || str_contains($source, '][') || str_contains($source, '|')) {
             return null;
         }
-        preg_match_all('/\[[^\[\]\n]*\]\([^()\n]*\)/', $source, $matches, PREG_OFFSET_CAPTURE);
-        foreach ($matches[0] as [$value, $at]) {
-            $labelEnd = strpos($value, '](');
-            if ($labelEnd === false || ($value[1] ?? '') === '^' || str_contains($value, '|') || preg_match('/[{<"]/', substr($value, $labelEnd + 2, -1))) {
+        $opens = [];
+        $length = strlen($source);
+        for ($at = 0; $at < $length; $at++) {
+            if ($source[$at] === "\n" && $opens !== []) {
                 return null;
             }
-            $ranges[$at + $labelEnd + 1] = $at + strlen($value);
+            if ($source[$at] === '[') {
+                $opens[] = $at;
+
+                continue;
+            }
+            if ($source[$at] !== ']') {
+                continue;
+            }
+            $open = array_pop($opens);
+            if (($source[$at + 1] ?? '') !== '(') {
+                continue;
+            }
+            if ($open === null || ($source[$open + 1] ?? '') === '^') {
+                return null;
+            }
+            $end = strpos($source, ')', $at + 2);
+            if ($end === false || strpbrk(substr($source, $at + 2, $end - $at - 2), "(\n|{<\"") !== false) {
+                return null;
+            }
+            $ranges[$at + 1] = $end + 1;
+            $at = $end;
         }
 
-        return count($ranges) === substr_count($source, '](') ? $ranges : null;
+        return $ranges;
     }
 
     /**
