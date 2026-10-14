@@ -208,9 +208,9 @@ class DjotToCarve
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
         $source = $this->escapeDjotTableAttributeBoundaries($this->normalizeDjotDivOpeners($source));
-        if (str_contains($source, '`')) {
+        if (str_contains($source, '`') || str_contains($source, "\0")) {
             foreach (explode("\n", $source) as $line) {
-                if (preg_match('/^\[(?!\^)[^\]\n]*`[^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1) {
+                if (preg_match('/^\[(?!\^)[^\]\n]*[`\x00][^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1) {
                     $source = $this->normalizeDjotReferenceUses($source, aliasesOnly: true);
 
                     break;
@@ -276,10 +276,11 @@ class DjotToCarve
             }
         }
         $childTextCache = [];
-        $imageChildText = function (string $label, bool $omitQuotes = true) use (&$childTextCache, $inherited): string {
-            $key = ($omitQuotes ? '1:' : '0:') . $label;
+        $imageChildText = function (string $label, bool $omitQuotes = true, bool $preserveSourceNuls = false) use (&$childTextCache, $inherited): string {
+            $preserveSourceNuls = $preserveSourceNuls && str_contains($label, "\0");
+            $key = ($omitQuotes ? '1:' : '0:') . ($preserveSourceNuls ? '1:' : '0:') . $label;
 
-            return $childTextCache[$key] ??= $this->renderImageLabelChildText($label, $inherited, $omitQuotes);
+            return $childTextCache[$key] ??= $this->renderImageLabelChildText($label, $inherited, $omitQuotes, $preserveSourceNuls);
         };
         $collapsedImageLines = null;
         $collapsedImageLine = 0;
@@ -303,9 +304,9 @@ class DjotToCarve
                 if (!$layout['valid']) {
                     return $value;
                 }
-                $key = preg_replace('/[ \t\r\n]+/', ' ', trim($imageChildText($layout['normalized']), " \t\r\n")) ?? $key;
+                $key = preg_replace('/[ \t\r\n]+/', ' ', trim($imageChildText($layout['normalized'], true, true), " \t\r\n")) ?? $key;
             } else {
-                $key = $imageChildText($key);
+                $key = $imageChildText($key, true, true);
             }
 
             $key = preg_replace('/[ \t\r\n]+/', ' ', trim($key, " \t\r\n")) ?? $key;
@@ -3207,19 +3208,26 @@ class DjotToCarve
             return $source;
         }
 
-        return $this->renderImageLabelChildText($source, []);
+        return $this->renderImageLabelChildText($source, [], true, true);
     }
 
     /**
      * @param string $label
      * @param array<string, true> $inherited
      * @param bool $omitQuotes
+     * @param bool $preserveSourceNuls
      */
-    private function renderImageLabelChildText(string $label, array $inherited, bool $omitQuotes = true): string
+    private function renderImageLabelChildText(string $label, array $inherited, bool $omitQuotes = true, bool $preserveSourceNuls = false): string
     {
         $label = $this->unwrapNestedImageLabel($label);
+        $unmarked = $preserveSourceNuls ? $this->removeInheritedAttributeMarkers($label, $inherited) : $label;
+        $preserveSourceNuls = $preserveSourceNuls && str_contains($unmarked, "\0");
+        if ($preserveSourceNuls) {
+            [$label, $markers] = $this->escapeInvalidDjotAttributes($unmarked);
+            $label = $this->removeInheritedAttributeMarkers($label, $markers);
+        }
         $label = $this->djotImageLabelAttributes($label);
-        [$protected, $scalars] = $this->protectImageAltScalars($label);
+        [$protected, $scalars] = $this->protectImageAltScalars($label, $preserveSourceNuls);
         $renderer = new DjotImageChildTextRenderer();
         if (str_contains($label, "\n")) {
             $renderer->setSoftBreakMode(SoftBreakMode::Newline);
@@ -3270,12 +3278,13 @@ class DjotToCarve
 
     /**
      * @param string $label
+     * @param bool $preserveSourceNuls
      *
      * @return array{0: string, 1: array<string, string>}
      */
-    private function protectImageAltScalars(string $label): array
+    private function protectImageAltScalars(string $label, bool $preserveSourceNuls = false): array
     {
-        preg_match_all('/DJOTALTSCALAR([0-9]+)Z/', $label, $matches);
+        preg_match_all('/DJOTALTSCALAR([0-9]+)Z/', preg_replace('/[^A-Za-z0-9]/', '', $label) ?? $label, $matches);
         $reserved = array_fill_keys($matches[1], true);
         $serial = 0;
         while (isset($reserved[$serial])) {
@@ -3341,6 +3350,12 @@ class DjotToCarve
             return $mask[$at + strlen($prefix)] === $marker[0] ? $prefix . $scalar($marker) : $all;
         }, $label, -1, $count, PREG_OFFSET_CAPTURE) ?? $label;
         $label = preg_replace_callback('/^[ \t\x0b\x0c\x{0085}\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}]+$/mu', static fn (array $match): string => trim($match[0], " \t") === '' ? $match[0] : $scalar($match[0]), $label) ?? $label;
+
+        // Reference keys retain NUL identity even though image text renders it as U+FFFD.
+        if ($preserveSourceNuls) {
+            $value = $this->nulShielded ? "\0U\0" : "\0";
+            $label = str_replace($value, $scalar($value), $label);
+        }
 
         return [$label, $values];
     }

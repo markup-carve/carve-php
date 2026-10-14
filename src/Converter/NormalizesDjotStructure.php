@@ -2022,7 +2022,7 @@ trait NormalizesDjotStructure
         $aliases = [];
         $needsAliases = false;
         foreach ($definitions as $key => $definition) {
-            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{'))) {
+            if ((str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0"))) {
                 $needsAliases = true;
 
                 break;
@@ -2030,7 +2030,7 @@ trait NormalizesDjotStructure
         }
         if ($needsAliases) {
             foreach ($definitions as $key => $definition) {
-                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{'))) {
+                if (!(str_starts_with((string)$key, '^') || str_contains((string)$key, '\\') || str_contains((string)$key, '|') || str_contains((string)$key, '[') || str_contains((string)$key, '`') || str_contains((string)$key, '{') || str_contains((string)$key, "\0"))) {
                     continue;
                 }
                 $aliases[$key] = $nextAlias();

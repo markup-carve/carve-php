@@ -45,6 +45,11 @@ class DjotImageLabelNulsTest extends TestCase
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
             $this->assertSame($this->images($row['html']), $this->images($renderer->convert($converted)), $row['source']);
+            $report = $converter->convertWithFidelityReport($row['source']);
+            $this->assertSame($converted, $report->value, $row['source']);
+            foreach ($report->diagnostics as $diagnostic) {
+                $this->assertNotSame('An unresolved Djot image reference has no src; Carve cannot spell that image.', $diagnostic->message, $row['source']);
+            }
         }
         $this->assertSame('plain', $converter->convert('plain'));
     }
