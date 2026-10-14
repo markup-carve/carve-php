@@ -400,7 +400,7 @@ class ProseMirrorRenderer
             $attrs['carveInheritedVerticalAlign'] = $cell->getVerticalAlignment();
         }
         $marker = $cell->getSpanMarker();
-        if ($marker !== null && $marker !== '') {
+        if ($marker !== null && $marker !== '' && $cell->getChildren() === []) {
             $attrs['carveSpanMarker'] = $marker;
         }
         $out['attrs'] = $attrs;

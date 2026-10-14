@@ -581,8 +581,6 @@ final class TableBlockBuilder
                     if (!$origin instanceof TableCell || $join['text'] === '' || !isset($cellBuilds[spl_object_id($origin)])) {
                         continue;
                     }
-                    // The blocked cell now holds text, so it no longer spells a marker.
-                    $origin->setSpanMarker(null);
                     $build = &$cellBuilds[spl_object_id($origin)];
                     $joinAt = $build['content'] === '' ? 0 : strlen($build['content']) + 1;
                     $rowsBelow = $rowIndex - $build['rowIndex'];

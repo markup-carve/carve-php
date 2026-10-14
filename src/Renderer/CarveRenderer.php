@@ -2894,12 +2894,35 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     && $rowIndex > 0
                     && !$cell->hasExplicitVerticalAlignment()
                     && ($inheritedValigns[$column] ?? null) === $cell->getVerticalAlignment();
+                $rendered = $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical);
+                // A hard break in a cell is dropped as an ignored break, so it is no text.
+                $spanText = array_filter($cell->getChildren(), static fn ($child): bool => !$child instanceof HardBreak);
+                if ($cell->getSpanMarker() !== null && $spanText !== []) {
+                    if ($row->getContinuationLines() === 0) {
+                        throw new SourceUnspellableException('table_cell', 'a span cell with text needs a continuation line');
+                    }
+                    $textCell = clone $cell;
+                    $textCell->setSpanMarker(null);
+                    $text = trim($this->renderTableCell($textCell, false, false, false));
+                    $firstLine = null;
+                    foreach ($cell->getChildren() as $child) {
+                        $firstLine = $child->getPos()?->startLine;
+                        if ($firstLine !== null) {
+                            break;
+                        }
+                    }
+                    $rowLine = $row->getPos()?->startLine;
+                    $sourceLine = $firstLine !== null && $rowLine !== null ? $firstLine - $rowLine : 1;
+                    $continuationLine = $sourceLine >= 1 && $sourceLine <= $row->getContinuationLines() ? $sourceLine : 1;
+                    $rendered .= "\x020," . $continuationLine . ",0\x03" . $text;
+                }
                 $cells[] = $this->placeCellWraps(
-                    $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical),
+                    $rendered,
                     $continuations,
                     $rowIndex,
                     $column,
                     $row,
+                    $cell->getSpanMarker() !== null,
                 );
                 $column++;
             }
@@ -3017,17 +3040,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param int $rowIndex
      * @param int $cellIndex
      * @param \MarkupCarve\Carve\Node\Block\TableRow $row
+     * @param bool $spanMarker
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      *
      * @return string
      */
-    protected function placeCellWraps(string $rendered, array &$continuations, int $rowIndex, int $cellIndex, TableRow $row): string
+    protected function placeCellWraps(string $rendered, array &$continuations, int $rowIndex, int $cellIndex, TableRow $row, bool $spanMarker = false): string
     {
         if (preg_match_all('/\x02([0-9]+),([0-9]+),([0-9]+)\x03/', $rendered, $markers, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) === 0) {
             return $rendered;
         }
-        $head = substr($rendered, 0, $markers[0][0][1]) . ' ';
+        $head = substr($rendered, 0, $markers[0][0][1]) . ($spanMarker ? '' : ' ');
         $count = count($markers);
         foreach ($markers as $at => $marker) {
             $start = $marker[0][1] + strlen($marker[0][0]);
