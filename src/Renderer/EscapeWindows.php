@@ -43,6 +43,8 @@ final class EscapeWindows
      */
     protected array $info = [];
 
+    protected bool $promotedImage = false;
+
     public function __construct(protected Document $document)
     {
         // Same reach as CarveRenderer::collectEscapeUnits(), minus the parent
@@ -70,6 +72,15 @@ final class EscapeWindows
                     continue;
                 }
                 if ($key === self::CHILDREN && $value instanceof Node && is_array($property) && self::isSliceable($value, $property)) {
+                    if ($value instanceof Document || $value instanceof Div) {
+                        foreach ($property as $child) {
+                            if ($child instanceof Image) {
+                                $this->promotedImage = true;
+
+                                break;
+                            }
+                        }
+                    }
                     foreach (array_values($property) as $i => $child) {
                         $stack[] = [$child, $value, $value, $i];
                     }
@@ -84,6 +95,11 @@ final class EscapeWindows
     public function document(): Document
     {
         return $this->document;
+    }
+
+    public function hasPromotedImage(): bool
+    {
+        return $this->promotedImage;
     }
 
     /**
@@ -130,6 +146,12 @@ final class EscapeWindows
      */
     public function windowsFor(array $units): ?array
     {
+        if (!$this->promotedImage) {
+            // Other documents keep the original single-window search budget.
+            $window = $this->windowFor($units);
+
+            return $window === null ? null : [$window];
+        }
         $groups = $this->unitGroupsFor($units);
         if ($groups === null) {
             return null;

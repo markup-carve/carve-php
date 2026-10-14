@@ -210,6 +210,9 @@ final class CanonicalEscapeSearch
         array $conservativeTree,
         int $conservativeLength,
     ): bool {
+        // An image beside blocks used to force whole-document probes. Keep
+        // that probe cost when the new windows make those probes local.
+        $chargeStart = $this->state->probeCharge;
         $windows = null;
         if ($local) {
             $this->state->escapeWindows ??= new EscapeWindows($document);
@@ -250,11 +253,18 @@ final class CanonicalEscapeSearch
                 // Loose, as in candidateHolds().
                 if ($this->callWindowTree($after) != $beforeTree) {
                     $undo();
+                    if ($this->state->escapeWindows?->hasPromotedImage()) {
+                        $this->state->probeCharge = max($this->state->probeCharge, $chargeStart + $conservativeLength);
+                    }
 
                     return false;
                 }
             }
             if ($localHolds) {
+                if ($this->state->escapeWindows?->hasPromotedImage()) {
+                    $this->state->probeCharge = max($this->state->probeCharge, $chargeStart + $conservativeLength);
+                }
+
                 return true;
             }
         }
