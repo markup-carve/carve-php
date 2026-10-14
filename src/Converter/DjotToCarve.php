@@ -3086,7 +3086,9 @@ class DjotToCarve
             $mask = $this->maskCodeAndDestinations($source);
             $imageLines = $this->djotImageLineOwners($source, $mask);
             $line = 0;
-            $this->replaceImageLabels($source, $mask, function (array $match) use (&$positions, $imageLines, &$line): string {
+            $validImageLabel = false;
+            $this->replaceImageLabels($source, $mask, function (array $match) use (&$positions, $imageLines, &$line, &$validImageLabel): string {
+                $validImageLabel = false;
                 [$image, $at] = $match[0];
                 if (str_starts_with($match[1][0], '^') || preg_match('/\n[ \t]*\n/', $match[1][0]) === 1) {
                     return $image;
@@ -3100,6 +3102,7 @@ class DjotToCarve
                 if (!$layout['valid']) {
                     return $image;
                 }
+                $validImageLabel = true;
                 for ($i = 0, $length = strlen($label); $i < $length; $i++) {
                     if ($label[$i] === '"' || $label[$i] === "'") {
                         $positions[$at + 2 + $i] = $positions[$at + 1 + $i] = true;
@@ -3107,7 +3110,9 @@ class DjotToCarve
                 }
 
                 return $image;
-            }, skipContainedUnchanged: true);
+            }, skipContainedUnchanged: static function () use (&$validImageLabel): bool {
+                return $validImageLabel;
+            });
         }
 
         return $this->normalizeDjotInlineSpellings($source, fn (int $at): bool => $this->omitQuoteDelimiters || isset($positions[$at]));
@@ -3256,7 +3261,7 @@ class DjotToCarve
             }
             $end = $open;
         }
-        if ($end < 2 * $opens || strpbrk(substr($label, 2 * $opens, $end - 2 * $opens), "[]") !== false) {
+        if ($end < 2 * $opens || strpbrk(substr($label, 2 * $opens, $end - 2 * $opens), '[]') !== false) {
             return $label;
         }
 
@@ -3487,11 +3492,17 @@ class DjotToCarve
      * @param string $mask
      * @param \Closure(array<int, array{string, int}>, bool): string $replace
      * @param bool $allowIncomplete
+     * @param \Closure(): bool|null $skipContainedUnchanged
      *
      * @return string
      */
-    private function replaceImageLabels(string $source, string $mask, Closure $replace, bool $allowIncomplete = false, bool $skipContainedUnchanged = false): string
-    {
+    private function replaceImageLabels(
+        string $source,
+        string $mask,
+        Closure $replace,
+        bool $allowIncomplete = false,
+        ?Closure $skipContainedUnchanged = null,
+    ): string {
         if (!str_contains($source, '![')) {
             return $source;
         }
@@ -3543,9 +3554,10 @@ class DjotToCarve
             $image = substr($source, $at, $end + 1 - $at);
             $replaced = $replace([[$image, $at], [substr($source, $at + 2, $end - $at - 2), $at + 2]], $completeTarget);
             if ($replaced === $image) {
-                if ($skipContainedUnchanged && $completeTarget) {
+                if ($skipContainedUnchanged !== null && $completeTarget && $skipContainedUnchanged()) {
                     $at = $end;
                 }
+
                 continue;
             }
             $chunks[] = substr($source, $cursor, $at - $cursor);
