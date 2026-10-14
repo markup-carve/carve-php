@@ -137,6 +137,37 @@ class SpanMarkerContinuationAndCellWrapColTest extends TestCase
         self::assertSame($source, (new CarveRenderer())->render($codec->decode($ast)));
     }
 
+    public function testAColumnOutsideTheOriginCellCannotMoveTextIntoItsNeighbor(): void
+    {
+        $ast = [
+            'type' => 'document',
+            'srcByteLength' => 0,
+            'children' => [[
+                'type' => 'table',
+                'rows' => [[
+                    'type' => 'table_row',
+                    'continuationLines' => 1,
+                    'cells' => [[
+                        'type' => 'table_cell',
+                        'header' => false,
+                        'children' => [
+                            ['type' => 'text', 'value' => 'a'],
+                            ['type' => 'cell_wrap', 'line' => 1, 'col' => 1],
+                            ['type' => 'text', 'value' => 'x'],
+                        ],
+                    ], [
+                        'type' => 'table_cell',
+                        'header' => false,
+                        'children' => [['type' => 'text', 'value' => 'b']],
+                    ]],
+                ]],
+            ]],
+        ];
+
+        $this->expectException(SourceUnspellableException::class);
+        (new CarveRenderer())->render((new AstCodec())->decode($ast));
+    }
+
     /**
      * @param array<mixed> $value
      */

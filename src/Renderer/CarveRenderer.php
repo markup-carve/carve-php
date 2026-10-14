@@ -2921,7 +2921,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $continuations,
                     $rowIndex,
                     $column,
-                    $row,
+                    $cell,
                     $cell->getSpanMarker() !== null,
                 );
                 $column++;
@@ -3039,14 +3039,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param array<int, array<int, array<int, string>>> $continuations
      * @param int $rowIndex
      * @param int $cellIndex
-     * @param \MarkupCarve\Carve\Node\Block\TableRow $row
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
      * @param bool $spanMarker
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      *
      * @return string
      */
-    protected function placeCellWraps(string $rendered, array &$continuations, int $rowIndex, int $cellIndex, TableRow $row, bool $spanMarker = false): string
+    protected function placeCellWraps(string $rendered, array &$continuations, int $rowIndex, int $cellIndex, TableCell $cell, bool $spanMarker = false): string
     {
         if (preg_match_all('/\x02([0-9]+),([0-9]+),([0-9]+)\x03/', $rendered, $markers, PREG_OFFSET_CAPTURE | PREG_SET_ORDER) === 0) {
             return $rendered;
@@ -3064,7 +3064,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $targetLine = (int)$marker[2][0] - 1;
             $line = $continuations[$targetRow][$targetLine] ?? null;
             $slot = $cellIndex + (int)$marker[3][0];
-            if ($line === null || $slot >= count($line)) {
+            if ($line === null || (int)$marker[3][0] >= $cell->getColspan() || $slot >= count($line)) {
                 throw new SourceUnspellableException('table_row', 'cell_wrap points outside its continuation row');
             }
             if ($line[$slot] !== ' ') {
