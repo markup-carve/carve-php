@@ -346,7 +346,7 @@ trait ReportsDjotLosses
 
     private function djotReferenceDefinitionKey(string $label): string
     {
-        return trim(preg_replace('/[ \t\r\n]+/', ' ', $label) ?? $label);
+        return trim(preg_replace('/[ \t\r\n]+/', ' ', $label) ?? $label, " \t\r\n");
     }
 
     /**

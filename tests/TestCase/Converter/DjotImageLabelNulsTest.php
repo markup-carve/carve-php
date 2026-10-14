@@ -53,4 +53,18 @@ class DjotImageLabelNulsTest extends TestCase
         }
         $this->assertSame('plain', $converter->convert('plain'));
     }
+
+    public function testNulOnlyReferenceLabelsKeepTheirIdentity(): void
+    {
+        $converter = new DjotToCarve();
+        $sources = [
+            "![![\0](u)][]\n\n[\0]: /hit",
+            "![x][\0]\n\n[\0]: /hit",
+        ];
+        foreach ($sources as $source) {
+            $carve = $converter->convert($source);
+            $this->assertStringNotContainsString('[U]', $carve);
+            $this->assertStringContainsString('src="/hit"', (new CarveConverter())->convert($carve));
+        }
+    }
 }

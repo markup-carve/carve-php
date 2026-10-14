@@ -168,15 +168,15 @@ class TheMarkdownTargetKeepsAListSTightnessTest extends TestCase
         );
     }
 
-    public function testAThematicBreakKeepsTheSeparator(): void
+    public function testAThematicBreakUsesAnInterruptingMarker(): void
     {
-        // `---` under a paragraph line is a SETEXT HEADING, not a break: its
-        // opener does not interrupt the paragraph, it changes what the paragraph
-        // is. No corpus document spells this, so only this case holds it.
+        // `---` under a paragraph is a setext underline. `***` keeps the break
+        // without a blank line that would loosen the item.
         $source = "- a\n+\n---\n";
 
         $written = $this->write($source);
-        $this->assertSame("- a\n\n  ---\n", $written);
+        $this->assertSame("- a\n  ***\n", $written);
+        $this->assertTrue($this->readsBackTight($source));
         $this->assertSame(
             [Paragraph::class, ThematicBreak::class],
             $this->blocksInTheFirstItem($written),

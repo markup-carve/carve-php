@@ -78,6 +78,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
 use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
@@ -214,8 +215,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * the EMITTED LINE rather than answered by node kind. A thematic break
      * writes `---`, which under a paragraph line is a SETEXT HEADING and changes
      * what that paragraph is instead of interrupting it; an empty bullet
-     * underlines the same way. `***` and `___` would interrupt, and no node
-     * emits them.
+     * underlines the same way. `***` interrupts; the list writer uses it where
+     * a paragraph sits above a thematic break.
      *
      * @var array<string>
      */
@@ -225,6 +226,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         '/^(?:`{3,}|~{3,})/',
         '/^[-*+][ \t]+\S/',
         '/^1[.)][ \t]+\S/',
+        '/^\*{3,}$/',
     ];
 
     /**
@@ -1984,7 +1986,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderChildren(Node $node): string
     {
-        $children = array_values($node->getChildren());
+        $children = $node instanceof Document ? DocumentRenderOrder::children($node) : array_values($node->getChildren());
         $previousOwner = $this->inlineOwner;
         $this->inlineOwner = $node;
         try {
@@ -3239,8 +3241,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $children = array_values($node->getChildren());
         $parts = [];
+        $above = null;
         foreach ($children as $child) {
-            $parts[] = $this->renderNode($child);
+            $part = $this->renderNode($child);
+            if ($tight && $child instanceof ThematicBreak && $above instanceof Paragraph && str_ends_with($part, "---\n\n")) {
+                $part = substr($part, 0, -5) . "***\n\n";
+            }
+            $parts[] = $part;
+            if ($part !== '') {
+                $above = $child;
+            }
         }
         $this->separateBlocksBelowANestedList($children, $parts);
         if ($tight) {
@@ -3298,6 +3308,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 || !str_ends_with($parts[$index], "\n")
                 || str_ends_with($parts[$index], "\n\n")
                 || !$this->lastWrittenLineTakesLazyText($parts[$index])
+                || preg_match('/^-{3,}$/', explode("\n", $below)[0]) === 1
                 || $this->opensWithParagraphInterrupter(explode("\n", $below)[0])
             ) {
                 continue;
@@ -3361,6 +3372,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // An unseparated `>` under an OPEN quote continues that quote.
         if (str_starts_with($first, '>') && str_starts_with($this->lastNonBlankLine($aboveRendered), '>')) {
             return false;
+        }
+        if ($above instanceof CodeBlock) {
+            return true;
         }
 
         return $this->opensWithParagraphInterrupter($first);

@@ -72,6 +72,7 @@ use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
@@ -656,8 +657,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
-                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])
-                    ? '' : $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node)), "\n"), self::DIM) . "\n\n",
+                $node instanceof LinkReferenceDefinition => $this->renderLinkReferenceDefinition($node),
                 $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),
@@ -769,7 +769,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderChildren(Node $node): string
     {
         $output = '';
-        foreach ($node->getChildren() as $child) {
+        foreach ($node instanceof Document ? DocumentRenderOrder::children($node) : $node->getChildren() as $child) {
             $output .= $this->renderNode($child);
         }
 
@@ -799,6 +799,17 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         return $out;
+    }
+
+    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
+    {
+        if (isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])) {
+            return '';
+        }
+
+        $href = $this->stripControls($this->blankDeniedDestination($node->getHref(), self::DESTINATION_SINK_LINK, $node));
+
+        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href, true)), "\n"), self::DIM) . "\n\n";
     }
 
     /**

@@ -53,7 +53,7 @@ class DjotEmptyListItemTest extends TestCase
             'nonempty item' => ['- a', '- a', '<ul><li>a</li></ul>'],
             'inline code' => ['`-`', '`-`', '<p><code>-</code></p>'],
             'fenced code' => ["```\n-\n```", "```\n-\n```", "<pre><code>-\n</code></pre>"],
-            'task-like item' => ['- [ ]', '- [ ]', '<ul><li>[ ]</li></ul>'],
+            'task-like item' => ['- [ ]', '- [ ] {empty}', '<ul class="task-list"><li><input type="checkbox" disabled></li></ul>'],
             'attribute-only item' => ['- {#x}', '- {#x}', '<ul><li></li></ul>'],
         ];
     }
