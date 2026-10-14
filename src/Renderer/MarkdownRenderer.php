@@ -3348,6 +3348,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $lines = explode("\n", $rendered);
         $first = $lines[0];
+        if ($above instanceof Paragraph && preg_match('/^-{3,}$/', $first) === 1) {
+            return false;
+        }
         if (str_starts_with($first, '|')) {
             // A row is paragraph continuation text until a delimiter row
             // promotes it, so a headerless table glues itself to the block above
