@@ -1315,7 +1315,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             } else {
                 $rendered = $this->renderNode($child);
             }
-            if (($node instanceof ListBlock || $node instanceof Figure || $node instanceof FigureGroup) && is_string($rendered)) {
+            if ($rendered !== '' && ($node instanceof ListBlock || $node instanceof Figure || $node instanceof FigureGroup) && is_string($rendered)) {
                 $rendered = rtrim($rendered, "\n") . "\n";
             }
             if ($rendered !== '') {
