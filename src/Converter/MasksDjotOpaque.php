@@ -11,7 +11,7 @@ trait MasksDjotOpaque
      *
      * @param string $source
      * @param bool $unclosedCode
-     * @param array{code?: bool, rawCode?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void} $options
+     * @param array{code?: bool, rawCode?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void, onCode?: callable(int, int, bool): void} $options
      */
     private function maskDjotOpaque(string $source, bool $unclosedCode = true, array $options = []): string
     {
@@ -166,6 +166,12 @@ trait MasksDjotOpaque
             $width = $this->backtickRun($source, $at);
             $end = $ends[$at] ?? -1;
             $paragraphEnd = $breaks[$boundary] ?? $length;
+            $closed = $end >= 0 && $end - $width < $paragraphEnd;
+            $rawEnd = $closed ? ($rawFormats[$end] ?? null) : null;
+            $math = $at > 0 && $at < strlen($source) && $source[$at - 1] === '$';
+            if (($closed || $unclosedCode) && $rawEnd === null && (!$math || $this->isDjotEscaped($source, $at - 1)) && isset($options['onCode'])) {
+                $options['onCode']($at, $closed ? $end : $paragraphEnd, $closed);
+            }
             if ($end < 0 || $end - $width >= $paragraphEnd) {
                 if ($unclosedCode && ($options['code'] ?? true)) {
                     $hide($at, $paragraphEnd);
@@ -176,8 +182,6 @@ trait MasksDjotOpaque
 
                 continue;
             }
-            $rawEnd = $rawFormats[$end] ?? null;
-            $math = $at > 0 && $at < strlen($source) && $source[$at - 1] === '$';
             if (($options['code'] ?? true) || $rawEnd !== null && ($options['rawCode'] ?? true) || $math) {
                 $hide($at - (int)$math, $end);
             }

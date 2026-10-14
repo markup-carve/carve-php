@@ -90,6 +90,43 @@ trait ReportsDjotLosses
                 $quoteDepths[$line] = $depth;
             });
         }
+        if (str_contains($source, '`') && str_contains($source, ':::')) {
+            $codeSource = $this->replaceImageLabels($source, $this->maskCodeAndDestinations($source), fn (array $match): string => $this->blanks($match[0][0]));
+            foreach ($lines as $line => $value) {
+                $depth = 0;
+                $prefixEnd = $this->djotContentStart($value);
+                for ($i = 0; $i < $prefixEnd; $i++) {
+                    if ($value[$i] === '>' && ++$depth > ($quoteDepths[$line] ?? 0)) {
+                        $codeSource[$offsets[$line] + $i] = ' ';
+                    }
+                }
+            }
+            $codeSpans = [];
+            $spanEnd = 0;
+            $this->maskCodeAndDestinations($codeSource, false, opaqueOptions: [
+                'destinations' => true,
+                'onCode' => static function (int $at, int $end, bool $closed) use (&$codeSpans, &$spanEnd): void {
+                    if ($at >= $spanEnd) {
+                        $codeSpans[] = [$at, $end, $closed];
+                        $spanEnd = $end;
+                    }
+                },
+            ]);
+            $codeLine = 0;
+            foreach ($codeSpans as [$at, $end, $closed]) {
+                while (isset($offsets[$codeLine + 1]) && $offsets[$codeLine + 1] <= $at) {
+                    $codeLine++;
+                }
+                if (($quoteDepths[$codeLine] ?? 0) > 0) {
+                    continue;
+                }
+                $width = $this->backtickRun($source, $at);
+                $content = substr($source, $at + $width, max(0, $end - $at - $width - ($closed ? $width : 0)));
+                if (preg_match('/\n[ \t]*:{3,}(?:[ \t]+[^\n]*)?(?:\n|$)/', $content) === 1) {
+                    $add($at, 'A multiline code span contains a Carve container opener on a continuation line.');
+                }
+            }
+        }
         foreach ($lines as $n => $line) {
             if (isset($definitionLines[$n])) {
                 continue;
