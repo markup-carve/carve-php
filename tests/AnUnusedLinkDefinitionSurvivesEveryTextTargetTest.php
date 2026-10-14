@@ -55,12 +55,12 @@ class AnUnusedLinkDefinitionSurvivesEveryTextTargetTest extends TestCase
         );
     }
 
-    public function testReferenceInsideLinkTextDoesNotConsumeItsDefinition(): void
+    public function testReferenceInsideLinkTextConsumesItsDefinition(): void
     {
         $source = "a [t[x][r2]][r] b\n\n[r]: /u\n\n[r2]: /v\n";
         foreach (['markdown', 'plainText', 'ansi'] as $target) {
             $output = CarveConverter::$target()->convert($source);
-            self::assertStringContainsString('[r2]: /v', $output, $target);
+            self::assertStringNotContainsString('[r2]: /v', $output, $target);
             self::assertStringNotContainsString('[r]: /u', $output, $target);
         }
     }

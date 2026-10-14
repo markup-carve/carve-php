@@ -1,0 +1,58 @@
+[
+  {
+    "name": "108-security-hardening-12",
+    "target": "markdown",
+    "expected": "Text.\n\n[x]: /u\n\n[y]: <>\n"
+  },
+  {
+    "name": "313-a-reference-link-s-text-survives-its-own-frame-2",
+    "target": "markdown",
+    "expected": "a [tx](/u) b\n"
+  },
+  {
+    "name": "313-a-reference-link-s-text-survives-its-own-frame-2",
+    "target": "plain",
+    "expected": "a tx b\n"
+  },
+  {
+    "name": "313-a-reference-link-s-text-survives-its-own-frame-2",
+    "target": "ansi",
+    "expected": "a \u001b[4m\u001b[34mtx\u001b[0m\u001b[2m (/u)\u001b[0m b\n"
+  },
+  {
+    "name": "313-a-reference-link-s-text-survives-its-own-frame-3",
+    "target": "markdown",
+    "expected": "a [tx](/u) b\n"
+  },
+  {
+    "name": "313-a-reference-link-s-text-survives-its-own-frame-3",
+    "target": "plain",
+    "expected": "a tx b\n"
+  },
+  {
+    "name": "313-a-reference-link-s-text-survives-its-own-frame-3",
+    "target": "ansi",
+    "expected": "a \u001b[4m\u001b[34mtx\u001b[0m\u001b[2m (/u)\u001b[0m b\n"
+  },
+  {
+    "name": "579-a-span-never-covers-another-cell",
+    "target": "ansi",
+    "expected": "\u001b[2m┌──────────────┬───────────────┬────────┐\u001b[0m\n\u001b[2m│\u001b[0m 2-col header \u001b[2m│\u001b[0m               \u001b[2m│\u001b[0m header \u001b[2m│\u001b[0m\n\u001b[2m│\u001b[0m spans 3 rows \u001b[2m│\u001b[0m foo           \u001b[2m│\u001b[0m bar    \u001b[2m│\u001b[0m\n\u001b[2m│\u001b[0m              \u001b[2m│\u001b[0m spans 4 cells \u001b[2m│\u001b[0m        \u001b[2m│\u001b[0m\n\u001b[2m│\u001b[0m              \u001b[2m│\u001b[0m               \u001b[2m│\u001b[0m        \u001b[2m│\u001b[0m\n\u001b[2m└──────────────┴───────────────┴────────┘\u001b[0m\n"
+  },
+  {
+    "name": "579-a-span-never-covers-another-cell-3",
+    "target": "ansi",
+    "expected": "\u001b[2m┌───┬───┬───┐\u001b[0m\n\u001b[2m│\u001b[0m a \u001b[2m│\u001b[0m   \u001b[2m│\u001b[0m b \u001b[2m│\u001b[0m\n\u001b[2m│\u001b[0m 1 \u001b[2m│\u001b[0m 2 \u001b[2m│\u001b[0m 3 \u001b[2m│\u001b[0m\n\u001b[2m└───┴───┴───┘\u001b[0m\n"
+  },
+  {
+    "name": "588-a-block-quote-and-a-footnote-body-take-the-first-block-form",
+    "target": "ansi",
+    "expected": "\u001b[36m\u001b[2m│\u001b[0m \u001b[2m┌──────────────┬──┬────────┐\u001b[0m\n\u001b[36m\u001b[2m│\u001b[0m \u001b[2m│\u001b[0m 2-col header \u001b[2m│\u001b[0m  \u001b[2m│\u001b[0m header \u001b[2m│\u001b[0m\n\u001b[36m\u001b[2m│\u001b[0m \u001b[2m└──────────────┴──┴────────┘\u001b[0m\n"
+  },
+  {
+    "name": "short-header-with-padding",
+    "target": "ansi",
+    "source": "|= a |= b |\n| 1 | 2 | 3 |\n",
+    "expected": "\u001b[2m┌───┬───┬───┐\u001b[0m\n\u001b[2m│\u001b[0m \u001b[1ma\u001b[0m \u001b[2m│\u001b[0m \u001b[1mb\u001b[0m \u001b[2m│\u001b[0m \u001b[1m \u001b[0m \u001b[2m│\u001b[0m\n\u001b[2m├───┼───┼───┤\u001b[0m\n\u001b[2m│\u001b[0m 1 \u001b[2m│\u001b[0m 2 \u001b[2m│\u001b[0m 3 \u001b[2m│\u001b[0m\n\u001b[2m└───┴───┴───┘\u001b[0m\n"
+  }
+]

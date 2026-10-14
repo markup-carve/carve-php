@@ -1110,6 +1110,12 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         foreach ($layout['rows'] as $row) {
             $cells = [];
+            $authoredCells = array_slice($row['cells'], 0, $row['authoredWidth']);
+            $isHeader = $authoredCells !== [] && array_reduce(
+                $authoredCells,
+                static fn (bool $all, mixed $cell): bool => $all && is_array($cell) && ($cell['isHeader'] ?? false),
+                true,
+            );
             foreach ($row['cells'] as $colIndex => $cell) {
                 $isGenuine = is_array($cell) && isset($cell['content']) && is_string($cell['content']);
                 $content = $isGenuine ? $cell['content'] : '';
@@ -1117,7 +1123,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $colWidths[$colIndex] = max($colWidths[$colIndex] ?? 0, $width);
                 $cells[] = [
                     'content' => $content,
-                    'isHeader' => $row['isHeader'],
+                    'isHeader' => $isHeader,
                 ];
             }
             $rows[] = $cells;
