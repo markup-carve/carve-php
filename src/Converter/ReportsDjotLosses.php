@@ -76,6 +76,9 @@ trait ReportsDjotLosses
         $imageChildText = function (string $label, int $depth) use (&$keyCache): string {
             $key = 'image:' . $depth . ':' . $label;
             $projected = $this->djotImageLabelAttributes($this->projectDjotReferenceText($label, $depth), true);
+            if (strpbrk($projected, "_*`{~^\"'\\[]=!/<:\n\r") === false) {
+                return $projected;
+            }
             if (strlen($label) > 256) {
                 return $this->renderImageLabelChildText($projected, [], true, true, true);
             }
