@@ -1315,7 +1315,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             } else {
                 $rendered = $this->renderNode($child);
             }
-            if ($rendered !== '' && ($node instanceof ListBlock || $node instanceof Figure || $node instanceof FigureGroup) && is_string($rendered)) {
+            if ($node instanceof FigureGroup && $rendered === '') {
+                continue;
+            }
+            if (($node instanceof ListBlock || $node instanceof Figure || $node instanceof FigureGroup) && is_string($rendered)) {
                 $rendered = rtrim($rendered, "\n") . "\n";
             }
             if ($rendered !== '') {
@@ -2687,7 +2690,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $body .= "<figure class=\"carve-figure-panel\">\n"
                     . $this->indentBlock($table, 2) . "\n</figure>\n";
             } else {
-                $body .= rtrim($this->renderNode($child), "\n") . "\n";
+                $rendered = $this->renderNode($child);
+                if ($rendered !== '') {
+                    $body .= rtrim($rendered, "\n") . "\n";
+                }
             }
         }
 
