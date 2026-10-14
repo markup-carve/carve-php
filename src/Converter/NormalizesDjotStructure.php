@@ -108,7 +108,7 @@ trait NormalizesDjotStructure
 
     private function hasDjotCodeLayoutCandidates(string $source): bool
     {
-        return str_contains($source, '\\|') || (str_contains($source, '`') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]*\[\^[^\]\n]+\]:/', $source) === 1) || (str_contains($source, '`') && preg_match('/(?:^|\n)[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]+)[.)]|\((?:[0-9]+|[A-Za-z]+)\))[ \t]+(?:\[[ xX]\][ \t]+)?|\[\^[^\]\n]+\]:[ \t]*)*>/', $source) === 1)
+        return (str_contains($source, '`') && preg_match('/(?:^|\n)[ \t]*:(?:[ \t]|$)/', $source) === 1) || str_contains($source, '\\|') || (str_contains($source, '`') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]*\[\^[^\]\n]+\]:/', $source) === 1) || (str_contains($source, '`') && preg_match('/(?:^|\n)[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]+)[.)]|\((?:[0-9]+|[A-Za-z]+)\))[ \t]+(?:\[[ xX]\][ \t]+)?|\[\^[^\]\n]+\]:[ \t]*)*>/', $source) === 1)
             || (str_contains($source, '```') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]+`{3,}/', $source) === 1);
     }
 

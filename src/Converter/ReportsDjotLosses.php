@@ -292,7 +292,9 @@ trait ReportsDjotLosses
                     $end++;
                 }
                 if ($end === $lineCount || !$inContainer($lines[$end]) || strspn($withoutQuotes($lines[$end]), " \t") < $minimum) {
-                    $add($offsets[$n], 'An empty definition description has no Carve spelling.');
+                    if (trim(substr($line, 0, $term[0][1])) !== '') {
+                        $add($offsets[$n], 'An empty definition description is omitted during import.');
+                    }
                 }
             }
         }
