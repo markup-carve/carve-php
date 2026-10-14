@@ -393,6 +393,8 @@ class DjotToCarve
             $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
         }
 
+        $carve = $this->genericDjotDivClasses($carve);
+
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
 
@@ -1695,6 +1697,14 @@ class DjotToCarve
             $offset += strlen($line) + 1;
             $at = $this->djotContentStart($line);
             $prefix = substr($line, 0, $at);
+            if ((str_contains(substr($line, $at), '{') || str_contains(substr($line, $at), '\\')) && preg_match('/^:{3,}[ \t]*(?:[A-Za-z0-9_-]|\\\\[_-])+/', substr($line, $at)) === 1 && preg_match('/^:{3,}[ \t]*[A-Za-z0-9_-]+[ \t]*\r?$/', substr($line, $at)) !== 1) {
+                $mask ??= $this->maskCodeAndDestinations($source);
+                if (($mask[$start + $at] ?? '') === ':') {
+                    $lines[$index] = $prefix . '\\' . substr($line, $at);
+                }
+
+                continue;
+            }
             if (
                 preg_match('/^(:{3,})([ \t]*)([A-Za-z0-9_-]+)([ \t]*)(\r?)$/', substr($line, $at), $opener) !== 1
                 || $opener[2] === ' '

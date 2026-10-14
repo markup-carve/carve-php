@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -279,6 +280,19 @@ trait ReportsDjotLosses
         $mask = $linkMask;
         $boundaryOffsets = $this->djotInlineBoundaries($source, $mask);
         $boundaries = array_fill_keys($boundaryOffsets, true);
+        if (str_contains($source, ':::')) {
+            $divBoundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+            foreach ($lines as $n => $line) {
+                $at = $this->djotContentStart($line);
+                if (
+                    isset($divBoundaries[$offsets[$n]]) && ($mask[$offsets[$n] + $at] ?? '') === ':'
+                    && preg_match('/^:{3,}[ \t]*([A-Za-z0-9_-]+)[ \t]*$/', substr($line, $at), $div) === 1
+                    && in_array($div[1], Div::ADMONITION_TYPES, true)
+                ) {
+                    $add($offsets[$n] + $at, 'Carve PHP renders the Djot DIV class "' . $div[1] . '" as an admonition; it cannot preserve the generic DIV wrapper.');
+                }
+            }
+        }
         $referenceEnds = [];
         $next = -1;
         for ($at = strlen($source) - 1; $at >= 0; $at--) {
