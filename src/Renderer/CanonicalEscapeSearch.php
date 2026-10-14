@@ -250,6 +250,7 @@ final class CanonicalEscapeSearch
                 // Loose, as in candidateHolds().
                 if ($this->callWindowTree($after) != $beforeTree) {
                     $undo();
+
                     return false;
                 }
             }
