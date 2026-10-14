@@ -255,11 +255,6 @@ class AstCodec
     private array $tableHeaderAlignments = [];
 
     /**
-     * @var array<int, array<int, int>>
-     */
-    private array $rowCellColumns = [];
-
-    /**
      * The class map WITHOUT the application classes `register()` added.
      *
      * Kept apart because "is this node one of ours" is a different question
@@ -1783,12 +1778,10 @@ class AstCodec
     private function encodeDocument(Document $document): array
     {
         $this->tableHeaderAlignments = [];
-        $this->rowCellColumns = [];
         try {
             return $this->encodeNode($document);
         } finally {
             $this->tableHeaderAlignments = [];
-            $this->rowCellColumns = [];
         }
     }
 
@@ -1866,7 +1859,7 @@ class AstCodec
             if (
                 $field === 'align'
                 && $node instanceof TableCell
-                && !$node->isHeader()
+                && !$node->hasExplicitAlignment()
                 && $this->inheritsColumnAlignment($node)
             ) {
                 continue;
@@ -1874,7 +1867,6 @@ class AstCodec
             if (
                 $field === 'valign'
                 && $node instanceof TableCell
-                && !$node->isHeader()
                 && !$node->hasExplicitVerticalAlignment()
             ) {
                 continue;
@@ -2410,34 +2402,43 @@ class AstCodec
                 self::writeProperty($rows[$index], 'isHeader', $allHeaders);
             }
 
-            // A column's alignment is on the wire ONCE, on the header cells,
-            // because that is where the delimiter row declares it (carve#784).
-            // This engine's renderer aligns each body cell from its own node,
-            // so the column's value is copied back down here - the same
-            // recomputation a consumer performs, rather than a field the
-            // reference does not have.
+            // Each header-row marker updates its column. Later header cells
+            // without a marker and body cells inherit the last value.
             $columns = [];
             $verticalColumns = [];
             foreach ($node->getChildren() as $row) {
                 if (!$row instanceof TableRow || !$row->isHeader()) {
-                    continue;
+                    break;
                 }
                 $index = 0;
                 foreach ($row->getChildren() as $cell) {
                     if ($cell instanceof TableCell) {
-                        $columns[$index] = $cell->getAlignment();
-                        $verticalColumns[$index] = $cell->getVerticalAlignment();
+                        if ($cell->getAlignment() === TableCell::ALIGN_DEFAULT && isset($columns[$index])) {
+                            self::writeProperty($cell, 'alignment', $columns[$index]);
+                        }
+                        if ($cell->getVerticalAlignment() === TableCell::VALIGN_DEFAULT && isset($verticalColumns[$index])) {
+                            $cell->setVerticalAlignment($verticalColumns[$index], false);
+                        }
+                        if ($cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
+                            $columns[$index] = $cell->getAlignment();
+                        }
+                        if ($cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
+                            $verticalColumns[$index] = $cell->getVerticalAlignment();
+                        }
                         $index++;
                     }
                 }
-
-                break;
             }
-            if ($columns !== []) {
+            if ($columns !== [] || $verticalColumns !== []) {
+                $inHeadRows = true;
                 foreach ($node->getChildren() as $row) {
-                    if (!$row instanceof TableRow || $row->isHeader()) {
+                    if (!$row instanceof TableRow) {
                         continue;
                     }
+                    if ($inHeadRows && $row->isHeader()) {
+                        continue;
+                    }
+                    $inHeadRows = false;
                     $index = 0;
                     foreach ($row->getChildren() as $cell) {
                         if (!$cell instanceof TableCell) {
@@ -2457,12 +2458,7 @@ class AstCodec
     }
 
     /**
-     * True when a body cell's alignment is its COLUMN's, taken from the header
-     * row, rather than one the author wrote on the cell itself.
-     *
-     * A cell with no header row above it inherits nothing - a headerless table
-     * carries its alignment on the cells that state it, which is where the
-     * author wrote it.
+     * Whether a cell's alignment came from a preceding head-row marker.
      */
     private function inheritsColumnAlignment(TableCell $cell): bool
     {
@@ -2482,37 +2478,32 @@ class AstCodec
         $tableId = spl_object_id($table);
         if (!isset($this->tableHeaderAlignments[$tableId])) {
             $alignments = [];
+            $columns = [];
+            $inHeadRows = true;
             foreach ($table->getChildren() as $candidate) {
-                if (!$candidate instanceof TableRow || !$candidate->isHeader()) {
+                if (!$candidate instanceof TableRow) {
                     continue;
                 }
+                if (!$candidate->isHeader()) {
+                    $inHeadRows = false;
+                }
+                $column = 0;
                 foreach ($candidate->getChildren() as $headerCell) {
                     if ($headerCell instanceof TableCell) {
-                        $alignments[] = $headerCell->getAlignment();
+                        if (isset($columns[$column]) && !$headerCell->hasExplicitAlignment()) {
+                            $alignments[spl_object_id($headerCell)] = $columns[$column];
+                        }
+                        if ($inHeadRows && $headerCell->hasExplicitAlignment()) {
+                            $columns[$column] = $headerCell->getAlignment();
+                        }
+                        $column++;
                     }
                 }
-
-                break;
             }
             $this->tableHeaderAlignments[$tableId] = $alignments;
         }
-        $alignments = $this->tableHeaderAlignments[$tableId];
-        if ($alignments === []) {
-            return false;
-        }
-        $rowId = spl_object_id($row);
-        if (!isset($this->rowCellColumns[$rowId])) {
-            $columns = [];
-            foreach ($row->getChildren() as $sibling) {
-                if ($sibling instanceof TableCell) {
-                    $columns[spl_object_id($sibling)] = count($columns);
-                }
-            }
-            $this->rowCellColumns[$rowId] = $columns;
-        }
-        $column = $this->rowCellColumns[$rowId][spl_object_id($cell)] ?? null;
 
-        return $column !== null && ($alignments[$column] ?? null) === $cell->getAlignment();
+        return ($this->tableHeaderAlignments[$tableId][spl_object_id($cell)] ?? null) === $cell->getAlignment();
     }
 
     /**

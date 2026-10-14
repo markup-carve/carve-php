@@ -2795,13 +2795,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         // resolved alignment.
         $headerAligns = [];
         $headerValigns = [];
+        $headRowAligns = [];
+        $headRowValigns = [];
         if ($headerRow) {
-            $headerColumn = 0;
-            foreach ($tableRows[0]->getChildren() as $cell) {
-                if ($cell instanceof TableCell) {
-                    $headerAligns[$headerColumn] = $cell->getAlignment();
-                    $headerValigns[$headerColumn] = $cell->getVerticalAlignment();
-                    $headerColumn++;
+            foreach ($tableRows as $rowIndex => $row) {
+                if (!$row->isHeader()) {
+                    break;
+                }
+                $headRowAligns[$rowIndex] = $headerAligns;
+                $headRowValigns[$rowIndex] = $headerValigns;
+                $headerColumn = 0;
+                foreach ($row->getChildren() as $cell) {
+                    if ($cell instanceof TableCell) {
+                        if ($cell->hasExplicitAlignment() || ($rowIndex === 0 && $cell->getAlignment() !== TableCell::ALIGN_DEFAULT)) {
+                            $headerAligns[$headerColumn] = $cell->getAlignment();
+                        }
+                        if ($cell->hasExplicitVerticalAlignment() || ($rowIndex === 0 && $cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT)) {
+                            $headerValigns[$headerColumn] = $cell->getVerticalAlignment();
+                        }
+                        $headerColumn++;
+                    }
                 }
             }
         }
@@ -2850,6 +2863,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         foreach ($tableRows as $rowIndex => $row) {
             $cells = [];
             $column = 0;
+            $inheritedAligns = $headRowAligns[$rowIndex] ?? $headerAligns;
+            $inheritedValigns = $headRowValigns[$rowIndex] ?? $headerValigns;
             foreach ($row->getChildren() as $cell) {
                 if (!$cell instanceof TableCell) {
                     continue;
@@ -2861,11 +2876,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     || ($headerRow
                         && $rowIndex > 0
                         && !$cell->hasExplicitAlignment()
-                        && ($headerAligns[$column] ?? null) === $cell->getAlignment());
+                        && ($inheritedAligns[$column] ?? null) === $cell->getAlignment());
                 $inheritedVertical = $headerRow
                     && $rowIndex > 0
                     && !$cell->hasExplicitVerticalAlignment()
-                    && ($headerValigns[$column] ?? null) === $cell->getVerticalAlignment();
+                    && ($inheritedValigns[$column] ?? null) === $cell->getVerticalAlignment();
                 $cells[] = $this->placeCellWraps(
                     $this->renderTableCell($cell, $markHeader, $inherited, $inheritedVertical),
                     $continuations,

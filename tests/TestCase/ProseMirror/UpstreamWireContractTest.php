@@ -81,6 +81,7 @@ class UpstreamWireContractTest extends TestCase
         $back = (new ProseMirrorToCarve())->convert($pm)->getChildren()[0]->getChildren()[0]->getChildren()[0];
         $this->assertInstanceOf(TableCell::class, $back);
         $this->assertFalse($back->hasExplicitAlignment());
+        $this->assertSame('right', $back->getAlignment());
         $this->assertNull($back->getAttribute('carveInheritedTextAlign'));
     }
 
