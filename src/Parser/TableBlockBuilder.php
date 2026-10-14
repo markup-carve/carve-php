@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableCellAccumulator;
@@ -716,7 +717,14 @@ final class TableBlockBuilder
         $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
             ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
         $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
-        if (count($cellData['sourceChunks']) > 1) {
+        // A cell that took text from a continuation line spans lines its
+        // siblings also cross, so it declines a position, as in carve-js.
+        $baseSourceLine = $this->source->sourceLineFor($baseLineForRow);
+        $joined = false;
+        foreach ($cellData['sourceChunks'] as $chunk) {
+            $joined = $joined || $chunk[0] !== $baseSourceLine;
+        }
+        if ($joined || count($cellData['sourceChunks']) > 1) {
             $cellSpan = null;
             $this->state->session->unplaceableNodeIds[spl_object_id($cell)] = true;
         }
@@ -726,12 +734,13 @@ final class TableBlockBuilder
         $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
         if ($wraps !== []) {
             ($this->getInlineParser)()->parseTableCell($cell, $trimmedContent, $baseLineForRow, $cellMap, $wraps);
-            $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+            $this->placeCellWraps($cell, $cellData['sourceChunks']);
+            $cell->setPos($joined ? null : ($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent))));
 
             return;
         }
         if ($trimmedContent !== '' && $this->isPlainTableText($trimmedContent) && $this->appendPlainRebuiltCellText($cell, $cellData, $trimmedContent)) {
-            $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+            $cell->setPos($joined ? null : ($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent))));
 
             return;
         }
@@ -745,7 +754,35 @@ final class TableBlockBuilder
         // Prefer the measured extent: it covers the cell even when its
         // text was rewritten (an escaped pipe), where a text lookup
         // cannot match and rightly declines.
-        $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+        $cell->setPos($joined ? null : ($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent))));
+    }
+
+    /**
+     * Give each `cell_wrap` the source byte it stands on. The k-th wrap joins
+     * the fragment of the (k+1)-th source chunk; a mismatch leaves them unplaced.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param list<array{int, int, string}> $chunks
+     */
+    private function placeCellWraps(TableCell $cell, array $chunks): void
+    {
+        $wraps = [];
+        $walk = static function (Node $node) use (&$walk, &$wraps): void {
+            foreach ($node->getChildren() as $child) {
+                if ($child instanceof CellWrap) {
+                    $wraps[] = $child;
+                }
+                $walk($child);
+            }
+        };
+        $walk($cell);
+        if ($wraps === [] || count($wraps) !== count($chunks) - 1) {
+            return;
+        }
+        foreach ($wraps as $k => $wrap) {
+            [$line, $column] = $chunks[$k + 1];
+            $wrap->setPos($this->source->cellWrapSpan($line, $column, $chunks[$k][0] === $line));
+        }
     }
 
     /**

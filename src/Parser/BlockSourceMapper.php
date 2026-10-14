@@ -822,6 +822,40 @@ final class BlockSourceMapper
         );
     }
 
+    /**
+     * The source byte a `cell_wrap` stands on: the `+` of its continuation
+     * line, or, for a later join from the same line, the pipe before its
+     * fragment (CARVE-P12-069).
+     */
+    public function cellWrapSpan(int $sourceLine, int $fragmentColumn, bool $atPipe): ?SourceSpan
+    {
+        if (!$this->state->source->trackPositions) {
+            return null;
+        }
+        $lineStart = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
+        $line = $this->state->source->sourceLines[$sourceLine] ?? null;
+        if ($lineStart === null || $line === null) {
+            return null;
+        }
+        if ($atPipe) {
+            $at = strrpos(substr($line, 0, $fragmentColumn), '|');
+        } else {
+            $at = preg_match('/^[ \t>]*\+/', $line, $m) === 1 ? strlen($m[0]) - 1 : false;
+        }
+        if ($at === false) {
+            return null;
+        }
+
+        return $this->state->source->positionIndex?->span(
+            $lineStart + $at,
+            $lineStart + $at + 1,
+            $sourceLine + 1,
+            $sourceLine + 1,
+            $lineStart,
+            $lineStart,
+        );
+    }
+
     public function tableLineSpan(int $index): ?SourceSpan
     {
         if (!$this->state->source->trackPositions) {
