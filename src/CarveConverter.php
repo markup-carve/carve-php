@@ -480,6 +480,10 @@ class CarveConverter
         // Check max length before parsing
         $this->enforceProfileMaxLength($djot);
 
+        if ($this->renderer instanceof MarkdownRenderer || $this->renderer instanceof PlainTextRenderer || $this->renderer instanceof AnsiRenderer) {
+            $this->parser->enablePositionTracking();
+        }
+
         $borrowedPlan = $this->borrowedHtmlPlan($djot);
         if ($borrowedPlan !== null) {
             $attempt = (new BorrowedHtmlLayout())->render($djot, false, $borrowedPlan);
