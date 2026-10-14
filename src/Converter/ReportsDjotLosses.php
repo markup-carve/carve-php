@@ -34,9 +34,30 @@ trait ReportsDjotLosses
 
             return $keyCache[$key] ??= $this->djotCollapsedReferenceText($label, $depth);
         };
+        $rawFormatMessage = 'A Djot raw-format identifier containing U+0085 cannot be spelled in Carve; its raw-output behavior is lost.';
+        $rawFormats = $rawFormatIgnored = $rawFenceLines = [];
+        $maskSource = $source;
+        if (str_contains($source, "\u{0085}")) {
+            $maskLines = explode("\n", $source);
+            $maskOffset = 0;
+            foreach ($maskLines as $n => &$line) {
+                $lineStart = $maskOffset;
+                $maskOffset += strlen($line) + 1;
+                $line = preg_replace_callback('/(`{3,}|~{3,})([ \t]*=)([^\x09-\x0d\x20\x{00a0}\x{1680}\x{2000}-\x{200a}\x{2028}\x{2029}\x{202f}\x{205f}\x{3000}\x{feff}{}%"\'`~\\\\]+)([ \t]*)$/u', static function (array $match) use ($n, $lineStart, &$rawFenceLines): string {
+                    if (!str_contains($match[3], "\u{0085}")) {
+                        return $match[0];
+                    }
+                    $rawFenceLines[$n] = $lineStart;
+
+                    return $match[1] . $match[2] . (preg_replace('/[^A-Za-z0-9_+#.-]/', 'x', $match[3]) ?? $match[3]) . $match[4];
+                }, $line) ?? $line;
+            }
+            unset($line);
+            $maskSource = implode("\n", $maskLines);
+        }
         $accepted = [];
         $this->foldDjotReferences($source, $accepted);
-        $mask = $this->djotEmphasisMask($source);
+        $mask = $this->djotEmphasisMask($maskSource);
         $findings = [];
         $add = static function (int $at, string $message) use (&$findings): void {
             $findings[] = [$at, $message];
@@ -52,7 +73,17 @@ trait ReportsDjotLosses
         $lines = explode("\n", $source);
         $lineCount = count($lines);
         $destinations = [];
-        $linkMask = $this->maskCodeAndDestinations($source, false, opaqueOptions: [
+        $linkMask = $this->maskCodeAndDestinations($maskSource, false, opaqueOptions: [
+            'onFenceOpen' => static function (int $n) use ($rawFenceLines, $add, $rawFormatMessage): void {
+                if (isset($rawFenceLines[$n])) {
+                    $add($rawFenceLines[$n], $rawFormatMessage);
+                }
+            },
+            'onRawFormat' => function (int $start, int $end, string $format) use ($source, &$rawFormats): void {
+                if (str_contains($format, "\u{0085}") && !(($source[$start - 1] ?? '') === '$' && !$this->isDjotEscaped($source, $start - 1))) {
+                    $rawFormats[] = [$start, $end];
+                }
+            },
             'destinations' => true,
             'onDestination' => static function (int $start, int $end) use (&$destinations): void {
                 $destinations[$start] = $end;
@@ -90,6 +121,43 @@ trait ReportsDjotLosses
                 $quoteDepths[$line] = $depth;
             });
         }
+        if (str_contains($source, '`') && str_contains($source, ':::')) {
+            $codeSource = $this->replaceImageLabels($source, $this->maskCodeAndDestinations($source), fn (array $match): string => $this->blanks($match[0][0]));
+            foreach ($lines as $line => $value) {
+                $depth = 0;
+                $prefixEnd = $this->djotContentStart($value);
+                for ($i = 0; $i < $prefixEnd; $i++) {
+                    if ($value[$i] === '>' && ++$depth > ($quoteDepths[$line] ?? 0)) {
+                        $codeSource[$offsets[$line] + $i] = ' ';
+                    }
+                }
+            }
+            $codeSpans = [];
+            $spanEnd = 0;
+            $this->maskCodeAndDestinations($codeSource, false, opaqueOptions: [
+                'destinations' => true,
+                'onCode' => static function (int $at, int $end, bool $closed) use (&$codeSpans, &$spanEnd): void {
+                    if ($at >= $spanEnd) {
+                        $codeSpans[] = [$at, $end, $closed];
+                        $spanEnd = $end;
+                    }
+                },
+            ]);
+            $codeLine = 0;
+            foreach ($codeSpans as [$at, $end, $closed]) {
+                while (isset($offsets[$codeLine + 1]) && $offsets[$codeLine + 1] <= $at) {
+                    $codeLine++;
+                }
+                if (($quoteDepths[$codeLine] ?? 0) > 0) {
+                    continue;
+                }
+                $width = $this->backtickRun($source, $at);
+                $content = substr($source, $at + $width, max(0, $end - $at - $width - ($closed ? $width : 0)));
+                if (preg_match('/\n[ \t]*:{3,}(?:[ \t]+[^\n]*)?(?:\n|$)/', $content) === 1) {
+                    $add($at, 'A multiline code span contains a Carve container opener on a continuation line.');
+                }
+            }
+        }
         foreach ($lines as $n => $line) {
             if (isset($definitionLines[$n])) {
                 continue;
@@ -106,6 +174,7 @@ trait ReportsDjotLosses
                 || preg_match('/^(?:[*-][ \t]*){3,}$/', $previousContent) === 1
                 || ($previousAt > $at && preg_match('/(?:>|[-*+] |[0-9A-Za-z]+[.)] |\([0-9A-Za-z]+\) )/', $this->djotItemPrefix($previous, $previousAt)) === 1);
             if (isset($accepted[$n])) {
+                $rawFormatIgnored[] = [$offsets[$n], $offsets[$accepted[$n]['end']] + strlen($lines[$accepted[$n]['end']])];
                 for ($next = $n + 1; $next <= $accepted[$n]['end']; $next++) {
                     $definitionLines[$next] = true;
                 }
@@ -252,10 +321,14 @@ trait ReportsDjotLosses
                 $image = array_pop($images);
                 $innerLink = array_pop($innerLinks);
                 $footnote = ($source[$start + 1] ?? '') === '^' && $at > $start + 2;
+                if ($footnote) {
+                    $rawFormatIgnored[] = [$start, $at + 1];
+                }
                 $validForm = isset($destinations[$at + 1]) || ($source[$at + 1] ?? '') === '[' && ($referenceEnds[$at + 2] ?? -1) >= 0;
                 $isLink = !$image && !$footnote && $validForm;
                 $referenceEnd = $referenceEnds[$at + 2] ?? -1;
                 if (!$footnote && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
+                    $rawFormatIgnored[] = [$at + 2, $referenceEnd];
                     $label = substr($source, $at + 2, $referenceEnd - $at - 2);
                     if ($label === '' && $definitions !== []) {
                         $label = $this->djotReferenceDefinitionKey($childText(substr($source, $start + 1, $at - $start - 1), $depth));
@@ -272,6 +345,7 @@ trait ReportsDjotLosses
                     $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                 }
                 if ($image && !$footnote && $validForm) {
+                    $rawFormatIgnored[] = [$start, $at + 1];
                     $text = substr($source, $start + 1, $at - $start - 1);
                     $destination = isset($destinations[$at + 1])
                         ? $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth)
@@ -292,6 +366,18 @@ trait ReportsDjotLosses
             }
         }
 
+        usort($rawFormatIgnored, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $ignoredIndex = 0;
+        $ignoredEnd = -1;
+        $ignoredCount = count($rawFormatIgnored);
+        foreach ($rawFormats as [$start, $end]) {
+            while ($ignoredIndex < $ignoredCount && $rawFormatIgnored[$ignoredIndex][0] <= $start) {
+                $ignoredEnd = max($ignoredEnd, $rawFormatIgnored[$ignoredIndex++][1]);
+            }
+            if ($ignoredEnd < $end) {
+                $add($start, $rawFormatMessage);
+            }
+        }
         $positions = array_column($findings, 0);
         sort($positions, SORT_NUMERIC);
         $linesAt = [];

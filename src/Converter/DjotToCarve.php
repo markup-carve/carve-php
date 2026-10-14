@@ -2739,9 +2739,15 @@ class DjotToCarve
      * @param callable|null $onFenceLine
      * @param array<int, bool> $rowBoundaries
      * @param bool $strict
+     * @param callable(int): void|null $onFenceOpen
      */
-    private function maskDjotFences(string $source, ?callable $onFenceLine = null, array $rowBoundaries = [], bool $strict = true): string
-    {
+    private function maskDjotFences(
+        string $source,
+        ?callable $onFenceLine = null,
+        array $rowBoundaries = [],
+        bool $strict = true,
+        ?callable $onFenceOpen = null,
+    ): string {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
         $fenceOpener = '/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|(?:(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/';
@@ -2853,6 +2859,9 @@ class DjotToCarve
                 if ((str_starts_with($open[2], ':') && !$previousBlock) || ($strict && !$canNormalize && $open[2] === '')) {
                     continue;
                 }
+                if ($onFenceOpen !== null) {
+                    $onFenceOpen($i);
+                }
                 $container = $nestedNote ? $nestedNoteColumn + 1 : ($open[2] !== '' ? strlen($open[1]) + 1 : ($nested ? $ownerIndent + 1 : null));
                 $markerBase = preg_replace('/\[[ xX]\][ \t]+$/', '', $open[2]) ?? $open[2];
                 $nativeMarkerBase = preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)$/', '$1.$2', $markerBase) ?? $markerBase;
@@ -2885,7 +2894,7 @@ class DjotToCarve
      * @param bool $inlineForms
      * @param callable|null $onFenceLine
      * @param array<int, bool> $rowBoundaries
-     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void} $opaqueOptions
+     * @param array{code?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void, onRawFormat?: callable(int, int, string): void, onFenceOpen?: callable(int): void} $opaqueOptions
      * @param bool $unclosedCode
      */
     protected function maskCodeAndDestinations(
@@ -2896,7 +2905,7 @@ class DjotToCarve
         array $opaqueOptions = [],
         bool $unclosedCode = true,
     ): string {
-        $masked = $this->maskDjotFences($source, $onFenceLine, $rowBoundaries);
+        $masked = $this->maskDjotFences($source, $onFenceLine, $rowBoundaries, onFenceOpen: $opaqueOptions['onFenceOpen'] ?? null);
 
         $masked = $this->maskDjotOpaque($masked, $unclosedCode, $opaqueOptions + (!$inlineForms ? ['inlineDestinations' => ($opaqueOptions['destinations'] ?? false) === true] : []));
         if (!$inlineForms) {
