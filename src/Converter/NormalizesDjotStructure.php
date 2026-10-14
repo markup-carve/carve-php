@@ -6,12 +6,106 @@ namespace MarkupCarve\Carve\Converter;
 
 use Closure;
 use LogicException;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
+use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 
 trait NormalizesDjotStructure
 {
+    private function genericDjotDivClasses(string $source): string
+    {
+        if (!str_contains($source, ':::')) {
+            return $source;
+        }
+        $lines = explode("\n", $source);
+        $masks = explode("\n", $this->maskCodeAndDestinations($source));
+        $safe = $lines;
+        $classes = [];
+        foreach ($lines as $line => $text) {
+            $at = $this->djotContentStart($text);
+            if (($masks[$line][$at] ?? '') !== ':' || preg_match('/^(:{3,})[ \t]+((?:[A-Za-z0-9_-]|\\\\[_-])+)[ \t]*\r?$/', substr($text, $at), $fence) !== 1) {
+                continue;
+            }
+            $class = preg_replace('/\\\\([_-])/', '$1', $fence[2]) ?? $fence[2];
+            if ($class !== 'figure' && !str_starts_with($class, '-') && $class === $fence[2] && !in_array($class, Div::GENERATED_CONTENT_KINDS, true)) {
+                continue;
+            }
+            $classes[$line] = $class;
+            $safe[$line] = substr($text, 0, $at) . $fence[1] . ' carve-djot-div';
+        }
+        if ($classes === []) {
+            return $source;
+        }
+        $document = (new BlockParser(trackPositions: true))->parse(implode("\n", $safe));
+        $pending = [];
+        foreach ($document->getChildren() as $node) {
+            $pending[] = [$node, null];
+        }
+        /** @var list<array{source: int, target: int, parent: int|null, bare: bool}> $frames */
+        $frames = [];
+        $sites = $mapped = [];
+        while ($pending !== []) {
+            [$node, $parent] = array_pop($pending);
+            $owner = $parent;
+            $pos = $node->getPos();
+            if ($node instanceof Div && $pos !== null) {
+                $line = $pos->startLine - 1;
+                $text = $lines[$line] ?? '';
+                $at = $this->djotContentStart($text);
+                if (preg_match('/^:{3,}/', substr($text, $at), $fence) === 1) {
+                    $class = $classes[$line] ?? null;
+                    $owner = count($frames);
+                    $width = strlen($fence[0]);
+                    $frames[] = ['source' => $width, 'target' => $width, 'parent' => $parent, 'bare' => $class !== null || preg_match('/^:{3,}[ \t]*\r?$/', substr($text, $at)) === 1];
+                    $sites[$line] = ['at' => $at, 'frame' => $owner, 'class' => $class];
+                    if ($class !== null) {
+                        $mapped[$line] = true;
+                    }
+                    $closeLine = $pos->endLine - 1;
+                    $closer = $lines[$closeLine] ?? '';
+                    $closeAt = $this->djotContentStart($closer);
+                    if (($masks[$closeLine][$closeAt] ?? '') === ':' && preg_match('/^:{' . $width . '}[ \t]*\r?$/', substr($closer, $closeAt)) === 1) {
+                        $sites[$closeLine] = ['at' => $closeAt, 'frame' => $owner, 'class' => null];
+                    }
+                }
+            }
+            if ($node instanceof BlockQuote || $node instanceof Footnote) {
+                $owner = null;
+            }
+            foreach ($node->getChildren() as $child) {
+                $pending[] = [$child, $owner];
+            }
+        }
+        if (count($mapped) !== count($classes)) {
+            return $source;
+        }
+        for ($index = count($frames) - 1; $index >= 0; $index--) {
+            $frame = $frames[$index];
+            if ($frame['bare'] && $frame['parent'] !== null && $frames[$frame['parent']]['target'] <= $frame['target']) {
+                $frames[$frame['parent']]['target'] = $frame['target'] + 1;
+            }
+        }
+        foreach ($sites as $line => $site) {
+            $prefix = substr($lines[$line], 0, $site['at']);
+            $frame = $frames[$site['frame']];
+            $fence = str_repeat(':', $frame['target']);
+            if ($site['class'] !== null) {
+                $continuation = preg_replace('/\[\^[^\]\n]+\]:[ \t]*/', '  ', $prefix) ?? $prefix;
+                $continuation = preg_replace('/\[[ xX]\][ \t]+/', '', $continuation) ?? $continuation;
+                $continuation = preg_replace('/[^> \t]/', ' ', $continuation) ?? $continuation;
+                $lines[$line] = $prefix . '{class="' . $site['class'] . '"}' . "\n" . $continuation . $fence;
+            } else {
+                $lines[$line] = $prefix . $fence . substr($lines[$line], $site['at'] + $frame['source']);
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
     private function hasDjotCodeLayoutCandidates(string $source): bool
     {
         return str_contains($source, '\\|') || (str_contains($source, '`') && preg_match('/(?:^|\n)(?:[ \t]*>(?:[ \t]|$))*[ \t]*\[\^[^\]\n]+\]:/', $source) === 1) || (str_contains($source, '`') && preg_match('/(?:^|\n)[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]+)[.)]|\((?:[0-9]+|[A-Za-z]+)\))[ \t]+(?:\[[ xX]\][ \t]+)?|\[\^[^\]\n]+\]:[ \t]*)*>/', $source) === 1)
