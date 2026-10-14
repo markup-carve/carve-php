@@ -5275,7 +5275,7 @@ class BlockParser
         $i = $start + 1;
 
         // Look for continuation rows
-        while ($i < $count && $this->tableParser->isContinuationRow($lines[$i])) {
+        while ($i < $count && str_starts_with($lines[$i], '+') && $this->tableParser->isContinuationRow($lines[$i])) {
             $cells->append($this->tableParser->parseContinuationCells($lines[$i], $cells->openDelimiters()));
             $i++;
         }
