@@ -13,8 +13,8 @@ final class DjotEmptyTaskItemTest extends TestCase
     public function testEmptyTaskItemsKeepTheirCheckboxAndListTightness(): void
     {
         $cases = [
-            "- [ ]\n" => "- [ ] {empty}\n",
-            "- [ ] a\n- [x]\n" => "- [ ] a\n- [x] {empty}\n",
+            "- [ ]\n" => "- [ ] %%%%\n",
+            "- [ ] a\n- [x]\n" => "- [ ] a\n- [x] %%%%\n",
         ];
         foreach ($cases as $djot => $carve) {
             $written = (new DjotToCarve())->convert($djot);
