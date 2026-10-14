@@ -225,7 +225,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         '/^(?:`{3,}|~{3,})/',
         '/^[-*+][ \t]+\S/',
         '/^1[.)][ \t]+\S/',
-        '/^-{3,}$/',
     ];
 
     /**
@@ -3299,6 +3298,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 || !str_ends_with($parts[$index], "\n")
                 || str_ends_with($parts[$index], "\n\n")
                 || !$this->lastWrittenLineTakesLazyText($parts[$index])
+                || preg_match('/^-{3,}$/', explode("\n", $below)[0]) === 1
                 || $this->opensWithParagraphInterrupter(explode("\n", $below)[0])
             ) {
                 continue;
@@ -3348,9 +3348,6 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $lines = explode("\n", $rendered);
         $first = $lines[0];
-        if ($above instanceof Paragraph && preg_match('/^-{3,}$/', $first) === 1) {
-            return false;
-        }
         if (str_starts_with($first, '|')) {
             // A row is paragraph continuation text until a delimiter row
             // promotes it, so a headerless table glues itself to the block above

@@ -16,10 +16,13 @@ class ContinuationTextStaysInsideRowTest extends TestCase
         $document = (new AstCodec())->encode((new BlockParser(false, false, false, true))->parse($source));
         $row = $document['children'][0]['rows'][0];
         $rowEnd = $row['pos']['endOffset'];
-        self::assertGreaterThanOrEqual(26, $rowEnd);
-        $walk = static function (array $node) use (&$walk, $rowEnd): void {
+        self::assertSame(9, $rowEnd);
+        self::assertSame(10, $document['children'][0]['rows'][1]['pos']['startOffset']);
+        $found = false;
+        $walk = static function (array $node) use (&$walk, &$found): void {
             if (($node['type'] ?? null) === 'text' && ($node['value'] ?? '') === 'more') {
-                self::assertLessThanOrEqual($rowEnd, $node['pos']['endOffset']);
+                self::assertArrayNotHasKey('pos', $node);
+                $found = true;
             }
             foreach ($node as $value) {
                 if (is_array($value)) {
@@ -32,5 +35,6 @@ class ContinuationTextStaysInsideRowTest extends TestCase
             }
         };
         $walk($row);
+        self::assertTrue($found);
     }
 }

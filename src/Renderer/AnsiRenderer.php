@@ -1115,6 +1115,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // Second pass: render table
         $output = '';
         $isFirstRow = true;
+        $headerRendered = false;
 
         foreach ($rows as $rowIndex => $cells) {
             // Top border for first row
@@ -1125,6 +1126,12 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
             // Render row
             $output .= $this->renderTableRow($cells, $colWidths);
+
+            // Separator after header
+            if (isset($cells[0]['isHeader']) && $cells[0]['isHeader'] && !$headerRendered) {
+                $output .= $this->renderTableBorder($colWidths, 'middle');
+                $headerRendered = true;
+            }
         }
 
         // Bottom border
