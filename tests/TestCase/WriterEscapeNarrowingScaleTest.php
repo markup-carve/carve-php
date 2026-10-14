@@ -81,6 +81,11 @@ class WriterEscapeNarrowingScaleTest extends TestCase
         $this->assertWriterScalesLinearly(" | a |\n", 'lines that all escalate one occurrence');
     }
 
+    public function testAnImageBesideEscapingBlocksKeepsTheSearchLocal(): void
+    {
+        $this->assertWriterScalesLinearly("  ## H\n\n", 'blocks beside a root image', "![a](/i)\n\n");
+    }
+
     /**
      * The canonical writer over a repeated fragment, timed by the shared
      * calibration.
@@ -90,10 +95,11 @@ class WriterEscapeNarrowingScaleTest extends TestCase
      *
      * @param string $fragment Repeated to build both samples.
      * @param string $label Identifies the shape in failure output.
+     * @param string $prefix Prepended to both samples.
      *
      * @return void
      */
-    private function assertWriterScalesLinearly(string $fragment, string $label): void
+    private function assertWriterScalesLinearly(string $fragment, string $label, string $prefix = ''): void
     {
         $large = self::SMALL_BLOCKS * 4;
 
@@ -101,8 +107,8 @@ class WriterEscapeNarrowingScaleTest extends TestCase
             static function (string $input): void {
                 CarveConverter::toCarve($input);
             },
-            str_repeat($fragment, self::SMALL_BLOCKS),
-            str_repeat($fragment, $large),
+            $prefix . str_repeat($fragment, self::SMALL_BLOCKS),
+            $prefix . str_repeat($fragment, $large),
             $label,
             self::SMALL_BLOCKS,
             $large,

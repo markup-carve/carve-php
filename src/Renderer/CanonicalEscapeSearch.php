@@ -210,27 +210,62 @@ final class CanonicalEscapeSearch
         array $conservativeTree,
         int $conservativeLength,
     ): bool {
-        $window = null;
+        $chargeStart = $this->state->probeCharge;
+        $windows = null;
         if ($local) {
             $this->state->escapeWindows ??= new EscapeWindows($document);
-            $window = $this->state->escapeWindows->windowFor($units);
+            $windows = $this->state->escapeWindows->windowsFor($units);
         }
-        $before = $window === null ? null : $this->callRenderWindow($window);
-        // A window near the document's size saves nothing over the whole-document probe.
-        $beforeTree = $before === null || strlen($before) * 2 > $conservativeLength ? null : $this->callWindowTree($before);
-        $apply();
-        if ($window !== null && $beforeTree !== null) {
-            $after = $this->callRenderWindow($window);
-            if ($after !== null) {
-                $this->state->probeCharge += strlen((string)$before) + strlen($after);
-                // Loose, as in candidateHolds().
-                if ($this->callWindowTree($after) == $beforeTree) {
-                    return true;
+        $applied = false;
+        if ($windows !== null) {
+            $localHolds = true;
+            foreach ($windows as $window) {
+                if ($applied) {
+                    $undo();
                 }
-                $undo();
+                $before = $this->callRenderWindow($window);
+                $apply();
+                $applied = true;
+                // A window near the document's size saves nothing over the whole-document probe.
+                if ($before === null || strlen($before) * 2 > $conservativeLength) {
+                    $localHolds = false;
 
-                return false;
+                    break;
+                }
+                $after = $this->callRenderWindow($window);
+                if ($after === null) {
+                    $localHolds = false;
+
+                    break;
+                }
+                if ($before === $after) {
+                    continue;
+                }
+                $this->state->probeCharge += strlen($before) + strlen($after);
+                $beforeTree = $this->callWindowTree($before);
+                if ($beforeTree === null) {
+                    $localHolds = false;
+
+                    break;
+                }
+                // Loose, as in candidateHolds().
+                if ($this->callWindowTree($after) != $beforeTree) {
+                    $undo();
+                    // Local parsing must not extend the search allowance.
+                    $this->state->probeCharge = max($this->state->probeCharge, $chargeStart + $conservativeLength);
+
+                    return false;
+                }
             }
+            if ($localHolds) {
+                // Preserve the whole-document probe budget and its chosen spelling.
+                $this->state->probeCharge = max($this->state->probeCharge, $chargeStart + $conservativeLength);
+
+                return true;
+            }
+        }
+        if (!$applied) {
+            $apply();
         }
         $candidate = $this->callRenderSelectively($document);
         $this->state->probeCharge += strlen($candidate);
