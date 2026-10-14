@@ -126,8 +126,10 @@ final class BlockSourceMapper
 
         // Both ends must actually be found in the lines they claim, or the span
         // would cover bytes belonging to something else.
-        $firstFound = $firstText === '' ? $firstColumn : strpos($this->state->source->sourceLines[$firstLine] ?? '', $firstText);
-        $lastFound = $lastText === '' ? $lastColumn : strpos($this->state->source->sourceLines[$lastLine] ?? '', $lastText);
+        $firstRaw = $this->state->source->sourceLines[$firstLine] ?? '';
+        $lastRaw = $this->state->source->sourceLines[$lastLine] ?? '';
+        $firstFound = $firstText === '' ? $firstColumn : strpos($firstRaw, $firstText, $this->footnoteBodyStart($firstRaw, $firstText));
+        $lastFound = $lastText === '' ? $lastColumn : strpos($lastRaw, $lastText, $this->footnoteBodyStart($lastRaw, $lastText));
         if ($firstFound === false || $lastFound === false) {
             return null;
         }
@@ -207,7 +209,7 @@ final class BlockSourceMapper
         $index = 0;
         foreach ($contentLines as [$sourceLine, $column, $length, $lineText]) {
             $rawLine = $this->state->source->sourceLines[$sourceLine] ?? '';
-            $searchFrom = $index === 0 ? min($firstLineSearchFrom, strlen($rawLine)) : 0;
+            $searchFrom = max($index === 0 ? min($firstLineSearchFrom, strlen($rawLine)) : 0, $this->footnoteBodyStart($rawLine, $lineText));
             $index++;
             $lineStart = $this->state->source->lineStartOffsets[$sourceLine] ?? null;
             // Nested content arrives already re-indented, so the column measured
@@ -235,6 +237,16 @@ final class BlockSourceMapper
         }
 
         return $any ? $map->withSource($this->positionSource(), $this->state->source->positionIndex) : null;
+    }
+
+    private function footnoteBodyStart(string $rawLine, string $bodyLine): int
+    {
+        if (preg_match('/\[\^[^\]]+\]: +/', $rawLine, $match, PREG_OFFSET_CAPTURE) !== 1) {
+            return 0;
+        }
+        $bodyStart = $match[0][1] + strlen($match[0][0]);
+
+        return str_starts_with(substr($rawLine, $bodyStart), $bodyLine) ? $bodyStart : 0;
     }
 
     /**

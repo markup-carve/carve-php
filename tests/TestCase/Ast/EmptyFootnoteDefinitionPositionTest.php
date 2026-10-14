@@ -121,6 +121,33 @@ class EmptyFootnoteDefinitionPositionTest extends TestCase
         $this->assertSame('[^f]: body', $this->sliceOf($source, $pos));
     }
 
+    public function testBodyTextMatchingItsLabelUsesTheAuthoredBodyOffsets(): void
+    {
+        $source = file_get_contents(__DIR__ . '/../../spec/tests/corpus/573-a-footnote-reference-in-link-text-keeps-its-id-on-the-sup-2.crv');
+        $this->assertIsString($source);
+        $footnotes = $this->footnotes($this->encode($source));
+
+        $this->assertCount(1, $footnotes);
+        $footnote = $footnotes[0];
+        $this->assertSame([64, 75], [$footnote['pos']['startOffset'], $footnote['pos']['endOffset']]);
+        $paragraph = $footnote['children'][0];
+        $text = $paragraph['children'][0];
+        $this->assertSame([74, 75], [$paragraph['pos']['startOffset'], $paragraph['pos']['endOffset']]);
+        $this->assertSame([74, 75], [$text['pos']['startOffset'], $text['pos']['endOffset']]);
+    }
+
+    public function testBodyTextInsideAQuoteDoesNotPointAtItsLabel(): void
+    {
+        $source = "> see[^f]\n> [^f]: f\n";
+        $footnotes = $this->footnotes($this->encode($source));
+
+        $this->assertCount(1, $footnotes);
+        $paragraph = $footnotes[0]['children'][0];
+        $text = $paragraph['children'][0];
+        $this->assertSame('f', $this->sliceOf($source, $paragraph['pos']));
+        $this->assertSame('f', $this->sliceOf($source, $text['pos']));
+    }
+
     /**
      * §4 puts a span's start at the markup that OPENS the construct, not at the
      * container prefix that carried the line. A definition inside a block quote
