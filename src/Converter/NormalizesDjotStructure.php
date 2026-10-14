@@ -1967,7 +1967,7 @@ trait NormalizesDjotStructure
                 $cacheKey = $depth . ':' . $label;
                 $label = $labelCache[$cacheKey] ??= $this->djotCollapsedReferenceText($label, $depth, $inherited);
             } else {
-                $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label);
+                $label = trim(preg_replace('/\s+/', ' ', $label) ?? $label, " \t\r\n");
             }
             $key = $parsedLabel ? $this->djotReferenceDefinitionKey($label) : $this->djotReferenceKey($label);
             $matches[] = [
