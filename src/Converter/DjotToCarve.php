@@ -202,7 +202,7 @@ class DjotToCarve
         $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
-        $source = $this->escapeDjotTableAttributeBoundaries($source);
+        $source = $this->escapeDjotTableAttributeBoundaries($this->normalizeDjotDivOpeners($source));
         if (str_contains($source, '`')) {
             foreach (explode("\n", $source) as $line) {
                 if (preg_match('/^\[(?!\^)[^\]\n]*`[^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1) {
@@ -1659,6 +1659,36 @@ class DjotToCarve
         }
 
         return ['', '', $source];
+    }
+
+    private function normalizeDjotDivOpeners(string $source): string
+    {
+        if (!str_contains($source, ':::')) {
+            return $source;
+        }
+        $lines = explode("\n", $source);
+        $mask = null;
+        $boundaries = null;
+        $offset = 0;
+        foreach ($lines as $index => $line) {
+            $start = $offset;
+            $offset += strlen($line) + 1;
+            $at = $this->djotContentStart($line);
+            $prefix = substr($line, 0, $at);
+            if (
+                preg_match('/^(:{3,})([ \t]*)([A-Za-z0-9_-]+)([ \t]*)(\r?)$/', substr($line, $at), $opener) !== 1
+                || $opener[2] === ' '
+            ) {
+                continue;
+            }
+            $mask ??= $this->maskCodeAndDestinations($source);
+            $boundaries ??= array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+            if (($mask[$start + $at] ?? '') === ':' && isset($boundaries[$start])) {
+                $lines[$index] = $prefix . $opener[1] . ' ' . $opener[3] . $opener[4] . $opener[5];
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     /**
