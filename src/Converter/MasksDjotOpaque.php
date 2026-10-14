@@ -11,7 +11,7 @@ trait MasksDjotOpaque
      *
      * @param string $source
      * @param bool $unclosedCode
-     * @param array{code?: bool, rawCode?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void, onCode?: callable(int, int, bool): void} $options
+     * @param array{code?: bool, rawCode?: bool, destinations?: bool, inlineDestinations?: bool, autolinks?: bool, attributeValues?: bool, comments?: bool, onComment?: callable(int, int): void, onDestination?: callable(int, int): void, onCode?: callable(int, int, bool): void, onRawFormat?: callable(int, int, string): void, onFenceOpen?: callable(int): void} $options
      */
     private function maskDjotOpaque(string $source, bool $unclosedCode = true, array $options = []): string
     {
@@ -181,6 +181,9 @@ trait MasksDjotOpaque
                 }
 
                 continue;
+            }
+            if ($rawEnd !== null && isset($options['onRawFormat'])) {
+                $options['onRawFormat']($at, $rawEnd, substr($source, $end + 2, $rawEnd - $end - 3));
             }
             if (($options['code'] ?? true) || $rawEnd !== null && ($options['rawCode'] ?? true) || $math) {
                 $hide($at - (int)$math, $end);
