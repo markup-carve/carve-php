@@ -1014,9 +1014,9 @@ $converter = match ($options['format']) {
     // asks the parser to record them. Tracking is opt-in because it costs work
     // on every parse, and this is the only format that publishes the result.
     'json' => new CarveConverter(parser: new BlockParser($wantWarnings, false, false, true)),
-    'markdown' => CarveConverter::markdown(new BlockParser($wantWarnings)),
-    'plain' => CarveConverter::plainText(new BlockParser($wantWarnings)),
-    'ansi' => CarveConverter::ansi(new BlockParser($wantWarnings)),
+    'markdown' => CarveConverter::markdown(new BlockParser($wantWarnings, false, false, true)),
+    'plain' => CarveConverter::plainText(new BlockParser($wantWarnings, false, false, true)),
+    'ansi' => CarveConverter::ansi(new BlockParser($wantWarnings, false, false, true)),
     // Positions ON: the writer orders collected definitions by the spans §4
     // records, and they are opt-in (carve-php#905).
     'carve' => CarveConverter::carve(new BlockParser($wantWarnings, false, false, true)),

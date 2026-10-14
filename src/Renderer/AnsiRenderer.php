@@ -801,6 +801,17 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $out;
     }
 
+    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
+    {
+        if (isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])) {
+            return '';
+        }
+
+        $href = $this->stripControls($this->blankDeniedDestination($node->getHref(), self::DESTINATION_SINK_LINK, $node));
+
+        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href, true)), "\n"), self::DIM) . "\n\n";
+    }
+
     /**
      * NO BLOCKQUOTE PREFIXING HERE, and no special case for a lone image.
      *
@@ -818,17 +829,6 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * block, a table and a promoted image with no bar at all, and what put a
      * quoted list's bar to the RIGHT of its bullet.
      */
-    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
-    {
-        if (isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])) {
-            return '';
-        }
-
-        $href = $this->stripControls($this->blankDeniedDestination($node->getHref(), self::DESTINATION_SINK_LINK, $node));
-
-        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href, true)), "\n"), self::DIM) . "\n\n";
-    }
-
     protected function renderParagraph(Paragraph $node): string
     {
         return $this->renderChildren($node) . "\n\n";

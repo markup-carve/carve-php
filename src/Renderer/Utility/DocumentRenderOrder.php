@@ -18,7 +18,7 @@ final class DocumentRenderOrder
         $definitions = [];
         foreach ($document->getChildren() as $child) {
             $position = $child->getPos();
-            if ($child instanceof LinkReferenceDefinition && $position !== null) {
+            if ($child instanceof LinkReferenceDefinition && $position !== null && $position->file === null) {
                 $definitions[] = ['offset' => $position->startOffset, 'node' => $child];
             } else {
                 $blocks[] = $child;
