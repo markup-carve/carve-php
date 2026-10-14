@@ -47,7 +47,7 @@ class DjotLossReportTest extends TestCase
             'nested reference link' => ["[[a][r]](v)\n\n[r]: u", 1, 'link inside a link'],
             'nested parenthesized destination' => ['[[a](u(1))](v)', 1, 'link inside a link'],
             'nested link' => ["[[foo](bar)](baz)\n", 1, 'link inside a link'],
-            'empty definition description' => [": apple\n fruit\n\n  Body\n\n: orange\n", 6, 'empty definition description'],
+            'empty definition description' => ["> : apple\n> fruit\n>\n>   Body\n>\n> : orange\n", 6, 'empty definition description'],
             'interior table separator' => ["|a|b|\n|:-|---:|\n|c|d|\n|cc|dd|\n|-:|:-:|\n|e|f|\n", 5, 'separator inside a table'],
             'separator-only table' => ["|--|--|\n", 1, 'only separator rows'],
             'blank cell holding a tab' => ["|\t|\n", 1, 'blank table cell holding a tab'],
