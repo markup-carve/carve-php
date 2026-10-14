@@ -87,7 +87,8 @@ class SourceLinter
             $pos = $node->getPos();
             if ($node instanceof Table) {
                 $tableRows = array_values(array_filter($node->getChildren(), static fn ($child): bool => $child->getType() === 'table_row'));
-                foreach (TableSpanGrid::resolve($node) as $rowIndex => $gridRow) {
+                $gridRows = TableSpanGrid::resolve($node);
+                foreach ($gridRows as $rowIndex => $gridRow) {
                     foreach ($gridRow as $columnIndex => $entry) {
                         $marker = $entry['cell']->getSpanMarker();
                         if ($entry['skip'] || ($marker !== '^' && $marker !== '<')) {
@@ -95,7 +96,7 @@ class SourceLinter
                         }
                         $cellPos = $entry['cell']->getPos();
                         $reason = $marker === '^'
-                            ? ($rowIndex === 0 ? 'There is no cell above it to extend.' : 'Extending the cell above would cover another cell.')
+                            ? ($rowIndex === 0 || !isset($gridRows[$rowIndex - 1][$columnIndex]) ? 'There is no cell above it to extend.' : 'Extending the cell above would cover another cell.')
                             : ($columnIndex === 0 ? 'There is no cell to its left to widen.' : 'The cell to its left starts in an earlier row, so widening it would cover cells already placed.');
                         $message = sprintf('The "%s" span marker cannot extend a cell. %s It renders as a cell of its own; escape it as "\\%s" to keep the character as text, or remove it.', $marker, $reason, $marker);
                         if ($cellPos === null) {
