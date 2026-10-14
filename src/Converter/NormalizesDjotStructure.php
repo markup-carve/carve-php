@@ -1739,6 +1739,7 @@ trait NormalizesDjotStructure
      * @param bool $caretOnly
      * @param array<int, array{label: string, target: string, end: int}> $accepted
      * @param array<string, true> $inherited
+     * @param array<string, string> $headingTargets
      * @param bool $aliasesOnly
      */
     private function normalizeDjotReferenceUses(
@@ -1747,6 +1748,7 @@ trait NormalizesDjotStructure
         array $accepted = [],
         array $inherited = [],
         bool $aliasesOnly = false,
+        array $headingTargets = [],
     ): string {
         $mask = $this->maskCodeAndDestinations($source);
         $definitions = [];
@@ -1863,7 +1865,7 @@ trait NormalizesDjotStructure
             }
             $offset += strlen($line) + 1;
         }
-        if ($definitions === []) {
+        if ($definitions === [] && $headingTargets === []) {
             return $source;
         }
         foreach ($removed as $n => $unused) {
@@ -2096,7 +2098,12 @@ trait NormalizesDjotStructure
                 }
             }
             foreach ($matches as $match) {
-                if (isset($aliases[$match[6]])) {
+                $headingKey = str_replace("\0U\0", "\0", (string)$match[6]);
+                if (str_contains($headingKey, "\0") && !isset($definitions[$match[6]]) && isset($headingTargets[$headingKey])) {
+                    $start = $match[9] + 1;
+                    $target = strtr($headingTargets[$headingKey], ['\\' => '\\\\', '(' => '\\(', ')' => '\\)']);
+                    $edits[] = [$start, $match[4][1] - $start, '(' . $target . ')'];
+                } elseif (isset($aliases[$match[6]])) {
                     $edits[] = [$match[3][1], strlen($match[3][0]), $aliases[$match[6]]];
                 }
             }
