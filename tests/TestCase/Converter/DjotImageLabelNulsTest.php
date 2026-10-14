@@ -45,7 +45,6 @@ class DjotImageLabelNulsTest extends TestCase
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
             $this->assertSame($this->images($row['html']), $this->images($renderer->convert($converted)), $row['source']);
-
         }
         $this->assertSame('plain', $converter->convert('plain'));
     }
