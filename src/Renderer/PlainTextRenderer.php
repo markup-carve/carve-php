@@ -68,6 +68,7 @@ use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -584,7 +585,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
     protected function renderChildren(Node $node): string
     {
         $text = '';
-        foreach ($node->getChildren() as $child) {
+        foreach ($node instanceof Document ? DocumentRenderOrder::children($node) : $node->getChildren() as $child) {
             $text .= $this->renderNode($child);
         }
 

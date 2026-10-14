@@ -15,6 +15,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Ruby;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\LabelKey;
+use MarkupCarve\Carve\Renderer\CarrierOpenerWriter;
 
 final class ReferencedLinkDefinitions
 {
@@ -85,11 +86,15 @@ final class ReferencedLinkDefinitions
         return serialize([LabelKey::normalize($label), $href, $title]);
     }
 
-    public static function line(LinkReferenceDefinition $node, ?string $href = null): string
+    public static function line(LinkReferenceDefinition $node, ?string $href = null, bool $keepDestinationSlot = false): string
     {
-        $line = '[' . $node->getLabel() . ']:' . ($href === '' ? '' : ' ') . ($href ?? $node->getHref());
+        $line = '[' . $node->getLabel() . ']:' . ($href === '' && !$keepDestinationSlot ? '' : ' ') . ($href ?? $node->getHref());
         if ($node->getTitle() !== null) {
             $line .= ' "' . QuotedSlotEscaper::escape($node->getTitle()) . '"';
+        }
+        $attributes = (new CarrierOpenerWriter())->inlineAttributes($node);
+        if ($attributes !== '') {
+            $line .= ' ' . $attributes;
         }
 
         return $line . "\n\n";

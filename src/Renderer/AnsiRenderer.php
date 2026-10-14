@@ -73,6 +73,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\ConsumedAbbreviationDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\StringUtil;
@@ -768,7 +769,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     protected function renderChildren(Node $node): string
     {
         $output = '';
-        foreach ($node->getChildren() as $child) {
+        foreach ($node instanceof Document ? DocumentRenderOrder::children($node) : $node->getChildren() as $child) {
             $output .= $this->renderNode($child);
         }
 
@@ -825,7 +826,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $href = $this->stripControls($this->blankDeniedDestination($node->getHref(), self::DESTINATION_SINK_LINK, $node));
 
-        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href)), "\n"), self::DIM) . "\n\n";
+        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href, true)), "\n"), self::DIM) . "\n\n";
     }
 
     protected function renderParagraph(Paragraph $node): string

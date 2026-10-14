@@ -80,6 +80,7 @@ use MarkupCarve\Carve\Renderer\Utility\AbbreviationBudgetTrait;
 use MarkupCarve\Carve\Renderer\Utility\DerivedLabelTrait;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\EventDispatcherTrait;
+use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use MarkupCarve\Carve\Renderer\Utility\ReferencedLinkDefinitions;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Util\CarrierMarkers;
@@ -225,6 +226,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         '/^(?:`{3,}|~{3,})/',
         '/^[-*+][ \t]+\S/',
         '/^1[.)][ \t]+\S/',
+        '/^\*{3,}$/',
     ];
 
     /**
@@ -1984,7 +1986,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderChildren(Node $node): string
     {
-        $children = array_values($node->getChildren());
+        $children = $node instanceof Document ? DocumentRenderOrder::children($node) : array_values($node->getChildren());
         $previousOwner = $this->inlineOwner;
         $this->inlineOwner = $node;
         try {
@@ -3239,8 +3241,16 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $children = array_values($node->getChildren());
         $parts = [];
+        $above = null;
         foreach ($children as $child) {
-            $parts[] = $this->renderNode($child);
+            $part = $this->renderNode($child);
+            if ($tight && $child instanceof ThematicBreak && $above instanceof Paragraph) {
+                $part = "***\n\n";
+            }
+            $parts[] = $part;
+            if ($part !== '') {
+                $above = $child;
+            }
         }
         $this->separateBlocksBelowANestedList($children, $parts);
         if ($tight) {
@@ -3362,6 +3372,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // An unseparated `>` under an OPEN quote continues that quote.
         if (str_starts_with($first, '>') && str_starts_with($this->lastNonBlankLine($aboveRendered), '>')) {
             return false;
+        }
+        if ($above instanceof CodeBlock) {
+            return true;
         }
 
         return $this->opensWithParagraphInterrupter($first);

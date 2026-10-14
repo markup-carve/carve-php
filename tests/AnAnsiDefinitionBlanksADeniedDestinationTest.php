@@ -14,7 +14,7 @@ class AnAnsiDefinitionBlanksADeniedDestinationTest extends TestCase
         $output = CarveConverter::ansi()->convert("Text.\n\n[x]: /u\n\n[y]: javascript:alert(3)\n");
 
         self::assertStringContainsString('[x]: /u', $output);
-        self::assertStringContainsString('[y]:', $output);
+        self::assertStringContainsString('[y]: ', $output);
         self::assertStringNotContainsString('javascript:', $output);
     }
 }
