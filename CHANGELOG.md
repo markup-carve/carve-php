@@ -82,7 +82,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - An authored id on a footnote reference replaces the generated `fnref` id, and the note's backlink targets it. HTML import pairs a backlink with its reference by target (#3357).
 - New render and migration loss codes: `carrier-attribute-dropped`, `carrier-marker-dropped`, `carrier-markers-damaged`, `list-delimiter-changed`, `list-style-dropped` and `djot-footnote-definition-attributes-dropped`. `--allow-loss` accepts them and `definition-list-flattened` (#3013, #3033, #3083, #3274, #3301, #3311, #3316).
 - A render loss carries the code `editorial-comment-flattened` on targets that flatten an editorial comment, and `--allow-loss` accepts it. The vendored spec schema's `code` enum does not list it yet (#2964, markup-carve/carve#2791).
-- Lint reports a `^` or `<` span marker that the T5 walk leaves unresolved under `table-span-marker-blocked` (#3422).
+- Lint reports a `^` or `<` span marker that the T5 walk leaves unresolved under `table-span-marker-blocked`. A marker under a shorter row reports that no cell is above it (#3422, #3426).
 - `--smart-typography quotes-source` and `SmartTypographyMode::QuotesSource` keep source quotes while dashes, ellipses and symbols still resolve (#3067).
 - Nested braced emphasis parses, formats and imports from HTML, Markdown and Djot (#3070).
 - Task lists render `class="task-list"` and checked items `data-task-state="x"`, and HTML import reads them back with all four extended states (#3071).
