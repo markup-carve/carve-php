@@ -14,7 +14,7 @@ class DjotDeepEscapedImagesTest extends TestCase
     /**
      * @return list<array<string, string>>
      */
-    private function images(string $html): array
+    private function elements(string $html): array
     {
         $document = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
@@ -25,10 +25,15 @@ class DjotDeepEscapedImagesTest extends TestCase
             libxml_use_internal_errors($previous);
         }
         $images = [];
-        foreach ($document->getElementsByTagName('img') as $image) {
-            $attributes = [];
+        foreach ($document->getElementsByTagName('*') as $image) {
+            if (in_array($image->nodeName, ['html', 'head', 'body'], true)) {
+                continue;
+            }
+            $attributes = ['element' => $image->nodeName];
             foreach ($image->attributes as $attribute) {
-                $attributes[$attribute->name] = $attribute->value;
+                if ($attribute->name !== 'role' || $attribute->value !== 'math') {
+                    $attributes[$attribute->name] = $attribute->value;
+                }
             }
             ksort($attributes);
             $images[] = $attributes;
@@ -59,7 +64,7 @@ class DjotDeepEscapedImagesTest extends TestCase
         foreach ($controls as $row) {
             $converted = $converter->convert($row['source']);
             $html = $renderer->convert($converted);
-            $this->assertSame($this->images($row['html']), $this->images($html), $row['source']);
+            $this->assertSame($this->elements($row['html']), $this->elements($html), $row['source']);
             $this->assertSame($this->text($row['html']), $this->text($html), $row['source']);
         }
         foreach ([128, 512, 1600, 6400] as $depth) {
