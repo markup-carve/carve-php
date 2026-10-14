@@ -29,7 +29,11 @@ class DjotDeepEscapedImagesTest extends TestCase
             if (in_array($image->nodeName, ['html', 'head', 'body'], true)) {
                 continue;
             }
-            $attributes = ['element' => $image->nodeName];
+            $depth = 0;
+            for ($parent = $image->parentNode; $parent !== null; $parent = $parent->parentNode) {
+                $depth++;
+            }
+            $attributes = ['#element' => $image->nodeName, '#depth' => (string)$depth];
             foreach ($image->attributes as $attribute) {
                 if ($attribute->name !== 'role' || $attribute->value !== 'math') {
                     $attributes[$attribute->name] = $attribute->value;
