@@ -321,4 +321,48 @@ class WikilinksExtensionTest extends TestCase
 
         $this->assertSame($expected, trim($converter->convert($input)));
     }
+
+    /**
+     * Expected strings come from a carve-js main build, the reference for this extension.
+     *
+     * @return array<string, array{string, string}>
+     */
+    public static function crossEngineProvider(): array
+    {
+        return [
+            'whitespace-only target stays literal' => [
+                '[[   ]]',
+                '<p>[[   ]]</p>',
+            ],
+            'single bracket in the display text' => [
+                '[[a|b]c]]',
+                '<p><a href="a" class="wikilink" data-wikilink="a">b]c</a></p>',
+            ],
+            'empty display text' => [
+                '[[a|]]',
+                '<p><a href="a" class="wikilink" data-wikilink="a"></a></p>',
+            ],
+            'whitespace-only display text' => [
+                '[[a| ]]',
+                '<p><a href="a" class="wikilink" data-wikilink="a"></a></p>',
+            ],
+            'page named 0 is its own display text' => [
+                '[[0]]',
+                '<p><a href="0" class="wikilink" data-wikilink="0">0</a></p>',
+            ],
+            'empty page with display text stays literal' => [
+                '[[|x]]',
+                '<p>[[|x]]</p>',
+            ],
+        ];
+    }
+
+    #[DataProvider('crossEngineProvider')]
+    public function testMatchesReferenceEngine(string $input, string $expected): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new WikilinksExtension());
+
+        $this->assertSame($expected, trim($converter->convert($input)));
+    }
 }
