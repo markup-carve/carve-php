@@ -201,4 +201,26 @@ class SpanMarkerContinuationAndCellWrapColTest extends TestCase
             }
         }
     }
+
+    public function testBlockedMarkerTextFromALaterLineNamesThatLine(): void
+    {
+        $source = "| ^ | b |\n+   | u |\n+ t | v |\n";
+        $document = CarveConverter::create()->parse($source);
+        $ast = (new AstCodec())->encode($document);
+        $children = $ast['children'][0]['rows'][0]['cells'][0]['children'];
+        self::stripPositions($children);
+
+        self::assertSame([['type' => 'cell_wrap', 'line' => 2], ['type' => 'text', 'value' => 't']], $children);
+        self::assertStringContainsString('<td>t</td>', CarveConverter::create()->convert($source));
+        self::assertSame("| ^ | b |\n+ | u |\n+ t | v |\n", (new CarveRenderer())->render($document));
+    }
+
+    public function testBlockedSpanCellAttributesStayOnTheMarker(): void
+    {
+        $codec = new AstCodec();
+        $ast = $codec->encode(CarveConverter::create()->parse("| ^ | b |\n+ t | u |\n"));
+        $ast['children'][0]['rows'][0]['cells'][0]['attrs'] = ['classes' => ['marked']];
+
+        self::assertSame("|{.marked} ^ | b |\n+ t | u |\n", (new CarveRenderer())->render($codec->decode($ast)));
+    }
 }

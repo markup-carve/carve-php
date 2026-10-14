@@ -584,6 +584,10 @@ final class TableBlockBuilder
                     $build = &$cellBuilds[spl_object_id($origin)];
                     $joinAt = $build['content'] === '' ? 0 : strlen($build['content']) + 1;
                     $rowsBelow = $rowIndex - $build['rowIndex'];
+                    // Text a blocked marker keeps from a later `+` line names that line.
+                    if ($joinAt === 0 && $origin->getSpanMarker() !== null && ($join['wraps'][-1] ?? 1) > 1) {
+                        $build['leadLine'] = $join['wraps'][-1];
+                    }
                     foreach ($join['wraps'] as $at => $wrapLine) {
                         if ($at >= 0 || $joinAt > 0) {
                             $build['wraps'][$joinAt + $at] = [$wrapLine, $rowsBelow, $col - $build['cellData']['gridColumn']];
@@ -632,6 +636,9 @@ final class TableBlockBuilder
                 $build['cell']->removeChild($child);
             }
             $this->fillCellContent($build['cell'], $build['cellData'], $build['line'], $build['content'], $build['wraps']);
+            if (isset($build['leadLine']) && $build['cell']->getChildren() !== []) {
+                $build['cell']->prependChild(new CellWrap($build['leadLine']));
+            }
             $rowEnd = $build['cell']->getParent()?->getPos()?->endOffset;
             if ($rowEnd !== null) {
                 // Text joined from a later row is reassembled and has no position in this row.

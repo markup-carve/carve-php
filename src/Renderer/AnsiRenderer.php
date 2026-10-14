@@ -700,7 +700,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $node instanceof HardBreak => "\n",
                 $node instanceof NonBreakingSpace => "\0",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
-                $node instanceof CellWrap => ' ',
+                $node instanceof CellWrap => $node->visibleText(),
                 $node instanceof Superscript => $this->renderSuperscript($node),
                 $node instanceof Subscript => $this->renderSubscript($node),
                 $node instanceof Highlight => $this->renderHighlight($node),
