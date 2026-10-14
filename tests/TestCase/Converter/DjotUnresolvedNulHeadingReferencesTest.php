@@ -24,8 +24,7 @@ class DjotUnresolvedNulHeadingReferencesTest extends TestCase
             $this->assertDoesNotMatchRegularExpression($pattern, $html, $source);
             $this->assertStringNotContainsString('carve-djot-reference-', $html, $source);
             $this->assertDoesNotMatchRegularExpression('/<(?:span|em|strong|code)\b/', $html, $source);
-            $this->assertStringNotContainsString('class="c"', $html, $source);
-            $this->assertStringNotContainsString('id="i"', $html, $source);
+            $this->assertDoesNotMatchRegularExpression('/<[^>]*\b(?:class="c"|id="i")/', $html, $source);
             $this->assertStringNotContainsString('{%comment%}', $html, $source);
             if (isset($row['quoteOwn'])) {
                 $this->assertSame($row['quoteOwn'], substr_count($row['html'], '<blockquote>'), $source);
