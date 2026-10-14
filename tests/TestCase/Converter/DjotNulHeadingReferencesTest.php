@@ -118,5 +118,4 @@ class DjotNulHeadingReferencesTest extends TestCase
             $this->assertSame('#' . $ids[count($ids) - 1], $destinations[0], $source);
         }
     }
-
 }
