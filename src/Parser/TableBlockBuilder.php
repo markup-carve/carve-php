@@ -287,7 +287,7 @@ final class TableBlockBuilder
             $baseChunkCounts = array_map(count(...), $cellSourceChunks);
             $baseCells = $mergedCells;
             // Check for continuation rows (lines starting with +)
-            while ($i < $count && ($this->getTableParser)()->isContinuationRow($lines[$i])) {
+            while ($i < $count && str_starts_with($lines[$i], '+') && ($this->getTableParser)()->isContinuationRow($lines[$i])) {
                 $cellAccumulator ??= new TableCellAccumulator(($this->getTableParser)(), $mergedCells);
                 $openRuns = $cellAccumulator->openDelimiters();
                 $continuationCells = ($this->getTableParser)()->parseContinuationCells($lines[$i], $openRuns);
