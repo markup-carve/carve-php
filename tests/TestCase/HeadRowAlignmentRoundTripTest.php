@@ -88,4 +88,19 @@ class HeadRowAlignmentRoundTripTest extends TestCase
             $this->assertSame((new CarveConverter())->convert($source), (new CarveConverter())->render($back));
         }
     }
+
+    public function testVerticalOnlyHeadRowAlignmentReachesTheBody(): void
+    {
+        $source = "|=?^ a |\n|= b |\n| 1 |\n";
+        $document = (new CarveConverter())->parse($source);
+        $codec = new AstCodec();
+        $astBack = $codec->decode($codec->encode($document));
+        $proseMirror = (new ProseMirrorRenderer())->render($document);
+        $editorBack = (new ProseMirrorToCarve())->convert($proseMirror);
+
+        foreach ([$astBack, $editorBack] as $back) {
+            $this->assertSame($source, CarveConverter::carve()->render($back));
+            $this->assertSame((new CarveConverter())->convert($source), (new CarveConverter())->render($back));
+        }
+    }
 }

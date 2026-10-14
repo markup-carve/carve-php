@@ -2429,7 +2429,7 @@ class AstCodec
                     }
                 }
             }
-            if ($columns !== []) {
+            if ($columns !== [] || $verticalColumns !== []) {
                 $inHeadRows = true;
                 foreach ($node->getChildren() as $row) {
                     if (!$row instanceof TableRow) {
