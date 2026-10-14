@@ -672,6 +672,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     public function render(Document $document): string
     {
         $this->pickNarrowedSentinels($document);
+        $this->referencedLinkDefinitions = $this->roundTripMode ? [] : ReferencedLinkDefinitions::labels($document);
         $this->prepareDocument($document);
 
         return $this->renderBody($document, true);
@@ -713,7 +714,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // `parse(fmt(x)) != parse(x)`. carve-js and carve-rs both keep it in
         // place, and this node exists precisely so this renderer can too
         // (carve-php#708).
-        $this->referencedLinkDefinitions = $this->roundTripMode ? [] : ReferencedLinkDefinitions::labels($document);
+        // Resolution can add links; retain references from nested links it flattens.
+        $this->referencedLinkDefinitions += $this->roundTripMode ? [] : ReferencedLinkDefinitions::labels($document);
         $this->nativeReferences = $this->roundTripMode ? $this->nativeReferenceDefinitions($document) : [];
         $markdown = $this->renderChildren($document);
         $residual = $this->renderResidualAbbreviationDefinitions($document);
@@ -4132,7 +4134,11 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
     {
-        $output = '[' . $node->getLabel() . ']: ' . $this->encodeMarkdownDestination($node->getHref());
+        $destination = $this->encodeMarkdownDestination($node->getHref(), $node);
+        if ($destination === '') {
+            $destination = '<>';
+        }
+        $output = '[' . $node->getLabel() . ']: ' . $destination;
         $title = $node->getTitle();
         if ($title !== null) {
             $output .= ' "' . str_replace(['\\', '"'], ['\\\\', '\\"'], $this->neutralizeCharacterReferences($title)) . '"';

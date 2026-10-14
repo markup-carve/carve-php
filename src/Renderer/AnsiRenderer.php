@@ -29,6 +29,7 @@ use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Section;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
@@ -1104,11 +1105,26 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $node,
             fn (TableCell $cell): array => [
                 'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
-                'isHeader' => $cell->isHeader(),
             ],
         );
 
-        foreach ($layout['rows'] as $row) {
+        $headerRows = [];
+        foreach ($node->getChildren() as $tableRow) {
+            if (!$tableRow instanceof TableRow) {
+                continue;
+            }
+            $cellCount = 0;
+            $allHeaders = true;
+            foreach ($tableRow->getChildren() as $tableCell) {
+                if ($tableCell instanceof TableCell) {
+                    $cellCount++;
+                    $allHeaders = $allHeaders && $tableCell->isHeader();
+                }
+            }
+            $headerRows[] = $cellCount > 0 && $allHeaders;
+        }
+
+        foreach ($layout['rows'] as $rowIndex => $row) {
             $cells = [];
             foreach ($row['cells'] as $colIndex => $cell) {
                 $isGenuine = is_array($cell) && isset($cell['content']) && is_string($cell['content']);
@@ -1117,7 +1133,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $colWidths[$colIndex] = max($colWidths[$colIndex] ?? 0, $width);
                 $cells[] = [
                     'content' => $content,
-                    'isHeader' => $row['isHeader'],
+                    'isHeader' => $headerRows[$rowIndex] ?? false,
                 ];
             }
             $rows[] = $cells;
