@@ -4737,6 +4737,9 @@ class BlockParser
      */
     protected function flushLineEndsListContinuation(string $line, ?array $lines = null, ?int $index = null): bool
     {
+        if ($this->isCaptionLine($line)) {
+            return false;
+        }
         if ($this->isBlockAttributeLine($line)) {
             return true;
         }
