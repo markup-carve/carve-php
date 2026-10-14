@@ -3214,6 +3214,11 @@ class DjotToCarve
      */
     private function renderImageLabelChildText(string $label, array $inherited, bool $omitQuotes = true, bool $preserveSourceNuls = false): string
     {
+        if ($preserveSourceNuls) {
+            $label = $this->removeInheritedAttributeMarkers($label, $inherited);
+            [$label, $markers] = $this->escapeInvalidDjotAttributes($label);
+            $label = $this->removeInheritedAttributeMarkers($label, $markers);
+        }
         $label = $this->djotImageLabelAttributes($label);
         [$protected, $scalars] = $this->protectImageAltScalars($label, $preserveSourceNuls);
         $renderer = new DjotImageChildTextRenderer();
