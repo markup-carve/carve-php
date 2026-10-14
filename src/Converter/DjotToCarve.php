@@ -1957,8 +1957,8 @@ class DjotToCarve
             $end = $at;
             while ($end < $count) {
                 if (preg_match('/^>(?:[ \t]|$)/', $lines[$end], $prefix) !== 1 || ($masks[$end][strpos($prefix[0], '>') ?: 0] ?? '') !== '>') {
-                    $text = ltrim($lines[$end]);
-                    $visible = ltrim($masks[$end]);
+                    $text = ltrim($lines[$end], " \t");
+                    $visible = ltrim($masks[$end], " \t");
                     $block = preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|:(?:[ \t]|$)|:{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|(?:[*-][ \t]*){3,}$)/', $visible) === 1
                         || str_starts_with($visible, '|') && str_ends_with($text, '|')
                         || preg_match('/^(?:`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $text) === 1;
@@ -1975,7 +1975,7 @@ class DjotToCarve
                 [, $body] = $this->quoted($child);
                 if (preg_match('/^([ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)*):(?:[ \t]|$)/', $body, $term) === 1) {
                     $termColumn = strlen($term[1]);
-                } elseif (trim($body) === '' || $termColumn !== null && $this->leadingIndent($body)[0] <= $termColumn && preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|:{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t])/', ltrim($body)) === 1) {
+                } elseif (trim($body, " \t") === '' || $termColumn !== null && $this->leadingIndent($body)[0] <= $termColumn && preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|:{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t])/', ltrim($body, " \t")) === 1) {
                     $termColumn = null;
                 }
                 $nested[] = $child;
@@ -2015,15 +2015,15 @@ class DjotToCarve
             if ($at > $start) {
                 $result[] = $this->convertRootDefinitionLists(implode("\n", array_slice($lines, $start, $at - $start)), $emptyTerm);
             }
-            $column = $this->leadingIndent($item[0])[0] + strlen(str_replace("\t", ' ', ltrim($item[0])));
+            $column = $this->leadingIndent($item[0])[0] + strlen(str_replace("\t", ' ', ltrim($item[0], " \t")));
             $nested = [substr($line, strlen($item[0]))];
             $end = $at + 1;
             $blank = false;
             while ($end < $count) {
                 $next = $lines[$end];
                 $indent = $this->leadingIndent($next)[0];
-                $text = ltrim($next);
-                if ($text !== '' && $indent < $column && ($blank || preg_match('/^(?:[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|#{1,6}(?:[ \t]|$)|>|:{3,}|[`~]{3,}|\|)/', ltrim($masks[$end])) === 1)) {
+                $text = ltrim($next, " \t");
+                if ($text !== '' && $indent < $column && ($blank || preg_match('/^(?:[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]|#{1,6}(?:[ \t]|$)|>|:{3,}|[`~]{3,}|\|)/', ltrim($masks[$end], " \t")) === 1)) {
                     break;
                 }
                 $nested[] = substr($next, $this->bytesThroughColumns($next, min($column, $indent)));
@@ -2035,14 +2035,14 @@ class DjotToCarve
             $removed = [];
             $convertedCount = count($converted);
             for ($index = 0; $index < $convertedCount; $index++) {
-                if (trim($converted[$index]) !== '') {
+                if (trim($converted[$index], " \t") !== '') {
                     continue;
                 }
                 $next = $index;
-                while ($next < $convertedCount && trim($converted[$next]) === '') {
+                while ($next < $convertedCount && trim($converted[$next], " \t") === '') {
                     $next++;
                 }
-                if ($next < $convertedCount && str_starts_with(ltrim($converted[$next]), ':  ')) {
+                if ($next < $convertedCount && str_starts_with(ltrim($converted[$next], " \t"), ':  ')) {
                     for ($blankIndex = $index; $blankIndex < $next; $blankIndex++) {
                         $removed[$blankIndex] = true;
                     }
@@ -2054,7 +2054,7 @@ class DjotToCarve
                     continue;
                 }
                 $next = $index + 1;
-                while ($next < $convertedCount && trim($converted[$next]) === '') {
+                while ($next < $convertedCount && trim($converted[$next], " \t") === '') {
                     $next++;
                 }
                 if ($next > $index + 1 && $next < $convertedCount && preg_match('/^\S/', $converted[$next]) === 1 && !str_starts_with($converted[$next], '::')) {
@@ -2115,10 +2115,10 @@ class DjotToCarve
                     $finish($finished['termEnd'], $finished['target'], $finished['body']);
                 }
                 $top = $stack === [] ? null : $stack[array_key_last($stack)];
-                $mayStart = $top !== null || $i === 0 || trim($lines[$i - 1]) === '' || preg_match('/^ *:{3,}(?:[ \t]+[A-Za-z0-9_-]+)?[ \t]*$/', $maskedLines[$i - 1] ?? '') === 1 || isset(($boundaries ??= array_fill_keys($this->djotInlineBoundaries($source, $sourceMask, true), true))[$sourceAt]);
+                $mayStart = $top !== null || $i === 0 || trim($lines[$i - 1], " \t") === '' || preg_match('/^ *:{3,}(?:[ \t]+[A-Za-z0-9_-]+)?[ \t]*$/', $maskedLines[$i - 1] ?? '') === 1 || isset(($boundaries ??= array_fill_keys($this->djotInlineBoundaries($source, $sourceMask, true), true))[$sourceAt]);
                 if ($mayStart) {
                     $termText = isset($term[2]) ? substr($line, $term[2][1]) : '';
-                    if (trim($termText) === '' || str_starts_with(ltrim($termText), '{') && preg_match('/^(?:[ \t]|\{%%\})*$/', $this->djotImageLabelAttributes($termText)) === 1) {
+                    if (trim($termText, " \t") === '' || str_starts_with(ltrim($termText, " \t"), '{') && preg_match('/^(?:[ \t]|\{%%\})*$/', $this->djotImageLabelAttributes($termText)) === 1) {
                         $termText = $emptyTerm;
                     }
                     $containerBody = preg_match('/^:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$/', $termText) === 1;
@@ -2172,7 +2172,7 @@ class DjotToCarve
             if ($stack === []) {
                 continue;
             }
-            if (trim($line) === '') {
+            if (trim($line, " \t") === '') {
                 $currentIndex = array_key_last($stack);
                 $current = $stack[$currentIndex];
                 if (!$current['body'] && $this->rejectedDjotCommentStartsBlock(ltrim($lines[$i + 1] ?? '', " \t"))) {
