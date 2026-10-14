@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter;
 
+use Closure;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
@@ -14,6 +15,43 @@ use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 
 trait ReportsDjotLosses
 {
+    /**
+     * @param string $text
+     * @param int $depth
+     * @param \Closure(string, int): string $childText
+     */
+    private function djotImageTrailingWhitespaceLoss(string $text, int $depth, Closure $childText): bool
+    {
+        $label = $this->djotImageLabelAttributes($this->projectDjotReferenceText($text, $depth), true);
+        if (preg_match('/([ \t]+)((?:(?:\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', $label) !== 1) {
+            return false;
+        }
+        preg_match_all('/DJOTTRAILSPACE([0-9]+)Z/', (preg_replace('/[^A-Za-z0-9]/', '', $label) ?? $label) . '\n' . $childText($label, 0), $matches);
+        $reserved = array_fill_keys($matches[1], true);
+        $serial = 0;
+        while (isset($reserved[$serial])) {
+            $serial++;
+        }
+        $marker = 'DJOTTRAILSPACE' . $serial . 'Z';
+        $mask = $this->maskCodeAndDestinations($label);
+        $probe = preg_replace_callback('/([ \t]+)((?:(?:\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', function (array $match) use ($label, $mask, $marker): string {
+            $at = $match[0][1];
+            if ($at > 0 && ($mask[$at - 1] ?? '') === '\\' && !$this->isDjotEscaped($label, $at - 1)) {
+                return $match[0][0];
+            }
+
+            return $match[1][0] . $marker . $match[2][0] . $match[3][0];
+        }, $label, flags: PREG_OFFSET_CAPTURE) ?? $label;
+        $child = str_replace($marker, '', $childText($probe, 0));
+
+        $original = $childText($label, 0);
+        if (preg_replace('/[ \t]+\n/', "\n", $child) !== preg_replace('/[ \t]+\n/', "\n", $original)) {
+            return preg_match('/[ \t]+\n/', $original) === 1;
+        }
+
+        return preg_match('/[ \t]+\n/', $child) === 1;
+    }
+
     /**
      * Assess the original input so paths survive folding and inserted lines.
      *
@@ -34,6 +72,15 @@ trait ReportsDjotLosses
             $key = $depth . ':' . $label;
 
             return $keyCache[$key] ??= $this->djotCollapsedReferenceText($label, $depth);
+        };
+        $imageChildText = function (string $label, int $depth) use (&$keyCache): string {
+            $key = 'image:' . $depth . ':' . $label;
+            $projected = $this->djotImageLabelAttributes($this->projectDjotReferenceText($label, $depth), true);
+            if (strlen($label) > 256) {
+                return $this->djotCollapsedReferenceText($projected);
+            }
+
+            return $keyCache[$key] ??= $this->djotCollapsedReferenceText($projected);
         };
         $rawFormatMessage = 'A Djot raw-format identifier containing U+0085 cannot be spelled in Carve; its raw-output behavior is lost.';
         $rawFormats = $rawFormatIgnored = $rawFenceLines = [];
@@ -364,8 +411,13 @@ trait ReportsDjotLosses
                     $destination = isset($destinations[$at + 1])
                         ? $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth)
                         : ($definitions[$label ?? ''] ?? null);
-                    if ($destination !== null && $destination !== '' && str_contains($text, "\n") && preg_match('/\n[ \t]*\n/', $childText($text, $depth)) === 1) {
-                        $add($start, 'An image alternative text with a blank line cannot be spelled in Carve.');
+                    if ($destination !== null && $destination !== '' && str_contains($text, "\n")) {
+                        $child = $imageChildText($text, $depth);
+                        if (preg_match('/\n[ \t]*\n/', $child) === 1) {
+                            $add($start, 'An image alternative text with a blank line cannot be spelled in Carve.');
+                        } elseif ($this->djotImageTrailingWhitespaceLoss($text, $depth, $imageChildText)) {
+                            $add($start, 'An image alternative text loses trailing spaces before a line break.');
+                        }
                     }
                 }
                 if ($isLink && $innerLink) {

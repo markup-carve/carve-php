@@ -3159,10 +3159,10 @@ class DjotToCarve
         return $this->normalizeDjotInlineSpellings($source, fn (int $at): bool => $this->omitQuoteDelimiters || isset($positions[$at]));
     }
 
-    private function djotImageLabelAttributes(string $source): string
+    private function djotImageLabelAttributes(string $source, bool $flattenAttributeLines = false): string
     {
         $mask = $this->maskCodeAndDestinations($source, opaqueOptions: ['comments' => false, 'autolinks' => false]);
-        $framed = 'DJOTALT ' . $source;
+        $framed = 'DJOTALT ' . ($flattenAttributeLines ? str_replace("\n", ' ', $source) : $source);
         $parts = [];
         $cursor = 0;
         $noteEnd = -1;
@@ -3225,11 +3225,9 @@ class DjotToCarve
     /**
      * @param string $source
      * @param int $quoteDepth
-     * @param array<string, true> $inherited
      */
-    private function djotCollapsedReferenceText(string $source, int $quoteDepth = 0, array $inherited = []): string
+    private function projectDjotReferenceText(string $source, int $quoteDepth): string
     {
-        $source = $this->removeInheritedAttributeMarkers($source, $inherited);
         if ($quoteDepth > 0 && str_contains($source, "\n")) {
             $source = preg_replace_callback('/\n([^\n]*)/', static function (array $match) use ($quoteDepth): string {
                 $line = $match[1];
@@ -3243,6 +3241,19 @@ class DjotToCarve
                 return "\n" . $line;
             }, $source) ?? $source;
         }
+
+        return $source;
+    }
+
+    /**
+     * @param string $source
+     * @param int $quoteDepth
+     * @param array<string, true> $inherited
+     */
+    private function djotCollapsedReferenceText(string $source, int $quoteDepth = 0, array $inherited = []): string
+    {
+        $source = $this->removeInheritedAttributeMarkers($source, $inherited);
+        $source = $this->projectDjotReferenceText($source, $quoteDepth);
 
         if (strpbrk($source, "_*`{~^\"'\\[]=!/<:\n\r") === false) {
             return $source;
