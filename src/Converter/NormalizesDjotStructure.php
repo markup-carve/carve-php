@@ -1137,7 +1137,7 @@ trait NormalizesDjotStructure
                 $body = substr($text, strlen($itemMatch[0]) - 1);
                 $itemHeading = preg_match('/^(#{1,6})(?:[ \t]+|$)/', $body, $itemHeadingMatch) === 1;
                 $headingMarker = $itemHeadingMatch[1] ?? '';
-                $task = str_starts_with($body, '[') && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMatch) === 1;
+                $task = $itemMatch[1] !== '' && str_starts_with($body, '[') && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMatch) === 1;
                 $itemBody = $task ? substr($body, strlen($taskMatch[0])) : $body;
                 $itemDiv = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $itemBody, $itemDivMatch) === 1;
                 if ($itemDiv) {

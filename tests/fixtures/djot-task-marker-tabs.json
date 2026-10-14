@@ -4608,6 +4608,1830 @@
     "html": "<ul>\n<li>\nouter\n+ [X]\t\t<a href=\"u\">link</a>\n</li>\n</ul>\n"
   },
   {
+    "source": "1. [ ] ::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ] text",
+    "html": "<ol>\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ] text",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ] # H",
+    "html": "<ol>\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ] # H",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ]\t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ]\ttext",
+    "html": "<ol>\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ]\ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ]\t# H",
+    "html": "<ol>\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ]\t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ] \t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ] \ttext",
+    "html": "<ol>\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ] \ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [ ] \t# H",
+    "html": "<ol>\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [ ] \t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x] ::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x] text",
+    "html": "<ol>\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x] text",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x] # H",
+    "html": "<ol>\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x] # H",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x]\t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x]\ttext",
+    "html": "<ol>\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x]\ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x]\t# H",
+    "html": "<ol>\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x]\t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x] \t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x] \ttext",
+    "html": "<ol>\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x] \ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [x] \t# H",
+    "html": "<ol>\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [x] \t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X] ::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X] text",
+    "html": "<ol>\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X] text",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X] # H",
+    "html": "<ol>\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X] # H",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X]\t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X]\ttext",
+    "html": "<ol>\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X]\ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X]\t# H",
+    "html": "<ol>\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X]\t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X] \t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X] \ttext",
+    "html": "<ol>\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X] \ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "1. [X] \t# H",
+    "html": "<ol>\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 1. [X] \t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ] ::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ] text",
+    "html": "<ol type=\"a\">\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ] text",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ] # H",
+    "html": "<ol type=\"a\">\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ] # H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ]\ttext",
+    "html": "<ol type=\"a\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ]\ttext",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ]\t# H",
+    "html": "<ol type=\"a\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ]\t# H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ] \ttext",
+    "html": "<ol type=\"a\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ] \ttext",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [ ] \t# H",
+    "html": "<ol type=\"a\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [ ] \t# H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x] ::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x] text",
+    "html": "<ol type=\"a\">\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x] text",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x] # H",
+    "html": "<ol type=\"a\">\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x] # H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x]\ttext",
+    "html": "<ol type=\"a\">\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x]\ttext",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x]\t# H",
+    "html": "<ol type=\"a\">\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x]\t# H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x] \ttext",
+    "html": "<ol type=\"a\">\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x] \ttext",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [x] \t# H",
+    "html": "<ol type=\"a\">\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [x] \t# H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X] ::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X] text",
+    "html": "<ol type=\"a\">\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X] text",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X] # H",
+    "html": "<ol type=\"a\">\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X] # H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X]\ttext",
+    "html": "<ol type=\"a\">\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X]\ttext",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X]\t# H",
+    "html": "<ol type=\"a\">\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X]\t# H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"a\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X] \ttext",
+    "html": "<ol type=\"a\">\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X] \ttext",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "a) [X] \t# H",
+    "html": "<ol type=\"a\">\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> a) [X] \t# H",
+    "html": "<blockquote>\n<ol type=\"a\">\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ] ::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ] text",
+    "html": "<ol type=\"i\">\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ] text",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ] # H",
+    "html": "<ol type=\"i\">\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ] # H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ]\ttext",
+    "html": "<ol type=\"i\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ]\ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ]\t# H",
+    "html": "<ol type=\"i\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ]\t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ] \ttext",
+    "html": "<ol type=\"i\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ] \ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [ ] \t# H",
+    "html": "<ol type=\"i\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [ ] \t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x] ::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x] text",
+    "html": "<ol type=\"i\">\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x] text",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x] # H",
+    "html": "<ol type=\"i\">\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x] # H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x]\ttext",
+    "html": "<ol type=\"i\">\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x]\ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x]\t# H",
+    "html": "<ol type=\"i\">\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x]\t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x] \ttext",
+    "html": "<ol type=\"i\">\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x] \ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [x] \t# H",
+    "html": "<ol type=\"i\">\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [x] \t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X] ::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X] text",
+    "html": "<ol type=\"i\">\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X] text",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X] # H",
+    "html": "<ol type=\"i\">\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X] # H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X]\ttext",
+    "html": "<ol type=\"i\">\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X]\ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X]\t# H",
+    "html": "<ol type=\"i\">\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X]\t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X] \ttext",
+    "html": "<ol type=\"i\">\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X] \ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(i) [X] \t# H",
+    "html": "<ol type=\"i\">\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (i) [X] \t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ] ::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ] text",
+    "html": "<ol type=\"A\">\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ] text",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ] # H",
+    "html": "<ol type=\"A\">\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ] # H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ]\ttext",
+    "html": "<ol type=\"A\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ]\ttext",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ]\t# H",
+    "html": "<ol type=\"A\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ]\t# H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ] \ttext",
+    "html": "<ol type=\"A\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ] \ttext",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [ ] \t# H",
+    "html": "<ol type=\"A\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [ ] \t# H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x] ::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x] text",
+    "html": "<ol type=\"A\">\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x] text",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x] # H",
+    "html": "<ol type=\"A\">\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x] # H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x]\ttext",
+    "html": "<ol type=\"A\">\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x]\ttext",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x]\t# H",
+    "html": "<ol type=\"A\">\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x]\t# H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x] \ttext",
+    "html": "<ol type=\"A\">\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x] \ttext",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [x] \t# H",
+    "html": "<ol type=\"A\">\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [x] \t# H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X] ::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X] text",
+    "html": "<ol type=\"A\">\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X] text",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X] # H",
+    "html": "<ol type=\"A\">\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X] # H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X]\ttext",
+    "html": "<ol type=\"A\">\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X]\ttext",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X]\t# H",
+    "html": "<ol type=\"A\">\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X]\t# H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"A\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X] \ttext",
+    "html": "<ol type=\"A\">\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X] \ttext",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "A. [X] \t# H",
+    "html": "<ol type=\"A\">\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> A. [X] \t# H",
+    "html": "<blockquote>\n<ol type=\"A\">\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ] ::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ] text",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ] text",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ] # H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ] # H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ]\t::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ]\ttext",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ]\ttext",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ]\t# H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ]\t# H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ] \t::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ] \ttext",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ] \ttext",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [ ] \t# H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [ ] \t# H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x] ::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x] text",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x] text",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x] # H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x] # H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x]\t::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x]\ttext",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x]\ttext",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x]\t# H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x]\t# H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x] \t::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x] \ttext",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x] \ttext",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [x] \t# H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [x] \t# H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X] ::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X] text",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X] text",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X] # H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X] # H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X]\t::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X]\ttext",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X]\ttext",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X]\t# H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X]\t# H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X] \t::: x\n   body\n   :::",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X] \ttext",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X] \ttext",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "(IV) [X] \t# H",
+    "html": "<ol start=\"4\" type=\"I\">\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> (IV) [X] \t# H",
+    "html": "<blockquote>\n<ol start=\"4\" type=\"I\">\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ] ::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ] text",
+    "html": "<ol>\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ] text",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ] # H",
+    "html": "<ol>\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ] # H",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ]\t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ]\ttext",
+    "html": "<ol>\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ]\ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ]\t# H",
+    "html": "<ol>\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ]\t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ] \t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ] \ttext",
+    "html": "<ol>\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ] \ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [ ] \t# H",
+    "html": "<ol>\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [ ] \t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x] ::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x] text",
+    "html": "<ol>\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x] text",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x] # H",
+    "html": "<ol>\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x] # H",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x]\t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x]\ttext",
+    "html": "<ol>\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x]\ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x]\t# H",
+    "html": "<ol>\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x]\t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x] \t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x] \ttext",
+    "html": "<ol>\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x] \ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [x] \t# H",
+    "html": "<ol>\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [x] \t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X] ::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X] text",
+    "html": "<ol>\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X] text",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X] # H",
+    "html": "<ol>\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X] # H",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X]\t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X]\ttext",
+    "html": "<ol>\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X]\ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X]\t# H",
+    "html": "<ol>\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X]\t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X] \t::: x\n   body\n   :::",
+    "html": "<ol>\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X] \ttext",
+    "html": "<ol>\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X] \ttext",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "001. [X] \t# H",
+    "html": "<ol>\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 001. [X] \t# H",
+    "html": "<blockquote>\n<ol>\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ] ::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ] text",
+    "html": "<ol type=\"i\">\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ] text",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ] # H",
+    "html": "<ol type=\"i\">\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ] # H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ]\ttext",
+    "html": "<ol type=\"i\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ]\ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ]\t# H",
+    "html": "<ol type=\"i\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ]\t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ] \ttext",
+    "html": "<ol type=\"i\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ] \ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [ ] \t# H",
+    "html": "<ol type=\"i\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [ ] \t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x] ::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x] text",
+    "html": "<ol type=\"i\">\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x] text",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x] # H",
+    "html": "<ol type=\"i\">\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x] # H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x]\ttext",
+    "html": "<ol type=\"i\">\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x]\ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x]\t# H",
+    "html": "<ol type=\"i\">\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x]\t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x] \ttext",
+    "html": "<ol type=\"i\">\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x] \ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [x] \t# H",
+    "html": "<ol type=\"i\">\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [x] \t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X] ::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X] text",
+    "html": "<ol type=\"i\">\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X] text",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X] # H",
+    "html": "<ol type=\"i\">\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X] # H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X]\t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X]\ttext",
+    "html": "<ol type=\"i\">\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X]\ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X]\t# H",
+    "html": "<ol type=\"i\">\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X]\t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X] \t::: x\n   body\n   :::",
+    "html": "<ol type=\"i\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X] \ttext",
+    "html": "<ol type=\"i\">\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X] \ttext",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "i. [X] \t# H",
+    "html": "<ol type=\"i\">\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> i. [X] \t# H",
+    "html": "<blockquote>\n<ol type=\"i\">\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ] ::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ] text",
+    "html": "<ol start=\"9\">\n<li>\n[ ] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ] text",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ] # H",
+    "html": "<ol start=\"9\">\n<li>\n[ ] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ] # H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ]\t::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ]\ttext",
+    "html": "<ol start=\"9\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ]\ttext",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ]\t# H",
+    "html": "<ol start=\"9\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ]\t# H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ] \t::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ] \ttext",
+    "html": "<ol start=\"9\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ] \ttext",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [ ] \t# H",
+    "html": "<ol start=\"9\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [ ] \t# H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[ ] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x] ::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x] text",
+    "html": "<ol start=\"9\">\n<li>\n[x] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x] text",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x] # H",
+    "html": "<ol start=\"9\">\n<li>\n[x] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x] # H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x]\t::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x]\ttext",
+    "html": "<ol start=\"9\">\n<li>\n[x]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x]\ttext",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x]\t# H",
+    "html": "<ol start=\"9\">\n<li>\n[x]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x]\t# H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x] \t::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x] \ttext",
+    "html": "<ol start=\"9\">\n<li>\n[x] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x] \ttext",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [x] \t# H",
+    "html": "<ol start=\"9\">\n<li>\n[x] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [x] \t# H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[x] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X] ::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X] ::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X] ::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X] text",
+    "html": "<ol start=\"9\">\n<li>\n[X] text\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X] text",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X] text\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X] # H",
+    "html": "<ol start=\"9\">\n<li>\n[X] # H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X] # H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X] # H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X]\t::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X]\t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X]\t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X]\ttext",
+    "html": "<ol start=\"9\">\n<li>\n[X]\ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X]\ttext",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X]\ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X]\t# H",
+    "html": "<ol start=\"9\">\n<li>\n[X]\t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X]\t# H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X]\t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X] \t::: x\n   body\n   :::",
+    "html": "<ol start=\"9\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X] \t::: x\n>    body\n>    :::",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X] \t::: x\nbody\n:::\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X] \ttext",
+    "html": "<ol start=\"9\">\n<li>\n[X] \ttext\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X] \ttext",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X] \ttext\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "9) [X] \t# H",
+    "html": "<ol start=\"9\">\n<li>\n[X] \t# H\n</li>\n</ol>\n"
+  },
+  {
+    "source": "> 9) [X] \t# H",
+    "html": "<blockquote>\n<ol start=\"9\">\n<li>\n[X] \t# H\n</li>\n</ol>\n</blockquote>\n"
+  },
+  {
+    "source": "- [ ] :::x\n  - [ ] :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [ ] ::: x\n  - [ ] ::: y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [ ] :::x\n  :::\n  - [ ] :::y\n    :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n</div>\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [ ] :::x\n  - :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n<ul>\n<li>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [ ]\t:::x\n  - [ ]\t:::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [ ]\t::: x\n  - [ ]\t::: y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [ ]\t:::x\n  :::\n  - [ ]\t:::y\n    :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n</div>\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [ ]\t:::x\n  - :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\"/>\n<div class=\"x\">\n<ul>\n<li>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x] :::x\n  - [x] :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x] ::: x\n  - [x] ::: y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x] :::x\n  :::\n  - [x] :::y\n    :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n</div>\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x] :::x\n  - :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul>\n<li>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x]\t:::x\n  - [x]\t:::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x]\t::: x\n  - [x]\t::: y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x]\t:::x\n  :::\n  - [x]\t:::y\n    :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n</div>\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [x]\t:::x\n  - :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul>\n<li>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X] :::x\n  - [X] :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X] ::: x\n  - [X] ::: y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X] :::x\n  :::\n  - [X] :::y\n    :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n</div>\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X] :::x\n  - :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul>\n<li>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X]\t:::x\n  - [X]\t:::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X]\t::: x\n  - [X]\t::: y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X]\t:::x\n  :::\n  - [X]\t:::y\n    :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n</div>\n<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
+    "source": "- [X]\t:::x\n  - :::y\n    :::\n  :::\nafter",
+    "html": "<ul class=\"task-list\">\n<li>\n<input disabled=\"\" type=\"checkbox\" checked=\"\"/>\n<div class=\"x\">\n<ul>\n<li>\n<div class=\"y\">\n</div>\n</li>\n</ul>\n</div>\n<div>\n</div>\n</li>\n</ul>\n<p>after</p>\n"
+  },
+  {
     "source": "- [x] text",
     "html": "<ul>\n<li>\n[x] text\n</li>\n</ul>\n"
   },
