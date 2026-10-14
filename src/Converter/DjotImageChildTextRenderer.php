@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
+use MarkupCarve\Carve\Node\Inline\Delete;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Link;
@@ -24,7 +25,7 @@ final class DjotImageChildTextRenderer extends PlainTextRenderer
         }
         $link = $node instanceof Link && $node->getReferenceLabel() !== null && $node->getDestination() === '';
         $image = $node instanceof Image && $node->getReferenceLabel() !== null && $node->getSource() === '';
-        if (!$link && !$image) {
+        if (!$link && !$image && !($node instanceof Delete)) {
             return parent::renderNode($node);
         }
         if ($this->renderDepth >= self::MAX_RENDER_DEPTH) {
