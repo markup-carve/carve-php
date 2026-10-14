@@ -3272,9 +3272,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return $this->softBreakGuard();
     }
 
-    protected function renderCellWrap(): string
+    protected function renderCellWrap(CellWrap $node): string
     {
-        return ' ';
+        return $node->visibleText();
     }
 
     protected function renderHardBreak(): string

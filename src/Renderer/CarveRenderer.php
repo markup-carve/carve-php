@@ -2901,8 +2901,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     if ($row->getContinuationLines() === 0) {
                         throw new SourceUnspellableException('table_cell', 'a span cell with text needs a continuation line');
                     }
-                    $textCell = clone $cell;
-                    $textCell->setSpanMarker(null);
+                    // Only the text moves: the attributes stay on the marker.
+                    $textCell = new TableCell();
+                    foreach ($cell->getChildren() as $child) {
+                        $textCell->appendChild(clone $child);
+                    }
                     $text = trim($this->renderTableCell($textCell, false, false, false));
                     $firstLine = null;
                     foreach ($cell->getChildren() as $child) {

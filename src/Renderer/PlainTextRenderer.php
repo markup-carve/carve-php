@@ -450,7 +450,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof NonBreakingSpace => "\0",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",
-                $node instanceof CellWrap => ' ',
+                $node instanceof CellWrap => $node->visibleText(),
                 $node instanceof HardBreak => "\n",
                 $node instanceof RawInline => $this->dropRaw($node, 'inline'),
                 // §27: always emitted (unlike raw passthrough above), as plain prose.

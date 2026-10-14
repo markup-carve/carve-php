@@ -146,7 +146,7 @@ final class TableBlockBuilder
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
-        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int, int}>, rowIndex: int}> $cellBuilds */
+        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int, int}>, rowIndex: int, leadLine?: int}> $cellBuilds */
         $cellBuilds = [];
         /** @var array<int, true> $rejoined */
         $rejoined = [];
@@ -584,6 +584,10 @@ final class TableBlockBuilder
                     $build = &$cellBuilds[spl_object_id($origin)];
                     $joinAt = $build['content'] === '' ? 0 : strlen($build['content']) + 1;
                     $rowsBelow = $rowIndex - $build['rowIndex'];
+                    // Text a blocked marker keeps from a later `+` line names that line.
+                    if ($joinAt === 0 && $origin->getSpanMarker() !== null && ($join['wraps'][-1] ?? 1) > 1) {
+                        $build['leadLine'] = $join['wraps'][-1];
+                    }
                     foreach ($join['wraps'] as $at => $wrapLine) {
                         if ($at >= 0 || $joinAt > 0) {
                             $build['wraps'][$joinAt + $at] = [$wrapLine, $rowsBelow, $col - $build['cellData']['gridColumn']];
@@ -632,6 +636,9 @@ final class TableBlockBuilder
                 $build['cell']->removeChild($child);
             }
             $this->fillCellContent($build['cell'], $build['cellData'], $build['line'], $build['content'], $build['wraps']);
+            if (isset($build['leadLine']) && $build['cell']->getChildren() !== []) {
+                $build['cell']->prependChild(new CellWrap($build['leadLine']));
+            }
             $rowEnd = $build['cell']->getParent()?->getPos()?->endOffset;
             if ($rowEnd !== null) {
                 // Text joined from a later row is reassembled and has no position in this row.
