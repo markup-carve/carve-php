@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Extension;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Extension\WikilinksExtension;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class WikilinksExtensionTest extends TestCase
@@ -273,5 +274,51 @@ class WikilinksExtensionTest extends TestCase
         $html = $converter->convert('See [[Main Page]]');
 
         $this->assertStringContainsString('href="/wiki/Main_Page"', $html);
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function escapedCloserProvider(): array
+    {
+        return [
+            'escaped first bracket falls through to the core link' => [
+                'a [[http\:\/\/u\/\]](http://u/])',
+                '<p>a [<a href="http://u/]">http://u/]</a></p>',
+            ],
+            'escaped first bracket followed by a real close' => [
+                '[[a\]]]',
+                '<p>[[a]]]</p>',
+            ],
+            'escaped bracket with no later close' => [
+                '[[x\]]',
+                '<p>[[x]]</p>',
+            ],
+            'escaped bracket after an escaped backslash' => [
+                '[[a\\\\\\]]]',
+                '<p>[[a\]]]</p>',
+            ],
+            'closes after an escaped backslash' => [
+                '[[a\\\\]]',
+                '<p><a href="a" class="wikilink" data-wikilink="a\\\\">a\\\\</a></p>',
+            ],
+            'escaped bracket in the display text' => [
+                '[[a|x\]y]]',
+                '<p><a href="a" class="wikilink" data-wikilink="a">x\]y</a></p>',
+            ],
+            'backslash before the pipe stays in the page' => [
+                '[[a\|b]]',
+                '<p><a href="a" class="wikilink" data-wikilink="a\">b</a></p>',
+            ],
+        ];
+    }
+
+    #[DataProvider('escapedCloserProvider')]
+    public function testEscapedBracketDoesNotClose(string $input, string $expected): void
+    {
+        $converter = new CarveConverter();
+        $converter->addExtension(new WikilinksExtension());
+
+        $this->assertSame($expected, trim($converter->convert($input)));
     }
 }
