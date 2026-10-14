@@ -25,49 +25,49 @@ final class ReferencedLinkDefinitions
     public static function labels(Node $root): array
     {
         $labels = [];
-        $stack = [[$root, false]];
+        $stack = [$root];
         $seen = [];
         while ($stack !== []) {
-            [$value, $insideLink] = array_pop($stack);
+            $value = array_pop($stack);
             $id = spl_object_id($value);
             if (isset($seen[$id])) {
                 continue;
             }
             $seen[$id] = true;
-            if ((!$insideLink || !($value instanceof Link)) && ($value instanceof Link || $value instanceof Image) && $value->getReferenceLabel() !== null) {
+            if (($value instanceof Link || $value instanceof Image) && $value->getReferenceLabel() !== null) {
                 $href = $value instanceof Link ? $value->getDestination() : $value->getSource();
                 $labels[self::key($value->getReferenceLabel(), $href ?? '', $value->getTitle())] = true;
             }
             foreach ($value->getChildren() as $child) {
-                $stack[] = [$child, $insideLink || $value instanceof Link];
+                $stack[] = $child;
             }
             if ($value instanceof Div) {
                 foreach ([...$value->getHeaderNodes(), ...$value->getLabelNodes()] as $child) {
-                    $stack[] = [$child, $insideLink];
+                    $stack[] = $child;
                 }
             }
             if ($value instanceof Figure || $value instanceof Table) {
                 foreach ($value->getShortCaption() ?? [] as $child) {
-                    $stack[] = [$child, $insideLink];
+                    $stack[] = $child;
                 }
             }
             if ($value instanceof FigureGroup || $value instanceof Table) {
                 $caption = $value->getCaption();
                 if ($caption !== null) {
-                    $stack[] = [$caption, $insideLink];
+                    $stack[] = $caption;
                 }
             }
             if ($value instanceof Ruby) {
                 foreach ($value->getPairs() as $pair) {
                     foreach ([...$pair['base'], ...$pair['annotation']] as $child) {
-                        $stack[] = [$child, $insideLink];
+                        $stack[] = $child;
                     }
                 }
             }
             if ($value instanceof CitationGroup) {
                 foreach ($value->getItems() as $item) {
                     foreach ([...($item['prefix'] ?? []), ...($item['locator'] ?? []), ...($item['suffix'] ?? [])] as $child) {
-                        $stack[] = [$child, $insideLink];
+                        $stack[] = $child;
                     }
                 }
             }

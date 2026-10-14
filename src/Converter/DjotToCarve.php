@@ -208,9 +208,13 @@ class DjotToCarve
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
         $source = $this->escapeDjotTableAttributeBoundaries($this->normalizeDjotDivOpeners($source));
+        $hasSourceNuls = str_contains($source, "\0U\0");
         if (str_contains($source, '`') || str_contains($source, "\0")) {
             foreach (explode("\n", $source) as $line) {
-                if (preg_match('/^\[(?!\^)[^\]\n]*[`\x00][^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1) {
+                if (
+                    preg_match('/^\[(?!\^)[^\]\n]*[`\x00][^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1
+                    || $hasSourceNuls && preg_match('/^\[(?!\^)[^\]\n]*�[^\]\n]*\]:/', substr($line, $this->djotContentStart($line))) === 1
+                ) {
                     $source = $this->normalizeDjotReferenceUses($source, aliasesOnly: true);
 
                     break;

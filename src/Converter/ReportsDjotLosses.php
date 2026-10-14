@@ -16,9 +16,13 @@ trait ReportsDjotLosses
     /**
      * Assess the original input so paths survive folding and inserted lines.
      *
+     * @param string $source
+     * @param bool $definitionsOnly
+     * @param array<string, string> $referenceDefinitions
+     *
      * @return list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
      */
-    private function djotLosses(string $source): array
+    private function djotLosses(string $source, bool $definitionsOnly = false, array &$referenceDefinitions = []): array
     {
         $source = str_replace(["\r\n", "\r"], "\n", $source);
         $keyCache = [];
@@ -149,7 +153,7 @@ trait ReportsDjotLosses
                     $linkMask[$k] = ' ';
                 }
             }
-            if (preg_match('/^(#{1,6})(?:[ \t]+|$)/', $contentMask, $heading) === 1 && $boundary && !isset($headingLines[$n])) {
+            if (str_starts_with($contentMask, '#') && preg_match('/^(#{1,6})(?:[ \t]+|$)/', $content, $heading) === 1 && $boundary && !isset($headingLines[$n])) {
                 $text = substr($content, strlen($heading[0]));
                 $lastPart = $text;
                 $marker = '/^' . preg_quote($heading[1], '/') . '[ \t]+/';
@@ -179,7 +183,7 @@ trait ReportsDjotLosses
                 $key = $this->djotReferenceDefinitionKey($childText($text));
                 $definitions[$key] ??= '#' . $key;
             }
-            if (preg_match('/^#{1,6}[ \t]*$/', $contentMask) === 1 && $boundary && !isset($headingLines[$n])) {
+            if (preg_match('/^#{1,6}[ \t]*$/', $contentMask) === 1 && trim($childText(substr($content, strlen($heading[0] ?? '')))) === '' && $boundary && !isset($headingLines[$n])) {
                 $next = trim($lines[$n + 1] ?? '');
                 if ($next === '' || preg_match('/^(?:[#>|{]|[-*+] |:{3,}|`{3,}|~{3,})/', $next) === 1) {
                     $add($offsets[$n], 'An empty heading has no Carve spelling.');
@@ -211,6 +215,11 @@ trait ReportsDjotLosses
                     $add($offsets[$n], 'An empty definition description has no Carve spelling.');
                 }
             }
+        }
+        if ($definitionsOnly) {
+            $referenceDefinitions = $definitions;
+
+            return [];
         }
         $rows = [];
         $offset = 0;
