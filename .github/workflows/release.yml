@@ -155,6 +155,9 @@ jobs:
       # here, so POST /git/refs answered 403 "Resource not accessible by
       # integration" and the release stopped after the maintainer's approval.
       contents: write
+      # Dispatching the post-tag release gate needs actions: write; without it
+      # the last step 403'd after the 0.1.12 tag and publish had already landed.
+      actions: write
     needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 15
