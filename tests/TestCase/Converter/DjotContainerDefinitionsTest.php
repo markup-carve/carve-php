@@ -109,6 +109,7 @@ class DjotContainerDefinitionsTest extends TestCase
         self::assertSame('line:4', $losses[0]['path']);
         self::assertSame('Multiline inline code uses raw HTML; plain-text export omits it.', $losses[0]['message']);
     }
+
     public function testDeepDefinitionHostsStayWithinTheConversionBudget(): void
     {
         $converter = new DjotToCarve();
@@ -118,5 +119,4 @@ class DjotContainerDefinitionsTest extends TestCase
             self::assertLessThanOrEqual(strlen($first) * 2, strlen($second));
         }
     }
-
 }

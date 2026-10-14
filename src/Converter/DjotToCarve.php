@@ -1964,6 +1964,7 @@ class DjotToCarve
                         || preg_match('/^(?:`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/', $text) === 1;
                     if ($termColumn === null || $text === '' || $block) {
                         $endsBlock = $block;
+
                         break;
                     }
                     $nested[] = $lines[$end];
@@ -2057,7 +2058,7 @@ class DjotToCarve
                 while ($next < $convertedCount && trim($converted[$next], " \t") === '') {
                     $next++;
                 }
-                if ($next > $index + 1 && $next < $convertedCount && preg_match('/^\S/', $converted[$next]) === 1 && !str_starts_with($converted[$next], '::')) {
+                if ($next > $index + 1 && $next < $convertedCount && preg_match('/^[^ \t]/', $converted[$next]) === 1 && !str_starts_with($converted[$next], '::')) {
                     for ($blankIndex = $index + 1; $blankIndex < $next; $blankIndex++) {
                         $removed[$blankIndex] = true;
                     }
