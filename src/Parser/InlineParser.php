@@ -3427,6 +3427,14 @@ class InlineParser
             }
 
             if ($char === '<') {
+                // A cross-reference ranks with autolinks (PART 8 item 3).
+                $crossrefEnd = $this->findCrossrefEnd($text, $searchPos);
+                if ($crossrefEnd !== null) {
+                    $searchPos = $crossrefEnd;
+                    $failedStarts[] = $searchPos;
+
+                    continue;
+                }
                 $autolinkEnd = $this->findAutolinkEnd($text, $searchPos);
                 if ($autolinkEnd !== null) {
                     $searchPos = $this->bracedPairIndex?->afterAttributes($autolinkEnd) ?? $autolinkEnd;
@@ -5500,6 +5508,21 @@ class InlineParser
         $this->crossrefInvalidRange = [$from, $end];
 
         return false;
+    }
+
+    /**
+     * Position after the `>` of a `</#id>` cross-reference at $pos, or null.
+     */
+    private function findCrossrefEnd(string $text, int $pos): ?int
+    {
+        if (substr($text, $pos, 3) !== '</#' || ($text[$pos + 3] ?? '>') === '>') {
+            return null;
+        }
+        if (!$this->crossrefBodyCanEnd($text, $pos + 3)) {
+            return null;
+        }
+
+        return $pos + 4 + strcspn($text, '>', $pos + 4) + 1;
     }
 
     private function findAutolinkCloser(string $text, int $pos): ?int
