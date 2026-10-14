@@ -384,6 +384,7 @@ trait NormalizesDjotStructure
         $quoteBoundary = '';
         $headingMarker = '';
         $definitionIndent = -1;
+        $definitionStack = [];
         $noteOwner = null;
         $notes = new DjotNoteStack();
         $completedNotes = [];
@@ -850,10 +851,20 @@ trait NormalizesDjotStructure
 
                 continue;
             }
-            if (preg_match('/^:[ \t]+[^ \t]/', $visible) === 1 && ($blank || $definitionIndent >= 0)) {
+            if (($definitionStack !== [] ? $definitionStack[array_key_last($definitionStack)] : -1) !== $definitionIndent) {
+                $definitionStack = $definitionIndent >= 0 ? [$definitionIndent] : [];
+            }
+            if (preg_match('/^:(?:[ \t]|$)/', $visible) === 1 && ($blank || $definitionIndent >= 0) && ($blank || $indent <= $definitionIndent)) {
+                while ($definitionStack !== [] && $definitionStack[array_key_last($definitionStack)] >= $indent) {
+                    array_pop($definitionStack);
+                }
+                $definitionStack[] = $indent;
                 $definitionIndent = $indent;
             } elseif ($definitionIndent >= 0 && $blank && $indent <= $definitionIndent) {
-                $definitionIndent = -1;
+                while ($definitionStack !== [] && $definitionStack[array_key_last($definitionStack)] >= $indent) {
+                    array_pop($definitionStack);
+                }
+                $definitionIndent = $definitionStack !== [] ? $definitionStack[array_key_last($definitionStack)] : -1;
             }
             if ($definitionIndent >= 0 && $indent <= $definitionIndent && $this->rejectedDjotCommentStartsBlock($visible)) {
                 $out[] = $quoteForCarve() . str_repeat(' ', $indent);
