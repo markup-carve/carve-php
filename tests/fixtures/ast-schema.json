@@ -58,7 +58,8 @@
   "cell_wrap": {
     "fields": [
       "line",
-      "row"
+      "row",
+      "col"
     ],
     "required": [
       "line"

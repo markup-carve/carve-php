@@ -11,12 +11,12 @@ namespace MarkupCarve\Carve\Node\Inline;
 trait CarriesCellWraps
 {
     /**
-     * @var array<array{offset: int, line: int, row?: int}>|null
+     * @var array<array{offset: int, line: int, row?: int, col?: int}>|null
      */
     protected ?array $cellWraps = null;
 
     /**
-     * @return array<array{offset: int, line: int, row?: int}>|null
+     * @return array<array{offset: int, line: int, row?: int, col?: int}>|null
      */
     public function getCellWraps(): ?array
     {
@@ -24,7 +24,7 @@ trait CarriesCellWraps
     }
 
     /**
-     * @param array<array{offset: int, line: int, row?: int}>|null $cellWraps
+     * @param array<array{offset: int, line: int, row?: int, col?: int}>|null $cellWraps
      *
      * @return void
      */

@@ -28,8 +28,8 @@ class FootnoteInLinkHtmlRoundtripTest extends TestCase
             }
         }
 
-        if (count($documents) !== 8) {
-            throw new LogicException('Expected the eight pinned footnote-in-link corpus documents');
+        if (count($documents) !== 9) {
+            throw new LogicException('Expected the nine pinned footnote-in-link corpus documents');
         }
 
         yield from $documents;

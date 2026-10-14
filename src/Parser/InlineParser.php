@@ -603,14 +603,14 @@ class InlineParser
      * Joining spaces of a table cell's continuation lines, keyed by offset in
      * the text `parse()` was given (CARVE-P12-069).
      *
-     * @var array<int, array{int, int}>
+     * @var array<int, array{int, int, int}>
      */
     protected array $cellWraps = [];
 
     /**
      * Handed from parseTableCell() to the parse() it calls, and no further.
      *
-     * @var array<int, array{int, int}>
+     * @var array<int, array{int, int, int}>
      */
     private array $pendingCellWraps = [];
 
@@ -621,7 +621,7 @@ class InlineParser
      * @param string $text
      * @param int $sourceLine
      * @param \MarkupCarve\Carve\Parser\SourceMap|null $sourceMap
-     * @param array<int, array{int, int}> $cellWraps Offset of a joining space => [continuation line, rows below].
+     * @param array<int, array{int, int, int}> $cellWraps Offset of a joining space => [line, rows below, columns right].
      *
      * @return void
      */
@@ -1065,8 +1065,8 @@ class InlineParser
             if ($char === ' ' && $this->cellWraps !== [] && isset($this->cellWraps[$this->textOrigin + $pos])) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                [$wrapLine, $wrapRow] = $this->cellWraps[$this->textOrigin + $pos];
-                $parent->appendChild(new CellWrap($wrapLine, $wrapRow));
+                [$wrapLine, $wrapRow, $wrapCol] = $this->cellWraps[$this->textOrigin + $pos];
+                $parent->appendChild(new CellWrap($wrapLine, $wrapRow, $wrapCol));
                 $pos++;
 
                 continue;
@@ -2541,7 +2541,7 @@ class InlineParser
         }
         $wraps = [];
         $end = $start + strlen($payload);
-        foreach ($this->cellWraps as $at => [$line, $row]) {
+        foreach ($this->cellWraps as $at => [$line, $row, $col]) {
             $at -= $this->textOrigin;
             if ($at < $start - $pad || $at >= $end + $pad || $text[$at] !== ' ') {
                 continue;
@@ -2554,6 +2554,9 @@ class InlineParser
             $wrap = ['offset' => $offset, 'line' => $line];
             if ($row > 0) {
                 $wrap['row'] = $row;
+            }
+            if ($col > 0) {
+                $wrap['col'] = $col;
             }
             $wraps[$at] = $wrap;
         }

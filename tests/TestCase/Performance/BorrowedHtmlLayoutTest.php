@@ -227,7 +227,7 @@ CRV;
         $this->assertContains('551-a-link-destination-is-opaque-to-the-bracket-scan-3.crv', $acceptedFiles);
         // Corpus 551 adds three accepted link documents; CARVE-P9-082 makes
         // 589-32 a table the fast path takes.
-        $this->assertSame(70, $accepted, 'A fast-path routing change needs explicit review.');
+        $this->assertSame(71, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void
