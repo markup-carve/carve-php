@@ -28,6 +28,16 @@ class TableSpanMarkerBlockedTest extends TestCase
         yield 'pipe in a code span' => ["| `a|b` | ^ |\n+ x | y |\n", 1, 11, 'There is no cell above it to extend.'];
     }
 
+    public function testLocatesTheMarkerAcrossLoneCrLines(): void
+    {
+        foreach (["| a | b |\r| < | c |\r+ x | y |\r", "| a | b |\r| < | c |\r"] as $source) {
+            $warnings = $this->findings($source);
+            self::assertCount(1, $warnings);
+            $start = (int)strpos($source, '<');
+            self::assertSame([2, 3, $start, $start + 1], [$warnings[0]->line, $warnings[0]->column, $warnings[0]->start, $warnings[0]->end]);
+        }
+    }
+
     #[DataProvider('blockedCases')]
     public function testReportsBlockedMarker(string $source, int $line, int $column, string $reason): void
     {
