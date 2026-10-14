@@ -394,7 +394,8 @@ trait ReportsDjotLosses
                     $rawFormatIgnored[] = [$at + 2, $referenceEnd];
                     $label = substr($source, $at + 2, $referenceEnd - $at - 2);
                     if ($label === '' && $definitions !== []) {
-                        $label = $this->djotReferenceDefinitionKey($childText(substr($source, $start + 1, $at - $start - 1), $depth));
+                        $text = substr($source, $start + 1, $at - $start - 1);
+                        $label = $this->djotReferenceDefinitionKey($image ? $imageChildText($text, $depth) : $childText($text, $depth));
                     } else {
                         $label = $this->djotReferenceKey($label);
                     }

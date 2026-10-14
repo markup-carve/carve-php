@@ -246,6 +246,32 @@ class DjotToCarve
             $this->foldDjotReferences($source, $accepted);
             $source = $this->normalizeDjotReferenceUses($source, true, $accepted ?? []);
         }
+        if (str_contains($source, '![') && str_contains($source, '][]') && str_contains($source, '{') && str_contains($source, "\n")) {
+            $mask = $this->maskCodeAndDestinations($source);
+            $owners = $this->djotImageLineOwners($source, $mask);
+            $line = 0;
+            $source = $this->replaceImageLabels($source, $mask, function (array $match) use ($source, $owners, &$line): string {
+                [$image, $at] = $match[0];
+                $label = $match[1][0];
+                if (substr($source, $at + strlen($image), 2) !== '[]' || !str_contains($label, '{') || !str_contains($label, "\n")) {
+                    return $image;
+                }
+                while ($owners[$line]['end'] <= $at) {
+                    $line++;
+                }
+                $owner = $owners[$line];
+                $layout = $this->djotImageAltLayout($label, $owner['quotes'], $owner['itemColumn'], $owner['itemQuote'], $owner['div']);
+                if (!$layout['valid']) {
+                    return $image;
+                }
+                $continuation = 0;
+                $normalized = preg_replace_callback('/\n/', static function () use ($layout, &$continuation): string {
+                    return "\n" . ($layout['continuations'][$continuation++] ?? '');
+                }, $this->djotImageLabelAttributes($layout['normalized'], true)) ?? $label;
+
+                return '![' . $normalized . ']';
+            });
+        }
         $source = $this->carryDjotAttributesAcrossQuoteExits($this->carryDjotAttributesAcrossDivClosers($source));
         [$source, $inherited] = $this->escapeInvalidDjotAttributes($source);
         $source = $this->normalizeDjotFences($this->foldDjotReferences($this->normalizeDjotAttributeLines($source)));
@@ -328,6 +354,41 @@ class DjotToCarve
             return isset($definitions[$key]) ? $match[1][0] . '[' . $definitions[$key] . ']' : $value;
         }, $source, -1, $collapsedCount, PREG_OFFSET_CAPTURE) ?? $source;
         $source = $this->convertDjotBlockMarkers($source);
+        $referenceEdits = [];
+        if ($definitions !== [] && str_contains($source, '][]')) {
+            $mask = $this->maskCodeAndDestinations($source);
+            $owners = $this->djotImageLineOwners($source, $mask);
+            $line = 0;
+            $this->replaceImageLabels($source, $mask, function (array $match) use ($source, $owners, &$line, $definitions, &$referenceEdits): string {
+                [$image, $at] = $match[0];
+                $end = $at + strlen($image);
+                if (substr($source, $end, 2) !== '[]') {
+                    return $image;
+                }
+                while ($owners[$line]['end'] <= $at) {
+                    $line++;
+                }
+                $owner = $owners[$line];
+                $layout = $this->djotImageAltLayout($match[1][0], $owner['quotes'], $owner['itemColumn'], $owner['itemQuote'], $owner['div']);
+                if (!$layout['valid']) {
+                    return $image;
+                }
+                $key = preg_replace('/[ \t\r\n]+/', ' ', trim($this->djotCollapsedReferenceText($layout['normalized']))) ?? '';
+                if (isset($definitions[$key])) {
+                    $referenceEdits[] = [$end + 1, $definitions[$key]];
+                }
+
+                return $image;
+            });
+        }
+        usort($referenceEdits, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        $parts = [];
+        $cursor = 0;
+        foreach ($referenceEdits as [$at, $name]) {
+            $parts[] = substr($source, $cursor, $at - $cursor) . $name;
+            $cursor = $at;
+        }
+        $source = implode('', $parts) . substr($source, $cursor);
         $emptyTerm = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYTERM\x00");
         $source = $this->convertDefinitionLists($source, $emptyTerm);
         $djotBody = $source;
@@ -366,7 +427,8 @@ class DjotToCarve
             $label = $layout['normalized'];
             $continuations = $layout['continuations'];
             $token = $altPrefix . count($strongSpans) . "\x00";
-            $alt = QuotedSlotEscaper::escapeImageAlt($imageChildText($label), $imageLines[$imageLine]['table']);
+            $plain = preg_replace('/\n(?:[ \t]*\n)+/', "\n", $imageChildText($label)) ?? '';
+            $alt = QuotedSlotEscaper::escapeImageAlt($plain, $imageLines[$imageLine]['table']);
             $continuation = 0;
             $strongSpans[$token] = preg_replace_callback('/\n/', static function () use ($continuations, &$continuation): string {
                 return "\n" . ($continuations[$continuation++] ?? '');
