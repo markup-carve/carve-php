@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\CellWrap;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\TableCellAccumulator;
@@ -480,6 +481,10 @@ final class TableBlockBuilder
                     // its own row slot.
                     if (!isset($consumedColumnSet[$col])) {
                         $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+                        // A blocked marker can still take continuation text.
+                        $blockedData = $cellData;
+                        $blockedData['sourceChunks'] = [];
+                        $cellBuilds[spl_object_id($cell)] = ['cell' => $cell, 'cellData' => $blockedData, 'line' => $baseLineForRow, 'content' => '', 'wraps' => [], 'rowIndex' => $rowIndex];
                     }
 
                     continue;
@@ -564,9 +569,20 @@ final class TableBlockBuilder
                             $origin = $columnOrigin[$k] ?? null;
                         }
                     }
+                    // A blocked marker is a cell of its own, and its continuation
+                    // text is that cell's content (T5, carve#3151).
+                    if ($origin === null && !isset($consumedColumnSet[$col]) && !isset($rowspanSet[$col])) {
+                        foreach ($rowCellData as $cellInfo) {
+                            if ($cellInfo['colPosition'] === $col) {
+                                $origin = $cellInfo['cell'];
+                            }
+                        }
+                    }
                     if (!$origin instanceof TableCell || $join['text'] === '' || !isset($cellBuilds[spl_object_id($origin)])) {
                         continue;
                     }
+                    // The blocked cell now holds text, so it no longer spells a marker.
+                    $origin->setSpanMarker(null);
                     $build = &$cellBuilds[spl_object_id($origin)];
                     $joinAt = $build['content'] === '' ? 0 : strlen($build['content']) + 1;
                     $rowsBelow = $rowIndex - $build['rowIndex'];
@@ -701,7 +717,14 @@ final class TableBlockBuilder
         $cellMap = $this->cellSourceMap($baseLineForRow, $cellData, $trimmedContent)
             ?? $this->rebuiltCellSourceMap($cellData, $trimmedContent);
         $cellSpan = $this->cellExtentSpan($baseLineForRow, $cellData);
-        if (count($cellData['sourceChunks']) > 1) {
+        // A cell that took text from a continuation line spans lines its
+        // siblings also cross, so it declines a position, as in carve-js.
+        $baseSourceLine = $this->source->sourceLineFor($baseLineForRow);
+        $joined = false;
+        foreach ($cellData['sourceChunks'] as $chunk) {
+            $joined = $joined || $chunk[0] !== $baseSourceLine;
+        }
+        if ($joined || count($cellData['sourceChunks']) > 1) {
             $cellSpan = null;
             $this->state->session->unplaceableNodeIds[spl_object_id($cell)] = true;
         }
@@ -711,12 +734,13 @@ final class TableBlockBuilder
         $cellTextSpan = $this->cellContentSpan($baseLineForRow, $cellData, $trimmedContent);
         if ($wraps !== []) {
             ($this->getInlineParser)()->parseTableCell($cell, $trimmedContent, $baseLineForRow, $cellMap, $wraps);
-            $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+            $this->placeCellWraps($cell, $cellData['sourceChunks']);
+            $cell->setPos($joined ? null : ($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent))));
 
             return;
         }
         if ($trimmedContent !== '' && $this->isPlainTableText($trimmedContent) && $this->appendPlainRebuiltCellText($cell, $cellData, $trimmedContent)) {
-            $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+            $cell->setPos($joined ? null : ($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent))));
 
             return;
         }
@@ -730,7 +754,35 @@ final class TableBlockBuilder
         // Prefer the measured extent: it covers the cell even when its
         // text was rewritten (an escaped pipe), where a text lookup
         // cannot match and rightly declines.
-        $cell->setPos($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent)));
+        $cell->setPos($joined ? null : ($cellSpan ?? ($cellMap?->spanFor(0, $trimmedContent))));
+    }
+
+    /**
+     * Give each `cell_wrap` the source byte it stands on. The k-th wrap joins
+     * the fragment of the (k+1)-th source chunk; a mismatch leaves them unplaced.
+     *
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param list<array{int, int, string}> $chunks
+     */
+    private function placeCellWraps(TableCell $cell, array $chunks): void
+    {
+        $wraps = [];
+        $walk = static function (Node $node) use (&$walk, &$wraps): void {
+            foreach ($node->getChildren() as $child) {
+                if ($child instanceof CellWrap) {
+                    $wraps[] = $child;
+                }
+                $walk($child);
+            }
+        };
+        $walk($cell);
+        if ($wraps === [] || count($wraps) !== count($chunks) - 1) {
+            return;
+        }
+        foreach ($wraps as $k => $wrap) {
+            [$line, $column] = $chunks[$k + 1];
+            $wrap->setPos($this->source->cellWrapSpan($line, $column, $chunks[$k][0] === $line));
+        }
     }
 
     /**
