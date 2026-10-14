@@ -65,16 +65,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
      *
      * @var array<string>
      */
-    private const PORTED_AHEAD_OF_PIN = [
-        'bare-div',
-        'bare-div-carrier',
-        'line-block-carrier',
-        'substitution-carrier',
-        'definition-list-wrapped-term',
-        'reference-link-full',
-        'reference-link-collapsed',
-        'markdown-abbreviation-definition',
-    ];
+    private const PORTED_AHEAD_OF_PIN = [];
 
     /**
      * @phpstan-param Fixture $fixture
