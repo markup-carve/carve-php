@@ -1075,7 +1075,7 @@ trait NormalizesDjotStructure
 
                     continue;
                 }
-                $kind = ($itemMatch[1] !== '' ? $itemMatch[1] : $this->djotListKind($itemMatch[2])) . ($itemMatch[1] !== '' && preg_match('/^\[[ xX]\](?:[ \t]+|$)/', substr($text, strlen($itemMatch[0]) - 1)) === 1 ? ':task' : '');
+                $kind = ($itemMatch[1] !== '' ? $itemMatch[1] : $this->djotListKind($itemMatch[2])) . ($itemMatch[1] !== '' && strlen($itemMatch[0]) === 3 && $itemMatch[0][1] === ' ' && preg_match('/^\[[ xX]\](?:[ \t]+|$)/', substr($text, strlen($itemMatch[0]) - 1)) === 1 ? ':task' : '');
                 $nested = $parent !== null && $indent > $parent->column;
                 $sharedKind = $this->sharedDjotListKind($priorKind, $kind);
                 $sameKind = $sharedKind !== null;
@@ -1137,14 +1137,14 @@ trait NormalizesDjotStructure
                 $body = substr($text, strlen($itemMatch[0]) - 1);
                 $itemHeading = preg_match('/^(#{1,6})(?:[ \t]+|$)/', $body, $itemHeadingMatch) === 1;
                 $headingMarker = $itemHeadingMatch[1] ?? '';
-                $itemDiv = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $body, $itemDivMatch) === 1;
+                $task = $itemMatch[1] !== '' && strlen($itemMatch[0]) === 3 && $itemMatch[0][1] === ' ' && str_starts_with($body, '[') && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMatch) === 1;
+                $itemBody = $task ? substr($body, strlen($taskMatch[0])) : $body;
+                $itemDiv = preg_match('/^(:{3,})(?:[ \t]+.*)?$/', $itemBody, $itemDivMatch) === 1;
                 if ($itemDiv) {
-                    $divs[] = ['width' => strlen($itemDivMatch[1]), 'prefix' => $quoteForCarve() . str_repeat(' ', $context->target + $context->content), 'invalid' => $fenceParser->parseDivFenceOpener($body)['invalidMetadata'] ?? false, 'itemColumn' => $context->column + 1, 'depth' => $quoteDepth, 'start' => $lineOffsets[$n]];
+                    $divs[] = ['width' => strlen($itemDivMatch[1]), 'prefix' => $quoteForCarve() . str_repeat(' ', $context->target + $context->content), 'invalid' => $fenceParser->parseDivFenceOpener($itemBody)['invalidMetadata'] ?? false, 'itemColumn' => $context->column + 1, 'depth' => $quoteDepth, 'start' => $lineOffsets[$n]];
                 }
                 $itemQuoteDepth = 0;
                 $quoteBody = '';
-                $task = str_starts_with($body, '[') && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMatch) === 1;
-                $itemBody = $task ? substr($body, strlen($taskMatch[0])) : $body;
                 $embeddedOwners->clear();
                 $embeddedListOwner = null;
                 if (str_starts_with($itemBody, '>')) {
@@ -1402,7 +1402,7 @@ trait NormalizesDjotStructure
 
     private function compactDjotListPrefix(string $text): string
     {
-        if (!str_contains($text, '0') && !str_contains($text, '(') && !str_contains($text, "\t")) {
+        if (!str_contains($text, '0') && !str_contains($text, '(') && !str_contains($text, "\t") && !str_contains($text, '[')) {
             return $text;
         }
         $parts = [];
@@ -1424,9 +1424,13 @@ trait NormalizesDjotStructure
             $compact = preg_replace('/^(\(?)0+(?=[0-9])/', '$1', $item[0]) ?? $item[0];
             $parts[] = str_replace("\t", ' ', preg_replace('/^\(([^)]+)\)/', '$1.', $compact) ?? $compact);
             $at += strlen($item[0]);
-            if (in_array($item[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX]\][ \t]+/', $text, $task, 0, $at) === 1) {
-                $parts[] = $task[0];
+            if (in_array($item[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX\-_>?]\](?:[ \t]+|$)/', $text, $task, 0, $at) === 1) {
+                $accepted = preg_match('/^[-*+] $/', $item[0]) === 1 && in_array($task[0][1], [' ', 'x', 'X'], true);
+                $parts[] = $accepted ? str_replace("\t", ' ', $task[0]) : '\\' . $task[0];
                 $at += strlen($task[0]);
+                if (!$accepted) {
+                    break;
+                }
             }
         }
         $parts[] = substr($text, $at);

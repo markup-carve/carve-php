@@ -3777,6 +3777,11 @@ class DjotToCarve
                 $markerWidth = $startsItem ? strlen($marker[0]) : 0;
                 $body = substr($trimmed, $markerWidth);
                 $column = $indent + $markerWidth;
+                if ($startsItem && preg_match('/^[-*+] $/', $marker[0]) === 1 && preg_match('/^\[[ xX]\][ \t]+/', $body, $taskMarker) === 1) {
+                    $body = substr($body, strlen($taskMarker[0]));
+                    $column += strlen($taskMarker[0]);
+                }
+
                 $padding = strlen($body) - strlen(ltrim($body, " \t"));
                 $body = substr($body, $padding);
                 $column += $padding;
@@ -5470,7 +5475,7 @@ class DjotToCarve
                 break;
             }
             $at += strlen($marker[0]);
-            if (in_array($marker[0][0], ['-', '*', '+'], true) && preg_match('/\G\[[ xX]\][ \t]+/', $line, $task, offset: $at) === 1) {
+            if (preg_match('/^[-*+] $/', $marker[0]) === 1 && preg_match('/\G\[[ xX]\][ \t]+/', $line, $task, offset: $at) === 1) {
                 $at += strlen($task[0]);
             }
         }
