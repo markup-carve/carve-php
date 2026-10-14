@@ -41,6 +41,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use Throwable;
 
 /**
@@ -812,7 +813,7 @@ class IncludeExpander implements TransformerInterface
         // the child's content, so they are the including document's problem.
         $this->warningFile = $outerFile;
 
-        $nodes = array_values($document->getChildren());
+        $nodes = DocumentRenderOrder::children($document, $id);
         if ($block) {
             return $nodes;
         }

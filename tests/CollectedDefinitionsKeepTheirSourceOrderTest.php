@@ -41,6 +41,15 @@ class CollectedDefinitionsKeepTheirSourceOrderTest extends TestCase
         }
     }
 
+    public function testCustomConverterTracksPositionsDuringSeparateParseAndRender(): void
+    {
+        $source = "[bold]: /x\n\nsee [*bold*][]\n";
+        foreach ([CarveConverter::markdown(new BlockParser()), new CarveConverter(renderer: new MarkdownRenderer())] as $converter) {
+            $output = $converter->render($converter->parse($source));
+            self::assertLessThan(strpos($output, 'see'), strpos($output, '[bold]: /x'));
+        }
+    }
+
     public function testDefinitionBetweenBlocksStaysBetweenThem(): void
     {
         $source = "- a\n  [r]: /u\n more\ntail\n";
@@ -73,6 +82,7 @@ class CollectedDefinitionsKeepTheirSourceOrderTest extends TestCase
         $output = $converter->render($document);
 
         self::assertLessThan(strpos($output, '[c]: /c'), strpos($output, 'Parent two.'));
+        self::assertLessThan(strpos($output, 'Child text.'), strpos($output, '[c]: /c'));
         self::assertLessThan(strpos($output, 'Parent end.'), strpos($output, '[c]: /c'));
     }
 

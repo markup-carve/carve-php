@@ -12,13 +12,13 @@ final class DocumentRenderOrder
     /**
      * @return list<\MarkupCarve\Carve\Node\Node>
      */
-    public static function children(Document $document): array
+    public static function children(Document $document, ?string $sourceFile = null): array
     {
         $blocks = [];
         $definitions = [];
         foreach ($document->getChildren() as $child) {
             $position = $child->getPos();
-            if ($child instanceof LinkReferenceDefinition && $position !== null && $position->file === null) {
+            if ($child instanceof LinkReferenceDefinition && $position !== null && $position->file === $sourceFile) {
                 $definitions[] = ['offset' => $position->startOffset, 'node' => $child];
             } else {
                 $blocks[] = $child;
