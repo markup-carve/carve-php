@@ -225,6 +225,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         '/^(?:`{3,}|~{3,})/',
         '/^[-*+][ \t]+\S/',
         '/^1[.)][ \t]+\S/',
+        '/^-{3,}$/',
     ];
 
     /**
