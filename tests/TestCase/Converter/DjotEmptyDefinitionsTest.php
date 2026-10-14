@@ -95,4 +95,12 @@ class DjotEmptyDefinitionsTest extends TestCase
         self::assertStringContainsString("\0DJOTEMPTYTERM\0", $converted);
         self::assertStringContainsString('<dd></dd>', (new CarveConverter())->convert($converted));
     }
+
+    public function testCodeFallbackReportsOriginalContinuationOpener(): void
+    {
+        $result = (new DjotToCarve())->convertWithFidelityReport("before\n\n: term\n  `code\n  : x`{.x}\n\n  body");
+        $losses = array_values(array_filter($result->report()['diagnostics'], static fn (array $row): bool => $row['code'] === 'structure-unspellable'));
+        self::assertSame('line:4', $losses[0]['path']);
+        self::assertSame('Multiline inline code uses raw HTML; plain-text export omits it.', $losses[0]['message']);
+    }
 }

@@ -1913,8 +1913,10 @@ class DjotToCarve
             if (!$stack[array_key_last($stack)]['ready']) {
                 $continuation = ltrim($line, " \t");
                 $indent = $this->leadingIndent($line)[0];
+                $first = strspn($line, " \t");
+                $visible = ($masked[$first] ?? '') === ($continuation[0] ?? '');
                 $marker = preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|\||:{3,}|[`~]{3,}|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t])/', $continuation) === 1 || preg_match('/^(?:[*-][ \t]*){3,}$/', $continuation) === 1;
-                if ($indent <= $stack[array_key_last($stack)]['source'] && $marker) {
+                if ($visible && $indent <= $stack[array_key_last($stack)]['source'] && $marker) {
                     while ($stack !== [] && $stack[array_key_last($stack)]['source'] >= $indent) {
                         $finished = array_pop($stack);
                         $finish($finished['termEnd'], $finished['target'], $finished['body']);
@@ -1925,8 +1927,8 @@ class DjotToCarve
                 } else {
                     $stack[array_key_last($stack)]['termEnd'] = $i;
                     if (preg_match('/^(?:[#>|{]|:{3,}|[`~]{3,}|[-*+] |(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)] )/', $continuation) !== 1) {
-                        $lines[$i] = !$marker ? (preg_replace_callback('/^([ivxlcdmIVXLCDM]+)([.)])(?=[ \t])/', static fn (array $match): string => $match[1] . '\\' . $match[2], $continuation) ?? $continuation) : $continuation;
-                        if (preg_match('/^:(?=[ \t]|$)/', $lines[$i]) === 1) {
+                        $lines[$i] = $visible && !$marker ? (preg_replace_callback('/^([ivxlcdmIVXLCDM]+)([.)])(?=[ \t])/', static fn (array $match): string => $match[1] . '\\' . $match[2], $continuation) ?? $continuation) : $continuation;
+                        if ($visible && preg_match('/^:(?=[ \t]|$)/', $lines[$i]) === 1) {
                             $lines[$i] = '\\' . $lines[$i];
                         }
                     }
@@ -6203,7 +6205,7 @@ class DjotToCarve
                 }
                 $rawCode = $itemColumn > 0 && str_starts_with($itemKind, '[^') && count($normalized) > 1;
                 foreach (array_slice($normalized, 1) as $value) {
-                    if ((preg_match($block, $value) === 1 || str_starts_with($value, ':::') || str_starts_with($value, '{')) && (preg_match('/^\|[ \t:|-]*\|$/', $value) !== 1 || ($line[$at] ?? '') !== '|')) {
+                    if ((preg_match($block, $value) === 1 || str_starts_with($itemKind, ':') && preg_match('/^[ivxlcdmIVXLCDM]+[.)][ \t]/', $value) === 1 || str_starts_with($value, ':::') || str_starts_with($value, '{')) && (preg_match('/^\|[ \t:|-]*\|$/', $value) !== 1 || ($line[$at] ?? '') !== '|')) {
                         $rawCode = true;
 
                         break;
@@ -6212,11 +6214,30 @@ class DjotToCarve
                 if ($codeDepth > 0 && !$rawCode) {
                     $payload = implode("\n", $normalized);
                 }
+                $codeEnd = $closed ? $end + $width : $end;
+                $codeTag = '<code>';
+                if ($rawCode && $closed && ($source[$codeEnd] ?? '') === '{') {
+                    $parts = [];
+                    while (($source[$codeEnd] ?? '') === '{') {
+                        $attrs = $this->readDjotWordAttributes($source, $codeEnd);
+                        if ($attrs === null) {
+                            break;
+                        }
+                        $parts[] = substr($attrs['source'], 1, -1);
+                        $codeEnd = $attrs['end'];
+                    }
+                    if ($parts !== []) {
+                        $html = (new CarveConverter(smartTypography: false))->convert('`X`{' . implode(' ', $parts) . '}');
+                        if (preg_match('/<code\b[^>]*>/', $html, $tag) === 1) {
+                            $codeTag = $tag[0];
+                        }
+                    }
+                }
                 if ($rawCode) {
                     if ($onRawCode !== null) {
                         $onRawCode($i);
                     }
-                    $payload = '<code>' . (preg_replace_callback('/[!-\/:-@\[-`{-~]|\n/', static fn (array $match): string => '&#' . ord($match[0]) . ';', implode("\n", $normalized)) ?? '') . '</code>';
+                    $payload = $codeTag . (preg_replace_callback('/[!-\/:-@\[-`{-~]|\n/', static fn (array $match): string => '&#' . ord($match[0]) . ';', implode("\n", $normalized)) ?? '') . '</code>';
                 }
                 preg_match_all('/`+/', $payload, $payloadRuns);
                 $fenceWidth = 1;
@@ -6234,7 +6255,7 @@ class DjotToCarve
                 }
                 $output[] = substr($source, $cursor, $i - $cursor);
                 $output[] = $fence . $pad . $payload . $pad . $fence . ($rawCode ? '{=html}' : '');
-                $cursor = $closed ? $end + $width : $end;
+                $cursor = $codeEnd;
                 $consumed = $cursor;
                 if ($separate && !$closed) {
                     $output[] = "\n" . rtrim(str_repeat('> ', $separateDepth));

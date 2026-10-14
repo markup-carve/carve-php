@@ -718,5 +718,181 @@
   {
     "source": "before\r\n\r\n: A\r\n  : B\r\n  more",
     "html": "<p>before</p>\n<dl>\n<dt>A\n: B\nmore</dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\n  : B`",
+    "html": "<dl>\n<dt><code>A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\r\n  : B`",
+    "html": "<dl>\n<dt><code>A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: `A\n  : B`",
+    "html": "<p>before</p>\n<dl>\n<dt><code>A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: `A\r\n  : B`",
+    "html": "<p>before</p>\n<dl>\n<dt><code>A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\n  : B`{.x}",
+    "html": "<dl>\n<dt><code class=\"x\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\r\n  : B`{.x}",
+    "html": "<dl>\n<dt><code class=\"x\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: `A\n  : B`{.x}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: `A\r\n  : B`{.x}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\n  Civil. text`",
+    "html": "<dl>\n<dt><code>A\nCivil. text</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\r\n  Civil. text`",
+    "html": "<dl>\n<dt><code>A\nCivil. text</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: `A\n  Civil. text`",
+    "html": "<p>before</p>\n<dl>\n<dt><code>A\nCivil. text</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: `A\r\n  Civil. text`",
+    "html": "<p>before</p>\n<dl>\n<dt><code>A\nCivil. text</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A & <B>\n  : C`",
+    "html": "<dl>\n<dt><code>A &amp; &lt;B&gt;\n: C</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A & <B>\r\n  : C`",
+    "html": "<dl>\n<dt><code>A &amp; &lt;B&gt;\n: C</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: `A & <B>\n  : C`",
+    "html": "<p>before</p>\n<dl>\n<dt><code>A &amp; &lt;B&gt;\n: C</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: `A & <B>\r\n  : C`",
+    "html": "<p>before</p>\n<dl>\n<dt><code>A &amp; &lt;B&gt;\n: C</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": ```A\n  : B```",
+    "html": "<dl>\n<dt></dt>\n<dd>\n<pre><code class=\"language-A\">: B```</code></pre>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": ```A\r\n  : B```",
+    "html": "<dl>\n<dt></dt>\n<dd>\n<pre><code class=\"language-A\">: B```</code></pre>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: ```A\n  : B```",
+    "html": "<p>before</p>\n<dl>\n<dt></dt>\n<dd>\n<pre><code class=\"language-A\">: B```</code></pre>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: ```A\r\n  : B```",
+    "html": "<p>before</p>\n<dl>\n<dt></dt>\n<dd>\n<pre><code class=\"language-A\">: B```</code></pre>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": pre `A\n  : B` post",
+    "html": "<dl>\n<dt>pre <code>A\n: B</code> post</dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": pre `A\r\n  : B` post",
+    "html": "<dl>\n<dt>pre <code>A\n: B</code> post</dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: pre `A\n  : B` post",
+    "html": "<p>before</p>\n<dl>\n<dt>pre <code>A\n: B</code> post</dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: pre `A\r\n  : B` post",
+    "html": "<p>before</p>\n<dl>\n<dt>pre <code>A\n: B</code> post</dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": term text\n  `code\n  : x`\n\n  body",
+    "html": "<dl>\n<dt>term text\n<code>code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": term text\r\n  `code\r\n  : x`\r\n\r\n  body",
+    "html": "<dl>\n<dt>term text\n<code>code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: term text\n  `code\n  : x`\n\n  body",
+    "html": "<p>before</p>\n<dl>\n<dt>term text\n<code>code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: term text\r\n  `code\r\n  : x`\r\n\r\n  body",
+    "html": "<p>before</p>\n<dl>\n<dt>term text\n<code>code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": term text\n  `code\n  : x`{.x #id key=\"v\"}\n\n  body",
+    "html": "<dl>\n<dt>term text\n<code class=\"x\" id=\"id\" key=\"v\">code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": term text\r\n  `code\r\n  : x`{.x #id key=\"v\"}\r\n\r\n  body",
+    "html": "<dl>\n<dt>term text\n<code class=\"x\" id=\"id\" key=\"v\">code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: term text\n  `code\n  : x`{.x #id key=\"v\"}\n\n  body",
+    "html": "<p>before</p>\n<dl>\n<dt>term text\n<code class=\"x\" id=\"id\" key=\"v\">code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: term text\r\n  `code\r\n  : x`{.x #id key=\"v\"}\r\n\r\n  body",
+    "html": "<p>before</p>\n<dl>\n<dt>term text\n<code class=\"x\" id=\"id\" key=\"v\">code\n: x</code></dt>\n<dd>\n<p>body</p>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\n  : B`{.x}{#y}",
+    "html": "<dl>\n<dt><code class=\"x\" id=\"y\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\r\n  : B`{.x}{#y}",
+    "html": "<dl>\n<dt><code class=\"x\" id=\"y\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: `A\n  : B`{.x}{#y}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x\" id=\"y\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: `A\r\n  : B`{.x}{#y}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x\" id=\"y\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\n  : B`{.x}{key=\"v\" .y}",
+    "html": "<dl>\n<dt><code class=\"x y\" key=\"v\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\r\n  : B`{.x}{key=\"v\" .y}",
+    "html": "<dl>\n<dt><code class=\"x y\" key=\"v\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: `A\n  : B`{.x}{key=\"v\" .y}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x y\" key=\"v\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: `A\r\n  : B`{.x}{key=\"v\" .y}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x y\" key=\"v\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\n  : B`{.x}{class=\"y\" .z}",
+    "html": "<dl>\n<dt><code class=\"x y z\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": ": `A\r\n  : B`{.x}{class=\"y\" .z}",
+    "html": "<dl>\n<dt><code class=\"x y z\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\n\n: `A\n  : B`{.x}{class=\"y\" .z}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x y z\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
+  },
+  {
+    "source": "before\r\n\r\n: `A\r\n  : B`{.x}{class=\"y\" .z}",
+    "html": "<p>before</p>\n<dl>\n<dt><code class=\"x y z\">A\n: B</code></dt>\n<dd>\n</dd>\n</dl>\n"
   }
 ]
