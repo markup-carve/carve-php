@@ -45,7 +45,7 @@ class DjotImageReferenceKeysTest extends TestCase
             }
             unset($image);
             self::assertSame($expected, $this->images((new CarveConverter())->convert($result->value)), $row['source']);
-            self::assertEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'unresolved Djot image reference')));
+            self::assertEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'unresolved Djot image reference') || str_contains($d['message'], 'with an empty destination')));
             if ($blank) {
                 self::assertNotEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'image alternative text with a blank line')));
             }
@@ -69,5 +69,11 @@ class DjotImageReferenceKeysTest extends TestCase
         $result = (new DjotToCarve())->convert("![^a][]\n\n[^a]: note");
         self::assertStringContainsString('[]', $result);
         self::assertSame([], $this->images((new CarveConverter())->convert($result)));
+    }
+
+    public function testOuterImageEmptyDestinationIsReported(): void
+    {
+        $result = (new DjotToCarve())->convertWithFidelityReport('![a ![b]() c]()');
+        self::assertNotEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'An image with an empty destination')));
     }
 }
