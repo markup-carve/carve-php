@@ -3273,8 +3273,18 @@ class DjotToCarve
             }
             $end = $open;
         }
-        if ($end < 2 * $opens || strpbrk(substr($label, 2 * $opens, $end - 2 * $opens), '[]') !== false) {
+        if ($end < 2 * $opens) {
             return $label;
+        }
+        for ($at = 2 * $opens; $at < $end; $at++) {
+            if ($label[$at] === '\\') {
+                if ($at + 1 >= $end || $label[$at + 1] === "\n" || $label[$at + 1] === "\r") {
+                    return $label;
+                }
+                $at++;
+            } elseif ($label[$at] === '[' || $label[$at] === ']') {
+                return $label;
+            }
         }
 
         return substr($label, 2 * $opens, $end - 2 * $opens);
@@ -4322,7 +4332,7 @@ class DjotToCarve
                 }
                 $label = (new CarveConverter(smartTypography: false, renderer: new DjotImageChildTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convertImageQuoteText(($altDefinitions !== [] ? implode("\n", $altDefinitions) . "\n\n" : '') . 'DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND', true)));
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
-                $label = preg_replace_callback('/[\\\\\[\]\"\']/', static fn (array $match): string => '\\' . $match[0], $label) ?? $label;
+                $label = preg_replace_callback('/[!-\/:-@\[-`{-~]/', static fn (array $match): string => '\\' . $match[0], $label) ?? $label;
             }
             $target = preg_replace_callback(($rows[$line] ?? false) && str_contains($destination, '|') ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : ($match[0] === '\\' ? '\\\\' : rawurlencode($match[0])), $destination) ?? $destination;
             $target = preg_replace('/\](?=[\[{])/', '%5D', $target) ?? $target;
