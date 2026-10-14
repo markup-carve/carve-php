@@ -633,7 +633,7 @@ final class LineBlockBuilder
                 }
                 if ($next < $count) {
                     $span = $inline instanceof HardBreak
-                        ? $this->lineEndingCoordinates($pos, $lineEndings[$next][1])
+                        ? $this->lineEndingCoordinates($pos, $this->sourceLineFor($lineEndings[$next][1]))
                         : $this->endOfLineSpan($lineEndings[$next][1]);
                     $next++;
                 }
