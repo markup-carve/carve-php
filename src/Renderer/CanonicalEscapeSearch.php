@@ -210,7 +210,6 @@ final class CanonicalEscapeSearch
         array $conservativeTree,
         int $conservativeLength,
     ): bool {
-        $chargeStart = $this->state->probeCharge;
         $windows = null;
         if ($local) {
             $this->state->escapeWindows ??= new EscapeWindows($document);
@@ -251,16 +250,10 @@ final class CanonicalEscapeSearch
                 // Loose, as in candidateHolds().
                 if ($this->callWindowTree($after) != $beforeTree) {
                     $undo();
-                    // Local parsing must not extend the search allowance.
-                    $this->state->probeCharge = max($this->state->probeCharge, $chargeStart + $conservativeLength);
-
                     return false;
                 }
             }
             if ($localHolds) {
-                // Preserve the whole-document probe budget and its chosen spelling.
-                $this->state->probeCharge = max($this->state->probeCharge, $chargeStart + $conservativeLength);
-
                 return true;
             }
         }

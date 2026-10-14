@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Document;
@@ -257,7 +258,7 @@ final class EscapeWindows
         }
         foreach ($children as $child) {
             if (
-                (!$child instanceof BlockNode && !$child instanceof Image)
+                (!$child instanceof BlockNode && !($child instanceof Image && ($owner instanceof Document || $owner instanceof Div)))
                 || $child instanceof TableRow
                 || $child instanceof TableCell
                 || $child instanceof Caption

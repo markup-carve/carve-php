@@ -48,4 +48,14 @@ final class EscapeWindowWithRootImageTest extends TestCase
         self::assertInstanceOf(Paragraph::class, $paragraph);
         self::assertCount(2, (new EscapeWindows($document))->windowFor([$paragraph->getChildren()[0]]));
     }
+
+    public function testInlineImageSiblingsAreNotCutApart(): void
+    {
+        $document = (new BlockParser())->parse("![a](/i)![b](/j)![c](/k)\n");
+        $paragraph = $document->getChildren()[0];
+        self::assertInstanceOf(Paragraph::class, $paragraph);
+        $windows = (new EscapeWindows($document))->windowFor([$paragraph->getChildren()[2]]);
+        self::assertCount(1, $windows);
+        self::assertSame($document, $windows[0]['owner']);
+    }
 }
