@@ -49,7 +49,7 @@ class AstEnvelopeTest extends TestCase
         $parsed = CarveConverter::create()->parse("a\n");
         $envelope = $this->envelope->encode($parsed);
 
-        $this->assertSame('1.1', $envelope['astVersion']);
+        $this->assertSame('2.0', $envelope['astVersion']);
         $this->assertSame((new AstCodec())->encode($parsed), $envelope['document']);
         $this->assertSame(['astVersion', 'document'], array_keys($envelope));
     }
@@ -84,11 +84,11 @@ class AstEnvelopeTest extends TestCase
         // predates, so reporting it as invalid sends the caller hunting a
         // corrupt tree.
         try {
-            $this->envelope->decode($this->wrap(['astVersion' => '2.0']));
+            $this->envelope->decode($this->wrap(['astVersion' => '3.0']));
             $this->fail('expected a version refusal');
         } catch (AstEnvelopeVersionException $e) {
-            $this->assertSame('2.0', $e->found);
-            $this->assertSame('1.1', $e->implemented);
+            $this->assertSame('3.0', $e->found);
+            $this->assertSame('2.0', $e->implemented);
         }
     }
 
@@ -106,17 +106,17 @@ class AstEnvelopeTest extends TestCase
     public function testAHigherMinorIsRefusedByVersionNotByTheSchema(): void
     {
         try {
-            $this->envelope->decode($this->wrap(['astVersion' => '1.7']));
+            $this->envelope->decode($this->wrap(['astVersion' => '2.1']));
             $this->fail('expected a version refusal');
         } catch (AstEnvelopeVersionException $e) {
-            $this->assertSame('1.7', $e->found);
-            $this->assertSame('1.1', $e->implemented);
+            $this->assertSame('2.1', $e->found);
+            $this->assertSame('2.0', $e->implemented);
         }
     }
 
     /**
      * THE VERSION CHECK RUNS FIRST. §34 orders the checks (a) version, (b)
-     * vocabulary, (c) extensions, and the widest one answers: a `1.7` payload
+     * vocabulary, (c) extensions, and the widest one answers: a `2.1` payload
      * is unreadable whatever its extension list says, so naming the extension
      * would send the caller to install something that still would not help.
      *
@@ -128,7 +128,7 @@ class AstEnvelopeTest extends TestCase
     {
         $this->expectException(AstEnvelopeVersionException::class);
         $this->envelope->decode($this->wrap([
-            'astVersion' => '1.7',
+            'astVersion' => '2.1',
             'extensions' => [['id' => 'https://example.test/ext/unknown']],
         ]));
     }
@@ -141,7 +141,7 @@ class AstEnvelopeTest extends TestCase
     {
         $this->expectException(AstEnvelopeExtensionException::class);
         $this->envelope->decode($this->wrap([
-            'astVersion' => '1.1',
+            'astVersion' => '2.0',
             'extensions' => [['id' => 'https://example.test/ext/unknown']],
         ]));
     }
@@ -234,7 +234,7 @@ class AstEnvelopeTest extends TestCase
         // honour" and "this tree is not readable" are different catches.
         $this->expectException(AstEnvelopeException::class);
         try {
-            $this->envelope->decode($this->wrap(['astVersion' => '2.0']));
+            $this->envelope->decode($this->wrap(['astVersion' => '3.0']));
         } catch (AstDecodeException $e) {
             $this->fail('an envelope refusal must not arrive as an AST decode failure');
         }

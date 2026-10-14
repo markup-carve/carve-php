@@ -71,9 +71,9 @@ class DjotImageReferenceKeysTest extends TestCase
         self::assertSame([], $this->images((new CarveConverter())->convert($result)));
     }
 
-    public function testOuterImageEmptyDestinationIsReported(): void
+    public function testOuterImageEmptyDestinationIsPreserved(): void
     {
         $result = (new DjotToCarve())->convertWithFidelityReport('![a ![b]() c]()');
-        self::assertNotEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'An image with an empty destination')));
+        self::assertEmpty(array_filter($result->report()['diagnostics'], static fn (array $d): bool => str_contains($d['message'], 'An image with an empty destination')));
     }
 }

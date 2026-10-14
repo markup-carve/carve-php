@@ -4157,6 +4157,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         // BEFORE the label, because the label is inside the link and
         // `CARVE-P2-024` orders losses by document position.
         $url = $slug !== null ? '#' . $this->guardLiteralCharacters($slug) : ($definition !== null ? '' : $this->encodeMarkdownDestination($destination, $node));
+        if ($definition === null && $url === '' && $destination === '') {
+            $url = '<>';
+        }
         $this->linkTextDepth++;
         $ancestors = $this->delimiterAncestors;
         $this->delimiterAncestors = [];
@@ -4283,6 +4286,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
         $alt = $this->escapeImageAlt($this->stripControls($node->getAlt()));
         $src = $this->encodeMarkdownDestination((string)$node->getSource(), $node, self::DESTINATION_SINK_IMAGE);
+        if ($src === '' && $node->getSource() === '') {
+            $src = '<>';
+        }
         $alt = $this->neutralizeCharacterReferences($alt);
 
         $title = $this->markdownTitle($node);

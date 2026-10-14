@@ -12,13 +12,34 @@ use PHPUnit\Framework\TestCase;
 class DjotLossReportTest extends TestCase
 {
     /**
+     * @return array<string, array{string}>
+     */
+    public static function emptyDestinations(): array
+    {
+        return [
+            'inline link' => ['[literal]()'],
+            'inline image' => ['![a]()'],
+            'reference' => ["[link][]\n\n[link]:"],
+            'reference image' => ["![a][]\n\n[a]:"],
+            'quoted link' => ["> [a](\n> )"],
+            'list link' => ["- [a](\n  )"],
+        ];
+    }
+
+    #[DataProvider('emptyDestinations')]
+    public function testEmptyDestinationHasNoStructureLoss(string $source): void
+    {
+        $result = (new DjotToCarve())->convertWithFidelityReport($source);
+        self::assertEmpty(array_filter($result->report()['diagnostics'], static fn (array $diagnostic): bool => str_contains($diagnostic['message'], 'empty destination')));
+    }
+
+    /**
      * @return array<string, array{string, int, string}>
      */
     public static function losses(): array
     {
         return [
             'empty heading' => ["##\n", 1, 'empty heading'],
-            'empty destination' => ["[link][]\n\n[link]:\n[link2]: url\n", 1, 'empty destination'],
             'unresolved multiline label' => ["[link][a and\nb]\n", 1, 'unresolved Djot reference'],
             'multiline definition is text' => ["[link][a and\nb]\n\n[a and\nb]: url\n", 1, 'unresolved Djot reference'],
             'reference inside escaped bracket suffix' => ['\\[a]([b][c])', 1, 'unresolved Djot reference'],
@@ -28,15 +49,7 @@ class DjotLossReportTest extends TestCase
             'bracket in unresolved link label' => ['[a [b]][undefined]', 1, 'unresolved Djot reference'],
             'escaped closer in unresolved link label' => ['[a\\]b][undefined]', 1, 'unresolved Djot reference'],
             'reference after footnote' => ['text[^1]([see][ref])', 1, 'unresolved Djot reference'],
-            'nested bracket empty destination' => ['[a [b]]()', 1, 'empty destination'],
-            'empty image destination' => ['![a]()', 1, 'image with an empty destination'],
             'unresolved image reference' => ['![a][missing]', 1, 'unresolved Djot image reference'],
-            'empty image reference' => ["![a][]\n\n[a]:", 1, 'image with an empty destination'],
-            'quote empty destination' => ["> [a](\n> )", 1, 'empty destination'],
-            'list empty destination' => ["- [a](\n  )", 1, 'empty destination'],
-            'indented empty destination' => ["[a](\n  )", 1, 'empty destination'],
-            'newline-only destination' => ["[a](\n)", 1, 'empty destination'],
-            'empty inline destination' => ['[literal]()', 1, 'empty destination'],
             'escaped bang unresolved reference' => ['\\![x][undefined]', 1, 'unresolved Djot reference'],
             'case-sensitive reference' => ["[Link][]\n\n[link]: /url\n", 1, 'unresolved Djot reference'],
             'definition inside fenced code' => ["[x][r]\n\n```\n\n[r]: /url\n```\n", 1, 'unresolved Djot reference'],

@@ -21,6 +21,18 @@ class Link extends InlineNode
      */
     protected ?string $rawReferenceLabel = null;
 
+    private bool $resolvedEmptyReference = false;
+
+    public function setResolvedEmptyReference(bool $resolved): void
+    {
+        $this->resolvedEmptyReference = $resolved;
+    }
+
+    public function isResolvedEmptyReference(): bool
+    {
+        return $this->resolvedEmptyReference;
+    }
+
     /**
      * Whether the reference that produced this link was DERIVED from a heading
      * (PART 11 R1) rather than written as a `[label]: url` line.
@@ -104,6 +116,7 @@ class Link extends InlineNode
     {
         $this->destination = $destination;
         $this->title = $title;
+        $this->resolvedEmptyReference = $this->referenceLabel !== null && $destination === '';
     }
 
     public function getType(): string

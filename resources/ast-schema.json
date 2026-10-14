@@ -51,8 +51,7 @@
         },
         "href": {
           "type": "string",
-          "minLength": 1,
-          "description": "The destination. Present and non-empty: a definition with an empty destination is not a definition, it is paragraph text (CARVE-P12-029)."
+          "description": "The destination is always present. An empty string is the authored destination of a bare `[label]:` definition (CARVE-P12-029); its presence in the document distinguishes a resolved-empty reference from an unresolved one."
         },
         "title": {
           "type": "string",
@@ -1610,7 +1609,7 @@
         },
         "src": {
           "type": "string",
-          "description": "Source. Carries the RESOLVED destination when the document defines the reference; empty ONLY where nothing resolved it (PART 12 section 3a). `ref`/`rawRef` sit alongside it and record what the author wrote."
+          "description": "Source. Carries the resolved destination for a reference, including the empty string when its matching hoisted definition has an empty destination. An empty string with no reference fields is an explicit empty inline destination. An empty string with reference fields and no matching definition is unresolved. Inspect the whole document to distinguish the two reference states (CARVE-P12-005 and CARVE-P12-006)."
         },
         "alt": {
           "type": "string"
@@ -2416,7 +2415,7 @@
         },
         "href": {
           "type": "string",
-          "description": "Destination. Carries the RESOLVED destination when the document defines the reference; empty ONLY where nothing resolved it (PART 12 section 3a). `ref`/`rawRef` sit alongside it and record what the author wrote."
+          "description": "Destination. Carries the resolved destination for a reference, including the empty string when its matching hoisted definition has an empty destination. An empty string with no reference fields is an explicit empty inline destination. An empty string with reference fields and no matching definition is unresolved. Inspect the whole document to distinguish the two reference states (CARVE-P12-005 and CARVE-P12-006)."
         },
         "title": {
           "type": "string"

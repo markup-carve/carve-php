@@ -281,10 +281,10 @@ final class StructuralEscapePlanner
                 || $node instanceof InlineFootnote
             ) {
                 $this->callPlanInlineRun($node->getChildren(), true);
-                $flat .= ' ';
+                $flat .= "\x02";
             } elseif ($node instanceof InlineExtension) {
                 $this->callPlanInlineRun($node->getChildren(), false);
-                $flat .= ' ';
+                $flat .= "\x02";
             } elseif (
                 $node instanceof Emphasis || $node instanceof Strong || $node instanceof Underline
                 || $node instanceof Strike || $node instanceof Superscript || $node instanceof Subscript
@@ -295,7 +295,7 @@ final class StructuralEscapePlanner
                 $complete = $this->collectBracketMarksWithScope($node->getChildren(), $flat, $marks, $literalOpeners, $literalHosts) && $complete;
                 $flat .= "\x01";
             } else {
-                $flat .= ' ';
+                $flat .= "\x02";
             }
         }
 
@@ -353,8 +353,18 @@ final class StructuralEscapePlanner
     {
         [$close, $spaces] = $scan;
         $end = $close[$at] ?? null;
-        if ($end === null || $end === $at + 1) {
+        if ($end === null) {
             return false;
+        }
+        $inside = substr($flat, $at + 1, $end - $at - 1);
+        if (str_contains($inside, "\x02")) {
+            return false;
+        }
+        if (
+            preg_match('/^[ \t]*\z/', $inside) === 1
+            || preg_match('/^ (?:"(?:\\\\.|[^"\\\\\r\n])*"|\'(?:\\\\.|[^\'\\\\\r\n])*\')[ \t]*\z/', $inside) === 1
+        ) {
+            return true;
         }
         $low = 0;
         $high = count($spaces);

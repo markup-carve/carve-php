@@ -206,6 +206,7 @@ class AstCodec
      * @var array<string>
      */
     private const BASE_PROPERTIES = [
+        'resolvedEmptyReference',
         'parent',
         'children',
         'attributes',
@@ -702,6 +703,7 @@ class AstCodec
             $node,
         );
         self::resolveFootnoteRefs($node);
+        UnresolvedReference::hydrate($node);
         // PART 12 section 23 on ingest: TRUST `blockImage`, and promote only
         // where it is ABSENT (markup-carve/carve-php#1800). Unlike the two
         // passes above, this one does not recompute what arrived. An orphaned

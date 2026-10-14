@@ -86,7 +86,7 @@ trait ReportsDjotLosses
             return $keyCache[$key] ??= $this->renderImageLabelChildText($projected, [], true, true, true);
         };
         $rawFormatMessage = 'A Djot raw-format identifier containing U+0085 cannot be spelled in Carve; its raw-output behavior is lost.';
-        $rawFormats = $rawFormatIgnored = $rawFenceLines = $imageLabels = [];
+        $rawFormats = $rawFormatIgnored = $rawFenceLines = [];
         $maskSource = $source;
         if (str_contains($source, "\u{0085}")) {
             $maskLines = explode("\n", $source);
@@ -404,15 +404,9 @@ trait ReportsDjotLosses
                     }
                     if (!array_key_exists($label, $definitions)) {
                         $add($start, $image ? 'An unresolved Djot image reference has no src; Carve cannot spell that image.' : 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
-                    } elseif ($definitions[$label] === '') {
-                        $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                     }
                 }
-                if (!$footnote && isset($destinations[$at + 1]) && $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth) === '') {
-                    $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
-                }
                 if ($image && !$footnote && $validForm) {
-                    $imageLabels[] = [$start, $at + 1];
                     $rawFormatIgnored[] = [$start, $at + 1];
                     $text = substr($source, $start + 1, $at - $start - 1);
                     $destination = isset($destinations[$at + 1])
@@ -451,19 +445,7 @@ trait ReportsDjotLosses
                 $add($start, $rawFormatMessage);
             }
         }
-        usort($imageLabels, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         usort($findings, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
-        $imageIndex = 0;
-        $imageEnd = -1;
-        $imageCount = count($imageLabels);
-        $findings = array_values(array_filter($findings, static function (array $finding) use ($imageLabels, $imageCount, &$imageIndex, &$imageEnd): bool {
-            [$at, $message] = $finding;
-            while ($imageIndex < $imageCount && $imageLabels[$imageIndex][0] < $at) {
-                $imageEnd = max($imageEnd, $imageLabels[$imageIndex++][1]);
-            }
-
-            return !in_array($message, ['A link with an empty destination has no Carve spelling.', 'An image with an empty destination has no Carve spelling.'], true) || $at >= $imageEnd;
-        }));
         $positions = array_column($findings, 0);
         sort($positions, SORT_NUMERIC);
         $linesAt = [];

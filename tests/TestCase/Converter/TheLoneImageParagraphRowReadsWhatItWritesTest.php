@@ -172,9 +172,7 @@ class TheLoneImageParagraphRowReadsWhatItWritesTest extends TestCase
     public static function noImageWrittenProvider(): array
     {
         return [
-            'an empty src' => ['<p><img src="" alt="G"></p>'],
             'no src at all' => ['<p><img alt="G"></p>'],
-            'an empty src behind a wrapper' => ['<p><picture><img src="" alt="G"></picture></p>'],
         ];
     }
 
