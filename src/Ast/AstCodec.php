@@ -1866,8 +1866,8 @@ class AstCodec
             if (
                 $field === 'align'
                 && $node instanceof TableCell
-                && !$node->isHeader()
-                && $this->inheritsColumnAlignment($node)
+                && !$node->hasExplicitAlignment()
+                && ($node->isHeader() || $this->inheritsColumnAlignment($node))
             ) {
                 continue;
             }
@@ -2410,28 +2410,32 @@ class AstCodec
                 self::writeProperty($rows[$index], 'isHeader', $allHeaders);
             }
 
-            // A column's alignment is on the wire ONCE, on the header cells,
-            // because that is where the delimiter row declares it (carve#784).
-            // This engine's renderer aligns each body cell from its own node,
-            // so the column's value is copied back down here - the same
-            // recomputation a consumer performs, rather than a field the
-            // reference does not have.
+            // Each header-row marker updates its column. Later header cells
+            // without a marker and body cells inherit the last value.
             $columns = [];
             $verticalColumns = [];
             foreach ($node->getChildren() as $row) {
                 if (!$row instanceof TableRow || !$row->isHeader()) {
-                    continue;
+                    break;
                 }
                 $index = 0;
                 foreach ($row->getChildren() as $cell) {
                     if ($cell instanceof TableCell) {
-                        $columns[$index] = $cell->getAlignment();
-                        $verticalColumns[$index] = $cell->getVerticalAlignment();
+                        if ($cell->getAlignment() === TableCell::ALIGN_DEFAULT && isset($columns[$index])) {
+                            self::writeProperty($cell, 'alignment', $columns[$index]);
+                        }
+                        if ($cell->getVerticalAlignment() === TableCell::VALIGN_DEFAULT && isset($verticalColumns[$index])) {
+                            $cell->setVerticalAlignment($verticalColumns[$index], false);
+                        }
+                        if ($cell->getAlignment() !== TableCell::ALIGN_DEFAULT) {
+                            $columns[$index] = $cell->getAlignment();
+                        }
+                        if ($cell->getVerticalAlignment() !== TableCell::VALIGN_DEFAULT) {
+                            $verticalColumns[$index] = $cell->getVerticalAlignment();
+                        }
                         $index++;
                     }
                 }
-
-                break;
             }
             if ($columns !== []) {
                 foreach ($node->getChildren() as $row) {

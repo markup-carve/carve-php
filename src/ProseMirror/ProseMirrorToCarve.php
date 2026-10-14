@@ -1879,7 +1879,10 @@ class ProseMirrorToCarve
                 is_scalar($value) ? (string)$value : null,
             ),
             $key === 'carveCoveredRowMarkers' => $this->rememberCoveredRowMarkers($node, $value),
-            $key === 'carveInheritedTextAlign' => true,
+            $key === 'carveInheritedTextAlign'
+                && !$node->hasExplicitAlignment()
+                && in_array(self::asString($value), [TableCell::ALIGN_LEFT, TableCell::ALIGN_CENTER, TableCell::ALIGN_RIGHT], true)
+                => $this->setState($node, 'alignment', self::asString($value)),
             // An `alignment` on the wire IS the cell's own marker: the
             // renderer publishes it only where the cell carries one, which
             // is also how carve-rs reads it back. Recording that keeps the
