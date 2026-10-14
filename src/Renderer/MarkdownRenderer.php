@@ -3298,6 +3298,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                 || !str_ends_with($parts[$index], "\n")
                 || str_ends_with($parts[$index], "\n\n")
                 || !$this->lastWrittenLineTakesLazyText($parts[$index])
+                || preg_match('/^-{3,}$/', explode("\n", $below)[0]) === 1
                 || $this->opensWithParagraphInterrupter(explode("\n", $below)[0])
             ) {
                 continue;

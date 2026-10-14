@@ -632,23 +632,17 @@ final class TableBlockBuilder
                 $build['cell']->removeChild($child);
             }
             $this->fillCellContent($build['cell'], $build['cellData'], $build['line'], $build['content'], $build['wraps']);
-            $row = $build['cell']->getParent();
-            $rowSpan = $row?->getPos();
-            if ($rowSpan !== null) {
-                foreach ($build['cell']->getChildren() as $child) {
-                    $childSpan = $child->getPos();
-                    if ($childSpan !== null && $childSpan->endOffset > $rowSpan->endOffset) {
-                        $rowSpan = new SourceSpan(
-                            $rowSpan->startLine,
-                            $childSpan->endLine,
-                            $rowSpan->startColumn,
-                            $childSpan->endColumn,
-                            $rowSpan->startOffset,
-                            $childSpan->endOffset,
-                        );
+            $rowEnd = $build['cell']->getParent()?->getPos()?->endOffset;
+            if ($rowEnd !== null) {
+                // Text joined from a later row is reassembled and has no position in this row.
+                $pending = $build['cell']->getChildren();
+                while ($pending !== []) {
+                    $part = array_pop($pending);
+                    if ($part->getPos()?->startOffset >= $rowEnd) {
+                        $part->setPos(null);
                     }
+                    array_push($pending, ...$part->getChildren());
                 }
-                $row->setPos($rowSpan);
             }
         }
 
