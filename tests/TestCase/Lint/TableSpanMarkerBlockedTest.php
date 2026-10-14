@@ -24,6 +24,8 @@ class TableSpanMarkerBlockedTest extends TestCase
         yield 'astral and quote' => ["😀\n> | ^ | b |\n", 2, 5, 'There is no cell above it to extend.'];
         yield 'footnote definition' => ["x[^n]\n\n[^n]: note\n\n    | ^ | b |\n", 5, 7, 'There is no cell above it to extend.'];
         yield 'captioned table' => ["| ^ | b |\n^ Table: cap\n", 1, 3, 'There is no cell above it to extend.'];
+        yield 'shorter row above' => ["| a |\n| b | ^ |\n", 2, 7, 'There is no cell above it to extend.'];
+        yield 'pipe in a code span' => ["| `a|b` | ^ |\n+ x | y |\n", 1, 11, 'There is no cell above it to extend.'];
     }
 
     #[DataProvider('blockedCases')]
