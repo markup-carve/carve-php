@@ -77,10 +77,10 @@ trait ReportsDjotLosses
             $key = 'image:' . $depth . ':' . $label;
             $projected = $this->djotImageLabelAttributes($this->projectDjotReferenceText($label, $depth), true);
             if (strlen($label) > 256) {
-                return $this->djotCollapsedReferenceText($projected);
+                return $this->renderImageLabelChildText($projected, [], true, true, true);
             }
 
-            return $keyCache[$key] ??= $this->djotCollapsedReferenceText($projected);
+            return $keyCache[$key] ??= $this->renderImageLabelChildText($projected, [], true, true, true);
         };
         $rawFormatMessage = 'A Djot raw-format identifier containing U+0085 cannot be spelled in Carve; its raw-output behavior is lost.';
         $rawFormats = $rawFormatIgnored = $rawFenceLines = [];

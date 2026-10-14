@@ -320,7 +320,7 @@ class DjotToCarve
             $preserveSourceNuls = $preserveSourceNuls && str_contains($label, "\0");
             $key = ($omitQuotes ? '1:' : '0:') . ($preserveSourceNuls ? '1:' : '0:') . $label;
 
-            return $childTextCache[$key] ??= $this->renderImageLabelChildText($label, $inherited, $omitQuotes, $preserveSourceNuls);
+            return $childTextCache[$key] ??= $this->renderImageLabelChildText($label, $inherited, $omitQuotes, $preserveSourceNuls, true);
         };
         $collapsedImageLines = null;
         $collapsedImageLine = 0;
@@ -362,7 +362,7 @@ class DjotToCarve
             $this->replaceImageLabels($source, $mask, function (array $match) use ($source, $owners, &$line, $definitions, &$referenceEdits): string {
                 [$image, $at] = $match[0];
                 $end = $at + strlen($image);
-                if (substr($source, $end, 2) !== '[]') {
+                if (substr($source, $end, 2) !== '[]' || str_starts_with($match[1][0], '^') && strlen($match[1][0]) > 1) {
                     return $image;
                 }
                 while ($owners[$line]['end'] <= $at) {
@@ -373,7 +373,7 @@ class DjotToCarve
                 if (!$layout['valid']) {
                     return $image;
                 }
-                $key = preg_replace('/[ \t\r\n]+/', ' ', trim($this->djotCollapsedReferenceText($layout['normalized']))) ?? '';
+                $key = preg_replace('/[ \t\r\n]+/', ' ', trim($this->renderImageLabelChildText($layout['normalized'], [], true, true, true))) ?? '';
                 if (isset($definitions[$key])) {
                     $referenceEdits[] = [$end + 1, $definitions[$key]];
                 }
@@ -3375,9 +3375,18 @@ class DjotToCarve
      * @param array<string, true> $inherited
      * @param bool $omitQuotes
      * @param bool $preserveSourceNuls
+     * @param bool $imageLabel
      */
-    private function renderImageLabelChildText(string $label, array $inherited, bool $omitQuotes = true, bool $preserveSourceNuls = false): string
-    {
+    private function renderImageLabelChildText(
+        string $label,
+        array $inherited,
+        bool $omitQuotes = true,
+        bool $preserveSourceNuls = false,
+        bool $imageLabel = false,
+    ): string {
+        if ($imageLabel) {
+            $label = $this->djotImageEmptyDestinations($label);
+        }
         $label = $this->unwrapNestedImageLabel($label);
         $unmarked = $preserveSourceNuls ? $this->removeInheritedAttributeMarkers($label, $inherited) : $label;
         $preserveSourceNuls = $preserveSourceNuls && str_contains($unmarked, "\0");
@@ -3398,6 +3407,57 @@ class DjotToCarve
         $plain = (new CarveConverter(smartTypography: false, renderer: $renderer))->convert($native);
 
         return strtr(preg_replace('/^DJOTALT ?| ?DJOTEND\n?$/', '', $plain) ?? $plain, $scalars);
+    }
+
+    private function djotImageEmptyDestinations(string $source): string
+    {
+        if (!str_contains($source, '](')) {
+            return $source;
+        }
+        $empty = [];
+        $mask = $this->maskCodeAndDestinations($source, opaqueOptions: [
+
+            'onDestination' => static function (int $start, int $end) use ($source, &$empty): void {
+                if (trim(substr($source, $start + 1, $end - $start - 2), " \t\r\n") === '') {
+                    $empty[$start] = $end;
+                }
+            },
+        ]);
+        if ($empty === []) {
+            return $source;
+        }
+        $brackets = [];
+        $removed = [];
+        for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+            if ($mask[$at] !== $source[$at] || $this->isDjotEscaped($source, $at)) {
+                continue;
+            }
+            if ($source[$at] === '[') {
+                $brackets[] = $at;
+            } elseif ($source[$at] === ']') {
+                $open = array_pop($brackets);
+                $end = $empty[$at + 1] ?? null;
+                if ($open === null || $end === null || ($source[$open + 1] ?? '') === '^') {
+                    continue;
+                }
+                $removed[$open] = true;
+                for ($index = $at; $index < $end; $index++) {
+                    $removed[$index] = true;
+                }
+                if ($open > 0 && $source[$open - 1] === '!' && !$this->isDjotEscaped($source, $open - 1)) {
+                    $removed[$open - 1] = true;
+                }
+            }
+        }
+        $parts = [];
+        $cursor = 0;
+        ksort($removed);
+        foreach (array_keys($removed) as $at) {
+            $parts[] = substr($source, $cursor, $at - $cursor);
+            $cursor = $at + 1;
+        }
+
+        return implode('', $parts) . substr($source, $cursor);
     }
 
     private function unwrapNestedImageLabel(string $label): string

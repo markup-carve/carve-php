@@ -51,4 +51,23 @@ class DjotImageReferenceKeysTest extends TestCase
             }
         }
     }
+
+    public function testUnresolvedImagesRemainUnresolved(): void
+    {
+        $result = (new DjotToCarve())->convert("![a [b](u)\nc][]\n\n[other]: img");
+        self::assertSame([], $this->images((new CarveConverter())->convert($result)));
+    }
+
+    public function testExplicitReferenceNamesRemainAuthored(): void
+    {
+        $result = (new DjotToCarve())->convert("![a [b](u)\nc][named]\n\n[named]: img");
+        self::assertSame([['alt' => "a b\nc", 'src' => 'img']], $this->images((new CarveConverter())->convert($result)));
+    }
+
+    public function testFootnoteLabelsStayOutsideImageResolution(): void
+    {
+        $result = (new DjotToCarve())->convert("![^a][]\n\n[^a]: note");
+        self::assertStringContainsString('[]', $result);
+        self::assertSame([], $this->images((new CarveConverter())->convert($result)));
+    }
 }
