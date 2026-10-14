@@ -839,6 +839,17 @@ final class ListBlockBuilder
                             }
 
                             break;
+                        } elseif (
+                            !$sawBlankLine
+                            && $subTrailingState->openParagraph
+                            && !($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($subLine, " \t"), 0)
+                            && !$this->isBlockElementStart(ltrim($subLine, " \t"), $lines, $i)
+                            && !$this->startsNewBlock(ltrim($subLine, " \t"), $lines, $i)
+                        ) {
+                            $subLines[] = ltrim($subLine, " \t");
+                            $subLineMap[] = $this->sourceLineFor($i);
+                            $subTrailingState = $this->advanceTrailingState($subTrailingState, ltrim($subLine, " \t"));
+                            $i++;
                         } else {
                             // End of list
                             break;
@@ -2583,11 +2594,26 @@ final class ListBlockBuilder
                         }
                     } else {
                         $width = strlen($comment['fence']);
+                        $closer = null;
                         for ($j = $i + 1; $j < $count; $j++) {
-                            $i = $j;
                             if (($this->getFencedBlockParser)()->isFencedCommentCloser($lines[$j], $width)) {
+                                $closer = $j;
+
                                 break;
                             }
+                        }
+                        if ($closer !== null) {
+                            $i = $closer;
+                        } else {
+                            $bareColon = null;
+                            for ($j = $i + 1; $j < $count; $j++) {
+                                if (preg_match('/^[ \t]*:{3,}[ \t]*$/', $lines[$j]) === 1) {
+                                    $bareColon = $j;
+
+                                    break;
+                                }
+                            }
+                            $i = $bareColon === null ? $count - 1 : $bareColon - 1;
                         }
                     }
                 }

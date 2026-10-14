@@ -31,7 +31,7 @@ class TableParser
     public function isTableRow(string $line): bool
     {
         // Fast early exit: tables start with |
-        if (!isset($line[0]) || $line[0] !== '|') {
+        if (!isset($line[0]) || $line[0] !== '|' || str_contains($line, "\n")) {
             return false;
         }
 
@@ -986,21 +986,19 @@ class TableParser
      */
     public function isContinuationRow(string $line): bool
     {
-        // Continuation rows start with + and end with |
-        $trimmed = ltrim($line, " \t");
-
-        if (!str_starts_with($trimmed, '+')) {
+        // A continuation marker must start at this table's column.
+        if (!str_starts_with($line, '+')) {
             return false;
         }
 
         // Check for standard case: ends with | outside code spans
-        if ($this->lineEndsWithPipeOutsideCodeSpan($trimmed)) {
+        if ($this->lineEndsWithPipeOutsideCodeSpan($line)) {
             return true;
         }
 
         // Also accept continuation rows that might close a code span from the previous row
         // These have an "orphan" closing backtick that makes the | look like it's inside a code span
-        return $this->isPotentialContinuationRowWithCodeSpan($trimmed);
+        return $this->isPotentialContinuationRowWithCodeSpan($line);
     }
 
     /**
@@ -1161,13 +1159,11 @@ class TableParser
     /**
      * Whether a CONTINUATION row could start at `$at`, by its own first byte.
      *
-     * The continuation spelling tolerates leading whitespace where the standard
-     * one does not, so the head skips a blank run before it reads the `+`. The
-     * offset-side head for {@see self::isContinuationRow()}, pinned by the same
-     * test {@see self::isTableRowHead()} names.
+     * The offset-side head for {@see self::isContinuationRow()}, pinned by the
+     * same test {@see self::isTableRowHead()} names.
      */
     public function isContinuationRowHead(string $line, int $at = 0): bool
     {
-        return ($line[$at + strspn($line, " \t", $at)] ?? '') === '+';
+        return ($line[$at] ?? '') === '+';
     }
 }

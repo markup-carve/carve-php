@@ -2706,6 +2706,17 @@ class BlockParser
         $header = $fenceInfo['header'];
         $label = $fenceInfo['label'];
         $indentLen = strlen($fenceInfo['indent']);
+        $openerSourceLine = $this->sourceLineFor($start);
+        $openerSource = $this->state->source->sourceLines[$openerSourceLine] ?? null;
+        $openerRemoved = $openerSource !== null && str_ends_with($openerSource, $line)
+            ? strlen($openerSource) - strlen($line)
+            : null;
+        if ($openerRemoved !== null && trim(substr($openerSource, 0, $openerRemoved), ' ') !== '') {
+            $openerRemoved = null;
+        }
+        $previousSourceLine = $this->state->source->sourceLines[$openerSourceLine - 1] ?? '';
+        $directListLead = $parent->getType() === 'list_item'
+            && $this->listParser->parseListItemMarker(ltrim($previousSourceLine, " \t")) !== null;
 
         $payload = [];
         $i = $start + 1;
@@ -2729,7 +2740,19 @@ class BlockParser
             // refused the genuine blank at the end of a container body too.
 
             // Remove indent from content lines (up to the same amount as opening fence)
-            $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen);
+            $payloadSourceLine = $this->sourceLineFor($i);
+            $payloadSource = $this->state->source->sourceLines[$payloadSourceLine] ?? null;
+            $payloadRemoved = $payloadSource !== null && str_ends_with($payloadSource, $currentLine)
+                ? strlen($payloadSource) - strlen($currentLine)
+                : null;
+            if ($payloadRemoved !== null && trim(substr($payloadSource, 0, $payloadRemoved), ' ') !== '') {
+                $payloadRemoved = null;
+            }
+            $extraIndent = $directListLead && $openerRemoved !== null && $payloadRemoved !== null
+                && !str_contains(substr($currentLine, 0, strspn($currentLine, " \t")), "\t")
+                ? max(0, $openerRemoved - $payloadRemoved)
+                : 0;
+            $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen + $extraIndent);
             $currentLine = self::stripLazyFrame($currentLine);
 
             $payload[] = $currentLine;
@@ -4998,6 +5021,13 @@ class BlockParser
             // column. Recorded so the authored-base pass can tell them apart
             // (markup-carve/carve#1896).
             $stripped = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+            $inlineCodeCandidate = ltrim($stripped, " \t");
+            $inlineCodeOpener = $trailingState->openParagraph && !$trailingState->hasLiteralDiv()
+                && str_starts_with($inlineCodeCandidate, '````')
+                ? $this->fencedBlockParser->parseCodeFenceOpener($inlineCodeCandidate)
+                : null;
+            $inlineCodeWithoutCloser = $inlineCodeOpener !== null && strlen($inlineCodeOpener['fence']) >= 4 && $inlineCodeOpener['info'] !== ''
+                && !$this->continuationsMapper()->sourceFenceCloserInView($lines, $i, $inlineCodeOpener, $nextIndent);
             $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
@@ -5023,12 +5053,22 @@ class BlockParser
             if ($inCommentSpan && !$trailingState->hasLiteralDiv()) {
                 // Opaque payload, or the closer that travels with its opener.
                 $trailingState->openParagraph = false;
-            } elseif (isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
+            } elseif ($inlineCodeWithoutCloser || isset($this->state->session->blockQuoteInlineFenceSourceLines[$this->sourceLineFor($i)])) {
                 $trailingState = $this->advanceTrailingState($trailingState, 'x', true);
             } else {
                 $trailingState = $trailingState->hasLiteralDiv()
                     ? $this->continuationsMapper()->advanceLiteralStateWithSourceFenceLookahead($trailingState, $stripped, $lines, $i, $contentIndent)
                     : $this->advanceTrailingState($trailingState, $stripped, true);
+            }
+            if (
+                !$inCommentSpan && !$inlineCodeWithoutCloser
+                && $trailingState->fence === null
+                && !$trailingState->hasLiteralDiv()
+                && str_starts_with(ltrim($stripped, " \t"), '[^')
+                && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($stripped, " \t")) === 1
+                && IndentationHelper::getLeadingColumns($nextLine) >= $contentIndent + self::FOOTNOTE_BODY_COLUMN
+            ) {
+                $trailingState->openParagraph = false;
             }
             if ($bareContinuationLead) {
                 $claimLine = ltrim($stripped, " \t");
@@ -5502,7 +5542,8 @@ class BlockParser
                 $retainedBelowComment = true;
             } elseif (
                 $retainedBelowComment
-                && !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i)
+                && (IndentationHelper::getLeadingColumns($nextLine) > 0
+                    || !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i))
                 && !$this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0)
             ) {
                 $bodyLine = ltrim($nextLine, " \t");

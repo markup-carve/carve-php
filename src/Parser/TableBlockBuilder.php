@@ -634,6 +634,24 @@ final class TableBlockBuilder
                 $build['cell']->removeChild($child);
             }
             $this->fillCellContent($build['cell'], $build['cellData'], $build['line'], $build['content'], $build['wraps']);
+            $row = $build['cell']->getParent();
+            $rowSpan = $row?->getPos();
+            if ($rowSpan !== null) {
+                foreach ($build['cell']->getChildren() as $child) {
+                    $childSpan = $child->getPos();
+                    if ($childSpan !== null && $childSpan->endOffset > $rowSpan->endOffset) {
+                        $rowSpan = new SourceSpan(
+                            $rowSpan->startLine,
+                            $childSpan->endLine,
+                            $rowSpan->startColumn,
+                            $childSpan->endColumn,
+                            $rowSpan->startOffset,
+                            $childSpan->endOffset,
+                        );
+                    }
+                }
+                $row->setPos($rowSpan);
+            }
         }
 
         // A separator-only table is valid (creates empty table)

@@ -268,6 +268,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     private bool $inTerm = false;
 
+    private bool $inCaption = false;
+
+    private function renderCaptionInlines(Caption $caption): string
+    {
+        $previous = $this->inCaption;
+        $this->inCaption = true;
+        try {
+            return $this->renderInlines($caption->getChildren());
+        } finally {
+            $this->inCaption = $previous;
+        }
+    }
+
     /**
      * The parser the writer asks its column question of - see atARaisedBase().
      */
@@ -2932,7 +2945,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($node->hasCaption()) {
             $caption = $node->getCaption();
             if ($caption !== null) {
-                $rows[] = '^ ' . $this->renderInlines($caption->getChildren());
+                $rows[] = '^ ' . $this->renderCaptionInlines($caption);
             }
         }
 
@@ -3235,7 +3248,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $target = implode("\n", $targets);
         $captions = array_map(
-            fn (Caption $caption): string => '^ ' . $this->renderInlines($caption->getChildren()),
+            fn (Caption $caption): string => '^ ' . $this->renderCaptionInlines($caption),
             $node->getCaptions(),
         );
         $caption = implode("\n", $captions);
@@ -3260,7 +3273,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         $caption = $node->getCaption();
         if ($caption !== null) {
-            $out .= "\n^ " . $this->renderInlines($caption->getChildren());
+            $out .= "\n^ " . $this->renderCaptionInlines($caption);
         }
 
         return $out;
@@ -4864,7 +4877,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private function guardCodeLines(string $written, string $nodeType = 'code'): string
     {
-        $colon = $this->colonFenceDepth > 0 ? '|:{' . ($this->colonFenceDepth + 2) . '}[ \t]*(?:\n|$)' : '';
+        $colon = '|:{3,}[ \t]*(?:\n|$)';
         $marker = '/\n(?=>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +' . $colon . ')/';
         if ($this->inTerm && preg_match($marker, $written)) {
             throw new SourceUnspellableException($nodeType, 'a block marker on a continuation line ends the definition term');
@@ -4963,7 +4976,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (preg_match('/[ \t]\n/', $content)) {
             throw new SourceUnspellableException('code', 'a line of the value ends in whitespace, which the block layer strips');
         }
-        if (!$this->inTerm && preg_match('/\n[ \t]/', $content)) {
+        $captionLeadingSpace = $this->inCaption && preg_match('/^\n[ \t][^\n]*$/', $content) === 1;
+        if (!$this->inTerm && !$captionLeadingSpace && preg_match('/\n[ \t]/', $content)) {
             throw new SourceUnspellableException('code', 'a line of the value starts with whitespace, which the block layer strips');
         }
         if ($needsPad && str_ends_with($content, "\n")) {

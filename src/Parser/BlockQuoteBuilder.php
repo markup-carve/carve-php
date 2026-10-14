@@ -126,6 +126,8 @@ final class BlockQuoteBuilder
 
             if (
                 !$state['paragraphOpen']
+                || (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
+                    && $this->lastQuoteLineIsBareTerm([$lines[$end]]))
                 || ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['literal'] ?? false)
                 || $this->endsBlockQuote($line, true, $lines, $j)
             ) {
@@ -325,6 +327,8 @@ final class BlockQuoteBuilder
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
+                && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
+                    && $this->lastQuoteLineIsBareTerm($innerLines))
                 && !(preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
                     && $this->lastQuoteLineIsATerm($innerLines))
                 && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
@@ -1252,6 +1256,18 @@ final class BlockQuoteBuilder
     private function endContainerAttributeScope(): void
     {
         ($this->endContainerAttributeScopeCallback)();
+    }
+
+    /**
+     * @param array<string> $lines
+     */
+    private function lastQuoteLineIsBareTerm(array $lines): bool
+    {
+        $last = array_key_last($lines);
+        $line = $last === null ? '' : $lines[$last];
+        $line = ContainerPrefix::afterLeadingQuoteMarkers($line);
+
+        return preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($line, " \t")) === 1;
     }
 
     /**
