@@ -187,14 +187,14 @@ class DjotToCarve
         return $converted;
     }
 
-    private function convertDocument(string $djot, bool $preserveHeadingIds = true): string
+    private function convertDocument(string $djot, bool $preserveHeadingIds = true, bool $skipHeadingTargets = false): string
     {
         $previousShield = $this->nulShielded;
         $this->nulShielded = true;
         $this->paragraphContextSource = '';
         $this->paragraphStarts = [];
         try {
-            return $this->convertDocumentWithContext($djot, $preserveHeadingIds);
+            return $this->convertDocumentWithContext($djot, $preserveHeadingIds, $skipHeadingTargets);
         } finally {
             $this->paragraphContextSource = '';
             $this->paragraphStarts = [];
@@ -202,13 +202,23 @@ class DjotToCarve
         }
     }
 
-    private function convertDocumentWithContext(string $djot, bool $preserveHeadingIds): string
+    private function convertDocumentWithContext(string $djot, bool $preserveHeadingIds, bool $skipHeadingTargets): string
     {
         $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
         $source = $this->escapeDjotTableAttributeBoundaries($this->normalizeDjotDivOpeners($source));
         $hasSourceNuls = str_contains($source, "\0U\0");
+        if (
+            !$skipHeadingTargets && $hasSourceNuls && str_contains($source, '][')
+            && preg_match('/(?:^|\n)[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?\[\^[^\]\n]+\]:/', $source) !== 1
+            && preg_match('/(?:^|\n)[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?#{1,6}[ \t]/', $source) === 1
+        ) {
+            $baseline = $this->convertDocument($djot, $preserveHeadingIds, true);
+            $targets = DjotHeadingTargets::fromCarve($baseline);
+            $source = $this->normalizeDjotReferenceUses($source, aliasesOnly: true, headingTargets: $targets);
+        }
+
         if (str_contains($source, '`') || str_contains($source, "\0")) {
             foreach (explode("\n", $source) as $line) {
                 if (
@@ -3040,7 +3050,7 @@ class DjotToCarve
         $previous = $this->omitQuoteDelimiters;
         $this->omitQuoteDelimiters = $omitQuotes;
         try {
-            return $this->nulShielded ? $this->convertDocument($source, false) : $this->convert($source);
+            return $this->nulShielded ? $this->convertDocument($source, false, true) : $this->convert($source);
         } finally {
             $this->omitQuoteDelimiters = $previous;
         }
