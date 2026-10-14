@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# PRs cancel their own superseded runs; every other event gets a unique group,
+# because GitHub keeps only one pending run per group and would drop main pushes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Each job declares timeout-minutes so a hung step fails fast
 # instead of inheriting the 360-minute GitHub default.
 jobs:
@@ -31,8 +37,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
+      # Maintainer decision: PRs run only the supported min and max PHP;
+      # pushes to main run the full range.
       matrix:
-        php: ['8.2', '8.3', '8.4', '8.5']
+        php: ${{ github.event_name == 'pull_request' && fromJSON('["8.2", "8.5"]') || fromJSON('["8.2", "8.3", "8.4", "8.5"]') }}
 
     name: PHP ${{ matrix.php }}
 

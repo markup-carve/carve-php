@@ -7,8 +7,11 @@ namespace MarkupCarve\Carve\Lint;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
+use MarkupCarve\Carve\Parser\Block\TableParser;
+use MarkupCarve\Carve\Renderer\TableSpanGrid;
 use MarkupCarve\Carve\Stamp;
 
 class SourceLinter
@@ -82,6 +85,51 @@ class SourceLinter
             [$node, $depth] = array_pop($pending);
             $type = $node->getType();
             $pos = $node->getPos();
+            if ($node instanceof Table) {
+                $tableRows = array_values(array_filter($node->getChildren(), static fn ($child): bool => $child->getType() === 'table_row'));
+                $gridRows = TableSpanGrid::resolve($node);
+                foreach ($gridRows as $rowIndex => $gridRow) {
+                    foreach ($gridRow as $columnIndex => $entry) {
+                        $marker = $entry['cell']->getSpanMarker();
+                        if ($entry['skip'] || ($marker !== '^' && $marker !== '<')) {
+                            continue;
+                        }
+                        $cellPos = $entry['cell']->getPos();
+                        $reason = $marker === '^'
+                            ? ($rowIndex === 0 || !isset($gridRows[$rowIndex - 1][$columnIndex]) ? 'There is no cell above it to extend.' : 'Extending the cell above would cover another cell.')
+                            : ($columnIndex === 0 ? 'There is no cell to its left to widen.' : 'The cell to its left starts in an earlier row, so widening it would cover cells already placed.');
+                        $message = sprintf('The "%s" span marker cannot extend a cell. %s It renders as a cell of its own; escape it as "\\%s" to keep the character as text, or remove it.', $marker, $reason, $marker);
+                        if ($cellPos === null) {
+                            $rowPos = $tableRows[$rowIndex]->getPos() ?? null;
+                            if ($rowPos === null) {
+                                continue;
+                            }
+                            $line = $rowPos->startLine;
+                            $lineText = $rows[$line - 1][0] ?? '';
+                            $prefix = strlen(mb_substr($lineText, 0, $rowPos->startColumn - 1, 'UTF-8'));
+                            $sourceCells = (new TableParser())->splitCells(substr($lineText, $prefix));
+                            $sourceCell = $sourceCells[$columnIndex] ?? null;
+                            $withinCell = $sourceCell === null ? false : strpos($sourceCell['raw'], $marker);
+                            if ($withinCell === false) {
+                                continue;
+                            }
+                            $at = $prefix + $sourceCell['offset'] + $withinCell;
+                            $emit($line, $at, 1, 'table-span-marker-blocked', $message);
+
+                            continue;
+                        }
+                        $cellStart = SourceOffsets::toByte($cellPos->startOffset, $map, $length);
+                        $cellEnd = SourceOffsets::toByte($cellPos->endOffset, $map, $length);
+                        $withinCell = strpos(substr($source, $cellStart, $cellEnd - $cellStart), $marker);
+                        if ($withinCell === false) {
+                            continue;
+                        }
+                        $line = $cellPos->startLine;
+                        $lineStart = $rows[$line - 1][1] ?? 0;
+                        $emit($line, $cellStart + $withinCell - $lineStart, 1, 'table-span-marker-blocked', $message);
+                    }
+                }
+            }
             if ($pos !== null) {
                 if (in_array($type, ['text', 'mention', 'tag'], true)) {
                     $textSpans[] = [SourceOffsets::toByte($pos->startOffset, $map, $length), SourceOffsets::toByte($pos->endOffset, $map, $length)];

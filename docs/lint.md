@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Lint\ReferenceLinter;
 use MarkupCarve\Carve\Lint\ReferencesPlacementLinter;
 use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
 use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
+use MarkupCarve\Carve\Lint\SourceLinter;
 use MarkupCarve\Carve\Lint\TableColumnLinter;
 use MarkupCarve\Carve\Lint\TemplateSourceLinter;
 
@@ -26,6 +27,7 @@ $warnings = array_merge(
     (new MarkdownHabitLinter())->lint($source),
     (new SemanticAttributeLinter())->lint($source),
     (new RetiredSpellingLinter())->lint($source),
+    (new SourceLinter())->lint($source),
     (new TableColumnLinter())->lint($source),
     (new TemplateSourceLinter())->lint($source),
     (new FigureGroupLinter())->lint($source),
@@ -47,6 +49,9 @@ Several passes have no section below. `TableColumnLinter` reports a table cell
 alignment run with no terminating space, `aligns` / `valigns` / `widths`
 attributes that cover fewer columns than the table, `widths` totaling over 100%,
 and an `aligns` / `valigns` axis the table's own `|=` markers already set.
+`SourceLinter` reports `table-span-marker-blocked` for a pipe-table `^` or `<`
+that the span walk cannot absorb. The warning points to the marker and explains
+why it renders as its own cell. Escape the marker to show it as text.
 `TemplateSourceLinter` reports a braced comment holding a template tag (`raw`,
 `if`, `for`, `block` or a closer), a sign that Liquid, Nunjucks or Twig source
 reached Carve before template rendering. `QuoteFenceLinter` reports a `::: >`
