@@ -245,18 +245,14 @@ class ConformanceDivergenceTest extends TestCase
         );
     }
 
-    /**
-     * Item 3 (corpus 34-reference-link-8/9): an empty reference definition is
-     * literal -- the destination must be present on the def line.
-     */
-    public function testEmptyReferenceDefinitionIsLiteral(): void
+    public function testEmptyReferenceDefinitionIsCollected(): void
     {
         $this->assertSame(
-            '<p>[r]:</p>',
+            '',
             trim($this->converter->convert("[r]:\n")),
         );
         $this->assertSame(
-            '<p>[r]:</p>',
+            '',
             trim($this->converter->convert("[r]:   \n")),
         );
     }

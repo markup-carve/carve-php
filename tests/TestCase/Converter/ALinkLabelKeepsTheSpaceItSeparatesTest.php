@@ -50,7 +50,7 @@ class ALinkLabelKeepsTheSpaceItSeparatesTest extends TestCase
      */
     public function testALinkThatWritesNoLabelLeavesTheSpaceToItsNeighbor(): void
     {
-        $this->assertSame("x *y*\n", (new HtmlToCarve())->convert('<p><a href="">x </a><strong> y</strong></p>'));
+        $this->assertSame("[x](){* y*}\n", (new HtmlToCarve())->convert('<p><a href="">x </a><strong> y</strong></p>'));
 
         $roundtrip = new HtmlToCarve(importMode: 'roundtrip');
         $this->assertSame(

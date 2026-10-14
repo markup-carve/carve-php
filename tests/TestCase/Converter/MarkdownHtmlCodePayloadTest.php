@@ -169,13 +169,12 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
     }
 
-    public function testCodeNewlineEntitiesKeepLossSourceLines(): void
+    public function testCodeNewlineEntitiesKeepEmptyLinks(): void
     {
         foreach ([false, true] as $mode) {
             $result = (new MarkdownToCarve(convertRawHtml: $mode))->convertWithFidelityReport("<code class=\"x\">a&#13;\nb</code> [t]()");
             $rows = array_values(array_filter($result->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
-            $this->assertCount(1, $rows);
-            $this->assertSame('line:2', $rows[0]->path);
+            $this->assertSame([], $rows);
         }
     }
 

@@ -27,10 +27,10 @@ class ALabelAndAnAltImportWithoutAddedEscapesTest extends TestCase
                 "[`[a]`](u)\n",
                 '<p><a href="u"><code>[a]</code></a></p>',
             ],
-            'a code span in a destination-less anchor' => [
+            'a code span in an empty anchor' => [
                 '<p><a href="" class="k"><code>[a]</code></a></p>',
-                "[`[a]`]{.k}\n",
-                '<p><span class="k"><code>[a]</code></span></p>',
+                "[`[a]`](){.k}\n",
+                '<p><a href="" class="k"><code>[a]</code></a></p>',
             ],
             'an image in a link label' => [
                 '<p><a href="u"><img src="i" alt="x"></a></p>',
@@ -82,10 +82,10 @@ class ALabelAndAnAltImportWithoutAddedEscapesTest extends TestCase
                 "[a\\]b]{.fn}\n",
                 '<p><span class="fn">a]b</span></p>',
             ],
-            'a caret in a destination-less anchor' => [
+            'a caret in an empty anchor' => [
                 '<p><a href="" class="k">^1</a></p>',
-                "[\\^1]{.k}\n",
-                '<p><span class="k">^1</span></p>',
+                "[\\^1](){.k}\n",
+                '<p><a href="" class="k">^1</a></p>',
             ],
         ];
     }

@@ -15,15 +15,8 @@ class MarkdownBoundaryLossReportTest extends TestCase
             [
                 ["``` f&ouml;&ouml;\nfoo\n```\n", 1],
                 ["````;\n````\n", 1],
-                ["[foo]: <>\n\n[foo]\n", 3],
-                ["[link]()\n", 1],
-                ["[link](<>)\n", 1],
-                ["[]()\n", 1],
-                ["[foo]()\n\n[foo]: /url1\n", 1],
                 ["before\n\n> ```föö\n> x\n> ```\n", 3],
                 ["before\n\n- ```föö\n  x\n  ```\n", 3],
-                ["before\n\n![alt](<> \"title\")\n", 3],
-                ["before\n\nfirst\n[link]()\n", 4],
             ] as [$source, $line]
         ) {
             $converter = new MarkdownToCarve();
@@ -42,8 +35,6 @@ class MarkdownBoundaryLossReportTest extends TestCase
         foreach (
             [
                 ["p\n\nq\n\n- a\n- b\n\n  > ```föö\n  > x\n  > ```\n", 8],
-                ["x[^1]\n\n[^1]: [link]()\n\na\n\nb\n\nc", 3],
-                ["---toml\na = 1\n---\nx[^1]\n\n[^1]: [link]()\n\nend", 6],
             ] as [$source, $line]
         ) {
             $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
@@ -65,7 +56,7 @@ class MarkdownBoundaryLossReportTest extends TestCase
         }
     }
 
-    public function testFoldedSourceLinesRemainExact(): void
+    public function testFoldedEmptyLinksHaveNoBoundaryLoss(): void
     {
         foreach (
             [
@@ -77,8 +68,7 @@ class MarkdownBoundaryLossReportTest extends TestCase
             ] as [$source, $line]
         ) {
             $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
-            self::assertCount(1, $losses, $source);
-            self::assertSame('line:' . $line, $losses[0]->path, $source);
+            self::assertSame([], $losses, $source);
         }
     }
 
@@ -91,7 +81,7 @@ class MarkdownBoundaryLossReportTest extends TestCase
         }
     }
 
-    public function testHeadingSourceMapsAreConsumedAndKeepProtectedSourceLengths(): void
+    public function testHeadingEmptyLinksHaveNoBoundaryLoss(): void
     {
         foreach (
             [
@@ -112,7 +102,7 @@ class MarkdownBoundaryLossReportTest extends TestCase
             ] as [$source, $paths]
         ) {
             $losses = array_values(array_filter((new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable'));
-            self::assertSame($paths, array_map(static fn ($row): ?string => $row->path, $losses), $source);
+            self::assertSame([], $losses, $source);
         }
     }
 

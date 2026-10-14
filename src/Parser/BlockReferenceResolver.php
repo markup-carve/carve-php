@@ -52,6 +52,9 @@ final class BlockReferenceResolver
                 $definition = $label !== null ? $this->getReference($label) : null;
                 if ($definition !== null) {
                     $child->resolveReference($definition->url, $definition->title);
+                    if ($definition->url === '') {
+                        UnresolvedReference::markResolvedEmpty($child);
+                    }
                     $this->applyDeferredReferenceAttributes($child, $definition->attributes);
                     $this->markReferenceUsed($label, 0);
                     $this->trackAnchorOfResolvedLink($child, $definition->url);
@@ -87,6 +90,9 @@ final class BlockReferenceResolver
                 $definition = $label !== null ? $this->getReference($label) : null;
                 if ($definition !== null) {
                     $child->resolveReference($definition->url, $definition->title);
+                    if ($definition->url === '') {
+                        UnresolvedReference::markResolvedEmpty($child);
+                    }
                     $this->applyDeferredReferenceAttributes($child, $definition->attributes);
                     $this->markReferenceUsed($label, 0);
                 }

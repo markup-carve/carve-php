@@ -42,7 +42,7 @@ class ABlockOpenerInImportedTextIsEscapedTest extends TestCase
             'an attribute line' => ['<p>{.c}</p>', '\\{.c}'],
             'a comment opener' => ['<p>%% x</p>', '\\%\\% x'],
             'a task item' => ['<p>- [ ] x</p>', '\\- [ ] x'],
-            'an unwrapped anchor' => ['<p><a href="">- x</a></p>', '\\- x'],
+            'an empty anchor' => ['<p><a href="">- x</a></p>', '[- x]()'],
             'after an empty element' => ['<p><b></b># x</p>', '\\# x'],
             'after a hard break' => ['<p>a<br>&gt; x</p>', "a\\\n\\> x"],
             'a bare text run' => ['<div>- x</div>', '\\- x'],

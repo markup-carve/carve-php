@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
+use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
+use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Parser\LabelKey;
 
 /**
  * One question, asked in every writer: is this node an UNRESOLVED reference?
@@ -18,16 +21,52 @@ use MarkupCarve\Carve\Node\Node;
  */
 final class UnresolvedReference
 {
+    public static function markResolvedEmpty(Node $node): void
+    {
+        if ($node instanceof Link || $node instanceof Image) {
+            $node->setResolvedEmptyReference(true);
+        }
+    }
+
+    public static function isResolvedEmpty(Node $node): bool
+    {
+        return ($node instanceof Link || $node instanceof Image) && $node->isResolvedEmptyReference();
+    }
+
+    public static function hydrate(Document $document): void
+    {
+        $definitions = [];
+        foreach ($document->getChildren() as $child) {
+            if ($child instanceof LinkReferenceDefinition) {
+                $definitions[LabelKey::normalize($child->getLabel())] = $child->getHref();
+            }
+        }
+        $stack = [$document];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if (
+                ($node instanceof Link && $node->getDestination() === '' || $node instanceof Image && $node->getSource() === '')
+                && $node->getReferenceLabel() !== null
+                && ($definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null) === ''
+            ) {
+                self::markResolvedEmpty($node);
+            }
+            foreach ($node->getChildren() as $child) {
+                $stack[] = $child;
+            }
+        }
+    }
+
     /**
      * The verbatim authored source (`rawRef`), or null when the node is not an
      * unresolved reference.
      */
     public static function sourceOf(Node $node): ?string
     {
-        if ($node instanceof Link && $node->getDestination() === '') {
+        if ($node instanceof Link && $node->getDestination() === '' && !self::isResolvedEmpty($node)) {
             return $node->getRawReferenceLabel();
         }
-        if ($node instanceof Image && $node->getSource() === '') {
+        if ($node instanceof Image && $node->getSource() === '' && !self::isResolvedEmpty($node)) {
             return $node->getRawReferenceLabel();
         }
 

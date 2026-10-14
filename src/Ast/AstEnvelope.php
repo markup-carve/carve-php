@@ -35,7 +35,7 @@ final class AstEnvelope
      *
      * @var string
      */
-    public const CONTRACT_VERSION = '1.1';
+    public const CONTRACT_VERSION = '2.0';
 
     /**
      * @var string

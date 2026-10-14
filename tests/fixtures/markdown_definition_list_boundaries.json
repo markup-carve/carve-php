@@ -2,7 +2,7 @@
     {
         "source": "- a\nlazy\n\n[r]: <>\n\n- b\n\n[t][r]",
         "nativeHtml": "<ul>\n<li>a\nlazy</li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"\">t</a></p>\n",
-        "html": "<ul>\n  <li>a\nlazy</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>t</p>\n"
+        "html": "<ul>\n  <li>a\nlazy</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p><a href=\"\">t</a></p>\n"
     },
     {
         "source": "> - a\nlazy\n>\n> [r]: <>\n>\n> - b",
@@ -12,17 +12,17 @@
     {
         "source": "-\n\n  [r]: <>\n\n- b\n\n[t][r]",
         "nativeHtml": "<ul>\n<li></li>\n</ul>\n<ul>\n<li>b</li>\n</ul>\n<p><a href=\"\">t</a></p>\n",
-        "html": "<ul>\n  <li></li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>t</p>\n"
+        "html": "<ul>\n  <li></li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p><a href=\"\">t</a></p>\n"
     },
     {
         "source": "> - a\n>\n>\t[r]: <>\n>\n> - b\n\n[t][r]",
         "nativeHtml": "<blockquote>\n<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n</ul>\n</blockquote>\n<p><a href=\"\">t</a></p>\n",
-        "html": "<blockquote>\n  <ul>\n    <li><p>a</p></li>\n    <li><p>b</p></li>\n  </ul>\n</blockquote>\n<p>t</p>\n"
+        "html": "<blockquote>\n  <ul>\n    <li><p>a</p></li>\n    <li><p>b</p></li>\n  </ul>\n</blockquote>\n<p><a href=\"\">t</a></p>\n"
     },
     {
         "source": "- a\n\n  [x]: /u\n[r]: <>\n\n- b\n\n[t][x] [u][r]",
         "nativeHtml": "<ul>\n<li>\n<p>a</p>\n</li>\n<li>\n<p>b</p>\n</li>\n</ul>\n<p><a href=\"/u\">t</a> <a href=\"\">u</a></p>\n",
-        "html": "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n<p><a href=\"/u\">t</a> u</p>\n"
+        "html": "<ul>\n  <li><p>a</p></li>\n  <li><p>b</p></li>\n</ul>\n<p><a href=\"/u\">t</a> <a href=\"\">u</a></p>\n"
     },
     {
         "source": "- a\nlazy\n\n[x]: /u\n\n- b\n\n[t][x]",

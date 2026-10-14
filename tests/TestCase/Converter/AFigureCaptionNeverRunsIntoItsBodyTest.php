@@ -77,15 +77,15 @@ class AFigureCaptionNeverRunsIntoItsBodyTest extends TestCase
                 'ccap',
                 "b{/c/}\n\ncap\n",
             ],
-            'a caption marker under a target that writes no image' => [
+            'a caption marker under an empty image' => [
                 '<figure><img src="" alt="a"><figcaption>cap</figcaption></figure>',
                 '^ cap',
-                "a\n\ncap\n",
+                "![a]()\n^ cap\n",
             ],
             'the same, behind a wrapper' => [
                 '<figure><p><img src="" alt="a"></p><figcaption>cap</figcaption></figure>',
                 '^ cap',
-                "a\n\ncap\n",
+                "![a]()\n^ cap\n",
             ],
         ];
     }

@@ -40,6 +40,7 @@ use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
@@ -2872,6 +2873,9 @@ class InlineParser
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
 
                     $link = new Link($refDef->url, $refDef->title);
+                    if ($refDef->url === '') {
+                        UnresolvedReference::markResolvedEmpty($link);
+                    }
                     // PART 12 §3a, A RESOLVED REFERENCE KEEPS ITS DESTINATION:
                     // the authored construct survives BESIDE the resolution
                     // result. The label is the one the author wrote - the same
@@ -3051,6 +3055,9 @@ class InlineParser
         $alt = AttributeParser::processEscapes(str_replace("\0", "\u{00A0}", $result['link_text']));
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
+        if (UnresolvedReference::isResolvedEmpty($link)) {
+            UnresolvedReference::markResolvedEmpty($image);
+        }
 
         // Transfer reference label for round-trip support
         if ($link->getReferenceLabel() !== null) {
@@ -5287,6 +5294,21 @@ class InlineParser
             return $this->destinationScans[$urlStart] = null;
         }
         $notADestination = ['end' => $urlEnd, 'url' => null, 'title' => null];
+
+        $emptyRaw = substr($text, $urlStart, $urlEnd - $urlStart);
+        if (preg_match('/^[ \t]*\z/', $emptyRaw) === 1) {
+            return $this->destinationScans[$urlStart] = ['end' => $urlEnd, 'url' => '', 'title' => null];
+        }
+        if (
+            preg_match('/^ "((?:\\\\.|[^"\\\\\r\n])*)"[ \t]*\z/', $emptyRaw, $emptyTitle) === 1
+            || preg_match("/^ '((?:\\\\.|[^'\\\\\\r\\n])*)'[ \\t]*\\z/", $emptyRaw, $emptyTitle) === 1
+        ) {
+            return $this->destinationScans[$urlStart] = [
+                'end' => $urlEnd,
+                'url' => '',
+                'title' => AttributeParser::processEscapes($emptyTitle[1]),
+            ];
+        }
 
         if (
             $urlEnd > $urlStart && (str_contains(" \t\n\r\0\x0B", $text[$urlStart])

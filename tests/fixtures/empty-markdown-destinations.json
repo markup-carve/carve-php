@@ -1,0 +1,252 @@
+[
+  {
+    "name": "an empty inline destination",
+    "source": "[x]()",
+    "carve": "[x]()"
+  },
+  {
+    "name": "an image with an empty source",
+    "source": "![y]()",
+    "carve": "![y]()"
+  },
+  {
+    "name": "an empty pointy destination",
+    "source": "[z](<>)",
+    "carve": "[z]()"
+  },
+  {
+    "name": "whitespace around an empty destination",
+    "source": "[z]( <> )",
+    "carve": "[z]()"
+  },
+  {
+    "name": "a title keeps a span",
+    "source": "[q](<> \"t q\")",
+    "carve": "[q]( \"t q\")"
+  },
+  {
+    "name": "an image title keeps a span",
+    "source": "![h](<> (paren))",
+    "carve": "![h]( \"paren\")"
+  },
+  {
+    "name": "a title is decoded, then quoted",
+    "source": "[f](<> \"a\\\"b &ast;\")",
+    "carve": "[f]( \"a\\\"b *\")"
+  },
+  {
+    "name": "an image is written as its plain alt text",
+    "source": "![a *b* `c` [d](u) \\* &amp;]()",
+    "carve": "![a b c d * &]()"
+  },
+  {
+    "name": "an image alt drops a code span's padding",
+    "source": "![a `` `x` `` b]()",
+    "carve": "![a `x` b]()"
+  },
+  {
+    "name": "an image at the start of a line escapes its block opener",
+    "source": "![- x]()",
+    "carve": "![- x]()"
+  },
+  {
+    "name": "an image alt drops defined reference links only",
+    "source": "![a [b][r] [r][] [r] [z]]()\n\n[r]: /u",
+    "carve": "![a b r r [z]]()\n\n[r]: /u"
+  },
+  {
+    "name": "deeply nested brackets",
+    "source": "[a [b [c]]]()",
+    "carve": "[a [b [c]]]()"
+  },
+  {
+    "name": "the label keeps its formatting",
+    "source": "pre [a *b* `c`]() post",
+    "carve": "pre [a /b/ `c`]() post"
+  },
+  {
+    "name": "a full reference",
+    "source": "[w][r]\n\n[r]: <>",
+    "carve": "[w][r]\n\n[r]:"
+  },
+  {
+    "name": "collapsed, shortcut and case-folded references",
+    "source": "[r][] [r] [R]\n\n[r]: <>",
+    "carve": "[r][] [r][] [R][r]\n\n[r]:"
+  },
+  {
+    "name": "a reference title is decoded",
+    "source": "[v][s]\n\n[s]: <> \"a &amp; \\\"b\"",
+    "carve": "[v]( \"a & \\\"b\")"
+  },
+  {
+    "name": "a reference title on the next line",
+    "source": "[v][s]\n\n[s]: <>\n'next title'",
+    "carve": "[v]( \"next title\")"
+  },
+  {
+    "name": "an indented title on the next line",
+    "source": "[v][s]\n\n[s]: <>\n    'code'",
+    "carve": "[v]( \"code\")"
+  },
+  {
+    "name": "a definition before its reference leaves no blank line",
+    "source": "[r]: <>\n\n[r]",
+    "carve": "[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition after a thematic break",
+    "source": "---\n[r]: <>\n\n[r]",
+    "carve": "---\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a block quote interrupting a paragraph opens a definition",
+    "source": "text\n> [r]: <>\n\n[r]",
+    "carve": "text\n\n>\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition in a block quote",
+    "source": "[r]\n\n> [r]: <>",
+    "carve": "[r][]\n\n>\n\n[r]:"
+  },
+  {
+    "name": "a label holding a character reference",
+    "source": "[x][a&amp;b]\n\n[a&amp;b]: <>",
+    "carve": "[x][a&b]\n\n[a&b]:"
+  },
+  {
+    "name": "a definition after a closed HTML comment",
+    "source": "<!-- c -->\n[r]: <>\n\n[r]",
+    "carve": "```=html\n<!-- c -->\n```\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition after a multi-line HTML comment",
+    "source": "<!--\nx\n-->\n[r]: <>\n\n[r]",
+    "carve": "```=html\n<!--\nx\n-->\n```\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition after a quote ends its open fence",
+    "source": "> ```\n> code\n\n[r]: <>\n\n[r]",
+    "carve": "> ```\n> code\n> ```\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition after a quote ends its open HTML block",
+    "source": "> <script>\n> x\n\n[r]: <>\n\n[r]",
+    "carve": "> ```=html\n> <script>\n> x\n> ```\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition after a list item ends its open fence",
+    "source": "- ```\n  code\n\n[r]: <>\n\n[r]",
+    "carve": "- ```\n  code\n\n  ```\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition opening a later list item",
+    "source": "- one\n- [r]: <>\n\n[r]",
+    "carve": "- one\n- %%\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition after a starred thematic break",
+    "source": "* * *\n[r]: <>\n\n[r]",
+    "carve": "---\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition opening a list item",
+    "source": "- [r]: <>\n- two\n\n[r]",
+    "carve": "- %%\n- two\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a definition continuing a list item",
+    "source": "- a\n\n    [r]: <>\n\n[r]",
+    "carve": "- a\n\n[r][]\n\n[r]:"
+  },
+  {
+    "name": "a title on the line after a list item definition",
+    "source": "- [r]: <>\n  \"t\"\n- two\n\n[r]",
+    "carve": "- %%\n- two\n\n[r]( \"t\")"
+  },
+  {
+    "name": "a later non-empty definition stays",
+    "source": "[r]\n\n[r]: <>\n[r]: /later",
+    "carve": "[r][]\n\n[r]:"
+  },
+  {
+    "name": "an empty destination on the next line",
+    "source": "[r]\n\n[r]:\n<>",
+    "carve": "[r][]\n\n[r]:"
+  },
+  {
+    "name": "a first definition continued on the next line wins",
+    "source": "[x][d]\n\n[d]:\n  /url\n[d]: <>",
+    "carve": "[x][d]\n\n[d]: /url"
+  },
+  {
+    "name": "the first definition wins",
+    "source": "[x][d]\n\n[d]: /url\n[d]: <>",
+    "carve": "[x][d]\n\n[d]: /url"
+  },
+  {
+    "name": "a destination on an inline link is not a reference",
+    "source": "[r](/u)\n\n[r]: <>",
+    "carve": "[r](/u)\n\n[r]:"
+  },
+  {
+    "name": "a label at the start of a line escapes its block opener",
+    "source": "[- x]()",
+    "carve": "[- x]()"
+  },
+  {
+    "name": "a label at the start of a quote escapes its block opener",
+    "source": "> [- x]()",
+    "carve": "> [- x]()"
+  },
+  {
+    "name": "a label mid-line is not escaped",
+    "source": "a [- x]()",
+    "carve": "a [- x]()"
+  },
+  {
+    "name": "control: a quoted destination after a space",
+    "source": "[u]( \"t\")",
+    "carve": "[u](%22t%22)"
+  },
+  {
+    "name": "control: spaces around a destination",
+    "source": "[k]( /u )",
+    "carve": "[k](/u)"
+  },
+  {
+    "name": "control: a definition interrupting a paragraph",
+    "source": "text\n[p]: <>",
+    "carve": "text\n\\[p]: <>"
+  },
+  {
+    "name": "control: a definition lazily continuing a quoted paragraph",
+    "source": "> text\n[p]: <>",
+    "carve": "> text\n> \\[p]: <>"
+  },
+  {
+    "name": "control: a definition in a fence",
+    "source": "[c]\n\n```\n\n[c]: <>\n```",
+    "carve": "[c]\n\n```\n\n[c]: <>\n```"
+  },
+  {
+    "name": "control: a definition after definition-like paragraph text",
+    "source": "[x]\n\n[x]: a b c\n[x]: <>",
+    "carve": "[x]\n\n[x]: a b c\n\\[x]: <>"
+  },
+  {
+    "name": "control: an indented code block after a list",
+    "source": "- a\n\nb\n\n    [r]: <>\n\n[r]",
+    "carve": "- a\n\nb\n\n```\n[r]: <>\n```\n\n[r]"
+  },
+  {
+    "name": "control: a definition in an open HTML block",
+    "source": "<script>\n\n[r]: <>\n</script>\n\n[r]",
+    "carve": "```=html\n<script>\n\n[r]: <>\n</script>\n```\n\n[r]"
+  },
+  {
+    "name": "control: a code span",
+    "source": "`[d]()`",
+    "carve": "`[d]()`"
+  }
+]
