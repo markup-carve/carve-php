@@ -295,7 +295,7 @@ trait ReportsDjotLosses
                     $end++;
                 }
                 if ($end === $lineCount || !$inContainer($lines[$end]) || strspn($withoutQuotes($lines[$end]), " \t") < $minimum) {
-                    if (trim(substr($line, 0, $term[0][1])) !== '') {
+                    if (preg_match('/^(?:[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)+|(?:>[ \t]*)*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)*|[ \t]*)$/', substr($line, 0, $term[0][1])) !== 1) {
                         $add($offsets[$n], 'An empty definition description is omitted during import.');
                     }
                 }

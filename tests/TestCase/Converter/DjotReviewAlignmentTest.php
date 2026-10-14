@@ -252,6 +252,7 @@ class DjotReviewAlignmentTest extends TestCase
     public static function emptyDescriptions(): array
     {
         return [
+            ["> : apple\n> fruit\n>\n>   Body\n>\n> : orange\n", 6],
             ["> : term\n", 1],
             ["- : term\n", 1],
             ["intro\n\n> : term\n", 3],
@@ -270,9 +271,15 @@ class DjotReviewAlignmentTest extends TestCase
     }
 
     #[DataProvider('emptyDescriptions')]
-    public function testContainerDescriptionLossKeepsSourceLine(string $source, int $line): void
+    public function testContainerDescriptionsKeepTheirBodiesAndRemainingLossPosition(string $source, int $line): void
     {
         $losses = array_values(array_filter((new DjotToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], static fn (array $row): bool => $row['code'] === 'structure-unspellable'));
+        if ($source !== "- > : term\n") {
+            self::assertCount(0, $losses);
+            self::assertStringContainsString('<dd>', CarveConverter::create()->convert((new DjotToCarve())->convert($source)));
+
+            return;
+        }
         self::assertCount(1, $losses);
         self::assertIsString($losses[0]['message']);
         self::assertStringContainsString('empty definition description', $losses[0]['message']);
