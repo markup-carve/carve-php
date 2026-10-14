@@ -121,6 +121,9 @@ class MarkdownToCarve
      *
      * @var array<string, string>
      */
+    /**
+     * @var array<string, array{title: string, hasTitle: bool}>
+     */
     protected array $emptyDestinationLabels = [];
 
     /**
@@ -3103,7 +3106,7 @@ class MarkdownToCarve
                 if ($result !== []) {
                     $result[] = '';
                 }
-                $result[] = preg_match('/^\[[^\]]+\]:$/', $definition) === 1
+                $result[] = str_starts_with($definition, '[') && str_ends_with($definition, ']:') && !str_contains($definition, "\n")
                     ? $definition : $this->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
             }
             if (str_ends_with($markdown, "\n")) {
@@ -7268,7 +7271,7 @@ class MarkdownToCarve
             return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $match[0]);
         };
         $line = preg_replace_callback(
-            '~(?<!\\\\)(!?)\[((?:[^\[\]]|\[[^\[\]]*\]){1,512})\]\(<>[ \t\n]+(?<title>"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\([^()]*\))\)~',
+            '~(?<!\\\\)(!?)\[((?:[^\[\]]|\[[^\[\]]*\]){1,512})\]\(<>[ \t\n]+(?<title>"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\([^()]*\))[ \t\n]*\)~',
             function (array $match): string {
                 if (strpbrk($match['title'], "\r\n") === false) {
                     return $match[0];
@@ -7760,7 +7763,9 @@ class MarkdownToCarve
                     return $match[0][0];
                 }
 
-                return $unwrap($match, $this->emptyDestinationLabels[$key], $subject, true);
+                $definition = $this->emptyDestinationLabels[$key];
+
+                return $unwrap($match, $definition['title'], $subject, $definition['hasTitle']);
             };
             $subject = $line;
             $line = preg_replace_callback(
@@ -9309,6 +9314,25 @@ class MarkdownToCarve
                 }
                 $parsed = MarkdownReferenceDefinition::read($referenceChunk['text'], $referenceChunk['offsets'][$i]);
                 if ($parsed !== null && str_starts_with($parsed['target'], '<>') && str_contains($parsed['target'], "\n")) {
+                    if (str_contains($parsed['label'], "\n")) {
+                        $rawKey = $this->normalizeReferenceLabel($parsed['label']);
+                        $this->emptyDestinationLabels[$rawKey] = ['title' => '', 'hasTitle' => false];
+                        $authoredDefinitions[$rawKey] = true;
+                        $defined[$rawKey] = true;
+                        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                            'structure-unspellable',
+                            'An empty reference definition with a multiline label cannot be retained.',
+                            'warning',
+                            'dropped',
+                            'exact',
+                            'line:' . ($i + 1),
+                        );
+                        $i += $parsed['lines'] - 1;
+                        $referenceChunk = null;
+                        $canStart = true;
+
+                        continue;
+                    }
                     $this->boundaryDiagnostics[] = new MigrationDiagnostic(
                         'structure-unspellable',
                         'An empty destination cannot retain a title containing a newline.',
@@ -9492,9 +9516,21 @@ class MarkdownToCarve
                         ? $definition[1] : $this->decodeLinkTitle($definition[1]);
                     $labels[$key] = $canonicalLabel;
                     if ($raw === '') {
-                        $this->movedDefinitions[] = '[' . $canonicalLabel . ']:';
+                        if (str_starts_with($canonicalLabel, '^') || str_starts_with($canonicalLabel, '@') || str_contains($canonicalLabel, '\\')) {
+                            $this->emptyDestinationLabels[$key] = ['title' => '', 'hasTitle' => false];
+                            $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                                'structure-unspellable',
+                                'An empty reference definition with this label cannot be retained.',
+                                'warning',
+                                'dropped',
+                                'exact',
+                                'line:' . ($i + 1),
+                            );
+                        } else {
+                            $this->movedDefinitions[] = '[' . $canonicalLabel . ']:';
+                        }
                     } else {
-                        $this->emptyDestinationLabels[$key] = $this->decodeLinkTitle(substr($raw, 1, -1));
+                        $this->emptyDestinationLabels[$key] = ['title' => $this->decodeLinkTitle(substr($raw, 1, -1)), 'hasTitle' => true];
                         $this->boundaryDiagnostics[] = new MigrationDiagnostic(
                             'structure-unspellable',
                             'Dropped a titled empty reference definition; uses become inline links.',

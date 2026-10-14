@@ -151,6 +151,7 @@ final class EmptyDestinationsTest extends TestCase
                 "![a](<> (x\ny))" => '![a]()',
                 "[a](<>  \"x\ny\")" => '[a]()',
                 "[a](<>\n\"x\ny\")" => '[a]()',
+                "[a](<> \"x\ny\" )" => '[a]()',
                 "[a [b] c](<> \"x\ny\")" => '[a [b] c]()',
                 "[a\nb](<> \"x\ny\")" => "[a\nb]()",
             ] as $source => $expected
@@ -166,5 +167,20 @@ final class EmptyDestinationsTest extends TestCase
         $result = (new MarkdownToCarve())->convertWithFidelityReport("[a][r]\n\n[r]: <> \"x\ny\"");
         self::assertSame("[a][r]\n\n[r]:", trim($result->value));
         self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
+    }
+
+    public function testMarkdownImportInlinesEmptyDefinitionsWithUnspellableLabels(): void
+    {
+        foreach (
+            [
+                "[a\\]b]: <>\n\n[a\\]b]" => '[a\\]b]()',
+                "[^]: <>\n\n[x][^]" => '[x]()',
+                "[a\nb]: <> \"t\nx\"\n\n[a b]" => '[a b]()',
+            ] as $source => $expected
+        ) {
+            $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+            self::assertSame($expected, trim($result->value), $source);
+            self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics), $source);
+        }
     }
 }
