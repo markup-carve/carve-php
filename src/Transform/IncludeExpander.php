@@ -548,6 +548,9 @@ class IncludeExpander implements TransformerInterface
         $spans = [];
         foreach ($matches[0] as $match) {
             [$literal, $offset] = $match;
+            if (IncludeDirectiveSyntax::matchIsEscaped($run, $offset, strlen($literal))) {
+                continue;
+            }
             $directive = $this->parseDirective($literal);
             if ($directive === null) {
                 continue;

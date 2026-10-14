@@ -3815,6 +3815,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         ) {
             $span = $match[0][0];
             $offset = (int)$match[0][1];
+            if (IncludeDirectiveSyntax::matchIsEscaped($run, $offset, strlen($span))) {
+                $cursor = $offset + 1;
+
+                continue;
+            }
             // A span that is not shape-well-formed is prose, not a reason to
             // stop: scanning resumes after it so a valid directive later in the
             // same run is still preserved.
