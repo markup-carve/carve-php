@@ -1818,6 +1818,8 @@ class DjotToCarve
                 $mayStart = $top !== null || $i === 0 || trim($lines[$i - 1]) === '';
                 if ($mayStart) {
                     $termText = substr($line, $term[2][1]);
+                    $containerBody = preg_match('/^:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$/', $termText) === 1;
+                    $startsDefinitionBody = $rawFence || $containerBody;
                     if ($top === null || $indent === $top['source']) {
                         $target = $top['target'] ?? $indent;
                         $startsList = $top === null;
@@ -1832,8 +1834,8 @@ class DjotToCarve
                             ];
                         }
                         $prefix = str_repeat(' ', $target);
-                        $lines[$i] = ($startsList ? $prefix . "{loose}\n" : '') . $prefix . ':: ' . ($rawFence ? $emptyTerm : $termText);
-                        if ($rawFence) {
+                        $lines[$i] = ($startsList ? $prefix . "{loose}\n" : '') . $prefix . ':: ' . ($startsDefinitionBody ? $emptyTerm : $termText);
+                        if ($startsDefinitionBody) {
                             $lines[$i] .= "\n" . $prefix . ':  ' . $termText;
                             $frame = array_key_last($stack);
                             $stack[$frame] = ['source' => $indent, 'target' => $target, 'body' => true, 'ready' => true];
@@ -1851,8 +1853,11 @@ class DjotToCarve
                             'body' => true,
                             'ready' => $top['ready'],
                         ];
-                        $lines[$i] = $lead . "{loose}\n" . str_repeat(' ', $target) . ':: ' . $termText;
-                        $stack[] = ['source' => $indent, 'target' => $target, 'body' => false, 'ready' => false];
+                        $lines[$i] = $lead . "{loose}\n" . str_repeat(' ', $target) . ':: ' . ($startsDefinitionBody ? $emptyTerm : $termText);
+                        if ($startsDefinitionBody) {
+                            $lines[$i] .= "\n" . str_repeat(' ', $target) . ':  ' . $termText;
+                        }
+                        $stack[] = ['source' => $indent, 'target' => $target, 'body' => $startsDefinitionBody, 'ready' => $startsDefinitionBody];
 
                         continue;
                     }
@@ -2881,8 +2886,9 @@ class DjotToCarve
                 $attributeStart = strlen($content) - strlen(ltrim($content));
                 $lineAttributes = ($content[$attributeStart] ?? '') === '{' ? $this->readDjotWordAttributes($content, $attributeStart) : null;
                 $attributeBoundary = $canNormalize && $lineAttributes !== null && $lineAttributes['end'] === strlen(rtrim($content));
-                $normalizeBoundary = preg_match('/^(?:[ 	]*[-*]){3,}[ 	]*$|^[ 	]*\[(?!\^)[^\]]+\]:/', $content) === 1 || trim($content) === '' || preg_match('/^[ \t]*\[\^[^\]\n]+\]:[ \t]*$/', $content) === 1 || preg_match('/^[ \t]*(?:#{1,6} |:{3,})/', $content) === 1 || $attributeBoundary;
-                $previousBlock = trim($content) === '' || preg_match('/^[ \t]*(?:[-*+] |[0-9]+[.)] |:{1,2} |#{1,6} )/', $content) === 1 || $attributeBoundary;
+                $definitionDivBoundary = ($canNormalize || preg_match('/^[ \t]*::[ \t]+\x00DJOTEMPTYTERM\x00/', $lines[$i - 1] ?? '') === 1) && preg_match('/^[ \t]*:[ \t]+:{3,}(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*\r?$/', $content) === 1;
+                $normalizeBoundary = preg_match('/^(?:[ 	]*[-*]){3,}[ 	]*$|^[ 	]*\[(?!\^)[^\]]+\]:/', $content) === 1 || trim($content) === '' || preg_match('/^[ \t]*\[\^[^\]\n]+\]:[ \t]*$/', $content) === 1 || preg_match('/^[ \t]*(?:#{1,6} |:{3,})/', $content) === 1 || $attributeBoundary || $definitionDivBoundary;
+                $previousBlock = trim($content) === '' || preg_match('/^[ \t]*(?:[-*+] |[0-9]+[.)] |:{1,2} |#{1,6} )/', $content) === 1 || $attributeBoundary || $definitionDivBoundary;
             }
         }
 
@@ -2913,11 +2919,12 @@ class DjotToCarve
         }
 
         $previousLines = $this->previousSourceLines($source);
-        $masked = preg_replace_callback('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)])[ \t]+)?:{3,}[ \t]+([A-Za-z_][A-Za-z0-9_.-]*)/m', function (array $match) use ($previousLines): string {
+        $masked = preg_replace_callback('/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)]|:)[ \t]+)?:{3,}[ \t]+([A-Za-z_][A-Za-z0-9_.-]*)/m', function (array $match) use ($previousLines): string {
             [$value, $at] = $match[0];
             $name = $match[1][0];
+            $previous = $previousLines[$at] ?? '';
 
-            return trim($previousLines[$at] ?? '') === '' || preg_match('/(?:[-*+]|[0-9]+[.)])[ \t]+:{3,}/', $value) === 1 ? substr($value, 0, -strlen($name)) . $this->blanks($name) : $value;
+            return trim($previous) === '' || preg_match('/^[ \t]*::[ \t]+\x00DJOTEMPTYTERM\x00/', $previous) === 1 || preg_match('/(?:[-*+]|[0-9]+[.)])[ \t]+:{3,}/', $value) === 1 ? substr($value, 0, -strlen($name)) . $this->blanks($name) : $value;
         }, $masked, -1, $classCount, PREG_OFFSET_CAPTURE);
 
         return $masked ?? $source;
