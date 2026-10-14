@@ -153,37 +153,6 @@ class IncludeDirectiveSyntax
     }
 
     /**
-     * Whether a directive match over the reassembled run opens or closes on a
-     * backslash escape. An escaped brace is literal (CARVE-P7-004), so such a
-     * match is no directive: `\{{ x }}` holds no `{{`.
-     *
-     * @param list<\MarkupCarve\Carve\Node\Node> $run
-     * @param int $offset Byte offset of the match in `textLikeContent($run)`.
-     * @param int $length Byte length of the match.
-     */
-    public static function matchIsEscaped(array $run, int $offset, int $length): bool
-    {
-        return static::escapedAt($run, $offset) || static::escapedAt($run, $offset + $length - 1);
-    }
-
-    /**
-     * @param list<\MarkupCarve\Carve\Node\Node> $run
-     * @param int $offset
-     */
-    protected static function escapedAt(array $run, int $offset): bool
-    {
-        $cursor = 0;
-        foreach ($run as $node) {
-            $cursor += strlen(static::textLikeContent([$node]));
-            if ($offset < $cursor) {
-                return $node instanceof EscapedText;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Parse a reassembled run into directive parts.
      *
      * Returns null only when the run is not SHAPE-well-formed: it must open

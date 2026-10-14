@@ -89,6 +89,7 @@ use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
+use MarkupCarve\Carve\Transform\IncludeRun;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\Util\TableWidth;
 use Throwable;
@@ -3799,7 +3800,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $run[] = $nodes[$i];
         }
         $last = $i - 1;
-        $text = IncludeDirectiveSyntax::textLikeContent($run);
+        $index = new IncludeRun($run);
+        $text = $index->text();
 
         // One run can hold ANY number of directives with prose between them, so
         // the whole run is scanned: every shape-well-formed span is collected
@@ -3815,7 +3817,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         ) {
             $span = $match[0][0];
             $offset = (int)$match[0][1];
-            if (IncludeDirectiveSyntax::matchIsEscaped($run, $offset, strlen($span))) {
+            if ($index->matchIsEscaped($offset, strlen($span))) {
                 $cursor = $offset + 1;
 
                 continue;
@@ -3837,12 +3839,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $out = '';
         $position = 0;
         foreach ($spans as $span) {
-            $out .= $this->emitDirectiveGap($run, $text, $position, $span['offset']) . $span['source'];
+            $out .= $this->emitDirectiveGap($run, $text, $position, $span['offset'], $index) . $span['source'];
             $position = $span['offset'] + $span['length'];
         }
 
         return [
-            'source' => $out . $this->emitDirectiveGap($run, $text, $position, strlen($text)),
+            'source' => $out . $this->emitDirectiveGap($run, $text, $position, strlen($text), $index),
             'end' => $last,
         ];
     }
@@ -3865,21 +3867,26 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      * @param int $to
      * @param int $from
      * @param string $text
+     * @param \MarkupCarve\Carve\Transform\IncludeRun|null $index The run, already indexed.
      */
-    protected function emitDirectiveGap(array $run, string $text, int $from, int $to): string
+    protected function emitDirectiveGap(array $run, string $text, int $from, int $to, ?IncludeRun $index = null): string
     {
         if ($from >= $to) {
             return '';
         }
 
+        $index ??= new IncludeRun($run);
         $out = '';
-        $offset = 0;
-        foreach ($run as $node) {
-            $piece = IncludeDirectiveSyntax::textLikeContent([$node]);
-            $start = $offset;
-            $end = $offset + strlen($piece);
-            $offset = $end;
-            if ($end <= $from || $start >= $to) {
+        $count = count($run);
+        for ($i = $index->nodeAt($from); $i < $count; $i++) {
+            $node = $run[$i];
+            $piece = $index->piece($i);
+            $start = $index->startOf($i);
+            $end = $start + strlen($piece);
+            if ($start >= $to) {
+                break;
+            }
+            if ($end <= $from) {
                 continue;
             }
             if (!$node instanceof Text) {

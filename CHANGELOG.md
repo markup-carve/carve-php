@@ -14,6 +14,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `WikilinksExtension` no longer closes `[[` at a `]]` whose first bracket is escaped (`\]`), so `a [[x\]](u)` renders the core link instead of a wikilink (markup-carve/carve-js#3092).
 - An escaped include directive (`\{{ path }}`) stays literal: `IncludeExpander` no longer expands it, and the Carve writer no longer turns `{{ \{{ path }}` into a live directive (markup-carve/carve-js#3101).
 
+### Performance
+- `IncludeExpander` and the Carve writer look up the run node behind each include directive candidate from an index built once per inline run, so a run with many `{{` candidates (escaped or live) is scanned in linear time instead of quadratic (markup-carve/carve-js#3104).
+
 ## [0.1.12] - 2026-10-14
 
 ### Breaking
