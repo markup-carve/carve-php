@@ -656,8 +656,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 // rendered output moving on a tree change that must not move it
                 // (markup-carve/carve#1276).
                 $node instanceof CitationDefinition => '',
-                $node instanceof LinkReferenceDefinition => isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])
-                    ? '' : $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node)), "\n"), self::DIM) . "\n\n",
+                $node instanceof LinkReferenceDefinition => $this->renderLinkReferenceDefinition($node),
                 $node instanceof FigureGroup => $this->renderFigureGroup($node),
                 $node instanceof Figure => $this->renderFigure($node),
                 $node instanceof RawBlock => $this->renderRawBlock($node),
@@ -818,6 +817,17 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * block, a table and a promoted image with no bar at all, and what put a
      * quoted list's bar to the RIGHT of its bullet.
      */
+    protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
+    {
+        if (isset($this->referencedLinkDefinitions[ReferencedLinkDefinitions::definitionKey($node)])) {
+            return '';
+        }
+
+        $href = $this->stripControls($this->blankDeniedDestination($node->getHref(), self::DESTINATION_SINK_LINK, $node));
+
+        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href)), "\n"), self::DIM) . "\n\n";
+    }
+
     protected function renderParagraph(Paragraph $node): string
     {
         return $this->renderChildren($node) . "\n\n";
