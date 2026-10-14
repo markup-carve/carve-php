@@ -215,8 +215,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
      * the EMITTED LINE rather than answered by node kind. A thematic break
      * writes `---`, which under a paragraph line is a SETEXT HEADING and changes
      * what that paragraph is instead of interrupting it; an empty bullet
-     * underlines the same way. `***` and `___` would interrupt, and no node
-     * emits them.
+     * underlines the same way. `***` interrupts; the list writer uses it where
+     * a paragraph sits above a thematic break.
      *
      * @var array<string>
      */
@@ -3244,8 +3244,8 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
         $above = null;
         foreach ($children as $child) {
             $part = $this->renderNode($child);
-            if ($tight && $child instanceof ThematicBreak && $above instanceof Paragraph) {
-                $part = "***\n\n";
+            if ($tight && $child instanceof ThematicBreak && $above instanceof Paragraph && str_ends_with($part, "---\n\n")) {
+                $part = substr($part, 0, -5) . "***\n\n";
             }
             $parts[] = $part;
             if ($part !== '') {

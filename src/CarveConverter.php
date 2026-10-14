@@ -150,7 +150,7 @@ class CarveConverter
      */
     public static function markdown(?BlockParser $parser = null): self
     {
-        return self::create($parser, new MarkdownRenderer());
+        return self::create($parser ?? new BlockParser(false, false, false, true), new MarkdownRenderer());
     }
 
     /**
@@ -158,7 +158,7 @@ class CarveConverter
      */
     public static function plainText(?BlockParser $parser = null): self
     {
-        return self::create($parser, new PlainTextRenderer());
+        return self::create($parser ?? new BlockParser(false, false, false, true), new PlainTextRenderer());
     }
 
     /**
@@ -166,7 +166,7 @@ class CarveConverter
      */
     public static function ansi(?BlockParser $parser = null): self
     {
-        return self::create($parser, new AnsiRenderer());
+        return self::create($parser ?? new BlockParser(false, false, false, true), new AnsiRenderer());
     }
 
     /**
@@ -480,10 +480,6 @@ class CarveConverter
         // Check max length before parsing
         $this->enforceProfileMaxLength($djot);
 
-        if ($this->renderer instanceof MarkdownRenderer || $this->renderer instanceof PlainTextRenderer || $this->renderer instanceof AnsiRenderer) {
-            $this->parser->enablePositionTracking();
-        }
-
         $borrowedPlan = $this->borrowedHtmlPlan($djot);
         if ($borrowedPlan !== null) {
             $attempt = (new BorrowedHtmlLayout())->render($djot, false, $borrowedPlan);
@@ -582,6 +578,10 @@ class CarveConverter
      */
     public function parse(string $djot): Document
     {
+        if ($this->renderer instanceof MarkdownRenderer || $this->renderer instanceof PlainTextRenderer || $this->renderer instanceof AnsiRenderer) {
+            $this->parser->enablePositionTracking();
+        }
+
         return CycleCollection::paused(fn (): Document => $this->parseDocument($djot));
     }
 

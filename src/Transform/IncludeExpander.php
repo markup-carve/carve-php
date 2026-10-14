@@ -41,6 +41,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use Throwable;
 
 /**
@@ -443,6 +444,15 @@ class IncludeExpander implements TransformerInterface
             if ($directive !== null) {
                 $replacement = $this->resolveDirective($directive, true, $currentPath, $stack, $depth, $budget, $parent, $paragraph);
                 if ($replacement !== null) {
+                    $hostOffset = $paragraph->getRenderHint('includeHostOffset');
+                    if ($hostOffset === null && $paragraph->getPos() !== null) {
+                        $hostOffset = (string)$paragraph->getPos()->startOffset;
+                    }
+                    if ($hostOffset !== null) {
+                        foreach ($replacement as $node) {
+                            $node->setRenderHint('includeHostOffset', $hostOffset);
+                        }
+                    }
                     $parent->replaceChildWithMany($paragraph, $replacement);
                 }
 
@@ -803,7 +813,7 @@ class IncludeExpander implements TransformerInterface
         // the child's content, so they are the including document's problem.
         $this->warningFile = $outerFile;
 
-        $nodes = array_values($document->getChildren());
+        $nodes = DocumentRenderOrder::children($document, $id);
         if ($block) {
             return $nodes;
         }
