@@ -1302,16 +1302,19 @@ class InlineParser
 
             // Heading cross-reference: </#id> (before autolink)
             if ($char === '<' && ($text[$pos + 1] ?? '') === '/' && ($text[$pos + 2] ?? '') === '#') {
-                if (
-                    $this->crossrefBodyCanEnd($text, $pos + 3)
-                    && preg_match('/\G<\/#([^> \r\n]+)>/u', $text, $hm, 0, $pos)
-                ) {
+                // A byte scan, not a `/u` regex: that validated the whole
+                // remaining text on every reference (the input is already UTF-8).
+                $targetLength = $this->crossrefBodyCanEnd($text, $pos + 3)
+                    ? strcspn($text, "> \r\n", $pos + 3)
+                    : 0;
+                if ($targetLength > 0) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
-                    $headingRef = new HeadingRef($hm[1]);
-                    $this->placeAt($headingRef, $pos, $pos + strlen($hm[0]));
+                    $headingRef = new HeadingRef(substr($text, $pos + 3, $targetLength));
+                    $end = $pos + 3 + $targetLength + 1;
+                    $this->placeAt($headingRef, $pos, $end);
                     $parent->appendChild($headingRef);
-                    $pos += strlen($hm[0]);
+                    $pos = $end;
 
                     continue;
                 }
