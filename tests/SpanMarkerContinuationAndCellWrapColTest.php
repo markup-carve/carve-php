@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Test;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
+use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -213,6 +214,7 @@ class SpanMarkerContinuationAndCellWrapColTest extends TestCase
         self::assertSame([['type' => 'cell_wrap', 'line' => 2], ['type' => 'text', 'value' => 't']], $children);
         self::assertStringContainsString('<td>t</td>', CarveConverter::create()->convert($source));
         self::assertSame("| ^ | b |\n+ | u |\n+ t | v |\n", (new CarveRenderer())->render($document));
+        self::assertStringContainsString('"text":"t"', (string)json_encode((new ProseMirrorRenderer())->render($document)));
     }
 
     public function testBlockedSpanCellAttributesStayOnTheMarker(): void

@@ -146,7 +146,7 @@ final class TableBlockBuilder
         // Per-column "open" origin cell, carried down across rows so a `^`
         // marker extends it in O(1) instead of rescanning all prior rows.
         $columnOrigin = [];
-        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int, int}>, rowIndex: int}> $cellBuilds */
+        /** @var array<int, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, cellData: array{content: string, attributes: string, marker: string, colspan: int<1, max>, gridColumn: int, isEmpty: bool, spanMarker: string|null, offset: int|null, cellOffset?: int|null, rawLength: int|null, raw: string|null, verbatim: bool, sourceChunks: list<array{int, int, string}>}, line: int, content: string, wraps: array<int, array{int, int, int}>, rowIndex: int, leadLine?: int}> $cellBuilds */
         $cellBuilds = [];
         /** @var array<int, true> $rejoined */
         $rejoined = [];
