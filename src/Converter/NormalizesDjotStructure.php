@@ -1931,7 +1931,7 @@ trait NormalizesDjotStructure
                 $labelBarriers[$at] = $nextPipe;
             }
         }
-        $scanNestedAliases = $aliasesOnly && str_contains($source, "\0U\0") && array_any(array_keys($definitions), static fn ($key): bool => str_contains((string)$key, '�'));
+        $scanNestedAliases = $aliasesOnly && str_contains($source, "\0U\0") && array_filter(array_keys($definitions), static fn ($key): bool => str_contains((string)$key, '�')) !== [];
         $nativeDefinitions = $definitions;
         if ($scanNestedAliases && str_contains($source, '#')) {
             $nativeDefinitions = [];
