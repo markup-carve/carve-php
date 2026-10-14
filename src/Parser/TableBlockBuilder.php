@@ -480,6 +480,10 @@ final class TableBlockBuilder
                     // its own row slot.
                     if (!isset($consumedColumnSet[$col])) {
                         $rowCellData[] = ['cell' => $cell, 'colPosition' => $col];
+                        // A blocked marker can still take continuation text.
+                        $blockedData = $cellData;
+                        $blockedData['sourceChunks'] = [];
+                        $cellBuilds[spl_object_id($cell)] = ['cell' => $cell, 'cellData' => $blockedData, 'line' => $baseLineForRow, 'content' => '', 'wraps' => [], 'rowIndex' => $rowIndex];
                     }
 
                     continue;
@@ -564,9 +568,20 @@ final class TableBlockBuilder
                             $origin = $columnOrigin[$k] ?? null;
                         }
                     }
+                    // A blocked marker is a cell of its own, and its continuation
+                    // text is that cell's content (T5, carve#3151).
+                    if ($origin === null && !isset($consumedColumnSet[$col]) && !isset($rowspanSet[$col])) {
+                        foreach ($rowCellData as $cellInfo) {
+                            if ($cellInfo['colPosition'] === $col) {
+                                $origin = $cellInfo['cell'];
+                            }
+                        }
+                    }
                     if (!$origin instanceof TableCell || $join['text'] === '' || !isset($cellBuilds[spl_object_id($origin)])) {
                         continue;
                     }
+                    // The blocked cell now holds text, so it no longer spells a marker.
+                    $origin->setSpanMarker(null);
                     $build = &$cellBuilds[spl_object_id($origin)];
                     $joinAt = $build['content'] === '' ? 0 : strlen($build['content']) + 1;
                     $rowsBelow = $rowIndex - $build['rowIndex'];

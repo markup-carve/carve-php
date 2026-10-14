@@ -10,7 +10,7 @@ use PHPUnit\Framework\TestCase;
 
 /**
  * A `+` continuation on a span marker joins the cell the marker resolves into;
- * a blocked marker renders empty and keeps none of it (PART 9 T5, T6).
+ * a blocked marker is a cell of its own and keeps it (PART 9 T5, T6, carve#3151).
  */
 class AContinuationOnASpanMarkerJoinsItsOriginTest extends TestCase
 {
@@ -46,11 +46,11 @@ class AContinuationOnASpanMarkerJoinsItsOriginTest extends TestCase
             ],
             'blocked colspan marker' => [
                 "| a | b |\n| < | c |\n+ x | y |\n",
-                "<table>\n  <tbody>\n    <tr><td>a</td><td>b</td></tr>\n    <tr><td></td><td>c y</td></tr>\n  </tbody>\n</table>",
+                "<table>\n  <tbody>\n    <tr><td>a</td><td>b</td></tr>\n    <tr><td>x</td><td>c y</td></tr>\n  </tbody>\n</table>",
             ],
             'blocked caret in the first row' => [
                 "| ^ | b |\n+ x | y |\n",
-                "<table>\n  <tbody>\n    <tr><td></td><td>b y</td></tr>\n  </tbody>\n</table>",
+                "<table>\n  <tbody>\n    <tr><td>x</td><td>b y</td></tr>\n  </tbody>\n</table>",
             ],
             'two origins in one row' => [
                 "| a | b | c |\n| ^ | d | e |\n| f | ^ | g |\n+ x | y | z |\n",
@@ -58,7 +58,19 @@ class AContinuationOnASpanMarkerJoinsItsOriginTest extends TestCase
             ],
             'blocked caret under a wide cell' => [
                 "| a | < |\n| ^ | b |\n+ x | y |\n",
-                "<table>\n  <tbody>\n    <tr><td colspan=\"2\">a</td></tr>\n    <tr><td></td><td>b y</td></tr>\n  </tbody>\n</table>",
+                "<table>\n  <tbody>\n    <tr><td colspan=\"2\">a</td></tr>\n    <tr><td>x</td><td>b y</td></tr>\n  </tbody>\n</table>",
+            ],
+            'blocked caret then a colspan joining it' => [
+                "| a | b |\n| ^ | c |\n| < | d |\n+ x | y |\n",
+                "<table>\n  <tbody>\n    <tr><td rowspan=\"2\">a</td><td>b</td></tr>\n    <tr><td>c</td></tr>\n    <tr><td>x</td><td>d y</td></tr>\n  </tbody>\n</table>",
+            ],
+            'colspan widening a blocked caret' => [
+                "| ^ | < |\n+ x | y |\n",
+                "<table>\n  <tbody>\n    <tr><td colspan=\"2\">x y</td></tr>\n  </tbody>\n</table>",
+            ],
+            'colspan widening a blocked caret with no text of its own' => [
+                "| ^ | < |\n+ | y |\n",
+                "<table>\n  <tbody>\n    <tr><td colspan=\"2\">y</td></tr>\n  </tbody>\n</table>",
             ],
             'two continuation lines on one caret' => [
                 "|= h |= i |\n| a | b |\n| ^ | c |\n+ more | |\n+ again | d |\n",
