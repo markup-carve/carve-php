@@ -77,4 +77,89 @@ class TableRenderLossTest extends TestCase
             );
         }
     }
+
+    public function testAHeaderRowWrittenAboveEarlierBodyRowsIsHoisted(): void
+    {
+        $result = CarveConverter::markdown()->convertWithReport("| A | B |\n|= C |= D |\n");
+        self::assertSame("| C | D |\n| --- | --- |\n| A | B |\n", $result->value);
+        self::assertSame([
+            [
+                'code' => 'table-header-row-hoisted',
+                'target' => 'markdown',
+                'nodeType' => 'block',
+                'message' => 'Moved a header row above earlier body rows',
+            ],
+        ], self::withoutPos($result->losses));
+        self::assertSame(2, $result->losses[0]['pos']['startLine']);
+    }
+
+    public function testEachHeaderCellOfAPartlyHeaderRowIsDemoted(): void
+    {
+        $result = CarveConverter::markdown()->convertWithReport("| A |= B |= E |\n| C | D | F |\n");
+        $cell = ['code' => 'table-header-cell-demoted', 'target' => 'markdown', 'nodeType' => 'block', 'message' => 'Wrote a header cell as a body cell'];
+        self::assertSame([$cell, $cell], self::withoutPos($result->losses));
+        self::assertSame([6, 11], array_map(static fn (array $loss): int => $loss['pos']['startColumn'], $result->losses));
+        self::assertSame(1, CarveConverter::markdown()->convertWithReport("| A |= B |\n| C | D |\n")->totalLosses);
+    }
+
+    public function testAHeaderCellBelowTheHeaderRowIsDemoted(): void
+    {
+        $report = CarveConverter::markdown()->convertWithReport("|= A |= B |\n|= C | D |\n");
+        self::assertSame(['table-header-cell-demoted'], array_column($report->losses, 'code'));
+    }
+
+    public function testAHeaderFirstTableReportsNoHeaderLoss(): void
+    {
+        self::assertSame([], CarveConverter::markdown()->convertWithReport("|= A |= B |\n| C | D |\n")->losses);
+        self::assertSame([], CarveConverter::markdown()->convertWithReport("| A | B |\n| C | D |\n")->losses);
+    }
+
+    public function testTargetsThatKeepHeaderRolesReportNoHeaderLoss(): void
+    {
+        foreach ([CarveConverter::create(), CarveConverter::carve(), CarveConverter::plainText(), CarveConverter::ansi()] as $converter) {
+            self::assertSame([], $converter->convertWithReport("| A | B |\n|= C |= D |\n")->losses);
+            self::assertSame([], $converter->convertWithReport("| A |= B |\n| C | D |\n")->losses);
+        }
+    }
+
+    public function testRowLossPrecedesSpanLossWhichPrecedesALaterCellDemotion(): void
+    {
+        $report = CarveConverter::markdown()->convertWithReport("| A |\n|= B | < |\n|= C | D |\n");
+        self::assertSame(
+            ['table-header-row-hoisted', 'table-span-flattened', 'table-header-cell-demoted'],
+            array_column($report->losses, 'code'),
+        );
+    }
+
+    public function testACellDemotionPrecedesItsOwnSpanLoss(): void
+    {
+        $report = CarveConverter::markdown()->convertWithReport("| A |= B | < |\n");
+        self::assertSame(['table-header-cell-demoted', 'table-span-flattened'], array_column($report->losses, 'code'));
+    }
+
+    public function testStrictLossesRefusesBothCodes(): void
+    {
+        foreach (["| A | B |\n|= C |= D |\n" => 'table-header-row-hoisted', "| A |= B |\n| C | D |\n" => 'table-header-cell-demoted'] as $source => $code) {
+            try {
+                CarveConverter::markdown()->convertWithReport($source, strictLosses: true);
+                self::fail("Strict losses accepted $code");
+            } catch (RenderLossException) {
+                $this->addToAssertionCount(1);
+            }
+        }
+    }
+
+    /**
+     * @param array<array<string, mixed>> $losses
+     *
+     * @return array<array<string, mixed>>
+     */
+    private static function withoutPos(array $losses): array
+    {
+        return array_map(static function (array $loss): array {
+            unset($loss['pos']);
+
+            return $loss;
+        }, $losses);
+    }
 }

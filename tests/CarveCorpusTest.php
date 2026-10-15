@@ -1181,6 +1181,7 @@ class CarveCorpusTest extends TestCase
         'the-combined-bold-italic-token-does-not-open-after-an-underscore-or-a-slash',
         'editorial-markup-closes-outside-a-cross-reference-or-a-bracket-run',
         'an-autolink-is-opaque-to-the-bracket-scan',
+        'the-combined-bold-italic-token-does-not-open-inside-an-open-bare-italic-or-bold',
     ];
 
     /**
