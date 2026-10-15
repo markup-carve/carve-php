@@ -2992,6 +2992,11 @@ class MarkdownToCarve
                     $this->nativeCodeSlot = $previousCodeSlot;
                     $this->breakableCodeSlot = $previousBreakable;
                 }
+                // A title wrapped from a dropped definition keeps the quote's marker.
+                $bodyQuote = $this->quotePrefixOf($body);
+                if ($bodyQuote !== '' && !$isList && !str_contains($body, "\n") && str_contains($converted, "\n")) {
+                    $converted = str_replace("\n", "\n" . rtrim(ltrim($bodyQuote, ' ')) . ' ', $converted);
+                }
             }
 
             // A Markdown HARD BREAK is two or more spaces at the end of a line;
@@ -9388,6 +9393,35 @@ class MarkdownToCarve
                     continue;
                 }
             }
+            if (
+                $lineDepth > 0 && $listIndent === 0 && ($canStart || $lineDepth > $depth)
+                && preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:[ \t]*(?:<>|$)/', $content) === 1
+            ) {
+                $quoted = $this->readQuotedWrappedEmptyDefinition($lines, $i, $lineDepth);
+                if ($quoted !== null) {
+                    // A Carve definition has no title slot, so uses become titled inline links.
+                    $rawKey = $this->normalizeReferenceLabel($quoted['label']);
+                    if (!isset($defined[$rawKey])) {
+                        $this->emptyDestinationLabels[$rawKey] = ['title' => $quoted['title'], 'hasTitle' => true];
+                        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                            'structure-unspellable',
+                            'Dropped a titled empty reference definition; uses become inline links.',
+                            'warning',
+                            'dropped',
+                            'exact',
+                            'line:' . ($i + 1),
+                        );
+                    }
+                    $authoredDefinitions[$rawKey] = true;
+                    $defined[$rawKey] = true;
+                    $depth = $lineDepth;
+                    $i += $quoted['lines'] - 1;
+                    $referenceDefinitionEnd = $i;
+                    $canStart = !$this->dropDefinitionLine($lines, $i, $quotePrefix, $kept);
+
+                    continue;
+                }
+            }
             // A deeper quote opens a block; a shallower line is lazy continuation.
             if (
                 ($canStart || $opensItem || $lineDepth > $depth)
@@ -9796,6 +9830,42 @@ class MarkdownToCarve
     {
         return preg_match('/^ {0,3}(?:>|#{1,6}(?:[ \t]|$)|`{3,}|~{3,}|(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$)/', $line) === 1
             || $this->htmlBlockInterrupts(ltrim($line, ' '));
+    }
+
+    /**
+     * Read an empty reference definition at `$start` inside a block quote whose
+     * title wraps. Continuation lines carry the quote marker or are lazy.
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $depth
+     *
+     * @return array{label: string, title: string, lines: int}|null
+     */
+    protected function readQuotedWrappedEmptyDefinition(array $lines, int $start, int $depth): ?array
+    {
+        $chunk = [];
+        $count = count($lines);
+        for ($at = $start; $at < $count; $at++) {
+            $prefix = $this->quotePrefixOf($lines[$at]);
+            $lineDepth = substr_count($prefix, '>');
+            $body = substr($lines[$at], strlen($prefix));
+            if ($at > $start && ($lineDepth > $depth || trim($body) === '' || $this->opensMarkdownBlock($body))) {
+                break;
+            }
+            $chunk[] = $body;
+        }
+        $parsed = MarkdownReferenceDefinition::read(implode("\n", $chunk));
+        if (
+            $parsed === null
+            || str_contains($parsed['label'], "\n")
+            || preg_match('/^<>\s+("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\((?:\\\\.|[^()\\\\])*\))\s*\z/', $parsed['target'], $titled) !== 1
+            || !str_contains($titled[1], "\n")
+        ) {
+            return null;
+        }
+
+        return ['label' => $parsed['label'], 'title' => $this->decodeLinkTitle(substr($titled[1], 1, -1)), 'lines' => $parsed['lines']];
     }
 
     /**
