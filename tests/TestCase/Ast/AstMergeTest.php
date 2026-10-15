@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Ast\AstMerge;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\TestCase;
 use Throwable;
 
@@ -19,6 +20,82 @@ class AstMergeTest extends TestCase
     private function ast(string $source): array
     {
         return (new AstCodec())->encode(CarveConverter::create()->parse($source));
+    }
+
+    public function testMergesAParagraphRewrapWithAWordEdit(): void
+    {
+        $base = "The quick brown fox jumps over the lazy dog and keeps running far away.\n";
+        $ours = "The quick brown fox jumps over the lazy dog\nand keeps running far away.\n";
+        $theirs = "The quick red fox jumps over the lazy dog and keeps running far away.\n";
+
+        $result = AstMerge::merge($this->ast($base), $this->ast($ours), $this->ast($theirs));
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame($theirs, (new CarveRenderer())->render((new AstCodec())->decode($result['ast'])));
+    }
+
+    public function testMergesAParagraphRewrapWithAnUnchangedSide(): void
+    {
+        $base = "The quick brown fox jumps over the lazy dog and keeps running far away.\n";
+        $ours = "The quick brown fox jumps over the lazy dog\nand keeps running far away.\n";
+
+        $result = AstMerge::merge($this->ast($base), $this->ast($ours), $this->ast($base));
+
+        $this->assertTrue($result['ok']);
+        $this->assertSame($ours, (new CarveRenderer())->render((new AstCodec())->decode($result['ast'])));
+    }
+
+    public function testKeepsASoftBreakAfterEmphasisWhenTheOtherSideRewraps(): void
+    {
+        $base = "An *emphasis*\nthen text and a long tail of words here.\n";
+        $ours = "An *emphasis*\nthen text and a long tail\nof words here.\n";
+        $theirs = "An *emphasis*\nthen text and a short tail of words here.\n";
+
+        $result = AstMerge::merge($this->ast($base), $this->ast($ours), $this->ast($theirs));
+
+        $this->assertTrue($result['ok']);
+        $this->assertStringContainsString("*emphasis*\nthen text and a short tail", (new CarveRenderer())->render((new AstCodec())->decode($result['ast'])));
+    }
+
+    public function testRemovingASoftBreakAfterALinkIsAChange(): void
+    {
+        $base = "A [word](u)\nnext and the old tail.\n";
+        $ours = "A [word](u)next and the old tail.\n";
+        $theirs = "A [word](u)\nnext and the new tail.\n";
+
+        $result = AstMerge::merge($this->ast($base), $this->ast($ours), $this->ast($theirs));
+
+        if ($result['ok']) {
+            $this->assertStringContainsString('[word](u)next', (new CarveRenderer())->render((new AstCodec())->decode($result['ast'])));
+        } else {
+            $this->assertNotEmpty($result['conflicts']);
+        }
+    }
+
+    public function testKeepsThatSoftBreakWhicheverSideWins(): void
+    {
+        $base = "An *emphasis*\nthen the old tail of words here.\n";
+        $edited = "An *emphasis*\nthen the new tail of words here.\n";
+        $rewrapped = "An *emphasis*\nthen the new tail\nof words here.\n";
+
+        foreach ([[$rewrapped, $edited], [$rewrapped, $base]] as [$ours, $theirs]) {
+            $result = AstMerge::merge($this->ast($base), $this->ast($ours), $this->ast($theirs));
+
+            $this->assertTrue($result['ok']);
+            $this->assertStringContainsString("*emphasis*\nthen the new tail", (new CarveRenderer())->render((new AstCodec())->decode($result['ast'])));
+        }
+    }
+
+    public function testConflictsOnTwoDifferentEditsToRewrappedText(): void
+    {
+        $base = "The quick brown fox jumps over the lazy dog and keeps running far away.\n";
+        $ours = "The quick blue fox jumps over the lazy dog\nand keeps running far away.\n";
+        $theirs = "The quick red fox jumps over the lazy dog and keeps running far away.\n";
+
+        $result = AstMerge::merge($this->ast($base), $this->ast($ours), $this->ast($theirs));
+
+        $this->assertFalse($result['ok']);
+        $this->assertContains('both-changed', array_column($result['conflicts'], 'reason'));
     }
 
     public function testMergesIndependentEdits(): void
