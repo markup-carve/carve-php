@@ -30,6 +30,7 @@ use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use ReflectionMethod;
 
@@ -60,7 +61,7 @@ class CrossReferenceResolver
         if (!method_exists($node, 'getRawReferenceLabel')) {
             return false;
         }
-        if ($node->getRawReferenceLabel() === null) {
+        if ($node->getRawReferenceLabel() === null || UnresolvedReference::isResolvedEmpty($node)) {
             return false;
         }
         $destination = method_exists($node, 'getDestination')

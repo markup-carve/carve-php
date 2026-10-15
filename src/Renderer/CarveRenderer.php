@@ -4508,10 +4508,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         $titleValue = $node->getTitle();
-        if ($node->getDestination() === '' && $titleValue !== null && strpbrk($titleValue, "\r\n") !== false) {
-            $this->recordUnspellableField($node, 'title', 'An empty link destination cannot spell a title containing a newline.');
-            $titleValue = null;
-        }
         $title = $titleValue === null ? '' : ' "' . $this->escapeQuoted($titleValue) . '"';
         if ($this->tableCellDepth > 0) {
             $title = str_replace(['`', '|'], ['\\`', '\\|'], $title);
@@ -4644,11 +4640,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         if ($referenceLabel !== null && $referenceLabel !== '') {
             $this->recordUnspellableField($node, 'ref', 'The image reference cannot be written in this source slot; wrote its destination inline');
-        }
-
-        if ($node->getSource() === '' && $node->getTitle() !== null && strpbrk($node->getTitle(), "\r\n") !== false) {
-            $this->recordUnspellableField($node, 'title', 'An empty image source cannot spell a title containing a newline.');
-            $title = '';
         }
 
         return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);

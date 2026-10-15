@@ -7271,25 +7271,6 @@ class MarkdownToCarve
             return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $match[0]);
         };
         $line = preg_replace_callback(
-            '~(?<!\\\\)(!?)\[((?:[^\[\]]|\[[^\[\]]*\]){1,512})\]\(<>[ \t\n]+(?<title>"(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\([^()]*\))[ \t\n]*\)~',
-            function (array $match): string {
-                if (strpbrk($match['title'], "\r\n") === false) {
-                    return $match[0];
-                }
-                $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                    'structure-unspellable',
-                    'An empty destination cannot retain a title containing a newline.',
-                    'warning',
-                    'dropped',
-                    'exact',
-                    'document',
-                );
-
-                return $match[1] . '[' . $match[2] . '](<>)';
-            },
-            $line,
-        ) ?? $line;
-        $line = preg_replace_callback(
             '/\]\(([ \t]*)</',
             function (array $match) use ($line, $protect): string {
                 $offset = $match[0][1];
@@ -9334,14 +9315,29 @@ class MarkdownToCarve
 
                         continue;
                     }
-                    $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                        'structure-unspellable',
-                        'An empty destination cannot retain a title containing a newline.',
-                        'warning',
-                        'dropped',
-                        'exact',
-                        'line:' . ($i + 1),
-                    );
+                    if (preg_match('/^<>\s+("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\((?:\\\\.|[^()\\\\])*\))\s*\z/', $parsed['target'], $titled) === 1) {
+                        // A Carve definition has no title slot, so uses become titled inline links.
+                        $rawKey = $this->normalizeReferenceLabel($parsed['label']);
+                        if (!isset($defined[$rawKey])) {
+                            $this->emptyDestinationLabels[$rawKey] = ['title' => $this->decodeLinkTitle(substr($titled[1], 1, -1)), 'hasTitle' => true];
+                            $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                                'structure-unspellable',
+                                'Dropped a titled empty reference definition; uses become inline links.',
+                                'warning',
+                                'dropped',
+                                'exact',
+                                'line:' . ($i + 1),
+                            );
+                        }
+                        $authoredDefinitions[$rawKey] = true;
+                        $defined[$rawKey] = true;
+                        $i += $parsed['lines'] - 1;
+                        $this->dropDefinitionLine($lines, $i, '', $kept);
+                        $referenceChunk = null;
+                        $canStart = true;
+
+                        continue;
+                    }
                     $line = $content = '[' . $parsed['label'] . ']: <>';
                     $lines[$i] = $line;
                     for ($part = 1; $part < $parsed['lines']; $part++) {
@@ -9896,17 +9892,6 @@ class MarkdownToCarve
         Closure $protect,
         bool $hasTitle = false,
     ): string {
-        if ($hasTitle && strpbrk($title, "\r\n") !== false) {
-            $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                'structure-unspellable',
-                'An empty destination cannot retain a title containing a newline.',
-                'warning',
-                'dropped',
-                'exact',
-                'document',
-            );
-            $hasTitle = false;
-        }
         // Bare at the start of a line or container, the text would open a block.
         $lineStart = preg_match('/^[ \t]*(?:(?:>|[-*+]|(?:[0-9]{1,9}|[A-Za-z])[.)])[ \t]+|>)*$/', $before) === 1;
         if ($image) {

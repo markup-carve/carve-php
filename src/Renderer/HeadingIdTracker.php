@@ -29,6 +29,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -759,7 +760,7 @@ class HeadingIdTracker
      */
     protected function isUnresolvedReferenceLink(Link $child): bool
     {
-        if ($child->getRawReferenceLabel() === null) {
+        if ($child->getRawReferenceLabel() === null || UnresolvedReference::isResolvedEmpty($child)) {
             return false;
         }
 
