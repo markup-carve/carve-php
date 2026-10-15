@@ -159,7 +159,8 @@ class AstStructuralScalingTest extends TestCase
     #[Group('scaling')]
     public function testDeepMergeAndPatchScale(): void
     {
-        foreach (['merge', 'patch'] as $operation) {
+        // Merge has a large linear term: a quadratic read only 2-3x at a 4x step, 16x keeps it well above the bound.
+        foreach (['merge' => 15, 'patch' => 60] as $operation => $small) {
             $this->assertConversionScalesLinearly(static function (string $input) use ($operation): void {
                 $depth = strlen($input);
                 $base = self::tree($depth);
@@ -169,7 +170,7 @@ class AstStructuralScalingTest extends TestCase
                 } else {
                     AstMerge::merge($base, $ours, self::tree($depth, 'a', 'theirs'));
                 }
-            }, str_repeat('x', 60), str_repeat('x', 240), 'deep ' . $operation, 60, 240);
+            }, str_repeat('x', $small), str_repeat('x', 240), 'deep ' . $operation, $small, 240);
         }
     }
 
