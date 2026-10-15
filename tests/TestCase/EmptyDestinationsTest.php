@@ -198,6 +198,32 @@ final class EmptyDestinationsTest extends TestCase
         self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function quotedWrappedTitleProvider(): array
+    {
+        return [
+            'quoted continuation' => ["> [t][r]\n>\n> [r]: <> \"a\n> b\"", "> [t]( \"a\n> b\")"],
+            'lazy continuation' => ["> [t][r]\n>\n> [r]: <> \"a\nb\"", "> [t]( \"a\n> b\")"],
+            'title on its own line' => ["> [t][r]\n>\n> [r]: <>\n> \"a\n> b\"", "> [t]( \"a\n> b\")"],
+            'nested quote' => ["> > [t][r]\n> >\n> > [r]: <> \"a\n> > b\"", "> > [t]( \"a\n> > b\")"],
+            'nested quote, shallower lazy line' => ["> > [t][r]\n> >\n> > [r]: <> \"a\n> b\"", "> > [t]( \"a\n> > b\")"],
+            'quoted use of an unquoted definition' => ["> [t][r]\n\n[r]: <> \"a\nb\"", "> [t]( \"a\n> b\")"],
+            'one-line title control' => ["> [t][r]\n>\n> [r]: <> \"a b\"", '> [t]( "a b")'],
+        ];
+    }
+
+    #[DataProvider('quotedWrappedTitleProvider')]
+    public function testMarkdownImportInlinesAQuotedReferenceWithAMultilineTitle(string $source, string $expected): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+        $carve = rtrim(trim($result->value), "> \n");
+        self::assertSame($expected, $carve);
+        self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
+        self::assertMatchesRegularExpression('~^<blockquote>\s*(?:<blockquote>)?<p><a href="" title="a[ \\n]b">t</a></p>~', trim((new CarveConverter())->convert($result->value)));
+    }
+
     public function testMarkdownImportInlinesEmptyDefinitionsWithUnspellableLabels(): void
     {
         foreach (
