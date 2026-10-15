@@ -202,23 +202,32 @@ class DjotToCarve
         return preg_match('/^[\p{L}\p{N}\p{M} ,;?\/=&@\t\n]$/u', $character) === 1;
     }
 
+    private function maskDjotReferenceDefinitions(string $source, string $mask): string
+    {
+        if (!str_contains($source, ']:')) {
+            return $mask;
+        }
+        $accepted = [];
+        $this->foldDjotReferences($source, $accepted);
+        $maskLines = explode("\n", $mask);
+        $covered = -1;
+        $count = count($maskLines);
+        for ($line = 0; $line < $count; $line++) {
+            $covered = max($covered, $accepted[$line]['end'] ?? -1);
+            if ($line <= $covered) {
+                $maskLines[$line] = str_repeat(' ', strlen($maskLines[$line]));
+            }
+        }
+
+        return implode("\n", $maskLines);
+    }
+
     private function collapsePlainNestedImageChains(string $source): string
     {
         if (!str_contains($source, '![') || !str_contains($source, "\n")) {
             return $source;
         }
-        $mask = $this->maskCodeAndDestinations($source);
-        if (str_contains($source, ']:')) {
-            $accepted = [];
-            $this->foldDjotReferences($source, $accepted);
-            $maskLines = explode("\n", $mask);
-            foreach ($accepted ?? [] as $line => $decision) {
-                for ($next = $line; $next <= $decision['end']; $next++) {
-                    $maskLines[$next] = str_repeat(' ', strlen($maskLines[$next]));
-                }
-            }
-            $mask = implode("\n", $maskLines);
-        }
+        $mask = $this->maskDjotReferenceDefinitions($source, $this->maskCodeAndDestinations($source));
         $lineOffsets = $quotePrefixes = [];
         $lineOffset = 0;
         foreach (explode("\n", $source) as $line) {
@@ -4755,7 +4764,7 @@ class DjotToCarve
         if (!str_contains($source, '](')) {
             return $source;
         }
-        $mask = $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false]);
+        $mask = $this->maskDjotReferenceDefinitions($source, $this->maskCodeAndDestinations($source, false, opaqueOptions: ['destinations' => false]));
         $rows = $this->djotTableRows($source, $mask);
         $imageLines = null;
         preg_match_all('/<[^<>\s]+>/', $source, $angleMatches, PREG_OFFSET_CAPTURE);
