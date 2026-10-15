@@ -206,8 +206,8 @@
         "id": "figcaption|a.k|49|emptycode",
         "group": "caption-hash",
         "html": "<figure><img src=\"f\" alt=\"f\"><figcaption>x<code></code><a href=\"\" class=\"k\"># x</a></figcaption></figure>",
-        "carve": "![f](f)\n^ x[# x]{.k}\n",
-        "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>x<span class=\"k\"># x</span></figcaption>\n</figure>\n"
+        "carve": "![f](f)\n^ x[# x](){.k}\n",
+        "htmlBack": "<figure>\n  <img src=\"f\" alt=\"f\">\n  <figcaption>x<a href=\"\" class=\"k\"># x</a></figcaption>\n</figure>\n"
     },
     {
         "id": "figcaption|cite|49|touch",

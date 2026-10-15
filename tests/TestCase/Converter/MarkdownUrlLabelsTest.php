@@ -85,13 +85,13 @@ class MarkdownUrlLabelsTest extends TestCase
     {
         foreach (
             [
-                ["[r](<> \"t\")\n\n[r]: /u\n", "[r]{title=t}\n\n[r]: /u\n"],
-                ["[https://x.test](<> \"t\")\n\n[https://x.test]: /u\n", "[https://x.test]{title=t}\n\n[https://x.test]: /u\n"],
+                ["[r](<> \"t\")\n\n[r]: /u\n", "[r]( \"t\")\n\n[r]: /u\n"],
+                ["[https://x.test](<> \"t\")\n\n[https://x.test]: /u\n", "[https://x.test]( \"t\")\n\n[https://x.test]: /u\n"],
             ] as [$source, $expected]
         ) {
             $migration = (new MarkdownToCarve())->convertWithFidelityReport($source);
             $this->assertSame($expected, $migration->value);
-            $this->assertNotEmpty(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable' && $row->fidelity === 'dropped'));
+            $this->assertSame([], array_values(array_filter($migration->diagnostics, static fn ($row): bool => $row->code === 'structure-unspellable' && $row->fidelity === 'dropped')));
         }
     }
 

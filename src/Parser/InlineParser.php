@@ -40,6 +40,7 @@ use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
@@ -1302,16 +1303,19 @@ class InlineParser
 
             // Heading cross-reference: </#id> (before autolink)
             if ($char === '<' && ($text[$pos + 1] ?? '') === '/' && ($text[$pos + 2] ?? '') === '#') {
-                if (
-                    $this->crossrefBodyCanEnd($text, $pos + 3)
-                    && preg_match('/\G<\/#([^> \r\n]+)>/u', $text, $hm, 0, $pos)
-                ) {
+                // A byte scan, not a `/u` regex: that validated the whole
+                // remaining text on every reference (the input is already UTF-8).
+                $targetLength = $this->crossrefBodyCanEnd($text, $pos + 3)
+                    ? strcspn($text, "> \r\n", $pos + 3)
+                    : 0;
+                if ($targetLength > 0) {
                     $this->flushText($parent, $textBuffer);
                     $textBuffer = '';
-                    $headingRef = new HeadingRef($hm[1]);
-                    $this->placeAt($headingRef, $pos, $pos + strlen($hm[0]));
+                    $headingRef = new HeadingRef(substr($text, $pos + 3, $targetLength));
+                    $end = $pos + 3 + $targetLength + 1;
+                    $this->placeAt($headingRef, $pos, $end);
                     $parent->appendChild($headingRef);
-                    $pos += strlen($hm[0]);
+                    $pos = $end;
 
                     continue;
                 }
@@ -2869,6 +2873,9 @@ class InlineParser
                     $this->blockParser->markReferenceUsed($ref, $this->currentLine);
 
                     $link = new Link($refDef->url, $refDef->title);
+                    if ($refDef->url === '') {
+                        UnresolvedReference::markResolvedEmpty($link);
+                    }
                     // PART 12 §3a, A RESOLVED REFERENCE KEEPS ITS DESTINATION:
                     // the authored construct survives BESIDE the resolution
                     // result. The label is the one the author wrote - the same
@@ -3048,6 +3055,9 @@ class InlineParser
         $alt = AttributeParser::processEscapes(str_replace("\0", "\u{00A0}", $result['link_text']));
 
         $image = new Image($link->getDestination() ?? '', $alt, $link->getTitle());
+        if (UnresolvedReference::isResolvedEmpty($link)) {
+            UnresolvedReference::markResolvedEmpty($image);
+        }
 
         // Transfer reference label for round-trip support
         if ($link->getReferenceLabel() !== null) {
@@ -3916,6 +3926,15 @@ class InlineParser
                 if ($runEnd !== null) {
                     $destination = $this->linkDestinationSkip($text, $searchPos);
                     $searchPos = $destination === null ? $runEnd : $destination[1];
+
+                    continue;
+                }
+            }
+            // A cross-reference resolves first (PART 8), so its `}` closes nothing.
+            if ($text[$searchPos] === '<') {
+                $crossrefEnd = $this->findCrossrefEnd($text, $searchPos);
+                if ($crossrefEnd !== null) {
+                    $searchPos = $crossrefEnd;
 
                     continue;
                 }
@@ -5027,7 +5046,7 @@ class InlineParser
                         $end = $destination[1] ?? $end;
                     }
                 } elseif ($char === '<') {
-                    $end = $this->findAutolinkEnd($text, $at);
+                    $end = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
                 } elseif ($char === '%' && $this->isLineCommentOpener($text, $at)) {
                     $lineEnd = strpos($text, "\n", $at);
                     $end = min($lineEnd === false ? $length : $lineEnd, $labels !== [] ? $labels[array_key_last($labels)] : $length);
@@ -5275,6 +5294,21 @@ class InlineParser
             return $this->destinationScans[$urlStart] = null;
         }
         $notADestination = ['end' => $urlEnd, 'url' => null, 'title' => null];
+
+        $emptyRaw = substr($text, $urlStart, $urlEnd - $urlStart);
+        if (preg_match('/^[ \t]*\z/', $emptyRaw) === 1) {
+            return $this->destinationScans[$urlStart] = ['end' => $urlEnd, 'url' => '', 'title' => null];
+        }
+        if (
+            preg_match('/^ "((?:\\\\.|[^"\\\\\r\n])*)"[ \t]*\z/', $emptyRaw, $emptyTitle) === 1
+            || preg_match("/^ '((?:\\\\.|[^'\\\\\\r\\n])*)'[ \\t]*\\z/", $emptyRaw, $emptyTitle) === 1
+        ) {
+            return $this->destinationScans[$urlStart] = [
+                'end' => $urlEnd,
+                'url' => '',
+                'title' => AttributeParser::processEscapes($emptyTitle[1]),
+            ];
+        }
 
         if (
             $urlEnd > $urlStart && (str_contains(" \t\n\r\0\x0B", $text[$urlStart])

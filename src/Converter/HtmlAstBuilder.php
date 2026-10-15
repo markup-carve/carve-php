@@ -2493,7 +2493,7 @@ final class HtmlAstBuilder
                 if (in_array($tag, ['hr', 'br'], true)) {
                     return true;
                 }
-                if ($tag === 'img' && !self::carriesNoDestination($sibling->getAttribute('src'))) {
+                if ($tag === 'img' && $sibling->hasAttribute('src') && ($sibling->getAttribute('src') === '' || !self::carriesNoDestination($sibling->getAttribute('src')))) {
                     return true;
                 }
                 foreach ($sibling->childNodes as $child) {
@@ -4753,7 +4753,7 @@ final class HtmlAstBuilder
      */
     private function inlineImage(DOMElement $node): array
     {
-        if (self::carriesNoDestination($node->getAttribute('src'))) {
+        if (!$node->hasAttribute('src') || ($node->getAttribute('src') !== '' && self::carriesNoDestination($node->getAttribute('src')))) {
             $alt = $node->getAttribute('alt');
             if ($alt !== '' && $node->hasAttribute('title')) {
                 return [
@@ -4983,7 +4983,7 @@ final class HtmlAstBuilder
                 }
             }
         }
-        if (self::carriesNoDestination($node->getAttribute('href'))) {
+        if (!$node->hasAttribute('href') || ($node->getAttribute('href') !== '' && self::carriesNoDestination($node->getAttribute('href')))) {
             $skip = ['href'];
             foreach ($node->attributes as $attribute) {
                 if (HtmlCarrierNames::isReserved(HtmlDomLoader::attributeName($attribute)) || HtmlCarrierNames::isStoredSourceMarker(HtmlDomLoader::attributeName($attribute))) {
@@ -5001,7 +5001,7 @@ final class HtmlAstBuilder
             return $children;
         }
         $children = $this->bracketedChildren($node);
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-inline-footnote-html')) {
+        if ($href !== '' && HtmlCarrierNames::consumePresence($node, 'data-carve-inline-footnote-html')) {
             $content = $this->inlineHtml(HtmlCarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-html'));
             $class = HtmlCarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-class');
 
@@ -5017,7 +5017,7 @@ final class HtmlAstBuilder
             ];
         }
         if (
-            HtmlCarrierNames::consumePresence($node, 'data-carve-footnote-label')
+            $href !== '' && HtmlCarrierNames::consumePresence($node, 'data-carve-footnote-label')
             && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'))
         ) {
             return [
@@ -5052,7 +5052,7 @@ final class HtmlAstBuilder
         if ($endnote !== null && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($endnote, 'data-carve-footnote-label'))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
         }
-        if (strtolower($node->getAttribute('role')) === 'doc-noteref') {
+        if ($href !== '' && strtolower($node->getAttribute('role')) === 'doc-noteref') {
             $href = $node->getAttribute('href');
             $fragment = str_starts_with($href, '#') ? substr($href, 1) : trim($node->textContent);
 
@@ -5078,7 +5078,7 @@ final class HtmlAstBuilder
             && self::isReferenceCarrierLabel($ref);
         if ($contradictory) {
             $this->session->contradictoryLinkCarriers[$node] = null;
-        } elseif (HtmlCarrierNames::consumePresence($node, 'data-carve-autolink')) {
+        } elseif ($href !== '' && HtmlCarrierNames::consumePresence($node, 'data-carve-autolink')) {
             $autolink = [
                 'type' => 'autolink',
                 'href' => $node->getAttribute('href'),

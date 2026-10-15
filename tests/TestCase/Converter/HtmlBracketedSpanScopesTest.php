@@ -30,7 +30,7 @@ class HtmlBracketedSpanScopesTest extends TestCase
             ];
             $cases[$tag . ' empty attributed anchor'] = [
                 '<p><' . $tag . '>a<a href="" class="x"><' . $tag . '>b</' . $tag . '></a>c</' . $tag . '></p>',
-                '<p><' . $tag . '>a<span class="x"><' . $tag . '>b</' . $tag . '></span>c</' . $tag . '></p>',
+                '<p><' . $tag . '>a<a href="" class="x"><' . $tag . '>b</' . $tag . '></a>c</' . $tag . '></p>',
             ];
         }
 

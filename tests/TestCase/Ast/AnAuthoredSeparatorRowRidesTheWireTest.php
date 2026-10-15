@@ -425,11 +425,11 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     // The contract version the field arrived with
     // =========================================================================
 
-    public function testTheEnvelopeAnnouncesContractVersionOneOne(): void
+    public function testTheEnvelopeAnnouncesContractVersionTwoZero(): void
     {
         $envelope = (new AstEnvelope($this->codec))->encode($this->parse("| a |\n|---|\n| 1 |\n"));
 
-        $this->assertSame('1.1', $envelope['astVersion']);
+        $this->assertSame('2.0', $envelope['astVersion']);
     }
 
     /**
@@ -441,15 +441,15 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     public function testAHigherMinorIsRefusedWithBothVersionsNamed(): void
     {
         $envelope = (new AstEnvelope($this->codec))->encode($this->parse("| a |\n|---|\n| 1 |\n"));
-        $envelope['astVersion'] = '1.2';
+        $envelope['astVersion'] = '2.1';
 
         try {
             (new AstEnvelope($this->codec))->decode($envelope);
         } catch (AstEnvelopeVersionException $e) {
-            $this->assertSame('1.2', $e->found);
-            $this->assertSame('1.1', $e->implemented);
-            $this->assertStringContainsString('1.2', $e->getMessage());
-            $this->assertStringContainsString('1.1', $e->getMessage());
+            $this->assertSame('2.1', $e->found);
+            $this->assertSame('2.0', $e->implemented);
+            $this->assertStringContainsString('2.1', $e->getMessage());
+            $this->assertStringContainsString('2.0', $e->getMessage());
 
             return;
         }
@@ -459,7 +459,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
 
     public function testItsOwnVersionAndALowerOneAreAccepted(): void
     {
-        foreach (['1.1', '1.0'] as $version) {
+        foreach (['2.0', '1.1', '1.0'] as $version) {
             $envelope = (new AstEnvelope($this->codec))->encode($this->parse("| a |\n|---|\n| 1 |\n"));
             $envelope['astVersion'] = $version;
 

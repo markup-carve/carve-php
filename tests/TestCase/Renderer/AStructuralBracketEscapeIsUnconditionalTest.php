@@ -26,7 +26,7 @@ class AStructuralBracketEscapeIsUnconditionalTest extends TestCase
                 '<p>[a](b) and f(x) and (see above) and [a] (b) and [a](b c)</p><p><span class="c">[a](u)</span></p>',
                 "[a]\\(b) and f(x) and (see above) and [a] (b) and [a](b c)\n\n[[a]\\(u)]{.c}\n",
             ],
-            'nested parens in the destination' => ['<p>see [a]((b)) and [a]()</p>', "see [a]\\((b)) and [a]()\n"],
+            'nested parens in the destination' => ['<p>see [a]((b)) and [a]()</p>', "see [a]\\((b)) and [a]\\()\n"],
             'text inside emphasis takes part' => ['<p><a href="/y">a <em>[</em> b</a></p>', "[a /\\[/ b](/y)\n"],
             'verbatim content takes no part' => ['<p><a href="/y">a <code>[</code> b</a></p>', "[a `[` b](/y)\n"],
             'a closing paren stays a candidate' => ['<p><span class="c">[a](u) *x*</span></p>', "[[a]\\(u) \\*x*]{.c}\n"],

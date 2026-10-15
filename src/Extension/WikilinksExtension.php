@@ -72,15 +72,16 @@ class WikilinksExtension implements ExtensionInterface
         // Pattern: [[page]] or [[page|display text]]
         // Supports: [[Page Name]], [[folder/page]], [[page#anchor]], [[page|text]]
         // A backslash escapes the next character, so `\]]` never closes; a
-        // lone backslash is allowed in the page only right before `|`.
-        $pattern = '/\[\[((?:[^\]|\\\\]|\\\\[^\]|]|\\\\(?=\|))+)(?:\|((?:\\\\.|[^\]\\\\])+))?\]\]/s';
+        // lone backslash is allowed in the page only right before `|`. The
+        // display text may be empty and may hold a single `]`, like carve-js.
+        $pattern = '/\[\[((?:[^\]|\\\\]|\\\\[^\]|]|\\\\(?=\|))+)(?:\|((?:\\\\.|\](?!\])|[^\]\\\\])*))?\]\]/s';
 
         // Capture urlGenerator in local variable for closure
         $urlGenerator = $this->urlGenerator ?? $this->defaultUrlGenerator();
 
         $inlineParser->addInlinePattern(
             $pattern,
-            function (string $match, array $groups) use ($urlGenerator): Link {
+            function (string $match, array $groups) use ($urlGenerator): ?Link {
                 $page = trim($groups[1]);
                 $displayText = isset($groups[2]) ? trim($groups[2]) : null;
 
@@ -91,12 +92,17 @@ class WikilinksExtension implements ExtensionInterface
                     $anchor = '#' . $anchor;
                 }
 
+                // A whitespace-only `[[ ]]` has no target and stays literal.
+                if ($page === '' && $anchor === '') {
+                    return null;
+                }
+
                 // Generate URL
                 $url = $urlGenerator($page) . $anchor;
 
                 // Determine display text
                 if ($displayText === null) {
-                    $displayText = $page ?: $anchor;
+                    $displayText = $page !== '' ? $page : $anchor;
                 }
 
                 $link = new Link($url);

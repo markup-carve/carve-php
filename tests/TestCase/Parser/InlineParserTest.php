@@ -192,16 +192,13 @@ class InlineParserTest extends TestCase
         $this->assertSame('[a](<u v>)', $text);
     }
 
-    public function testEmptyInlineLinkDestinationStaysLiteral(): void
+    public function testEmptyInlineLinkDestinationIsALink(): void
     {
         $para = $this->parseInline('[]( )');
-
-        $text = '';
-        foreach ($para->getChildren() as $child) {
-            $this->assertInstanceOf(Text::class, $child);
-            $text .= $child->getContent();
-        }
-        $this->assertSame('[]( )', $text);
+        $this->assertCount(1, $para->getChildren());
+        $link = $para->getChildren()[0];
+        $this->assertInstanceOf(Link::class, $link);
+        $this->assertSame('', $link->getDestination());
     }
 
     public function testParseImage(): void
