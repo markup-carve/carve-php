@@ -595,6 +595,49 @@ class CliTest extends TestCase
         $this->assertStringContainsString($expected, $result['out']);
     }
 
+    public function testMigrateMarkdownDirectoryCopiesAssetsAndReportsLoss(): void
+    {
+        $root = sys_get_temp_dir() . '/carve-folder-' . bin2hex(random_bytes(8));
+        $source = $root . '/source';
+        $output = $root . '/output';
+        mkdir($source . '/nested', 0777, true);
+        file_put_contents($source . '/nested/clean.md', "# Clean\n");
+        file_put_contents($source . '/loss.markdown', "A footnote[^a].\n\n[^a]: Note.\n");
+        file_put_contents($source . '/asset.svg', '<svg/>');
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output, '--check-loss'], '');
+            $this->assertSame(1, $result['exit'], $result['err']);
+            $this->assertStringContainsString('# Clean', (string)file_get_contents($output . '/nested/clean.crv'));
+            $this->assertSame('<svg/>', file_get_contents($output . '/asset.svg'));
+            $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertCount(2, $report['files']);
+            $this->assertSame(['loss.markdown'], $report['review']);
+            $existing = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output], '');
+            $this->assertSame(2, $existing['exit']);
+            $this->assertFileExists($output . '/nested/clean.crv');
+            $nested = $source . '/new/out';
+            $inside = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $nested], '');
+            $this->assertSame(2, $inside['exit']);
+            $this->assertDirectoryDoesNotExist($source . '/new');
+            file_put_contents($source . '/migration-report.json', 'source');
+            $collision = $root . '/collision';
+            $reportCollision = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $collision], '');
+            $this->assertSame(2, $reportCollision['exit']);
+            $this->assertDirectoryDoesNotExist($collision);
+        } finally {
+            foreach (['output/nested/clean.crv', 'output/migration-report.json', 'output/loss.crv', 'output/asset.svg', 'source/nested/clean.md', 'source/loss.markdown', 'source/asset.svg', 'source/migration-report.json'] as $path) {
+                if (file_exists($root . '/' . $path)) {
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output/nested', 'output', 'source/nested', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
     public function testMigrateWritesAListTableUnderTheListTableFlag(): void
     {
         $html = '<table><tr><td><p>a</p><p>b</p></td></tr></table>';
