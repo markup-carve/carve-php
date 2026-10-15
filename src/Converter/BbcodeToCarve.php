@@ -1076,6 +1076,13 @@ class BbcodeToCarve
             $remaining = str_replace($m[0], '', $remaining);
         }
 
+        if (preg_match('/\bpost_id=["\']?(\d+)["\']?/i', $remaining, $m)) {
+            $id = $m[1];
+            $remaining = str_replace($m[0], '', $remaining);
+        }
+
+        $remaining = preg_replace('/\buser_id=["\']?\d+["\']?/i', '', $remaining) ?? $remaining;
+
         // Extract name="..."
         if (preg_match('/\bname=["\']([^"\']+)["\']/i', $remaining, $m)) {
             $name = $m[1];
@@ -1089,8 +1096,11 @@ class BbcodeToCarve
         }
 
         // Extract time="..." separately if present
-        if (preg_match('/\btime=["\']([^"\']+)["\']/i', $remaining, $m)) {
-            $datetime = $datetime !== null ? $datetime . ' ' . $m[1] : $m[1];
+        if (preg_match('/\btime=(?:["\']([^"\']+)["\']|(\d+)(?=\s|$))/i', $remaining, $m)) {
+            $time = $m[1] !== '' ? $m[1] : $m[2];
+            $datetime = preg_match('/^\d{9,11}$/', $time) === 1
+                ? gmdate('Y-m-d', (int)$time)
+                : ($datetime !== null ? $datetime . ' ' . $time : $time);
             $remaining = str_replace($m[0], '', $remaining);
         }
 
@@ -1098,6 +1108,15 @@ class BbcodeToCarve
         $remaining = trim($remaining);
         if ($name === null && $remaining !== '') {
             $name = $remaining;
+        }
+
+        if ($name !== null && strlen($name) >= 2 && ($name[0] === '"' || $name[0] === "'") && $name[-1] === $name[0]) {
+            $name = substr($name, 1, -1);
+        }
+
+        if ($name !== null && $id === null && preg_match('/^(.+);(\d+)$/', $name, $m)) {
+            $name = $m[1];
+            $id = $m[2];
         }
 
         // Build output: name (datetime) #id

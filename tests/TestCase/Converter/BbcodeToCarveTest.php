@@ -316,6 +316,28 @@ class BbcodeToCarveTest extends TestCase
         $this->assertStringContainsString('^ admin (2024-01-01) #42', $result);
     }
 
+    public function testQuoteAttributionVariants(): void
+    {
+        $cases = [
+            '[quote="alice"]x[/quote]' => '^ alice',
+            "[quote='carol']x[/quote]" => '^ carol',
+            '[quote="Jane Doe"]x[/quote]' => '^ Jane Doe',
+            '[QUOTE=bob;123]x[/QUOTE]' => '^ bob #123',
+            '[QUOTE="bob;123"]x[/QUOTE]' => '^ bob #123',
+            '[quote="alice" post_id=12 time=1700000000 user_id=3]x[/quote]' => '^ alice (2023-11-14) #12',
+            '[quote=alice post_id="12" time="1700000000" user_id="3"]x[/quote]' => '^ alice (2023-11-14) #12',
+            '[quote=alice date="2024-01-01" time="12"]x[/quote]' => '^ alice (2024-01-01 12)',
+            '[quote=alice time=170000000]x[/quote]' => '^ alice (1975-05-22)',
+            '[quote=alice time=17000000000]x[/quote]' => '^ alice (2508-09-16)',
+            '[quote="a]x[/quote]' => '^ "a',
+            '[quote="a\']x[/quote]' => '^ "a\'',
+        ];
+
+        foreach ($cases as $bbcode => $caption) {
+            $this->assertSame("> x\n" . $caption . "\n", $this->converter->convert($bbcode), $bbcode);
+        }
+    }
+
     // ==================== Lists ====================
 
     public function testUnorderedList(): void
