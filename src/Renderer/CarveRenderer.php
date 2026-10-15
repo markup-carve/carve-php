@@ -3424,6 +3424,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderLinkReferenceDefinition(LinkReferenceDefinition $node): string
     {
+        if ($node->getHref() === '') {
+            if ($node->getTitle() !== null) {
+                $this->recordUnspellableField($node, 'title', 'An empty reference definition cannot spell a title.');
+            }
+            if ($node->getAttributeEntries() !== []) {
+                $this->recordUnspellableField($node, 'attrs', 'An empty reference definition cannot spell attributes.');
+            }
+
+            return '[' . $node->getLabel() . ']:';
+        }
         $out = '[' . $node->getLabel() . ']: ' . $this->escapeDestinationEscapes($node->getHref());
         $title = $node->getTitle();
         if ($title !== null) {
@@ -4483,7 +4493,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return '[' . $text . '][' . $node->getReferenceLabel() . ']' . $this->renderAttrs($node);
         }
 
-        $title = $node->getTitle() === null ? '' : ' "' . $this->escapeQuoted($node->getTitle()) . '"';
+        $titleValue = $node->getTitle();
+        if ($node->getDestination() === '' && $titleValue !== null && strpbrk($titleValue, "\r\n") !== false) {
+            $this->recordUnspellableField($node, 'title', 'An empty link destination cannot spell a title containing a newline.');
+            $titleValue = null;
+        }
+        $title = $titleValue === null ? '' : ' "' . $this->escapeQuoted($titleValue) . '"';
         if ($this->tableCellDepth > 0) {
             $title = str_replace(['`', '|'], ['\\`', '\\|'], $title);
         }
@@ -4615,6 +4630,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         if ($referenceLabel !== null && $referenceLabel !== '') {
             $this->recordUnspellableField($node, 'ref', 'The image reference cannot be written in this source slot; wrote its destination inline');
+        }
+
+        if ($node->getSource() === '' && $node->getTitle() !== null && strpbrk($node->getTitle(), "\r\n") !== false) {
+            $this->recordUnspellableField($node, 'title', 'An empty image source cannot spell a title containing a newline.');
+            $title = '';
         }
 
         return '![' . $this->escapeImageAlt($node->getAlt()) . '](' . $this->escapeDestination($node->getSource()) . $title . ')' . $this->renderAttrs($node);

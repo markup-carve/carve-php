@@ -21,6 +21,18 @@ class Image extends InlineNode
      */
     protected ?string $rawReferenceLabel = null;
 
+    private bool $resolvedEmptyReference = false;
+
+    public function setResolvedEmptyReference(bool $resolved): void
+    {
+        $this->resolvedEmptyReference = $resolved;
+    }
+
+    public function isResolvedEmptyReference(): bool
+    {
+        return $this->resolvedEmptyReference;
+    }
+
     public function __construct(
         protected string $source = '',
         protected string $alt = '',
@@ -67,6 +79,7 @@ class Image extends InlineNode
     {
         $this->source = $source;
         $this->title = $title;
+        $this->resolvedEmptyReference = $this->referenceLabel !== null && $source === '';
     }
 
     public function getType(): string

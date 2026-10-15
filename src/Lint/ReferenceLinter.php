@@ -27,6 +27,7 @@ use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Text;
+use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\HeadingReferenceCollector;
 use MarkupCarve\Carve\Parser\LabelKey;
@@ -80,6 +81,9 @@ class ReferenceLinter
             if ($node instanceof Footnote) {
                 $definitions[LabelKey::normalize($node->getLabel())] = $node;
             }
+            if ($node instanceof LinkReferenceDefinition && $node->getHref() === '') {
+                $warnings[] = $this->warning($node, 'empty-reference-definition', 'Bare empty reference definition may remove intended body text.', $map, $length);
+            }
             if (!$node instanceof Heading) {
                 continue;
             }
@@ -111,7 +115,7 @@ class ReferenceLinter
                     $message = 'Cross-reference </#' . $target . '> has no matching heading id.';
                 }
                 $warnings[] = $this->warning($node, 'broken-crossref', $message, $map, $length);
-            } elseif ($node instanceof Link && $node->getReferenceLabel() !== null && ($node->getDestination() ?? '') === '') {
+            } elseif ($node instanceof Link && UnresolvedReference::sourceOf($node) !== null) {
                 $bracket = $this->labelBracket($node, $source, $map, $length);
                 $caseOnly = $this->labelsDifferingOnlyInCase($node, $targets, ($bracket[0] ?? null) === '][]');
                 $message = $caseOnly === []
@@ -120,7 +124,7 @@ class ReferenceLinter
                         . $this->differOnlyInCase('the label', 'the labels', array_column($caseOnly, 0))
                         . ', and reference labels are case-sensitive, so it renders as literal text.';
                 $warnings[] = $this->warning($node, 'unresolved-reference-link', $message, $map, $length);
-            } elseif ($node instanceof Image && $node->getReferenceLabel() !== null && $node->getSource() === '') {
+            } elseif ($node instanceof Image && UnresolvedReference::sourceOf($node) !== null) {
                 // No heading half: an image never falls back to a heading (PART 11 R1).
                 $caseOnly = $this->labelsDifferingOnlyInCase($node, $targets, false);
                 $message = $caseOnly === []

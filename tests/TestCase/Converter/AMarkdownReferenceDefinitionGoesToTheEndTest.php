@@ -86,7 +86,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("- [x]: <>\n- b\n");
 
-        $this->assertSame("- %%\n- b\n", $imported);
+        $this->assertSame("- %%\n- b\n\n[x]:\n", $imported);
         $this->assertSame("<ul>\n  <li></li>\n  <li>b</li>\n</ul>\n", (new CarveConverter())->convert($imported));
     }
 
@@ -167,20 +167,19 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
         );
     }
 
-    public function testEmptyDefinitionsRetainListBoundariesAndReportTheLinkLoss(): void
+    public function testEmptyDefinitionsRetainListBoundariesWithoutLinkLoss(): void
     {
         foreach (['', '> '] as $prefix) {
             $markdown = $prefix . "- a\n" . rtrim($prefix) . "\n" . $prefix . "[r]: <>\n" . rtrim($prefix) . "\n" . $prefix . "- b\n\n[t][r]";
             $migration = (new MarkdownToCarve())->convertWithFidelityReport($markdown);
-            $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>t</p>\n";
+            $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
             if ($prefix !== '') {
-                $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p>t</p>\n";
+                $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p><a href=\"\">t</a></p>\n";
             }
             self::assertSame($expected, (new CarveConverter())->convert($migration->value));
             self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
             $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
-            self::assertCount(1, $losses);
-            self::assertSame('exact', array_values($losses)[0]->confidence);
+            self::assertSame([], array_values($losses));
         }
     }
 
@@ -269,7 +268,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     public function testAQuotedDefinitionOutsideTheItemSeparatesItsLists(): void
     {
         $migration = (new MarkdownToCarve())->convertWithFidelityReport("> - a\n>\n>  [r]: <>\n>\n> - b\n\n[t][r]");
-        $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p>t</p>\n";
+        $expected = "<blockquote>\n  <ul>\n    <li>a</li>\n  </ul>\n  <ul>\n    <li>b</li>\n  </ul>\n</blockquote>\n<p><a href=\"\">t</a></p>\n";
         self::assertSame($expected, (new CarveConverter())->convert($migration->value));
         self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
     }
@@ -278,12 +277,12 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         foreach (["-\ta", ' - a', '  - a', '   - a'] as $head) {
             $written = (new MarkdownToCarve())->convert($head . "\n\n[r]: <>\n\n - b\n\n[t][r]");
-            $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p>t</p>\n";
+            $expected = "<ul>\n  <li>a</li>\n</ul>\n<ul>\n  <li>b</li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
             self::assertSame($expected, (new CarveConverter())->convert($written));
             self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
         }
         $written = (new MarkdownToCarve())->convert("-     code\n\n  [r]: <>\n\n- b\n\n[t][r]");
-        $expected = "<ul>\n  <li>\n    <pre><code>code\n</code></pre>\n  </li>\n  <li><p>b</p></li>\n</ul>\n<p>t</p>\n";
+        $expected = "<ul>\n  <li>\n    <pre><code>code\n</code></pre>\n  </li>\n  <li><p>b</p></li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
         self::assertSame($expected, (new CarveConverter())->convert($written));
         self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
@@ -299,7 +298,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     public function testAnEmptyMarkerUsesOneColumnOfPadding(): void
     {
         $written = (new MarkdownToCarve())->convert("-   \n  x\n\n  [r]: <>\n\n- b\n\n[t][r]");
-        $expected = "<ul>\n  <li><p>x</p></li>\n  <li><p>b</p></li>\n</ul>\n<p>t</p>\n";
+        $expected = "<ul>\n  <li><p>x</p></li>\n  <li><p>b</p></li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
         self::assertSame($expected, (new CarveConverter())->convert($written));
         self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
@@ -307,7 +306,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     public function testStaircaseMarkerIndentationDoesNotInventAnAncestor(): void
     {
         $written = (new MarkdownToCarve())->convert("- a\n - b\n\n  [r]: <>\n\n- c\n\n[t][r]");
-        $expected = "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n<p>t</p>\n";
+        $expected = "<ul>\n  <li>a</li>\n  <li>b</li>\n</ul>\n<ul>\n  <li>c</li>\n</ul>\n<p><a href=\"\">t</a></p>\n";
         self::assertSame($expected, (new CarveConverter())->convert($written));
         self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($written)));
     }
@@ -339,13 +338,12 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
 <ul>
   <li>b</li>
 </ul>
-<p>t</p>
+<p><a href="">t</a></p>
 ';
         self::assertSame($expected, (new CarveConverter())->convert($migration->value));
         self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
         $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
-        self::assertCount(1, $losses);
-        self::assertSame('exact', array_values($losses)[0]->confidence);
+        self::assertSame([], array_values($losses));
     }
 
     public function testLazyQuoteContinuationRetainsItsListOwner(): void
@@ -367,13 +365,12 @@ more</p></li>
     <li><p>b</p></li>
   </ul>
 </blockquote>
-<p>t</p>
+<p><a href="">t</a></p>
 ';
         self::assertSame($expected, (new CarveConverter())->convert($migration->value));
         self::assertSame($expected, (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
         $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
-        self::assertCount(1, $losses);
-        self::assertSame('exact', array_values($losses)[0]->confidence);
+        self::assertSame([], array_values($losses));
     }
 
     public function testNativeListBoundariesWithLazyLinesEmptyMarkersAndQuoteTabs(): void
@@ -384,7 +381,7 @@ more</p></li>
             self::assertSame($case['html'], (new CarveConverter())->convert($migration->value));
             self::assertSame($case['html'], (new CarveConverter())->convert(CarveConverter::toCarve($migration->value)));
             $losses = array_filter($migration->diagnostics, static fn ($row) => $row->code === 'structure-unspellable');
-            self::assertCount(substr_count($case['nativeHtml'], 'href=""'), $losses);
+            self::assertSame([], array_values($losses));
             foreach ($losses as $loss) {
                 self::assertSame('exact', $loss->confidence);
             }

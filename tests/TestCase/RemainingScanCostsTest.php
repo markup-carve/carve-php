@@ -150,7 +150,7 @@ class RemainingScanCostsTest extends TestCase
     {
         $converter = new CarveConverter();
         $this->assertStringContainsString('href="a(b)c" title="title)"', $converter->convert('[x](a(b)c "title)")'));
-        $this->assertStringNotContainsString('<a ', $converter->convert(str_repeat('[x](', 20) . ')'));
+        $this->assertStringContainsString('<a href="">x</a>', $converter->convert(str_repeat('[x](', 20) . ')'));
     }
 
     public function testConcurrentDuplicateAdditionsKeepOccurrenceCounts(): void

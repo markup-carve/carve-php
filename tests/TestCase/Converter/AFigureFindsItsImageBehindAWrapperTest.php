@@ -156,9 +156,9 @@ class AFigureFindsItsImageBehindAWrapperTest extends TestCase
             // literal text rather than binding - so unwrapping here would
             // INVENT the characters `^ cap`, which carve#1636 forbids outright.
             // The generic path takes the loss instead.
-            'an image whose src names no destination, so it writes no image' => [
+            'an image with an empty source' => [
                 '<figure><p><img src="" alt="a"></p><figcaption>cap</figcaption></figure>',
-                "a\n\ncap\n",
+                "![a]()\n^ cap\n",
             ],
         ];
     }

@@ -23,7 +23,7 @@ trait ReportsDjotLosses
     private function djotImageTrailingWhitespaceLoss(string $text, int $depth, Closure $childText): bool
     {
         $label = $this->djotImageLabelAttributes($this->projectDjotReferenceText($text, $depth), true);
-        if (preg_match('/([ \t]+)((?:(?:\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', $label) !== 1) {
+        if (preg_match('/([ \t]+)((?:(?:\]\([^()\r\n]*\)|\]\[[^\]\r\n]*\]|\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', $label) !== 1) {
             return false;
         }
         preg_match_all('/DJOTTRAILSPACE([0-9]+)Z/', (preg_replace('/[^A-Za-z0-9]/', '', $label) ?? $label) . '\n' . $childText($label, 0), $matches);
@@ -34,7 +34,7 @@ trait ReportsDjotLosses
         }
         $marker = 'DJOTTRAILSPACE' . $serial . 'Z';
         $mask = $this->maskCodeAndDestinations($label);
-        $probe = preg_replace_callback('/([ \t]+)((?:(?:\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', function (array $match) use ($label, $mask, $marker): string {
+        $probe = preg_replace_callback('/([ \t]+)((?:(?:\]\([^()\r\n]*\)|\]\[[^\]\r\n]*\]|\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', function (array $match) use ($label, $mask, $marker): string {
             $at = $match[0][1];
             if ($at > 0 && ($mask[$at - 1] ?? '') === '\\' && !$this->isDjotEscaped($label, $at - 1)) {
                 return $match[0][0];
@@ -76,11 +76,14 @@ trait ReportsDjotLosses
         $imageChildText = function (string $label, int $depth) use (&$keyCache): string {
             $key = 'image:' . $depth . ':' . $label;
             $projected = $this->djotImageLabelAttributes($this->projectDjotReferenceText($label, $depth), true);
+            if (strpbrk($projected, "_*`{~^\"'\\[]=!/<:\n\r") === false) {
+                return $projected;
+            }
             if (strlen($label) > 256) {
-                return $this->djotCollapsedReferenceText($projected);
+                return $this->renderImageLabelChildText($projected, [], true, true, true);
             }
 
-            return $keyCache[$key] ??= $this->djotCollapsedReferenceText($projected);
+            return $keyCache[$key] ??= $this->renderImageLabelChildText($projected, [], true, true, true);
         };
         $rawFormatMessage = 'A Djot raw-format identifier containing U+0085 cannot be spelled in Carve; its raw-output behavior is lost.';
         $rawFormats = $rawFormatIgnored = $rawFenceLines = [];
@@ -292,7 +295,7 @@ trait ReportsDjotLosses
                     $end++;
                 }
                 if ($end === $lineCount || !$inContainer($lines[$end]) || strspn($withoutQuotes($lines[$end]), " \t") < $minimum) {
-                    if (trim(substr($line, 0, $term[0][1])) !== '') {
+                    if (preg_match('/^(?:[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)+|(?:>[ \t]*)*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\))[ \t]+)*|[ \t]*)$/', substr($line, 0, $term[0][1])) !== 1) {
                         $add($offsets[$n], 'An empty definition description is omitted during import.');
                     }
                 }
@@ -357,6 +360,7 @@ trait ReportsDjotLosses
             }
         }
         $starts = $images = $innerLinks = $depths = [];
+        $plainFlags = $plainFirst = $plainLast = [];
         $boundary = 0;
         $sourceLine = 0;
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
@@ -365,7 +369,21 @@ trait ReportsDjotLosses
             }
             while (($boundaryOffsets[$boundary] ?? $length) <= $at) {
                 $starts = $images = $innerLinks = $depths = [];
+                $plainFlags = $plainFirst = $plainLast = [];
                 $boundary++;
+            }
+            if ($starts !== []) {
+                $owner = $starts[array_key_last($starts)];
+                $ch = $source[$at];
+                if ($ch !== '[' && $ch !== ']' && !($ch === '!' && ($source[$at + 1] ?? '') === '[')) {
+                    if ($mask[$at] !== $ch || $this->isDjotEscaped($source, $at) || preg_match('/[A-Za-z0-9 \t\n]/', $ch) !== 1 || $ch === "\n" && preg_match('/[A-Za-z0-9]/', $plainLast[$owner]) !== 1) {
+                        $plainFlags[$owner] = false;
+                    }
+                    if ($plainFirst[$owner] === '') {
+                        $plainFirst[$owner] = $ch;
+                    }
+                    $plainLast[$owner] = $ch;
+                }
             }
             if ($mask[$at] === '\\') {
                 $at++;
@@ -373,12 +391,22 @@ trait ReportsDjotLosses
                 continue;
             }
             if ($mask[$at] === '[') {
+                if ($starts !== [] && (($source[$at - 1] ?? '') !== '!' || $this->isDjotEscaped($source, $at - 1))) {
+                    $plainFlags[$starts[array_key_last($starts)]] = false;
+                }
+                $plainFlags[$at] = true;
+                $plainFirst[$at] = $plainLast[$at] = '';
                 $starts[] = $at;
                 $depths[$at] = $quoteDepths[$sourceLine];
                 $images[] = $at > 0 && $source[$at - 1] === '!' && !$this->isDjotEscaped($source, $at - 1);
                 $innerLinks[] = false;
             } elseif ($mask[$at] === ']' && $starts !== []) {
                 $start = array_pop($starts);
+                $plain = $plainFlags[$start];
+                $firstText = $plainFirst[$start];
+                $lastText = $plainLast[$start];
+                unset($plainFlags[$start], $plainFirst[$start], $plainLast[$start]);
+                $destination = null;
                 $depth = $depths[$start];
                 unset($depths[$start]);
                 $image = array_pop($images);
@@ -394,18 +422,14 @@ trait ReportsDjotLosses
                     $rawFormatIgnored[] = [$at + 2, $referenceEnd];
                     $label = substr($source, $at + 2, $referenceEnd - $at - 2);
                     if ($label === '' && $definitions !== []) {
-                        $label = $this->djotReferenceDefinitionKey($childText(substr($source, $start + 1, $at - $start - 1), $depth));
+                        $text = substr($source, $start + 1, $at - $start - 1);
+                        $label = $this->djotReferenceDefinitionKey($image ? $imageChildText($text, $depth) : $childText($text, $depth));
                     } else {
                         $label = $this->djotReferenceKey($label);
                     }
                     if (!array_key_exists($label, $definitions)) {
                         $add($start, $image ? 'An unresolved Djot image reference has no src; Carve cannot spell that image.' : 'An unresolved Djot reference renders a link without href; Carve has no spelling for it.');
-                    } elseif ($definitions[$label] === '') {
-                        $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                     }
-                }
-                if (!$footnote && isset($destinations[$at + 1]) && $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth) === '') {
-                    $add($start, $image ? 'An image with an empty destination has no Carve spelling.' : 'A link with an empty destination has no Carve spelling.');
                 }
                 if ($image && !$footnote && $validForm) {
                     $rawFormatIgnored[] = [$start, $at + 1];
@@ -413,7 +437,7 @@ trait ReportsDjotLosses
                     $destination = isset($destinations[$at + 1])
                         ? $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth)
                         : ($definitions[$label ?? ''] ?? null);
-                    if ($destination !== null && $destination !== '' && str_contains($text, "\n")) {
+                    if ($destination !== null && $destination !== '' && str_contains($text, "\n") && !$plain) {
                         $child = $imageChildText($text, $depth);
                         if (preg_match('/\n[ \t]*\n/', $child) === 1) {
                             $add($start, 'An image alternative text with a blank line cannot be spelled in Carve.');
@@ -428,8 +452,22 @@ trait ReportsDjotLosses
                 if ($starts !== [] && ($isLink || $innerLink && !($image && $validForm))) {
                     $innerLinks[count($starts) - 1] = true;
                 }
+                if ($starts !== []) {
+                    $owner = $starts[array_key_last($starts)];
+                    if (!$image || $footnote || !$validForm || $destination === null || $destination === '' || !$plain) {
+                        $plainFlags[$owner] = false;
+                    }
+                    if ($plainFirst[$owner] === '') {
+                        $plainFirst[$owner] = $firstText;
+                    }
+                    if ($lastText !== '') {
+                        $plainLast[$owner] = $lastText;
+                    }
+                }
                 if (!$footnote && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
                     $at = $referenceEnd;
+                } elseif (!$footnote && isset($destinations[$at + 1])) {
+                    $at = $destinations[$at + 1] - 1;
                 }
             }
         }
@@ -446,6 +484,7 @@ trait ReportsDjotLosses
                 $add($start, $rawFormatMessage);
             }
         }
+        usort($findings, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $positions = array_column($findings, 0);
         sort($positions, SORT_NUMERIC);
         $linesAt = [];

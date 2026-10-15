@@ -3345,6 +3345,7 @@ class BlockParser
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
+        $paragraphOpen = false;
 
         while ($i < $count) {
             $codeIndent = 0;
@@ -3408,11 +3409,21 @@ class BlockParser
                 ?? (end($literal) ? $this->appendIndentedLiteralRunSpan($lines, $i, $innerLines, $innerLineMap) : null);
             if ($skippedTo !== null) {
                 $i = $skippedTo;
+                $paragraphOpen = false;
 
                 continue;
             }
+            if ($nestingAware && !end($literal) && !$paragraphOpen) {
+                $skippedTo = $this->appendUnclosedFenceToHostCloser($lines, $i, (int)end($stack), (int)end($columns), $innerLines, $innerLineMap);
+                if ($skippedTo !== null) {
+                    $i = $skippedTo;
+
+                    continue;
+                }
+            }
 
             $currentLine = $lines[$i];
+            $paragraphOpen = $this->opensColonBodyParagraph($currentLine);
             $bare = $this->isBareColonFence($currentLine, $colonLength);
             $column = $bare ? IndentationHelper::getLeadingColumns($currentLine, (int)end($columns) + 1) : 0;
             $atBase = !$this->state->frame->hostedColonFences || $column === 0 || $column === end($columns);
@@ -3594,6 +3605,73 @@ class BlockParser
         }
 
         return $count;
+    }
+
+    /**
+     * An unclosed code or raw fence runs to the innermost container's own
+     * closer, which stays structural. Every other colon line before it, of any
+     * width, is fence content (A CLOSER IS REQUIRED, markup-carve/carve#3201).
+     *
+     * @param array<string> $lines
+     * @param int $start
+     * @param int $hostLength
+     * @param int $hostColumn
+     * @param list<string> $innerLines
+     * @param list<int> $innerLineMap
+     */
+    private function appendUnclosedFenceToHostCloser(
+        array $lines,
+        int $start,
+        int $hostLength,
+        int $hostColumn,
+        array &$innerLines,
+        array &$innerLineMap,
+    ): ?int {
+        $raw = $this->fencedBlockParser->parseRawBlockOpener($lines[$start]);
+        $code = $raw === null ? $this->fencedBlockParser->parseCodeFenceOpener($lines[$start]) : null;
+        $char = $raw !== null ? $raw['fence'][0] : ($code['char'] ?? null);
+        $length = $raw['length'] ?? $code['length'] ?? 0;
+        if ($char === null || $this->hasCodeFenceCloserAhead($lines, $start, $char, $length)) {
+            return null;
+        }
+        $count = count($lines);
+        for ($i = $start; $i < $count; $i++) {
+            if ($i > $start && $this->isBareColonFence($lines[$i], $colonLength) && $colonLength === $hostLength) {
+                $column = IndentationHelper::getLeadingColumns($lines[$i], $hostColumn + 1);
+                if (!$this->state->frame->hostedColonFences || $column === 0 || $column === $hostColumn) {
+                    return $i;
+                }
+            }
+            $innerLines[] = $lines[$i];
+            $innerLineMap[] = $this->sourceLineFor($i);
+        }
+
+        return $count;
+    }
+
+    /**
+     * Whether a paragraph is open after this colon-body line, for the
+     * paragraph-interruption gate on an unclosed fence (PART 9 §10 I4).
+     *
+     * @param string $line
+     */
+    private function opensColonBodyParagraph(string $line): bool
+    {
+        if (IndentationHelper::isBlankLine($line)) {
+            return false;
+        }
+        $trimmed = ltrim($line, " \t");
+        if (
+            $this->isBareColonFence($trimmed)
+            || $this->fencedBlockParser->parseDivFenceOpener($trimmed) !== null
+            || str_starts_with($trimmed, '%%')
+            || preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed) === 1
+            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
