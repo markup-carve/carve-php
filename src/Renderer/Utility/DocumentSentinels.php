@@ -19,8 +19,10 @@ final class DocumentSentinels
     public const PRIVATE_USE_LAST = 0xF8FF;
 
     /**
-     * Iterative, not json_encode(): recursion fails before the caller's PART 9
-     * §25 depth refusal. The (array) cast reaches non-public node properties.
+     * Every string in the tree, joined.
+     *
+     * json_encode() hits its depth limit first; the caller's PART 9 §25 refusal
+     * must fire instead. The (array) cast reaches non-public node properties.
      *
      * @param object|array<mixed> $root A node or a fragment's nodes.
      */
@@ -41,7 +43,7 @@ final class DocumentSentinels
             }
             if (is_array($node)) {
                 foreach ($node as $key => $value) {
-                    // Abbreviation terms are authored text stored as keys.
+                    // Keys can hold authored text too (abbreviation terms).
                     if (is_string($key)) {
                         $parts[] = $key;
                     }
