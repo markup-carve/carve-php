@@ -1176,6 +1176,11 @@ class CarveCorpusTest extends TestCase
         'a-table-row-ends-a-description-body-and-a-lone-plus-folds-into-a-term',
         'a-continuation-on-a-span-marker-joins-the-cell-the-marker-resolves-into',
         'inside-an-unclosed-fence-only-the-innermost-container-s-closer-is-structural',
+        'a-delimiter-that-is-part-of-a-larger-character-is-text',
+        'the-combined-bold-italic-token-does-not-open-or-close-inside-a-word',
+        'the-combined-bold-italic-token-does-not-open-after-an-underscore-or-a-slash',
+        'editorial-markup-closes-outside-a-cross-reference-or-a-bracket-run',
+        'an-autolink-is-opaque-to-the-bracket-scan',
     ];
 
     /**

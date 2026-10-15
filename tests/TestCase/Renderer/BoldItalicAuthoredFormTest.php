@@ -86,6 +86,23 @@ class BoldItalicAuthoredFormTest extends TestCase
         $this->assertSame("a/*y*/b\n", CarveConverter::toCarve("a/*y*/b\n"));
     }
 
+    public function testCombinedTokenTakesTheOuterWordBoundaries(): void
+    {
+        $cases = [
+            'a/*y*/b' => '<p>a/<strong>y</strong>/b</p>',
+            '_/*y*/' => '<p>_/<strong>y</strong>/</p>',
+            '//*y*/' => '<p>//<strong>y</strong>/</p>',
+            'a /*y*/b' => '<p>a /<strong>y</strong>/b</p>',
+            'Run src/*test*/fixtures now' => '<p>Run src/<strong>test</strong>/fixtures now</p>',
+            '/*a*/b c*/' => '<p><strong><em>a*/b c</em></strong></p>',
+            'a{*/y/*}b' => '<p>a<strong><em>y</em></strong>b</p>',
+            '/*a*/ b' => '<p><strong><em>a</em></strong> b</p>',
+        ];
+        foreach ($cases as $source => $expected) {
+            $this->assertSame($expected . "\n", $this->converter->convert($source . "\n"), $source);
+        }
+    }
+
     public function testItalicNestedInsideBoldItalicSurvives(): void
     {
         $source = "/*a /b/ c*/\n";
@@ -162,5 +179,17 @@ class BoldItalicAuthoredFormTest extends TestCase
     public function testFlaggedContentThatHugsTheDelimitersKeepsTheCombinedForm(): void
     {
         $this->assertSame("a /*\u{00A0}x*/ b\n", CarveConverter::toCarve("a /*\u{00A0}x*/ b\n"));
+    }
+
+    public function testFlaggedContentAgainstWordsUsesTheNestedForm(): void
+    {
+        $document = $this->converter->parse("a /*x*/ b\n");
+        $children = $document->getChildren()[0]->getChildren();
+        $this->assertInstanceOf(Text::class, $children[0]);
+        $this->assertInstanceOf(Text::class, $children[2]);
+        $children[0]->setContent('a');
+        $children[2]->setContent('b');
+
+        $this->assertSame("a{*/x/*}b\n", (new CarveRenderer())->render($document));
     }
 }

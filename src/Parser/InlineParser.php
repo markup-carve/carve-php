@@ -1102,7 +1102,7 @@ class InlineParser
             // in the run and prose resumes after the first `%}`. An opener
             // without a closer is ordinary text. Code and raw spans remain
             // opaque because their backtick handler consumes them as a unit.
-            if ($char === '{' && $nextChar === '%' && $this->closerExistsFrom($text, '%}', $pos + 2)) {
+            if ($char === '{' && $nextChar === '%' && !$this->hasDecoratedBracedOpener($text, $pos) && $this->closerExistsFrom($text, '%}', $pos + 2)) {
                 $close = strpos($text, '%}', $pos + 2);
                 if ($close !== false) {
                     $this->flushText($parent, $textBuffer);
@@ -3317,6 +3317,12 @@ class InlineParser
             && preg_match('/\G[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $text, $matches, 0, $offset) === 1;
     }
 
+    private function hasDecoratedBracedOpener(string $text, int $pos): bool
+    {
+        return str_contains('/*_^,~=+-#%', $text[$pos + 1] ?? "\0")
+            && $this->hasGraphemeExtender($text, $pos + 2);
+    }
+
     /**
      * Parse delimited inline elements like _emphasis_ or *strong*
      *
@@ -3465,6 +3471,7 @@ class InlineParser
             // delimiter in its body cannot close the span that contains it.
             if (
                 $char === '{' && ($text[$searchPos + 1] ?? '') === '%'
+                && !$this->hasDecoratedBracedOpener($text, $searchPos)
                 && $this->closerExistsFrom($text, '%}', $searchPos + 2)
             ) {
                 $commentEnd = strpos($text, '%}', $searchPos + 2);
@@ -3621,7 +3628,12 @@ class InlineParser
         $length = strlen($text);
         $start = $pos + 2; // skip '/*'
 
-        if ($start >= $length || StringUtil::isWhitespaceChar($text[$start]) || $this->hasGraphemeExtender($text, $start)) {
+        if (
+            ($pos > 0 && ($text[$pos - 1] === '_' || $text[$pos - 1] === '/' || ctype_alnum($text[$pos - 1])))
+            || $start >= $length
+            || StringUtil::isWhitespaceChar($text[$start])
+            || $this->hasGraphemeExtender($text, $start)
+        ) {
             return null;
         }
 
@@ -3650,6 +3662,7 @@ class InlineParser
             }
             if (
                 $text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') === '%'
+                && !$this->hasDecoratedBracedOpener($text, $searchPos)
                 && $this->closerExistsFrom($text, '%}', $searchPos + 2)
             ) {
                 $commentEnd = strpos($text, '%}', $searchPos + 2);
@@ -3692,6 +3705,11 @@ class InlineParser
             }
 
             if ($text[$searchPos] === '*' && $text[$searchPos + 1] === '/') {
+                if ((isset($text[$searchPos + 2]) && ctype_alnum($text[$searchPos + 2])) || $this->hasGraphemeExtender($text, $searchPos + 2)) {
+                    $searchPos++;
+
+                    continue;
+                }
                 $content = substr($text, $start, $searchPos - $start);
                 if ($content === '' || StringUtil::isWhitespaceChar($content[strlen($content) - 1])) {
                     $searchPos++;
@@ -3752,7 +3770,7 @@ class InlineParser
      */
     protected function parseEditorialComment(string $text, int $pos): ?array
     {
-        if (substr($text, $pos, 2) !== '{#') {
+        if (substr($text, $pos, 2) !== '{#' || $this->hasDecoratedBracedOpener($text, $pos)) {
             return null;
         }
         // No `#}` ahead -> not an editorial comment; bail in O(1) so a run of
@@ -3794,6 +3812,9 @@ class InlineParser
         }
 
         $marker = $text[$pos + 1];
+        if ($this->hasDecoratedBracedOpener($text, $pos)) {
+            return null;
+        }
 
         // A BRACED HYPHEN PAIR IS AN EN DASH (carve#1447). The bare run carries
         // a flanking guard, so `x --verbose y` stays literal and an author who
@@ -4771,6 +4792,9 @@ class InlineParser
      */
     protected function substitutionBounds(string $text, int $pos): ?array
     {
+        if ($this->hasDecoratedBracedOpener($text, $pos)) {
+            return null;
+        }
         if ($this::class === self::class) {
             $this->resetScanMemos($text);
             if (array_key_exists($pos, $this->nestedSubstitutions)) {
@@ -4804,7 +4828,7 @@ class InlineParser
                         $marker = $text[$at + 1] ?? "\0";
                         if (str_contains('/*_^,~=+-', $marker)) {
                             $skip = $this->bracedInlineEnd($text, $at);
-                        } elseif (str_contains('%#', $marker)) {
+                        } elseif (str_contains('%#', $marker) && !$this->hasDecoratedBracedOpener($text, $at)) {
                             $close = $this->nextRawCloser($text, $marker . '}', $at + 2);
                             if ($close !== null && ($marker === '%' || $close > $at + 2)) {
                                 $skip = $close + 2;
@@ -4890,7 +4914,7 @@ class InlineParser
                 continue;
             }
             $next = $text[$at + 1] ?? '';
-            if ($char === '{' && ($next === '%' || $next === '#')) {
+            if ($char === '{' && ($next === '%' || $next === '#') && !$this->hasDecoratedBracedOpener($text, $at)) {
                 $end = $this->nextRawCloser($text, $next . '}', $at + 2);
                 // An editorial comment needs content; `{##}` is not one.
                 if ($end !== null && ($next === '%' || $end > $at + 2)) {
@@ -5062,7 +5086,7 @@ class InlineParser
                     $lineEnd = strpos($text, "\n", $at);
                     $end = min($lineEnd === false ? $length : $lineEnd, $labels !== [] ? $labels[array_key_last($labels)] : $length);
                     $lineComments[$at] = $end;
-                } elseif ($char === '{' && ($text[$at + 1] ?? '') === '#' && isset($bounds[$at - 1])) {
+                } elseif ($char === '{' && ($text[$at + 1] ?? '') === '#' && isset($bounds[$at - 1]) && !$this->hasDecoratedBracedOpener($text, $at)) {
                     $close = $this->findAttributeEnd($text, $at);
                     if ($close !== null && $this->isValidInlineAttrPayload(substr($text, $at + 1, $close - $at - 1))) {
                         $end = $close + 1;
@@ -5071,7 +5095,7 @@ class InlineParser
                         $close = $this->nextRawCloser($text, '#}', $at + 2);
                         $end = $close !== null && $close > $at + 2 ? $close + 2 : null;
                     }
-                } elseif ($char === '{' && str_contains('%#', $text[$at + 1] ?? "\0")) {
+                } elseif ($char === '{' && str_contains('%#', $text[$at + 1] ?? "\0") && !$this->hasDecoratedBracedOpener($text, $at)) {
                     $close = $this->nextRawCloser($text, $text[$at + 1] . '}', $at + 2);
                     if ($close !== null && ($text[$at + 1] === '%' || $close > $at + 2)) {
                         $end = $close + 2;
@@ -5104,6 +5128,9 @@ class InlineParser
 
     protected function bracedInlineEnd(string $text, int $pos): ?int
     {
+        if ($this->hasDecoratedBracedOpener($text, $pos)) {
+            return null;
+        }
         if ($this::class === self::class && str_contains('/*_^,~=', $text[$pos + 1] ?? "\0")) {
             $end = $this->indexedBracedEnd($text, $pos);
 
