@@ -841,7 +841,11 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         $text = '';
         $layout = TableLayout::expand(
             $node,
-            fn (TableCell $cell): string => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
+            function (TableCell $cell, array $span): string {
+                $this->recordTableSpanFlattened($cell, $span);
+
+                return trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE);
+            },
         );
 
         foreach ($layout['rows'] as $row) {

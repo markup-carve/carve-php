@@ -15,11 +15,12 @@ final class TableLayout
 {
     /**
      * @param \MarkupCarve\Carve\Node\Block\Table $table
-     * @param callable $renderCell
+     * @param callable(\MarkupCarve\Carve\Node\Block\TableCell, array{cell: \MarkupCarve\Carve\Node\Block\TableCell, rowspan: int, colspan: int, skip: bool}): mixed $renderCell
+     * @param (callable(\MarkupCarve\Carve\Node\Block\TableRow): void)|null $beforeRow
      *
      * @return array{rows: array<int, array{isHeader: bool, cells: array<int, mixed|null>, authoredWidth: int}>, columnCount: int}
      */
-    public static function expand(Table $table, callable $renderCell): array
+    public static function expand(Table $table, callable $renderCell, ?callable $beforeRow = null): array
     {
         // Every row already has one grid entry per column, including a
         // placeholder for each `^`/`<` span marker (carve-php#527) - so
@@ -41,9 +42,12 @@ final class TableLayout
         $rows = [];
         $columnCount = 0;
         foreach ($grid as $index => $gridRow) {
+            if ($beforeRow !== null) {
+                $beforeRow($tableRows[$index]);
+            }
             $cells = [];
             foreach ($gridRow as $entry) {
-                $cells[] = $entry['skip'] ? null : $renderCell($entry['cell']);
+                $cells[] = $entry['skip'] ? null : $renderCell($entry['cell'], $entry);
             }
 
             $columnCount = max($columnCount, count($cells));

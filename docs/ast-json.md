@@ -252,7 +252,8 @@ four targets.
 It is separate from render losses, and it is the only one of the two reports that
 can name a field. The render-loss report's `code` enum holds
 `raw-format-dropped`, `ruby-flattened`, `editorial-comment-flattened` and
-`destination-denied` (PART 11 §1d),
+`destination-denied` (PART 11 §1d), plus `table-span-flattened` and
+`table-header-row-demoted` (CARVE-P2-024),
 each naming something one renderer dropped or blanked; a field dropped off a node the writer still spells is
 `field-unspellable` here. Table section attributes are that case - none of the
 four targets can spell them, so each reports `rowGroups.headAttrs`,

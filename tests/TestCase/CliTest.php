@@ -831,7 +831,8 @@ class CliTest extends TestCase
         $this->assertSame(2, $refused['exit']);
         $this->assertStringContainsString(
             '--allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened'
-            . ', carrier-attribute-dropped, list-style-dropped or list-delimiter-changed',
+            . ', carrier-attribute-dropped, list-style-dropped, list-delimiter-changed'
+            . ', table-span-flattened or table-header-row-demoted',
             $refused['err'],
         );
     }

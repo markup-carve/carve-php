@@ -60,7 +60,6 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         );
 
         $codes = $schema['properties']['losses']['items']['properties']['code']['enum'];
-        // The pinned spec snapshot predates the merged loss-code change.
 
         return array_map(
             static fn (string $code): string => $code === 'definition-list-flattened' ? 'list-style-dropped' : $code,
@@ -81,10 +80,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheSevenCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheNineCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted'],
             self::schemaCodes(),
         );
     }
@@ -153,6 +152,16 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         }
         $delimiterReport = (new CarveConverter(renderer: new MarkdownRenderer(), roundTripMode: true))->convertWithReport("a. one\n\n1. two\n");
         foreach ($delimiterReport->losses as $loss) {
+            self::assertContains($loss['code'], self::schemaCodes());
+            $seen[$loss['code']] = true;
+        }
+        $tableReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("|= A | < |\n|= B | C |\n");
+        foreach ($tableReport->losses as $loss) {
+            self::assertContains($loss['code'], self::schemaCodes());
+            $seen[$loss['code']] = true;
+        }
+        $headerReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("|= First |\n|= Second |\n");
+        foreach ($headerReport->losses as $loss) {
             self::assertContains($loss['code'], self::schemaCodes());
             $seen[$loss['code']] = true;
         }

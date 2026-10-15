@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
 use SplObjectStorage;
 
@@ -61,6 +63,16 @@ trait RenderLossCollectorTrait
     private array $seenEditorialCommentLosses = [];
 
     /**
+     * @var array<int, true>
+     */
+    private array $seenTableSpanLosses = [];
+
+    /**
+     * @var array<int, true>
+     */
+    private array $seenTableHeaderLosses = [];
+
+    /**
      * @var \SplObjectStorage<\MarkupCarve\Carve\Node\Node, array<string, true>>|null
      */
     private ?SplObjectStorage $seenCarrierAttributeLosses = null;
@@ -77,6 +89,8 @@ trait RenderLossCollectorTrait
         $this->renderLosses = [];
         $this->seenRubyLosses = [];
         $this->seenEditorialCommentLosses = [];
+        $this->seenTableSpanLosses = [];
+        $this->seenTableHeaderLosses = [];
         $this->seenCarrierAttributeLosses = new SplObjectStorage();
     }
 
@@ -330,6 +344,62 @@ trait RenderLossCollectorTrait
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\TableCell $cell
+     * @param array{rowspan: int, colspan: int, skip: bool} $span
+     */
+    protected function recordTableSpanFlattened(TableCell $cell, array $span): void
+    {
+        if ($this->renderLossTarget === null || ($span['colspan'] <= 1 && $span['rowspan'] <= 1) || isset($this->seenTableSpanLosses[spl_object_id($cell)])) {
+            return;
+        }
+        $this->seenTableSpanLosses[spl_object_id($cell)] = true;
+        $this->renderLossTotal++;
+        $this->renderLossCounts['table-span-flattened'] = ($this->renderLossCounts['table-span-flattened'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'table-span-flattened',
+            'target' => $this->renderLossTarget,
+            'nodeType' => 'block',
+            'message' => 'Flattened a spanning table cell into separate cells',
+        ];
+        if ($span['colspan'] > 1) {
+            $loss['colspan'] = $span['colspan'];
+        }
+        if ($span['rowspan'] > 1) {
+            $loss['rowspan'] = $span['rowspan'];
+        }
+        if ($cell->getPos() !== null) {
+            $loss['pos'] = $cell->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
+    protected function recordTableHeaderRowDemoted(TableRow $row): void
+    {
+        if ($this->renderLossTarget !== 'markdown' || isset($this->seenTableHeaderLosses[spl_object_id($row)])) {
+            return;
+        }
+        $this->seenTableHeaderLosses[spl_object_id($row)] = true;
+        $this->renderLossTotal++;
+        $this->renderLossCounts['table-header-row-demoted'] = ($this->renderLossCounts['table-header-row-demoted'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'table-header-row-demoted',
+            'target' => 'markdown',
+            'nodeType' => 'block',
+            'message' => 'Wrote a later header row as a body row',
+        ];
+        if ($row->getPos() !== null) {
+            $loss['pos'] = $row->getPos()->toArray();
         }
         $this->renderLosses[] = $loss;
     }
