@@ -359,10 +359,18 @@ function migrateMarkdownDirectory(string $source, string $output): array
     if (!is_dir($parent) && !mkdir($parent, 0777, true)) {
         throw new RuntimeException("cannot create output parent: $parent");
     }
-    $temporary = $parent . DIRECTORY_SEPARATOR . '.' . basename($final) . '-' . bin2hex(random_bytes(8));
+    // Staging sits in a private shell so other users cannot read it mid-run.
+    $shell = $parent . DIRECTORY_SEPARATOR . '.' . basename($final) . '-' . bin2hex(random_bytes(8));
+    if (!mkdir($shell, 0700)) {
+        throw new RuntimeException("cannot create temporary directory: $shell");
+    }
+    $temporary = $shell . DIRECTORY_SEPARATOR . 'out';
     if (!mkdir($temporary)) {
+        rmdir($shell);
+
         throw new RuntimeException("cannot create temporary directory: $temporary");
     }
+    $fileMode = 0666 & ~umask();
     $files = [];
     $assets = [];
     $skipped = [];
@@ -395,7 +403,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
             }
             $input = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
             if ($kind === 'asset') {
-                if (!copy($input, $target)) {
+                if (!copy($input, $target) || !chmod($target, fileperms($input) & 0777)) {
                     throw new RuntimeException("cannot copy $path");
                 }
                 $assets[] = $path;
@@ -410,7 +418,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
                 throw new RuntimeException("invalid UTF-8 in $path");
             }
             $result = (new MarkdownToCarve())->convertWithFidelityReport($sourceText);
-            if (file_put_contents($target, $result->value) === false) {
+            if (file_put_contents($target, $result->value) === false || !chmod($target, $fileMode & fileperms($input))) {
                 throw new RuntimeException("cannot write $destination");
             }
             $diagnostics = $result->report()['diagnostics'];
@@ -430,12 +438,13 @@ function migrateMarkdownDirectory(string $source, string $output): array
         if (file_exists($final) || is_link($final) || !rename($temporary, $final)) {
             throw new RuntimeException("cannot create output: $final");
         }
+        rmdir($shell);
     } catch (Throwable $exception) {
-        $cleanup = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temporary, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+        $cleanup = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($shell, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
         foreach ($cleanup as $entry) {
             $entry->isDir() && !$entry->isLink() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
         }
-        rmdir($temporary);
+        rmdir($shell);
 
         throw $exception;
     }

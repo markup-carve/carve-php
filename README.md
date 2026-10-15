@@ -55,7 +55,8 @@ vendor/bin/carve migrate --from markdown --directory docs --output docs-carve --
 ~~~
 
 The folder command copies assets and writes `docs-carve/migration-report.json`
-with files that need review.
+with files that need review. Copied assets keep their source permissions, and a
+converted file is never more readable than its Markdown source.
 
 See the [CLI guide](https://github.com/markup-carve/carve-php/blob/main/docs/cli.md) for all subcommands and flags.
 
