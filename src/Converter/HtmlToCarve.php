@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Util\CycleCollection;
+use MarkupCarve\Carve\Util\StringUtil;
 use ReflectionMethod;
 use RuntimeException;
 use SplObjectStorage;
@@ -363,6 +364,7 @@ class HtmlToCarve
 
     private function convertWithReportUnpaused(string $html): HtmlImportResult
     {
+        $html = StringUtil::toValidUtf8($html);
         $this->captureImportIdentity = true;
         try {
             $carve = $this->convert($html);
@@ -484,6 +486,7 @@ class HtmlToCarve
 
     private function convertToAstWithReportUnpaused(string $html): HtmlImportAstResult
     {
+        $html = StringUtil::toValidUtf8($html);
         CycleCollection::checkpoint();
         $normalized = $this->normalizeHtmlForDirectAst($html);
         $builder = new HtmlAstBuilder(
@@ -3796,6 +3799,7 @@ class HtmlToCarve
 
     private function convertUnpaused(string $html): string
     {
+        $html = StringUtil::toValidUtf8($html);
         CycleCollection::checkpoint();
         $this->sourceTablePartitions = [];
         $this->sourcePartitionDiagnostics = [];

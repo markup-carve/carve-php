@@ -35,6 +35,7 @@ use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\CarrierMarkers;
+use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
 use Throwable;
 
@@ -1768,6 +1769,7 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        $markdown = StringUtil::toValidUtf8($markdown);
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
         if (!$this->carrierFallbackMode && $this->emptyFootnoteStyleMarker($markdown)) {
             $this->carrierFallbackMode = true;
@@ -3258,6 +3260,7 @@ class MarkdownToCarve
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
     {
+        $markdown = StringUtil::toValidUtf8($markdown);
         $result = $this->assessedFidelityReport($markdown);
         if (!$this->carrierDamaged) {
             return $this->carrierDiagnostics === [] ? $result : new MigrationResult(
