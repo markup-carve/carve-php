@@ -2496,11 +2496,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // stacked panels stay distinguishable. Title (if any) renders first,
         // then the label. Diverges from the current spec corpus pending
         // adoption (companion: carve-rs proto/div-label-fallback, spec PR #205).
-        // Tier 1: a canonical admonition type renders as a semantic
+        // Tier 1: a typed canonical admonition renders as a semantic
         // <aside class="admonition …">. Any extra classes and all other
         // node attributes (id, data-*, title, …) are preserved; `class` is
         // rebuilt/excluded.
-        if ($types !== []) {
+        if ($types !== [] && $node->isTyped()) {
             $others = array_values(array_filter(
                 $classes,
                 static fn (string $c): bool => $c !== 'admonition'
