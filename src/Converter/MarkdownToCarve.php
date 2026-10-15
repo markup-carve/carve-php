@@ -385,6 +385,13 @@ class MarkdownToCarve
     protected bool $carrierFallbackMode = false;
 
     /**
+     * Cross-reference ids that resolve in the converted document, null outside convert().
+     *
+     * @var array<string, true>|null
+     */
+    private ?array $resolvedCrossrefs = null;
+
+    /**
      * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
      */
     protected array $carrierDiagnostics = [];
@@ -1769,6 +1776,21 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        if ($this->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
+            $this->resolvedCrossrefs = [];
+            try {
+                $first = $this->convert($markdown);
+                $resolved = ImportedCrossrefs::resolvedTargets($first);
+                if ($resolved === []) {
+                    return $first;
+                }
+                $this->resolvedCrossrefs = $resolved;
+
+                return $this->convert($markdown);
+            } finally {
+                $this->resolvedCrossrefs = null;
+            }
+        }
         $markdown = StringUtil::toValidUtf8($markdown);
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
         if (!$this->carrierFallbackMode && $this->emptyFootnoteStyleMarker($markdown)) {
@@ -8433,6 +8455,8 @@ class MarkdownToCarve
             return $token;
         }, $line) ?? $line;
 
+        $resolved = $this->resolvedCrossrefs ?? [];
+        $line = preg_replace_callback(ImportedCrossrefs::RUN, static fn (array $match): string => isset($resolved[$match[1]]) ? $match[0] : $protect($match[0]), $line) ?? $line;
         $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
         $line = $this->restoreNumericReferenceHashes($line);
         $line = str_replace('&#', '&\\#', $line);

@@ -3797,7 +3797,11 @@ class HtmlToCarve
         return CycleCollection::paused(fn (): string => $this->convertUnpaused($html));
     }
 
-    private function convertUnpaused(string $html): string
+    /**
+     * @param string $html
+     * @param array<string, true> $resolvedCrossrefs
+     */
+    private function convertUnpaused(string $html, array $resolvedCrossrefs = []): string
     {
         $html = StringUtil::toValidUtf8($html);
         CycleCollection::checkpoint();
@@ -3827,6 +3831,7 @@ class HtmlToCarve
             $this->alignmentClasses,
             $this->labels,
         );
+        $builder->keepResolvedCrossrefsAsText($resolvedCrossrefs);
         $result = $builder->buildResult($normalized, strlen($html));
         $tree = $result->tree;
         if ($this->captureImportIdentity) {
@@ -3839,6 +3844,12 @@ class HtmlToCarve
             $renderer->beginConversionDiagnosticCollection();
         }
         $source = $renderer->render($document);
+        if ($resolvedCrossrefs === [] && str_contains($source, '</#')) {
+            $resolved = ImportedCrossrefs::resolvedTargets($source);
+            if ($resolved !== []) {
+                return $this->convertUnpaused($html, $resolved);
+            }
+        }
         if ($this->captureImportIdentity) {
             $this->sourcePartitionDiagnostics = array_values(array_filter(
                 $renderer->finishConversionDiagnosticCollection()['diagnostics'],
