@@ -9,18 +9,37 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.1.13] - 2026-10-15
+
+### Breaking
+- Empty link destinations are real links: `[text]()` and `![alt]()` parse as a link and an image with an empty URL, and a bare `[r]:` line is an empty reference definition. Escape the opening bracket to keep such text literal. AST JSON carries contract version `2.0`, so 0.1.12 readers refuse trees written by this release (#3448, #3472, markup-carve/carve#2878).
+- Markdown, plain text and ANSI output report `table-span-flattened` for each merged table cell, and Markdown reports `table-header-row-demoted`, `table-header-row-hoisted` and `table-header-cell-demoted` for the header rows and cells it rewrites. A `--strict-losses` run over such tables now fails; allow the codes with `--allow-loss` where that is acceptable (#3456, #3473).
+
 ### Fixes
-- A `]` inside an autolink no longer closes a link, image or span label opened before it: the bracket scan skips the autolink body, so `[a <https://x]> b](u)` is one link (CARVE-P3-001, markup-carve/carve#3204, markup-carve/carve-js#3120).
-- A cross-reference `</#id>` is opaque to emphasis like an autolink: an earlier bare `/` no longer pairs with the slash inside it (markup-carve/carve-js#3100).
-- A braced closer inside a cross-reference (`{*a </#x*}> b*}`, `{+a </#x+}> b+}`) no longer closes the span opened before it (markup-carve/carve-js#3105).
-- `WikilinksExtension` no longer closes `[[` at a `]]` whose first bracket is escaped (`\]`), so `a [[x\]](u)` renders the core link instead of a wikilink (markup-carve/carve-js#3092).
-- `WikilinksExtension` matches carve-js on its edge cases: a whitespace-only `[[   ]]` stays literal, the display text may be empty (`[[a|]]`) or hold a single `]` (`[[a|b]c]]`), and a page named `0` is its own link text.
-- An escaped include directive (`\{{ path }}`) stays literal: `IncludeExpander` no longer expands it, and the Carve writer no longer turns `{{ \{{ path }}` into a live directive (markup-carve/carve-js#3101).
-- A paragraph holding many cross-references parses in linear time; each `</#id>` used to re-read the rest of the paragraph.
-- Inside an unclosed code fence in a `:::` container, only the innermost container's own closer ends the fence. A colon line of any other width is code; it used to open a nested container, so the host never closed and the rest of the document became code (markup-carve/carve#3201).
+- An autolink, a cross-reference or a comment is atomic to every outside delimiter: a `]` inside one no longer closes a label opened before it, a `~>` inside one ends no substitution, and a braced, editorial or bare `/` closer inside one closes nothing, so `[a <https://x]> b](u)` is one link (#3437, #3443, #3462, #3475, #3481, markup-carve/carve#3204, markup-carve/carve#3244).
+- An emphasis, braced or editorial delimiter followed by a combining mark, spacing mark, variation selector or zero-width joiner stays literal text, and the Carve writer keeps it literal (#3464, #3466, #3467, #3470, markup-carve/carve#3209).
+- Inside an unclosed code fence in a `:::` container, only the innermost container's own closer ends the fence, also after a quote or item holding only a comment. A colon line of another width used to open a nested container and turn the rest of the document into code (#3453, #3479, markup-carve/carve#3201).
+- `WikilinksExtension` no longer closes `[[` at an escaped `\]]`, keeps `[[   ]]` literal, accepts empty display text or a single `]` in it, and gives a page named `0` its own link text (#3432, #3451).
+- An escaped include directive (`\{{ path }}`) stays literal: `IncludeExpander` no longer expands it, and the Carve writer no longer turns `{{ \{{ path }}` into a live directive (#3436).
+- Plain text and ANSI write a definition with an empty or blanked destination as the bare `[label]:`, without a trailing space, title or attributes (#3465).
+- The Carve writer refuses a list nested past the nesting cap with `SourceUnspellableException` instead of searching for over a minute and returning source that reads back differently (#3444).
+- `carve merge` treats a rewrapped paragraph as unchanged, and a line break after a link or emphasis still counts as a space (#3459, #3469).
+- Markdown import reads quoted definitions whose title wraps and angle destinations holding an escaped bracket, resolves a bare head through a later complex definition, and keeps a bare `[label]:` that CommonMark reads as text literal (#3462, #3463, #3477, #3483, #3486).
+- Markdown output keeps an autolink in its angle form when it reads back the same (#3434).
+- Djot import keeps definition lists intact: empty root definitions, definitions in quotes and list items, block interruptions in terms, literal markers, container ownership and tight descriptions (#3439, #3445, #3447, #3449, #3455).
+- Djot import keeps image alternatives and references across multiline labels, deletion spans, quotes and Unicode text, reports image-alt losses after discarded markup, and no longer rewrites reference URL data such as `![a![b](x)](y)` as nested images (#3433, #3442, #3450, #3458, #3461).
+- Djot import keeps empty nested task items and representable DIV classes, reads `::: note` as a generic div with class `note`, and an unresolved reference holding NUL no longer selects a sanitized heading (#3424, #3428, #3431, #3460).
+
+### Improvements
+- `carve migrate --from markdown --directory SOURCE --output TARGET` converts a Markdown folder recursively, copies regular assets with their permissions and writes `migration-report.json`. It skips symlinks and refuses an existing target or two inputs that map to one output (#3478, #3489).
+- The BBCode importer reads forum quote attributions: quoted names, phpBB `post_id` and Unix `time`, and vBulletin `name;id` (#3457).
+- The vendored ProseMirror schema map follows carve-grammars `264bdf5`, including table row continuation lines, cover markers and the combined bold-italic flag (#3438).
 
 ### Performance
-- `IncludeExpander` and the Carve writer look up the run node behind each include directive candidate from an index built once per inline run, so a run with many `{{` candidates (escaped or live) is scanned in linear time instead of quadratic (markup-carve/carve-js#3104).
+- A paragraph holding many cross-references parses in linear time (#3440).
+- Include directive candidates are looked up from an index built once per inline run, so a run with many `{{` candidates scans in linear time in `IncludeExpander` and the Carve writer (#3441).
+- Djot image chains with plain, quoted or Unicode labels convert without reparsing each nested label (#3452, #3458).
+- Deeply nested lists and block quotes parse with lower peak memory (#3485, #3487).
 
 ## [0.1.12] - 2026-10-14
 
