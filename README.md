@@ -51,7 +51,11 @@ vendor/bin/carve README.crv > README.html   # render (HTML by default)
 vendor/bin/carve --markdown README.crv      # or --plain, --ansi, --json
 vendor/bin/carve lint README.crv            # report problems, change nothing
 vendor/bin/carve migrate --from html p.html # convert into Carve
+vendor/bin/carve migrate --from markdown --directory docs --output docs-carve --check-loss
 ~~~
+
+The folder command copies assets and writes `docs-carve/migration-report.json`
+with files that need review.
 
 See the [CLI guide](https://github.com/markup-carve/carve-php/blob/main/docs/cli.md) for all subcommands and flags.
 

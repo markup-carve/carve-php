@@ -297,30 +297,189 @@ function runMergeCommand(array $argv): never
 }
 
 /**
+ * Resolve an output path through its deepest existing ancestor.
+ *
+ * @throws \RuntimeException
+ */
+function resolveFutureOutputPath(string $path): string
+{
+    $ancestor = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : getcwd() . DIRECTORY_SEPARATOR . $path;
+    $missing = [];
+    while (!file_exists($ancestor) && !is_link($ancestor)) {
+        $parent = dirname($ancestor);
+        if ($parent === $ancestor) {
+            throw new RuntimeException("cannot resolve output path: $path");
+        }
+        $name = basename($ancestor);
+        if ($name === '.' || $name === '..') {
+            throw new RuntimeException("output path traverses a missing directory: $path");
+        }
+        array_unshift($missing, $name);
+        $ancestor = $parent;
+    }
+    $resolved = realpath($ancestor);
+    if ($resolved === false) {
+        throw new RuntimeException("cannot resolve output path: $path");
+    }
+
+    return $resolved . ($missing ? DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $missing) : '');
+}
+
+/**
+ * Convert a Markdown directory and return the migration counts.
+ *
+ * @return array{files:int, assets:int, review:int, skipped:int, report:string}
+ * @throws \RuntimeException
+ */
+function migrateMarkdownDirectory(string $source, string $output): array
+{
+    $root = realpath($source);
+    if ($root === false || !is_dir($root)) {
+        throw new RuntimeException("source is not a directory: $source");
+    }
+    $final = resolveFutureOutputPath($output);
+    if (file_exists($final) || is_link($final)) {
+        throw new RuntimeException("output already exists: $final");
+    }
+    if ($final === $root || str_starts_with($final, $root . DIRECTORY_SEPARATOR)) {
+        throw new RuntimeException('output must be outside the source directory');
+    }
+    $entries = [];
+    $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+    foreach ($iterator as $entry) {
+        $path = str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($root) + 1));
+        $kind = $entry->isLink() || !$entry->isFile() ? 'skipped' : (preg_match('/\.(md|markdown)$/i', $entry->getFilename()) ? 'markdown' : 'asset');
+        $entries[] = ['path' => $path, 'kind' => $kind];
+    }
+    usort($entries, static fn (array $left, array $right): int => strcmp($left['path'], $right['path']));
+    if (!in_array('markdown', array_column($entries, 'kind'), true)) {
+        throw new RuntimeException('source contains no Markdown files');
+    }
+    $parent = dirname($final);
+    if (!is_dir($parent) && !mkdir($parent, 0777, true)) {
+        throw new RuntimeException("cannot create output parent: $parent");
+    }
+    $temporary = $parent . DIRECTORY_SEPARATOR . '.' . basename($final) . '-' . bin2hex(random_bytes(8));
+    if (!mkdir($temporary)) {
+        throw new RuntimeException("cannot create temporary directory: $temporary");
+    }
+    $files = [];
+    $assets = [];
+    $skipped = [];
+    $review = [];
+    $destinations = ['migration-report.json' => true];
+    try {
+        foreach ($entries as $entry) {
+            $path = $entry['path'];
+            $kind = $entry['kind'];
+            if ($kind === 'skipped') {
+                $skipped[] = $path;
+
+                continue;
+            }
+            $destination = $kind === 'markdown' ? preg_replace('/\.(md|markdown)$/i', '.crv', $path) : $path;
+            if ($destination === null) {
+                throw new RuntimeException("invalid output path: $path");
+            }
+            if (!function_exists('mb_strtolower') && preg_match('/[^\x00-\x7F]/', $destination) === 1) {
+                throw new RuntimeException('non-ASCII output names require mbstring');
+            }
+            $key = function_exists('mb_strtolower') ? mb_strtolower($destination, 'UTF-8') : strtolower($destination);
+            if (isset($destinations[$key])) {
+                throw new RuntimeException("two inputs map to the same output: $destination");
+            }
+            $destinations[$key] = true;
+            $target = $temporary . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $destination);
+            if (!is_dir(dirname($target)) && !mkdir(dirname($target), 0777, true)) {
+                throw new RuntimeException("cannot create directory for $destination");
+            }
+            $input = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
+            if ($kind === 'asset') {
+                if (!copy($input, $target)) {
+                    throw new RuntimeException("cannot copy $path");
+                }
+                $assets[] = $path;
+
+                continue;
+            }
+            $sourceText = file_get_contents($input);
+            if ($sourceText === false) {
+                throw new RuntimeException("cannot read $path");
+            }
+            if (preg_match('//u', $sourceText) !== 1) {
+                throw new RuntimeException("invalid UTF-8 in $path");
+            }
+            $result = (new MarkdownToCarve())->convertWithFidelityReport($sourceText);
+            if (file_put_contents($target, $result->value) === false) {
+                throw new RuntimeException("cannot write $destination");
+            }
+            $diagnostics = $result->report()['diagnostics'];
+            foreach ($diagnostics as $diagnostic) {
+                if (in_array($diagnostic['fidelity'], ['degraded', 'dropped'], true)) {
+                    $review[] = $path;
+
+                    break;
+                }
+            }
+            $files[] = ['source' => $path, 'output' => $destination, 'diagnostics' => $diagnostics];
+        }
+        $report = ['schemaVersion' => 1, 'sourceFormat' => 'markdown', 'files' => $files, 'assets' => $assets, 'skipped' => $skipped, 'review' => $review];
+        if (file_put_contents($temporary . '/migration-report.json', json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n") === false) {
+            throw new RuntimeException('cannot write migration report');
+        }
+        if (file_exists($final) || is_link($final) || !rename($temporary, $final)) {
+            throw new RuntimeException("cannot create output: $final");
+        }
+    } catch (Throwable $exception) {
+        $cleanup = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($temporary, FilesystemIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+        foreach ($cleanup as $entry) {
+            $entry->isDir() && !$entry->isLink() ? rmdir($entry->getPathname()) : unlink($entry->getPathname());
+        }
+        rmdir($temporary);
+
+        throw $exception;
+    }
+
+    return ['files' => count($files), 'assets' => count($assets), 'review' => count($review), 'skipped' => count($skipped), 'report' => $final . '/migration-report.json'];
+}
+
+/**
  * @param array<int, string> $argv
  */
 function runMigrateCommand(array $argv): never
 {
     $mode = 'safe';
     $adapter = 'generic';
+    $modeSet = false;
+    $adapterSet = false;
     $report = null;
     $checkLoss = false;
     $listTable = false;
     $from = null;
     $input = null;
+    $directory = null;
+    $output = null;
     for ($i = 2, $count = count($argv); $i < $count; $i++) {
         $arg = $argv[$i];
-        if (in_array($arg, ['--from', '--mode', '--adapter', '--report'], true)) {
+        if (in_array($arg, ['--from', '--mode', '--adapter', '--report', '--directory', '--output'], true)) {
             if (!isset($argv[$i + 1])) {
                 fwrite(STDERR, "carve migrate: $arg requires a value\n");
                 exit(2);
             }
             $value = $argv[++$i];
+            if ($arg === '--mode') {
+                $modeSet = true;
+            }
+            if ($arg === '--adapter') {
+                $adapterSet = true;
+            }
             match ($arg) {
                 '--from' => $from = $value,
                 '--mode' => $mode = $value,
                 '--adapter' => $adapter = $value,
                 '--report' => $report = $value,
+                '--directory' => $directory = $value,
+                '--output' => $output = $value,
             };
         } elseif ($arg === '--check-loss') {
             $checkLoss = true;
@@ -343,6 +502,20 @@ function runMigrateCommand(array $argv): never
     if (!in_array($from, ['html', 'markdown', 'md', 'djot', 'bbcode'], true)) {
         fwrite(STDERR, "carve migrate: unknown source format $from\n");
         exit(2);
+    }
+    if ($directory !== null || $output !== null) {
+        if (!in_array($from, ['markdown', 'md'], true) || $directory === null || $output === null || $input !== null || $report !== null || $listTable || $modeSet || $adapterSet) {
+            fwrite(STDERR, "carve migrate: folder mode requires --from markdown --directory SOURCE --output TARGET; single-file options are not allowed\n");
+            exit(2);
+        }
+        try {
+            $counts = migrateMarkdownDirectory($directory, $output);
+            fwrite(STDOUT, "{$counts['files']} file(s) converted; {$counts['assets']} asset(s) copied; {$counts['review']} file(s) need review; {$counts['skipped']} entry(s) skipped. Report: {$counts['report']}\n");
+            exit($checkLoss && ($counts['review'] > 0 || $counts['skipped'] > 0) ? 1 : 0);
+        } catch (Throwable $exception) {
+            fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
+            exit(2);
+        }
     }
     $source = $input === null || $input === '-' ? stream_get_contents(STDIN) : @file_get_contents($input);
     if ($source === false) {
@@ -729,6 +902,8 @@ Formatter:
 
 Migration (other markup to Carve, on stdout):
   migrate --from FORMAT   html, markdown (md), djot or bbcode
+  migrate --from markdown --directory SOURCE --output TARGET
+                         convert a Markdown folder and copy assets
   migrate --mode MODE     HTML only: safe (default), semantic or roundtrip
                           (roundtrip keeps unsupported HTML as raw {=html};
                           use it only for trusted input)
