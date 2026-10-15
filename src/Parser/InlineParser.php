@@ -5584,9 +5584,22 @@ class InlineParser
      */
     protected function findAutolinkEnd(string $text, int $pos): ?int
     {
-        $end = $this->findAutolinkCloser($text, $pos);
-        if ($end === null) {
+        return self::autolinkEndForBracketScan($text, $pos);
+    }
+
+    /**
+     * Locate an autolink for both inline and bracket scans.
+     *
+     * @internal
+     */
+    public static function autolinkEndForBracketScan(string $text, int $pos): ?int
+    {
+        $end = $pos + 1 + strcspn($text, " \t\r\n<>", $pos + 1);
+        if ($end >= strlen($text) || ($text[$end] !== '>' && !($text[$end] === "\n" && ($text[$end + 1] ?? '') === '>'))) {
             return null;
+        }
+        if ($text[$end] === "\n") {
+            $end++;
         }
 
         $content = substr($text, $pos + 1, $end - $pos - 1);

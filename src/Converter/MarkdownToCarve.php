@@ -8969,6 +8969,7 @@ class MarkdownToCarve
         $defined = $this->importingFootnoteBody ? $this->definedReferenceLabels : [];
         $labels = $this->importingFootnoteBody ? $this->referenceDefinitionLabels : [];
         $kept = [];
+        $bareReferenceHeads = [];
         $fence = null;
         $htmlCloser = null;
         $blockDepth = 0;
@@ -9421,6 +9422,12 @@ class MarkdownToCarve
                         for ($at = 0; $at <= $continuedCount; $at++) {
                             $this->markdownSourceLines[count($kept) + $at] = $i - $continuedCount + $at;
                         }
+                        if ($target === '') {
+                            $marker = strpos($line, '[' . $definition[1] . ']:');
+                            if ($marker !== false) {
+                                $bareReferenceHeads[count($kept)] = [$key, $marker, strlen($definition[1])];
+                            }
+                        }
                         array_push($kept, $line, ...$continued);
                         $canStart = false;
                         unset($referenceDefinitionAbove[$lineDepth]);
@@ -9597,6 +9604,14 @@ class MarkdownToCarve
                 $kept[$index] = preg_replace('/^( *)\[/', '$1\\\\[', $kept[$index]) ?? $kept[$index];
             } else {
                 $kept[$index] = preg_replace('/^( {0,3}\[(?:[^\[\]\\\\]|\\\\.)+\])(?=:)/', '$1[]', $kept[$index]) ?? $kept[$index];
+            }
+        }
+
+        foreach ($bareReferenceHeads as $index => [$label, $marker, $labelLength]) {
+            if (isset($defined[$label])) {
+                $kept[$index] = substr_replace($kept[$index], '[]', $marker + $labelLength + 2, 0);
+            } else {
+                $kept[$index] = substr_replace($kept[$index], '\\', $marker, 0);
             }
         }
 

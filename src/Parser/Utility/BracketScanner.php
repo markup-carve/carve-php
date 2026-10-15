@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser\Utility;
 
+use MarkupCarve\Carve\Parser\InlineParser;
 use function str_repeat;
 use function strlen;
 use function strpos;
@@ -73,7 +74,7 @@ final class BracketScanner
         $bracketDepth = 1;
         $pos = $openPos + 1;
         while ($pos < $length) {
-            if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\') {
+            if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\' || $text[$pos] === '<') {
                 $opaqueEnd = self::opaqueEnd($text, $pos);
                 if ($opaqueEnd === null) {
                     return null;
@@ -125,7 +126,7 @@ final class BracketScanner
             return [$openPos => null];
         }
         $pos = $openPos + 1;
-        $pos += strcspn($text, '[]`{\\', $pos);
+        $pos += strcspn($text, '[]`{\\<', $pos);
         if ($pos < $length && $text[$pos] === ']') {
             return [$openPos => $pos];
         }
@@ -134,12 +135,12 @@ final class BracketScanner
         $ends = [];
         while ($pos < $length) {
             $char = $text[$pos];
-            if ($char !== '[' && $char !== ']' && $char !== '`' && $char !== '{' && $char !== '\\') {
-                $pos += strcspn($text, '[]`{\\', $pos);
+            if ($char !== '[' && $char !== ']' && $char !== '`' && $char !== '{' && $char !== '\\' && $char !== '<') {
+                $pos += strcspn($text, '[]`{\\<', $pos);
 
                 continue;
             }
-            if ($char === '`' || $char === '{' || $char === '\\') {
+            if ($char === '`' || $char === '{' || $char === '\\' || $char === '<') {
                 $opaqueEnd = self::opaqueEnd($text, $pos);
                 if ($opaqueEnd === null) {
                     break;
@@ -188,7 +189,7 @@ final class BracketScanner
         }
         $offsets = [];
         for ($pos = 0, $length = strlen($text); $pos < $length; $pos++) {
-            if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\') {
+            if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\' || $text[$pos] === '<') {
                 $end = self::opaqueEnd($text, $pos);
                 if (is_int($end)) {
                     $pos = $end - 1;
@@ -311,6 +312,9 @@ final class BracketScanner
         }
         if ($char === '\\' && $pos + 1 < strlen($text)) {
             return $pos + 2;
+        }
+        if ($char === '<') {
+            return InlineParser::autolinkEndForBracketScan($text, $pos) ?? false;
         }
         if ($char === '{') {
             $next = $text[$pos + 1] ?? '';
