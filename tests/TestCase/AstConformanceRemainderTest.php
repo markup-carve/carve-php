@@ -35,4 +35,11 @@ final class AstConformanceRemainderTest extends TestCase
         $converted = (new MarkdownToCarve())->convert($source);
         self::assertSame('<p><a href="/u" title="t' . "\n" . 'x">a*b</a>:</p>', trim((new CarveConverter())->convert($converted)));
     }
+
+    public function testBareHeadDoesNotUseDifferentEscapedDefinition(): void
+    {
+        $source = "[a\\*b]:\n\n[a\\\\*b]: /u\n";
+        $converted = (new MarkdownToCarve())->convert($source);
+        self::assertStringStartsWith('\\[a\\*b]:', $converted);
+    }
 }
