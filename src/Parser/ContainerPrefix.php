@@ -57,7 +57,8 @@ class ContainerPrefix
         return $line[$at + 1] === ' ' ? 2 : null;
     }
 
-    /** Remove leading quote markers by the shared rule above. Equivalent to
+    /**
+     * Remove leading quote markers by the shared rule above. Equivalent to
      * `preg_replace('/^(?:>(?: |$))+/', '', $line)`; keep one implementation.
      */
     public static function stripQuoteMarkers(string $line): string
