@@ -3310,6 +3310,13 @@ class InlineParser
         }
     }
 
+    private function hasGraphemeExtender(string $text, int $offset): bool
+    {
+        return isset($text[$offset])
+            && ord($text[$offset]) >= 0x80
+            && preg_match('/\G[\p{Mn}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $text, $matches, 0, $offset) === 1;
+    }
+
     /**
      * Parse delimited inline elements like _emphasis_ or *strong*
      *
@@ -3346,7 +3353,7 @@ class InlineParser
         // `ctype_space()`, which also takes a VERTICAL TAB and a FORM FEED - so
         // `/<VT>a/` was left as literal text while `/!a/` was emphasis
         // (markup-carve/carve#963).
-        if (StringUtil::isWhitespaceChar($nextChar)) {
+        if (StringUtil::isWhitespaceChar($nextChar) || $this->hasGraphemeExtender($text, $pos + 1)) {
             return null;
         }
 
@@ -3551,7 +3558,7 @@ class InlineParser
                     // alphanumeric (right word boundary, grammar §9). Unlike the
                     // opener's left boundary, `_` does NOT block a closer.
                     $afterClose = $text[$actualClose + 1] ?? '';
-                    if ($afterClose !== '' && ctype_alnum($afterClose)) {
+                    if (($afterClose !== '' && ctype_alnum($afterClose)) || $this->hasGraphemeExtender($text, $actualClose + 1)) {
                         $failedStarts[] = $actualClose + 1;
                         $searchPos = $actualClose + 1;
 
@@ -3614,7 +3621,7 @@ class InlineParser
         $length = strlen($text);
         $start = $pos + 2; // skip '/*'
 
-        if ($start >= $length || StringUtil::isWhitespaceChar($text[$start])) {
+        if ($start >= $length || StringUtil::isWhitespaceChar($text[$start]) || $this->hasGraphemeExtender($text, $start)) {
             return null;
         }
 
@@ -3843,6 +3850,10 @@ class InlineParser
         };
 
         if ($nodeClass === null) {
+            return null;
+        }
+
+        if ($this->hasGraphemeExtender($text, $pos + 2)) {
             return null;
         }
 
