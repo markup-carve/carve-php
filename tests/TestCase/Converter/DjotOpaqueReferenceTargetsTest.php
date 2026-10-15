@@ -88,5 +88,4 @@ class DjotOpaqueReferenceTargetsTest extends TestCase
             self::assertCount($row['lossCount'], $losses, $row['source']);
         }
     }
-
 }
