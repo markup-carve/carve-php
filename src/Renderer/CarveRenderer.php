@@ -4949,7 +4949,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
             || str_ends_with($content, $this->verbatimSentinels[4])
             // A leading `*` would form the combined bold-italic opener.
-            || ($delimiter === '/' && str_starts_with($content, '*'));
+            || ($delimiter === '/' && str_starts_with($content, '*')
+                && preg_match('/\A\*[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $content) !== 1);
 
         return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
     }
