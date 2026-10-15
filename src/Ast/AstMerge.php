@@ -153,6 +153,58 @@ final class AstMerge
         return is_array($value) ? (array_is_list($value) ? 'array' : 'object') : get_debug_type($value);
     }
 
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private static function mergeText(mixed $nodes): array
+    {
+        $out = [];
+        $runIndex = null;
+        if (!is_array($nodes)) {
+            return $out;
+        }
+        foreach ($nodes as $node) {
+            if (!is_array($node)) {
+                continue;
+            }
+            if (($node['type'] ?? null) === 'text' && is_string($node['value'] ?? null)) {
+                if ($runIndex === null) {
+                    $runIndex = count($out);
+                    $out[] = $node;
+                } elseif (is_string($out[$runIndex]['value'] ?? null)) {
+                    $out[$runIndex]['value'] .= $node['value'];
+                }
+            } elseif ($node['type'] === 'soft_break') {
+                // A break after inline markup still renders as a space, so it starts a run.
+                if ($runIndex === null) {
+                    $runIndex = count($out);
+                    $out[] = ['type' => 'text', 'value' => ' '];
+                } elseif (is_string($out[$runIndex]['value'] ?? null)) {
+                    $out[$runIndex]['value'] .= ' ';
+                }
+            } else {
+                $runIndex = null;
+                $out[] = $node;
+            }
+        }
+
+        return $out;
+    }
+
+    private static function isNodeList(mixed $value): bool
+    {
+        if (!is_array($value) || !array_is_list($value)) {
+            return false;
+        }
+        foreach ($value as $node) {
+            if (!is_array($node) || !is_string($node['type'] ?? null)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     private static function identityHint(mixed $value): ?string
     {
         if (!is_array($value) || array_is_list($value) || !isset($value['type']) || !is_string($value['type'])) {
@@ -533,6 +585,20 @@ final class AstMerge
         $base = $baseIndex->value;
         $ours = $oursIndex->value;
         $theirs = $theirsIndex->value;
+        if ($path->stripMetadata && self::isNodeList($base) && self::isNodeList($ours) && self::isNodeList($theirs)) {
+            $normalizedBase = self::clean(self::mergeText($base));
+            $normalizedOurs = self::clean(self::mergeText($ours));
+            $normalizedTheirs = self::clean(self::mergeText($theirs));
+            if ($normalizedOurs === $normalizedTheirs) {
+                return $ours;
+            }
+            if ($normalizedOurs === $normalizedBase) {
+                return $theirs;
+            }
+            if ($normalizedTheirs === $normalizedBase) {
+                return $ours;
+            }
+        }
         if ($oursIndex->id === $theirsIndex->id) {
             return $ours;
         }
