@@ -2508,7 +2508,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             ));
             $attrs = $this->getRenderableAttributes($node);
             $attrs['class'] = trim('admonition ' . implode(' ', array_merge($types, $others)));
-            if ($node->isTyped() && in_array($classes[0], Div::ADMONITION_TYPES, true)) {
+            if (in_array($classes[0], Div::ADMONITION_TYPES, true)) {
                 $attrs['class'] = implode(' ', ['admonition', $classes[0], ...array_unique(array_slice($classes, 1))]);
             }
             $hasAuthoredName = false;
