@@ -2500,7 +2500,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // <aside class="admonition …">. Any extra classes and all other
         // node attributes (id, data-*, title, …) are preserved; `class` is
         // rebuilt/excluded.
-        if ($types !== [] && $node->isTyped()) {
+        if ($node->isTyped() && in_array($classes[0], Div::ADMONITION_TYPES, true)) {
             $others = array_values(array_filter(
                 $classes,
                 static fn (string $c): bool => $c !== 'admonition'
