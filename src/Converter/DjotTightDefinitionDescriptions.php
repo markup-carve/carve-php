@@ -109,7 +109,7 @@ final class DjotTightDefinitionDescriptions
                     if ($node->isTight() && $pos !== null) {
                         $at = $sourceOffset($pos->startOffset);
                         $prefix = substr($lines[$pos->startLine - 1], 0, $at - $offsets[$pos->startLine - 1]);
-                        $edits[] = ['start' => $at, 'end' => $at, 'value' => "{loose}\n" . $prefix];
+                        $edits[] = ['start' => $at, 'end' => $at, 'value' => "{loose}\n" . (preg_replace('/[^ \t>]/', ' ', $prefix) ?? $prefix)];
                     }
                 }
                 if (!$node->isTight() && $safeChildren && $hasDefinition && !$paragraphGap) {
