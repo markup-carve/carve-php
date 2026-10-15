@@ -659,6 +659,48 @@ class CliTest extends TestCase
         }
     }
 
+    public function testMigrateMarkdownDirectoryKeepsSourcePermissions(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $this->markTestSkipped('POSIX permissions only.');
+        }
+        $root = sys_get_temp_dir() . '/carve-folder-mode-' . bin2hex(random_bytes(8));
+        $source = $root . '/source';
+        $output = $root . '/output';
+        mkdir($source, 0777, true);
+        file_put_contents($source . '/private.md', "# Private\n");
+        file_put_contents($source . '/public.md', "# Public\n");
+        file_put_contents($source . '/secret.png', 'png');
+        file_put_contents($source . '/tool.sh', 'sh');
+        chmod($source . '/private.md', 0600);
+        chmod($source . '/public.md', 0644);
+        chmod($source . '/secret.png', 0600);
+        chmod($source . '/tool.sh', 0755);
+        $previousUmask = umask(0022);
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output], '');
+            $this->assertSame(0, $result['exit'], $result['err']);
+            clearstatcache();
+            $this->assertSame(0600, fileperms($output . '/private.crv') & 0777);
+            $this->assertSame(0644, fileperms($output . '/public.crv') & 0777);
+            $this->assertSame(0600, fileperms($output . '/secret.png') & 0777);
+            $this->assertSame(0755, fileperms($output . '/tool.sh') & 0777);
+            $this->assertSame(['output', 'source'], array_values(array_diff((array)scandir($root), ['.', '..'])));
+        } finally {
+            umask($previousUmask);
+            foreach (['output/private.crv', 'output/public.crv', 'output/secret.png', 'output/tool.sh', 'output/migration-report.json', 'source/private.md', 'source/public.md', 'source/secret.png', 'source/tool.sh'] as $path) {
+                if (file_exists($root . '/' . $path)) {
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
     public function testMigrateWritesAListTableUnderTheListTableFlag(): void
     {
         $html = '<table><tr><td><p>a</p><p>b</p></td></tr></table>';
