@@ -12,7 +12,7 @@ final class WholeGraphemeDelimiterTest extends TestCase
     public function testDecoratedDelimitersStayText(): void
     {
         $converter = new CarveConverter();
-        foreach ([
+        $cases = [
             '*️⃣abc*' => '<p>*️⃣abc*</p>',
             '*a*️⃣' => '<p>*a*️⃣</p>',
             '*a*́ b*' => '<p><strong>a*́ b</strong></p>',
@@ -21,7 +21,8 @@ final class WholeGraphemeDelimiterTest extends TestCase
             '*x* *️⃣ *y*' => '<p><strong>x</strong> *️⃣ <strong>y</strong></p>',
             '{*️⃣abc*}' => '<p>{*️⃣abc*}</p>',
             '/*️a*/' => '<p><em>*️a*</em></p>',
-        ] as $source => $expected) {
+        ];
+        foreach ($cases as $source => $expected) {
             self::assertSame($expected . "\n", $converter->convert($source), $source);
         }
     }
