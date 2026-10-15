@@ -19,16 +19,10 @@ final class DocumentSentinels
     public const PRIVATE_USE_LAST = 0xF8FF;
 
     /**
-     * Every string in the tree, joined.
+     * Iterative, not json_encode(): recursion fails before the caller's PART 9
+     * §25 depth refusal. The (array) cast reaches non-public node properties.
      *
-     * ITERATIVE on purpose. `json_encode()` would be one line and it recurses,
-     * so on a document deeper than its nesting limit it fails - and the callers
-     * have a documented PART 9 section 25 depth REFUSAL that has to be what
-     * fires instead. The `(array)` cast reaches protected and private
-     * properties, so no node type needs to know about this.
-     *
-     * @param object|array<mixed> $root A node, or the run of nodes a fragment
-     *   render is handed.
+     * @param object|array<mixed> $root A node or a fragment's nodes.
      */
     public static function collectStrings(object|array $root): string
     {
@@ -47,11 +41,7 @@ final class DocumentSentinels
             }
             if (is_array($node)) {
                 foreach ($node as $key => $value) {
-                    // KEYS carry authored text too. A document's abbreviations
-                    // are keyed by the TERM, and the term is written back out -
-                    // so a values-only walk missed it and the writer rewrote
-                    // the author's character in `*[term]: expansion` while
-                    // getting every code block right.
+                    // Abbreviation terms are authored text stored as keys.
                     if (is_string($key)) {
                         $parts[] = $key;
                     }
@@ -94,16 +84,7 @@ final class DocumentSentinels
      */
     public static function pick(string $text, int $count, int $first): array
     {
-        // ONE CODE POINT AT A TIME, not one RUN at a time. Stepping by $count
-        // only ever tested ALIGNED runs, so the search gave up after
-        // (0xF8FF - $first) / $count candidates - roughly a thousand for a run
-        // of six - and a document holding ONE character from each of those was
-        // enough to exhaust it and fall through to the colliding preferred run.
-        // The comment below used to claim the fallback needed every private-use
-        // code point to be written, which is a constraint that did not hold: it
-        // needed about a sixth of them, in a document a generator could produce.
-        // Stepping by one means the fallback really does need the whole range
-        // covered with no gap of $count (markup-carve/carve-php#1087).
+        // Check every start; stepping by $count can miss free runs (carve-php#1087).
         for ($base = $first; $base + $count - 1 <= self::PRIVATE_USE_LAST; $base++) {
             $run = self::run($base, $count);
             if (!self::collides($text, $run)) {
