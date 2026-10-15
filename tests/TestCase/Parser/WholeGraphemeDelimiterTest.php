@@ -89,4 +89,38 @@ final class WholeGraphemeDelimiterTest extends TestCase
 
         self::assertSame("{*/x/*}́a\n", (new CarveRenderer())->render($document));
     }
+
+    public function testEveryRemainingBracedOpenerTakesTheGuard(): void
+    {
+        $cases = [
+            "{/\u{0301}x/}",
+            "{_\u{FE0F}x_}",
+            "{=\u{20E3}x=}",
+            "{~\u{093E}x~}",
+            "{*\u{200D}x*}",
+        ];
+        foreach ($cases as $source) {
+            self::assertSame('<p>' . $source . "</p>\n", (new CarveConverter())->convert($source . "\n"), $source);
+            self::assertSame($source . "\n", CarveConverter::toCarve($source . "\n"), $source);
+        }
+    }
+
+    public function testBareSlashAndEqualsTakeTheGuard(): void
+    {
+        $converter = new CarveConverter();
+        self::assertSame("<p>/\u{0301}x <em>y</em></p>\n", $converter->convert("/\u{0301}x /y/\n"));
+        self::assertSame("<p>=\u{FE0F}x <mark>y</mark></p>\n", $converter->convert("=\u{FE0F}x =y=\n"));
+    }
+
+    /**
+     * U+200B is a grapheme boundary (UAX #29 Control), unlike U+200D, so a
+     * test for "any format character" would wrongly make these text.
+     */
+    public function testAZeroWidthSpaceIsNotAnExtender(): void
+    {
+        $converter = new CarveConverter();
+        self::assertSame("<p>x <strong>\u{200B}y</strong> z</p>\n", $converter->convert("x *\u{200B}y* z\n"));
+        self::assertSame("<p>x\u{200B}<strong>y</strong>\u{200B}z</p>\n", $converter->convert("x\u{200B}*y*\u{200B}z\n"));
+        self::assertSame("<p>x *\u{200D}y* z</p>\n", $converter->convert("x *\u{200D}y* z\n"));
+    }
 }
