@@ -93,7 +93,7 @@ final class DjotTightDefinitionDescriptions
                         $children = $item->getChildren();
                         $count = count($children);
                         for ($i = 1; $i < $count; $i++) {
-                            $clearGap($children[$i - 1]->getPos(), $children[$i]->getPos(), true);
+                            $clearGap($children[$i - 1]->getPos(), $children[$i]->getPos(), $children[$i - 1] instanceof DefinitionList);
                         }
                     }
                     $count = count($items);
