@@ -28,4 +28,27 @@ final class AstConformanceRemainderTest extends TestCase
         self::assertSame("\\[foo]:\n\n[foo]\n", $converted);
         self::assertSame('<p>[foo]:</p>' . "\n" . '<p>[foo]</p>', trim((new CarveConverter())->convert($converted)));
     }
+
+    public function testBareHeadUsesALaterComplexDefinition(): void
+    {
+        $source = "[a\\*b]:\n\n[a\\*b]: /u\n  \"t\nx\"\n";
+        $converted = (new MarkdownToCarve())->convert($source);
+        self::assertSame('<p><a href="/u" title="t' . "\n" . 'x">a*b</a>:</p>', trim((new CarveConverter())->convert($converted)));
+    }
+
+    public function testBareHeadDoesNotUseDifferentEscapedDefinition(): void
+    {
+        $source = "[a\\*b]:\n\n[a\\\\*b]: /u\n";
+        $converted = (new MarkdownToCarve())->convert($source);
+        self::assertStringStartsWith('\\[a\\*b]:', $converted);
+        self::assertSame('<p>[a*b]:</p>', trim((new CarveConverter())->convert($converted)));
+    }
+
+    public function testBareHeadDoesNotUseEscapedDefinitionWithSameDecodedLabel(): void
+    {
+        $source = "[a*b]:\n\n[a\\*b]: /u\n";
+        $converted = (new MarkdownToCarve())->convert($source);
+        self::assertStringStartsWith('\\[a*b]:', $converted);
+        self::assertSame('<p>[a*b]:</p>', trim((new CarveConverter())->convert($converted)));
+    }
 }
