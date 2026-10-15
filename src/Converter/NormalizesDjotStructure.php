@@ -31,7 +31,7 @@ trait NormalizesDjotStructure
                 continue;
             }
             $class = preg_replace('/\\\\([_-])/', '$1', $fence[2]) ?? $fence[2];
-            if ($class !== 'figure' && !str_starts_with($class, '-') && $class === $fence[2] && !in_array($class, Div::GENERATED_CONTENT_KINDS, true)) {
+            if ($class !== 'figure' && !str_starts_with($class, '-') && $class === $fence[2] && !in_array($class, Div::ADMONITION_TYPES, true) && !in_array($class, Div::GENERATED_CONTENT_KINDS, true)) {
                 continue;
             }
             $classes[$line] = $class;

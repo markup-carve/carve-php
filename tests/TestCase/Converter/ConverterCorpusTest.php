@@ -51,9 +51,7 @@ class ConverterCorpusTest extends TestCase
      *
      * @var array<string, string>
      */
-    protected const DECLARED_DRIFT = [
-        '39-djot-native-structure-sweep' => 'Djot note div currently imports as a Carve admonition.',
-    ];
+    protected const DECLARED_DRIFT = [];
 
     /**
      * @var array<string, string>
