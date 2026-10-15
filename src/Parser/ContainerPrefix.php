@@ -57,13 +57,8 @@ class ContainerPrefix
         return $line[$at + 1] === ' ' ? 2 : null;
     }
 
-    /**
-     * Every leading block-quote marker removed, by the rule above.
-     *
-     * Byte-equivalent to `preg_replace('/^(?:>(?: |$))+/', '', $line)`, which is
-     * how two callers used to spell it - a second spelling of the same rule,
-     * and the one that would have kept the old behavior after a change to the
-     * first.
+    /** Remove leading quote markers by the shared rule above. Equivalent to
+     * `preg_replace('/^(?:>(?: |$))+/', '', $line)`; keep one implementation.
      */
     public static function stripQuoteMarkers(string $line): string
     {
