@@ -9846,6 +9846,9 @@ class MarkdownToCarve
     {
         $chunk = [];
         $count = count($lines);
+        $destination = false;
+        $closer = null;
+        // Collect only while a title is open, so a run of definitions stays linear.
         for ($at = $start; $at < $count; $at++) {
             $prefix = $this->quotePrefixOf($lines[$at]);
             $lineDepth = substr_count($prefix, '>');
@@ -9854,6 +9857,35 @@ class MarkdownToCarve
                 break;
             }
             $chunk[] = $body;
+            $rest = preg_replace('/\\\\./', '', $at === $start ? (string)preg_replace('/^ {0,3}\[(?:[^[\]\\\\\n]|\\\\.)+\]:/', '', $body) : $body) ?? '';
+            if (!$destination) {
+                $rest = ltrim($rest);
+                if ($rest === '') {
+                    continue;
+                }
+                if (!str_starts_with($rest, '<>')) {
+                    return null;
+                }
+                $destination = true;
+                $rest = substr($rest, 2);
+            }
+            if ($closer === null) {
+                $rest = ltrim($rest);
+                if ($rest === '') {
+                    continue;
+                }
+                $closer = ['"' => '"', "'" => "'", '(' => '()'][$rest[0]] ?? null;
+                if ($closer === null) {
+                    return null;
+                }
+                $rest = substr($rest, 1);
+            }
+            if (strpbrk($rest, $closer) !== false) {
+                break;
+            }
+        }
+        if ($closer === null) {
+            return null;
         }
         $parsed = MarkdownReferenceDefinition::read(implode("\n", $chunk));
         if (
