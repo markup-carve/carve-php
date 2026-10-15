@@ -6550,7 +6550,7 @@ class MarkdownToCarve
         $previousContent = preg_replace($prefix, '', $previous) ?? $previous;
         $writtenContent = preg_replace($prefix, '', $written) ?? $written;
         $opensNoParagraph = trim($previousContent) === ''
-            || (preg_match('/^' . $label . '[ \t]*(?:(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?$/', $previousContent) === 1
+            || (preg_match('/^' . $label . '[ \t]*(?:(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?$/', $previousContent) === 1
                 && !str_starts_with($writtenContent, '\\['));
         if ($opensNoParagraph) {
             return $line;
@@ -9430,7 +9430,7 @@ class MarkdownToCarve
             if (
                 ($canStart || $opensItem || $lineDepth > $depth)
                 && preg_match('/^ {0,3}\[((?:[^[\]\\\\]|\\\\.)+)\]:(.*)$/', $content, $definition) === 1
-                && preg_match('/^[ \t]*(?:(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*)?$/', $definition[2]) === 1
+                && preg_match('/^[ \t]*(?:(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*)?$/', $definition[2]) === 1
             ) {
                 $depth = $lineDepth;
                 $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]));
@@ -9440,7 +9440,7 @@ class MarkdownToCarve
                     && $i + 1 < $count
                     && str_starts_with($lines[$i + 1], $quotePrefix)
                     && !$this->opensMarkdownBlock(substr($lines[$i + 1], strlen($quotePrefix)))
-                    && preg_match('/^[ \t]*(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix))) === 1
+                    && preg_match('/^[ \t]*(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix))) === 1
                 ) {
                     $continued[] = $lines[++$i];
                     $definition[2] = substr($continued[0], strlen($quotePrefix));
@@ -9869,7 +9869,9 @@ class MarkdownToCarve
                     continue;
                 }
                 $destination = true;
-                $end = $rest[0] === '<' ? strpos($rest, '>') : strcspn($rest, " \t");
+                $end = $rest[0] === '<'
+                    ? (preg_match('/^<(?:[^<>\n\\\\]|\\\\.)*>/', $rest, $angle) === 1 ? strlen($angle[0]) - 1 : false)
+                    : strcspn($rest, " \t");
                 if ($end === false) {
                     return null;
                 }
