@@ -187,6 +187,96 @@ class DjotToCarve
         return $converted;
     }
 
+    private function collapsePlainNestedImageChains(string $source): string
+    {
+        if (!str_contains($source, '![') || !str_contains($source, "\n")) {
+            return $source;
+        }
+        $mask = $this->maskCodeAndDestinations($source);
+        if (str_contains($source, ']:')) {
+            $accepted = [];
+            $this->foldDjotReferences($source, $accepted);
+            $maskLines = explode("\n", $mask);
+            foreach ($accepted ?? [] as $line => $decision) {
+                for ($next = $line; $next <= $decision['end']; $next++) {
+                    $maskLines[$next] = str_repeat(' ', strlen($maskLines[$next]));
+                }
+            }
+            $mask = implode("\n", $maskLines);
+        }
+        $chunks = [];
+        $copied = 0;
+        $length = strlen($source);
+        for ($start = 0; $start < $length; $start++) {
+            if (substr($source, $start, 2) !== '![' || $mask[$start] !== '!' || $this->isDjotEscaped($source, $start)) {
+                continue;
+            }
+            $at = $start;
+            $lastUnsafe = -1;
+            $previous = $nonSpace = '';
+            $labels = $positions = [];
+            while (substr($source, $at, 2) === '![' && $mask[$at] === '!') {
+                $positions[] = $at;
+                $at += 2;
+                $begin = $at;
+                $level = count($labels);
+                while ($at < $length && preg_match('/[A-Za-z0-9 \t\n]/', $source[$at]) === 1) {
+                    $ch = $source[$at++];
+                    if ($ch === "\n" && ($nonSpace === "\n" || $previous === ' ' || $previous === "\t")) {
+                        $lastUnsafe = $level;
+                    }
+                    if ($ch !== ' ' && $ch !== "\t") {
+                        $nonSpace = $ch;
+                    }
+                    $previous = $ch;
+                }
+                $labels[] = substr($source, $begin, $at - $begin);
+                if (substr($source, $at, 2) !== '![') {
+                    break;
+                }
+            }
+            if (count($labels) < 2 || ($source[$at] ?? '') !== ']') {
+                $start = max($start, $at - 1);
+
+                continue;
+            }
+            $targets = $ends = [];
+            $depth = count($labels);
+            for ($level = 0; $level < $depth; $level++) {
+                if (substr($source, $at, 2) !== '](') {
+                    break;
+                }
+                $at += 2;
+                $begin = $at;
+                while ($at < $length && preg_match('/[\s()\[\]<>\\\\]/', $source[$at]) !== 1) {
+                    $at++;
+                }
+                if ($at === $begin || ($source[$at] ?? '') !== ')') {
+                    break;
+                }
+                $targets[] = substr($source, $begin, $at - $begin);
+                $ends[] = ++$at;
+            }
+            $first = max(count($labels) - count($targets), $lastUnsafe + 1);
+            $count = count($labels) - $first;
+            if ($count < 2) {
+                $start = max($start, $at - 1);
+
+                continue;
+            }
+            $end = $ends[$count - 1];
+            $chunks[] = substr($source, $copied, $positions[$first] - $copied);
+            $chunks[] = '![' . implode('', array_slice($labels, $first)) . '](' . $targets[$count - 1] . ')';
+            $copied = $end;
+            $start = $end - 1;
+        }
+        if ($chunks === []) {
+            return $source;
+        }
+
+        return implode('', $chunks) . substr($source, $copied);
+    }
+
     private function convertDocument(string $djot, bool $preserveHeadingIds = true, bool $skipHeadingTargets = false): string
     {
         $previousShield = $this->nulShielded;
@@ -207,6 +297,7 @@ class DjotToCarve
         $strippedDefinitions = $this->stripFootnoteDefinitionAttributes($djot);
         $source = $strippedDefinitions['source'];
         [$frontmatter, $separator, $source] = $this->splitSiteFrontmatter($source);
+        $source = $this->collapsePlainNestedImageChains($source);
         $source = $this->escapeDjotTableAttributeBoundaries($this->normalizeDjotDivOpeners($source));
         $hasSourceNuls = str_contains($source, "\0U\0");
         if (

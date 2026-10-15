@@ -23,7 +23,7 @@ trait ReportsDjotLosses
     private function djotImageTrailingWhitespaceLoss(string $text, int $depth, Closure $childText): bool
     {
         $label = $this->djotImageLabelAttributes($this->projectDjotReferenceText($text, $depth), true);
-        if (preg_match('/([ \t]+)((?:(?:\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', $label) !== 1) {
+        if (preg_match('/([ \t]+)((?:(?:\]\([^()\r\n]*\)|\]\[[^\]\r\n]*\]|\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', $label) !== 1) {
             return false;
         }
         preg_match_all('/DJOTTRAILSPACE([0-9]+)Z/', (preg_replace('/[^A-Za-z0-9]/', '', $label) ?? $label) . '\n' . $childText($label, 0), $matches);
@@ -34,7 +34,7 @@ trait ReportsDjotLosses
         }
         $marker = 'DJOTTRAILSPACE' . $serial . 'Z';
         $mask = $this->maskCodeAndDestinations($label);
-        $probe = preg_replace_callback('/([ \t]+)((?:(?:\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', function (array $match) use ($label, $mask, $marker): string {
+        $probe = preg_replace_callback('/([ \t]+)((?:(?:\]\([^()\r\n]*\)|\]\[[^\]\r\n]*\]|\{%%\}|\[\]\{\}|\{\}|[\]}`_*~^+=-])[ \t]*)*)(\n)/', function (array $match) use ($label, $mask, $marker): string {
             $at = $match[0][1];
             if ($at > 0 && ($mask[$at - 1] ?? '') === '\\' && !$this->isDjotEscaped($label, $at - 1)) {
                 return $match[0][0];
@@ -360,6 +360,7 @@ trait ReportsDjotLosses
             }
         }
         $starts = $images = $innerLinks = $depths = [];
+        $plainFlags = $plainFirst = $plainLast = [];
         $boundary = 0;
         $sourceLine = 0;
         for ($at = 0, $length = strlen($source); $at < $length; $at++) {
@@ -368,7 +369,21 @@ trait ReportsDjotLosses
             }
             while (($boundaryOffsets[$boundary] ?? $length) <= $at) {
                 $starts = $images = $innerLinks = $depths = [];
+                $plainFlags = $plainFirst = $plainLast = [];
                 $boundary++;
+            }
+            if ($starts !== []) {
+                $owner = $starts[array_key_last($starts)];
+                $ch = $source[$at];
+                if ($ch !== '[' && $ch !== ']' && !($ch === '!' && ($source[$at + 1] ?? '') === '[')) {
+                    if ($mask[$at] !== $ch || $this->isDjotEscaped($source, $at) || preg_match('/[A-Za-z0-9 \t\n]/', $ch) !== 1 || $ch === "\n" && preg_match('/[A-Za-z0-9]/', $plainLast[$owner]) !== 1) {
+                        $plainFlags[$owner] = false;
+                    }
+                    if ($plainFirst[$owner] === '') {
+                        $plainFirst[$owner] = $ch;
+                    }
+                    $plainLast[$owner] = $ch;
+                }
             }
             if ($mask[$at] === '\\') {
                 $at++;
@@ -376,12 +391,22 @@ trait ReportsDjotLosses
                 continue;
             }
             if ($mask[$at] === '[') {
+                if ($starts !== [] && (($source[$at - 1] ?? '') !== '!' || $this->isDjotEscaped($source, $at - 1))) {
+                    $plainFlags[$starts[array_key_last($starts)]] = false;
+                }
+                $plainFlags[$at] = true;
+                $plainFirst[$at] = $plainLast[$at] = '';
                 $starts[] = $at;
                 $depths[$at] = $quoteDepths[$sourceLine];
                 $images[] = $at > 0 && $source[$at - 1] === '!' && !$this->isDjotEscaped($source, $at - 1);
                 $innerLinks[] = false;
             } elseif ($mask[$at] === ']' && $starts !== []) {
                 $start = array_pop($starts);
+                $plain = $plainFlags[$start];
+                $firstText = $plainFirst[$start];
+                $lastText = $plainLast[$start];
+                unset($plainFlags[$start], $plainFirst[$start], $plainLast[$start]);
+                $destination = null;
                 $depth = $depths[$start];
                 unset($depths[$start]);
                 $image = array_pop($images);
@@ -412,7 +437,7 @@ trait ReportsDjotLosses
                     $destination = isset($destinations[$at + 1])
                         ? $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth)
                         : ($definitions[$label ?? ''] ?? null);
-                    if ($destination !== null && $destination !== '' && str_contains($text, "\n")) {
+                    if ($destination !== null && $destination !== '' && str_contains($text, "\n") && !$plain) {
                         $child = $imageChildText($text, $depth);
                         if (preg_match('/\n[ \t]*\n/', $child) === 1) {
                             $add($start, 'An image alternative text with a blank line cannot be spelled in Carve.');
@@ -427,8 +452,22 @@ trait ReportsDjotLosses
                 if ($starts !== [] && ($isLink || $innerLink && !($image && $validForm))) {
                     $innerLinks[count($starts) - 1] = true;
                 }
+                if ($starts !== []) {
+                    $owner = $starts[array_key_last($starts)];
+                    if (!$image || $footnote || !$validForm || $destination === null || $destination === '' || !$plain) {
+                        $plainFlags[$owner] = false;
+                    }
+                    if ($plainFirst[$owner] === '') {
+                        $plainFirst[$owner] = $firstText;
+                    }
+                    if ($lastText !== '') {
+                        $plainLast[$owner] = $lastText;
+                    }
+                }
                 if (!$footnote && ($source[$at + 1] ?? '') === '[' && $referenceEnd >= 0) {
                     $at = $referenceEnd;
+                } elseif (!$footnote && isset($destinations[$at + 1])) {
+                    $at = $destinations[$at + 1] - 1;
                 }
             }
         }
