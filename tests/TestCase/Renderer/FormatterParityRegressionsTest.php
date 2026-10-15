@@ -13,6 +13,14 @@ use PHPUnit\Framework\TestCase;
 
 class FormatterParityRegressionsTest extends TestCase
 {
+    public function testVariationSelectorAfterAStarKeepsTheBareItalicSpelling(): void
+    {
+        $source = "/*️a*/\n";
+        $this->assertSame($source, CarveConverter::toCarve("{/*️a*/}\n"));
+        $converter = new CarveConverter();
+        $this->assertSame($converter->convert($source), $converter->convert(CarveConverter::toCarve($source)));
+    }
+
     public function testConstructedBlockMarkerCodeRefusesInTermsAndFootnotes(): void
     {
         foreach ([":: p `X` q\n", "r[^n]\n\n[^n]: p `X` q\n"] as $source) {
