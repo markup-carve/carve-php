@@ -621,6 +621,10 @@ class CliTest extends TestCase
             $inside = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $nested], '');
             $this->assertSame(2, $inside['exit']);
             $this->assertDirectoryDoesNotExist($source . '/new');
+            $missingTraversal = $root . '/zzz/../source/new/out';
+            $inside = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $missingTraversal], '');
+            $this->assertSame(2, $inside['exit']);
+            $this->assertDirectoryDoesNotExist($source . '/new');
             $traversal = $source . '/../source/new/out';
             $inside = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $traversal], '');
             $this->assertSame(2, $inside['exit']);

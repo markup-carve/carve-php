@@ -310,7 +310,11 @@ function resolveFutureOutputPath(string $path): string
         if ($parent === $ancestor) {
             throw new RuntimeException("cannot resolve output path: $path");
         }
-        array_unshift($missing, basename($ancestor));
+        $name = basename($ancestor);
+        if ($name === '.' || $name === '..') {
+            throw new RuntimeException("output path traverses a missing directory: $path");
+        }
+        array_unshift($missing, $name);
         $ancestor = $parent;
     }
     $resolved = realpath($ancestor);
