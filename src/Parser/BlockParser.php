@@ -3670,6 +3670,14 @@ class BlockParser
         ) {
             return false;
         }
+        // A quote or item opens a paragraph only when its content would.
+        if (preg_match('/^>(?:[ \t](.*))?$/', $trimmed, $quote) === 1) {
+            return $this->opensColonBodyParagraph($quote[1] ?? '');
+        }
+        $item = $this->listParser->parseListItemMarker($trimmed);
+        if ($item !== null) {
+            return $this->opensColonBodyParagraph($item['content']);
+        }
 
         return true;
     }
