@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\ProseMirror;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorRenderer;
 use MarkupCarve\Carve\ProseMirror\ProseMirrorToCarve;
 use MarkupCarve\Carve\ProseMirror\SchemaMap;
@@ -177,6 +178,7 @@ class ProseMirrorCorpusTest extends TestCase
         $survives = 0;
         $coveredButDiffering = [];
         $threw = [];
+        $refusedPastTheCap = [];
 
         foreach ($files as $file) {
             $source = (string)file_get_contents($file);
@@ -194,7 +196,19 @@ class ProseMirrorCorpusTest extends TestCase
                 $covered = $renderer->droppedTypes() === [] && $renderer->degradedTypes() === [];
 
                 $back = $converter->convert($proseMirror);
-                $actualCarve = CarveConverter::carve()->render($back);
+                try {
+                    $actualCarve = CarveConverter::carve()->render($back);
+                } catch (SourceUnspellableException $e) {
+                    // CARVE-P9-078: a tree past the nesting cap that reads back
+                    // as another document is refused, not written. It does not
+                    // survive the trip; any other refusal still fails below.
+                    if (!str_contains($e->getMessage(), 'nesting limit')) {
+                        throw $e;
+                    }
+                    $refusedPastTheCap[] = $name;
+
+                    continue;
+                }
                 $actual = (new CarveConverter())->render((new CarveConverter())->parse($actualCarve));
 
                 // Counted whether or not the document is covered, because
@@ -230,6 +244,8 @@ class ProseMirrorCorpusTest extends TestCase
         }
 
         $this->assertSame([], $threw, 'no corpus document may throw: ' . json_encode(array_slice($threw, 0, 3)));
+        // Only the corpus document that exists to sit past the cap may take it.
+        $this->assertSame(['182-openers-past-the-nesting-cap-are-one-paragraph'], $refusedPastTheCap);
 
         $this->assertGreaterThanOrEqual(
             self::MINIMUM_LOSSLESS,
