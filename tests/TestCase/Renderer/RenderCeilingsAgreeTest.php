@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
@@ -98,17 +99,26 @@ class RenderCeilingsAgreeTest extends TestCase
         $this->assertGreaterThan(BlockParser::MAX_NESTING_DEPTH, RendererInterface::MAX_RENDER_DEPTH);
     }
 
-    public function testATreeTheHtmlRendererAcceptsCanAlsoBeFormatted(): void
+    public function testATreeTheHtmlRendererAcceptsReachesTheWriterSCapCheckNotTheCeiling(): void
     {
-        // The reported symptom, in one assertion: 300 levels renders to HTML and
-        // used to be refused by `fmt`.
+        // 300 levels renders to HTML and used to be refused by `fmt` at the
+        // ceiling. It is past the parse cap, so no source reads back as it, and
+        // the writer takes CARVE-P9-078's refuse arm instead of the ceiling's.
         $document = (new AstCodec())->decodeJson($this->nestedQuotes(300));
 
         $html = (new HtmlRenderer())->render($document);
         $this->assertStringContainsString('<blockquote>', $html);
 
-        $carve = (new CarveRenderer())->render($document);
-        $this->assertStringContainsString('>', $carve);
+        $this->expectException(SourceUnspellableException::class);
+        $this->expectExceptionMessageMatches('/nesting limit of 200/');
+        (new CarveRenderer())->render($document);
+    }
+
+    public function testTheDeepestTreeTheParserAcceptsCanBeFormatted(): void
+    {
+        $document = (new AstCodec())->decodeJson($this->nestedQuotes(BlockParser::MAX_NESTING_DEPTH));
+
+        $this->assertStringContainsString('> x', (new CarveRenderer())->render($document));
     }
 
     public function testTheCeilingStillRefusesAboveIt(): void
