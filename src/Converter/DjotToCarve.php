@@ -546,7 +546,7 @@ class DjotToCarve
             $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
         }
 
-        $carve = $this->genericDjotDivClasses($carve);
+        $carve = DjotTightDefinitionDescriptions::normalize($this->genericDjotDivClasses($carve));
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
@@ -863,14 +863,10 @@ class DjotToCarve
         $block = '/^(?:[#>|{]|[-*+][ \t]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]|:[ \t]|:{2,}|\([0-9a-zA-Z]+\)[ \t]|[`~]{3,}|\^[ \t]|\[[^\]\n]*\]:|(?:\*[ \t]*){3,}$|(?:-[ \t]*){3,}$)/';
         $container = '/\G([ \t]*)(>(?:[ \t]|$)|\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+|(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)][ \t]+|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)[ \t]+)/';
         $result = [];
+        $definitionHosts = [];
         $count = count($lines);
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
-            if (!str_contains($line, '#')) {
-                $result[] = $line;
-
-                continue;
-            }
             $at = 0;
             $depth = 0;
             $column = 0;
@@ -891,12 +887,28 @@ class DjotToCarve
                     }
                 }
             }
+            foreach (array_keys($definitionHosts) as $held) {
+                if ($held > $depth) {
+                    unset($definitionHosts[$held]);
+                }
+            }
+            if ($depth > 0 && $column > 0 && preg_match('/^:(?:[ \t]|$)/', substr($line, $at)) === 1 && ($masked[$i][$at] ?? '') === ':') {
+                $definitionHosts[$depth] = $column;
+            } elseif ($column > 0) {
+                unset($definitionHosts[$depth]);
+            }
+            if (!str_contains($line, '#')) {
+                $result[] = $line;
+
+                continue;
+            }
             if (preg_match('/\G([ \t]*)(#{1,6})(?:[ \t]+\S|[ \t]*$)/', $line, $heading, 0, $at) !== 1 || ($masked[$i][$at + strlen($heading[1])] ?? '') !== '#') {
                 $result[] = $line;
 
                 continue;
             }
-            $quoteHeading = $depth > 0 && $column === 0;
+            $inDefinitionHost = isset($definitionHosts[$depth]) && strlen($heading[1]) >= $definitionHosts[$depth];
+            $quoteHeading = $depth > 0 && $column === 0 && !$inDefinitionHost;
             $firstLine = $quoteHeading && $inlineContainer ? substr($line, 0, $at) . substr($line, $at + strlen($heading[1])) : $line;
             if (!$quoteHeading) {
                 $column += strlen($heading[1]);
@@ -2104,7 +2116,8 @@ class DjotToCarve
 
     private function convertUnquotedDefinitionLists(string $source, string $emptyTerm, int $depth = 0): string
     {
-        if (preg_match('/^[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+)+:/m', $source) !== 1) {
+        $marker = '(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))';
+        if (preg_match('/^[ \t]*(?:' . $marker . '[ \t]+)+[:{]/m', $source) !== 1) {
             return $this->convertRootDefinitionLists($source, $emptyTerm);
         }
         $lines = explode("\n", $source);
@@ -2119,8 +2132,22 @@ class DjotToCarve
             $line = $lines[$at];
             $sourceAt = $offset;
             $offset += strlen($line) + 1;
-            if (preg_match('/^([ \t]*)(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+(?=(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+)*:(?:[ \t]|$))/', $line, $item) !== 1 || ($masks[$at][strlen($item[0])] ?? '') !== ($line[strlen($item[0])] ?? '') || $at !== 0 && !isset($boundaries[$sourceAt])) {
+            if (preg_match('/^([ \t]*)' . $marker . '[ \t]+/', $line, $item) !== 1 || ($masks[$at][strlen($item[1])] ?? '') !== ($line[strlen($item[1])] ?? '') || $at !== 0 && !isset($boundaries[$sourceAt]) && preg_match('/^[ \t]*\{loose\}[ \t]*$/', $lines[$at - 1]) !== 1) {
                 continue;
+            }
+            if (preg_match('/^(?:' . $marker . '[ \t]+)*:(?:[ \t]|$)/', substr($line, strlen($item[0]))) !== 1) {
+                preg_match('/^[ \t]*(?:' . $marker . '[ \t]+)+/', $line, $heads);
+                $prefix = $heads[0] ?? '';
+                $attribute = $prefix !== '' ? $this->readDjotWordAttributes($line, strlen($prefix)) : null;
+                $next = $lines[$at + 1] ?? '';
+                preg_match_all('/' . $marker . '[ \t]+/', $prefix, $markers, PREG_OFFSET_CAPTURE);
+                if (count($markers[0]) < 2 || $attribute === null || $attribute['end'] !== strlen($line) || preg_match('/^[ \t]*:(?:[ \t]|$)/', $next) !== 1) {
+                    continue;
+                }
+                $last = $markers[0][array_key_last($markers[0])];
+                if ($this->leadingIndent($next)[0] <= $last[1]) {
+                    continue;
+                }
             }
             if ($at > $start) {
                 $result[] = $this->convertRootDefinitionLists(implode("\n", array_slice($lines, $start, $at - $start)), $emptyTerm);
@@ -2173,6 +2200,17 @@ class DjotToCarve
                     }
                 }
             }
+            if ($end < $count && $this->leadingIndent($lines[$end])[0] === $this->leadingIndent($item[1])[0] && preg_match('/^(?:[-*+]|[0-9A-Za-z]+[.)]|\([0-9A-Za-z]+\))[ \t]/', ltrim($lines[$end], " \t")) === 1) {
+                $tail = $convertedCount;
+                while ($tail > 0 && trim($converted[$tail - 1], " \t") === '') {
+                    $tail--;
+                }
+                if (($converted[$tail - 1] ?? '') === ':  ' . $emptyTerm) {
+                    for ($index = $tail; $index < $convertedCount; $index++) {
+                        $removed[$index] = true;
+                    }
+                }
+            }
             $written = [$item[0] . $emptyTerm];
             foreach ($converted as $index => $value) {
                 if (!isset($removed[$index])) {
@@ -2193,6 +2231,7 @@ class DjotToCarve
     private function convertRootDefinitionLists(string $source, string $emptyTerm): string
     {
         $lines = explode("\n", $source);
+        $removedBlanks = [];
         $sourceMask = $this->maskCodeAndDestinations($source);
         $maskedLines = explode("\n", $sourceMask);
         $fenceStarts = [];
@@ -2343,6 +2382,11 @@ class DjotToCarve
             }
             $contextIndex = array_key_last($stack);
             $context = $stack[$contextIndex];
+            if (!$context['body'] && $context['source'] > 0) {
+                for ($blank = $i - 1; $blank > $context['termEnd'] && trim($lines[$blank], " \t") === ''; $blank--) {
+                    $removedBlanks[$blank] = true;
+                }
+            }
             $payload = substr($line, $this->bytesThroughColumns($line, $context['source'] + 2));
             $extra = max(0, $indent - ($context['source'] + 2));
             $lines[$i] = $context['body']
@@ -2362,7 +2406,7 @@ class DjotToCarve
             $finish($finished['termEnd'], $finished['target'], $finished['body']);
         }
 
-        return implode("\n", $lines);
+        return implode("\n", array_diff_key($lines, $removedBlanks));
     }
 
     /**
@@ -3270,6 +3314,15 @@ class DjotToCarve
                         $ancestors[$level][] = ['indent' => $indent, 'column' => strlen(preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)$/', '$1.$2', $prefix[0] ?? '') ?? ''), 'ownerIndent' => $indent];
                     }
                     $ancestors[$level][] = ['indent' => $footnote ? strlen($note[1]) : $indent, 'column' => $column, 'ownerIndent' => $owningIndent];
+                    if ($level === $depth && preg_match('/^[ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+){2,}(?=:(?:[ \t]|$))/', $content, $definitionPrefix) === 1) {
+                        preg_match_all('/(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+/', $definitionPrefix[0], $items, PREG_OFFSET_CAPTURE);
+                        $last = array_pop($items[0]);
+                        if ($last === null) {
+                            continue;
+                        }
+                        $nativeColumn = strlen(preg_replace('/\(([0-9A-Za-z]+)\)([ \t]+)/', '$1.$2', $definitionPrefix[0]) ?? $definitionPrefix[0]);
+                        $ancestors[$level][] = ['indent' => $last[1], 'column' => $nativeColumn, 'ownerIndent' => $last[1]];
+                    }
                     if ($level < $depth) {
                         $viewOffset += $indent + 1;
                         if (($line[$viewOffset] ?? '') === ' ') {
