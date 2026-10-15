@@ -838,6 +838,37 @@ class CliTest extends TestCase
         }
     }
 
+    public function testMigrateMarkdownDirectoryRewritesALinkInAReadOnlySource(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows') {
+            $this->markTestSkipped('POSIX permissions only.');
+        }
+        $root = sys_get_temp_dir() . '/carve-folder-readonly-' . bin2hex(random_bytes(8));
+        mkdir($root . '/source', 0777, true);
+        file_put_contents($root . '/source/index.md', "# Home\n\n[link](target.md)\n");
+        file_put_contents($root . '/source/target.md', "# Target\n");
+        chmod($root . '/source/index.md', 0444);
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $root . '/source', '--output', $root . '/output'], '');
+            $this->assertSame(0, $result['exit'], $result['err']);
+            $this->assertStringContainsString('[link](target.crv)', (string)file_get_contents($root . '/output/index.crv'));
+            clearstatcache();
+            $this->assertSame(0444, fileperms($root . '/output/index.crv') & 0777);
+        } finally {
+            foreach (['output/index.crv', 'output/target.crv', 'output/migration-report.json', 'source/index.md', 'source/target.md'] as $path) {
+                if (file_exists($root . '/' . $path)) {
+                    chmod($root . '/' . $path, 0600);
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
     public function testMigrateWritesAListTableUnderTheListTableFlag(): void
     {
         $html = '<table><tr><td><p>a</p><p>b</p></td></tr></table>';

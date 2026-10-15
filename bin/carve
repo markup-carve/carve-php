@@ -800,8 +800,12 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets): ar
                 break;
             }
         }
-        if ($changed && file_put_contents($path, $writer->getRenderer()->render($codec->decode($document))) === false) {
-            throw new RuntimeException('cannot write converted output');
+        if ($changed) {
+            // The output already carries its source's mode, which may be read-only.
+            $mode = fileperms($path) & 0777;
+            if (!chmod($path, $mode | 0200) || file_put_contents($path, $writer->getRenderer()->render($codec->decode($document))) === false || !chmod($path, $mode)) {
+                throw new RuntimeException('cannot write converted output');
+            }
         }
     }
     unset($file);
