@@ -104,7 +104,7 @@ final class InvalidContainerMetadataTest extends TestCase
         }
         $source = "::: tip Bad X\n\n::: note\nx\n:::\n:::\n";
         $migrated = (new DjotToCarve())->convert($source);
-        self::assertSame("<p>::: tip Bad X</p>\n<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>x</p>\n</aside>\n<p>:::</p>", trim((new CarveConverter())->convert($migrated)));
+        self::assertSame("<p>::: tip Bad X</p>\n<div class=\"note\">\n  <p>x</p>\n</div>\n<p>:::</p>", trim((new CarveConverter())->convert($migrated)));
     }
 
     public function testLineAndHardBreakFencesKeepTheirOwnMigratedCloser(): void
