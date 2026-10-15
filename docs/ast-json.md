@@ -375,7 +375,7 @@ use MarkupCarve\Carve\Ast\AstEnvelope;
 
 $envelope = new AstEnvelope();
 $stored = $envelope->encode($document);
-// ['astVersion' => '1.0', 'document' => [...]]
+// ['astVersion' => '2.0', 'document' => [...]]
 
 $back = $envelope->decode($stored);
 ```
@@ -404,7 +404,7 @@ $document = $envelope->decode(
 
 | refusal | when |
 | --- | --- |
-| `AstEnvelopeVersionException` | a higher MAJOR. Not a schema failure: the payload may be well-formed under a contract this build predates |
+| `AstEnvelopeVersionException` | a higher major, or a higher minor of this build's major: the node schema is closed, so a field a newer minor adds would be rejected anyway. Not a schema failure: the payload may be well-formed under a contract this build predates |
 | `AstEnvelopeExtensionException` | an extension the payload needs and this reader does not implement. `required` absent means true |
 | `AstEnvelopeVocabularyException` | a `vocabulary` that is neither the core one nor one you named. Absent means core |
 | `AstEnvelopeShapeException` | the envelope itself is malformed |
