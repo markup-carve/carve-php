@@ -659,6 +659,79 @@ class CliTest extends TestCase
         }
     }
 
+    public function testMigrateMarkdownDirectoryChecksLinksAndFragments(): void
+    {
+        $root = sys_get_temp_dir() . '/carve-links-' . bin2hex(random_bytes(8));
+        $source = $root . '/source';
+        $output = $root . '/output';
+        mkdir($source . '/chapters', 0777, true);
+        file_put_contents($source . '/index.md', "# Home\n\n[good](chapters/intro.md#Intro) [self](#Home) [query](?view=1) [encoded](chapters/a%23b.md#A) [bad](chapters/intro.md#intro) [gone](missing.md) [route](/docs/intro) ![image](lost.png) [asset](manual.pdf#page=2)\n");
+        file_put_contents($source . '/chapters/intro.md', "# Intro\n\n[home](../index.md#Home)\n");
+        file_put_contents($source . '/chapters/a#b.md', "# A\n");
+        file_put_contents($source . '/manual.pdf', 'pdf');
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output, '--check-loss'], '');
+            $this->assertSame(1, $result['exit'], $result['err']);
+            $this->assertStringContainsString('(chapters/intro.crv#Intro)', (string)file_get_contents($output . '/index.crv'));
+            $this->assertStringContainsString('(chapters/a%23b.crv#A)', (string)file_get_contents($output . '/index.crv'));
+            $this->assertStringContainsString('(../index.crv#Home)', (string)file_get_contents($output . '/chapters/intro.crv'));
+            $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame(['index.md'], $report['review']);
+            $this->assertContains(['target' => 'lost.png', 'status' => 'unresolved', 'reason' => 'target missing from output'], $report['files'][2]['links']);
+            $this->assertContains(['target' => '#Home', 'status' => 'valid'], $report['files'][2]['links']);
+            $this->assertContains(['target' => '?view=1', 'status' => 'valid'], $report['files'][2]['links']);
+            $this->assertContains(['target' => 'manual.pdf#page=2', 'status' => 'unresolved', 'reason' => 'asset fragment needs site check'], $report['files'][2]['links']);
+        } finally {
+            foreach (['output/chapters/intro.crv', 'output/chapters/a#b.crv', 'output/index.crv', 'output/manual.pdf', 'output/migration-report.json', 'source/chapters/intro.md', 'source/chapters/a#b.md', 'source/index.md', 'source/manual.pdf'] as $path) {
+                if (is_file($root . '/' . $path)) {
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output/chapters', 'output', 'source/chapters', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
+    public function testMigrateMarkdownDirectoryDoesNotTreatDataIdAsAnAnchor(): void
+    {
+        $root = sys_get_temp_dir() . '/carve-link-id-' . bin2hex(random_bytes(8));
+        $source = $root . '/source';
+        $output = $root . '/output';
+        mkdir($source, 0777, true);
+        file_put_contents($source . '/page.md', "# Page\n\n[false anchor](other.md#shadow) [false code](other.md#ghost) [legacy](other.md#legacy)\n\n<a href=\" other.md \">raw</a>\n\n<img src=\" chart.png \" srcset=\"missing-responsive.png 2x, chart,v2.png 1x\">\n\n<link rel=\"preload\" as=\"image\" imagesrcset=\"chart,v2.png 2x\">\n\n<video poster=\"missing-poster.png\"></video>\n");
+        file_put_contents($source . '/other.md', "# Other\n\n<div data-id=\"shadow\">Text</div>\n\n`id=\"ghost\"`\n\n<a name=\"legacy\"></a>\n");
+        file_put_contents($source . '/chart.png', 'png');
+        file_put_contents($source . '/chart,v2.png', 'png');
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output], '');
+            $this->assertSame(0, $result['exit'], $result['err']);
+            $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
+            $page = array_values(array_filter($report['files'], static fn (array $file): bool => $file['source'] === 'page.md'))[0];
+            $this->assertContains(['target' => 'other.md#shadow', 'status' => 'unresolved', 'reason' => 'fragment missing from target'], $page['links']);
+            $this->assertContains(['target' => 'other.md#ghost', 'status' => 'unresolved', 'reason' => 'fragment missing from target'], $page['links']);
+            $this->assertContains(['target' => 'other.md#legacy', 'status' => 'rewritten'], $page['links']);
+            $this->assertContains(['target' => 'other.md', 'status' => 'unresolved', 'reason' => 'raw HTML link needs manual rewrite'], $page['links']);
+            $this->assertContains(['target' => 'chart.png', 'status' => 'valid'], $page['links']);
+            $this->assertCount(2, array_filter($page['links'], static fn (array $link): bool => $link['target'] === 'chart,v2.png' && $link['status'] === 'valid'));
+            $this->assertContains(['target' => 'missing-responsive.png', 'status' => 'unresolved', 'reason' => 'target missing from output'], $page['links']);
+            $this->assertContains(['target' => 'missing-poster.png', 'status' => 'unresolved', 'reason' => 'target missing from output'], $page['links']);
+        } finally {
+            foreach (['output/page.crv', 'output/other.crv', 'output/chart.png', 'output/chart,v2.png', 'output/migration-report.json', 'source/page.md', 'source/other.md', 'source/chart.png', 'source/chart,v2.png'] as $path) {
+                if (is_file($root . '/' . $path)) {
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
     public function testMigrateMarkdownDirectoryKeepsSourcePermissions(): void
     {
         if (PHP_OS_FAMILY === 'Windows') {

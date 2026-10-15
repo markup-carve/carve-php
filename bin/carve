@@ -472,6 +472,13 @@ function migrateMarkdownDirectory(string $source, string $output): array
             }
             $files[] = ['source' => $path, 'output' => $destination, 'diagnostics' => $diagnostics];
         }
+        $broken = checkMigratedLinks($temporary, $files, $assets);
+        foreach ($broken as $path) {
+            if (!in_array($path, $review, true)) {
+                $review[] = $path;
+            }
+        }
+        sort($review, SORT_STRING);
         $report = ['schemaVersion' => 1, 'sourceFormat' => 'markdown', 'files' => $files, 'assets' => $assets, 'skipped' => $skipped, 'review' => $review];
         if (file_put_contents($temporary . '/migration-report.json', json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n") === false) {
             throw new RuntimeException('cannot write migration report');
@@ -502,6 +509,304 @@ function migrateMarkdownDirectory(string $source, string $output): array
     }
 
     return ['files' => count($files), 'assets' => count($assets), 'review' => count($review), 'skipped' => count($skipped), 'report' => $final . '/migration-report.json'];
+}
+
+/**
+ * Inspect a local link in a converted document.
+ *
+ * @return array{href:string, check:array<string,string>}|null
+ */
+function inspectMigratedLink(string $destination, string $source, array $outputs, array $ids): ?array
+{
+    if (preg_match('~^[a-z][a-z0-9+.-]*:|^//~i', $destination) === 1) {
+        return null;
+    }
+    $failure = static fn (string $reason): array => ['href' => $destination, 'check' => ['target' => $destination, 'status' => 'unresolved', 'reason' => $reason]];
+    if (str_starts_with($destination, '/')) {
+        return $failure('site-root path needs route mapping');
+    }
+    $fragmentOffset = strpos($destination, '#');
+    $beforeFragment = $fragmentOffset === false ? $destination : substr($destination, 0, $fragmentOffset);
+    $rawFragment = $fragmentOffset === false ? null : substr($destination, $fragmentOffset + 1);
+    $queryOffset = strpos($beforeFragment, '?');
+    $rawPath = $queryOffset === false ? $beforeFragment : substr($beforeFragment, 0, $queryOffset);
+    $query = $queryOffset === false ? '' : substr($beforeFragment, $queryOffset);
+    if (preg_match('/%(?![0-9a-f]{2})/i', $rawPath . ($rawFragment ?? '')) === 1) {
+        return $failure('invalid URL encoding');
+    }
+    $path = rawurldecode($rawPath);
+    $fragment = rawurldecode($rawFragment ?? '');
+    if (preg_match('//u', $path . $fragment) !== 1) {
+        return $failure('invalid URL encoding');
+    }
+    $parts = explode('/', dirname($source));
+    if ($parts === ['.']) {
+        $parts = [];
+    }
+    if ($path !== '') {
+        foreach (explode('/', $path) as $part) {
+            if ($part === '' || $part === '.') {
+                continue;
+            }
+            if ($part === '..') {
+                if ($parts === []) {
+                    return $failure('outside source directory');
+                }
+                array_pop($parts);
+            } else {
+                $parts[] = $part;
+            }
+        }
+        $target = implode('/', $parts);
+    } else {
+        $target = $source;
+    }
+    $mapped = preg_replace('/\.(md|markdown)$/i', '.crv', $target);
+    if ($mapped === null || !isset($outputs[$mapped])) {
+        return $failure('target missing from output');
+    }
+    if ($fragment !== '' && !isset($ids[$mapped])) {
+        return $failure('asset fragment needs site check');
+    }
+    if ($fragment !== '' && !isset($ids[$mapped][$fragment])) {
+        return $failure('fragment missing from target');
+    }
+    if ($mapped !== $target && $path !== '' && preg_match('/\.(md|markdown)$/i', $rawPath) !== 1) {
+        return $failure('encoded extension needs manual rewrite');
+    }
+    $newPath = $mapped !== $target && $path !== '' ? preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath) : $rawPath;
+    $href = $newPath . $query . ($rawFragment === null ? '' : '#' . $rawFragment);
+
+    return ['href' => $href, 'check' => ['target' => $destination, 'status' => $href === $destination ? 'valid' : 'rewritten']];
+}
+
+/**
+ * Read URLs from a responsive image candidate list.
+ *
+ * @return array<string>
+ */
+function normalizeRawHtmlUrl(string $value): string
+{
+    return str_replace(["\t", "\n", "\r"], '', trim($value, "\x00..\x20"));
+}
+
+function rawHtmlSrcsetUrls(string $value): array
+{
+    $urls = [];
+    $index = 0;
+    $length = strlen($value);
+    $space = static fn (string $char): bool => in_array($char, [' ', "\t", "\n", "\r", "\f"], true);
+    while ($index < $length) {
+        while ($index < $length && ($space($value[$index]) || $value[$index] === ',')) {
+            $index++;
+        }
+        $start = $index;
+        while ($index < $length && !$space($value[$index])) {
+            $index++;
+        }
+        $raw = substr($value, $start, $index - $start);
+        $url = rtrim($raw, ',');
+        if ($url !== '') {
+            $urls[] = normalizeRawHtmlUrl($url);
+        }
+        if (str_ends_with($raw, ',')) {
+            continue;
+        }
+        $inParentheses = false;
+        while ($index < $length) {
+            $char = $value[$index++];
+            if ($char === '(') {
+                $inParentheses = true;
+            } elseif ($char === ')') {
+                $inParentheses = false;
+            } elseif ($char === ',' && !$inParentheses) {
+                break;
+            }
+        }
+    }
+
+    return $urls;
+}
+
+/**
+ * Read link destinations from HTML elements in a raw Carve node.
+ *
+ * @return array<array{target:string, manual:bool}>
+ */
+function rawHtmlUrls(string $html): array
+{
+    $document = new DOMDocument();
+    $previous = libxml_use_internal_errors(true);
+    try {
+        $document->loadHTML('<?xml encoding="UTF-8"><body>' . $html, LIBXML_NONET);
+    } finally {
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+    }
+    $urls = [];
+    $nodes = (new DOMXPath($document))->query('//*[@href or @src or @srcset or @imagesrcset or @poster or @data or @action or @formaction][not(ancestor::template)]');
+    foreach ($nodes ?: [] as $element) {
+        if (!$element instanceof DOMElement) {
+            continue;
+        }
+        foreach (['href', 'src', 'poster', 'data', 'action', 'formaction', 'srcset', 'imagesrcset'] as $attribute) {
+            if ($attribute === 'data' && $element->localName !== 'object' || $attribute === 'action' && $element->localName !== 'form' || $attribute === 'formaction' && !in_array($element->localName, ['button', 'input'], true)) {
+                continue;
+            }
+            if ($element->hasAttribute($attribute)) {
+                $value = $element->getAttribute($attribute);
+                if (in_array($attribute, ['srcset', 'imagesrcset'], true)) {
+                    if (stripos($value, 'data:') !== false) {
+                        $urls[] = ['target' => $value, 'manual' => true];
+                    } else {
+                        foreach (rawHtmlSrcsetUrls($value) as $target) {
+                            $urls[] = ['target' => $target, 'manual' => false];
+                        }
+                    }
+                } else {
+                    $urls[] = ['target' => normalizeRawHtmlUrl($value), 'manual' => false];
+                }
+            }
+        }
+    }
+
+    return $urls;
+}
+
+/**
+ * Check link nodes in an AST record.
+ *
+ * @param array<string, mixed> $node
+ * @param string $source
+ * @param array<string, bool> $outputs
+ * @param array<string, array<string, bool>> $ids
+ * @param array<array<string, string>> $links
+ * @param bool $changed
+ */
+function checkMigratedNode(array &$node, string $source, array $outputs, array $ids, array &$links, bool &$changed): void
+{
+    if (in_array($node['type'] ?? null, ['raw_inline', 'raw_block'], true) && ($node['format'] ?? null) === 'html' && isset($node['content']) && is_string($node['content'])) {
+        foreach (rawHtmlUrls($node['content']) as $url) {
+            $destination = $url['target'];
+            if ($url['manual']) {
+                $links[] = ['target' => $destination, 'status' => 'unresolved', 'reason' => 'raw HTML srcset needs manual review'];
+
+                continue;
+            }
+            $result = inspectMigratedLink($destination, $source, $outputs, $ids);
+            if ($result !== null) {
+                $links[] = $result['check']['status'] === 'rewritten'
+                    ? ['target' => $destination, 'status' => 'unresolved', 'reason' => 'raw HTML link needs manual rewrite']
+                    : $result['check'];
+            }
+        }
+    }
+    $key = match ($node['type'] ?? null) {
+        'link' => 'href',
+        'image' => 'src',
+        default => null,
+    };
+    if ($key !== null && isset($node[$key]) && is_string($node[$key]) && $node[$key] !== '') {
+        $result = inspectMigratedLink($node[$key], $source, $outputs, $ids);
+        if ($result !== null) {
+            if ($result['href'] !== $node[$key] && isset($node['ref'])) {
+                $links[] = ['target' => $node[$key], 'status' => 'unresolved', 'reason' => 'reference link needs manual rewrite'];
+            } else {
+                $links[] = $result['check'];
+                if ($result['href'] !== $node[$key]) {
+                    $node[$key] = $result['href'];
+                    $changed = true;
+                }
+            }
+        }
+    }
+    foreach ($node as $field => &$child) {
+        if ($field === 'attrs' || $field === 'position' || !is_array($child)) {
+            continue;
+        }
+        if (array_is_list($child)) {
+            foreach ($child as &$item) {
+                if (is_array($item)) {
+                    checkMigratedNode($item, $source, $outputs, $ids, $links, $changed);
+                }
+            }
+            unset($item);
+        } else {
+            checkMigratedNode($child, $source, $outputs, $ids, $links, $changed);
+        }
+    }
+    unset($child);
+}
+
+/**
+ * Check links in all converted files and rewrite verified Markdown targets.
+ *
+ * @param string $temporary
+ * @param array<array<string, mixed>> $files
+ * @param array<string> $assets
+ * @return array<string>
+ * @throws \RuntimeException
+ */
+function checkMigratedLinks(string $temporary, array &$files, array $assets): array
+{
+    $outputs = array_fill_keys(array_merge(array_column($files, 'output'), $assets), true);
+    $ids = [];
+    $htmlConverter = CarveConverter::create();
+    foreach ($files as $file) {
+        $text = file_get_contents($temporary . '/' . $file['output']);
+        if ($text === false) {
+            throw new RuntimeException('cannot read converted output');
+        }
+        $document = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $document->loadHTML('<?xml encoding="UTF-8"><body>' . $htmlConverter->convert($text), LIBXML_NONET);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+        $found = [];
+        $nodes = (new DOMXPath($document))->query('//*[@id][not(ancestor::template)] | //a[@name][not(ancestor::template)]');
+        foreach ($nodes ?: [] as $element) {
+            if ($element instanceof DOMElement) {
+                if ($element->hasAttribute('id')) {
+                    $found[] = $element->getAttribute('id');
+                }
+                if ($element->localName === 'a' && $element->hasAttribute('name')) {
+                    $found[] = $element->getAttribute('name');
+                }
+            }
+        }
+        $ids[$file['output']] = array_fill_keys($found, true);
+    }
+    $codec = new AstCodec();
+    $writer = CarveConverter::carve();
+    $broken = [];
+    foreach ($files as &$file) {
+        $path = $temporary . '/' . $file['output'];
+        $text = file_get_contents($path);
+        if ($text === false) {
+            throw new RuntimeException('cannot read converted output');
+        }
+        $document = $codec->encode($htmlConverter->parse($text));
+        $links = [];
+        $changed = false;
+        checkMigratedNode($document, $file['source'], $outputs, $ids, $links, $changed);
+        $file['links'] = $links;
+        foreach ($links as $link) {
+            if ($link['status'] === 'unresolved') {
+                $broken[] = $file['source'];
+
+                break;
+            }
+        }
+        if ($changed && file_put_contents($path, $writer->getRenderer()->render($codec->decode($document))) === false) {
+            throw new RuntimeException('cannot write converted output');
+        }
+    }
+    unset($file);
+
+    return $broken;
 }
 
 /**
@@ -972,7 +1277,8 @@ Migration (other markup to Carve, on stdout):
   migrate --list-table    HTML only: write a table whose cells hold blocks as
                           ::: list-table instead of flattening its cells
   migrate --report FILE   write the v2 fidelity report as JSON (- is stderr)
-  migrate --check-loss    exit 1 for degraded or dropped content
+  migrate --check-loss    exit 1 for degraded or dropped content; folder mode
+                          also checks unresolved links and skipped entries
 
 Options:
   -o, --output FILE   Write output to FILE instead of stdout
