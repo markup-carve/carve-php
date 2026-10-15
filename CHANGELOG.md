@@ -16,6 +16,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `WikilinksExtension` matches carve-js on its edge cases: a whitespace-only `[[   ]]` stays literal, the display text may be empty (`[[a|]]`) or hold a single `]` (`[[a|b]c]]`), and a page named `0` is its own link text.
 - An escaped include directive (`\{{ path }}`) stays literal: `IncludeExpander` no longer expands it, and the Carve writer no longer turns `{{ \{{ path }}` into a live directive (markup-carve/carve-js#3101).
 - A paragraph holding many cross-references parses in linear time; each `</#id>` used to re-read the rest of the paragraph.
+- Inside an unclosed code fence in a `:::` container, only the innermost container's own closer ends the fence. A colon line of any other width is code; it used to open a nested container, so the host never closed and the rest of the document became code (markup-carve/carve#3201).
 
 ### Performance
 - `IncludeExpander` and the Carve writer look up the run node behind each include directive candidate from an index built once per inline run, so a run with many `{{` candidates (escaped or live) is scanned in linear time instead of quadratic (markup-carve/carve-js#3104).
