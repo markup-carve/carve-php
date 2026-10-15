@@ -11,6 +11,7 @@ use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -74,19 +75,44 @@ final class DjotTightDefinitionDescriptions
         while ($pending !== []) {
             [$node, $inherited] = array_pop($pending);
             $tight = $node instanceof ListBlock ? $node->isTight() : $inherited;
-            if ($node instanceof ListBlock && !$tight) {
+            if ($node instanceof ListBlock) {
                 $hasDefinition = false;
                 $safeChildren = true;
-                $paragraphs = 0;
+                $paragraphGap = false;
+                $previous = null;
                 $items = $node->getChildren();
                 foreach ($items as $item) {
                     foreach ($item->getChildren() as $child) {
                         $hasDefinition = $hasDefinition || $child instanceof DefinitionList;
                         $safeChildren = $safeChildren && ($child instanceof DefinitionList || $child instanceof Paragraph || $child instanceof Comment);
-                        $paragraphs += (int)($child instanceof Paragraph);
+                        if ($previous instanceof Paragraph) {
+                            $before = $previous->getPos();
+                            $after = $child->getPos();
+                            if ($before !== null && $after !== null) {
+                                $blank = false;
+                                for ($line = $before->endLine - 1; $line < $after->startLine - 1; $line++) {
+                                    if (preg_match('/^[ \t>]*$/', $lines[$line]) === 1) {
+                                        $blank = true;
+                                    } elseif ($blank && $child instanceof DefinitionList && preg_match('/^[ \t>]*\{(?!loose\}[ \t]*$)/', $lines[$line]) === 1) {
+                                        $paragraphGap = true;
+                                    }
+                                }
+                                $paragraphGap = $paragraphGap || $blank && ($child instanceof Paragraph || $child instanceof Comment);
+                            }
+                        }
+                        $previous = $child;
                     }
                 }
-                if ($safeChildren && $hasDefinition && $paragraphs < 2) {
+                if ($hasDefinition && $paragraphGap) {
+                    $tight = false;
+                    $pos = $node->getPos();
+                    if ($node->isTight() && $pos !== null) {
+                        $at = $sourceOffset($pos->startOffset);
+                        $prefix = substr($lines[$pos->startLine - 1], 0, $at - $offsets[$pos->startLine - 1]);
+                        $edits[] = ['start' => $at, 'end' => $at, 'value' => "{loose}\n" . $prefix];
+                    }
+                }
+                if (!$node->isTight() && $safeChildren && $hasDefinition && !$paragraphGap) {
                     $tight = true;
                     $clearLoose($node);
                     foreach ($items as $item) {
@@ -134,7 +160,9 @@ final class DjotTightDefinitionDescriptions
                     $continuation = preg_replace_callback('/:[ \t]+$/', static fn (array $match): string => str_repeat(' ', strlen($match[0])), $prefix) ?? $prefix;
                     $joined = new Paragraph();
                     foreach ($children as $index => $paragraph) {
-                        if ($index > 0) {
+                        $previous = $joined->getChildren();
+                        $lastInline = $previous === [] ? null : $previous[array_key_last($previous)];
+                        if ($index > 0 && !$lastInline instanceof HardBreak) {
                             $joined->appendChild(new SoftBreak());
                         }
                         foreach ($paragraph->getChildren() as $inline) {
