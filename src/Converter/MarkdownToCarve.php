@@ -9608,7 +9608,7 @@ class MarkdownToCarve
         }
 
         foreach ($bareReferenceHeads as $index => [$label, $rawLabel, $marker, $labelLength]) {
-            if (isset($defined[$label]) || isset($authoredDefinitions[$rawLabel])) {
+            if (isset($authoredDefinitions[$rawLabel])) {
                 $kept[$index] = substr_replace($kept[$index], '[]', $marker + $labelLength + 2, 0);
             } else {
                 $kept[$index] = substr_replace($kept[$index], '\\', $marker, 0);
