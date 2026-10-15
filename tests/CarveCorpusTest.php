@@ -1217,7 +1217,12 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '598-editorial-markup-closes-outside-a-cross-reference-or-a-bracket-run-5' => [
+            'reason' => 'PART 9 E2a (ruled 2026-10-15): a cross-reference is atomic, so the `~>` ending it is no arrow',
+            'html' => '<p><s>a &lt;/#x~&gt;y&gt; b</s></p>',
+        ],
+    ];
 
     protected CarveConverter $converter;
 
