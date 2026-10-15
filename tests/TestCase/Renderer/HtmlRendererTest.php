@@ -50,6 +50,14 @@ class HtmlRendererTest extends TestCase
         $this->assertSame("<p>Hello world</p>\n", $result);
     }
 
+    public function testAClassedDivStaysDistinctFromATypedAdmonition(): void
+    {
+        $converter = new CarveConverter();
+
+        $this->assertSame("<div class=\"note\">\n  <p>body</p>\n</div>\n", $converter->convert("{.note}\n:::\nbody\n:::\n"));
+        $this->assertSame("<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>body</p>\n</aside>\n", $converter->convert("::: note\nbody\n:::\n"));
+    }
+
     public function testRenderHeading(): void
     {
         $doc = new Document();

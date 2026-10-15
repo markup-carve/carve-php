@@ -47,9 +47,8 @@ class ProseMirrorBridgeTest extends TestCase
             'actual' => $actual,
             'pm' => $proseMirror,
             // Comparing HTML alone is a check that cannot fail for a whole
-            // class of defect: `::: note` and `{.note}` plus a bare fence are
-            // the same document, so a re-spelling passes no matter which side
-            // comes out. 55 losses hid behind exactly that (carve-php#519).
+            // class of defect: source can change while rendered HTML stays
+            // equal. 55 losses hid behind exactly that (carve-php#519).
             // Canonical Carve is strictly stronger - it subsumes the HTML
             // comparison except for constructs that render AND spell alike.
             'expectedCarve' => CarveConverter::carve()->render((new CarveConverter())->parse($source)),
