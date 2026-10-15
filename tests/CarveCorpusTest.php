@@ -1175,6 +1175,7 @@ class CarveCorpusTest extends TestCase
         'a-code-line-left-of-an-authored-base-fence-opener-is-measured-from-that-base',
         'a-table-row-ends-a-description-body-and-a-lone-plus-folds-into-a-term',
         'a-continuation-on-a-span-marker-joins-the-cell-the-marker-resolves-into',
+        'inside-an-unclosed-fence-only-the-innermost-container-s-closer-is-structural',
     ];
 
     /**

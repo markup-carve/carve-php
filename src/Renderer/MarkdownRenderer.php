@@ -3742,12 +3742,25 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     protected function renderTable(Table $node): string
     {
         $this->recordUnspellableTableSectionAttributes($node);
+        $headerSeen = false;
         $layout = TableLayout::expand(
             $node,
-            fn (TableCell $cell): array => [
-                'content' => $this->renderTableCellContent($cell),
-                'alignment' => $cell->getAlignment(),
-            ],
+            function (TableCell $cell, array $span): array {
+                $this->recordTableSpanFlattened($cell, $span);
+
+                return [
+                    'content' => $this->renderTableCellContent($cell),
+                    'alignment' => $cell->getAlignment(),
+                ];
+            },
+            function (TableRow $row) use (&$headerSeen): void {
+                if ($row->isHeader()) {
+                    if ($headerSeen) {
+                        $this->recordTableHeaderRowDemoted($row);
+                    }
+                    $headerSeen = true;
+                }
+            },
         );
 
         $headerCells = null;

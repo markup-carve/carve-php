@@ -1103,9 +1103,13 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $layout = TableLayout::expand(
             $node,
-            fn (TableCell $cell): array => [
-                'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
-            ],
+            function (TableCell $cell, array $span): array {
+                $this->recordTableSpanFlattened($cell, $span);
+
+                return [
+                    'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
+                ];
+            },
         );
 
         $headerRows = [];
