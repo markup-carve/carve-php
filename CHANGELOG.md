@@ -26,12 +26,13 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `carve merge` treats a rewrapped paragraph as unchanged, and a line break after a link or emphasis still counts as a space (#3459, #3469).
 - Markdown import reads quoted definitions whose title wraps and angle destinations holding an escaped bracket, resolves a bare head through a later complex definition, and keeps a bare `[label]:` that CommonMark reads as text literal (#3462, #3463, #3477, #3483, #3486).
 - Markdown output keeps an autolink in its angle form when it reads back the same (#3434).
+- Markdown, Djot, BBCode and HTML import replace ill-formed UTF-8 with U+FFFD, one per maximal subpart, instead of writing the bytes into the Carve output or, for HTML on PHP 8.2, dropping them (#3494, markup-carve/carve#3212).
 - Djot import keeps definition lists intact: empty root definitions, definitions in quotes and list items, block interruptions in terms, literal markers, container ownership and tight descriptions (#3439, #3445, #3447, #3449, #3455).
 - Djot import keeps image alternatives and references across multiline labels, deletion spans, quotes and Unicode text, reports image-alt losses after discarded markup, and no longer rewrites reference URL data such as `![a![b](x)](y)` as nested images (#3433, #3442, #3450, #3458, #3461).
 - Djot import keeps empty nested task items and representable DIV classes, reads `::: note` as a generic div with class `note`, and an unresolved reference holding NUL no longer selects a sanitized heading (#3424, #3428, #3431, #3460).
 
 ### Improvements
-- `carve migrate --from markdown --directory SOURCE --output TARGET` converts a Markdown folder recursively, copies regular assets with their permissions and writes `migration-report.json`. It skips symlinks and refuses an existing target or two inputs that map to one output (#3478, #3489).
+- `carve migrate --from markdown --directory SOURCE --output TARGET` converts a Markdown folder recursively, copies regular assets with their permissions and writes `migration-report.json`. It skips symlinks, refuses an existing target, two inputs that map to one output and an entry swapped during the run, and replaces ill-formed bytes (#3478, #3489, #3494).
 - The BBCode importer reads forum quote attributions: quoted names, phpBB `post_id` and Unix `time`, and vBulletin `name;id` (#3457).
 - The vendored ProseMirror schema map follows carve-grammars `264bdf5`, including table row continuation lines, cover markers and the combined bold-italic flag (#3438).
 
