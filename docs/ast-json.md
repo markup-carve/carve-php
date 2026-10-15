@@ -183,6 +183,13 @@ reports one `list-delimiter-changed` loss with `delim` (authored) and
 `emittedDelim` (written), with or without `--roundtrip`. The CLI accepts
 `--allow-loss list-delimiter-changed` for it.
 
+Markdown has one header row, at the top of the table. When the first all-header
+row has body rows before it, the writer moves it above them and reports
+`table-header-row-hoisted`. A later all-header row becomes a body row with
+`table-header-row-demoted`, and each header cell in a row that also holds body
+cells becomes a body cell with `table-header-cell-demoted`. The CLI accepts
+`--allow-loss` for each code.
+
 ## A code payload keeps its line endings
 
 `code_block.content` is the payload text, kept as written, including the break
@@ -252,8 +259,9 @@ four targets.
 It is separate from render losses, and it is the only one of the two reports that
 can name a field. The render-loss report's `code` enum holds
 `raw-format-dropped`, `ruby-flattened`, `editorial-comment-flattened` and
-`destination-denied` (PART 11 §1d), plus `table-span-flattened` and
-`table-header-row-demoted` (CARVE-P2-024),
+`destination-denied` (PART 11 §1d), plus `table-span-flattened`,
+`table-header-row-demoted`, `table-header-row-hoisted` and
+`table-header-cell-demoted` (CARVE-P2-024),
 each naming something one renderer dropped or blanked; a field dropped off a node the writer still spells is
 `field-unspellable` here. Table section attributes are that case - none of the
 four targets can spell them, so each reports `rowGroups.headAttrs`,

@@ -3743,9 +3743,15 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
     {
         $this->recordUnspellableTableSectionAttributes($node);
         $headerSeen = false;
+        // Set by the row callback before each row's cells.
+        /** @var bool $rowIsHeader */
+        $rowIsHeader = false;
         $layout = TableLayout::expand(
             $node,
-            function (TableCell $cell, array $span): array {
+            function (TableCell $cell, array $span) use (&$rowIsHeader): array {
+                if (!$rowIsHeader && $cell->isHeader() && $cell->getSpanMarker() === null) {
+                    $this->recordTableHeaderCellDemoted($cell);
+                }
                 $this->recordTableSpanFlattened($cell, $span);
 
                 return [
@@ -3753,10 +3759,14 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
                     'alignment' => $cell->getAlignment(),
                 ];
             },
-            function (TableRow $row) use (&$headerSeen): void {
-                if ($row->isHeader()) {
+            function (TableRow $row) use (&$headerSeen, &$rowIsHeader, $node): void {
+                $rowIsHeader = $row->isHeader();
+                if ($rowIsHeader) {
                     if ($headerSeen) {
                         $this->recordTableHeaderRowDemoted($row);
+                    } elseif ($node->getChildren()[0] !== $row) {
+                        // CARVE-P11-031 writes the first header row above the body rows before it.
+                        $this->recordTableHeaderRowHoisted($row);
                     }
                     $headerSeen = true;
                 }

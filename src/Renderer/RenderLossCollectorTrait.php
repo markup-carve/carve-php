@@ -381,6 +381,39 @@ trait RenderLossCollectorTrait
         $this->renderLosses[] = $loss;
     }
 
+    protected function recordTableHeaderRowHoisted(TableRow $row): void
+    {
+        $this->recordMarkdownTableLoss($row, 'table-header-row-hoisted', 'Moved a header row above earlier body rows');
+    }
+
+    protected function recordTableHeaderCellDemoted(TableCell $cell): void
+    {
+        $this->recordMarkdownTableLoss($cell, 'table-header-cell-demoted', 'Wrote a header cell as a body cell');
+    }
+
+    private function recordMarkdownTableLoss(Node $node, string $code, string $message): void
+    {
+        if ($this->renderLossTarget !== 'markdown' || isset($this->seenTableHeaderLosses[spl_object_id($node)])) {
+            return;
+        }
+        $this->seenTableHeaderLosses[spl_object_id($node)] = true;
+        $this->renderLossTotal++;
+        $this->renderLossCounts[$code] = ($this->renderLossCounts[$code] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => $code,
+            'target' => 'markdown',
+            'nodeType' => 'block',
+            'message' => $message,
+        ];
+        if ($node->getPos() !== null) {
+            $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
     protected function recordTableHeaderRowDemoted(TableRow $row): void
     {
         if ($this->renderLossTarget !== 'markdown' || isset($this->seenTableHeaderLosses[spl_object_id($row)])) {

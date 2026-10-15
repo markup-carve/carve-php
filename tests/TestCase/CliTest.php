@@ -815,6 +815,20 @@ class CliTest extends TestCase
         $this->assertSame('', $wrongTarget['out']);
     }
 
+    public function testStrictLossesRefusesEachMarkdownHeaderLossUnlessItIsAllowed(): void
+    {
+        foreach (["| A | B |\n|= C |= D |\n" => 'table-header-row-hoisted', "| A |= B |\n| C | D |\n" => 'table-header-cell-demoted'] as $source => $code) {
+            $strict = $this->runCliInput(['--markdown', '--strict-losses'], $source);
+            $this->assertSame(1, $strict['exit'], $code);
+            $this->assertSame('', $strict['out'], $code);
+            $this->assertStringContainsString($code, $strict['err']);
+            $allowed = $this->runCliInput(['--markdown', '--strict-losses', '--allow-loss', $code], $source);
+            $this->assertSame(0, $allowed['exit'], $code);
+            $this->assertNotSame('', $allowed['out'], $code);
+        }
+        $this->assertSame(0, $this->runCliInput(['--markdown', '--strict-losses'], "|= A |= B |\n| C | D |\n")['exit']);
+    }
+
     /**
      * `--allow-loss` gates the `CARVE-P2-024` report and grows no name for a
      * conversion-diagnostics code (PART 11 §1d), so the dropped field passes
@@ -832,7 +846,7 @@ class CliTest extends TestCase
         $this->assertStringContainsString(
             '--allow-loss expects raw-format-dropped, ruby-flattened, editorial-comment-flattened'
             . ', carrier-attribute-dropped, list-style-dropped, list-delimiter-changed'
-            . ', table-span-flattened or table-header-row-demoted',
+            . ', table-span-flattened, table-header-row-demoted, table-header-row-hoisted or table-header-cell-demoted',
             $refused['err'],
         );
     }

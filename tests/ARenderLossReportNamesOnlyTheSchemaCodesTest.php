@@ -80,10 +80,10 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         ];
     }
 
-    public function testTheSchemaEnumHoldsExactlyTheNineCodes(): void
+    public function testTheSchemaEnumHoldsExactlyTheElevenCodes(): void
     {
         self::assertSame(
-            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted'],
+            ['raw-format-dropped', 'ruby-flattened', 'destination-denied', 'editorial-comment-flattened', 'carrier-attribute-dropped', 'list-style-dropped', 'list-delimiter-changed', 'table-span-flattened', 'table-header-row-demoted', 'table-header-row-hoisted', 'table-header-cell-demoted'],
             self::schemaCodes(),
         );
     }
@@ -162,6 +162,11 @@ class ARenderLossReportNamesOnlyTheSchemaCodesTest extends TestCase
         }
         $headerReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("|= First |\n|= Second |\n");
         foreach ($headerReport->losses as $loss) {
+            self::assertContains($loss['code'], self::schemaCodes());
+            $seen[$loss['code']] = true;
+        }
+        $hoistReport = (new CarveConverter(renderer: new MarkdownRenderer()))->convertWithReport("| A |= B |\n|= C |= D |\n");
+        foreach ($hoistReport->losses as $loss) {
             self::assertContains($loss['code'], self::schemaCodes());
             $seen[$loss['code']] = true;
         }
