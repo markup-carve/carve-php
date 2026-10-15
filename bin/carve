@@ -476,13 +476,17 @@ function migrateMarkdownDirectory(string $source, string $output): array
         if (file_put_contents($temporary . '/migration-report.json', json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n") === false) {
             throw new RuntimeException('cannot write migration report');
         }
-        // Claim the output exclusively: rename() would silently replace an
-        // empty directory created by someone else after the existence check.
-        if (!@mkdir($final)) {
+        // POSIX rename() silently replaces an empty directory created after the
+        // existence check, so claim the output first. Windows rename() refuses
+        // any existing target, which also makes a claimed one unusable there.
+        $claimed = PHP_OS_FAMILY !== 'Windows';
+        if ($claimed && !@mkdir($final)) {
             throw new RuntimeException("output appeared during conversion: $final");
         }
-        if (!rename($temporary, $final)) {
-            rmdir($final);
+        if (!@rename($temporary, $final)) {
+            if ($claimed) {
+                rmdir($final);
+            }
 
             throw new RuntimeException("cannot create output: $final");
         }
