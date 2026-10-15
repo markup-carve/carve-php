@@ -10,6 +10,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ## [Unreleased]
 
 ### Fixes
+- A `]` inside an autolink no longer closes a link, image or span label opened before it: the bracket scan skips the autolink body, so `[a <https://x]> b](u)` is one link (CARVE-P3-001, markup-carve/carve#3204, markup-carve/carve-js#3120).
 - A cross-reference `</#id>` is opaque to emphasis like an autolink: an earlier bare `/` no longer pairs with the slash inside it (markup-carve/carve-js#3100).
 - A braced closer inside a cross-reference (`{*a </#x*}> b*}`, `{+a </#x+}> b+}`) no longer closes the span opened before it (markup-carve/carve-js#3105).
 - `WikilinksExtension` no longer closes `[[` at a `]]` whose first bracket is escaped (`\]`), so `a [[x\]](u)` renders the core link instead of a wikilink (markup-carve/carve-js#3092).
