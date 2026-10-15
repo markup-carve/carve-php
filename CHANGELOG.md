@@ -32,7 +32,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Djot import keeps empty nested task items and representable DIV classes, reads `::: note` as a generic div with class `note`, and an unresolved reference holding NUL no longer selects a sanitized heading (#3424, #3428, #3431, #3460).
 
 ### Improvements
-- `carve migrate --from markdown --directory SOURCE --output TARGET` converts a Markdown folder recursively, copies regular assets with their permissions and writes `migration-report.json`. It skips symlinks, refuses an existing target, two inputs that map to one output and an entry swapped during the run, and replaces ill-formed bytes (#3478, #3489, #3494).
+- `carve migrate --from markdown --directory SOURCE --output TARGET` converts a Markdown folder recursively, copies regular assets with their permissions and writes `migration-report.json`. It rewrites local links to converted files when the target and fragment resolve, lists unresolved ones for review, skips symlinks, refuses an existing target, two inputs that map to one output and an entry swapped during the run, and replaces ill-formed bytes (#3478, #3489, #3493, #3494, #3495).
 - The BBCode importer reads forum quote attributions: quoted names, phpBB `post_id` and Unix `time`, and vBulletin `name;id` (#3457).
 - The vendored ProseMirror schema map follows carve-grammars `264bdf5`, including table row continuation lines, cover markers and the combined bold-italic flag (#3438).
 
