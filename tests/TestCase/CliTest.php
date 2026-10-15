@@ -604,6 +604,7 @@ class CliTest extends TestCase
         file_put_contents($source . '/nested/clean.md', "# Clean\n");
         file_put_contents($source . '/loss.markdown', "A footnote[^a].\n\n[^a]: Note.\n");
         file_put_contents($source . '/asset.svg', '<svg/>');
+        file_put_contents($source . '/404', 'asset');
         try {
             $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output, '--check-loss'], '');
             $this->assertSame(1, $result['exit'], $result['err']);
@@ -612,6 +613,7 @@ class CliTest extends TestCase
             $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
             $this->assertCount(2, $report['files']);
             $this->assertSame(['loss.markdown'], $report['review']);
+            $this->assertContains('404', $report['assets']);
             $existing = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output], '');
             $this->assertSame(2, $existing['exit']);
             $this->assertFileExists($output . '/nested/clean.crv');
@@ -619,13 +621,28 @@ class CliTest extends TestCase
             $inside = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $nested], '');
             $this->assertSame(2, $inside['exit']);
             $this->assertDirectoryDoesNotExist($source . '/new');
+            $traversal = $source . '/../source/new/out';
+            $inside = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $traversal], '');
+            $this->assertSame(2, $inside['exit']);
+            $this->assertDirectoryDoesNotExist($source . '/new');
+            if (PHP_OS_FAMILY !== 'Windows') {
+                $alias = $root . '/alias';
+                symlink($source, $alias);
+                $inside = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $alias . '/new/out'], '');
+                $this->assertSame(2, $inside['exit']);
+                $this->assertDirectoryDoesNotExist($source . '/new');
+                unlink($alias);
+            }
             file_put_contents($source . '/migration-report.json', 'source');
             $collision = $root . '/collision';
             $reportCollision = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $collision], '');
             $this->assertSame(2, $reportCollision['exit']);
             $this->assertDirectoryDoesNotExist($collision);
         } finally {
-            foreach (['output/nested/clean.crv', 'output/migration-report.json', 'output/loss.crv', 'output/asset.svg', 'source/nested/clean.md', 'source/loss.markdown', 'source/asset.svg', 'source/migration-report.json'] as $path) {
+            if (is_link($root . '/alias')) {
+                unlink($root . '/alias');
+            }
+            foreach (['output/nested/clean.crv', 'output/migration-report.json', 'output/loss.crv', 'output/asset.svg', 'output/404', 'source/nested/clean.md', 'source/loss.markdown', 'source/asset.svg', 'source/404', 'source/migration-report.json'] as $path) {
                 if (file_exists($root . '/' . $path)) {
                     unlink($root . '/' . $path);
                 }

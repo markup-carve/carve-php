@@ -297,9 +297,34 @@ function runMergeCommand(array $argv): never
 }
 
 /**
+ * Resolve an output path through its deepest existing ancestor.
+ *
+ * @throws \RuntimeException
+ */
+function resolveFutureOutputPath(string $path): string
+{
+    $ancestor = str_starts_with($path, DIRECTORY_SEPARATOR) ? $path : getcwd() . DIRECTORY_SEPARATOR . $path;
+    $missing = [];
+    while (!file_exists($ancestor) && !is_link($ancestor)) {
+        $parent = dirname($ancestor);
+        if ($parent === $ancestor) {
+            throw new RuntimeException("cannot resolve output path: $path");
+        }
+        array_unshift($missing, basename($ancestor));
+        $ancestor = $parent;
+    }
+    $resolved = realpath($ancestor);
+    if ($resolved === false) {
+        throw new RuntimeException("cannot resolve output path: $path");
+    }
+
+    return $resolved . ($missing ? DIRECTORY_SEPARATOR . implode(DIRECTORY_SEPARATOR, $missing) : '');
+}
+
+/**
  * Convert a Markdown directory and return the migration counts.
  *
- * @return array{files:int, assets:int, review:int, skipped:int}
+ * @return array{files:int, assets:int, review:int, skipped:int, report:string}
  * @throws \RuntimeException
  */
 function migrateMarkdownDirectory(string $source, string $output): array
@@ -308,11 +333,11 @@ function migrateMarkdownDirectory(string $source, string $output): array
     if ($root === false || !is_dir($root)) {
         throw new RuntimeException("source is not a directory: $source");
     }
-    if (file_exists($output) || is_link($output)) {
-        throw new RuntimeException("output already exists: $output");
+    $final = resolveFutureOutputPath($output);
+    if (file_exists($final) || is_link($final)) {
+        throw new RuntimeException("output already exists: $final");
     }
-    $lexical = str_starts_with($output, DIRECTORY_SEPARATOR) ? $output : getcwd() . DIRECTORY_SEPARATOR . $output;
-    if ($lexical === $root || str_starts_with($lexical, $root . DIRECTORY_SEPARATOR)) {
+    if ($final === $root || str_starts_with($final, $root . DIRECTORY_SEPARATOR)) {
         throw new RuntimeException('output must be outside the source directory');
     }
     $entries = [];
@@ -320,25 +345,17 @@ function migrateMarkdownDirectory(string $source, string $output): array
     foreach ($iterator as $entry) {
         $path = str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($root) + 1));
         $kind = $entry->isLink() || !$entry->isFile() ? 'skipped' : (preg_match('/\.(md|markdown)$/i', $entry->getFilename()) ? 'markdown' : 'asset');
-        $entries[$path] = $kind;
+        $entries[] = ['path' => $path, 'kind' => $kind];
     }
-    ksort($entries, SORT_STRING);
-    if (!in_array('markdown', $entries, true)) {
+    usort($entries, static fn (array $left, array $right): int => strcmp($left['path'], $right['path']));
+    if (!in_array('markdown', array_column($entries, 'kind'), true)) {
         throw new RuntimeException('source contains no Markdown files');
     }
-    $parent = dirname($output);
+    $parent = dirname($final);
     if (!is_dir($parent) && !mkdir($parent, 0777, true)) {
         throw new RuntimeException("cannot create output parent: $parent");
     }
-    $parent = realpath($parent);
-    if ($parent === false) {
-        throw new RuntimeException('cannot resolve output parent');
-    }
-    $final = $parent . DIRECTORY_SEPARATOR . basename($output);
-    if ($final === $root || str_starts_with($final, $root . DIRECTORY_SEPARATOR)) {
-        throw new RuntimeException('output must be outside the source directory');
-    }
-    $temporary = $parent . DIRECTORY_SEPARATOR . '.' . basename($output) . '-' . bin2hex(random_bytes(8));
+    $temporary = $parent . DIRECTORY_SEPARATOR . '.' . basename($final) . '-' . bin2hex(random_bytes(8));
     if (!mkdir($temporary)) {
         throw new RuntimeException("cannot create temporary directory: $temporary");
     }
@@ -348,7 +365,9 @@ function migrateMarkdownDirectory(string $source, string $output): array
     $review = [];
     $destinations = ['migration-report.json' => true];
     try {
-        foreach ($entries as $path => $kind) {
+        foreach ($entries as $entry) {
+            $path = $entry['path'];
+            $kind = $entry['kind'];
             if ($kind === 'skipped') {
                 $skipped[] = $path;
 
@@ -363,7 +382,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
             }
             $key = function_exists('mb_strtolower') ? mb_strtolower($destination, 'UTF-8') : strtolower($destination);
             if (isset($destinations[$key])) {
-                throw new RuntimeException("two inputs map to the same output: $path");
+                throw new RuntimeException("two inputs map to the same output: $destination");
             }
             $destinations[$key] = true;
             $target = $temporary . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $destination);
@@ -417,7 +436,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
         throw $exception;
     }
 
-    return ['files' => count($files), 'assets' => count($assets), 'review' => count($review), 'skipped' => count($skipped)];
+    return ['files' => count($files), 'assets' => count($assets), 'review' => count($review), 'skipped' => count($skipped), 'report' => $final . '/migration-report.json'];
 }
 
 /**
@@ -487,7 +506,7 @@ function runMigrateCommand(array $argv): never
         }
         try {
             $counts = migrateMarkdownDirectory($directory, $output);
-            fwrite(STDOUT, "{$counts['files']} file(s) converted; {$counts['assets']} asset(s) copied; {$counts['review']} file(s) need review; {$counts['skipped']} entry(s) skipped. Report: $output/migration-report.json\n");
+            fwrite(STDOUT, "{$counts['files']} file(s) converted; {$counts['assets']} asset(s) copied; {$counts['review']} file(s) need review; {$counts['skipped']} entry(s) skipped. Report: {$counts['report']}\n");
             exit($checkLoss && ($counts['review'] > 0 || $counts['skipped'] > 0) ? 1 : 0);
         } catch (Throwable $exception) {
             fwrite(STDERR, 'carve migrate: ' . $exception->getMessage() . "\n");
