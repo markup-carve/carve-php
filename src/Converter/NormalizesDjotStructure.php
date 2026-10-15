@@ -1221,10 +1221,20 @@ trait NormalizesDjotStructure
                     $parent->kind = $kind;
                 }
                 if ($parent === null || $nested) {
+                    $definitionTarget = null;
+                    if ($parent !== null && $blank) {
+                        $previous = $n - 1;
+                        while ($previous >= 0 && preg_match('/^[ \t>]*$/', $lines[$previous]) === 1 && substr_count($lines[$previous], '>') === $quoteDepth) {
+                            $previous--;
+                        }
+                        if ($previous >= 0 && preg_match('/^((?:[ \t]*>(?:[ \t]|$))*)([ \t]*(?:(?:[-*+]|(?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]{2,}|[IVXLCDM]{2,})\))[ \t]+){2,}):(?:[ \t]|$)/', $lines[$previous], $head) === 1 && substr_count($head[1], '>') === $quoteDepth && strlen($head[2]) === $indent && ($mask[$previous][strlen($head[1]) + strlen($head[2])] ?? '') === ':') {
+                            $definitionTarget = $parent->target + $indent - $parent->column;
+                        }
+                    }
                     $lists[] = new DjotListContext(
                         $indent,
                         strlen($this->compactDjotListPrefix(substr($itemMatch[0], 0, -1))),
-                        $nested ? $parent->target + $parent->content : ($noteOwner !== null && $quoteDepth === $noteOwner->depth ? 2 : 0),
+                        $definitionTarget ?? ($nested ? $parent->target + $parent->content : ($noteOwner !== null && $quoteDepth === $noteOwner->depth ? 2 : 0)),
                         $kind,
                         $itemMatch[1] === '*' ? '*' : '-',
                         count($out),
