@@ -10,8 +10,8 @@ use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A quoted empty definition reads ahead only while its title is open, so a run
- * of them in one quote paragraph stays linear (carve-php#3476).
+ * A quoted definition reads ahead only while its title is open, so a run
+ * of them in one quote paragraph stays linear (carve-php#3476, #3480).
  */
 #[Group('scaling')]
 class QuotedEmptyDefinitionRunScaleTest extends TestCase
@@ -26,6 +26,9 @@ class QuotedEmptyDefinitionRunScaleTest extends TestCase
         return [
             'untitled' => ["> [a]: <>\n"],
             'unclosed parenthesized title' => ["> [a]: <> (x\n"],
+            'untitled destination' => ["> [a]: /u\n"],
+            'destination, unclosed parenthesized title' => ["> [a]: /u (x\n"],
+            'destination, unclosed quoted title' => ["> [a]: /u \"x\n"],
         ];
     }
 
