@@ -9425,7 +9425,7 @@ class MarkdownToCarve
                         if ($target === '') {
                             $marker = strpos($line, '[' . $definition[1] . ']:');
                             if ($marker !== false) {
-                                $bareReferenceHeads[count($kept)] = [$key, $marker, strlen($definition[1])];
+                                $bareReferenceHeads[count($kept)] = [$key, $this->normalizeReferenceLabel($definition[1]), $marker, strlen($definition[1])];
                             }
                         }
                         array_push($kept, $line, ...$continued);
@@ -9607,8 +9607,8 @@ class MarkdownToCarve
             }
         }
 
-        foreach ($bareReferenceHeads as $index => [$label, $marker, $labelLength]) {
-            if (isset($defined[$label])) {
+        foreach ($bareReferenceHeads as $index => [$label, $rawLabel, $marker, $labelLength]) {
+            if (isset($defined[$label]) || isset($defined[$rawLabel])) {
                 $kept[$index] = substr_replace($kept[$index], '[]', $marker + $labelLength + 2, 0);
             } else {
                 $kept[$index] = substr_replace($kept[$index], '\\', $marker, 0);
