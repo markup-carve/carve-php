@@ -31,10 +31,12 @@ class TheIntrawordBoldItalicKeepsItsRunTest extends TestCase
     public static function runProvider(): array
     {
         return [
-            'intraword on the closing side' => ['a /*x*/b', 'a ***x***b'],
-            'intraword on both sides' => ['a/*x*/b', 'a***x***b'],
-            'content opening with an escape' => ['a /*~x*/b', 'a ***\~x***b'],
-            'content opening with an escaped asterisk' => ['a /**x*/b', 'a ***\*x***b'],
+            'bare token with a word after it is separate delimiters' => ['a /*x*/b', 'a /**x**/b'],
+            'bare token inside a word is separate delimiters' => ['a/*x*/b', 'a/**x**/b'],
+            'intraword on the closing side' => ['a {*/x/*}b', 'a ***x***b'],
+            'intraword on both sides' => ['a{*/x/*}b', 'a***x***b'],
+            'content opening with an escape' => ['a {*/~x/*}b', 'a ***\~x***b'],
+            'content opening with an escaped asterisk' => ['a {*/\*x/*}b', 'a ***\*x***b'],
             'the explicit nesting' => ['a {*{/x/}*}b', 'a ***x***b'],
         ];
     }
@@ -61,9 +63,9 @@ class TheIntrawordBoldItalicKeepsItsRunTest extends TestCase
     public static function fallbackProvider(): array
     {
         return [
-            'content closing with an escape' => ['a /*x~*/b', 'a <strong>*x\~*</strong>b'],
-            'content closing with a bang' => ['a /*x!*/b', 'a <strong>*x!*</strong>b'],
-            'intraword with an opening escape' => ['a/*~x*/b', 'a<strong>*\~x*</strong>b'],
+            'content closing with an escape' => ['a {*/x~/*}b', 'a <strong>*x\~*</strong>b'],
+            'content closing with a bang' => ['a {*/x!/*}b', 'a <strong>*x!*</strong>b'],
+            'intraword with an opening escape' => ['a{*/~x/*}b', 'a<strong>*\~x*</strong>b'],
         ];
     }
 

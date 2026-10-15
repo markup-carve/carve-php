@@ -4117,7 +4117,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $rawReference !== null => $rawReference,
             $node instanceof Link => $this->renderLink($node),
             $node instanceof Image => $this->renderImage($node),
-            $node instanceof CriticComment => '{#' . $this->escapeCriticText($node->getContent()) . '#}',
+            $node instanceof CriticComment => '{#' . $this->escapeCriticText($this->guardGraphemeContent('critic_comment', $node->getContent())) . '#}',
             $node instanceof Span => '[' . $this->renderInlines($node->getChildren()) . ']' . ($this->renderAttrs($node) ?: '{}'),
             $node instanceof Math => $withAttrs($this->guardCodeLines($this->renderMath($node), 'math')),
             $node instanceof RawInline => $node->getContent() === ''
@@ -4141,9 +4141,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // (PART 11 §7c) - see verseLineBreak().
             // A pipe cell is one line and has no hard break: one space (PART 11 §1b).
             $node instanceof HardBreak => $this->renderHardBreak($node),
-            $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->renderMarked('insert', $node) . '+}')),
-            $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->renderMarked('delete', $node) . '-}')),
-            $node instanceof Substitution => '{~' . $this->renderInlines($node->getOld()->getChildren()) . '~>' . $this->renderInlines($node->getNew()->getChildren()) . '~}',
+            $node instanceof Insert => $withAttrs($this->spellSameKind($node, '+', '{+' . $this->guardGraphemeContent('insert', $this->renderMarked('insert', $node)) . '+}')),
+            $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->guardGraphemeContent('delete', $this->renderMarked('delete', $node)) . '-}')),
+            $node instanceof Substitution => '{~' . $this->guardGraphemeContent('substitution', $this->renderInlines($node->getOld()->getChildren())) . '~>' . $this->renderInlines($node->getNew()->getChildren()) . '~}',
             $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
             $node instanceof CaptionNumber => '#',
             $node instanceof CitationGroup => $node->getRaw(),
@@ -4426,9 +4426,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $inner = $children[0] ?? null;
         if ($node->isBoldItalic() && count($children) === 1 && $inner instanceof Emphasis) {
             $content = $this->renderInlines($inner->getChildren());
+            $this->guardGraphemeContent('strong', $content);
             // `/*` needs content that hugs it: `/* x*/` or `/**/` reparses as an
             // emphasis holding literal stars, so fall back to the nested spelling.
-            if ($content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content)) {
+            if (
+                $content !== '' && !preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content)
+                && !ctype_alnum($prevChar) && $prevChar !== '_' && $prevChar !== '/' && !ctype_alnum($nextChar)
+                && preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $nextChar) !== 1
+            ) {
                 return '/*' . $content . '*/';
             }
         }
@@ -4457,6 +4462,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $content = $this->renderInlines($node->getChildren());
         if ($content === '') {
             throw new SourceUnspellableException($nodeType, "an empty {$nodeType} has no Carve source spelling");
+        }
+
+        return $content;
+    }
+
+    private function guardGraphemeContent(string $kind, string $content): string
+    {
+        if (preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $content) === 1) {
+            throw new SourceUnspellableException($kind, "a {$kind} whose content starts with a grapheme extender has no Carve source spelling");
         }
 
         return $content;
@@ -4793,6 +4807,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderForcedEmphasis(string $delimiter, string $content): string
     {
+        $this->guardGraphemeContent($delimiter === '^' ? 'superscript' : 'subscript', $content);
+
         return '{' . $delimiter . $content . $delimiter . '}';
     }
 
@@ -4901,6 +4917,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         bool $endsInEmptyCodeSpan = false,
         bool $holdsLineComment = false,
     ): string {
+        $kind = match ($delimiter) {
+            '/' => 'emphasis',
+            '*' => 'strong',
+            '_' => 'underline',
+            '~' => 'strike',
+            '=' => 'highlight',
+            default => 'emphasis',
+        };
+        $this->guardGraphemeContent($kind, $content);
+
         // A line comment ends at ITS line break, so it takes the bare closer
         // with it only when it opens on the closer's own line. The node gate
         // keeps a `%%` that is merely code-span content out of this.
@@ -4914,6 +4940,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             || $prevChar === $delimiter
             || ($prevChar === '/' && ($delimiter === '/' || $delimiter === '_'))
             || preg_match('/[A-Za-z0-9_]/', $nextChar) === 1
+            || preg_match('/\A[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $nextChar) === 1
             || str_starts_with($content, $delimiter)
             || str_ends_with($content, $delimiter)
             // Whitespace against a bare delimiter stops it opening or closing,
@@ -5810,7 +5837,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $text = $this->inlineBoundaryText($node);
 
-        return $text === '' ? '' : $text[0];
+        return $text === '' ? '' : mb_substr($text, 0, 1, 'UTF-8');
     }
 
     protected function inlineBoundaryText(?Node $node): string
@@ -6272,6 +6299,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         if ($previous === '{') {
+            // A caret followed by a grapheme extender is not a whole forced
+            // opener, even when a later `^}` looks like its closer.
+            if (isset($text[$offset + 1]) && preg_match('/\G[\p{Mn}\p{Mc}\p{Me}\x{FE00}-\x{FE0F}\x{200D}]/u', $text, offset: $offset + 1) === 1) {
+                return false;
+            }
+
             return $lastSupCloser >= $offset + 1;
         }
 
