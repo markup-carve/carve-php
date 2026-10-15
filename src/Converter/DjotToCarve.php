@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Converts Djot markup to Carve markup.
@@ -173,6 +174,7 @@ class DjotToCarve
      */
     public function convert(string $djot): string
     {
+        $djot = StringUtil::toValidUtf8($djot);
         if (!str_contains($djot, "\0")) {
             return $this->convertDocument($djot);
         }
@@ -1853,6 +1855,7 @@ class DjotToCarve
 
     public function convertWithFidelityReport(string $djot): MigrationResult
     {
+        $djot = StringUtil::toValidUtf8($djot);
         $stripped = $this->stripFootnoteDefinitionAttributes($djot);
         $losses = $this->djotLosses($djot);
         $result = $this->assessedMigrationResult($djot, $this->convert($djot), 'djot', $stripped['losses'] !== [] || $losses !== []);

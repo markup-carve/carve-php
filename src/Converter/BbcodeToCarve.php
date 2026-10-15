@@ -23,6 +23,7 @@ use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Renderer\Utility\DocumentSentinels;
+use MarkupCarve\Carve\Util\StringUtil;
 
 /**
  * Converts BBCode markup to Carve
@@ -93,6 +94,7 @@ class BbcodeToCarve
                 'BBCode input exceeds maximum length of ' . self::MAX_INPUT_LENGTH . ' bytes',
             );
         }
+        $bbcode = StringUtil::toValidUtf8($bbcode);
 
         // A U+0000 IN THE INPUT IS REPLACED BY U+FFFD, before anything reads the
         // text. An importer is the same boundary as an ingest, and PART 12 §21
@@ -166,7 +168,9 @@ class BbcodeToCarve
 
     public function convertWithFidelityReport(string $bbcode): MigrationResult
     {
-        return $this->assessedMigrationResult($bbcode, $this->convert($bbcode), 'bbcode');
+        $value = $this->convert($bbcode);
+
+        return $this->assessedMigrationResult(StringUtil::toValidUtf8($bbcode), $value, 'bbcode');
     }
 
     /**

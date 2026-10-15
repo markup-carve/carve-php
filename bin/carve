@@ -326,6 +326,39 @@ function resolveFutureOutputPath(string $path): string
 }
 
 /**
+ * Open a migration entry, refusing one that is no longer the regular file the walk saw.
+ *
+ * @param string $input
+ * @param string $path
+ * @param array{0:int, 1:int}|null $identity
+ * @return array{0:resource, 1:int}
+ * @throws \RuntimeException
+ */
+function openMigrationEntry(string $input, string $path, ?array $identity): array
+{
+    clearstatcache(true, $input);
+    $before = @lstat($input);
+    if ($before === false) {
+        throw new RuntimeException("cannot read $path");
+    }
+    if (($before['mode'] & 0170000) !== 0100000 || $identity !== [$before['dev'], $before['ino']]) {
+        throw new RuntimeException("changed during migration: $path");
+    }
+    $handle = @fopen($input, 'rb');
+    if ($handle === false) {
+        throw new RuntimeException("cannot read $path");
+    }
+    $opened = fstat($handle);
+    if ($opened === false || $identity !== [$opened['dev'], $opened['ino']]) {
+        fclose($handle);
+
+        throw new RuntimeException("changed during migration: $path");
+    }
+
+    return [$handle, $opened['mode'] & 0777];
+}
+
+/**
  * Convert a Markdown directory and return the migration counts.
  *
  * @return array{files:int, assets:int, review:int, skipped:int, report:string}
@@ -349,7 +382,8 @@ function migrateMarkdownDirectory(string $source, string $output): array
     foreach ($iterator as $entry) {
         $path = str_replace(DIRECTORY_SEPARATOR, '/', substr($entry->getPathname(), strlen($root) + 1));
         $kind = $entry->isLink() || !$entry->isFile() ? 'skipped' : (preg_match('/\.(md|markdown)$/i', $entry->getFilename()) ? 'markdown' : 'asset');
-        $entries[] = ['path' => $path, 'kind' => $kind];
+        $status = $kind === 'skipped' ? false : lstat($entry->getPathname());
+        $entries[] = ['path' => $path, 'kind' => $kind, 'identity' => $status === false ? null : [$status['dev'], $status['ino']]];
     }
     usort($entries, static fn (array $left, array $right): int => strcmp($left['path'], $right['path']));
     if (!in_array('markdown', array_column($entries, 'kind'), true)) {
@@ -402,23 +436,30 @@ function migrateMarkdownDirectory(string $source, string $output): array
                 throw new RuntimeException("cannot create directory for $destination");
             }
             $input = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $path);
+            [$handle, $sourceMode] = openMigrationEntry($input, $path, $entry['identity']);
+            try {
+                if ($kind === 'asset') {
+                    $written = file_put_contents($target, $handle);
+                } else {
+                    $sourceText = stream_get_contents($handle);
+                }
+            } finally {
+                fclose($handle);
+            }
             if ($kind === 'asset') {
-                if (!copy($input, $target) || !chmod($target, fileperms($input) & 0777)) {
+                if ($written === false || !chmod($target, $sourceMode)) {
                     throw new RuntimeException("cannot copy $path");
                 }
                 $assets[] = $path;
 
                 continue;
             }
-            $sourceText = file_get_contents($input);
             if ($sourceText === false) {
                 throw new RuntimeException("cannot read $path");
             }
-            if (preg_match('//u', $sourceText) !== 1) {
-                throw new RuntimeException("invalid UTF-8 in $path");
-            }
+            // Ill-formed bytes are replaced, as single-file migration does (CARVE-P0-023).
             $result = (new MarkdownToCarve())->convertWithFidelityReport($sourceText);
-            if (file_put_contents($target, $result->value) === false || !chmod($target, $fileMode & fileperms($input))) {
+            if (file_put_contents($target, $result->value) === false || !chmod($target, $fileMode & $sourceMode)) {
                 throw new RuntimeException("cannot write $destination");
             }
             $diagnostics = $result->report()['diagnostics'];
@@ -435,7 +476,14 @@ function migrateMarkdownDirectory(string $source, string $output): array
         if (file_put_contents($temporary . '/migration-report.json', json_encode($report, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR) . "\n") === false) {
             throw new RuntimeException('cannot write migration report');
         }
-        if (file_exists($final) || is_link($final) || !rename($temporary, $final)) {
+        // Claim the output exclusively: rename() would silently replace an
+        // empty directory created by someone else after the existence check.
+        if (!@mkdir($final)) {
+            throw new RuntimeException("output appeared during conversion: $final");
+        }
+        if (!rename($temporary, $final)) {
+            rmdir($final);
+
             throw new RuntimeException("cannot create output: $final");
         }
         rmdir($shell);

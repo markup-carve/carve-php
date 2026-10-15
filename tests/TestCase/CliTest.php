@@ -701,6 +701,70 @@ class CliTest extends TestCase
         }
     }
 
+    /**
+     * @return array<string, array{string}>
+     */
+    public static function illFormedMigrateFormats(): array
+    {
+        return ['html' => ['html'], 'markdown' => ['markdown'], 'djot' => ['djot'], 'bbcode' => ['bbcode']];
+    }
+
+    #[DataProvider('illFormedMigrateFormats')]
+    public function testMigrateReplacesIllFormedBytes(string $format): void
+    {
+        $result = $this->runCliInput(['migrate', '--from', $format], "a\xED\xA0\x80b\n");
+
+        $this->assertSame(0, $result['exit'], $result['err']);
+        $this->assertSame(1, preg_match('//u', $result['out']));
+        $this->assertStringContainsString("a\u{FFFD}\u{FFFD}\u{FFFD}b", $result['out']);
+    }
+
+    public function testMigrateMarkdownDirectoryReplacesIllFormedBytes(): void
+    {
+        $root = sys_get_temp_dir() . '/carve-folder-utf8-' . bin2hex(random_bytes(8));
+        mkdir($root . '/source', 0777, true);
+        file_put_contents($root . '/source/bad.md', "a\xC3b\n");
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $root . '/source', '--output', $root . '/output'], '');
+            $this->assertSame(0, $result['exit'], $result['err']);
+            $this->assertSame("a\u{FFFD}b\n", file_get_contents($root . '/output/bad.crv'));
+        } finally {
+            foreach (['output/bad.crv', 'output/migration-report.json', 'source/bad.md'] as $path) {
+                if (file_exists($root . '/' . $path)) {
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
+    public function testMigrateMarkdownDirectoryNamesAnUnreadableFile(): void
+    {
+        if (PHP_OS_FAMILY === 'Windows' || (function_exists('posix_geteuid') && posix_geteuid() === 0)) {
+            $this->markTestSkipped('Needs POSIX permissions that bind the current user.');
+        }
+        $root = sys_get_temp_dir() . '/carve-folder-unreadable-' . bin2hex(random_bytes(8));
+        mkdir($root . '/source', 0777, true);
+        file_put_contents($root . '/source/locked.md', "# Locked\n");
+        chmod($root . '/source/locked.md', 0000);
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $root . '/source', '--output', $root . '/output'], '');
+            $this->assertSame(2, $result['exit']);
+            $this->assertStringContainsString('cannot read locked.md', $result['err']);
+            $this->assertDirectoryDoesNotExist($root . '/output');
+            $this->assertSame(['source'], array_values(array_diff((array)scandir($root), ['.', '..'])));
+        } finally {
+            chmod($root . '/source/locked.md', 0600);
+            unlink($root . '/source/locked.md');
+            rmdir($root . '/source');
+            rmdir($root);
+        }
+    }
+
     public function testMigrateWritesAListTableUnderTheListTableFlag(): void
     {
         $html = '<table><tr><td><p>a</p><p>b</p></td></tr></table>';
