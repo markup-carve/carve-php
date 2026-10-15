@@ -810,7 +810,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
         $href = $this->stripControls($this->blankDeniedDestination($node->getHref(), self::DESTINATION_SINK_LINK, $node));
 
-        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href, true)), "\n"), self::DIM) . "\n\n";
+        return $this->style(rtrim($this->stripControls(ReferencedLinkDefinitions::line($node, $href)), "\n"), self::DIM) . "\n\n";
     }
 
     /**

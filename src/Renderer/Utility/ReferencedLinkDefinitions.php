@@ -86,9 +86,17 @@ final class ReferencedLinkDefinitions
         return serialize([LabelKey::normalize($label), $href, $title]);
     }
 
-    public static function line(LinkReferenceDefinition $node, ?string $href = null, bool $keepDestinationSlot = false): string
+    /**
+     * An empty destination, authored or blanked, writes the bare `[label]:`: the
+     * title and attributes have no slot to follow (carve-js renderLinkReferenceDefinition).
+     */
+    public static function line(LinkReferenceDefinition $node, ?string $href = null): string
     {
-        $line = '[' . $node->getLabel() . ']:' . ($href === '' && !$keepDestinationSlot ? '' : ' ') . ($href ?? $node->getHref());
+        $href ??= $node->getHref();
+        if ($href === '') {
+            return '[' . $node->getLabel() . "]:\n\n";
+        }
+        $line = '[' . $node->getLabel() . ']: ' . $href;
         if ($node->getTitle() !== null) {
             $line .= ' "' . QuotedSlotEscaper::escape($node->getTitle()) . '"';
         }
