@@ -198,6 +198,39 @@ final class EmptyDestinationsTest extends TestCase
         self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
     }
 
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function quotedWrappedTitles(): array
+    {
+        $html = '<blockquote><p><a href="" title="a' . "\n" . 'b">t</a></p></blockquote>';
+
+        return [
+            'quoted continuation' => ["> [t][r]\n>\n> [r]: <> \"a\n> b\"", $html],
+            'lazy continuation' => ["> [t][r]\n>\n> [r]: <> \"a\nb\"", $html],
+            'title on the next quoted line' => ["> [t][r]\n>\n> [r]: <>\n> \"a\n> b\"", $html],
+            'title on the next lazy line' => ["> [t][r]\n>\n> [r]: <>\n\"a\nb\"", $html],
+            'nested quote' => [">> [t][r]\n>>\n>> [r]: <> \"a\n> b\"", "<blockquote>\n  " . $html . "\n</blockquote>"],
+            'image' => ["> ![t][r]\n>\n> [r]: <> \"a\n> b\"", "<blockquote>\n  <img src=\"\" alt=\"t\" title=\"a\nb\">\n</blockquote>"],
+        ];
+    }
+
+    #[DataProvider('quotedWrappedTitles')]
+    public function testMarkdownImportInlinesAQuotedReferenceWithAMultilineTitle(string $source, string $html): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+        self::assertStringNotContainsString('[r]', $result->value);
+        self::assertSame($html, trim((new CarveConverter())->convert($result->value)));
+        self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
+    }
+
+    public function testMarkdownImportLeavesAQuotedTitleABlankLineEndsAsText(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("> [t][r]\n>\n> [r]: <> \"a\n>\n> b\"");
+        self::assertStringContainsString('> [t][r]', $result->value);
+        self::assertNotContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
+    }
+
     public function testMarkdownImportInlinesEmptyDefinitionsWithUnspellableLabels(): void
     {
         foreach (

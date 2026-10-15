@@ -9388,6 +9388,70 @@ class MarkdownToCarve
                     continue;
                 }
             }
+            // CommonMark lets the title of a quoted definition wrap, onto quoted or lazy lines.
+            if (
+                ($canStart || $lineDepth > $depth)
+                && $lineDepth > 0
+                && !$opensItem
+                && $listIndent === 0
+                && preg_match('/^ {0,3}\[((?:[^[\]\\\\]|\\\\.)+)\]:(.*)$/', $content, $definition) === 1
+                && preg_match('/^[ \t]*<>(?:[ \t]+["\'(].*)?[ \t]*$/', $definition[2]) === 1
+            ) {
+                $continuation = function (int $at) use ($lines, $count, $quote, $lineDepth): ?string {
+                    if ($at >= $count) {
+                        return null;
+                    }
+                    $followingPrefix = preg_match($quote, $lines[$at], $parts) === 1 ? $parts[1] : '';
+                    if (substr_count($followingPrefix, '>') > $lineDepth) {
+                        return null;
+                    }
+                    $body = substr($lines[$at], strlen($followingPrefix));
+
+                    return trim($body) === '' || $this->opensMarkdownBlock($body) ? null : $body;
+                };
+                $joined = $definition[2];
+                $end = $i;
+                if (trim($joined) === '<>') {
+                    $next = $continuation($i + 1);
+                    if ($next !== null && preg_match('/^[ \t]*["\'(]/', $next) === 1) {
+                        $joined = '<> ' . ltrim($next);
+                        $end = $i + 1;
+                    }
+                }
+                $wrapped = '/^[ \t]*<>[ \t]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))/';
+                while (preg_match('/^[ \t]*<>[ \t]+["\'(]/', $joined) === 1 && preg_match($wrapped, $joined) !== 1) {
+                    $next = $continuation($end + 1);
+                    if ($next === null) {
+                        break;
+                    }
+                    $joined .= "\n" . $next;
+                    $end++;
+                }
+                if ($end > $i && preg_match(substr($wrapped, 0, -1) . '[ \t]*\z/', $joined, $titled) === 1) {
+                    $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]));
+                    if (!isset($defined[$key])) {
+                        $labels[$key] = str_contains($definition[1], '\\') ? $definition[1] : $this->decodeLinkTitle($definition[1]);
+                        $this->emptyDestinationLabels[$key] = ['title' => $this->decodeLinkTitle(substr($titled[1], 1, -1)), 'hasTitle' => true];
+                        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+                            'structure-unspellable',
+                            'Dropped a titled empty reference definition; uses become inline links.',
+                            'warning',
+                            'dropped',
+                            'exact',
+                            'line:' . ($i + 1),
+                        );
+                    }
+                    $authoredDefinitions[$this->normalizeReferenceLabel($definition[1])] = true;
+                    $defined[$key] = true;
+                    $depth = $lineDepth;
+                    $i = $end;
+                    $referenceChunk = null;
+                    $canStart = true;
+                    $this->dropDefinitionLine($lines, $i, $quotePrefix, $kept);
+
+                    continue;
+                }
+            }
             // A deeper quote opens a block; a shallower line is lazy continuation.
             if (
                 ($canStart || $opensItem || $lineDepth > $depth)
