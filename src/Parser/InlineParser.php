@@ -5338,8 +5338,8 @@ class InlineParser
             return $this->destinationScans[$urlStart] = ['end' => $urlEnd, 'url' => '', 'title' => null];
         }
         if (
-            preg_match('/^ "((?:\\\\.|[^"\\\\\r\n])*)"[ \t]*\z/', $emptyRaw, $emptyTitle) === 1
-            || preg_match("/^ '((?:\\\\.|[^'\\\\\\r\\n])*)'[ \\t]*\\z/", $emptyRaw, $emptyTitle) === 1
+            preg_match('/^ "((?:\\\\.|[^"\\\\])*)"[ \t]*\z/', $emptyRaw, $emptyTitle) === 1
+            || preg_match("/^ '((?:\\\\.|[^'\\\\])*)'[ \\t]*\\z/", $emptyRaw, $emptyTitle) === 1
         ) {
             return $this->destinationScans[$urlStart] = [
                 'end' => $urlEnd,

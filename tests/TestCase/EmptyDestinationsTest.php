@@ -33,6 +33,9 @@ final class EmptyDestinationsTest extends TestCase
             'title' => ['[t]( "T")', '<p><a href="" title="T">t</a></p>', '[t]( "T")'],
             'image' => ['![a]()', '<img src="" alt="a">', '![a]()'],
             'image title' => ['![a]( "T")', '<img src="" alt="a" title="T">', '![a]( "T")'],
+            'wrapped title' => ["[t]( \"a\nb\")", "<p><a href=\"\" title=\"a\nb\">t</a></p>", "[t]( \"a\nb\")"],
+            'wrapped single-quote title' => ["[t]( 'a\nb')", "<p><a href=\"\" title=\"a\nb\">t</a></p>", "[t]( \"a\nb\")"],
+            'wrapped image title' => ["![a]( \"x\ny\")", "<img src=\"\" alt=\"a\" title=\"x\ny\">", "![a]( \"x\ny\")"],
         ];
     }
 
@@ -125,7 +128,32 @@ final class EmptyDestinationsTest extends TestCase
         self::assertSame('<p><a href="/u">t</a></p>', trim($converter->convert("[^]: /u\n\n[t][^]")));
     }
 
-    public function testMultilineTitleOnEmptyDestinationIsReported(): void
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function resolvedEmptyReferences(): array
+    {
+        return [
+            'lone image' => ["![a][r]\n\n[r]:", '<img src="" alt="a">'],
+            'collapsed lone image' => ["![a][]\n\n[a]:", '<img src="" alt="a">'],
+            'lone image in a list item' => ["- ![a][r]\n\n[r]:", "<ul>\n  <li>\n    <img src=\"\" alt=\"a\">\n  </li>\n</ul>"],
+            'lone image in a quote' => ["> ![a][r]\n\n[r]:", "<blockquote>\n  <img src=\"\" alt=\"a\">\n</blockquote>"],
+            'nested in a link' => ["[x [t][r] y](/u)\n\n[r]:", '<p><a href="/u">x t y</a></p>'],
+            'cross-reference label' => ["{#h}\n# A [t][r]\n\nsee </#h>\n\n[r]:", "<section id=\"h\">\n  <h1>A <a href=\"\">t</a></h1>\n  <p>see <a href=\"#h\">A t</a></p>\n</section>"],
+        ];
+    }
+
+    #[DataProvider('resolvedEmptyReferences')]
+    public function testResolvedEmptyReferenceIsNotUnresolved(string $source, string $html): void
+    {
+        $converter = new CarveConverter();
+        self::assertSame($html, trim($converter->convert($source)));
+        $codec = new AstCodec();
+        $decoded = $codec->decodeJson($codec->encodeJson($converter->parse($source)));
+        self::assertSame($html, trim($converter->render($decoded)));
+    }
+
+    public function testMultilineTitleOnEmptyDestinationIsWritten(): void
     {
         $document = new Document();
         $paragraph = new Paragraph();
@@ -137,35 +165,36 @@ final class EmptyDestinationsTest extends TestCase
         $document->appendChild($paragraph);
         $writer = new CarveRenderer();
         $writer->beginConversionDiagnosticCollection();
-        self::assertSame('[a]() ![b]()' . "\n", $writer->render($document));
-        $report = $writer->finishConversionDiagnosticCollection();
-        self::assertSame(['field-unspellable', 'field-unspellable'], array_column($report['diagnostics'], 'code'));
+        $written = $writer->render($document);
+        self::assertSame("[a]( \"x\ny\") ![b]( \"x\ny\")\n", $written);
+        self::assertSame([], $writer->finishConversionDiagnosticCollection()['diagnostics']);
+        self::assertSame('<p><a href="" title="x' . "\n" . 'y">a</a> <img src="" alt="b" title="x' . "\n" . 'y"></p>', trim((new CarveConverter())->convert($written)));
     }
 
-    public function testMarkdownImportReportsDroppedMultilineTitle(): void
+    public function testMarkdownImportKeepsAMultilineTitle(): void
     {
         foreach (
             [
-                "[a](<> \"x\ny\")" => '[a]()',
-                "[a](<> (x\ny))" => '[a]()',
-                "![a](<> (x\ny))" => '![a]()',
-                "[a](<>  \"x\ny\")" => '[a]()',
-                "[a](<>\n\"x\ny\")" => '[a]()',
-                "[a](<> \"x\ny\" )" => '[a]()',
-                "[a [b] c](<> \"x\ny\")" => '[a [b] c]()',
-                "[a\nb](<> \"x\ny\")" => "[a\nb]()",
+                "[a](<> \"x\ny\")" => "[a]( \"x\ny\")",
+                "[a](<> (x\ny))" => "[a]( \"x\ny\")",
+                "![a](<> (x\ny))" => "![a]( \"x\ny\")",
+                "[a](<>  \"x\ny\")" => "[a]( \"x\ny\")",
+                "[a](<>\n\"x\ny\")" => "[a]( \"x\ny\")",
+                "[a](<> \"x\ny\" )" => "[a]( \"x\ny\")",
+                "[a [b] c](<> \"x\ny\")" => "[a [b] c]( \"x\ny\")",
+                "[a\nb](<> \"x\ny\")" => "[a\nb]( \"x\ny\")",
             ] as $source => $expected
         ) {
             $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
             self::assertSame($expected, trim($result->value), $source);
-            self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics), $source);
+            self::assertNotContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics), $source);
         }
     }
 
-    public function testMarkdownImportKeepsAReferenceWithAMultilineTitle(): void
+    public function testMarkdownImportInlinesAReferenceWithAMultilineTitle(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("[a][r]\n\n[r]: <> \"x\ny\"");
-        self::assertSame("[a][r]\n\n[r]:", trim($result->value));
+        self::assertSame("[a]( \"x\ny\")", trim($result->value));
         self::assertContains('structure-unspellable', array_map(static fn ($diagnostic): string => $diagnostic->code, $result->diagnostics));
     }
 
