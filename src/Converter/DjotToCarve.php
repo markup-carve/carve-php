@@ -187,6 +187,21 @@ class DjotToCarve
         return $converted;
     }
 
+    private function djotImageChainCharacter(string $source, int $at): string
+    {
+        $byte = ord($source[$at]);
+        $width = $byte < 0x80 ? 1 : ($byte < 0xE0 ? 2 : ($byte < 0xF0 ? 3 : 4));
+
+        $character = substr($source, $at, $width);
+
+        return $width === 1 || preg_match('/^.$/us', $character) === 1 ? $character : $source[$at];
+    }
+
+    private function isPlainDjotImageChainCharacter(string $character): bool
+    {
+        return preg_match('/^[\p{L}\p{N}\p{M} ,;:?\/=&@\t\n]$/u', $character) === 1;
+    }
+
     private function collapsePlainNestedImageChains(string $source): string
     {
         if (!str_contains($source, '![') || !str_contains($source, "\n")) {
@@ -204,6 +219,15 @@ class DjotToCarve
             }
             $mask = implode("\n", $maskLines);
         }
+        $lineOffsets = $quotePrefixes = [];
+        $lineOffset = 0;
+        foreach (explode("\n", $source) as $line) {
+            $lineOffsets[] = $lineOffset;
+            preg_match('/^(?:[ \t]*>[ \t]?)+/', $line, $prefix);
+            $quotePrefixes[] = $prefix[0] ?? '';
+            $lineOffset += strlen($line) + 1;
+        }
+        $sourceLine = 0;
         $chunks = [];
         $copied = 0;
         $length = strlen($source);
@@ -211,6 +235,10 @@ class DjotToCarve
             if (substr($source, $start, 2) !== '![' || $mask[$start] !== '!' || $this->isDjotEscaped($source, $start)) {
                 continue;
             }
+            while (($lineOffsets[$sourceLine + 1] ?? $length) <= $start) {
+                $sourceLine++;
+            }
+            $quotePrefix = $quotePrefixes[$sourceLine];
             $at = $start;
             $lastUnsafe = -1;
             $previous = $nonSpace = '';
@@ -220,8 +248,18 @@ class DjotToCarve
                 $at += 2;
                 $begin = $at;
                 $level = count($labels);
-                while ($at < $length && preg_match('/[A-Za-z0-9 \t\n]/', $source[$at]) === 1) {
-                    $ch = $source[$at++];
+                while ($at < $length) {
+                    $ch = $this->djotImageChainCharacter($source, $at);
+                    if (!$this->isPlainDjotImageChainCharacter($ch) || $ch === ':' && ($at === $begin || $nonSpace === '' || $nonSpace === "\n")) {
+                        break;
+                    }
+                    $at += strlen($ch);
+                    if ($ch === "\n" && $quotePrefix !== '') {
+                        if (substr($source, $at, strlen($quotePrefix)) !== $quotePrefix) {
+                            break;
+                        }
+                        $at += strlen($quotePrefix);
+                    }
                     if ($ch === "\n" && ($nonSpace === "\n" || $previous === ' ' || $previous === "\t")) {
                         $lastUnsafe = $level;
                     }
@@ -230,7 +268,7 @@ class DjotToCarve
                     }
                     $previous = $ch;
                 }
-                $labels[] = substr($source, $begin, $at - $begin);
+                $labels[] = str_replace("\n" . $quotePrefix, "\n", substr($source, $begin, $at - $begin));
                 if (substr($source, $at, 2) !== '![') {
                     break;
                 }
@@ -266,7 +304,7 @@ class DjotToCarve
             }
             $end = $ends[$count - 1];
             $chunks[] = substr($source, $copied, $positions[$first] - $copied);
-            $chunks[] = '![' . implode('', array_slice($labels, $first)) . '](' . $targets[$count - 1] . ')';
+            $chunks[] = '![' . str_replace("\n", "\n" . $quotePrefix, implode('', array_slice($labels, $first))) . '](' . $targets[$count - 1] . ')';
             $copied = $end;
             $start = $end - 1;
         }
