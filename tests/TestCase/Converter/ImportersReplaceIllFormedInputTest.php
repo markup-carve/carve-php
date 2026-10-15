@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
+use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -32,6 +33,14 @@ class ImportersReplaceIllFormedInputTest extends TestCase
     public function testConvertReplacesIllFormedBytes(MarkdownToCarve|DjotToCarve|BbcodeToCarve $importer): void
     {
         $this->assertSame("a\u{FFFD}b \u{FFFD}\u{FFFD}\u{FFFD}c\n", $importer->convert("a\xC3b \xED\xA0\x80c\n"));
+    }
+
+    public function testHtmlImportReplacesIllFormedBytes(): void
+    {
+        $importer = new HtmlToCarve();
+
+        $this->assertSame("a\u{FFFD}b \u{FFFD}\u{FFFD}\u{FFFD}c\n", $importer->convert("<p>a\xC3b \xED\xA0\x80c</p>"));
+        $this->assertSame("a\u{FFFD}b\n", $importer->convertWithFidelityReport("<p>a\xE2\x82b</p>")->value);
     }
 
     #[DataProvider('importers')]
