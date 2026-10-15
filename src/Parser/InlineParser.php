@@ -3971,6 +3971,15 @@ class InlineParser
                     continue;
                 }
             }
+            // A delimited comment is opaque (PART 9 E2a), so a closer inside it is comment text.
+            if ($text[$searchPos] === '{' && ($text[$searchPos + 1] ?? '') === '%' && !$this->hasDecoratedBracedOpener($text, $searchPos)) {
+                $commentClose = $this->nextRawCloser($text, '%}', $searchPos + 2);
+                if ($commentClose !== null) {
+                    $searchPos = $commentClose + 2;
+
+                    continue;
+                }
+            }
             // A CLOSER INSIDE A CLOSED VERBATIM RUN IS CODE, not this span's
             // closer: the run is closed by an equal-length backtick run
             // anywhere later in the block (markup-carve/carve#2079).
@@ -4823,7 +4832,7 @@ class InlineParser
                             $skip = $destination[1] ?? $skip;
                         }
                     } elseif ($char === '<') {
-                        $skip = $this->findAutolinkEnd($text, $at);
+                        $skip = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
                     } elseif ($char === '{') {
                         $marker = $text[$at + 1] ?? "\0";
                         if (str_contains('/*_^,~=+-', $marker)) {
@@ -4897,6 +4906,15 @@ class InlineParser
                 if ($runEnd !== null) {
                     $destination = $this->linkDestinationSkip($text, $at);
                     $at = ($destination === null ? $runEnd : $destination[1]) - 1;
+
+                    continue;
+                }
+            }
+            // An autolink or a cross-reference is atomic (PART 9 E2a): a `~>` ending one is no arrow.
+            if ($char === '<') {
+                $atomicEnd = $this->findCrossrefEnd($text, $at) ?? $this->findAutolinkEnd($text, $at);
+                if ($atomicEnd !== null) {
+                    $at = $atomicEnd - 1;
 
                     continue;
                 }
@@ -5580,6 +5598,36 @@ class InlineParser
         $this->crossrefInvalidRange = [$from, $end];
 
         return false;
+    }
+
+    private static ?string $crossrefRunText = null;
+
+    private static int $crossrefRunFrom = -1;
+
+    private static int $crossrefRunEnd = -1;
+
+    /**
+     * Position after the `>` of a `</#id>` cross-reference at $pos, or null,
+     * for the bracket scan, which holds no parser state.
+     *
+     * @internal
+     */
+    public static function crossrefEndForBracketScan(string $text, int $pos): ?int
+    {
+        if (substr($text, $pos, 3) !== '</#' || ($text[$pos + 3] ?? '>') === '>') {
+            return null;
+        }
+        // Every start inside one id run ends at the same byte, so remember it:
+        // a run of unclosed `</#` openers would otherwise rescan to its end each time.
+        $from = $pos + 3;
+        if (self::$crossrefRunText !== $text || $from < self::$crossrefRunFrom || $from > self::$crossrefRunEnd) {
+            self::$crossrefRunText = $text;
+            self::$crossrefRunFrom = $from;
+            self::$crossrefRunEnd = $from + strcspn($text, " \r\n>", $from);
+        }
+        $end = self::$crossrefRunEnd;
+
+        return ($text[$end] ?? '') === '>' ? $end + 1 : null;
     }
 
     /**

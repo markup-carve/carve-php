@@ -210,17 +210,7 @@ final class BlockQuoteBuilder
 
         $blockQuote = new BlockQuote();
         $quoteSourceLine = $this->sourceLineFor($start);
-        $sourceTail = rtrim($this->state->source->sourceLines[$quoteSourceLine] ?? '', " \t");
-        $lineTail = rtrim($line, " \t");
-        $markerTail = ltrim($lineTail, " \t");
-        $quoteOpeningColumn = str_ends_with($sourceTail, $markerTail)
-            ? strlen($sourceTail) - strlen($markerTail)
-            : ($this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0);
-        $quoteOpeningColumn = max(
-            $quoteOpeningColumn,
-            $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0,
-            strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
-        );
+        $quoteOpeningColumn = $this->quoteOpeningColumn($line, $quoteSourceLine);
 
         // Save and clear pending attributes - they apply to the blockquote, not inner content
         $quoteAttributes = $this->state->session->pendingAttributes;
@@ -230,49 +220,8 @@ final class BlockQuoteBuilder
         $this->state->session->pendingAttributeOrder = [];
 
         $parts = [];
-        $innerLines = [];
-        $innerLineMap = [];
-        $lazyState = self::initialBlockQuoteLazyState();
-        $codeCloserMemo = [];
-
-        $i = $start + 1;
+        [$i, $innerLines, $innerLineMap, $lazyState, $codeCloserMemo] = $this->collectBlockQuoteOpening($lines, $start, $content);
         $count = count($lines);
-        $nestedFirstBlock = preg_match('/^(?:> )+\+[ \t]*$/D', $content) === 1
-            && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
-            && IndentationHelper::getLeadingColumns($lines[$i]) === 0
-            && $this->blockQuoteLineContent($lines[$i]) === null;
-        $firstBlock = trim($content, " \t") === '+' && isset($lines[$i])
-            && !IndentationHelper::isBlankLine($lines[$i])
-            && IndentationHelper::getLeadingColumns($lines[$i]) === 0
-            && $this->blockQuoteLineContent($lines[$i]) === null;
-        if ($firstBlock) {
-            [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
-            $innerLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $rawLineMap);
-            $firstBlock = $innerLines !== [];
-        }
-        if (!$firstBlock) {
-            $innerLines[] = $content;
-            $innerLineMap[] = $this->sourceLineFor($start);
-            $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
-            if ($nestedFirstBlock) {
-                [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
-                foreach ($attached as $index => $attachedLine) {
-                    $innerLines[] = $attachedLine;
-                    $innerLineMap[] = $this->sourceLineFor($attachedLineMap[$index]);
-                }
-                if ($attached !== []) {
-                    $innerLines[] = '';
-                    $innerLineMap[] = -1;
-                    $lazyState['paragraphOpen'] = false;
-                }
-                $i = $end;
-            }
-        } else {
-            $innerLines[] = '';
-            $innerLineMap[] = -1;
-            $lazyState['paragraphOpen'] = false;
-        }
-
         while ($i < $count) {
             $currentLine = $lines[$i];
             if (IndentationHelper::isBlankLine($currentLine)) {
@@ -383,6 +332,77 @@ final class BlockQuoteBuilder
         $parent->appendChild($blockQuote);
 
         return $i - $start;
+    }
+
+    private function quoteOpeningColumn(string $line, int $quoteSourceLine): int
+    {
+        $sourceTail = rtrim($this->state->source->sourceLines[$quoteSourceLine] ?? '', " \t");
+        $lineTail = rtrim($line, " \t");
+        $markerTail = ltrim($lineTail, " \t");
+        $quoteOpeningColumn = str_ends_with($sourceTail, $markerTail)
+            ? strlen($sourceTail) - strlen($markerTail)
+            : ($this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0);
+
+        return max(
+            $quoteOpeningColumn,
+            $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0,
+            strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
+        );
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $start
+     * @param string $content
+     *
+     * @return array{int, array<string>, array<int, int>, array{mode:\MarkupCarve\Carve\Parser\BlockQuoteLazyMode,fenceChar:string,fenceLength:int,commentLength:int,paragraphOpen:bool,divFenceLength:int,colonClaims:list<array{length:int,column:int,body:bool,literal:bool,base?:int,inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool,plainBeforeFence?:bool,sawFence?:bool}>,divDepth:int,absorbingFence:bool,inTable:bool,innerDepth:int,attrRun:list<string>|null,hosts?:array{columns:non-empty-list<int>, markers:list<int>, kinds:list<string>, initialMarkerColumn?:int, absorbing?:bool, fence:array{char:string, length:int, column:int, base:int}|null, pending:array{char:string, length:int, column:int}|null, inlineFenceLines?:list<int>, closedLiteralColumn?:int, paragraphBoundary?:bool,commentBoundary?:bool,plainBeforeFence?:bool,sawFence?:bool}}, array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}>}
+     */
+    private function collectBlockQuoteOpening(array $lines, int $start, string $content): array
+    {
+        $innerLines = [];
+        $innerLineMap = [];
+        $lazyState = self::initialBlockQuoteLazyState();
+        $codeCloserMemo = [];
+
+        $i = $start + 1;
+        $count = count($lines);
+        $nestedFirstBlock = preg_match('/^(?:> )+\+[ \t]*$/D', $content) === 1
+            && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
+            && IndentationHelper::getLeadingColumns($lines[$i]) === 0
+            && $this->blockQuoteLineContent($lines[$i]) === null;
+        $firstBlock = trim($content, " \t") === '+' && isset($lines[$i])
+            && !IndentationHelper::isBlankLine($lines[$i])
+            && IndentationHelper::getLeadingColumns($lines[$i]) === 0
+            && $this->blockQuoteLineContent($lines[$i]) === null;
+        if ($firstBlock) {
+            [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+            $innerLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $rawLineMap);
+            $firstBlock = $innerLines !== [];
+        }
+        if (!$firstBlock) {
+            $innerLines[] = $content;
+            $innerLineMap[] = $this->sourceLineFor($start);
+            $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
+            if ($nestedFirstBlock) {
+                [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+                foreach ($attached as $index => $attachedLine) {
+                    $innerLines[] = $attachedLine;
+                    $innerLineMap[] = $this->sourceLineFor($attachedLineMap[$index]);
+                }
+                if ($attached !== []) {
+                    $innerLines[] = '';
+                    $innerLineMap[] = -1;
+                    $lazyState['paragraphOpen'] = false;
+                }
+                $i = $end;
+            }
+        } else {
+            $innerLines[] = '';
+            $innerLineMap[] = -1;
+            $lazyState['paragraphOpen'] = false;
+        }
+
+        return [$i, $innerLines, $innerLineMap, $lazyState, $codeCloserMemo];
     }
 
     /**

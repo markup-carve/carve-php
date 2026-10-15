@@ -6550,7 +6550,7 @@ class MarkdownToCarve
         $previousContent = preg_replace($prefix, '', $previous) ?? $previous;
         $writtenContent = preg_replace($prefix, '', $written) ?? $written;
         $opensNoParagraph = trim($previousContent) === ''
-            || (preg_match('/^' . $label . '[ \t]*(?:(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?$/', $previousContent) === 1
+            || (preg_match('/^' . $label . '[ \t]*(?:(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+(?:"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?$/', $previousContent) === 1
                 && !str_starts_with($writtenContent, '\\['));
         if ($opensNoParagraph) {
             return $line;
@@ -9395,13 +9395,17 @@ class MarkdownToCarve
             }
             if (
                 $lineDepth > 0 && $listIndent === 0 && ($canStart || $lineDepth > $depth)
-                && preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:[ \t]*(?:<>|$)/', $content) === 1
+                && preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:/', $content) === 1
             ) {
-                $quoted = $this->readQuotedWrappedEmptyDefinition($lines, $i, $lineDepth);
+                $quoted = $this->readQuotedWrappedDefinition($lines, $i, $lineDepth);
                 if ($quoted !== null) {
                     // A Carve definition has no title slot, so uses become titled inline links.
                     $rawKey = $this->normalizeReferenceLabel($quoted['label']);
-                    if (!isset($defined[$rawKey])) {
+                    if ($quoted['target'] !== null) {
+                        if (!isset($authoredDefinitions[$rawKey])) {
+                            $this->complexReferenceTargets[$rawKey] = $quoted['target'];
+                        }
+                    } elseif (!isset($defined[$rawKey])) {
                         $this->emptyDestinationLabels[$rawKey] = ['title' => $quoted['title'], 'hasTitle' => true];
                         $this->boundaryDiagnostics[] = new MigrationDiagnostic(
                             'structure-unspellable',
@@ -9426,7 +9430,7 @@ class MarkdownToCarve
             if (
                 ($canStart || $opensItem || $lineDepth > $depth)
                 && preg_match('/^ {0,3}\[((?:[^[\]\\\\]|\\\\.)+)\]:(.*)$/', $content, $definition) === 1
-                && preg_match('/^[ \t]*(?:(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*)?$/', $definition[2]) === 1
+                && preg_match('/^[ \t]*(?:(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*)?$/', $definition[2]) === 1
             ) {
                 $depth = $lineDepth;
                 $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]));
@@ -9436,7 +9440,7 @@ class MarkdownToCarve
                     && $i + 1 < $count
                     && str_starts_with($lines[$i + 1], $quotePrefix)
                     && !$this->opensMarkdownBlock(substr($lines[$i + 1], strlen($quotePrefix)))
-                    && preg_match('/^[ \t]*(?:<[^<>\n]*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix))) === 1
+                    && preg_match('/^[ \t]*(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix))) === 1
                 ) {
                     $continued[] = $lines[++$i];
                     $definition[2] = substr($continued[0], strlen($quotePrefix));
@@ -9833,16 +9837,17 @@ class MarkdownToCarve
     }
 
     /**
-     * Read an empty reference definition at `$start` inside a block quote whose
-     * title wraps. Continuation lines carry the quote marker or are lazy.
+     * Read a reference definition at `$start` inside a block quote whose title
+     * wraps. Continuation lines carry the quote marker or are lazy. `target` is
+     * null for an empty destination.
      *
      * @param array<string> $lines
      * @param int $start
      * @param int $depth
      *
-     * @return array{label: string, title: string, lines: int}|null
+     * @return array{label: string, title: string, target: string|null, lines: int}|null
      */
-    protected function readQuotedWrappedEmptyDefinition(array $lines, int $start, int $depth): ?array
+    protected function readQuotedWrappedDefinition(array $lines, int $start, int $depth): ?array
     {
         $chunk = [];
         $count = count($lines);
@@ -9863,11 +9868,14 @@ class MarkdownToCarve
                 if ($rest === '') {
                     continue;
                 }
-                if (!str_starts_with($rest, '<>')) {
+                $destination = true;
+                $end = $rest[0] === '<'
+                    ? (preg_match('/^<(?:[^<>\n\\\\]|\\\\.)*>/', $rest, $angle) === 1 ? strlen($angle[0]) - 1 : false)
+                    : strcspn($rest, " \t");
+                if ($end === false) {
                     return null;
                 }
-                $destination = true;
-                $rest = substr($rest, 2);
+                $rest = substr($rest, $rest[0] === '<' ? $end + 1 : $end);
             }
             if ($closer === null) {
                 $rest = ltrim($rest);
@@ -9891,13 +9899,18 @@ class MarkdownToCarve
         if (
             $parsed === null
             || str_contains($parsed['label'], "\n")
-            || preg_match('/^<>\s+("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\((?:\\\\.|[^()\\\\])*\))\s*\z/', $parsed['target'], $titled) !== 1
+            || preg_match('/^(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)\s+("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\((?:\\\\.|[^()\\\\])*\))\s*\z/', $parsed['target'], $titled) !== 1
             || !str_contains($titled[1], "\n")
         ) {
             return null;
         }
 
-        return ['label' => $parsed['label'], 'title' => $this->decodeLinkTitle(substr($titled[1], 1, -1)), 'lines' => $parsed['lines']];
+        return [
+            'label' => $parsed['label'],
+            'title' => $this->decodeLinkTitle(substr($titled[1], 1, -1)),
+            'target' => str_starts_with($parsed['target'], '<>') ? null : $parsed['target'],
+            'lines' => $parsed['lines'],
+        ];
     }
 
     /**

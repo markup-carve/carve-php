@@ -314,7 +314,9 @@ final class BracketScanner
             return $pos + 2;
         }
         if ($char === '<') {
-            return InlineParser::autolinkEndForBracketScan($text, $pos) ?? false;
+            return InlineParser::crossrefEndForBracketScan($text, $pos)
+                ?? InlineParser::autolinkEndForBracketScan($text, $pos)
+                ?? false;
         }
         if ($char === '{') {
             $next = $text[$pos + 1] ?? '';
