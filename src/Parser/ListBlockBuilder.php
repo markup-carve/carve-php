@@ -253,624 +253,17 @@ final class ListBlockBuilder
                         $list->setTight(false);
                     }
 
-                    // Collect all indented content at this new level. The strip
-                    // column is the item's content column (body column 0), so
-                    // residual indent above it is preserved and a block opener
-                    // there stays lazy text rather than being re-promoted.
-                    $subLines = [];
-                    $commentSpan = new CollectedCommentSpan();
-                    $subLineMap = [];
-                    $subIndent = $lastItemContentIndent;
-                    // Track the maximum content indent we've seen (for detecting drop-back to marker level)
-                    $maxContentIndent = $currentIndent;
-                    $sawBlankLine = false;
-                    $brokeForParentContent = false;
-                    // Trailing-block state over the collected nested lines, so a
-                    // base-level lazy line folds only when the nested content
-                    // ends in an OPEN paragraph (family-D rule). After a CLOSED
-                    // block (fenced code, table, div) the dedented line ends the
-                    // item instead of being absorbed.
-                    //
-                    // NOT THE LEAD. This stream is the item's POST-BLANK nested
-                    // content, so the item's lead is the marker line that was
-                    // read further up and the first line HERE is a later block.
-                    // Left at the constant's `true`, `- text` / blank / `  # N`
-                    // / `lazy` read the heading as the item's lead and pushed
-                    // `lazy` out of an item that plainly still holds `text`.
-                    $subTrailingState = new TrailingBlockState(isLead: false);
-                    $subTermColumn = null;
-                    $subTermOwnsText = false;
-                    $subListMarkerLine = null;
-                    // The width of the block comment open over these lines, or
-                    // null. PART 9 §28 gives the fence a body that recognizes no
-                    // block construct, so the shared trailing tracker cannot
-                    // carry it - see advanceItemCommentFence().
-                    $subOpenCommentLength = null;
-                    // Whether the collected stream already holds list content;
-                    // sibling markers inside it are the nested list's own
-                    // business and must not get a loosening blank injected.
-                    $subSawListMarker = false;
-                    // Whether a fence in this stream interrupted an open
-                    // paragraph on the strength of a closer only the SOURCE view
-                    // shows. See the hand-down below the loop.
-                    $subInterruptedParagraphFence = false;
-                    $subTermCodeFence = null;
-                    $subInlineFenceParagraph = false;
-                    // Entries this loop DEDENTED by the item's content column,
-                    // by index - the same proof collectMarkerLeadItem() records
-                    // and for the same reader (markup-carve/carve#1896).
-                    $subEligible = [];
-                    $subRetainedMarker = false;
-                    while ($i < $count) {
-                        $subLine = $lines[$i];
-                        if (IndentationHelper::isBlankLine($subLine)) {
-                            $subLines[] = $this->blankLineResidue($subLine, $subIndent, $subTrailingState);
-                            $subLineMap[] = $this->sourceLineFor($i);
-                            $sawBlankLine = true;
-                            $i++;
-
-                            continue;
-                        }
-                        // BOUNDED. This is asked of every collected line at
-                        // every nesting level, and it walks the line's whole
-                        // indentation run - so on a deep ladder it was 98.5% of
-                        // this parser's indentation work and cubic in depth
-                        // (markup-carve/carve#752). Every comparison below is
-                        // against $subIndent or $baseIndent, and the only other
-                        // consumer is $maxContentIndent, which is itself only
-                        // ever read as `> $subIndent`. Saturating at one past
-                        // the larger of the two therefore answers all of them
-                        // exactly: a run that overshoots the cap had already
-                        // decided every one of these tests.
-                        $lineIndent = IndentationHelper::getLeadingColumns(
-                            $subLine,
-                            max($subIndent, $baseIndent) + 1,
-                        );
-
-                        if ($subTermCodeFence !== null && $lineIndent < $subIndent) {
-                            $subject = ltrim($subLine, " \t");
-                            if (
-                                (($this->getListParser)()->parseListItemMarker($subject) !== null && $lineIndent <= $baseIndent)
-                                || (!($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0)
-                                    && ($this->isBlockElementStart($subject, $lines, $i)
-                                        || $this->startsNewBlock($subject, $lines, $i)
-                                        || ($this->isBlockAttributeLineCallback)($subject)
-                                        || $this->isFoldableInvisibleLine($subject)))
-                            ) {
-                                break;
-                            }
-                            $subLines[] = BlockGrammar::LAZY_FRAME . $subject;
-                            $subLineMap[] = $this->sourceLineFor($i);
-                            $i++;
-
-                            continue;
-                        }
-
-                        // If we've seen content at a higher indent level (actual nested content),
-                        // and now we're back at the marker level (subIndent) after a blank line,
-                        // this content belongs to the parent level - break to let parent handle it
-                        // UNLESS IT CONTINUES THE LIST ALREADY COLLECTED. A
-                        // marker at the column the collected list opened at is
-                        // that list's next item, whatever a deeper list did in
-                        // between (markup-carve/carve-php#2140).
-                        $continuesCollectedList = $subSawListMarker
-                            && ($this->getListParser)()->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
-                        // An open fence, div or block comment still owns the line
-                        // (carve-php#2507, carve-php#2519).
-                        if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv() && $subOpenCommentLength === null) {
-                            // Set flags so parent loop handles this as continuation content
-                            $lastItemHadBlankAfter = true;
-                            $brokeForParentContent = true;
-
-                            break;
-                        }
-                        // ADVANCED AFTER THE BREAK TEST, so the closer line is
-                        // still answered against the span it ends.
-                        //
-                        // The span state the line ARRIVED with is what decides
-                        // whether it may move the paragraph: a payload line is
-                        // opaque and a closer travels with its opener
-                        // (`CARVE-P9-053`), so neither speaks for this column
-                        // (markup-carve/carve#2527).
-                        $inSubCommentSpan = $subOpenCommentLength !== null;
-                        $subMarkerComment = null;
-                        if (!$inSubCommentSpan && $subTrailingState->fence === null && $lineIndent >= $subIndent) {
-                            $markerContent = $this->markerFreeContent(ltrim($subLine, " \t"));
-                            if ($this->markerCommentSpanFits($markerContent, $subLine, $lines, $i)) {
-                                $subMarkerComment = $markerContent;
-                            }
-                        }
-                        $subOpenCommentLength = $subTrailingState->hasLiteralDiv()
-                            ? null
-                            : $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
-                        $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
-                        $subWasOpenParagraph = $subTrailingState->openParagraph;
-                        $subWasAfterComment = $subTrailingState->afterComment;
-
-                        // Check if line has at least the subIndent level
-                        if ($lineIndent >= $subIndent) {
-                            // Track the highest content indent seen
-                            if ($lineIndent > $maxContentIndent) {
-                                $maxContentIndent = $lineIndent;
-                            }
-                            // Remove subIndent worth of indentation (handling tabs)
-                            $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
-                            // Fence lines keep their source column when a tab remains
-                            // after stripping the host prefix. Code payload stays verbatim.
-                            if (
-                                !$subSawListMarker
-                                && $subTrailingState->fence === null
-                                && $subTrailingState->nestedColumn === 0
-                                && str_contains($stripped, "\t")
-                                && (
-                                    preg_match('/^[ \t]*:{3,}/', $stripped) === 1
-                                    || ($subTrailingState->hasOpenDiv() && preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $stripped) === 1)
-                                )
-                            ) {
-                                $stripped = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($subLine) - $subIndent))
-                                    . ltrim($stripped, " \t");
-                            }
-                            $strippedIsMarker = ($this->getListParser)()->parseListItemMarker(ltrim($stripped, " \t")) !== null;
-                            if (
-                                $strippedIsMarker
-                                && !$subSawListMarker
-                                && $subTrailingState->openParagraph
-                                && $sawBlankLine
-                                && $subTrailingState->fence === null
-                                && !$subTrailingState->hasOpenDiv()
-                            ) {
-                                $subLines[] = '';
-                                $subLineMap[] = -1;
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, '');
-                            }
-                            if ($strippedIsMarker) {
-                                $subSawListMarker = true;
-                                $subListMarkerLine = $stripped;
-                                $subTermColumn = null;
-                            }
-                            // REACHED the item's content column, and was
-                            // dedented by it. A line that reached nothing is
-                            // forwarded with one residual column by the
-                            // branches below and arrives looking the same, so
-                            // only this record tells them apart.
-                            $subEligible[count($subLines)] = true;
-                            $subLines[] = $stripped;
-                            $subLineMap[] = $this->sourceLineFor($i);
-                            // AT OR PAST the item's content column, exactly as
-                            // in collectPlainListItemContinuation(): an
-                            // invisible block here ends the paragraph under it
-                            // rather than folding a flush-left line in
-                            // (carve-php#1866).
-                            //
-                            // THROUGH §10's CLOSER LOOKAHEAD, at the column the
-                            // AUTHOR wrote the fence at. Armed unconditionally,
-                            // an indented fence with no closer of its own left
-                            // this stream reporting a closed block, and the run
-                            // below the fence's base then ended the list where
-                            // `CARVE-P0-014` folds it into the open paragraph
-                            // (markup-carve/carve#2509).
-                            //
-                            // NOT OVER A BLANK LINE, which closes the paragraph
-                            // §10 I4's veto needs: this loop does not advance
-                            // the tracker across a blank, so `openParagraph` is
-                            // still set there and the veto would refuse a fence
-                            // that opens on its own.
-                            // Walk the full indent on a term line only: per line it is quadratic on a ladder.
-                            $subSubject = ltrim($stripped, " \t");
-                            $afterSubTerm = $subTermColumn !== null && !$sawBlankLine;
-                            if (str_starts_with($subSubject, '::') && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $subSubject) === 1) {
-                                if (!$afterSubTerm) {
-                                    $subTermColumn = IndentationHelper::getLeadingColumns($stripped);
-                                    $subMarker = $subListMarkerLine === null
-                                        ? null
-                                        : ($this->getListParser)()->parseListItemMarker(ltrim($subListMarkerLine, " \t"));
-                                    $subListContentColumn = $subMarker === null
-                                        ? null
-                                        : IndentationHelper::getLeadingColumns($subListMarkerLine)
-                                            + $this->listMarkerWidth(ltrim($subListMarkerLine, " \t"), $subMarker);
-                                    $subTermOwnsText = $subListContentColumn === null || $subTermColumn < $subListContentColumn;
-                                }
-                            } elseif (
-                                !$afterSubTerm
-                                || $this->isCommentLineOrFence($subSubject)
-                                || (
-                                    IndentationHelper::getLeadingColumns($stripped, $subTermColumn + 1) <= $subTermColumn
-                                    && $this->startsNewBlock($subSubject, $lines, $i)
-                                )
-                            ) {
-                                $subTermColumn = null;
-                            }
-                            if (
-                                $subTermCodeFence !== null && $lineIndent === $subIndent
-                                && ($this->getFencedBlockParser)()->isCodeFenceCloser($subSubject, $subTermCodeFence['char'] ?? $subTermCodeFence['fence'][0], $subTermCodeFence['length'])
-                            ) {
-                                $subTermCodeFence = null;
-                            } elseif ($afterSubTerm && $lineIndent === $subIndent && $subTrailingState->fence === null) {
-                                $subTermCodeFence = $this->itemFenceOpenerAt($stripped);
-                                if ($subTermCodeFence !== null) {
-                                    $subTrailingState->openParagraph = false;
-                                }
-                            }
-                            if (
-                                $afterSubTerm && $subTermColumn !== null
-                                && $subTermOwnsText
-                                && IndentationHelper::getLeadingColumns($stripped) > $subTermColumn
-                                && ($this->getFencedBlockParser)()->isCodeFenceHead($subSubject, 0)
-                            ) {
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text', true);
-                                $sawBlankLine = false;
-                                $i++;
-
-                                continue;
-                            }
-                            $subFenceOpener = $sawBlankLine || $subTrailingState->fence !== null
-                                || !$subTrailingState->openParagraph
-                                ? null
-                                : $this->itemFenceOpenerAt($stripped);
-                            if ($subFenceOpener !== null) {
-                                $subFenceColumns = $subIndent + IndentationHelper::getLeadingColumns($stripped);
-                                if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns, $subIndent)) {
-                                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
-                                    $subInterruptedParagraphFence = $subTrailingState->fence !== null;
-                                } else {
-                                    if (
-                                        !$afterSubTerm && !$subTrailingState->nestedIsQuote && $subOpenCommentLength === null
-                                        && !$subTrailingState->hasOpenDiv() && !$subTrailingState->inFootnoteBody
-                                        && $subTrailingState->nestedColumn > 0
-                                        && $subFenceColumns >= $subIndent + $subTrailingState->nestedColumn
-                                        && $this->continuations->itemFenceRunOutlivesAtSource(
-                                            $lines,
-                                            $i,
-                                            IndentationHelper::stripLeadingColumns($subLine, $subIndent + $subTrailingState->nestedColumn),
-                                            $subIndent + $subTrailingState->nestedColumn,
-                                        )
-                                    ) {
-                                        $unclosedFenceBase ??= $subFenceColumns - $subIndent;
-                                    }
-                                    $subInlineFenceParagraph = true;
-                                    if (!$afterSubTerm && !$subTrailingState->nestedIsQuote && IndentationHelper::getLeadingColumns($stripped, $subTrailingState->nestedColumn) < $subTrailingState->nestedColumn) {
-                                        $subLines[count($subLines) - 1] = BlockGrammar::LAZY_FRAME . ltrim($stripped, " \t");
-                                    }
-                                    // A neutral prose line advances every
-                                    // non-fence flag exactly as this failed
-                                    // opener must; only its literal bytes differ.
-                                    // A line block reads its own payload.
-                                    $subTrailingState = $this->advanceTrailingState(
-                                        $subTrailingState,
-                                        $subTrailingState->hasLiteralDiv() ? $stripped : 'text',
-                                        true,
-                                    );
-                                }
-                            } else {
-                                $wasSubInFence = $subTrailingState->fence !== null;
-                                $trackedLine = $subMarkerComment ?? $stripped;
-                                if (!$wasSubInFence && $strippedIsMarker) {
-                                    $markerOffset = ($this->getListParser)()->markerWalkOffset($stripped, 0);
-                                    if ($markerOffset !== null && $this->itemFenceOpenerAt(substr($stripped, $markerOffset)) !== null) {
-                                        $trackedLine = (string)preg_replace('/[^ \t]/', ' ', substr($stripped, 0, $markerOffset))
-                                            . substr($stripped, $markerOffset);
-                                    }
-                                }
-                                // A closer at the host column ends a fence opened past it, as the item's own parse reads it.
-                                if (
-                                    $subInterruptedParagraphFence
-                                    && $subTrailingState->fence !== null
-                                    && $subTrailingState->fence->column > 0
-                                    && IndentationHelper::getLeadingColumns($stripped, 1) === 0
-                                    && ($this->getFencedBlockParser)()->isCodeFenceCloser($stripped, $subTrailingState->fence->char, $subTrailingState->fence->length)
-                                ) {
-                                    $trackedLine = str_repeat(' ', $subTrailingState->fence->column) . $stripped;
-                                }
-                                $subTrailingState = $subTrailingState->hasLiteralDiv()
-                                    ? $this->continuations->advanceLiteralStateWithSourceFenceLookahead($subTrailingState, $trackedLine, $lines, $i, $subIndent)
-                                    : $this->advanceTrailingState($subTrailingState, $trackedLine, true);
-                                if ($wasSubInFence && $subTrailingState->fence === null) {
-                                    $subInterruptedParagraphFence = false;
-                                }
-                            }
-                            if ($inSubCommentSpan) {
-                                // The opener already closed the paragraph and set
-                                // the retention flag. A payload line that reopened
-                                // the paragraph made the CLOSER's column decide who
-                                // owned the line below.
-                                $subTrailingState->openParagraph = $subWasOpenParagraph;
-                                $subTrailingState->afterComment = $subWasAfterComment;
-                            }
-                            $sawBlankLine = false;
-                            $i++;
-                        } elseif ($lineIndent === $baseIndent) {
-                            // Line is at base indent - check if it starts a new block or list item
-                            $trimmedLine = ltrim($subLine, " \t");
-                            $itemInfo = ($this->getListParser)()->parseListItemMarker($trimmedLine);
-                            $sameStyle = !isset($listInfo['style']) || !isset($itemInfo['style']) || $itemInfo['style'] === $listInfo['style'];
-                            if ($itemInfo !== null && $itemInfo['type'] === $listInfo['type'] && $itemInfo['marker'] === $listInfo['marker'] && $sameStyle) {
-                                if ($sawBlankLine) {
-                                    $lastItemHadBlankAfter = true;
-                                    $brokeForParentContent = true;
-                                }
-
-                                break;
-                            }
-                            if ($this->isContinuationMarker($trimmedLine)) {
-                                // An unattached marker cannot close the nested
-                                // stream. Its indented follower may still fold
-                                // into the nested item's open paragraph.
-                                if (
-                                    $this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
-                                    || ($subTrailingState->fence !== null
-                                        && isset($lines[$i + 1])
-                                        && IndentationHelper::isBlankLine($lines[$i + 1]))
-                                ) {
-                                    $i++;
-
-                                    continue;
-                                }
-
-                                break;
-                            }
-                            // After a blank line, content dropping back to base indent
-                            // starts a new block outside the list - let parent handle it.
-                            if ($sawBlankLine) {
-                                $lastItemHadBlankAfter = true;
-                                $brokeForParentContent = true;
-
-                                break;
-                            }
-                            // A COMMENT INSIDE A SPAN THE COLLECTED LINES
-                            // ALREADY HOLD IS NOT A BLOCK START
-                            // (markup-carve/carve#2488). Section 28 pairs the
-                            // delimiters, indentation is part of neither, and
-                            // breaking here split the span: the item's own parse
-                            // then read an opener with no closer and published
-                            // the payload while both delimiters went missing.
-                            // {@see self::linesLeaveACommentSpanOpen()}
-                            if (
-                                $this->isCommentLineOrFence($trimmedLine)
-                                && $this->linesLeaveACommentSpanOpen($subLines, $commentSpan)
-                            ) {
-                                $subLines[] = $this->keptCommentDelimiter($subLine);
-                                $subLineMap[] = $this->sourceLineFor($i);
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
-                                if ($subSpanClosedHere) {
-                                    // A CLOSER LEAVES THE SPAN'S OWN STATE, NOT
-                                    // THIS COLUMN'S: the run closes the span at
-                                    // any column (`CARVE-P0-013`), so the span
-                                    // ends here as it would at its opener's own
-                                    // column.
-                                    $subTrailingState->openParagraph = false;
-                                    $subTrailingState->afterComment = true;
-                                }
-                                $i++;
-
-                                continue;
-                            }
-                            // A FENCE RUN THAT OPENS NOTHING IS PARAGRAPH TEXT
-                            // (`CARVE-P0-014`, markup-carve/carve#2509). §10 I4
-                            // opens a fence over an open paragraph only when a
-                            // closer follows at the run's OWN column; with none
-                            // the run is inline verbatim text, so no container
-                            // ends and the line folds into the paragraph the
-                            // stack still holds. Asked before the block-start
-                            // break below, which cannot tell the two apart.
-                            if (
-                                $subTrailingState->openParagraph
-                                && $subTrailingState->fence === null
-                                && $subLines !== []
-                                && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
-                            ) {
-                                $subLines[] = $trimmedLine;
-                                $subLineMap[] = $this->sourceLineFor($i);
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
-                                $sawBlankLine = false;
-                                $i++;
-
-                                continue;
-                            }
-                            // Content at base indent that's not a matching list marker
-                            // Check if it's a block element - if so, end list content collection
-                            // Use isBlockElementStart() which detects blocks regardless of mode
-                            if (
-                                $this->isBlockElementStart($trimmedLine, $lines, $i)
-                                || $this->startsNewBlock($trimmedLine, $lines, $i)
-                            ) {
-                                break;
-                            }
-                            if (
-                                !$subTrailingState->openParagraph
-                                && (
-                                    !$subTrailingState->inDiv
-                                    || $subTrailingState->hasLiteralDiv()
-                                    || ($subTrailingState->fence === null && $subTrailingState->divColumn === 0)
-                                )
-                            ) {
-                                break;
-                            }
-                            if ($subInlineFenceParagraph && $subLines !== []) {
-                                if ($this->itemFenceOpenerAt($subLines[count($subLines) - 1]) !== null) {
-                                    $subLines[] = BlockGrammar::LAZY_FRAME . BlockGrammar::stripLazyFrame($trimmedLine);
-                                    $subLineMap[] = $this->sourceLineFor($i);
-                                } else {
-                                    $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
-                                }
-                            } else {
-                                $subLines[] = $trimmedLine;
-                                $subLineMap[] = $this->sourceLineFor($i);
-                            }
-                            $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
-                            $sawBlankLine = false;
-                            $i++;
-                        } elseif ($lineIndent > $baseIndent) {
-                            // Line is at intermediate indent (between base and nested content)
-                            // Without a preceding blank, plain text here lazily
-                            // continues the deepest paragraph in the nested parse.
-                            // Strip all leading whitespace before forwarding it,
-                            // matching CommonMark lazy continuation.
-                            $trimmedLine = ltrim($subLine, " \t");
-                            if (
-                                !$sawBlankLine
-                                && $this->isContinuationMarker($trimmedLine)
-                            ) {
-                                // KEEP THE LINE'S OWN RESIDUAL COLUMN, and only
-                                // with no blank above: one fixed column aliases
-                                // the nested list's base column once the
-                                // content column is wider than two, and past a
-                                // blank the line has already left the item.
-                                $subLines[] = str_repeat(' ', $lineIndent - $baseIndent) . $trimmedLine;
-                                $subLineMap[] = $this->sourceLineFor($i);
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $subLine);
-                                $i++;
-
-                                continue;
-                            }
-                            // A SPAN'S CLOSER STAYS WITH ITS SPAN at this
-                            // column too. `CARVE-P0-013` has the run close the
-                            // span at any column, so ending the stream here
-                            // split it and the item's own parse published the
-                            // payload. The `=== $baseIndent` arm above already
-                            // answers this one column further left; until
-                            // markup-carve/carve#2527 the span's PAYLOAD had
-                            // reopened the paragraph, and the lazy-text path
-                            // below carried the closer in by accident.
-                            if ($subSpanClosedHere && $subLines !== []) {
-                                $subLines[] = $this->keptCommentDelimiter($subLine);
-                                $subLineMap[] = $this->sourceLineFor($i);
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
-                                $subTrailingState->openParagraph = false;
-                                $subTrailingState->afterComment = true;
-                                $sawBlankLine = false;
-                                $i++;
-
-                                continue;
-                            }
-                            // AN OPEN FENCE ENDS THE ITEM HERE TOO. Between the
-                            // base column and the content column the line still
-                            // supplies less indentation than the item's prefix,
-                            // so §24's STEP walk stops at the ITEM exactly as it
-                            // does at column 0 and S4 finds no open paragraph to
-                            // fold into (markup-carve/carve#950, corpus row 2 -
-                            // written at column 1 precisely because the broken
-                            // readings differed between the two columns).
-                            if ($subTrailingState->fence !== null) {
-                                break;
-                            }
-                            if (
-                                !$sawBlankLine
-                                && $subTermColumn === null
-                                && $subTrailingState->openParagraph
-                                && $subLines !== []
-                                && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
-                            ) {
-                                $subLines[] = $trimmedLine;
-                                $subLineMap[] = $this->sourceLineFor($i);
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
-                                $i++;
-
-                                continue;
-                            }
-                            $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
-                                || $this->startsNewBlock($trimmedLine, $lines, $i)
-                                || $this->isFoldableInvisibleLine($trimmedLine);
-                            $dedentedOpener = $blockShaped
-                                && !$sawBlankLine
-                                && (
-                                    $subTrailingState->openParagraph
-                                    // AN INVISIBLE LINE CLOSES NO BLOCK, so the
-                                    // marker behind one still reaches the item -
-                                    // §17 L2 and the content-column branch say so
-                                    // for the same document two columns over,
-                                    // where this already nested (corpus 517,
-                                    // document 5). ONLY a marker: measured
-                                    // against carve-js, a band heading or quote
-                                    // behind an invisible line stays at document
-                                    // level, and forwarding those too moved 64
-                                    // documents off the oracle's reading.
-                                    || ($subTrailingState->afterComment
-                                        && ($this->getListParser)()->parseListItemMarker($trimmedLine) !== null)
-                                )
-                                && $subLines !== [];
-                            if ($dedentedOpener) {
-                                // Markers retain their text classification. Other
-                                // openers keep one column on the nested reparse.
-                                $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
-                                    && ($this->getListParser)()->parseListItemMarker($trimmedLine) !== null;
-                                $subRetainedMarker = $subRetainedMarker || $retainMarker;
-                                $subLines[] = $retainMarker
-                                    ? BlockGrammar::LAZY_FRAME . $trimmedLine
-                                    : ' ' . $trimmedLine;
-                                $subLineMap[] = $this->sourceLineFor($i);
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $subLine);
-                                $i++;
-
-                                continue;
-                            }
-                            // THE BAND REACHES THE ITEM ONLY AS A LAZY LINE, and a
-                            // lazy line needs an open paragraph to continue (PART 0
-                            // S4). Ungated, a band follower joined an item whose last
-                            // block was a closed fence, a heading, a table or a colon
-                            // fence, none of which leave anything open
-                            // (carve-php#2724).
-                            //
-                            // A line that CLOSED NO BLOCK retains the follower even
-                            // with no paragraph open, which is the same pair of terms
-                            // the plain-lead collector reads a dedent by: a comment
-                            // there, and the wider invisible set here, because that
-                            // set is what corpus 517's tightness half is decided from
-                            // and moving it needs that half moved with it.
-                            if (
-                                !$sawBlankLine
-                                && (
-                                    $subTrailingState->openParagraph
-                                    || $subTrailingState->afterComment
-                                )
-                                && !$this->isBlockElementStart($trimmedLine, $lines, $i)
-                                && !$this->startsNewBlock($trimmedLine, $lines, $i)
-                            ) {
-                                $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
-                                    && ($this->getListParser)()->parseListItemMarker($trimmedLine) !== null;
-                                $subRetainedMarker = $subRetainedMarker || $retainMarker;
-                                $subLines[] = $retainMarker
-                                    ? BlockGrammar::LAZY_FRAME . $trimmedLine
-                                    : $trimmedLine;
-                                $subLineMap[] = $this->sourceLineFor($i);
-                                $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
-                                $i++;
-
-                                continue;
-                            }
-
-                            break;
-                        } elseif (
-                            !$sawBlankLine
-                            && $subTrailingState->openParagraph
-                            && !($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($subLine, " \t"), 0)
-                            && !$this->isBlockElementStart(ltrim($subLine, " \t"), $lines, $i)
-                            && !$this->startsNewBlock(ltrim($subLine, " \t"), $lines, $i)
-                        ) {
-                            $subLines[] = ltrim($subLine, " \t");
-                            $subLineMap[] = $this->sourceLineFor($i);
-                            $subTrailingState = $this->advanceTrailingState($subTrailingState, ltrim($subLine, " \t"));
-                            $i++;
-                        } else {
-                            // End of list
-                            break;
-                        }
-                    }
-                    // The nested parser decides whether trailing blanks are
-                    // fence payload or spacing outside the last block.
-
-                    // THE OWNERSHIP ANSWER IS HANDED DOWN, not re-derived. The
-                    // closer this stream armed its fence on sits below the line
-                    // that ended the stream, so the nested parse sees an opener
-                    // with none and reads the body back as an inline code span -
-                    // carve#1399 one container further in (markup-carve/carve#2509).
-                    // Written at the fence's own column, because that is the only
-                    // column §10 accepts a closer at and the parse one level down
-                    // asks the same question again.
-                    if ($subInterruptedParagraphFence && $subTrailingState->fence !== null) {
-                        $subLines[] = str_repeat(' ', $subTrailingState->fence->column)
-                            . str_repeat($subTrailingState->fence->char, $subTrailingState->fence->length);
-                        $subLineMap[] = -1;
-                    }
+                    [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase] = $this->collectIndentedListContinuation(
+                        $lines,
+                        $i,
+                        $count,
+                        $baseIndent,
+                        $lastItemContentIndent,
+                        $currentIndent,
+                        $lastItemHadBlankAfter,
+                        $listInfo,
+                        $unclosedFenceBase,
+                    );
 
                     // Compact-list rule (carve#322): an internal blank line in
                     // the item's collected content loosens THIS list only when
@@ -1288,6 +681,652 @@ final class ListBlockBuilder
         $parent->appendChild($list);
 
         return $i - $start;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param bool $lastItemHadBlankAfter
+     * @param int $currentIndent
+     * @param int $lastItemContentIndent
+     * @param int $baseIndent
+     * @param int $count
+     * @param int $i
+     * @param array<string, array<string, list<string>|string>|bool|int|string> $listInfo
+     * @param int|null $unclosedFenceBase
+     *
+     * @return array{int, array<string>, array<int, int>, array<int, true>, bool, bool, bool, ?int}
+     */
+    private function collectIndentedListContinuation(
+        array $lines,
+        int $i,
+        int $count,
+        int $baseIndent,
+        int $lastItemContentIndent,
+        int $currentIndent,
+        bool $lastItemHadBlankAfter,
+        array $listInfo,
+        ?int $unclosedFenceBase,
+    ): array {
+        // Collect all indented content at this new level. The strip
+        // column is the item's content column (body column 0), so
+        // residual indent above it is preserved and a block opener
+        // there stays lazy text rather than being re-promoted.
+        $subLines = [];
+        $commentSpan = new CollectedCommentSpan();
+        $subLineMap = [];
+        $subIndent = $lastItemContentIndent;
+        // Track the maximum content indent we've seen (for detecting drop-back to marker level)
+        $maxContentIndent = $currentIndent;
+        $sawBlankLine = false;
+        $brokeForParentContent = false;
+        // Trailing-block state over the collected nested lines, so a
+        // base-level lazy line folds only when the nested content
+        // ends in an OPEN paragraph (family-D rule). After a CLOSED
+        // block (fenced code, table, div) the dedented line ends the
+        // item instead of being absorbed.
+        //
+        // NOT THE LEAD. This stream is the item's POST-BLANK nested
+        // content, so the item's lead is the marker line that was
+        // read further up and the first line HERE is a later block.
+        // Left at the constant's `true`, `- text` / blank / `  # N`
+        // / `lazy` read the heading as the item's lead and pushed
+        // `lazy` out of an item that plainly still holds `text`.
+        $subTrailingState = new TrailingBlockState(isLead: false);
+        $subTermColumn = null;
+        $subTermOwnsText = false;
+        $subListMarkerLine = null;
+        // The width of the block comment open over these lines, or
+        // null. PART 9 §28 gives the fence a body that recognizes no
+        // block construct, so the shared trailing tracker cannot
+        // carry it - see advanceItemCommentFence().
+        $subOpenCommentLength = null;
+        // Whether the collected stream already holds list content;
+        // sibling markers inside it are the nested list's own
+        // business and must not get a loosening blank injected.
+        $subSawListMarker = false;
+        // Whether a fence in this stream interrupted an open
+        // paragraph on the strength of a closer only the SOURCE view
+        // shows. See the hand-down below the loop.
+        $subInterruptedParagraphFence = false;
+        $subTermCodeFence = null;
+        $subInlineFenceParagraph = false;
+        // Entries this loop DEDENTED by the item's content column,
+        // by index - the same proof collectMarkerLeadItem() records
+        // and for the same reader (markup-carve/carve#1896).
+        $subEligible = [];
+        $subRetainedMarker = false;
+        while ($i < $count) {
+            $subLine = $lines[$i];
+            if (IndentationHelper::isBlankLine($subLine)) {
+                $subLines[] = $this->blankLineResidue($subLine, $subIndent, $subTrailingState);
+                $subLineMap[] = $this->sourceLineFor($i);
+                $sawBlankLine = true;
+                $i++;
+
+                continue;
+            }
+            // BOUNDED. This is asked of every collected line at
+            // every nesting level, and it walks the line's whole
+            // indentation run - so on a deep ladder it was 98.5% of
+            // this parser's indentation work and cubic in depth
+            // (markup-carve/carve#752). Every comparison below is
+            // against $subIndent or $baseIndent, and the only other
+            // consumer is $maxContentIndent, which is itself only
+            // ever read as `> $subIndent`. Saturating at one past
+            // the larger of the two therefore answers all of them
+            // exactly: a run that overshoots the cap had already
+            // decided every one of these tests.
+            $lineIndent = IndentationHelper::getLeadingColumns(
+                $subLine,
+                max($subIndent, $baseIndent) + 1,
+            );
+
+            if ($subTermCodeFence !== null && $lineIndent < $subIndent) {
+                $subject = ltrim($subLine, " \t");
+                if (
+                    (($this->getListParser)()->parseListItemMarker($subject) !== null && $lineIndent <= $baseIndent)
+                    || (!($this->getFencedBlockParser)()->isCodeFenceHead($subject, 0)
+                        && ($this->isBlockElementStart($subject, $lines, $i)
+                            || $this->startsNewBlock($subject, $lines, $i)
+                            || ($this->isBlockAttributeLineCallback)($subject)
+                            || $this->isFoldableInvisibleLine($subject)))
+                ) {
+                    break;
+                }
+                $subLines[] = BlockGrammar::LAZY_FRAME . $subject;
+                $subLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
+            }
+
+            // If we've seen content at a higher indent level (actual nested content),
+            // and now we're back at the marker level (subIndent) after a blank line,
+            // this content belongs to the parent level - break to let parent handle it
+            // UNLESS IT CONTINUES THE LIST ALREADY COLLECTED. A
+            // marker at the column the collected list opened at is
+            // that list's next item, whatever a deeper list did in
+            // between (markup-carve/carve-php#2140).
+            $continuesCollectedList = $subSawListMarker
+                && ($this->getListParser)()->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
+            // An open fence, div or block comment still owns the line
+            // (carve-php#2507, carve-php#2519).
+            if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv() && $subOpenCommentLength === null) {
+                // Set flags so parent loop handles this as continuation content
+                $lastItemHadBlankAfter = true;
+                $brokeForParentContent = true;
+
+                break;
+            }
+            // ADVANCED AFTER THE BREAK TEST, so the closer line is
+            // still answered against the span it ends.
+            //
+            // The span state the line ARRIVED with is what decides
+            // whether it may move the paragraph: a payload line is
+            // opaque and a closer travels with its opener
+            // (`CARVE-P9-053`), so neither speaks for this column
+            // (markup-carve/carve#2527).
+            $inSubCommentSpan = $subOpenCommentLength !== null;
+            $subMarkerComment = null;
+            if (!$inSubCommentSpan && $subTrailingState->fence === null && $lineIndent >= $subIndent) {
+                $markerContent = $this->markerFreeContent(ltrim($subLine, " \t"));
+                if ($this->markerCommentSpanFits($markerContent, $subLine, $lines, $i)) {
+                    $subMarkerComment = $markerContent;
+                }
+            }
+            $subOpenCommentLength = $subTrailingState->hasLiteralDiv()
+                ? null
+                : $this->advanceItemCommentFence($subOpenCommentLength, $subMarkerComment ?? $subLine, $lines, $i);
+            $subSpanClosedHere = $inSubCommentSpan && $subOpenCommentLength === null;
+            $subWasOpenParagraph = $subTrailingState->openParagraph;
+            $subWasAfterComment = $subTrailingState->afterComment;
+
+            // Check if line has at least the subIndent level
+            if ($lineIndent >= $subIndent) {
+                // Track the highest content indent seen
+                if ($lineIndent > $maxContentIndent) {
+                    $maxContentIndent = $lineIndent;
+                }
+                // Remove subIndent worth of indentation (handling tabs)
+                $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
+                // Fence lines keep their source column when a tab remains
+                // after stripping the host prefix. Code payload stays verbatim.
+                if (
+                    !$subSawListMarker
+                    && $subTrailingState->fence === null
+                    && $subTrailingState->nestedColumn === 0
+                    && str_contains($stripped, "\t")
+                    && (
+                        preg_match('/^[ \t]*:{3,}/', $stripped) === 1
+                        || ($subTrailingState->hasOpenDiv() && preg_match('/^[ \t]*(?:`{3,}|~{3,})/', $stripped) === 1)
+                    )
+                ) {
+                    $stripped = str_repeat(' ', max(0, IndentationHelper::getLeadingColumns($subLine) - $subIndent))
+                        . ltrim($stripped, " \t");
+                }
+                $strippedIsMarker = ($this->getListParser)()->parseListItemMarker(ltrim($stripped, " \t")) !== null;
+                if (
+                    $strippedIsMarker
+                    && !$subSawListMarker
+                    && $subTrailingState->openParagraph
+                    && $sawBlankLine
+                    && $subTrailingState->fence === null
+                    && !$subTrailingState->hasOpenDiv()
+                ) {
+                    $subLines[] = '';
+                    $subLineMap[] = -1;
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, '');
+                }
+                if ($strippedIsMarker) {
+                    $subSawListMarker = true;
+                    $subListMarkerLine = $stripped;
+                    $subTermColumn = null;
+                }
+                // REACHED the item's content column, and was
+                // dedented by it. A line that reached nothing is
+                // forwarded with one residual column by the
+                // branches below and arrives looking the same, so
+                // only this record tells them apart.
+                $subEligible[count($subLines)] = true;
+                $subLines[] = $stripped;
+                $subLineMap[] = $this->sourceLineFor($i);
+                // AT OR PAST the item's content column, exactly as
+                // in collectPlainListItemContinuation(): an
+                // invisible block here ends the paragraph under it
+                // rather than folding a flush-left line in
+                // (carve-php#1866).
+                //
+                // THROUGH §10's CLOSER LOOKAHEAD, at the column the
+                // AUTHOR wrote the fence at. Armed unconditionally,
+                // an indented fence with no closer of its own left
+                // this stream reporting a closed block, and the run
+                // below the fence's base then ended the list where
+                // `CARVE-P0-014` folds it into the open paragraph
+                // (markup-carve/carve#2509).
+                //
+                // NOT OVER A BLANK LINE, which closes the paragraph
+                // §10 I4's veto needs: this loop does not advance
+                // the tracker across a blank, so `openParagraph` is
+                // still set there and the veto would refuse a fence
+                // that opens on its own.
+                // Walk the full indent on a term line only: per line it is quadratic on a ladder.
+                $subSubject = ltrim($stripped, " \t");
+                $afterSubTerm = $subTermColumn !== null && !$sawBlankLine;
+                if (str_starts_with($subSubject, '::') && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $subSubject) === 1) {
+                    if (!$afterSubTerm) {
+                        $subTermColumn = IndentationHelper::getLeadingColumns($stripped);
+                        $subMarker = $subListMarkerLine === null
+                            ? null
+                            : ($this->getListParser)()->parseListItemMarker(ltrim($subListMarkerLine, " \t"));
+                        $subListContentColumn = $subMarker === null
+                            ? null
+                            : IndentationHelper::getLeadingColumns($subListMarkerLine)
+                                + $this->listMarkerWidth(ltrim($subListMarkerLine, " \t"), $subMarker);
+                        $subTermOwnsText = $subListContentColumn === null || $subTermColumn < $subListContentColumn;
+                    }
+                } elseif (
+                    !$afterSubTerm
+                    || $this->isCommentLineOrFence($subSubject)
+                    || (
+                        IndentationHelper::getLeadingColumns($stripped, $subTermColumn + 1) <= $subTermColumn
+                        && $this->startsNewBlock($subSubject, $lines, $i)
+                    )
+                ) {
+                    $subTermColumn = null;
+                }
+                if (
+                    $subTermCodeFence !== null && $lineIndent === $subIndent
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser($subSubject, $subTermCodeFence['char'] ?? $subTermCodeFence['fence'][0], $subTermCodeFence['length'])
+                ) {
+                    $subTermCodeFence = null;
+                } elseif ($afterSubTerm && $lineIndent === $subIndent && $subTrailingState->fence === null) {
+                    $subTermCodeFence = $this->itemFenceOpenerAt($stripped);
+                    if ($subTermCodeFence !== null) {
+                        $subTrailingState->openParagraph = false;
+                    }
+                }
+                if (
+                    $afterSubTerm && $subTermColumn !== null
+                    && $subTermOwnsText
+                    && IndentationHelper::getLeadingColumns($stripped) > $subTermColumn
+                    && ($this->getFencedBlockParser)()->isCodeFenceHead($subSubject, 0)
+                ) {
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text', true);
+                    $sawBlankLine = false;
+                    $i++;
+
+                    continue;
+                }
+                $subFenceOpener = $sawBlankLine || $subTrailingState->fence !== null
+                    || !$subTrailingState->openParagraph
+                    ? null
+                    : $this->itemFenceOpenerAt($stripped);
+                if ($subFenceOpener !== null) {
+                    $subFenceColumns = $subIndent + IndentationHelper::getLeadingColumns($stripped);
+                    if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns, $subIndent)) {
+                        $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
+                        $subInterruptedParagraphFence = $subTrailingState->fence !== null;
+                    } else {
+                        if (
+                            !$afterSubTerm && !$subTrailingState->nestedIsQuote && $subOpenCommentLength === null
+                            && !$subTrailingState->hasOpenDiv() && !$subTrailingState->inFootnoteBody
+                            && $subTrailingState->nestedColumn > 0
+                            && $subFenceColumns >= $subIndent + $subTrailingState->nestedColumn
+                            && $this->continuations->itemFenceRunOutlivesAtSource(
+                                $lines,
+                                $i,
+                                IndentationHelper::stripLeadingColumns($subLine, $subIndent + $subTrailingState->nestedColumn),
+                                $subIndent + $subTrailingState->nestedColumn,
+                            )
+                        ) {
+                            $unclosedFenceBase ??= $subFenceColumns - $subIndent;
+                        }
+                        $subInlineFenceParagraph = true;
+                        if (!$afterSubTerm && !$subTrailingState->nestedIsQuote && IndentationHelper::getLeadingColumns($stripped, $subTrailingState->nestedColumn) < $subTrailingState->nestedColumn) {
+                            $subLines[count($subLines) - 1] = BlockGrammar::LAZY_FRAME . ltrim($stripped, " \t");
+                        }
+                        // A neutral prose line advances every
+                        // non-fence flag exactly as this failed
+                        // opener must; only its literal bytes differ.
+                        // A line block reads its own payload.
+                        $subTrailingState = $this->advanceTrailingState(
+                            $subTrailingState,
+                            $subTrailingState->hasLiteralDiv() ? $stripped : 'text',
+                            true,
+                        );
+                    }
+                } else {
+                    $wasSubInFence = $subTrailingState->fence !== null;
+                    $trackedLine = $subMarkerComment ?? $stripped;
+                    if (!$wasSubInFence && $strippedIsMarker) {
+                        $markerOffset = ($this->getListParser)()->markerWalkOffset($stripped, 0);
+                        if ($markerOffset !== null && $this->itemFenceOpenerAt(substr($stripped, $markerOffset)) !== null) {
+                            $trackedLine = (string)preg_replace('/[^ \t]/', ' ', substr($stripped, 0, $markerOffset))
+                                . substr($stripped, $markerOffset);
+                        }
+                    }
+                    // A closer at the host column ends a fence opened past it, as the item's own parse reads it.
+                    if (
+                        $subInterruptedParagraphFence
+                        && $subTrailingState->fence !== null
+                        && $subTrailingState->fence->column > 0
+                        && IndentationHelper::getLeadingColumns($stripped, 1) === 0
+                        && ($this->getFencedBlockParser)()->isCodeFenceCloser($stripped, $subTrailingState->fence->char, $subTrailingState->fence->length)
+                    ) {
+                        $trackedLine = str_repeat(' ', $subTrailingState->fence->column) . $stripped;
+                    }
+                    $subTrailingState = $subTrailingState->hasLiteralDiv()
+                        ? $this->continuations->advanceLiteralStateWithSourceFenceLookahead($subTrailingState, $trackedLine, $lines, $i, $subIndent)
+                        : $this->advanceTrailingState($subTrailingState, $trackedLine, true);
+                    if ($wasSubInFence && $subTrailingState->fence === null) {
+                        $subInterruptedParagraphFence = false;
+                    }
+                }
+                if ($inSubCommentSpan) {
+                    // The opener already closed the paragraph and set
+                    // the retention flag. A payload line that reopened
+                    // the paragraph made the CLOSER's column decide who
+                    // owned the line below.
+                    $subTrailingState->openParagraph = $subWasOpenParagraph;
+                    $subTrailingState->afterComment = $subWasAfterComment;
+                }
+                $sawBlankLine = false;
+                $i++;
+            } elseif ($lineIndent === $baseIndent) {
+                // Line is at base indent - check if it starts a new block or list item
+                $trimmedLine = ltrim($subLine, " \t");
+                $itemInfo = ($this->getListParser)()->parseListItemMarker($trimmedLine);
+                $sameStyle = !isset($listInfo['style']) || !isset($itemInfo['style']) || $itemInfo['style'] === $listInfo['style'];
+                if ($itemInfo !== null && $itemInfo['type'] === $listInfo['type'] && $itemInfo['marker'] === $listInfo['marker'] && $sameStyle) {
+                    if ($sawBlankLine) {
+                        $lastItemHadBlankAfter = true;
+                        $brokeForParentContent = true;
+                    }
+
+                    break;
+                }
+                if ($this->isContinuationMarker($trimmedLine)) {
+                    // An unattached marker cannot close the nested
+                    // stream. Its indented follower may still fold
+                    // into the nested item's open paragraph.
+                    if (
+                        $this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
+                        || ($subTrailingState->fence !== null
+                            && isset($lines[$i + 1])
+                            && IndentationHelper::isBlankLine($lines[$i + 1]))
+                    ) {
+                        $i++;
+
+                        continue;
+                    }
+
+                    break;
+                }
+                // After a blank line, content dropping back to base indent
+                // starts a new block outside the list - let parent handle it.
+                if ($sawBlankLine) {
+                    $lastItemHadBlankAfter = true;
+                    $brokeForParentContent = true;
+
+                    break;
+                }
+                // A COMMENT INSIDE A SPAN THE COLLECTED LINES
+                // ALREADY HOLD IS NOT A BLOCK START
+                // (markup-carve/carve#2488). Section 28 pairs the
+                // delimiters, indentation is part of neither, and
+                // breaking here split the span: the item's own parse
+                // then read an opener with no closer and published
+                // the payload while both delimiters went missing.
+                // {@see self::linesLeaveACommentSpanOpen()}
+                if (
+                    $this->isCommentLineOrFence($trimmedLine)
+                    && $this->linesLeaveACommentSpanOpen($subLines, $commentSpan)
+                ) {
+                    $subLines[] = $this->keptCommentDelimiter($subLine);
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                    if ($subSpanClosedHere) {
+                        // A CLOSER LEAVES THE SPAN'S OWN STATE, NOT
+                        // THIS COLUMN'S: the run closes the span at
+                        // any column (`CARVE-P0-013`), so the span
+                        // ends here as it would at its opener's own
+                        // column.
+                        $subTrailingState->openParagraph = false;
+                        $subTrailingState->afterComment = true;
+                    }
+                    $i++;
+
+                    continue;
+                }
+                // A FENCE RUN THAT OPENS NOTHING IS PARAGRAPH TEXT
+                // (`CARVE-P0-014`, markup-carve/carve#2509). §10 I4
+                // opens a fence over an open paragraph only when a
+                // closer follows at the run's OWN column; with none
+                // the run is inline verbatim text, so no container
+                // ends and the line folds into the paragraph the
+                // stack still holds. Asked before the block-start
+                // break below, which cannot tell the two apart.
+                if (
+                    $subTrailingState->openParagraph
+                    && $subTrailingState->fence === null
+                    && $subLines !== []
+                    && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
+                ) {
+                    $subLines[] = $trimmedLine;
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
+                    $sawBlankLine = false;
+                    $i++;
+
+                    continue;
+                }
+                // Content at base indent that's not a matching list marker
+                // Check if it's a block element - if so, end list content collection
+                // Use isBlockElementStart() which detects blocks regardless of mode
+                if (
+                    $this->isBlockElementStart($trimmedLine, $lines, $i)
+                    || $this->startsNewBlock($trimmedLine, $lines, $i)
+                ) {
+                    break;
+                }
+                if (
+                    !$subTrailingState->openParagraph
+                    && (
+                        !$subTrailingState->inDiv
+                        || $subTrailingState->hasLiteralDiv()
+                        || ($subTrailingState->fence === null && $subTrailingState->divColumn === 0)
+                    )
+                ) {
+                    break;
+                }
+                if ($subInlineFenceParagraph && $subLines !== []) {
+                    if ($this->itemFenceOpenerAt($subLines[count($subLines) - 1]) !== null) {
+                        $subLines[] = BlockGrammar::LAZY_FRAME . BlockGrammar::stripLazyFrame($trimmedLine);
+                        $subLineMap[] = $this->sourceLineFor($i);
+                    } else {
+                        $subLines[count($subLines) - 1] .= "\n" . BlockGrammar::stripLazyFrame($trimmedLine);
+                    }
+                } else {
+                    $subLines[] = $trimmedLine;
+                    $subLineMap[] = $this->sourceLineFor($i);
+                }
+                $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                $sawBlankLine = false;
+                $i++;
+            } elseif ($lineIndent > $baseIndent) {
+                // Line is at intermediate indent (between base and nested content)
+                // Without a preceding blank, plain text here lazily
+                // continues the deepest paragraph in the nested parse.
+                // Strip all leading whitespace before forwarding it,
+                // matching CommonMark lazy continuation.
+                $trimmedLine = ltrim($subLine, " \t");
+                if (
+                    !$sawBlankLine
+                    && $this->isContinuationMarker($trimmedLine)
+                ) {
+                    // KEEP THE LINE'S OWN RESIDUAL COLUMN, and only
+                    // with no blank above: one fixed column aliases
+                    // the nested list's base column once the
+                    // content column is wider than two, and past a
+                    // blank the line has already left the item.
+                    $subLines[] = str_repeat(' ', $lineIndent - $baseIndent) . $trimmedLine;
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $subLine);
+                    $i++;
+
+                    continue;
+                }
+                // A SPAN'S CLOSER STAYS WITH ITS SPAN at this
+                // column too. `CARVE-P0-013` has the run close the
+                // span at any column, so ending the stream here
+                // split it and the item's own parse published the
+                // payload. The `=== $baseIndent` arm above already
+                // answers this one column further left; until
+                // markup-carve/carve#2527 the span's PAYLOAD had
+                // reopened the paragraph, and the lazy-text path
+                // below carried the closer in by accident.
+                if ($subSpanClosedHere && $subLines !== []) {
+                    $subLines[] = $this->keptCommentDelimiter($subLine);
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                    $subTrailingState->openParagraph = false;
+                    $subTrailingState->afterComment = true;
+                    $sawBlankLine = false;
+                    $i++;
+
+                    continue;
+                }
+                // AN OPEN FENCE ENDS THE ITEM HERE TOO. Between the
+                // base column and the content column the line still
+                // supplies less indentation than the item's prefix,
+                // so §24's STEP walk stops at the ITEM exactly as it
+                // does at column 0 and S4 finds no open paragraph to
+                // fold into (markup-carve/carve#950, corpus row 2 -
+                // written at column 1 precisely because the broken
+                // readings differed between the two columns).
+                if ($subTrailingState->fence !== null) {
+                    break;
+                }
+                if (
+                    !$sawBlankLine
+                    && $subTermColumn === null
+                    && $subTrailingState->openParagraph
+                    && $subLines !== []
+                    && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
+                ) {
+                    $subLines[] = $trimmedLine;
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
+                    $i++;
+
+                    continue;
+                }
+                $blockShaped = $this->isBlockElementStart($trimmedLine, $lines, $i)
+                    || $this->startsNewBlock($trimmedLine, $lines, $i)
+                    || $this->isFoldableInvisibleLine($trimmedLine);
+                $dedentedOpener = $blockShaped
+                    && !$sawBlankLine
+                    && (
+                        $subTrailingState->openParagraph
+                        // AN INVISIBLE LINE CLOSES NO BLOCK, so the
+                        // marker behind one still reaches the item -
+                        // §17 L2 and the content-column branch say so
+                        // for the same document two columns over,
+                        // where this already nested (corpus 517,
+                        // document 5). ONLY a marker: measured
+                        // against carve-js, a band heading or quote
+                        // behind an invisible line stays at document
+                        // level, and forwarding those too moved 64
+                        // documents off the oracle's reading.
+                        || ($subTrailingState->afterComment
+                            && ($this->getListParser)()->parseListItemMarker($trimmedLine) !== null)
+                    )
+                    && $subLines !== [];
+                if ($dedentedOpener) {
+                    // Markers retain their text classification. Other
+                    // openers keep one column on the nested reparse.
+                    $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
+                        && ($this->getListParser)()->parseListItemMarker($trimmedLine) !== null;
+                    $subRetainedMarker = $subRetainedMarker || $retainMarker;
+                    $subLines[] = $retainMarker
+                        ? BlockGrammar::LAZY_FRAME . $trimmedLine
+                        : ' ' . $trimmedLine;
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $subLine);
+                    $i++;
+
+                    continue;
+                }
+                // THE BAND REACHES THE ITEM ONLY AS A LAZY LINE, and a
+                // lazy line needs an open paragraph to continue (PART 0
+                // S4). Ungated, a band follower joined an item whose last
+                // block was a closed fence, a heading, a table or a colon
+                // fence, none of which leave anything open
+                // (carve-php#2724).
+                //
+                // A line that CLOSED NO BLOCK retains the follower even
+                // with no paragraph open, which is the same pair of terms
+                // the plain-lead collector reads a dedent by: a comment
+                // there, and the wider invisible set here, because that
+                // set is what corpus 517's tightness half is decided from
+                // and moving it needs that half moved with it.
+                if (
+                    !$sawBlankLine
+                    && (
+                        $subTrailingState->openParagraph
+                        || $subTrailingState->afterComment
+                    )
+                    && !$this->isBlockElementStart($trimmedLine, $lines, $i)
+                    && !$this->startsNewBlock($trimmedLine, $lines, $i)
+                ) {
+                    $retainMarker = !$inSubCommentSpan && $subTrailingState->afterComment
+                        && ($this->getListParser)()->parseListItemMarker($trimmedLine) !== null;
+                    $subRetainedMarker = $subRetainedMarker || $retainMarker;
+                    $subLines[] = $retainMarker
+                        ? BlockGrammar::LAZY_FRAME . $trimmedLine
+                        : $trimmedLine;
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, $trimmedLine);
+                    $i++;
+
+                    continue;
+                }
+
+                break;
+            } elseif (
+                !$sawBlankLine
+                && $subTrailingState->openParagraph
+                && !($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($subLine, " \t"), 0)
+                && !$this->isBlockElementStart(ltrim($subLine, " \t"), $lines, $i)
+                && !$this->startsNewBlock(ltrim($subLine, " \t"), $lines, $i)
+            ) {
+                $subLines[] = ltrim($subLine, " \t");
+                $subLineMap[] = $this->sourceLineFor($i);
+                $subTrailingState = $this->advanceTrailingState($subTrailingState, ltrim($subLine, " \t"));
+                $i++;
+            } else {
+                // End of list
+                break;
+            }
+        }
+        // The nested parser decides whether trailing blanks are
+        // fence payload or spacing outside the last block.
+
+        // THE OWNERSHIP ANSWER IS HANDED DOWN, not re-derived. The
+        // closer this stream armed its fence on sits below the line
+        // that ended the stream, so the nested parse sees an opener
+        // with none and reads the body back as an inline code span -
+        // carve#1399 one container further in (markup-carve/carve#2509).
+        // Written at the fence's own column, because that is the only
+        // column §10 accepts a closer at and the parse one level down
+        // asks the same question again.
+        if ($subInterruptedParagraphFence && $subTrailingState->fence !== null) {
+            $subLines[] = str_repeat(' ', $subTrailingState->fence->column)
+                . str_repeat($subTrailingState->fence->char, $subTrailingState->fence->length);
+            $subLineMap[] = -1;
+        }
+
+        return [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase];
     }
 
     /**
