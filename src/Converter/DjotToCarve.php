@@ -199,7 +199,7 @@ class DjotToCarve
 
     private function isPlainDjotImageChainCharacter(string $character): bool
     {
-        return preg_match('/^[\p{L}\p{N}\p{M} ,;:?\/=&@\t\n]$/u', $character) === 1;
+        return preg_match('/^[\p{L}\p{N}\p{M} ,;?\/=&@\t\n]$/u', $character) === 1;
     }
 
     private function collapsePlainNestedImageChains(string $source): string
@@ -223,7 +223,7 @@ class DjotToCarve
         $lineOffset = 0;
         foreach (explode("\n", $source) as $line) {
             $lineOffsets[] = $lineOffset;
-            preg_match('/^(?:[ \t]*>[ \t]?)+/', $line, $prefix);
+            preg_match('/^(?:[ \t]*>[ \t])+/', $line, $prefix);
             $quotePrefixes[] = $prefix[0] ?? '';
             $lineOffset += strlen($line) + 1;
         }
@@ -250,14 +250,14 @@ class DjotToCarve
                 $level = count($labels);
                 while ($at < $length) {
                     $ch = $this->djotImageChainCharacter($source, $at);
-                    if (!$this->isPlainDjotImageChainCharacter($ch) || $ch === ':' && ($at === $begin || $nonSpace === '' || $nonSpace === "\n")) {
+                    if (!$this->isPlainDjotImageChainCharacter($ch)) {
+                        break;
+                    }
+                    if ($ch === "\n" && $quotePrefix !== '' && substr($source, $at + strlen($ch), strlen($quotePrefix)) !== $quotePrefix) {
                         break;
                     }
                     $at += strlen($ch);
                     if ($ch === "\n" && $quotePrefix !== '') {
-                        if (substr($source, $at, strlen($quotePrefix)) !== $quotePrefix) {
-                            break;
-                        }
                         $at += strlen($quotePrefix);
                     }
                     if ($ch === "\n" && ($nonSpace === "\n" || $previous === ' ' || $previous === "\t")) {

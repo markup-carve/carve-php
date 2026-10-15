@@ -377,7 +377,7 @@ trait ReportsDjotLosses
                 $ch = $source[$at];
                 if ($ch !== '[' && $ch !== ']' && !($ch === '!' && ($source[$at + 1] ?? '') === '[')) {
                     $point = $this->djotImageChainCharacter($source, $at);
-                    if (substr($mask, $at, strlen($point)) !== $point || $this->isDjotEscaped($source, $at) || !$this->isPlainDjotImageChainCharacter($point) || $ch === "\n" && preg_match('/^[\p{L}\p{N}\p{M},;:?\/=&@]$/u', $plainLast[$owner]) !== 1) {
+                    if (substr($mask, $at, strlen($point)) !== $point || $this->isDjotEscaped($source, $at) || !$this->isPlainDjotImageChainCharacter($point) || $ch === "\n" && preg_match('/^[\p{L}\p{N}\p{M},;?\/=&@]$/u', $plainLast[$owner]) !== 1) {
                         $plainFlags[$owner] = false;
                     }
                     if (strlen($point) > 1) {
@@ -394,7 +394,7 @@ trait ReportsDjotLosses
                     }
                     $plainLast[$owner] = $ch;
                     if ($ch === "\n" && $plainFlags[$owner] && $depths[$owner] > 0 && ($quoteDepths[$sourceLine + 1] ?? 0) === $depths[$owner]) {
-                        if (preg_match('/^(?:[ \t]*>[ \t]?)+/', $lines[$sourceLine + 1], $prefix) === 1 && substr_count($prefix[0], '>') === $depths[$owner]) {
+                        if (preg_match('/^(?:[ \t]*>[ \t])+/', $lines[$sourceLine + 1], $prefix) === 1 && substr_count($prefix[0], '>') === $depths[$owner]) {
                             $at += strlen($prefix[0]);
 
                             continue;
