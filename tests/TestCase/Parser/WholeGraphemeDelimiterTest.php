@@ -21,6 +21,10 @@ final class WholeGraphemeDelimiterTest extends TestCase
             '*x* *️⃣ *y*' => '<p><strong>x</strong> *️⃣ <strong>y</strong></p>',
             '{*️⃣abc*}' => '<p>{*️⃣abc*}</p>',
             '/*️a*/' => '<p><em>*️a*</em></p>',
+            '*ाx *y*' => '<p>*ाx <strong>y</strong></p>',
+            '{^ाx^}' => '<p>{^ाx^}</p>',
+            '{^⃣x^}' => '<p>{^⃣x^}</p>',
+            '{,︎x,}' => '<p>{,︎x,}</p>',
         ];
         foreach ($cases as $source => $expected) {
             self::assertSame($expected . "\n", $converter->convert($source), $source);
