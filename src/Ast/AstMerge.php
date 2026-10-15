@@ -154,38 +154,45 @@ final class AstMerge
     }
 
     /**
-     * @return list<array<string, mixed>>
+     * Keys a node list by its prose: a run of text and soft breaks reads as one string.
+     *
+     * Siblings are compared by their structural ids, so the cost stays with this
+     * list and never walks the subtrees below it.
+     *
+     * @return array<int, int|string>
      */
-    private static function mergeText(mixed $nodes): array
+    private static function proseKey(AstIndexedValue $list): array
     {
         $out = [];
         $runIndex = null;
-        if (!is_array($nodes)) {
-            return $out;
-        }
-        foreach ($nodes as $node) {
-            if (!is_array($node)) {
+        /** @var list<array<string, mixed>> $nodes */
+        $nodes = $list->value;
+        foreach ($nodes as $index => $node) {
+            $isText = $node['type'] === 'text' && is_string($node['value'] ?? null);
+            if (!$isText && $node['type'] !== 'soft_break') {
+                $runIndex = null;
+                $out[] = $list->children[$index]->id;
+
                 continue;
             }
-            if (($node['type'] ?? null) === 'text' && is_string($node['value'] ?? null)) {
-                if ($runIndex === null) {
-                    $runIndex = count($out);
-                    $out[] = $node;
-                } elseif (is_string($out[$runIndex]['value'] ?? null)) {
-                    $out[$runIndex]['value'] .= $node['value'];
-                }
-            } elseif ($node['type'] === 'soft_break') {
-                // A break after inline markup still renders as a space, so it starts a run.
-                if ($runIndex === null) {
-                    $runIndex = count($out);
-                    $out[] = ['type' => 'text', 'value' => ' '];
-                } elseif (is_string($out[$runIndex]['value'] ?? null)) {
-                    $out[$runIndex]['value'] .= ' ';
-                }
-            } else {
-                $runIndex = null;
-                $out[] = $node;
+            $text = $isText ? $node['value'] : ' ';
+            if ($runIndex !== null) {
+                $out[$runIndex] .= $text;
+
+                continue;
             }
+            // A break after inline markup still renders as a space, so it starts a run.
+            $fields = [];
+            if ($isText) {
+                foreach ($list->children[$index]->children as $key => $child) {
+                    if ($key !== 'type' && $key !== 'value') {
+                        $fields[$key] = $child->id;
+                    }
+                }
+                ksort($fields, SORT_STRING);
+            }
+            $runIndex = count($out);
+            $out[] = json_encode($fields, JSON_THROW_ON_ERROR) . "\0" . $text;
         }
 
         return $out;
@@ -586,9 +593,9 @@ final class AstMerge
         $ours = $oursIndex->value;
         $theirs = $theirsIndex->value;
         if ($path->stripMetadata && self::isNodeList($base) && self::isNodeList($ours) && self::isNodeList($theirs)) {
-            $normalizedBase = self::clean(self::mergeText($base));
-            $normalizedOurs = self::clean(self::mergeText($ours));
-            $normalizedTheirs = self::clean(self::mergeText($theirs));
+            $normalizedBase = self::proseKey($baseIndex);
+            $normalizedOurs = self::proseKey($oursIndex);
+            $normalizedTheirs = self::proseKey($theirsIndex);
             if ($normalizedOurs === $normalizedTheirs) {
                 return $ours;
             }
