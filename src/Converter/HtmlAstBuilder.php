@@ -283,6 +283,11 @@ final class HtmlAstBuilder
     }
 
     /**
+     * @var array<string, true>
+     */
+    private array $resolvedCrossrefs = [];
+
+    /**
      * @param bool $listTableForBlockCells
      * @param string $importMode
      * @param bool $sourceSafe
@@ -297,6 +302,14 @@ final class HtmlAstBuilder
         private readonly array $labels = [],
     ) {
         $this->session = new HtmlImportSession();
+    }
+
+    /**
+     * @param array<string, true> $targets
+     */
+    public function keepResolvedCrossrefsAsText(array $targets): void
+    {
+        $this->resolvedCrossrefs = $targets;
     }
 
     public function builtDocument(): ?DOMDocument
@@ -4315,7 +4328,11 @@ final class HtmlAstBuilder
                 ? $node->textContent
                 : (preg_replace('/[ \t]*[\n\f\r][ \t\n\f\r]*| +/', ' ', $node->textContent) ?? $node->textContent);
 
-            return $value === '' ? [] : [HtmlImportNodes::text($value)];
+            if ($value === '') {
+                return [];
+            }
+
+            return ImportedCrossrefs::splitText($value, $this->resolvedCrossrefs) ?? [HtmlImportNodes::text($value)];
         }
         if ($node instanceof DOMComment) {
             if (
