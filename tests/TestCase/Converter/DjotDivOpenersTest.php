@@ -13,6 +13,14 @@ use PHPUnit\Framework\TestCase;
 
 class DjotDivOpenersTest extends TestCase
 {
+    public function testAnAdmonitionNamedDjotDivKeepsItsClass(): void
+    {
+        $carve = (new DjotToCarve())->convert("::: note\ncontainer\n:::\n");
+
+        $this->assertSame("{class=\"note\"}\n:::\ncontainer\n:::\n", $carve);
+        $this->assertSame("<div class=\"note\">\n  <p>container</p>\n</div>\n", (new CarveConverter())->convert($carve));
+    }
+
     private function content(DOMNode $node, string $parent = ''): mixed
     {
         if ($node->nodeType === XML_TEXT_NODE) {
