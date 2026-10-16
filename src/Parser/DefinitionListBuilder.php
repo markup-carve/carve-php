@@ -840,6 +840,8 @@ final class DefinitionListBuilder
                         && $lastBodyKey !== null
                         && ($body[$lastBodyKey] ?? '') !== ''
                         && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey]))
+                        // A nested marker keeps its own entry; a later fence folds into its item.
+                        && ($this->getListParser)()->parseListItemMarker(ltrim($body[$lastBodyKey], " \t")) === null
                         && ($belowColumnMarker || $paragraphFenceHasNoCloser
                             || !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false))
                     ) {
@@ -1293,7 +1295,11 @@ final class DefinitionListBuilder
                     $foldedBody = [];
                     $foldedBodyMap = [];
                     foreach ($body as $bodyIndex => $entry) {
-                        if (isset($bodyLazy[$bodyIndex]) && $foldedBody !== []) {
+                        if (
+                            isset($bodyLazy[$bodyIndex])
+                            && $foldedBody !== []
+                            && ($this->getListParser)()->parseListItemMarker(ltrim($foldedBody[array_key_last($foldedBody)], " \t")) === null
+                        ) {
                             $last = count($foldedBody) - 1;
                             $foldedBody[$last] .= "\n" . ltrim($entry, " \t");
 
