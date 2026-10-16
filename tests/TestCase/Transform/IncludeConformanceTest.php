@@ -62,7 +62,12 @@ class IncludeConformanceTest extends TestCase
     public static function vectorProvider(): array
     {
         $dir = self::vectorDir();
-        $files = glob($dir . '/*.json') ?: [];
+        // These eight vectors come from carve spec d79a72ed. Keep the corpus
+        // submodule pin stable until its newer parser rulings are implemented.
+        $files = array_merge(
+            glob($dir . '/*.json') ?: [],
+            glob(self::additionalVectorDir() . '/*.json') ?: [],
+        );
         if ($files === []) {
             throw new RuntimeException(
                 "Include-conformance vectors not found at {$dir}.\n"
@@ -76,7 +81,11 @@ class IncludeConformanceTest extends TestCase
             /** @var array<string, mixed> $vector */
             $vector = json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
             $rules = implode(', ', (array)($vector['rules'] ?? []));
-            $cases["{$vector['name']} [{$rules}]"] = [$vector];
+            $case = "{$vector['name']} [{$rules}]";
+            if (isset($cases[$case])) {
+                throw new RuntimeException("Duplicate include-conformance vector: {$case}");
+            }
+            $cases[$case] = [$vector];
         }
 
         return $cases;
@@ -584,5 +593,10 @@ class IncludeConformanceTest extends TestCase
     protected static function vectorDir(): string
     {
         return __DIR__ . '/../../spec/tests/include-conformance/vectors';
+    }
+
+    protected static function additionalVectorDir(): string
+    {
+        return __DIR__ . '/../../include-conformance-additions/vectors';
     }
 }
