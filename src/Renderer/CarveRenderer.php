@@ -1437,7 +1437,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
-                    } elseif ($compactFootnoteHeading && $previousRenderedBlock instanceof Paragraph && $block instanceof Heading && $parts !== []) {
+                    } elseif ($compactFootnoteHeading && ($previousRenderedBlock instanceof Paragraph || $previousRenderedBlock instanceof Heading) && $block instanceof Heading && $parts !== []) {
                         // A blank here ends a note collected on a definition
                         // line. The heading then moves into the description.
                         $parts[array_key_last($parts)] .= "\n" . $rendered;

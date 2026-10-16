@@ -71,6 +71,16 @@ class CarveFormatterTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function testHeadingsStayInAFootnoteOnADefinitionLine(): void
+    {
+        $source = "x[^c]\n\n:: t\n: [^c]: para\n    # H\n    ## J\n";
+        $formatted = CarveConverter::toCarve($source);
+        $converter = new CarveConverter();
+
+        $this->assertSame($converter->convert($source), $converter->convert($formatted));
+        $this->assertSame($formatted, CarveConverter::toCarve($formatted));
+    }
+
     public function testTargetedFormattingRules(): void
     {
         $nbsp = "\u{00A0}";
