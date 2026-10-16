@@ -29,6 +29,16 @@ final class TrailingBlockState
 
     public ?int $literalCommentLength = null;
 
+    /**
+     * Column, from the tracked container's content, of the footnote definition whose body is open.
+     */
+    public int $footnoteColumn = 0;
+
+    /**
+     * The nested quote's own state after its last line: nested column and footnote body only.
+     */
+    public ?self $quoteInner = null;
+
     // Legacy array hooks expose the fence metadata after its closer.
     private ?TrailingCodeFence $lastFence = null;
 
@@ -107,6 +117,8 @@ final class TrailingBlockState
             $this->literalDiv = $snapshot->literalDiv;
             $this->literalCommentLength = $snapshot->literalCommentLength;
             $this->nestedDivHosts = $snapshot->nestedDivHosts;
+            $this->footnoteColumn = $snapshot->footnoteColumn;
+            $this->quoteInner = $snapshot->quoteInner;
             unset($this->legacyExtras["\0carve.nestedDivState"]);
         }
     }
@@ -138,7 +150,10 @@ final class TrailingBlockState
     public function toArray(): array
     {
         $extras = $this->legacyExtras;
-        if ($this->nestedDiv !== null || $this->nestedDivHosts !== [] || $this->literalDiv || $this->nestedListSeen) {
+        if (
+            $this->nestedDiv !== null || $this->nestedDivHosts !== [] || $this->literalDiv || $this->nestedListSeen
+            || $this->footnoteColumn !== 0 || $this->quoteInner !== null
+        ) {
             $snapshot = clone $this;
             $snapshot->legacyExtras = [];
             $extras["\0carve.nestedDivState"] = $snapshot;

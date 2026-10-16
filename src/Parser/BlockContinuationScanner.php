@@ -3447,15 +3447,29 @@ final class BlockContinuationScanner
             // the inner state crosses lines, because nothing else has to.
             $seed = new TrailingBlockState();
             $seed->inTable = $wasQuotedTable;
+            // THE QUOTE'S NESTED COLUMN AND NOTE BODY DO cross lines: a
+            // definition at a quoted item's column is that item's, and leaves
+            // nothing open (CARVE-P0-011, CARVE-P0-012).
+            $previous = $nestedIsQuoteOnEntry ? $state->quoteInner : null;
+            $quoteAt = $deepestAt + $quoteWidth;
+            $reachesNested = false;
+            if ($previous !== null) {
+                $seed->nestedColumn = $previous->nestedColumn;
+                $seed->inFootnoteBody = $previous->inFootnoteBody;
+                $seed->footnoteColumn = $previous->footnoteColumn;
+                $reachesNested = $previous->nestedColumn > 0
+                    && IndentationHelper::pastLeadingWhitespace($line, $quoteAt) - $quoteAt >= $previous->nestedColumn;
+            }
             $inner = $this->advanceTrailingBlockStateAt(
                 $seed,
                 $line,
-                $deepestAt + $quoteWidth,
+                $quoteAt,
                 $trimmedEnd,
                 $trimmedEnd,
                 $lastInteriorNewline,
-                false,
+                $reachesNested,
             );
+            $state->quoteInner = $inner;
             $state->openParagraph = $inner->openParagraph;
             $state->quoteParagraph = $inner->openParagraph;
             $state->quotedTable = $inner->inTable;
@@ -3596,6 +3610,33 @@ final class BlockContinuationScanner
             // prose that a flush-left line still folds into (corpus 357-6) -
             // reading it as a body ended the item there.
             $state->inFootnoteBody = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, BlockGrammar::subjectFrom($line, $definitionAt, $end)) === 1;
+            $state->footnoteColumn = 0;
+
+            return $state;
+        }
+
+        // AT A NESTED LIST'S COLUMN THE DEFINITION IS THAT ITEM'S, and it closes
+        // the deepest paragraph all the same (CARVE-P0-011), so nothing in the
+        // stack is left open for a flush-left line to continue.
+        if (
+            $atContentColumn && $nestedColumn > 0 && !$nestedIsQuoteOnEntry && !$wasQuoteParagraph
+            && $deepestAt - $at >= $nestedColumn
+            && (
+                (
+                    ReferenceDefinitionExtractor::isDefinitionHead($line, $deepestAt)
+                    && $this->isReferenceDefinitionLine(BlockGrammar::subjectFrom($line, $deepestAt, $end))
+                )
+                || (
+                    BlockGrammar::isBlockAttributeHead($line, $deepestAt)
+                    && $this->isBlockAttributeLine(BlockGrammar::subjectFrom($line, $deepestAt, $end))
+                )
+            )
+        ) {
+            $state->openParagraph = false;
+            $state->afterInvisible = true;
+            $state->afterComment = false;
+            $state->inFootnoteBody = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, BlockGrammar::subjectFrom($line, $deepestAt, $end)) === 1;
+            $state->footnoteColumn = $deepestAt - $at;
 
             return $state;
         }
@@ -3608,7 +3649,8 @@ final class BlockContinuationScanner
                 // column 0 in this tracker's view, so its body reaches column
                 // two; one column short is the container's own prose and a
                 // flush-left line still folds into it.
-                || IndentationHelper::getLeadingColumns(BlockGrammar::subjectFrom($line, $at, $end), BlockGrammar::FOOTNOTE_BODY_COLUMN) >= BlockGrammar::FOOTNOTE_BODY_COLUMN
+                || IndentationHelper::getLeadingColumns(BlockGrammar::subjectFrom($line, $at, $end), $state->footnoteColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN)
+                    >= $state->footnoteColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
             )
         ) {
             $state->openParagraph = false;

@@ -127,7 +127,7 @@
   {
     "id": "matrix-n2181",
     "source": "> - [^n]: text\n>     more\n>     - child\n>     # h\n>     code\nafter [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\nmore\n- child</p><h1 id=\"h\">h</h1><p>code<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\nmore\n- child</p><h1 id=\"h\">h</h1><p>code<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n2315",
@@ -301,7 +301,7 @@
   {
     "id": "matrix-n7055",
     "source": "> - [^n]: text\n>     - child\n>     # h\n>     | t |\n>     :::\n>     code\nafter [^n]\n",
-    "html": "<blockquote><ul><li></li></ul><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><h1 id=\"h\">h</h1><table><tbody><tr><td>t</td></tr></tbody></table><div><p>code</p></div><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><h1 id=\"h\">h</h1><table><tbody><tr><td>t</td></tr></tbody></table><div><p>code</p></div><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n7082",
@@ -351,7 +351,7 @@
   {
     "id": "matrix-n7367",
     "source": "> - [^n]: text\n>     - child\n>     | t |\n>     > q\n>     ```\n>\n>     - child\nafter [^n]\n",
-    "html": "<blockquote><ul><li>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></li></ul></blockquote><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><table><tbody><tr><td>t</td></tr></tbody></table><blockquote><p>q\n<code></code></p></blockquote><ul><li>child</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
+    "html": "<blockquote><ul><li></li></ul></blockquote><p>after <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p><section role=\"doc-endnotes\" aria-label=\"Footnotes\"><hr><ol><li id=\"fn1\"><p>text\n- child</p><table><tbody><tr><td>t</td></tr></tbody></table><blockquote><p>q\n<code></code></p></blockquote><ul><li>child</li></ul><p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p></li></ol></section>"
   },
   {
     "id": "matrix-n7399",

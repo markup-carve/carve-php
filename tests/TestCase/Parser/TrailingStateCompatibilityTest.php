@@ -61,6 +61,21 @@ class TrailingStateCompatibilityTest extends TestCase
         $this->assertSame('kept', $state['extension-state']);
     }
 
+    public function testANestedNoteColumnSurvivesTheArrayHook(): void
+    {
+        $parser = new class extends BlockParser {
+            public function afterNestedNote(): array
+            {
+                $state = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, '- para');
+                $state = $this->advanceTrailingBlockState($state, '  [^f]: n', true);
+
+                return $this->advanceTrailingBlockState($state, '  more', true);
+            }
+        };
+
+        $this->assertTrue($parser->afterNestedNote()['openParagraph']);
+    }
+
     public function testDescendantTrackingDoesNotReenterTheLegacyHook(): void
     {
         $parser = new class extends BlockParser {
