@@ -13,15 +13,15 @@ use MarkupCarve\Carve\Node\Document;
 /**
  * The versioned AST interchange envelope (PART 12 §34, [CARVE-P12-056]).
  *
- * The tree is strict-closed and carries no version, so a reader that cannot
+ * The tree is strict-closed and may carry a version, so a reader that cannot
  * read a payload has one answer for three different problems: a corrupt tree, a
  * vocabulary this build does not know, and a document needing an extension it
  * does not implement all arrive as one validation error. The envelope is what
  * lets the reader name which one it hit.
  *
  * The tree does not move. `document` is exactly what {@see AstCodec} writes and
- * reads, `carve --json` still writes it bare, and an in-memory handoff still
- * passes it bare. This is the storage-and-process-boundary surface beside that,
+ * reads, `carve --json` writes it bare with `astVersion`, and an in-memory
+ * handoff still passes it bare. This is the storage-and-process-boundary surface beside that,
  * not a change to it.
  */
 final class AstEnvelope
@@ -35,7 +35,7 @@ final class AstEnvelope
      *
      * @var string
      */
-    public const CONTRACT_VERSION = '2.0';
+    public const CONTRACT_VERSION = '1.2';
 
     /**
      * @var string
@@ -111,7 +111,6 @@ final class AstEnvelope
      *
      * @throws \MarkupCarve\Carve\Exception\AstEnvelopeExtensionException
      * @throws \MarkupCarve\Carve\Exception\AstEnvelopeShapeException
-     * @throws \MarkupCarve\Carve\Exception\AstEnvelopeVersionException
      * @throws \MarkupCarve\Carve\Exception\AstEnvelopeVocabularyException
      */
     public function decode(array $envelope, array $extensions = [], array $vocabularies = []): Document
@@ -127,29 +126,9 @@ final class AstEnvelope
             }
         }
 
-        $astVersion = $envelope['astVersion'] ?? null;
-        if (!is_string($astVersion)) {
-            throw new AstEnvelopeShapeException('"astVersion" is missing');
-        }
-        if (preg_match(self::VERSION_PATTERN, $astVersion) !== 1) {
-            throw new AstEnvelopeShapeException(sprintf(
-                '"astVersion" is "%s", which is not major.minor with no leading zero',
-                $astVersion,
-            ));
-        }
+        self::checkVersion($envelope['astVersion'] ?? null);
         if (!array_key_exists('document', $envelope)) {
             throw new AstEnvelopeShapeException('"document" is missing');
-        }
-
-        // A reader accepts its own version or LOWER. A higher MINOR is refused
-        // with the same typed error as a higher major: the node schema is
-        // closed (`additionalProperties: false`), so the field a minor adds is
-        // one this build's validator rejects outright rather than ignores. The
-        // older rule accepted a higher minor, which no payload could reach.
-        [$major, $minor] = array_map('intval', explode('.', $astVersion));
-        [$ownMajor, $ownMinor] = array_map('intval', explode('.', self::CONTRACT_VERSION));
-        if ($major > $ownMajor || ($major === $ownMajor && $minor > $ownMinor)) {
-            throw new AstEnvelopeVersionException($astVersion);
         }
 
         $vocabulary = $envelope['vocabulary'] ?? null;
@@ -179,6 +158,25 @@ final class AstEnvelope
         $document = $this->readDocument($envelope['document']);
 
         return $this->codec->decode($document);
+    }
+
+    public static function checkVersion(mixed $astVersion): void
+    {
+        if (!is_string($astVersion)) {
+            throw new AstEnvelopeShapeException('"astVersion" is missing');
+        }
+        if (preg_match(self::VERSION_PATTERN, $astVersion) !== 1) {
+            throw new AstEnvelopeShapeException(sprintf(
+                '"astVersion" is "%s", which is not major.minor with no leading zero',
+                $astVersion,
+            ));
+        }
+        // Closed node schemas make higher minor versions unreadable too.
+        [$major, $minor] = array_map('intval', explode('.', $astVersion));
+        [$ownMajor, $ownMinor] = array_map('intval', explode('.', self::CONTRACT_VERSION));
+        if ($major > $ownMajor || ($major === $ownMajor && $minor > $ownMinor)) {
+            throw new AstEnvelopeVersionException($astVersion);
+        }
     }
 
     /**

@@ -4,10 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Node\Inline;
 
-use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
-use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Node;
-use MarkupCarve\Carve\Parser\LabelKey;
 
 /**
  * One question, asked in every writer: is this node an UNRESOLVED reference?
@@ -31,30 +28,6 @@ final class UnresolvedReference
     public static function isResolvedEmpty(Node $node): bool
     {
         return ($node instanceof Link || $node instanceof Image) && $node->isResolvedEmptyReference();
-    }
-
-    public static function hydrate(Document $document): void
-    {
-        $definitions = [];
-        foreach ($document->getChildren() as $child) {
-            if ($child instanceof LinkReferenceDefinition) {
-                $definitions[LabelKey::normalize($child->getLabel())] = $child->getHref();
-            }
-        }
-        $stack = [$document];
-        while ($stack !== []) {
-            $node = array_pop($stack);
-            if (
-                ($node instanceof Link && $node->getDestination() === '' || $node instanceof Image && $node->getSource() === '')
-                && $node->getReferenceLabel() !== null
-                && ($definitions[LabelKey::normalize($node->getReferenceLabel())] ?? null) === ''
-            ) {
-                self::markResolvedEmpty($node);
-            }
-            foreach ($node->getChildren() as $child) {
-                $stack[] = $child;
-            }
-        }
     }
 
     /**

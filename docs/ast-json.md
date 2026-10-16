@@ -362,11 +362,10 @@ does. An unregistered type fails loudly rather than silently dropping content.
 
 ## A stored tree is wrapped in a versioned envelope
 
-The tree carries no version, deliberately: a payload from a newer contract
-should fail rather than be half-read. The cost is that a reader has one answer
-for three different problems. A corrupt tree, a vocabulary this build does not
-know, and a document needing an extension it does not implement all arrive as
-one decode failure.
+`AstCodec` writes a bare tree without a version. The CLI adds `astVersion` to
+that root. Both forms decode, and a reader refuses a version above the one it
+implements. Use an envelope when the payload also needs vocabulary or
+extension declarations.
 
 At a storage or process boundary, wrap it (PART 12 section 34):
 
@@ -375,14 +374,13 @@ use MarkupCarve\Carve\Ast\AstEnvelope;
 
 $envelope = new AstEnvelope();
 $stored = $envelope->encode($document);
-// ['astVersion' => '2.0', 'document' => [...]]
+// ['astVersion' => '1.2', 'document' => [...]]
 
 $back = $envelope->decode($stored);
 ```
 
-**The tree does not move.** `document` is exactly what `AstCodec` writes and
-reads, and `bin/carve --json` still emits it bare. The envelope wraps; it does
-not amend.
+`document` is exactly what `AstCodec` writes and reads. `bin/carve --json`
+emits the bare tree with `astVersion: "1.2"` on its root.
 
 `astVersion` is the CONTRACT's version, not the language's, and does not track
 the Carve version: the language is versioned for authors, this is versioned for
@@ -412,8 +410,8 @@ $document = $envelope->decode(
 All four extend `AstEnvelopeException` and **none** of them is an
 `AstDecodeException`. That separation is the point: "this envelope says
 something I cannot honour" and "this tree is not readable" are different
-catches. A higher MINOR is accepted, gated only by the extensions it marks
-required.
+catches. A higher minor is refused with the same typed version error as a
+higher major.
 
 ## Guarantees and limits
 

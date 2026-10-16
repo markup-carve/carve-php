@@ -49,7 +49,7 @@ class AstEnvelopeTest extends TestCase
         $parsed = CarveConverter::create()->parse("a\n");
         $envelope = $this->envelope->encode($parsed);
 
-        $this->assertSame('2.0', $envelope['astVersion']);
+        $this->assertSame('1.2', $envelope['astVersion']);
         $this->assertSame((new AstCodec())->encode($parsed), $envelope['document']);
         $this->assertSame(['astVersion', 'document'], array_keys($envelope));
     }
@@ -88,7 +88,7 @@ class AstEnvelopeTest extends TestCase
             $this->fail('expected a version refusal');
         } catch (AstEnvelopeVersionException $e) {
             $this->assertSame('3.0', $e->found);
-            $this->assertSame('2.0', $e->implemented);
+            $this->assertSame('1.2', $e->implemented);
         }
     }
 
@@ -106,17 +106,17 @@ class AstEnvelopeTest extends TestCase
     public function testAHigherMinorIsRefusedByVersionNotByTheSchema(): void
     {
         try {
-            $this->envelope->decode($this->wrap(['astVersion' => '2.1']));
+            $this->envelope->decode($this->wrap(['astVersion' => '1.3']));
             $this->fail('expected a version refusal');
         } catch (AstEnvelopeVersionException $e) {
-            $this->assertSame('2.1', $e->found);
-            $this->assertSame('2.0', $e->implemented);
+            $this->assertSame('1.3', $e->found);
+            $this->assertSame('1.2', $e->implemented);
         }
     }
 
     /**
      * THE VERSION CHECK RUNS FIRST. §34 orders the checks (a) version, (b)
-     * vocabulary, (c) extensions, and the widest one answers: a `2.1` payload
+     * vocabulary, (c) extensions, and the widest one answers: a `1.3` payload
      * is unreadable whatever its extension list says, so naming the extension
      * would send the caller to install something that still would not help.
      *
@@ -128,7 +128,7 @@ class AstEnvelopeTest extends TestCase
     {
         $this->expectException(AstEnvelopeVersionException::class);
         $this->envelope->decode($this->wrap([
-            'astVersion' => '2.1',
+            'astVersion' => '1.3',
             'extensions' => [['id' => 'https://example.test/ext/unknown']],
         ]));
     }
@@ -141,7 +141,7 @@ class AstEnvelopeTest extends TestCase
     {
         $this->expectException(AstEnvelopeExtensionException::class);
         $this->envelope->decode($this->wrap([
-            'astVersion' => '2.0',
+            'astVersion' => '1.2',
             'extensions' => [['id' => 'https://example.test/ext/unknown']],
         ]));
     }
