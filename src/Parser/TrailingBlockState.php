@@ -25,6 +25,8 @@ final class TrailingBlockState
 
     public bool $literalDiv = false;
 
+    public bool $namedDiv = false;
+
     public bool $nestedListSeen = false;
 
     public ?int $literalCommentLength = null;
@@ -115,6 +117,7 @@ final class TrailingBlockState
             $this->nestedDivBody = $snapshot->nestedDivBody;
             $this->nestedListSeen = $snapshot->nestedListSeen;
             $this->literalDiv = $snapshot->literalDiv;
+            $this->namedDiv = $snapshot->namedDiv;
             $this->literalCommentLength = $snapshot->literalCommentLength;
             $this->nestedDivHosts = $snapshot->nestedDivHosts;
             $this->footnoteColumn = $snapshot->footnoteColumn;
@@ -151,7 +154,7 @@ final class TrailingBlockState
     {
         $extras = $this->legacyExtras;
         if (
-            $this->nestedDiv !== null || $this->nestedDivHosts !== [] || $this->literalDiv || $this->nestedListSeen
+            $this->nestedDiv !== null || $this->nestedDivHosts !== [] || $this->literalDiv || $this->namedDiv || $this->nestedListSeen
             || $this->footnoteColumn !== 0 || $this->quoteInner !== null
         ) {
             $snapshot = clone $this;

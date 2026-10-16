@@ -51,10 +51,11 @@ class ABelowColumnLineFoldsIntoADescriptionTest extends TestCase
         $this->assertSame($expected, $this->html($source));
     }
 
-    public function testAnOpenerBelowTheColumnStillEndsTheBody(): void
+    public function testAMarkerBelowTheColumnFoldsIntoTheBody(): void
     {
+        // PART 9 §24 C3 BELOW and §10 I2: lazy text, not a new list.
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>a\nb</dd>\n</dl>\n<ul>\n  <li>y</li>\n</ul>\n",
+            "<dl>\n  <dt>t</dt>\n  <dd>a\nb\n- y</dd>\n</dl>\n",
             $this->html(":: t\n: a\n  b\n - y\n"),
         );
     }

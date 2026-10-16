@@ -117,8 +117,14 @@ final class BlockQuoteBuilder
             }
 
             $quoteContent = $this->blockQuoteLineContent($line);
+            if ($quoteContent === null && in_array('note', $state['hosts']['kinds'] ?? [], true)) {
+                $quoteContent = $this->blockQuoteLineContent(ltrim($line, " \t"));
+            }
             if ($quoteContent !== null) {
                 $this->trackBlockQuoteLazyState($quoteContent, $state, $lines, $j, $codeCloserMemo);
+                if (in_array('note', $state['hosts']['kinds'] ?? [], true)) {
+                    $state['paragraphOpen'] = false;
+                }
                 $end = $j;
 
                 continue;
@@ -128,6 +134,8 @@ final class BlockQuoteBuilder
                 !$state['paragraphOpen']
                 || (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm([$lines[$end]]))
+                || ($this->lastQuoteLineIsBareTerm([$lines[$end]])
+                    && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")) !== null)
                 || ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['literal'] ?? false)
                 || $this->endsBlockQuote($line, true, $lines, $j)
             ) {
@@ -269,15 +277,23 @@ final class BlockQuoteBuilder
 
             // Continue with "> " prefix (space required per spec)
             $content = $this->blockQuoteLineContent($currentLine);
+            if ($content === null && in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
+                $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
+            }
             if ($content !== null) {
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
                 $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i, $codeCloserMemo);
+                if (in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
+                    $lazyState['paragraphOpen'] = false;
+                }
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
                 && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm($innerLines))
+                && !($this->lastQuoteLineIsBareTerm($innerLines)
+                    && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($currentLine, " \t")) !== null)
                 && !(preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
                     && $this->lastQuoteLineIsATerm($innerLines))
                 && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
@@ -304,7 +320,9 @@ final class BlockQuoteBuilder
                 $lazySourceLine = $this->sourceLineFor($i);
                 $innerLineMap[] = $lazySourceLine;
                 $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
-                $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i, $codeCloserMemo);
+                if (!isset($lazyState['hosts']['descriptionColumn'])) {
+                    $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i, $codeCloserMemo);
+                }
                 $i++;
             } else {
                 break;
@@ -526,6 +544,23 @@ final class BlockQuoteBuilder
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
+        // A note body can indent the next quote marker beyond the quote prefix.
+        $nextQuoted = isset($lines[$index + 1]) ? $this->blockQuoteLineContent(ltrim($lines[$index + 1], " \t")) : null;
+        if (
+            $host['markers'] !== []
+            && ($column === $host['columns'][array_key_last($host['columns'])]
+                || $column === ($host['descriptionColumn'] ?? PHP_INT_MAX))
+            && ($this->isReferenceDefinitionLine($text) || $this->isBlockAttributeLine($text))
+            && !(
+                preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $text) === 1
+                && $nextQuoted !== null
+                && IndentationHelper::getLeadingColumns($nextQuoted) >= $column + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            )
+        ) {
+            $state['paragraphOpen'] = false;
+
+            return true;
+        }
         foreach ($host['kinds'] as $hostIndex => $kind) {
             if (
                 $kind === 'note' && !($host['noteBodyBroken'][$hostIndex] ?? false)
@@ -690,7 +725,10 @@ final class BlockQuoteBuilder
 
                 continue;
             }
-            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $inner) === 1) {
+            if (
+                ($at === 0 || $at === $host['columns'][count($host['columns']) - 1])
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $inner) === 1
+            ) {
                 $host['markers'][] = $at;
                 $host['columns'][] = $at + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                 $host['kinds'][] = 'note';
@@ -909,16 +947,10 @@ final class BlockQuoteBuilder
                 }
             }
 
-            // Definitions and fence-shaped lazy lines remain paragraph text
-            // when a nested quote replays them.
+            // An unmarked lazy line cannot open a block inside the quote.
             if (
                 $state['paragraphOpen']
                 && isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($sourceIndex)])
-                && (
-                    $this->isReferenceDefinitionLine(ltrim($content, " \t"))
-                    || ($this->getFencedBlockParser)()->parseCodeFenceOpener($content) !== null
-                    || ($this->getFencedBlockParser)()->parseRawBlockOpener($content) !== null
-                )
             ) {
                 return;
             }
@@ -1061,9 +1093,18 @@ final class BlockQuoteBuilder
                 // are reproduced as measured rather than made consistent.
                 $trimmedInDiv = ltrim($content, " \t");
                 if (
-                    preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
-                    || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
-                    || ($this->getTableParser)()->isTableRow($trimmedInDiv)
+                    (IndentationHelper::getLeadingColumns($content) === ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['column'] ?? 0)
+                        && ($this->isReferenceDefinitionLine($trimmedInDiv)
+                            || $this->isBlockAttributeLine($trimmedInDiv)))
+                    || ($state['colonClaims'] === [] && $this->isCommentLineOrFence($trimmedInDiv))
+                    || (
+                        IndentationHelper::getLeadingColumns($content) === ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['column'] ?? 0)
+                        && (
+                            preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
+                            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                            || ($this->getTableParser)()->isTableRow($trimmedInDiv)
+                        )
+                    )
                 ) {
                     $state['paragraphOpen'] = false;
 
@@ -1217,7 +1258,11 @@ final class BlockQuoteBuilder
         // line out of the quote (markup-carve/carve-php#2632). A definition
         // written FLUSH LEFT after the quote reaches this tracker at column 0,
         // so it stays a definition and still ends the quote.
-            $isDefinitionLine = ($atContentColumn && $this->isReferenceDefinitionLine($trimmed))
+            $definitionColumn = IndentationHelper::getLeadingColumns($content);
+            $isDefinitionLine = (($definitionColumn === 0
+                || $definitionColumn === $hostColumns[array_key_last($hostColumns)]
+                || $definitionColumn >= ($state['hosts']['descriptionColumn'] ?? PHP_INT_MAX))
+                && $this->isReferenceDefinitionLine($trimmed))
             || ($isFlushLeftCandidate && $this->isAbbreviationDefinitionLine($trimmed));
         // A FOOTNOTE DEFINITION PUSHES ITS BODY COLUMN before this reads the
         // line, so the column it was written at is one host down. Its extent
@@ -1226,11 +1271,9 @@ final class BlockQuoteBuilder
             $inNote = $hostKinds !== [] && $hostKinds[array_key_last($hostKinds)] === 'note';
             if ($inNote && !$isDefinitionLine) {
                 $column = IndentationHelper::getLeadingColumns($content);
-                $isDefinitionLine = $column >= $hostColumns[array_key_last($hostColumns)]
-                    || (
-                        (in_array($column, $hostColumns, true) || $column >= ($state['hosts']['descriptionColumn'] ?? PHP_INT_MAX))
-                        && $this->isReferenceDefinitionLine($trimmed)
-                    );
+                $isDefinitionLine = ($column === $hostColumns[array_key_last($hostColumns)]
+                    || in_array($column, $hostColumns, true))
+                    && $this->isReferenceDefinitionLine($trimmed);
             }
 
         // A FLOATING ATTRIBUTE ATTACHES FORWARD, so it is not a paragraph the

@@ -2115,6 +2115,17 @@ class BlockParser
     private function authoredFootnoteBodyFloor(int $definitionIndex, string $definitionLine): ?int
     {
         $marker = $this->authoredColumnOf($definitionIndex, $definitionLine);
+        $authored = $this->state->source->sourceLines[$this->sourceLineFor($definitionIndex)] ?? null;
+        $content = ltrim($definitionLine, " \t");
+        if ($authored !== null && str_ends_with($authored, $content)) {
+            $prefix = substr($authored, 0, -strlen($content));
+            if (preg_match('/\[\^[^\]]+\]: +$/', $prefix, $host, PREG_OFFSET_CAPTURE) === 1) {
+                // A marker-line note answers at its host note's body column.
+                $beforeHost = substr($prefix, 0, $host[0][1]);
+                $hostColumn = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $beforeHost) . 'x');
+                $marker = $hostColumn + self::FOOTNOTE_BODY_COLUMN;
+            }
+        }
 
         return $marker === null ? null : $marker + self::FOOTNOTE_BODY_COLUMN;
     }
@@ -5107,15 +5118,18 @@ class BlockParser
                         : ' ' . $nextTrimmed);
                 $itemLines[] = $folded;
                 $itemLineMap[] = $this->sourceLineFor($i);
+                $lazyDivParagraph = $trailingState->openParagraph && $trailingState->hasOpenDiv()
+                    && $this->listParser->parseListItemMarker($nextTrimmed) === null
+                    && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed));
                 // Tracked as the line the item RECEIVED, not as the source line.
                 // A framed closing run is body text, so it must not close the
                 // tracker's fence either - fed the source line, the tracker shut
                 // the fence at the closer and the run below it left the item.
                 $trailingState = $this->advanceTrailingState(
                     $trailingState,
-                    str_starts_with($folded, self::LAZY_FRAME)
+                    $lazyDivParagraph ? 'text' : (str_starts_with($folded, self::LAZY_FRAME)
                         ? $folded
-                        : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
+                        : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine)),
                 );
                 if (
                     $bareContinuationLead
@@ -5151,6 +5165,8 @@ class BlockParser
             $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
+            $divHeading = $trailingState->hasOpenDiv() && !$trailingState->openParagraph
+                && preg_match('/^#{1,6} /', ltrim($stripped, " \t")) === 1;
             // AT OR PAST the content column, the same reading the plain-lead
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
@@ -5179,6 +5195,9 @@ class BlockParser
                 $trailingState = $trailingState->hasLiteralDiv()
                     ? $this->continuationsMapper()->advanceLiteralStateWithSourceFenceLookahead($trailingState, $stripped, $lines, $i, $contentIndent)
                     : $this->advanceTrailingState($trailingState, $stripped, true);
+            }
+            if ($divHeading) {
+                $trailingState->openParagraph = false;
             }
             if (
                 !$inCommentSpan && !$inlineCodeWithoutCloser
@@ -5622,13 +5641,19 @@ class BlockParser
             // placement depends on is left alone. carve-js#1666 and
             // carve-rs#1575 measure the same floor from the marker they were
             // written at.
-            $authoredFloor = $this->footnoteBodyDepth > 0
-                ? $this->authoredFootnoteBodyFloor($start, $lines[$start])
-                : null;
+            $authoredFloor = $parent->getType() === 'list_item' && $start === 0
+                ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
             $reaches = $authoredFloor === null || $authoredNext === null
                 ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                 : $authoredNext >= $authoredFloor;
+            // A nested definition starts its own body at its authored column.
+            if (
+                $reaches && $parent->getType() === 'list_item' && $i === $start + 1
+                && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($nextLine, " \t")) === 1
+            ) {
+                break;
+            }
             if ($reaches) {
                 $retainedBelowComment = false;
                 $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
@@ -5687,7 +5712,6 @@ class BlockParser
                 $retainedBelowComment
                 && (IndentationHelper::getLeadingColumns($nextLine) > 0
                     || !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i))
-                && !$this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0)
             ) {
                 $bodyLine = ltrim($nextLine, " \t");
                 $bodyLines[] = $bodyLine;

@@ -2735,9 +2735,10 @@ final class ListBlockBuilder
                         $bodyStartsWithCode = $div['className'] !== '|'
                             && (($this->getFencedBlockParser)()->parseCodeFenceOpener($firstBody) !== null
                                 || ($this->getFencedBlockParser)()->parseRawBlockOpener($firstBody) !== null);
-                        if ($includeSublists || $definitionExtent < $end) {
+                        // A list starting the div body belongs to that div.
+                        if ($definitionExtent < $end) {
                             $i = $definitionExtent;
-                        } elseif (!$bodyStartsWithCode) {
+                        } elseif (!$bodyStartsWithCode && (!$includeSublists || ($this->getListParser)()->parseListItemMarker($firstBody) !== null)) {
                             $i = $end;
                         }
                         $afterBlank = false;
