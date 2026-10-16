@@ -469,18 +469,23 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     }
 
     #[DataProvider('openerBelowTheColumnProvider')]
-    public function testAnOpenerBelowTheColumnStillEndsTheBody(string $payload, string $after): void
+    public function testAnOpenerBelowTheColumnFollowsTheReachedContainer(string $payload, string $after): void
     {
         foreach ([1, 2] as $column) {
             $pad = str_repeat(' ', $column);
             $body = implode("\n", array_map(static fn (string $l): string => $pad . $l, explode("\n", $payload)));
             $html = $this->converter->convert(":: t\n:  - a\n" . $body . "\ntail");
+            if ($column === 1 && ($payload === '# H' || $payload === '***')) {
+                $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n" . $payload . "\ntail</li>\n    </ul>\n  </dd>\n</dl>";
+            } elseif ($column === 2 && ($payload === '# H' || $payload === '***')) {
+                $block = $payload === '# H' ? '<h1 id="H">H</h1>' : '<hr>';
+                $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        " . $block
+                    . "\n      </li>\n    </ul>\n    <p>tail</p>\n  </dd>\n</dl>";
+            } else {
+                $expected = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n" . $after;
+            }
 
-            $this->assertSame(
-                "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n" . $after,
-                trim($html),
-                'column ' . $column,
-            );
+            $this->assertSame($expected, trim($html), 'column ' . $column);
         }
     }
 

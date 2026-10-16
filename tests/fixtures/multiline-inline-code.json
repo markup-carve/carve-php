@@ -581,7 +581,7 @@
   },
   {
     "source": ":: term\n: ``x`\n > nested``{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><code>x`</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>x`\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> ``x`\n>  > nested``{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -609,7 +609,7 @@
   },
   {
     "source": ":: term\n: before ``x`\n > nested``{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>before <code>x`</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>before x`\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> before ``x`\n>  > nested``{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -637,7 +637,7 @@
   },
   {
     "source": ":: term\n: /before/ ``x`\n > nested``{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> <code>x`</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> x`\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> /before/ ``x`\n>  > nested``{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -1817,7 +1817,7 @@
   },
   {
     "source": ":: term\n: `x``\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><code>x``</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>x``\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> `x``\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -1845,7 +1845,7 @@
   },
   {
     "source": ":: term\n: before `x``\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>before <code>x``</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>before x``\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> before `x``\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -1873,7 +1873,7 @@
   },
   {
     "source": ":: term\n: /before/ `x``\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> <code>x``</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> x``\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> /before/ `x``\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -3053,7 +3053,7 @@
   },
   {
     "source": ":: term\n: `x```\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><code>x```</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>x```\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> `x```\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -3081,7 +3081,7 @@
   },
   {
     "source": ":: term\n: before `x```\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>before <code>x```</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>before x```\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> before `x```\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -3109,7 +3109,7 @@
   },
   {
     "source": ":: term\n: /before/ `x```\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> <code>x```</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> x```\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> /before/ `x```\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -4289,7 +4289,7 @@
   },
   {
     "source": ":: term\n: `x````\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><code>x````</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>x````\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> `x````\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -4317,7 +4317,7 @@
   },
   {
     "source": ":: term\n: before `x````\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>before <code>x````</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>before x````\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> before `x````\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -4345,7 +4345,7 @@
   },
   {
     "source": ":: term\n: /before/ `x````\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> <code>x````</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> x````\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> /before/ `x````\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -5525,7 +5525,7 @@
   },
   {
     "source": ":: term\n: `x`````\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><code>x`````</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>x`````\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> `x`````\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -5553,7 +5553,7 @@
   },
   {
     "source": ":: term\n: before `x`````\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>before <code>x`````</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>before x`````\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> before `x`````\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
@@ -5581,7 +5581,7 @@
   },
   {
     "source": ":: term\n: /before/ `x`````\n > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> <code>x`````</code></dd>\n</dl>\n<p>&gt; nested<code>{=html}</code></p>\n<p>See [r][], [^n], and [r\\]][].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd><em>before</em> x`````\n> nested</dd>\n</dl>\n<p>See [r][], [^n], and [r\\]][].</p>\n"
   },
   {
     "source": "> /before/ `x`````\n>  > nested`{=html}\n\nSee [r][], [^n], and [r\\]][].\n",

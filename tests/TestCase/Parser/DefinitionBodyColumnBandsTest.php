@@ -9,14 +9,8 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A definition body has three column bands: BELOW its content column the body
- * ENDS and the line is classified in the surviving context; AT the column the
- * line is the body's own block content; PAST the column a recognized opener
- * establishes an authored local base.
- *
- * This ladder is what makes the floor observable at all, since a reader whose
- * floor was lowered from column 3 to column 1 would otherwise pass every
- * existing document.
+ * A description holds an open paragraph across a below-column text opener.
+ * Column zero still opens in the document.
  */
 class DefinitionBodyColumnBandsTest extends TestCase
 {
@@ -26,13 +20,6 @@ class DefinitionBodyColumnBandsTest extends TestCase
     }
 
     /**
-     * One and two columns reach neither the body's column nor flush-left, so
-     * nothing folds them in; the body ends and the document reads the line by
-     * its own rules, where an indented `>` is a paragraph under the strict
-     * column-0 opener rule. Folding it in as lazy text would give a sub-column
-     * indent the PAST band's meaning, which is the third meaning the clause
-     * refuses.
-     *
      * @return array<string, array{0: string, 1: string}>
      */
     public static function belowTheColumnProvider(): array
@@ -40,17 +27,17 @@ class DefinitionBodyColumnBandsTest extends TestCase
         return [
             'column 1' => [
                 ":: t\n:  body\n > q\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>&gt; q</p>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>body\n&gt; q</dd>\n</dl>\n",
             ],
             'column 2' => [
                 ":: t\n:  body\n  > q\n",
-                "<dl>\n  <dt>t</dt>\n  <dd>body</dd>\n</dl>\n<p>&gt; q</p>\n",
+                "<dl>\n  <dt>t</dt>\n  <dd>body\n&gt; q</dd>\n</dl>\n",
             ],
         ];
     }
 
     #[DataProvider('belowTheColumnProvider')]
-    public function testBelowTheColumnTheBodyEndsAndTheLineIsReclassified(string $source, string $expected): void
+    public function testBelowTheColumnFoldsIntoTheOpenBody(string $source, string $expected): void
     {
         $this->assertSame($expected, $this->html($source));
     }
