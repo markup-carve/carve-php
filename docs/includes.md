@@ -39,8 +39,12 @@ failure. Supplying an id is recommended: it is what the cycle guard compares,
 so without one `b.crv` and `./b.crv` are two files as far as the guard is
 concerned and only the depth limit stops the recursion.
 
-The transform recognizes `#section`, `@lines:N-M`, `@shift:N` and
-`@shift:auto`. Automatic shifting places the included document's shallowest
+The transform recognizes `#section`, `@lines:N-M`, `@region:name`,
+`@shift:N` and `@shift:auto`. A directive uses at most one selector.
+`@region:name` includes lines between matching `// #region name` and
+`// #endregion name` markers, or matching `#region` and `#endregion` markers.
+Invalid or missing regions warn with `include-region-invalid` and leave the
+directive literal. Automatic shifting places the included document's shallowest
 heading one level below the nearest preceding heading in the include site's own
 or enclosing block container. Failures leave the directive literal and add an
 include warning.

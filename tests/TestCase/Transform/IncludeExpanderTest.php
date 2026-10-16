@@ -621,6 +621,38 @@ class IncludeExpanderTest extends TestCase
         );
     }
 
+    public function testNamedRegionSelectsStableSourceAndKeepsCoordinates(): void
+    {
+        $converter = new CarveConverter();
+        $converter->getParser()->enablePositionTracking();
+        $source = "Before.\r\n// #region demo\r\n## Pick\r\n\r\nBody.\r\n// #endregion demo\r\nAfter.";
+        $document = $converter->parse("{{ child.crv @region:demo }}\n");
+        $expander = new IncludeExpander($this->resolver(['child.crv' => $source]), 'main.crv');
+        $expanded = $converter->transform($document, $expander);
+        $nodes = array_values($expanded->getChildren());
+        $this->assertSame(3, $nodes[0]->getPos()?->startLine);
+        $this->assertSame('child.crv', $nodes[0]->getPos()?->file);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testInvalidNamedRegionWarnsAndKeepsResolvedDependency(): void
+    {
+        $converter = new CarveConverter();
+        foreach (
+            [
+                '// #region other\nBody.\n// #endregion other',
+                '// #region demo\nBody.\n// #endregion other',
+                '// #region demo\nBody.\n// #endregion demo\n// #region demo',
+            ] as $source
+        ) {
+            $document = $converter->parse('{{ child.crv @region:demo }}');
+            $expander = new IncludeExpander($this->resolver(['child.crv' => str_replace('\\n', "\n", $source)]));
+            $converter->transform($document, $expander);
+            $this->assertSame(IncludeExpander::RULE_REGION_INVALID, $expander->getWarnings()[0]->getRule());
+            $this->assertTrue($expander->getDependencies()[0]->isResolved());
+        }
+    }
+
     public function testALineSliceKeepsTheCompleteChildsCoordinates(): void
     {
         $converter = new CarveConverter();

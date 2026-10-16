@@ -168,7 +168,7 @@ class IncludeDirectiveSyntax
      * CarveRenderer::emitDirective) - so option order, spacing and the author's
      * exact spelling are preserved without this having to carry them.
      *
-     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
+     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
      */
     public static function parse(string $text): ?array
     {
@@ -199,6 +199,7 @@ class IncludeDirectiveSyntax
 
         $section = null;
         $lines = null;
+        $region = null;
         $shift = 0;
         $error = null;
         $errorPart = null;
@@ -238,6 +239,12 @@ class IncludeDirectiveSyntax
                     }
                 }
 
+                if (preg_match('/^@region:([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $regionMatch)) {
+                    $region = $regionMatch[1];
+
+                    continue;
+                }
+
                 if (preg_match('/^@shift:([+-]?\d+)$/', $part, $shiftMatch)) {
                     $shift = (int)$shiftMatch[1];
 
@@ -263,6 +270,7 @@ class IncludeDirectiveSyntax
             'path' => $path,
             'section' => $section,
             'lines' => $lines,
+            'region' => $region,
             'shift' => $shift,
             'error' => $error,
             'errorPart' => $errorPart,
