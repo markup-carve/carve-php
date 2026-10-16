@@ -270,6 +270,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     private bool $inTerm = false;
 
+    private bool $paragraphAtAuthoredBodyColumn = false;
+
     private bool $inCaption = false;
 
     private function renderCaptionInlines(Caption $caption): string
@@ -1652,7 +1654,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Image => $this->renderImage($node),
             $node instanceof AbbreviationDefinition
             => $withAttrs($this->renderAbbreviationDefinition($node)),
-            $node instanceof Paragraph => $withAttrs($this->renderParagraph($node, $attrs === '')),
+            $node instanceof Paragraph => $withAttrs($this->renderParagraphAtBodyColumn($node, $attrs === '', $atAnAuthoredBodyColumn)),
             // The opener's quoted title is resolved onto the `title` attribute at
             // parse time so it reaches every consumer, but the fence carries it
             // too - emitting both says it twice and re-parses with an attribute
@@ -1723,6 +1725,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->recordUnspellableStructure($node, 'Carve source can only spell the block extension fallback');
 
         return $this->renderBlocks($node->getChildren());
+    }
+
+    private function renderParagraphAtBodyColumn(Paragraph $node, bool $canUsePreviousCaptionSlot, bool $atAnAuthoredBodyColumn): string
+    {
+        $previous = $this->paragraphAtAuthoredBodyColumn;
+        $this->paragraphAtAuthoredBodyColumn = $atAnAuthoredBodyColumn;
+        try {
+            return $this->renderParagraph($node, $canUsePreviousCaptionSlot);
+        } finally {
+            $this->paragraphAtAuthoredBodyColumn = $previous;
+        }
     }
 
     protected function renderParagraph(Paragraph $node, bool $canUsePreviousCaptionSlot): string
@@ -2139,7 +2152,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         $children = $node->getChildren();
         if (!$tight || count($children) < 2) {
-            return $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($children));
+            return $this->atAnAuthoredBodyColumn(
+                fn (): string => $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($children)),
+            );
         }
 
         // A tight item with more than one child block must not gain a blank line
@@ -5026,10 +5041,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $written;
         }
 
-        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +' . $colon . '))/';
-        if ($nodeType === 'code' && preg_match('/^`+\n/', $written) === 1) {
-            $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]' . $colon . '))/';
-        }
+        $listMarker = $nodeType !== 'code' || $this->paragraphAtAuthoredBodyColumn
+            ? '|[-*+.](?: +|\{)|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] +'
+            : '';
+        $marker = '/\n(?=[ \t]*(?:>(?: |\n|$)|\[[^\]\n]+\]:[ \t]' . $colon . $listMarker . '))/';
 
         return (string)preg_replace($marker, "\n" . str_repeat($this->verbatimSentinels[7], match ($nodeType) {
             'math' => 3, 'raw_inline' => 4, 'literal_inline' => 5, default => 2
