@@ -653,6 +653,8 @@ final class BlockContinuationScanner
         $authoredCodeColumn = null;
         $closedVisibleBlockAtFloor = false;
         $pendingAttachedAttributes = false;
+        $attributeDivFence = null;
+        $attributeDivFenceClosed = false;
         $metadataAttributeColumn = 0;
         $metadataCodeColumn = null;
         $metadataCodeIndex = -1;
@@ -1517,6 +1519,13 @@ final class BlockContinuationScanner
                     $sawIndentedUnclaimedColonFence = true;
                 }
                 $authoredBaseEligible[count($itemLines)] = true;
+                $previousItemLine = $itemLines[count($itemLines) - 1] ?? '';
+                $attributeFenceOpener = $this->isBlockAttributeLine(ltrim($previousItemLine, " \t"))
+                    ? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($contentLine, " \t"))
+                    : null;
+                if ($attributeFenceOpener !== null && $this->attributeOwnerIsDiv($itemLines)) {
+                    $attributeDivFence = $attributeFenceOpener;
+                }
                 $itemLines[] = $contentLine;
                 $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $contentLine);
                 if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $contentLine, $definitionMatch) === 1) {
@@ -1711,6 +1720,29 @@ final class BlockContinuationScanner
                 continue;
             }
 
+            if ($attributeDivFence !== null) {
+                if ($nextIndent === 0 || $attributeDivFenceClosed) {
+                    break;
+                }
+                if (
+                    ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                        $nextTrimmed,
+                        $attributeDivFence['char'],
+                        $attributeDivFence['length'],
+                    )
+                ) {
+                    $itemLines[] = $nextTrimmed;
+                    $itemLineMap[] = $this->sourceLineFor($i);
+                    $attributeDivFenceClosed = true;
+                    if ($nextIndent < $contentIndent) {
+                        break;
+                    }
+                    $i++;
+
+                    continue;
+                }
+            }
+
             // A COMMENT FENCE'S CLOSER IS THE SAME DELIMITER AT EVERY COLUMN
             // (PART 9 §28, markup-carve/carve#2471), so the tracker has to see
             // the below-column lines too. Advanced only inside the branch
@@ -1823,6 +1855,17 @@ final class BlockContinuationScanner
                 $i++;
 
                 continue;
+            }
+            $lastItemLine = $itemLines[count($itemLines) - 1] ?? '';
+            $outsideAttributeFence = $nextIndent < $contentIndent
+                && $this->isBlockAttributeLine(ltrim($lastItemLine, " \t"))
+                && ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) !== null;
+            $attributeBeforeFence = count($itemLines) > 1
+                && $this->isBlockAttributeLine(ltrim($itemLines[count($itemLines) - 2], " \t"));
+            $outsideAfterAttributeFence = $attributeBeforeFence
+                && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lastItemLine, " \t")) !== null;
+            if (($outsideAttributeFence || $outsideAfterAttributeFence) && $this->attributeOwnerIsDiv($itemLines)) {
+                break;
             }
             if (
                 !$trailingState->openParagraph
@@ -4172,6 +4215,28 @@ final class BlockContinuationScanner
         bool $allowContinuationMarker,
     ): ?int {
         return ($this->footnoteBodyResumesAfterCallback)($lines, $blank, $count, $bodyColumn, $allowContinuationMarker);
+    }
+
+    /**
+     * @param array<string> $itemLines
+     */
+    private function attributeOwnerIsDiv(array $itemLines): bool
+    {
+        $open = [];
+        foreach ($itemLines as $itemLine) {
+            $view = ltrim($itemLine, " \t");
+            if ($open !== [] && ($this->getFencedBlockParser)()->isDivFenceCloser($view, $open[array_key_last($open)])) {
+                array_pop($open);
+
+                continue;
+            }
+            $opener = ($this->getFencedBlockParser)()->parseDivFenceOpener($view);
+            if ($opener !== null) {
+                $open[] = $opener['length'];
+            }
+        }
+
+        return $open !== [];
     }
 
     private function isBlockAttributeLine(string $line): bool
