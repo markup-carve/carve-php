@@ -1215,7 +1215,9 @@ final class DefinitionListBuilder
                         && $body !== []
                         && str_starts_with($body[0], '>')
                         && $bodyState->openParagraph
+                        && $indent > 0
                         && !IndentationHelper::isBlankLine($contLine)
+                        && preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmedCont) === 1
                     ) {
                         $body[array_key_last($body)] .= "\n" . $trimmedCont;
                         $i++;

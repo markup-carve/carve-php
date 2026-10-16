@@ -1793,7 +1793,8 @@ final class BlockContinuationScanner
                 continue;
             }
 
-            $followingFence = $recentDefinitionParagraph
+            $followingFence = $trailingState->fence === null
+                && $recentDefinitionParagraph
                 && $nextIndent < $contentIndent
                 && $itemLines !== []
                 && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
