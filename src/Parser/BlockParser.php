@@ -3671,6 +3671,8 @@ class BlockParser
             || $this->fencedBlockParser->parseDivFenceOpener($trimmed) !== null
             || str_starts_with($trimmed, '%%')
             || $this->parseSingleLineBlockAttributePayload($line) !== null
+            || $this->tableParser->isTableRow($line)
+            || $this->isReferenceDefinitionLine($line)
             || preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed) === 1
             || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1
         ) {
