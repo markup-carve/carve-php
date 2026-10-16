@@ -701,6 +701,26 @@ final class DefinitionListBuilder
 
                         continue;
                     }
+                    // A marker at the column folds into the body's open
+                    // paragraph (§10 I2) and opens no item, so it joins that
+                    // entry and leaves the next line measured against the body.
+                    if (
+                        $indent === $continuationColumn
+                        && $lastBodyKey !== null
+                        && $body[$lastBodyKey] !== ''
+                        && !isset($bodyDefinition[$lastBodyKey])
+                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                        && $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy) === 0
+                        && $bodyNestedState->openParagraph
+                        && $bodyNestedState->fence === null
+                        && !$bodyNestedState->hasOpenDiv()
+                        && !$bodyNestedState->absorbingFence
+                    ) {
+                        $body[$lastBodyKey] .= "\n" . $trimmedCont;
+                        $i++;
+
+                        continue;
+                    }
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
                         $formABlockOpen = true;
                         // §10 I4'S CLOSER IS SOUGHT IN THE SOURCE, NOT IN WHAT

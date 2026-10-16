@@ -5631,6 +5631,25 @@ class BlockParser
             if ($reaches) {
                 $retainedBelowComment = false;
                 $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
+                // A marker at the column folds into the body's open paragraph
+                // (§10 I2) and opens no item, so it joins that line and leaves
+                // the next line measured against the body.
+                $lastBodyKey = array_key_last($bodyLines);
+                if (
+                    $bodyLines[$lastBodyKey] !== ''
+                    && IndentationHelper::getLeadingColumns($bodyLine) === 0
+                    && $trailingState->openParagraph
+                    && $trailingState->nestedColumn === 0
+                    && $trailingState->fence === null
+                    && !$trailingState->hasOpenDiv()
+                    && !$trailingState->absorbingFence
+                    && $this->listParser->parseListItemMarker($bodyLine) !== null
+                ) {
+                    $bodyLines[$lastBodyKey] .= "\n" . $bodyLine;
+                    $i++;
+
+                    continue;
+                }
                 $bodyLines[] = $bodyLine;
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
