@@ -24,6 +24,7 @@ use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\CitationGroup;
 use MarkupCarve\Carve\Node\Inline\FootnoteRef;
+use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineFootnote;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
@@ -55,10 +56,7 @@ class AstCodec
     /**
      * Encoding version.
      *
-     * NOT emitted: PART 12 §3 forbids exposing a field the reference shape does
-     * not have, and carve-js's document root is `type`, `children`,
-     * `srcByteLength` - no envelope. The shape is spec-defined, so a consumer
-     * does not need to be told which version it is reading.
+     * The CLI publishes the interchange version separately as `astVersion`.
      *
      * It is still read: version 1 used this engine's internal field names
      * (`content` where the reference says `value`), so a payload announcing it
@@ -124,7 +122,9 @@ class AstCodec
         // inside an opaque payload is not read as a node.
         'block_extension' => ['payload'],
         'autolink' => ['text'],
-        'comment' => ['block'],
+        'comment' => ['block', 'form'],
+        'image' => ['resolved'],
+        'link' => ['resolved'],
         // `caption` is a FIELD holding inline content, not a child container -
         // the schema requires it on every figure, beside `target`.
         'figure' => ['target', 'caption'],
@@ -525,14 +525,19 @@ class AstCodec
         return [$data, $abbreviations, $abbreviations !== [] && $beforeBody, $authored];
     }
 
-    public function encodeJson(Document $document, int $flags = 0): string
+    public function encodeJson(Document $document, int $flags = 0, bool $withVersion = false): string
     {
         // json_encode caps nesting at 512 levels too, and a document at the
         // parser's own cap runs past that: a 200-deep list ladder is 805
         // structural levels on the wire. Left at the default, this threw on a
         // document the parser had just produced.
+        $tree = $this->encode($document);
+        if ($withVersion) {
+            $tree['astVersion'] = AstEnvelope::CONTRACT_VERSION;
+        }
+
         return (string)json_encode(
-            self::jsonSectionObjects($this->encode($document)),
+            self::jsonSectionObjects($tree),
             $flags | JSON_THROW_ON_ERROR,
             self::MAX_JSON_DEPTH,
         );
@@ -568,6 +573,10 @@ class AstCodec
                 self::MAX_JSON_DEPTH,
                 self::MAX_PARSER_NESTING_DEPTH,
             ));
+        }
+
+        if (array_key_exists('astVersion', $data)) {
+            AstEnvelope::checkVersion($data['astVersion']);
         }
 
         $version = $data['ast'] ?? null;
@@ -703,7 +712,6 @@ class AstCodec
             $node,
         );
         self::resolveFootnoteRefs($node);
-        UnresolvedReference::hydrate($node);
         // PART 12 section 23 on ingest: TRUST `blockImage`, and promote only
         // where it is ABSENT (markup-carve/carve-php#1800). Unlike the two
         // passes above, this one does not recompute what arrived. An orphaned
@@ -1193,7 +1201,7 @@ class AstCodec
         $here = $path === '' ? $type : $path . '.' . $type;
 
         foreach ($input as $key => $value) {
-            if ($key === 'ast' || $key === 'pos') {
+            if ($key === 'ast' || $key === 'astVersion' || $key === 'pos') {
                 // Envelope, and a field this engine cannot yet produce (§4).
                 continue;
             }
@@ -2155,6 +2163,14 @@ class AstCodec
      */
     private function derivedFields(Node $node): array
     {
+        if (
+            ($node instanceof Link && $node->getDestination() === '' || $node instanceof Image && $node->getSource() === '')
+            && $node->getReferenceLabel() !== null
+            && $node->isResolvedEmptyReference()
+        ) {
+            return ['resolved' => true];
+        }
+
         if ($node instanceof Link && $node->isAutolink()) {
             // The reference gives an autolink no children: `href` is the
             // resolved target, `text` what the author sees.
@@ -2238,7 +2254,9 @@ class AstCodec
             // `%%`. This engine records it as the fence WIDTH, which is a
             // writer's concern and not on the wire; the reference publishes the
             // question a consumer actually asks.
-            return ['block' => $node->getFenceLength() !== null];
+            $block = $node->getFenceLength() !== null;
+
+            return ['block' => $block, 'form' => $block ? 'block' : ($node->isDelimited() ? 'braced' : 'line')];
         }
 
         return [];
@@ -2250,6 +2268,20 @@ class AstCodec
      */
     private function applyDerivedFields(Node $node, array $data): void
     {
+        if (($node instanceof Link || $node instanceof Image) && ($data['resolved'] ?? null) === true) {
+            if ($node->getReferenceLabel() === null || ($node instanceof Link ? $node->getDestination() : $node->getSource()) !== '') {
+                throw new AstDecodeException(($node instanceof Link ? 'link' : 'image') . '.resolved requires an empty reference destination');
+            }
+            $node->setResolvedEmptyReference(true);
+        }
+
+        if ($node instanceof Comment && array_key_exists('form', $data)) {
+            $form = $data['form'];
+            if (($data['block'] === true) !== ($form === 'block') || (($data['delimited'] ?? false) === true) !== ($form === 'braced')) {
+                throw new AstDecodeException('comment.form disagrees with comment.block or comment.delimited');
+            }
+        }
+
         if ($node instanceof Abbreviation && $node->getChildren() === []) {
             $abbr = $data['abbr'] ?? null;
             if (is_string($abbr) && $abbr !== '') {

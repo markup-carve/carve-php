@@ -1702,6 +1702,7 @@ try {
         $output = $codec->encodeJson(
             $document ?? $converter->parse($input),
             JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            true,
         ) . "\n";
     } elseif ($document !== null) {
         $checked = $converter->renderWithReport($document, false, $options['maxRenderLosses']);

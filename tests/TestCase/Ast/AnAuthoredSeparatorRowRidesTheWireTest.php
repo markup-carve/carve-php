@@ -425,11 +425,11 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     // The contract version the field arrived with
     // =========================================================================
 
-    public function testTheEnvelopeAnnouncesContractVersionTwoZero(): void
+    public function testTheEnvelopeAnnouncesContractVersionOneTwo(): void
     {
         $envelope = (new AstEnvelope($this->codec))->encode($this->parse("| a |\n|---|\n| 1 |\n"));
 
-        $this->assertSame('2.0', $envelope['astVersion']);
+        $this->assertSame('1.2', $envelope['astVersion']);
     }
 
     /**
@@ -441,15 +441,15 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
     public function testAHigherMinorIsRefusedWithBothVersionsNamed(): void
     {
         $envelope = (new AstEnvelope($this->codec))->encode($this->parse("| a |\n|---|\n| 1 |\n"));
-        $envelope['astVersion'] = '2.1';
+        $envelope['astVersion'] = '1.3';
 
         try {
             (new AstEnvelope($this->codec))->decode($envelope);
         } catch (AstEnvelopeVersionException $e) {
-            $this->assertSame('2.1', $e->found);
-            $this->assertSame('2.0', $e->implemented);
-            $this->assertStringContainsString('2.1', $e->getMessage());
-            $this->assertStringContainsString('2.0', $e->getMessage());
+            $this->assertSame('1.3', $e->found);
+            $this->assertSame('1.2', $e->implemented);
+            $this->assertStringContainsString('1.3', $e->getMessage());
+            $this->assertStringContainsString('1.2', $e->getMessage());
 
             return;
         }
@@ -459,7 +459,7 @@ class AnAuthoredSeparatorRowRidesTheWireTest extends TestCase
 
     public function testItsOwnVersionAndALowerOneAreAccepted(): void
     {
-        foreach (['2.0', '1.1', '1.0'] as $version) {
+        foreach (['1.2', '1.1', '1.0'] as $version) {
             $envelope = (new AstEnvelope($this->codec))->encode($this->parse("| a |\n|---|\n| 1 |\n"));
             $envelope['astVersion'] = $version;
 

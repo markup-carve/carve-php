@@ -121,7 +121,8 @@
     "fields": [
       "content",
       "delimited",
-      "block"
+      "block",
+      "form"
     ],
     "required": []
   },
@@ -246,7 +247,8 @@
       "rawRef",
       "src",
       "alt",
-      "title"
+      "title",
+      "resolved"
     ],
     "required": []
   },
@@ -279,7 +281,8 @@
       "ref",
       "rawRef",
       "href",
-      "title"
+      "title",
+      "resolved"
     ],
     "required": []
   },

@@ -380,6 +380,8 @@ class AstCodecSchemaTest extends TestCase
         "1. a\n",
         "%%% c\n%%%\n",
         "%% inline\n",
+        "[t][r]\n\n[r]:\n",
+        "![a][r]\n\n[r]:\n",
         "*[HTML]: HyperText\n\nHTML\n",
         "| a | b |\n|---|---|\n| 1 | 2 |\n",
     ];
