@@ -526,6 +526,20 @@ final class BlockQuoteBuilder
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
+        $nextQuoted = isset($lines[$index + 1]) ? $this->blockQuoteLineContent($lines[$index + 1]) : null;
+        if (
+            $host['markers'] !== [] && $column >= $host['columns'][array_key_last($host['columns'])]
+            && ($this->isReferenceDefinitionLine($text) || $this->isBlockAttributeLine($text))
+            && !(
+                preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $text) === 1
+                && $nextQuoted !== null
+                && IndentationHelper::getLeadingColumns($nextQuoted) >= $column + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            )
+        ) {
+            $state['paragraphOpen'] = false;
+
+            return true;
+        }
         foreach ($host['kinds'] as $hostIndex => $kind) {
             if (
                 $kind === 'note' && !($host['noteBodyBroken'][$hostIndex] ?? false)
@@ -1061,7 +1075,10 @@ final class BlockQuoteBuilder
                 // are reproduced as measured rather than made consistent.
                 $trimmedInDiv = ltrim($content, " \t");
                 if (
-                    preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
+                    $this->isReferenceDefinitionLine($trimmedInDiv)
+                    || $this->isBlockAttributeLine($trimmedInDiv)
+                    || ($state['colonClaims'] === [] && $this->isCommentLineOrFence($trimmedInDiv))
+                    || preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
                     || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
                     || ($this->getTableParser)()->isTableRow($trimmedInDiv)
                 ) {

@@ -633,6 +633,13 @@ final class DefinitionListBuilder
                     // which is what keeps a definition BELOW the column folding
                     // as §24 C3 requires.
                     $trimmedCont = ltrim($contLine, " \t");
+                    if (
+                        $indent === 0
+                        && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                        && $this->isReferenceDefinitionLine($trimmedCont)
+                    ) {
+                        break;
+                    }
                     // A COMMENT INSIDE A SPAN THE BODY ALREADY HOLDS IS NOT "A
                     // COMMENT BELOW THE COLUMN" (markup-carve/carve#2488).
                     // Section 28 pairs the delimiters and indentation is part of

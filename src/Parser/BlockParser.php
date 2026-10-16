@@ -5622,13 +5622,19 @@ class BlockParser
             // placement depends on is left alone. carve-js#1666 and
             // carve-rs#1575 measure the same floor from the marker they were
             // written at.
-            $authoredFloor = $this->footnoteBodyDepth > 0
-                ? $this->authoredFootnoteBodyFloor($start, $lines[$start])
-                : null;
+            $authoredFloor = $parent->getType() === 'list_item' && $start === 0
+                ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
             $reaches = $authoredFloor === null || $authoredNext === null
                 ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
                 : $authoredNext >= $authoredFloor;
+            // A nested definition starts its own body at its authored column.
+            if (
+                $reaches && $parent->getType() === 'list_item' && $i === $start + 1
+                && preg_match(self::FOOTNOTE_DEFINITION_PATTERN, ltrim($nextLine, " \t")) === 1
+            ) {
+                break;
+            }
             if ($reaches) {
                 $retainedBelowComment = false;
                 $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);

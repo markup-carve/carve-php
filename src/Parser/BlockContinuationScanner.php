@@ -2978,6 +2978,7 @@ final class BlockContinuationScanner
                 $state->nestedDiv = $child;
                 $state->openParagraph = $child->openParagraph;
                 $state->afterComment = $child->afterComment;
+                $state->afterInvisible = $child->afterInvisible;
                 $fence = $child->fence;
                 if ($fence === null) {
                     $state->fence = null;
@@ -3224,6 +3225,23 @@ final class BlockContinuationScanner
                 } else {
                     $state->afterComment = $wasAfterComment;
                 }
+
+                return $state;
+            }
+
+            $divContent = BlockGrammar::subjectFrom($line, $at, $end);
+            $divDefinitionAt = IndentationHelper::pastLeadingWhitespace($divContent, 0);
+            if (
+                $atContentColumn
+                && (
+                    (ReferenceDefinitionExtractor::isDefinitionHead($divContent, $divDefinitionAt)
+                        && $this->isReferenceDefinitionLine(BlockGrammar::subjectFrom($divContent, $divDefinitionAt, strlen($divContent))))
+                    || (BlockGrammar::isBlockAttributeHead($divContent, $divDefinitionAt)
+                        && $this->isBlockAttributeLine(BlockGrammar::subjectFrom($divContent, $divDefinitionAt, strlen($divContent))))
+                )
+            ) {
+                $state->openParagraph = false;
+                $state->afterInvisible = true;
 
                 return $state;
             }
@@ -3593,8 +3611,8 @@ final class BlockContinuationScanner
                 && $this->isReferenceDefinitionLine(BlockGrammar::subjectFrom($line, $definitionAt, $end))
             )
             || (
-                BlockGrammar::isBlockAttributeHead($line, $at)
-                && $this->isBlockAttributeLine(BlockGrammar::subjectFrom($line, $at, $end))
+                BlockGrammar::isBlockAttributeHead($line, $deepestAt)
+                && $this->isBlockAttributeLine(BlockGrammar::subjectFrom($line, $deepestAt, $end))
             )
         ) {
             $state->openParagraph = false;
@@ -3619,7 +3637,7 @@ final class BlockContinuationScanner
         // the deepest paragraph all the same (CARVE-P0-011), so nothing in the
         // stack is left open for a flush-left line to continue.
         if (
-            $atContentColumn && $nestedColumn > 0 && !$nestedIsQuoteOnEntry && !$wasQuoteParagraph
+            $atContentColumn && $nestedColumn > 0
             && $deepestAt - $at >= $nestedColumn
             && (
                 (
