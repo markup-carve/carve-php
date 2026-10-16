@@ -1085,6 +1085,8 @@ class CarveCorpusTest extends TestCase
         // markup-carve/carve#2380 - an attribute line under an attributed
         // sub-item stays in that item. Three documents, byte-exact here.
         'an-attribute-line-under-an-attributed-sub-item-stays-in-that-item',
+        'an-unclosed-fence-after-an-attribute-line-in-a-container-ends-at-its-closer',
+        'a-quoted-comment-or-attribute-line-closes-the-quote-s-paragraph',
         // markup-carve/carve#2426 - a definition term has no content column, so
         // a block opener indented under it is term text at every depth. Ten
         // documents, byte-exact here.

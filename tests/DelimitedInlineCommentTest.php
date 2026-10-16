@@ -74,7 +74,7 @@ class DelimitedInlineCommentTest extends TestCase
         $wire = $codec->encode((new CarveConverter())->parse('foo {% bar %} baz'));
         $comment = $wire['children'][0]['children'][1];
         $this->assertSame(
-            ['type' => 'comment', 'content' => 'bar', 'delimited' => true, 'block' => false],
+            ['type' => 'comment', 'content' => 'bar', 'delimited' => true, 'block' => false, 'form' => 'braced'],
             $comment,
         );
         $this->assertSame("foo {% bar %} baz\n", (new CarveRenderer())->render($codec->decode($wire)));
