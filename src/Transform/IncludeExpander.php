@@ -122,6 +122,11 @@ class IncludeExpander implements TransformerInterface
     /**
      * @var string
      */
+    public const RULE_REGION_INVALID = 'include-region-invalid';
+
+    /**
+     * @var string
+     */
     public const RULE_BLOCK_IN_INLINE = 'include-block-in-inline';
 
     /**
@@ -638,7 +643,7 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto'} $directive
+     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, shift: int|'auto'} $directive
      * @param string|null $currentPath
      * @param bool $block
      * @param list<string> $stack
@@ -659,8 +664,8 @@ class IncludeExpander implements TransformerInterface
         ?Node $contextParent = null,
         ?Node $contextNode = null,
     ): ?array {
-        if ($directive['section'] !== null && $directive['lines'] !== null) {
-            $this->warn('Include directive cannot combine #section and @lines', self::RULE_SELECTION_CONFLICT);
+        if (count(array_filter([$directive['section'], $directive['lines'], $directive['region']], static fn ($value) => $value !== null)) > 1) {
+            $this->warn('Include directive cannot combine selectors', self::RULE_SELECTION_CONFLICT);
 
             return null;
         }
@@ -779,6 +784,15 @@ class IncludeExpander implements TransformerInterface
         $this->admittedBytes += $bytes;
         $sliceLineBase = 0;
         $completeSource = $source;
+        if ($directive['region'] !== null) {
+            $range = $this->regionRange($source, $directive['region']);
+            if ($range === null) {
+                $this->warn("Include has an invalid or missing region '{$directive['region']}': {$directive['path']}", self::RULE_REGION_INVALID);
+
+                return null;
+            }
+            $directive['lines'] = ['start' => $range[0], 'end' => $range[1]];
+        }
         if ($directive['lines'] !== null) {
             $sliceLineBase = $directive['lines']['start'] - 1;
             $source = $this->sliceLines($source, $directive['lines']['start'], $directive['lines']['end']);
@@ -897,7 +911,7 @@ class IncludeExpander implements TransformerInterface
      * inline markers is split by core parsing and remains literal by design
      * (corpus pin: bare-path directive with no active inline markers).
      *
-     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, shift: int|'auto'}|null
+     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, shift: int|'auto'}|null
      */
     protected function parseDirective(string $text): ?array
     {
@@ -929,6 +943,7 @@ class IncludeExpander implements TransformerInterface
             'path' => $parts['path'],
             'section' => $parts['section'],
             'lines' => $parts['lines'],
+            'region' => $parts['region'],
             'shift' => $parts['shift'],
         ];
     }
@@ -1139,6 +1154,43 @@ class IncludeExpander implements TransformerInterface
         }
 
         return "Include size budget exceeded for '{$path}'";
+    }
+
+    /**
+     * @return array{int, int}|null
+     */
+    protected function regionRange(string $source, string $selected): ?array
+    {
+        $lines = preg_split('/\r\n|\n|\r/', $source) ?: [];
+        $stack = [];
+        $seen = [];
+        $range = null;
+        foreach ($lines as $index => $line) {
+            if (preg_match('/^[ \t]*(?:\/\/[ \t]*)?#(?:end)?region\b/', $line) !== 1) {
+                continue;
+            }
+            if (preg_match('/^[ \t]*(?:\/\/[ \t]*)?#(end)?region(?:[ \t]+([A-Za-z_][A-Za-z0-9_-]*))?[ \t]*$/', $line, $marker) !== 1) {
+                return null;
+            }
+            $name = $marker[2] ?? null;
+            if (($marker[1] ?? '') === '') {
+                if ($name === null || isset($seen[$name])) {
+                    return null;
+                }
+                $seen[$name] = true;
+                $stack[] = [$name, $index + 1];
+            } else {
+                $open = array_pop($stack);
+                if ($open === null || ($name !== null && $name !== $open[0])) {
+                    return null;
+                }
+                if ($open[0] === $selected) {
+                    $range = [$open[1] + 1, $index];
+                }
+            }
+        }
+
+        return $stack === [] ? $range : null;
     }
 
     protected function sliceLines(string $source, int $start, int $end): string
