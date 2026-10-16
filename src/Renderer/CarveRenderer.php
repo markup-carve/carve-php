@@ -1372,11 +1372,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
-     * @param bool $compactFootnoteHeading Keep a heading with the preceding paragraph in a note on a definition line.
+     * @param bool $compactFootnoteBlocks Keep block openers in a note on a definition line.
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
-    protected function renderBlocks(array $blocks, bool $compactFootnoteHeading = false): string
+    protected function renderBlocks(array $blocks, bool $compactFootnoteBlocks = false): string
     {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
@@ -1406,7 +1406,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $previousList = null;
             $previousCompactDefinition = false;
             $listSeparated = false;
-            $previousRenderedBlock = null;
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
                 // Remember, for the NEXT block, whether a `^ ` line after it
@@ -1437,14 +1436,24 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
-                    } elseif ($compactFootnoteHeading && ($previousRenderedBlock instanceof Paragraph || $previousRenderedBlock instanceof Heading) && $block instanceof Heading && $parts !== []) {
-                        // A blank here ends a note collected on a definition
-                        // line. The heading then moves into the description.
+                    } elseif (
+                        $compactFootnoteBlocks
+                        && $parts !== []
+                        && ($block instanceof Heading
+                            || $block instanceof BlockQuote
+                            || $block instanceof CodeBlock
+                            || $block instanceof ThematicBreak
+                            || $block instanceof DefinitionList
+                            || $block instanceof ListBlock
+                            || $block instanceof Div
+                            || $block instanceof Table)
+                    ) {
+                        // A blank ends a note collected on a definition line.
+                        // These openers separate their blocks without one.
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } else {
                         $parts[] = $rendered;
                     }
-                    $previousRenderedBlock = $block;
                 }
                 $previousCompactDefinition = $block->getRenderHint("\0carve-compact-definition") === '1';
             }
