@@ -683,7 +683,7 @@ final class DefinitionListBuilder
                         continue;
                     }
                     if (
-                        $indent === 0
+                        $indent === 0 && !$bodyState->openParagraph
                         && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
                         && $this->isReferenceDefinitionLine($trimmedCont)
                     ) {
@@ -745,9 +745,10 @@ final class DefinitionListBuilder
 
                         continue;
                     }
+                    ($this->advanceNestedLeadFenceStateCallback)($nestedLeadFence, $body);
                     if (
                         (
-                            ($indent === 0 && $paragraphFenceHasNoCloser)
+                            ($indent === 0 && $paragraphFenceHasNoCloser && $nestedLeadFence->length === 0)
                             || ($indent > 0 && $indent < $continuationColumn
                                 && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
                                     || $this->isBlockAttributeLine($trimmedCont)
@@ -857,6 +858,7 @@ final class DefinitionListBuilder
                     }
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
                         $formABlockOpen = $formABlockOpen
+                            || $nestedLeadFence->length > 0
                             || ($this->getFencedBlockParser)()->parseCodeFenceOpener(($body[0] ?? '')) !== null
                             || ($this->getFencedBlockParser)()->parseRawBlockOpener(($body[0] ?? '')) !== null
                             || $this->lineOpensBlockForLooseness($trimmedCont, true)

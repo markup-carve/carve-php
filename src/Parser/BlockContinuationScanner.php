@@ -1465,6 +1465,10 @@ final class BlockContinuationScanner
                     && !($trailingState->inFootnoteBody && $column > $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN)
                     ? BlockGrammar::LAZY_FRAME . $nextTrimmed
                     : IndentationHelper::stripLeadingColumns($nextLine, $stripColumn);
+                if ($closesMetadataSameBaseFence && $column === $metadataAttributeColumn) {
+                    $openerLine = IndentationHelper::stripLeadingColumns($lines[$metadataSameBaseFenceIndex], $contentIndent);
+                    $contentLine = str_repeat(' ', IndentationHelper::getLeadingColumns($openerLine)) . $nextTrimmed;
+                }
                 if ($unclosedNoteText) {
                     $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
                     $itemLineMap[] = $this->sourceLineFor($i);
@@ -1567,7 +1571,8 @@ final class BlockContinuationScanner
                 $quotedLazyOpener = $trailingState->quoteParagraph && $column > $contentIndent
                     && ContainerPrefix::quoteContent($contentLine) === null
                     && ($nextTrimmed[0] ?? '') !== '`' && ($nextTrimmed[0] ?? '') !== '~'
-                    && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed));
+                    && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)
+                        || $this->isBlockAttributeLine($nextTrimmed));
                 $trailingState = $retainedQuoteFence ? $trailingState : ($quotedLazyOpener || $failedReplayFence || $descendantParagraphFence
                     || ($authoredTermContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0))
                     ? $this->advanceTrailingState($trailingState, 'text', true)
@@ -1589,6 +1594,10 @@ final class BlockContinuationScanner
                                 $authoredCodeColumn ?? $contentIndent,
                                 $authoredCodeColumn !== null,
                             )))));
+                if ($closesMetadataSameBaseFence) {
+                    $trailingState->fence = null;
+                    $trailingState->openParagraph = false;
+                }
                 if (
                     $releasedNoteParagraphColumn !== null && $column === $releasedNoteParagraphColumn
                     && $trailingState->fence === null && !$this->isBlockElementStart($nextTrimmed, $lines, $i)
@@ -3244,7 +3253,7 @@ final class BlockContinuationScanner
             $divContent = BlockGrammar::subjectFrom($line, $at, $end);
             $divDefinitionAt = IndentationHelper::pastLeadingWhitespace($divContent, 0);
             if (
-                $atContentColumn
+                $atContentColumn && $state->namedDiv
                 && (
                     (ReferenceDefinitionExtractor::isDefinitionHead($divContent, $divDefinitionAt)
                         && $this->isReferenceDefinitionLine(BlockGrammar::subjectFrom($divContent, $divDefinitionAt, strlen($divContent))))
@@ -3379,6 +3388,7 @@ final class BlockContinuationScanner
             $divFenceLength = $divOpener['length'];
             $state->inDiv = true;
             $state->literalDiv = $divOpener['className'] === '|';
+            $state->namedDiv = $divOpener['className'] !== '';
             $state->divFenceLength = $divFenceLength;
             $state->divColumn = IndentationHelper::getLeadingColumns($line);
             $parentDivDepth = $state->divDepth;
@@ -3623,8 +3633,8 @@ final class BlockContinuationScanner
                 && $this->isReferenceDefinitionLine(BlockGrammar::subjectFrom($line, $definitionAt, $end))
             )
             || (
-                BlockGrammar::isBlockAttributeHead($line, $deepestAt)
-                && $this->isBlockAttributeLine(BlockGrammar::subjectFrom($line, $deepestAt, $end))
+                BlockGrammar::isBlockAttributeHead($line, $nestedIsQuoteOnEntry ? $at : $deepestAt)
+                && $this->isBlockAttributeLine(BlockGrammar::subjectFrom($line, $nestedIsQuoteOnEntry ? $at : $deepestAt, $end))
             )
         ) {
             $state->openParagraph = false;
@@ -3657,7 +3667,8 @@ final class BlockContinuationScanner
                     && $this->isReferenceDefinitionLine(BlockGrammar::subjectFrom($line, $deepestAt, $end))
                 )
                 || (
-                    BlockGrammar::isBlockAttributeHead($line, $deepestAt)
+                    !$nestedIsQuoteOnEntry && !$wasQuoteParagraph
+                    && BlockGrammar::isBlockAttributeHead($line, $deepestAt)
                     && $this->isBlockAttributeLine(BlockGrammar::subjectFrom($line, $deepestAt, $end))
                 )
             )
