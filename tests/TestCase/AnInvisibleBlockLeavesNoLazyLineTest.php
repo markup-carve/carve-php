@@ -23,6 +23,9 @@ final class AnInvisibleBlockLeavesNoLazyLineTest extends TestCase
     public static function cases(): array
     {
         return [
+            'n:quote/desc-3423' => ["[r][] [^p] [^c] [^d]\n\n> :: t\n> : para\n>   more\n>       [^p]: n\n```\nx\n", "<p>[r][] <a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a> [^c] [^d]</p>\n<blockquote>\n<dl>\n<dt>t</dt>\n<dd>para\nmore</dd>\n</dl>\n</blockquote>\n<pre><code>x\n</code></pre>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n<hr>\n<ol>\n<li id=\"fn1\">\n<p>n<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n</li>\n</ol>\n</section>"],
+            'n:quote/desc-5782' => ["[r][] [^p] [^c] [^d]\n\n> :: t\n> : para\n>   more\n>    [r]: /u\ntail\n", "<p><a href=\"/u\">r</a> [^p] [^c] [^d]</p>\n<blockquote>\n<dl>\n<dt>t</dt>\n<dd>para\nmore</dd>\n</dl>\n</blockquote>\n<p>tail</p>"],
+            'n:quote/desc-5809' => ["[r][] [^p] [^c] [^d]\n\n> :: t\n> : para\n>   more\n>    [r]: /u\n```\nx\n", "<p><a href=\"/u\">r</a> [^p] [^c] [^d]</p>\n<blockquote>\n<dl>\n<dt>t</dt>\n<dd>para\nmore</dd>\n</dl>\n</blockquote>\n<pre><code>x\n</code></pre>"],
             // Extra indentation has no definition site outside an open item.
             'reg23:s:quote-456' => ["[r][] [^p] [^c] [^d]\n\n> para\n>  [^p]: n\ntail\n", "<p>[r][] [^p] [^c] [^d]</p>\n<blockquote><p>para\n[^p]: n\ntail</p></blockquote>"],
             'reg23:s:quote-458' => ["[r][] [^p] [^c] [^d]\n\n> para\n>  [^p]: n\n```\nx\n", "<p>[r][] [^p] [^c] [^d]</p>\n<blockquote><p>para\n[^p]: n\n<code>\nx</code></p></blockquote>"],

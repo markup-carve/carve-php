@@ -1261,7 +1261,7 @@ final class BlockQuoteBuilder
             $definitionColumn = IndentationHelper::getLeadingColumns($content);
             $isDefinitionLine = (($definitionColumn === 0
                 || $definitionColumn === $hostColumns[array_key_last($hostColumns)]
-                || $definitionColumn === ($state['hosts']['descriptionColumn'] ?? PHP_INT_MAX))
+                || $definitionColumn >= ($state['hosts']['descriptionColumn'] ?? PHP_INT_MAX))
                 && $this->isReferenceDefinitionLine($trimmed))
             || ($isFlushLeftCandidate && $this->isAbbreviationDefinitionLine($trimmed));
         // A FOOTNOTE DEFINITION PUSHES ITS BODY COLUMN before this reads the
