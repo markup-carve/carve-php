@@ -5516,6 +5516,7 @@ class BlockParser
         $count = count($lines);
 
         $bodyLines = [$content];
+        $termScan = null;
         $commentSpan = new CollectedCommentSpan();
         $bodyLineMap = [$this->sourceLineFor($start)];
         if (
@@ -5646,6 +5647,7 @@ class BlockParser
                     && !$trailingState->inTable
                     && !$trailingState->nestedListSeen
                     && $this->listParser->parseListItemMarker($bodyLine) !== null
+                    && !$this->definitionsBuilder()->bodyTermIsOpen($bodyLines, $termScan, $lines, $i)
                 ) {
                     $bodyLines[$lastBodyKey] .= "\n" . $bodyLine;
                     $i++;

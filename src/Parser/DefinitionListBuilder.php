@@ -710,6 +710,7 @@ final class DefinitionListBuilder
                         && $body[$lastBodyKey] !== ''
                         && !isset($bodyDefinition[$lastBodyKey])
                         && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                        && !$this->bodyTermIsOpen($body, $termScan, $lines, $i)
                         && $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy) === 0
                         && $bodyNestedState->openParagraph
                         && $bodyNestedState->fence === null
