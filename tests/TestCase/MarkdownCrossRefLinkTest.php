@@ -15,6 +15,15 @@ use PHPUnit\Framework\TestCase;
  */
 class MarkdownCrossRefLinkTest extends TestCase
 {
+    public function testEscapedCrossReferenceStaysLiteral(): void
+    {
+        foreach (["\\</#id>\n", "x \\</#id> y\n", "\\</#x~>y>\n"] as $source) {
+            $html = CarveConverter::create()->convert($source);
+            $this->assertStringContainsString('&lt;/#', $html);
+            $this->assertStringNotContainsString('class="tag"', $html);
+        }
+    }
+
     private function md(string $djot): string
     {
         return CarveConverter::markdown()->convert($djot);
