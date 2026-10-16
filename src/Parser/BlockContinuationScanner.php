@@ -2111,7 +2111,7 @@ final class BlockContinuationScanner
             }
             if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ltrim($opener, " \t")) === 1) {
                 $termOpen = true;
-            } elseif (IndentationHelper::isBlankLine($opener) || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($opener, " \t")) === 1) {
+            } elseif (IndentationHelper::isBlankLine($opener) || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $opener) === 1) {
                 $termOpen = false;
             }
             $state = $this->advanceTrailingState($state, $opener, true);
