@@ -1793,14 +1793,14 @@ final class BlockContinuationScanner
                 continue;
             }
 
-            if (
-                $recentDefinitionParagraph
+            $followingFence = $recentDefinitionParagraph
                 && $nextIndent < $contentIndent
                 && $itemLines !== []
                 && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
-                && ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) !== null
-            ) {
-                $itemLines[] = ' ' . $nextTrimmed;
+                ? ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
+                : null;
+            if ($followingFence !== null && !$this->sourceFenceCloserInView($lines, $i, $followingFence, 0)) {
+                $itemLines[] = $nextIndent > 0 ? ' ' . $nextTrimmed : $nextTrimmed;
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState->openParagraph = false;
                 $trailingState->afterComment = false;

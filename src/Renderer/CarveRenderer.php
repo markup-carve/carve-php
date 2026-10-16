@@ -1372,10 +1372,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
+     * @param bool $compactFootnoteHeading Keep a heading with the preceding paragraph in a note on a definition line.
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
-    protected function renderBlocks(array $blocks): string
+    protected function renderBlocks(array $blocks, bool $compactFootnoteHeading = false): string
     {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
@@ -1405,6 +1406,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $previousList = null;
             $previousCompactDefinition = false;
             $listSeparated = false;
+            $previousRenderedBlock = null;
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
                 // Remember, for the NEXT block, whether a `^ ` line after it
@@ -1435,9 +1437,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
+                    } elseif ($compactFootnoteHeading && $previousRenderedBlock instanceof Paragraph && $block instanceof Heading && $parts !== []) {
+                        // A blank here ends a note collected on a definition
+                        // line. The heading then moves into the description.
+                        $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } else {
                         $parts[] = $rendered;
                     }
+                    $previousRenderedBlock = $block;
                 }
                 $previousCompactDefinition = $block->getRenderHint("\0carve-compact-definition") === '1';
             }
@@ -2740,7 +2747,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($collected !== null) {
                     $this->definitionsWrittenInPlace[spl_object_id($collected)] = true;
                     $written = $collected instanceof Footnote
-                        ? $this->renderFootnote($collected)
+                        ? $this->renderFootnote($collected, true)
                         : $this->renderLinkReferenceDefinition($collected);
                     // A note's own continuation lines move right by the marker
                     // too. Left at the note's standalone column they fell one
@@ -3480,10 +3487,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
-    protected function renderFootnote(Footnote $node): string
+    protected function renderFootnote(Footnote $node, bool $inDefinitionDescription = false): string
     {
         $this->footnoteCodeGuard ??= str_repeat($this->verbatimSentinels[7], 6);
-        $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
+        $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren(), $inDefinitionDescription));
         $sentinel = preg_quote($this->verbatimSentinels[7], '/');
         $refusal = '/^((?:' . $sentinel . '){1,5})(.*)$/';
         foreach (explode("\n", $rawBody) as $line) {
