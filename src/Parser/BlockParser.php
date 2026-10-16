@@ -5165,7 +5165,7 @@ class BlockParser
             $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
-            $divHeading = $trailingState->hasOpenDiv() && !$trailingState->openParagraph
+            $divHeading = $trailingState->hasOpenDiv()
                 && preg_match('/^#{1,6} /', ltrim($stripped, " \t")) === 1;
             // AT OR PAST the content column, the same reading the plain-lead
             // collector uses: an invisible block here ends the paragraph under

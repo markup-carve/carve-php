@@ -27,7 +27,29 @@ final class ADescriptionBodyHostLineTest extends TestCase
             'c011' => [':: t' . "\n" . ': para' . "\n" . '  more' . "\n" . ' [r]: /u' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . 'more' . "\n" . '[r]: /u</dd>' . "\n" . '</dl>'],
             'c012' => [':: t' . "\n" . ': para' . "\n" . '  more' . "\n" . ' [^p]: n' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . 'more' . "\n" . '[^p]: n</dd>' . "\n" . '</dl>'],
             'c013' => [':: t' . "\n" . ': para' . "\n" . '  more' . "\n" . ' {#x}' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . 'more' . "\n" . '{<span class="tag"><strong>#x</strong></span>}</dd>' . "\n" . '</dl>'],
-            'c020' => ['[r][] [^p] [^c]' . "\n" . ':: t' . "\n" . ': [^c]: para' . "\n" . '        [^p]: n' . "\n" . '', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd></dd>' . "\n" . '</dl>' . "\n" . '<section role="doc-endnotes" aria-label="Footnotes">' . "\n" . '<hr>' . "\n" . '<ol>' . "\n" . '<li id="fn1">' . "\n" . '<p>para' . "\n" . '[^p]: n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>' . "\n" . '</li>' . "\n" . '</ol>' . "\n" . '</section>'],
+            'c020' => [
+                '[r][] [^p] [^c]
+:: t
+: [^c]: para
+        [^p]: n
+', '<p>[r][] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a></p>
+<dl>
+  <dt>t</dt>
+  <dd></dd>
+</dl>
+<section role="doc-endnotes" aria-label="Footnotes">
+  <hr>
+  <ol>
+    <li id="fn1">
+      <p>n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+    </li>
+    <li id="fn2">
+      <p>para<a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+    </li>
+  </ol>
+</section>
+',
+            ],
             'c022' => [':: t' . "\n" . ': - para' . "\n" . '```' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<ul>' . "\n" . '<li>para' . "\n" . '<code></code></li>' . "\n" . '</ul>' . "\n" . '</dd>' . "\n" . '</dl>'],
             'c025' => [':: t' . "\n" . ': 1. para' . "\n" . '    ---' . "\n" . 'tail' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<ol>' . "\n" . '<li>para' . "\n" . '—' . "\n" . 'tail</li>' . "\n" . '</ol>' . "\n" . '</dd>' . "\n" . '</dl>'],
             'c040' => [':: t' . "\n" . ': :: t' . "\n" . ' [^p]: n' . "\n" . 'tail' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<dl>' . "\n" . '<dt>t' . "\n" . '[^p]: n' . "\n" . 'tail</dt>' . "\n" . '</dl>' . "\n" . '</dd>' . "\n" . '</dl>'],
@@ -54,7 +76,29 @@ final class ADescriptionBodyHostLineTest extends TestCase
             'c122' => [':: t' . "\n" . ': :: t' . "\n" . '  : para' . "\n" . ' {#x}' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . '{<span class="tag"><strong>#x</strong></span>}</dd>' . "\n" . '</dl>' . "\n" . '</dd>' . "\n" . '</dl>'],
             'c132' => [':: t' . "\n" . ': - para' . "\n" . ' - li' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<ul>' . "\n" . '<li>para' . "\n" . '- li</li>' . "\n" . '</ul>' . "\n" . '</dd>' . "\n" . '</dl>'],
             'c144' => [':: t' . "\n" . ': > para' . "\n" . '        | a |' . "\n" . 'x' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<blockquote><p>para' . "\n" . '| a |' . "\n" . 'x</p></blockquote>' . "\n" . '</dd>' . "\n" . '</dl>'],
-            'c152' => ['[r][] [^p] [^c]' . "\n" . ':: t' . "\n" . ': [^c]: para' . "\n" . '     [^p]: n' . "\n" . '', '<p>[r][] [^p] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a></p>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd></dd>' . "\n" . '</dl>' . "\n" . '<section role="doc-endnotes" aria-label="Footnotes">' . "\n" . '<hr>' . "\n" . '<ol>' . "\n" . '<li id="fn1">' . "\n" . '<p>para' . "\n" . '[^p]: n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>' . "\n" . '</li>' . "\n" . '</ol>' . "\n" . '</section>'],
+            'c152' => [
+                '[r][] [^p] [^c]
+:: t
+: [^c]: para
+     [^p]: n
+', '<p>[r][] <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a> <a id="fnref2" href="#fn2" role="doc-noteref"><sup>2</sup></a></p>
+<dl>
+  <dt>t</dt>
+  <dd></dd>
+</dl>
+<section role="doc-endnotes" aria-label="Footnotes">
+  <hr>
+  <ol>
+    <li id="fn1">
+      <p>n<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+    </li>
+    <li id="fn2">
+      <p>para<a href="#fnref2" role="doc-backlink" aria-label="Back to reference">↩</a></p>
+    </li>
+  </ol>
+</section>
+',
+            ],
             'c156' => [':: t' . "\n" . ': > para' . "\n" . '     | a |' . "\n" . 'x' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<blockquote><p>para' . "\n" . '| a |' . "\n" . 'x</p></blockquote>' . "\n" . '</dd>' . "\n" . '</dl>'],
             'c163' => [':: t' . "\n" . ': 1. para' . "\n" . '    # H' . "\n" . 'tail' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<ol>' . "\n" . '<li>para' . "\n" . '# H' . "\n" . 'tail</li>' . "\n" . '</ol>' . "\n" . '</dd>' . "\n" . '</dl>'],
             'c165' => [':: t' . "\n" . ': 1. para' . "\n" . ' {#x}' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<ol>' . "\n" . '<li>para' . "\n" . '{<span class="tag"><strong>#x</strong></span>}</li>' . "\n" . '</ol>' . "\n" . '</dd>' . "\n" . '</dl>'],
@@ -68,9 +112,43 @@ final class ADescriptionBodyHostLineTest extends TestCase
             'c071' => ['1. :: t' . "\n" . '   : para' . "\n" . '    - li' . "\n" . '', '<ol>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . '- li</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ol>'],
             'c077' => [':: t' . "\n" . ': [^c]: para' . "\n" . '   {#x}' . "\n" . 'tail' . "\n" . '', '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd></dd>' . "\n" . '</dl>' . "\n" . '<p>tail</p>'],
             'c088' => ['- :: t' . "\n" . '  : para' . "\n" . '   - li' . "\n" . '', '<ul>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . '- li</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ul>'],
-            'c095' => ['1. :: t' . "\n" . '   : para' . "\n" . '%% c' . "\n" . '```' . "\n" . '', '<ol>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<p>para</p>' . "\n" . '<p><code></code></p>' . "\n" . '</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ol>'],
+            'c095' => [
+                '1. :: t
+   : para
+%% c
+```
+', '<ol>
+  <li>
+    <dl>
+      <dt>t</dt>
+      <dd>
+        <p>para</p>
+        <pre><code></code></pre>
+      </dd>
+    </dl>
+  </li>
+</ol>
+',
+            ],
             'c106' => ['1. :: t' . "\n" . '   : para' . "\n" . '         - li' . "\n" . '', '<ol>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . '- li</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ol>'],
-            'c128' => ['- :: t' . "\n" . '  : para' . "\n" . ' %% c' . "\n" . '```' . "\n" . '', '<ul>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>' . "\n" . '<p>para</p>' . "\n" . '<p><code></code></p>' . "\n" . '</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ul>'],
+            'c128' => [
+                '- :: t
+  : para
+ %% c
+```
+', '<ul>
+  <li>
+    <dl>
+      <dt>t</dt>
+      <dd>
+        <p>para</p>
+        <pre><code></code></pre>
+      </dd>
+    </dl>
+  </li>
+</ul>
+',
+            ],
             'c142' => ['- :: t' . "\n" . '  : para' . "\n" . '        - li' . "\n" . '', '<ul>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . '- li</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ul>'],
             'c169' => ['1. :: t' . "\n" . '   : para' . "\n" . '     - li' . "\n" . '', '<ol>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . '- li</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ol>'],
             'c170' => ['- :: t' . "\n" . '  : para' . "\n" . '     - li' . "\n" . '', '<ul>' . "\n" . '<li>' . "\n" . '<dl>' . "\n" . '<dt>t</dt>' . "\n" . '<dd>para' . "\n" . '- li</dd>' . "\n" . '</dl>' . "\n" . '</li>' . "\n" . '</ul>'],
