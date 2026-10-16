@@ -19,4 +19,17 @@ class ACodeSpanContinuationKeepsItsBareListMarkerTest extends TestCase
             self::assertSame($formatted, CarveConverter::toCarve($formatted));
         }
     }
+
+    public function testListLookingLinesAfterCodeContentTakeNoGuardSpace(): void
+    {
+        foreach (['`e', '`]'] as $prefix) {
+            foreach (['. .', '. x', '+ x', '- x', '* x', '1. x'] as $line) {
+                $source = $prefix . "\n" . $line;
+                $formatted = CarveConverter::toCarve($source);
+                self::assertSame($prefix . "\n" . $line . "`\n", $formatted);
+                self::assertSame((new CarveConverter())->convert($source), (new CarveConverter())->convert($formatted));
+                self::assertSame($formatted, CarveConverter::toCarve($formatted));
+            }
+        }
+    }
 }
