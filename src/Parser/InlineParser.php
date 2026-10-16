@@ -1574,9 +1574,11 @@ class InlineParser
                 $escapedNode = new EscapedText($escaped);
                 $this->placeAt($escapedNode, $pos, $pos + 2);
                 $parent->appendChild($escapedNode);
-                if ($escaped === '<' && substr($text, $pos + 1, 3) === '</#'
+                if (
+                    $escaped === '<' && substr($text, $pos + 1, 3) === '</#'
                     && $pos + 4 < $length && $text[$pos + 4] !== '>'
-                    && $this->crossrefBodyCanEnd($text, $pos + 4)) {
+                    && $this->crossrefBodyCanEnd($text, $pos + 4)
+                ) {
                     $end = strpos($text, '>', $pos + 4) + 1;
                     $tail = new Text(substr($text, $pos + 2, $end - $pos - 2));
                     $this->placeAt($tail, $pos + 2, $end);
