@@ -2115,6 +2115,17 @@ class BlockParser
     private function authoredFootnoteBodyFloor(int $definitionIndex, string $definitionLine): ?int
     {
         $marker = $this->authoredColumnOf($definitionIndex, $definitionLine);
+        $authored = $this->state->source->sourceLines[$this->sourceLineFor($definitionIndex)] ?? null;
+        $content = ltrim($definitionLine, " \t");
+        if ($authored !== null && str_ends_with($authored, $content)) {
+            $prefix = substr($authored, 0, -strlen($content));
+            if (preg_match('/\[\^[^\]]+\]: +$/', $prefix, $host, PREG_OFFSET_CAPTURE) === 1) {
+                // A marker-line note answers at its host note's body column.
+                $beforeHost = substr($prefix, 0, $host[0][1]);
+                $hostColumn = IndentationHelper::getLeadingColumns((string)preg_replace('/[^\t]/', ' ', $beforeHost) . 'x');
+                $marker = $hostColumn + self::FOOTNOTE_BODY_COLUMN;
+            }
+        }
 
         return $marker === null ? null : $marker + self::FOOTNOTE_BODY_COLUMN;
     }
