@@ -440,10 +440,6 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
      * whole fence folded into the item. That was 36 documents right to wrong
      * over the 8370-document container-body sweep.
      *
-     * The sibling marker is the second: it deliberately does NOT interrupt a
-     * paragraph (§10), so `startsInterruptingBlock()` reports false for it too,
-     * and folding it was 210 documents right to wrong.
-     *
      * Every row matches the executable spec at `0b0edf50`; carve-js `997e156`
      * folds the marker and the fence, which is its own open question.
      *
@@ -454,9 +450,22 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         return [
             'a heading' => ['# H', "<p># H\ntail</p>"],
             'a thematic break' => ['***', "<p>***\ntail</p>"],
-            'a sibling marker' => ['- n', "<ul>\n  <li>n\ntail</li>\n</ul>"],
             'a code fence' => ["```\nz\n```", "<p><code>\nz\n</code>\ntail</p>"],
         ];
+    }
+
+    public function testASiblingMarkerBelowTheColumnFoldsAndAtTheBodyColumnOpensASibling(): void
+    {
+        // Below every content column the marker is lazy item text; at the
+        // body column it opens a sibling item of the list.
+        $this->assertSame(
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n- n\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+            trim($this->converter->convert(":: t\n:  - a\n - n\ntail")),
+        );
+        $this->assertSame(
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n      <li>n\ntail</li>\n    </ul>\n  </dd>\n</dl>",
+            trim($this->converter->convert(":: t\n:  - a\n  - n\ntail")),
+        );
     }
 
     #[DataProvider('openerBelowTheColumnProvider')]
@@ -476,13 +485,8 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
     }
 
     /**
-     * AN ATTRIBUTE LINE IS COLUMN-STRICT AND STAYS OUT OF THE FOLD. §24 C3's
-     * comment exception does not cover it, and the collector refuses it
-     * explicitly, so the body ends at both columns exactly as it did before.
-     *
-     * These rows pin THIS ENGINE'S answer and not an agreement: the executable
-     * spec at `0b0edf50` and carve-js `997e156` both read the run differently
-     * here, before and after alike. That is the attribute band's own question.
+     * AN ATTRIBUTE LINE BELOW EVERY CONTENT COLUMN IS LAZY ITEM TEXT under an
+     * open paragraph (PART 9 §24 C3 BELOW), matching the executable spec.
      *
      * @return array<string, array{0: int}>
      */
@@ -500,7 +504,7 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
         $html = $this->converter->convert(":: t\n:  - a\n" . str_repeat(' ', $column) . "{.k}\ntail");
 
         $this->assertSame(
-            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a</li>\n    </ul>\n  </dd>\n</dl>\n<p>{.k}\ntail</p>",
+            "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n{.k}\ntail</li>\n    </ul>\n  </dd>\n</dl>",
             trim($html),
         );
     }

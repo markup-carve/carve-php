@@ -468,8 +468,10 @@ final class DefinitionListBuilder
                 $bodyNestedCursor = 0;
                 $bodyAttributeThrough = -1;
                 $bodyEndsWithAttribute = false;
+                $nestedLazyParagraph = false;
                 $retainedBelowComment = false;
                 $restoredDivLength = null;
+                $detachedFootnote = null;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     $lastBody = $body === [] ? '' : $body[array_key_last($body)];
@@ -593,7 +595,9 @@ final class DefinitionListBuilder
                         $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($commentText)
                             ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($commentText);
                         if (!$this->startsInterruptingBlock($commentText, $lines, $i) || $fence !== null) {
-                            $body[] = $commentText;
+                            $body[] = $fence !== null
+                                && !$this->continuations->sourceFenceCloserInView($lines, $i, $fence, $indent, true)
+                                ? BlockGrammar::LAZY_FRAME . $commentText : $commentText;
                             $bodyMap[] = $this->sourceLineFor($i);
                             $bodyState = $this->advanceTrailingStateWithFenceLookahead($bodyState, $commentText, $lines, $i, true);
                             $bodyStateCursor = count($body);
@@ -663,6 +667,22 @@ final class DefinitionListBuilder
                     // as §24 C3 requires.
                     $trimmedCont = ltrim($contLine, " \t");
                     if (
+                        $indent > $continuationColumn
+                        && $definitionColumn !== null && $definitionColumn > 0
+                        && !$formABlockOpen
+                        && !$this->lineOpensBlockForLooseness(($body[0] ?? ''), true)
+                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                        && $body !== []
+                        && trim($body[array_key_last($body)]) !== ''
+                        && $this->bodyEntryStartsParagraph($body[array_key_last($body)])
+                        && $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy) === 0
+                    ) {
+                        $body[array_key_last($body)] .= "\n" . $trimmedCont;
+                        $i++;
+
+                        continue;
+                    }
+                    if (
                         $indent === 0
                         && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
                         && $this->isReferenceDefinitionLine($trimmedCont)
@@ -714,6 +734,77 @@ final class DefinitionListBuilder
                             IndentationHelper::getLeadingColumns($contLine),
                         );
                     if (
+                        $continuationColumn > BlockGrammar::DEFINITION_MARKER_WIDTH + 1
+                        && $indent === $continuationColumn - 1
+                        && ($this->getListParser)()->parseListItemMarker(($body[0] ?? '')) !== null
+                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                    ) {
+                        $body[] = $trimmedCont;
+                        $bodyMap[] = $this->sourceLineFor($i);
+                        $i++;
+
+                        continue;
+                    }
+                    if (
+                        (
+                            ($indent === 0 && $paragraphFenceHasNoCloser)
+                            || ($indent > 0 && $indent < $continuationColumn
+                                && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                                    || $this->isBlockAttributeLine($trimmedCont)
+                                    || (str_starts_with(($body[0] ?? ''), '>')
+                                        && $this->isReferenceDefinitionLine($trimmedCont))))
+                        )
+                        && (($this->getListParser)()->parseListItemMarker(($body[0] ?? '')) !== null
+                            || ($lastBodyKey !== null
+                                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
+                                && ($this->getListParser)()->parseListItemMarker($body[$lastBodyKey]) !== null)
+                            || str_starts_with(($body[0] ?? ''), '>'))
+                    ) {
+                        $body[] = BlockGrammar::LAZY_FRAME . $trimmedCont;
+                        $bodyMap[] = $this->sourceLineFor($i);
+                        $bodyLazy[count($body) - 1] = true;
+                        $i++;
+
+                        continue;
+                    }
+                    if (
+                        $indent > $continuationColumn
+                        && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                        && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
+                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                    ) {
+                        $body[] = $trimmedCont;
+                        $bodyMap[] = $this->sourceLineFor($i);
+                        $i++;
+
+                        continue;
+                    }
+                    if (
+                        $indent > 0
+                        && $indent < $continuationColumn
+                        && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
+                        && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                    ) {
+                        $body[] = $trimmedCont;
+                        $bodyMap[] = $this->sourceLineFor($i);
+                        $i++;
+
+                        continue;
+                    }
+                    if (
+                        preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
+                        && $indent >= $continuationColumn
+                        && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                        && ($this->isReferenceDefinitionLine($trimmedCont) || $this->isBlockAttributeLine($trimmedCont))
+                    ) {
+                        $detachedFootnote = $body[0];
+                        $body = [''];
+                        $bodyMap = [$bodyMap[0]];
+                        $i++;
+
+                        continue;
+                    }
+                    if (
                         !IndentationHelper::isBlankLine($contLine)
                         && $indent > 0
                         && ($indent !== $continuationColumn || $paragraphFenceHasNoCloser)
@@ -724,7 +815,11 @@ final class DefinitionListBuilder
                         && $body[$lastBodyKey] !== ''
                         && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey]))
                         && (
-                            $paragraphFenceHasNoCloser
+                            ($indent < $continuationColumn
+                                && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                                    || ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                                    || $this->isBlockAttributeLine($trimmedCont)))
+                            || $paragraphFenceHasNoCloser
                             || !$this->lineOpensBlockForLooseness(
                                 $trimmedCont,
                                 true,
@@ -761,7 +856,13 @@ final class DefinitionListBuilder
                         continue;
                     }
                     if (!IndentationHelper::isBlankLine($contLine) && $indent >= $continuationColumn) {
-                        $formABlockOpen = true;
+                        $formABlockOpen = $formABlockOpen
+                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener(($body[0] ?? '')) !== null
+                            || ($this->getFencedBlockParser)()->parseRawBlockOpener(($body[0] ?? '')) !== null
+                            || $this->lineOpensBlockForLooseness($trimmedCont, true)
+                            || ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont) !== null
+                            || ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont) !== null;
                         // §10 I4'S CLOSER IS SOUGHT IN THE SOURCE, NOT IN WHAT
                         // THE BODY HAS COLLECTED SO FAR (carve-php#2233). The
                         // tracker below asks the same question of `$body`, which
@@ -789,6 +890,42 @@ final class DefinitionListBuilder
                             $contLine,
                             $continuationColumn,
                         );
+                        if (
+                            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
+                            && IndentationHelper::getLeadingColumns($contLine) > $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                            && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                        ) {
+                            $body[] = substr($entry, 0, strspn($entry, " \t")) . '\\' . ltrim($entry, " \t");
+                            $bodyMap[] = $this->sourceLineFor($i);
+                            $i++;
+
+                            continue;
+                        }
+                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
+                        $leadMarker = ($this->getListParser)()->parseListItemMarker(($body[0] ?? ''));
+                        if (
+                            $leadMarker !== null
+                            && $bodyNestedState->nestedColumn > 0
+                            && IndentationHelper::getLeadingColumns($entry) < $bodyNestedState->nestedColumn
+                            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
+                        ) {
+                            $nestedLazyParagraph = true;
+                        }
+                        if (
+                            str_starts_with(($body[0] ?? ''), '>')
+                            && IndentationHelper::getLeadingColumns($entry) > 0
+                            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
+                        ) {
+                            $nestedLazyParagraph = true;
+                        }
+                        if (
+                            str_starts_with(($body[0] ?? ''), ':::')
+                            && $bodyNestedState->hasOpenDiv()
+                            && $bodyNestedState->nestedColumn === 0
+                            && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
+                        ) {
+                            $entry = ltrim($entry, " \t");
+                        }
                         $nestedColumn = $definitionPastTheColumn
                             ? $this->descriptionBodyNestedColumn(
                                 $bodyNestedState,
@@ -806,6 +943,7 @@ final class DefinitionListBuilder
                         // code block.
                         if (
                             $definitionPastTheColumn
+                            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1
                             && $bodyNestedState->fence === null
                             && !$bodyNestedState->inDiv
                             && !$bodyNestedState->absorbingFence
@@ -983,10 +1121,12 @@ final class DefinitionListBuilder
                     // closes it. The single-line form is already answered there;
                     // this is the same rule for the form that spans lines.
                     ($this->advanceNestedLeadFenceStateCallback)($nestedLeadFence, $body);
+                    $bodyTermOpen = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
+                        && $this->bodyTermIsOpen($body, $termScan, $lines, $i);
                     $paragraphOpen = $nestedLeadFence->length > 0
                         ? ($nestedLeadFence->closed && $nestedLeadFence->trailing->openParagraph)
-                        : $bodyState->openParagraph;
-                    if (!$paragraphOpen || $bodyEndsWithAttribute) {
+                        : ($bodyState->openParagraph || $nestedLazyParagraph || $bodyTermOpen);
+                    if (!$paragraphOpen || ($bodyEndsWithAttribute && !$bodyTermOpen)) {
                         // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
                         // the list-item collector synthesizes it: the closer
                         // that armed this fence stands past the line ending the
@@ -1088,17 +1228,19 @@ final class DefinitionListBuilder
                     $body = $foldedBody;
                     $bodyMap = $foldedBodyMap;
                 }
-                $body = $this->rebaseOverindentedItemBlocks(
-                    $body,
-                    includeSublists: true,
-                    skipOnlyClosedOpaqueAtMinimum: true,
-                    // A block opener at a description-hosted note's §16 floor is
-                    // owned by the note, not rebased into the `dd` as its own
-                    // block (markup-carve/carve#1974).
-                    absorbLeadNoteBody: true,
-                );
+                if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1) {
+                    $body = $this->rebaseOverindentedItemBlocks(
+                        $body,
+                        includeSublists: true,
+                        skipOnlyClosedOpaqueAtMinimum: true,
+                        absorbLeadNoteBody: true,
+                    );
+                }
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
+                if ($detachedFootnote !== null) {
+                    $this->parseBlocks($dd, [$detachedFootnote], 0, [$bodyMap[0]]);
+                }
                 if (count($body) !== 1 || rtrim($body[0], " \t") !== '{empty}') {
                     $this->parseBlocks($dd, $body, 0, $bodyMap);
                 }

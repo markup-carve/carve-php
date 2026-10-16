@@ -528,7 +528,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
         $outOfItem = "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n        <h1 id=\"H\">H</h1>\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>";
 
         return [
-            'between the two columns' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n# H</li>\n    </ul>\n  </dd>\n</dl>\n<p>tail</p>"],
+            'between the two columns' => [3, "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>a\n# H\ntail</li>\n    </ul>\n  </dd>\n</dl>"],
             'at the item column' => [4, $outOfItem],
             'one past the item column' => [5, $outOfItem],
             'two past the item column' => [6, $outOfItem],

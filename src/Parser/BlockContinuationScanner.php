@@ -1023,6 +1023,7 @@ final class BlockContinuationScanner
                     && $openCommentLength === null
                     && !$trailingState->quoteParagraph
                     && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+                    && ($openDefinitionBody === null || $nextIndent === $contentIndent)
                     && $rejectedColonFenceLength === null
                     && !($nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $nestedNoteBodyColumn) >= $nestedNoteBodyColumn)
                     && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken))
