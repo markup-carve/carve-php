@@ -801,9 +801,7 @@ final class DefinitionListBuilder
                         $detachedFootnote = $body[0];
                         $body = [''];
                         $bodyMap = [$bodyMap[0]];
-                        $i++;
-
-                        continue;
+                        // Keep the line in the dd after detaching the marker-line note.
                     }
                     if (
                         !IndentationHelper::isBlankLine($contLine)

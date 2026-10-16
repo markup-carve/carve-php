@@ -78,6 +78,7 @@ final class ADescriptionBodyHostLineTest extends TestCase
             'sib1' => [':: t' . "\n" . ':  - a' . "\n" . ' - n' . "\n" . 'tail', '<dl><dt>t</dt><dd><ul><li>a - n tail</li></ul></dd></dl>'],
             'control-at-column-marker' => [':: t' . "\n" . ': para' . "\n" . '  - li' . "\n" . '', '<dl><dt>t</dt><dd>para' . "\n" . '- li</dd></dl>'],
             'control-at-column-definition' => [':: t' . "\n" . ': para' . "\n" . '  [r]: /u' . "\n" . '', '<dl><dt>t</dt><dd>para</dd></dl>'],
+            'definition-below-marker-line-note' => [":: t\n: [^g]: b\n   [r]: /url\n\nSee [r][] and [^g].\n", '<dl><dt>t</dt><dd></dd></dl><p>See <a href="/url">r</a> and <a id="fnref1" href="#fn1" role="doc-noteref"><sup>1</sup></a>.</p><section role="doc-endnotes" aria-label="Footnotes"><hr><ol><li id="fn1"><p>b<a href="#fnref1" role="doc-backlink" aria-label="Back to reference">↩</a></p></li></ol></section>'],
             'control-blank-list' => [':: t' . "\n" . ': para' . "\n" . '' . "\n" . '  - li' . "\n" . '', '<dl><dt>t</dt><dd><p>para</p><ul><li>li</li></ul></dd></dl>'],
         ];
     }
