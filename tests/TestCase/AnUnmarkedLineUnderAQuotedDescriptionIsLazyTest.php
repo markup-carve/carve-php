@@ -240,10 +240,10 @@ tail</dd>
 ```
 ', '<blockquote>
 <dl>
-<dt>t</dt>
+<dt>t
+<code></code></dt>
 </dl>
-</blockquote>
-<pre><code></code></pre>',
+</blockquote>',
             ],
             'c100' => [
                 '> :: t

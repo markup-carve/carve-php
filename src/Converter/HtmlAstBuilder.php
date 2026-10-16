@@ -843,6 +843,7 @@ final class HtmlAstBuilder
                     'type' => 'comment',
                     'content' => $node->textContent,
                     'block' => true,
+                    'form' => 'block',
                 ];
 
                 continue;
@@ -4350,6 +4351,7 @@ final class HtmlAstBuilder
                     'content' => $node->textContent,
                     'delimited' => true,
                     'block' => false,
+                    'form' => 'braced',
                 ],
             ];
         }
@@ -5729,7 +5731,7 @@ final class HtmlAstBuilder
                 return [];
             }
 
-            return [['type' => 'comment', 'content' => $content, 'delimited' => true, 'block' => false]];
+            return [['type' => 'comment', 'content' => $content, 'delimited' => true, 'block' => false, 'form' => 'braced']];
         }
         if (isset(self::INLINE_PROJECTION_TYPES[$type])) {
             return [$node];
