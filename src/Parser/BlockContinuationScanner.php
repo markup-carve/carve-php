@@ -1605,6 +1605,7 @@ final class BlockContinuationScanner
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
                 $quotedLazyOpener = $trailingState->quoteParagraph && $column > $contentIndent
                     && ContainerPrefix::quoteContent($contentLine) === null
+                    && !$this->isCommentLineOrFence($nextTrimmed)
                     && ($nextTrimmed[0] ?? '') !== '`' && ($nextTrimmed[0] ?? '') !== '~'
                     && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)
                         || $this->isBlockAttributeLine($nextTrimmed));
@@ -1920,7 +1921,8 @@ final class BlockContinuationScanner
                 for ($j = $i; $j < $commentFenceEnd; $j++) {
                     $itemLines[] = ($j > $i && $j < $commentFenceEnd - 1)
                         ? IndentationHelper::stripLeadingColumns($lines[$j], $contentIndent)
-                        : ltrim($lines[$j], " \t");
+                        : (IndentationHelper::getLeadingColumns($lines[$j]) > 0
+                            ? ' ' . ltrim($lines[$j], " \t") : $lines[$j]);
                     $itemLineMap[] = $this->sourceLineFor($j);
                 }
                 $i = $commentFenceEnd;

@@ -488,6 +488,16 @@ final class DefinitionListBuilder
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     $lastBody = $body === [] ? '' : $body[array_key_last($body)];
+                    // At the description column, caret text folds into its body.
+                    if (
+                        $body !== [] && preg_match('/^\^ +\S/', $contLine) === 1
+                        && (str_starts_with($body[0], '![') || str_starts_with($body[0], '>'))
+                    ) {
+                        $body[array_key_last($body)] .= "\n" . $contLine;
+                        $i++;
+
+                        continue;
+                    }
                     $sourceLine = $this->sourceLineFor($i);
                     if (
                         isset($this->state->session->blockQuoteLazySourceLines[$sourceLine])
@@ -610,7 +620,8 @@ final class DefinitionListBuilder
                                 break;
                             }
                             for ($end = $i + $consumed; $i < $end; $i++) {
-                                $body[] = ltrim($lines[$i], " \t");
+                                $body[] = $consumed > 1
+                                    ? $this->keptCommentDelimiter($lines[$i]) : ltrim($lines[$i], " \t");
                                 $bodyMap[] = $this->sourceLineFor($i);
                             }
                             $bodyState->openParagraph = false;
@@ -954,6 +965,7 @@ final class DefinitionListBuilder
                             $leadMarker !== null
                             && $bodyNestedState->nestedColumn > 0
                             && IndentationHelper::getLeadingColumns($entry) < $bodyNestedState->nestedColumn
+                            && !$this->isCommentLineOrFence(ltrim($entry, " \t"))
                             && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
                         ) {
                             $nestedLazyParagraph = true;
@@ -961,6 +973,7 @@ final class DefinitionListBuilder
                         if (
                             str_starts_with(($body[0] ?? ''), '>')
                             && IndentationHelper::getLeadingColumns($entry) > 0
+                            && !$this->isCommentLineOrFence(ltrim($entry, " \t"))
                             && $this->startsInterruptingBlock(ltrim($entry, " \t"), $lines, $i)
                         ) {
                             $nestedLazyParagraph = true;
@@ -1353,6 +1366,16 @@ final class DefinitionListBuilder
                         skipOnlyClosedOpaqueAtMinimum: true,
                         absorbLeadNoteBody: true,
                     );
+                }
+                foreach ($body as $bodyIndex => $entry) {
+                    $source = $this->state->source->sourceLines[$bodyMap[$bodyIndex] ?? -1] ?? '';
+                    // Keep the delimiter's residual column through the body rebase.
+                    if (
+                        preg_match('/^%{3,}$/', $entry) === 1
+                        && IndentationHelper::getLeadingColumns($source) > $continuationColumn
+                    ) {
+                        $body[$bodyIndex] = ' ' . $entry;
+                    }
                 }
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));

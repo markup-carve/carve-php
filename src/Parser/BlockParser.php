@@ -1022,6 +1022,7 @@ class BlockParser
                 $finishedFootnoteBodies[$label] = true;
                 $found = true;
                 $this->state->session->discoveringDefinitions = true;
+                $collectedBodyLines = $body['lines'];
                 $body['lines'] = $this->footnoteBodyDefinitionReach(
                     $this->rebaseOverindentedItemBlocks(
                         $body['lines'],
@@ -1029,6 +1030,16 @@ class BlockParser
                         includeSublists: true,
                     ),
                 );
+                foreach ($body['lines'] as $bodyIndex => $entry) {
+                    // The note body rebase must retain a comment delimiter's column.
+                    if (
+                        preg_match('/^%{3,}$/', $entry) === 1
+                        && isset($collectedBodyLines[$bodyIndex])
+                        && IndentationHelper::getLeadingColumns($collectedBodyLines[$bodyIndex]) > 0
+                    ) {
+                        $body['lines'][$bodyIndex] = ' ' . $entry;
+                    }
+                }
                 // The document walk has already finished. Its pending block
                 // attributes belong after the document, not before this
                 // deferred body, so isolate the same parser-global state that
@@ -5695,7 +5706,22 @@ class BlockParser
                 $bodyLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceFootnoteBodyFenceState($trailingState, $bodyLine);
                 $i++;
-            } elseif ($trailingState->openParagraph && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))) {
+            } elseif (
+                preg_match('/^[ \t]+%%(?!%)/', $nextLine) === 1
+                && $this->definitionsBuilder()->bodyTermIsOpen($bodyLines, $termScan, $lines, $i)
+            ) {
+                // The note's term keeps the comment's line break.
+                $bodyLines[] = ' ' . ltrim($nextLine, " \t");
+                $bodyLineMap[] = $this->sourceLineFor($i);
+                $i++;
+            } elseif (
+                // A comment below a nested note's body stays with its list item.
+                !($parent->getType() === 'list_item'
+                    && $authoredNext !== null
+                    && $authoredNext < ($this->authoredFootnoteBodyFloor($start, $line) ?? 0))
+                && $trailingState->openParagraph
+                && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))
+            ) {
                 $holder = new Document();
                 $consumed = $this->tryParseFencedComment($holder, $lines, $i)
                     ?? $this->tryParseComment($holder, $lines, $i) ?? 1;
@@ -5703,7 +5729,8 @@ class BlockParser
                     break;
                 }
                 for ($end = $i + $consumed; $i < $end; $i++) {
-                    $bodyLines[] = ltrim($lines[$i], " \t");
+                    $bodyLines[] = $consumed > 1
+                        ? $this->keptCommentDelimiter($lines[$i]) : ltrim($lines[$i], " \t");
                     $bodyLineMap[] = $this->sourceLineFor($i);
                 }
                 $trailingState->openParagraph = false;
