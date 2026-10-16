@@ -715,6 +715,8 @@ final class DefinitionListBuilder
                         && $bodyNestedState->fence === null
                         && !$bodyNestedState->hasOpenDiv()
                         && !$bodyNestedState->absorbingFence
+                        && !$bodyNestedState->inTable
+                        && !$bodyNestedState->nestedListSeen
                     ) {
                         $body[$lastBodyKey] .= "\n" . $trimmedCont;
                         $i++;

@@ -5643,6 +5643,8 @@ class BlockParser
                     && $trailingState->fence === null
                     && !$trailingState->hasOpenDiv()
                     && !$trailingState->absorbingFence
+                    && !$trailingState->inTable
+                    && !$trailingState->nestedListSeen
                     && $this->listParser->parseListItemMarker($bodyLine) !== null
                 ) {
                     $bodyLines[$lastBodyKey] .= "\n" . $bodyLine;
