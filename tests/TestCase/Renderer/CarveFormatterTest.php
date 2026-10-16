@@ -71,6 +71,21 @@ class CarveFormatterTest extends TestCase
         $this->addToAssertionCount(1);
     }
 
+    public function testBlockOpenersStayInAFootnoteOnADefinitionLine(): void
+    {
+        $converter = new CarveConverter();
+        $blocks = ['## J', '- item', '> quote', "```\ncode\n```", '---', ":: u\n: v", "::: note\nx\n:::", "| a |\n| - |\n| b |"];
+        foreach (['', "    # H\n"] as $lead) {
+            foreach ($blocks as $block) {
+                $source = "x[^c]\n\n:: t\n: [^c]: para\n" . $lead . '    ' . str_replace("\n", "\n    ", $block) . "\n";
+                $formatted = CarveConverter::toCarve($source);
+
+                $this->assertSame($converter->convert($source), $converter->convert($formatted), $source);
+                $this->assertSame($formatted, CarveConverter::toCarve($formatted), $source);
+            }
+        }
+    }
+
     public function testTargetedFormattingRules(): void
     {
         $nbsp = "\u{00A0}";

@@ -1372,10 +1372,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
+     * @param bool $compactFootnoteBlocks Keep block openers in a note on a definition line.
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
-    protected function renderBlocks(array $blocks): string
+    protected function renderBlocks(array $blocks, bool $compactFootnoteBlocks = false): string
     {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
@@ -1434,6 +1435,21 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && $previousCompactDefinition
                         && $block->getRenderHint("\0carve-compact-definition") === '1'
                     ) {
+                        $parts[array_key_last($parts)] .= "\n" . $rendered;
+                    } elseif (
+                        $compactFootnoteBlocks
+                        && $parts !== []
+                        && ($block instanceof Heading
+                            || $block instanceof BlockQuote
+                            || $block instanceof CodeBlock
+                            || $block instanceof ThematicBreak
+                            || $block instanceof DefinitionList
+                            || $block instanceof ListBlock
+                            || $block instanceof Div
+                            || $block instanceof Table)
+                    ) {
+                        // A blank ends a note collected on a definition line.
+                        // These openers separate their blocks without one.
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
                     } else {
                         $parts[] = $rendered;
@@ -2740,7 +2756,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($collected !== null) {
                     $this->definitionsWrittenInPlace[spl_object_id($collected)] = true;
                     $written = $collected instanceof Footnote
-                        ? $this->renderFootnote($collected)
+                        ? $this->renderFootnote($collected, true)
                         : $this->renderLinkReferenceDefinition($collected);
                     // A note's own continuation lines move right by the marker
                     // too. Left at the note's standalone column they fell one
@@ -3480,10 +3496,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      *
      * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
      */
-    protected function renderFootnote(Footnote $node): string
+    protected function renderFootnote(Footnote $node, bool $inDefinitionDescription = false): string
     {
         $this->footnoteCodeGuard ??= str_repeat($this->verbatimSentinels[7], 6);
-        $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren()));
+        $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren(), $inDefinitionDescription));
         $sentinel = preg_quote($this->verbatimSentinels[7], '/');
         $refusal = '/^((?:' . $sentinel . '){1,5})(.*)$/';
         foreach (explode("\n", $rawBody) as $line) {

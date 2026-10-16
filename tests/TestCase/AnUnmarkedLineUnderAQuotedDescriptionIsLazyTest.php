@@ -23,6 +23,14 @@ class AnUnmarkedLineUnderAQuotedDescriptionIsLazyTest extends TestCase
     public static function cases(): array
     {
         return [
+            'a heading at column zero leaves the description' => [
+                ":: t\n: > quote\n# Heading\n",
+                '<dl><dt>t</dt><dd><blockquote><p>quote</p></blockquote></dd></dl><section id="Heading"><h1>Heading</h1></section>',
+            ],
+            'an indented heading stays in the quote paragraph' => [
+                ":: t\n: > quote\n # Heading\n",
+                '<dl><dt>t</dt><dd><blockquote><p>quote # Heading</p></blockquote></dd></dl>',
+            ],
             'c016' => [
                 '> :: t
 > : para
@@ -240,10 +248,10 @@ tail</dd>
 ```
 ', '<blockquote>
 <dl>
-<dt>t</dt>
+<dt>t
+<code></code></dt>
 </dl>
-</blockquote>
-<pre><code></code></pre>',
+</blockquote>',
             ],
             'c100' => [
                 '> :: t

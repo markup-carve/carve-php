@@ -50,6 +50,15 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-block-at-an-item-content-column-ends-its-paragraph-before-an-unclosed-fence',
+        'a-definition-or-attribute-line-in-a-nested-container-leaves-no-paragraph-for-an-unmarked-line',
+        'a-line-is-read-in-the-container-whose-column-it-reaches',
+        'a-line-past-a-body-s-column-is-read-in-the-body-and-a-quote-does-not-rebase',
+        'a-quoted-item-comment-ends-the-quote-before-an-unclosed-fence',
+        'a-table-row-or-a-definition-under-a-paragraph-ends-it-before-an-unclosed-fence',
+        'an-escaped-cross-reference-spelling-stays-literal',
+        'an-item-comment-or-attribute-line-closes-the-item-s-paragraph',
+        'an-unclosed-fence-under-a-multi-line-quote-paragraph-in-a-container-opens-nothing',
         'an-unclosed-fence-under-an-open-paragraph-in-a-container-opens-nothing',
         'an-autolink-a-cross-reference-or-a-comment-is-atomic-to-every-outside-delimiter',
         'a-bare-closer-does-not-reach-inside-a-cross-reference',
