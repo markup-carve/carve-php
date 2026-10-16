@@ -1357,6 +1357,8 @@ final class ListBlockBuilder
         $unclosedFenceBase ??= $this->hookUnclosedFenceBase;
         $this->hookUnclosedFenceBase = null;
         $lines = $this->rebaseOverindentedItemBlocks($lines, $authoredBaseEligible, $leadNestedColumn, absorbLeadNoteBody: true, unclosedFenceBase: $unclosedFenceBase);
+        // Attribute lines and their fence use one local base after item rebasing.
+        $lines = $this->alignAttributeFenceRun($lines, $lineMap);
         // THESE LINES ARE THE ITEM'S BODY, so their column 0 IS the item's
         // content column and a marker reaching it opens a sublist (PART 9 §24
         // C3, markup-carve/carve#1517). Passed the way `$topLevel` is passed and
@@ -1388,6 +1390,80 @@ final class ListBlockBuilder
                 unset($this->suffixRepairLineCounts[$sourceLine]);
             }
         }
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param array<int, int>|null $lineMap
+     *
+     * @return array<string>
+     */
+    private function alignAttributeFenceRun(array $lines, ?array $lineMap): array
+    {
+        $count = count($lines);
+        if ($count === 0 || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $lines[0]) === 1) {
+            return $lines;
+        }
+        if (
+            $count === 3
+            && ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[1], " \t")) !== null
+            && ($this->isBlockAttributeLineCallback)(ltrim($lines[2], " \t"))
+        ) {
+            $lines[2] = ltrim($lines[2], " \t");
+        }
+        for ($i = 0; $i + 1 < $count; $i++) {
+            if ($i > 1 && !($i === 2 && ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[1], " \t")) !== null)) {
+                continue;
+            }
+            if (!($this->isBlockAttributeLineCallback)(ltrim($lines[$i], " \t"))) {
+                continue;
+            }
+            $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lines[$i + 1], " \t"));
+            if ($opener === null) {
+                continue;
+            }
+            $char = $opener['fence'][0];
+            $width = strlen($opener['fence']);
+            $divOpener = $i === 2
+                ? ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[1], " \t"))
+                : null;
+            $sourceFenceLine = $lineMap[$i + 1] ?? -1;
+            $fenceBase = $divOpener === null ? 0 : IndentationHelper::getLeadingColumns(
+                $this->state->source->sourceLines[$sourceFenceLine] ?? $lines[$i + 1],
+            );
+            $lines[$i] = ltrim($lines[$i], " \t");
+            $lines[++$i] = ltrim($lines[$i], " \t");
+            for ($j = $i + 1; $j < $count; $j++) {
+                if ($divOpener === null && IndentationHelper::isBlankLine($lines[$j])) {
+                    continue;
+                }
+                if ($divOpener !== null && ($this->getFencedBlockParser)()->isDivFenceCloser(ltrim($lines[$j], " \t"), $divOpener['length'])) {
+                    break;
+                }
+                $sourcePayloadLine = $lineMap[$j] ?? -1;
+                $authoredPayload = $this->state->source->sourceLines[$sourcePayloadLine] ?? $lines[$j];
+                $content = $divOpener === null
+                    ? ltrim($lines[$j], " \t")
+                    : IndentationHelper::stripLeadingColumns($authoredPayload, $fenceBase);
+                if (
+                    $divOpener !== null && IndentationHelper::getLeadingColumns($lines[$j]) > $fenceBase
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($content, " \t"), $char, $width)
+                ) {
+                    $content = BlockGrammar::LAZY_FRAME . $content;
+                }
+                $lines[$j] = $content;
+                if (($this->getFencedBlockParser)()->isCodeFenceCloser($content, $char, $width)) {
+                    if ($j + 1 < $count && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lines[$j + 1], " \t")) !== null) {
+                        $lines[$j + 1] = ltrim($lines[$j + 1], " \t");
+                    }
+                    $i = $j;
+
+                    break;
+                }
+            }
+        }
+
+        return $lines;
     }
 
     /**
