@@ -473,6 +473,35 @@ final class DefinitionListBuilder
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     $lastBody = $body === [] ? '' : $body[array_key_last($body)];
+                    $sourceLine = $this->sourceLineFor($i);
+                    if (
+                        isset($this->state->session->blockQuoteLazySourceLines[$sourceLine])
+                        && $body !== []
+                        && !IndentationHelper::isBlankLine($contLine)
+                    ) {
+                        $body[array_key_last($body)] .= "\n" . ltrim(BlockGrammar::stripLazyFrame($contLine), " \t");
+                        $i++;
+
+                        continue;
+                    }
+                    $authoredLine = $this->state->source->sourceLines[$sourceLine] ?? '';
+                    if (ContainerPrefix::quoteContent($authoredLine) !== null) {
+                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
+                    }
+                    if (
+                        ContainerPrefix::quoteContent($authoredLine) !== null
+                        && $body !== []
+                        && $bodyNestedState->fence === null
+                        && !IndentationHelper::isBlankLine($contLine)
+                        && IndentationHelper::getLeadingColumns($contLine) > 0
+                        && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn
+                        && $this->bodyEntryStartsParagraph($body[array_key_last($body)])
+                    ) {
+                        $body[array_key_last($body)] .= "\n" . ltrim($contLine, " \t");
+                        $i++;
+
+                        continue;
+                    }
                     // A containing item may have erased this line's indent while
                     // folding an unmatched run. Read its authored column before
                     // deciding whether a visible opener reaches this body.

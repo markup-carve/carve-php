@@ -134,6 +134,8 @@ final class BlockQuoteBuilder
                 !$state['paragraphOpen']
                 || (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm([$lines[$end]]))
+                || ($this->lastQuoteLineIsBareTerm([$lines[$end]])
+                    && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")) !== null)
                 || ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['literal'] ?? false)
                 || $this->endsBlockQuote($line, true, $lines, $j)
             ) {
@@ -290,6 +292,8 @@ final class BlockQuoteBuilder
                 $lazyState['paragraphOpen']
                 && !(($this->getListParser)()->parseListItemMarker(ltrim($currentLine, " \t")) !== null
                     && $this->lastQuoteLineIsBareTerm($innerLines))
+                && !($this->lastQuoteLineIsBareTerm($innerLines)
+                    && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($currentLine, " \t")) !== null)
                 && !(preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($currentLine, " \t")) === 1
                     && $this->lastQuoteLineIsATerm($innerLines))
                 && !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
@@ -316,7 +320,9 @@ final class BlockQuoteBuilder
                 $lazySourceLine = $this->sourceLineFor($i);
                 $innerLineMap[] = $lazySourceLine;
                 $this->state->session->blockQuoteLazySourceLines[$lazySourceLine] = true;
-                $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i, $codeCloserMemo);
+                if (!isset($lazyState['hosts']['descriptionColumn'])) {
+                    $this->trackBlockQuoteLazyState($currentLine, $lazyState, $lines, $i, $codeCloserMemo);
+                }
                 $i++;
             } else {
                 break;
