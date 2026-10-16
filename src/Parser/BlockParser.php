@@ -1031,7 +1031,6 @@ class BlockParser
                     ),
                 );
                 foreach ($body['lines'] as $bodyIndex => $entry) {
-                    // The note body rebase must retain a comment delimiter's column.
                     if (
                         preg_match('/^%{3,}$/', $entry) === 1
                         && isset($collectedBodyLines[$bodyIndex])
@@ -5038,6 +5037,27 @@ class BlockParser
 
                     continue;
                 }
+                // Only a comment below the content column retains the item.
+                $sourceCommentLine = $this->state->source->sourceLines[$itemLineMap[count($itemLineMap) - 1] ?? -1] ?? '';
+                $followingComment = $this->fencedBlockParser->parseDivFenceOpener($bottom) !== null
+                    && $itemLines !== []
+                    && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
+                    && IndentationHelper::getLeadingColumns($sourceCommentLine) < $contentIndent
+                    && preg_match('/^[ \t]*[`~]{3,}/m', implode("\n", $itemLines)) !== 1
+                    && ContainerPrefix::quoteContent($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '') === null;
+                $fenceAfterComment = $followingComment
+                    ? $this->fencedBlockParser->parseCodeFenceOpener($nextTrimmed) : null;
+                if (
+                    $fenceAfterComment !== null
+                    && !$this->continuationsMapper()->sourceFenceCloserInView($lines, $i, $fenceAfterComment, 0)
+                ) {
+                    $itemLines[] = $nextIndent > 0 ? ' ' . $nextTrimmed : $nextTrimmed;
+                    $itemLineMap[] = $this->sourceLineFor($i);
+                    $trailingState = $this->advanceTrailingState($trailingState, $nextTrimmed, true);
+                    $i++;
+
+                    continue;
+                }
                 // A sibling marker or a block opener at the base column belongs
                 // to the caller's loop, and a stream ending in a closed block
                 // has nothing to continue: both end the item.
@@ -5708,17 +5728,19 @@ class BlockParser
                 $i++;
             } elseif (
                 preg_match('/^[ \t]+%%(?!%)/', $nextLine) === 1
-                && $this->definitionsBuilder()->bodyTermIsOpen($bodyLines, $termScan, $lines, $i)
+                && ($this->definitionsBuilder()->bodyTermIsOpen($bodyLines, $termScan, $lines, $i)
+                    || preg_match('/^::[ \t]/', ltrim($bodyLines[0] ?? '', " \t")) === 1)
             ) {
                 // The note's term keeps the comment's line break.
                 $bodyLines[] = ' ' . ltrim($nextLine, " \t");
                 $bodyLineMap[] = $this->sourceLineFor($i);
+                $retainedBelowComment = true;
                 $i++;
             } elseif (
-                // A comment below a nested note's body stays with its list item.
                 !($parent->getType() === 'list_item'
                     && $authoredNext !== null
-                    && $authoredNext < ($this->authoredFootnoteBodyFloor($start, $line) ?? 0))
+                    && $authoredNext < ($this->authoredFootnoteBodyFloor($start, $line) ?? 0)
+                    && preg_match('/^%%(?!%)/', ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t")) !== 1)
                 && $trailingState->openParagraph
                 && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))
             ) {
