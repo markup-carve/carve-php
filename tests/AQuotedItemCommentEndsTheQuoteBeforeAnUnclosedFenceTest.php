@@ -9,14 +9,25 @@ use PHPUnit\Framework\TestCase;
 
 class AQuotedItemCommentEndsTheQuoteBeforeAnUnclosedFenceTest extends TestCase
 {
-    public function testSuppliedRows(): void
+    public function testCommentAndAttributeItemsEndTheQuote(): void
     {
-        $base = __DIR__ . '/../_rows612/612-a-quoted-item-comment-ends-the-quote-before-an-unclosed-fence';
-        foreach (['', '-2', '-3'] as $suffix) {
-            $source = file_get_contents($base . $suffix . '.crv');
-            $expected = file_get_contents($base . $suffix . '.html');
-            self::assertSame($expected, (new CarveConverter())->convert($source), $suffix);
+        $list = "<ul>\n      <li>para</li>\n      <li></li>\n    </ul>";
+        foreach (["> - para\n> - %% c", "> - para\n> - {#x}"] as $quote) {
+            $source = "::: note\n" . $quote . "\n```\ncode\n::::\n:::\nafter *b*\n";
+            $expected = "<aside class=\"admonition note\" aria-label=\"Note\">\n  <blockquote>\n    "
+                . $list . "\n  </blockquote>\n  <pre><code>code\n::::\n</code></pre>\n</aside>\n"
+                . "<p>after <strong>b</strong></p>\n";
+            self::assertSame($expected, (new CarveConverter())->convert($source), $quote);
         }
+    }
+
+    public function testAPlainQuotedParagraphKeepsTheItemLineAsText(): void
+    {
+        $source = "::: note\n> para\n> - %% c\n```\ncode\n::::\n:::\nafter *b*\n";
+        $expected = "<aside class=\"admonition note\" aria-label=\"Note\">\n"
+            . "  <blockquote><p>para\n-\n<code>\ncode</code></p></blockquote>\n"
+            . "  <div>\n    <div>\n      <p>after <strong>b</strong></p>\n    </div>\n  </div>\n</aside>\n";
+        self::assertSame($expected, (new CarveConverter())->convert($source));
     }
 
     public function testOrderedAndNestedItemsAndContinuedItemParagraph(): void
