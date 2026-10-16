@@ -5107,15 +5107,18 @@ class BlockParser
                         : ' ' . $nextTrimmed);
                 $itemLines[] = $folded;
                 $itemLineMap[] = $this->sourceLineFor($i);
+                $lazyDivParagraph = $trailingState->openParagraph && $trailingState->hasOpenDiv()
+                    && $this->listParser->parseListItemMarker($nextTrimmed) === null
+                    && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed));
                 // Tracked as the line the item RECEIVED, not as the source line.
                 // A framed closing run is body text, so it must not close the
                 // tracker's fence either - fed the source line, the tracker shut
                 // the fence at the closer and the run below it left the item.
                 $trailingState = $this->advanceTrailingState(
                     $trailingState,
-                    str_starts_with($folded, self::LAZY_FRAME)
+                    $lazyDivParagraph ? 'text' : (str_starts_with($folded, self::LAZY_FRAME)
                         ? $folded
-                        : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine),
+                        : ($this->itemFenceOpenerAt($nextTrimmed) !== null ? 'text' : $nextLine)),
                 );
                 if (
                     $bareContinuationLead
@@ -5151,6 +5154,8 @@ class BlockParser
             $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
+            $divHeading = $trailingState->hasOpenDiv() && !$trailingState->openParagraph
+                && preg_match('/^#{1,6} /', ltrim($stripped, " \t")) === 1;
             // AT OR PAST the content column, the same reading the plain-lead
             // collector uses: an invisible block here ends the paragraph under
             // it (carve-php#1866).
@@ -5179,6 +5184,9 @@ class BlockParser
                 $trailingState = $trailingState->hasLiteralDiv()
                     ? $this->continuationsMapper()->advanceLiteralStateWithSourceFenceLookahead($trailingState, $stripped, $lines, $i, $contentIndent)
                     : $this->advanceTrailingState($trailingState, $stripped, true);
+            }
+            if ($divHeading) {
+                $trailingState->openParagraph = false;
             }
             if (
                 !$inCommentSpan && !$inlineCodeWithoutCloser

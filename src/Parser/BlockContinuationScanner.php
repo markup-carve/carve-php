@@ -1563,7 +1563,11 @@ final class BlockContinuationScanner
                     && $trailingState->nestedColumn > 2 && $column - $contentIndent >= $trailingState->nestedColumn
                     && $trailingState->fence === null
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
-                $trailingState = $retainedQuoteFence ? $trailingState : ($failedReplayFence || $descendantParagraphFence
+                $quotedLazyOpener = $trailingState->quoteParagraph && $column > $contentIndent
+                    && ContainerPrefix::quoteContent($contentLine) === null
+                    && ($nextTrimmed[0] ?? '') !== '`' && ($nextTrimmed[0] ?? '') !== '~'
+                    && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed));
+                $trailingState = $retainedQuoteFence ? $trailingState : ($quotedLazyOpener || $failedReplayFence || $descendantParagraphFence
                     || ($authoredTermContinuation && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0))
                     ? $this->advanceTrailingState($trailingState, 'text', true)
                     : ($wasOpenParagraph

@@ -117,8 +117,14 @@ final class BlockQuoteBuilder
             }
 
             $quoteContent = $this->blockQuoteLineContent($line);
+            if ($quoteContent === null && in_array('note', $state['hosts']['kinds'] ?? [], true)) {
+                $quoteContent = $this->blockQuoteLineContent(ltrim($line, " \t"));
+            }
             if ($quoteContent !== null) {
                 $this->trackBlockQuoteLazyState($quoteContent, $state, $lines, $j, $codeCloserMemo);
+                if (in_array('note', $state['hosts']['kinds'] ?? [], true)) {
+                    $state['paragraphOpen'] = false;
+                }
                 $end = $j;
 
                 continue;
@@ -269,10 +275,16 @@ final class BlockQuoteBuilder
 
             // Continue with "> " prefix (space required per spec)
             $content = $this->blockQuoteLineContent($currentLine);
+            if ($content === null && in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
+                $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
+            }
             if ($content !== null) {
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
                 $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i, $codeCloserMemo);
+                if (in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
+                    $lazyState['paragraphOpen'] = false;
+                }
                 $i++;
             } elseif (
                 $lazyState['paragraphOpen']
@@ -526,7 +538,8 @@ final class BlockQuoteBuilder
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
-        $nextQuoted = isset($lines[$index + 1]) ? $this->blockQuoteLineContent($lines[$index + 1]) : null;
+        // A note body can indent the next quote marker beyond the quote prefix.
+        $nextQuoted = isset($lines[$index + 1]) ? $this->blockQuoteLineContent(ltrim($lines[$index + 1], " \t")) : null;
         if (
             $host['markers'] !== [] && $column >= $host['columns'][array_key_last($host['columns'])]
             && ($this->isReferenceDefinitionLine($text) || $this->isBlockAttributeLine($text))
@@ -923,16 +936,10 @@ final class BlockQuoteBuilder
                 }
             }
 
-            // Definitions and fence-shaped lazy lines remain paragraph text
-            // when a nested quote replays them.
+            // An unmarked lazy line cannot open a block inside the quote.
             if (
                 $state['paragraphOpen']
                 && isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($sourceIndex)])
-                && (
-                    $this->isReferenceDefinitionLine(ltrim($content, " \t"))
-                    || ($this->getFencedBlockParser)()->parseCodeFenceOpener($content) !== null
-                    || ($this->getFencedBlockParser)()->parseRawBlockOpener($content) !== null
-                )
             ) {
                 return;
             }
@@ -1078,9 +1085,14 @@ final class BlockQuoteBuilder
                     $this->isReferenceDefinitionLine($trimmedInDiv)
                     || $this->isBlockAttributeLine($trimmedInDiv)
                     || ($state['colonClaims'] === [] && $this->isCommentLineOrFence($trimmedInDiv))
-                    || preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
-                    || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
-                    || ($this->getTableParser)()->isTableRow($trimmedInDiv)
+                    || (
+                        IndentationHelper::getLeadingColumns($content) === ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['column'] ?? 0)
+                        && (
+                            preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $trimmedInDiv) === 1
+                            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedInDiv) === 1
+                            || ($this->getTableParser)()->isTableRow($trimmedInDiv)
+                        )
+                    )
                 ) {
                     $state['paragraphOpen'] = false;
 
