@@ -422,6 +422,12 @@ final class DefinitionListBuilder
                     $body = [trim($m[2], StringUtil::WHITESPACE_CHARS)];
                     $bodyMap = [$this->sourceLineFor($definitionStart)];
                 }
+                // A nested item owns lines that reach its column; a document or quote body keeps its own band.
+                $descriptionAtDocumentOrQuote = $definitionColumn === 0
+                    || str_starts_with(
+                        ltrim($this->state->source->sourceLines[$bodyMap[0] ?? -1] ?? '', " \t"),
+                        '>',
+                    );
                 $termScan = null;
                 $commentSpan = new CollectedCommentSpan();
                 $bodyFenceView = new IndexedFenceView();
@@ -687,6 +693,11 @@ final class DefinitionListBuilder
                     // which is what keeps a definition BELOW the column folding
                     // as §24 C3 requires.
                     $trimmedCont = ltrim($contLine, " \t");
+                    // These openers need the body's column unless an item inside it claims the line.
+                    $belowDescriptionTextOpener = preg_match(
+                        '/^(?:#{1,6}(?:[ \t]|$)|>|\||(?:[-*_][ \t]*){3,}$)/',
+                        $trimmedCont,
+                    ) === 1;
                     if (
                         $indent > $continuationColumn
                         && $definitionColumn !== null && $definitionColumn > 0
@@ -848,6 +859,8 @@ final class DefinitionListBuilder
                         // A nested marker keeps its own entry; a later fence folds into its item.
                         && ($this->getListParser)()->parseListItemMarker(ltrim($body[$lastBodyKey], " \t")) === null
                         && ($belowColumnMarker || $paragraphFenceHasNoCloser
+                            || ($descriptionAtDocumentOrQuote
+                                && $indent < $continuationColumn && $belowDescriptionTextOpener)
                             || !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false))
                     ) {
                         $body[$lastBodyKey] .= "\n" . $trimmedCont;
@@ -1211,13 +1224,12 @@ final class DefinitionListBuilder
                         ? ($nestedLeadFence->closed && $nestedLeadFence->trailing->openParagraph)
                         : ($bodyState->openParagraph || $nestedLazyParagraph || $bodyTermOpen);
                     if (
-                        $indent < $continuationColumn
+                        $indent > 0 && $indent < $continuationColumn
                         && $body !== []
                         && str_starts_with($body[0], '>')
+                        && $belowDescriptionTextOpener
                         && $bodyState->openParagraph
-                        && $indent > 0
                         && !IndentationHelper::isBlankLine($contLine)
-                        && preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmedCont) === 1
                     ) {
                         $body[array_key_last($body)] .= "\n" . $trimmedCont;
                         $i++;
@@ -1244,14 +1256,18 @@ final class DefinitionListBuilder
                             $indent === 0
                             || (
                                 ($bodyState->nestedColumn > 0 || $indent > 0)
-                                && !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false)
+                                && ($indent > 0 && $descriptionAtDocumentOrQuote
+                                    && $indent < $continuationColumn && $belowDescriptionTextOpener
+                                    || !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false))
                             )
                         )
                         && !IndentationHelper::isBlankLine($contLine)
                         && !$this->isBlockAttributeLine($trimmedCont)
                         && $this->wrappedBlockAttributeLength($lines, $i) === null
                         && !$this->isCommentLineOrFence($trimmedCont)
-                        && !$this->startsInterruptingBlock($trimmedCont, $lines, $i)
+                        && ($indent > 0 && $descriptionAtDocumentOrQuote
+                            && $indent < $continuationColumn && $belowDescriptionTextOpener
+                            || !$this->startsInterruptingBlock($trimmedCont, $lines, $i))
                     ) {
                         // COLLECTED BELOW THE CONTENT COLUMN, so it adds no
                         // block: the tracker must read it as the lazy line it

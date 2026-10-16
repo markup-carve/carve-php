@@ -205,24 +205,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     }
 
     /**
-     * A VISIBLE OPENER ANSWERS THE SAME BAND. This was the control that said
-     * carve-php#1870 was scoped to the definition: a heading past the column
-     * kept the flush-left line INSIDE the body in every reading measured then,
-     * so moving it would have been a divergence rather than a fix.
-     * markup-carve/carve#1911 ruled the other way and markup-carve/carve#1917
-     * wrote it in, so `# h` at 4 and 5 now answers as it does at 3 - the two
-     * columns cannot part company, because §10 I1 closes the paragraph for the
-     * visible opener exactly where §10 I5 closes it for a definition, and an
-     * answer that moves between them is reading indentation rather than the
-     * rule (carve-php#1874).
-     *
-     * Rows 3, 4 and 5 are corpus `444-*-4`, `444-*-3` and its two-past
-     * spelling. Every row matches the executable spec at `35148309`, the tip of
-     * `main`. The PINNED revision keeps `tail` inside at 4 and 5, and so does
-     * carve-js `3ca6d8c`: its half of the ruling, markup-carve/carve-js#1604,
-     * is still open. So is carve-rs's, markup-carve/carve-rs#1525, and that
-     * engine was NOT run for this class - a ticket state is not a measurement,
-     * and no published carve-rs artifact is current for this rule family.
+     * A heading below the body column folds into its open paragraph (corpus 426-3).
      *
      * @return array<string, array{0: int, 1: string}>
      */
@@ -232,8 +215,8 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
 
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<section id=\"h\">\n  <h1>h</h1>\n  <p>tail</p>\n</section>"],
-            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p># h\ntail</p>"],
-            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p># h\ntail</p>"],
+            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a\n# h\ntail</dd>\n</dl>"],
+            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a\n# h\ntail</dd>\n</dl>"],
             'at the column' => [3, $ended],
             'one past the column' => [4, $ended],
             'two past the column' => [5, $ended],
@@ -289,12 +272,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     }
 
     /**
-     * A THEMATIC BREAK IS THE SAME §10 I1 OPENER, and the one payload that
-     * renders as a leaf: it cannot hold the follower even in principle, so the
-     * follower's home is decided entirely by whether the body still carries an
-     * open paragraph. Corpus `444-*-5` is column 4.
-     *
-     * Matches the executable spec at `35148309` at every column.
+     * A thematic break below the body column folds as text (corpus 616-16).
      *
      * @return array<string, array{0: int, 1: string}>
      */
@@ -304,8 +282,8 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
 
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<hr>\n<p>tail</p>"],
-            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>***\ntail</p>"],
-            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>***\ntail</p>"],
+            'below the column, 1' => [1, "<dl>\n  <dt>t</dt>\n  <dd>a\n***\ntail</dd>\n</dl>"],
+            'below the column, 2' => [2, "<dl>\n  <dt>t</dt>\n  <dd>a\n***\ntail</dd>\n</dl>"],
             'at the column' => [3, $ended],
             'one past the column' => [4, $ended],
             'two past the column' => [5, $ended],
@@ -321,16 +299,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     }
 
     /**
-     * A TABLE ROW IS THE THIRD SPELLING, and it says the answer is about the
-     * paragraph rather than about which element the opener produces: a table
-     * COULD hold the follower as a continuation row, and does not.
-     * Corpus `444-*-6` is column 4.
-     *
-     * Columns 3 to 5 match the executable spec at `35148309`. Columns 0 to 2
-     * do NOT, and did not before this change either: below the body's column a
-     * table row folds as text here and opens a table there. That is §24 C3's
-     * own band and a separate defect from this one - it is pinned here so a
-     * later fix to it has to say so.
+     * A table row below the body column folds as text (corpus 616-17).
      *
      * @return array<string, array{0: int, 1: string}>
      */
@@ -338,7 +307,7 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     {
         $table = "<table>\n      <tbody>\n        <tr><td>a</td></tr>\n      </tbody>\n    </table>";
         $ended = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    " . $table . "\n  </dd>\n</dl>\n<p>tail</p>";
-        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>| a |\ntail</p>";
+        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a\n| a |\ntail</dd>\n</dl>";
 
         return [
             'below the column, 1' => [1, $folded],
@@ -393,21 +362,14 @@ class ADefinitionAtOrPastADescriptionBodysContentColumnClosesTheParagraphTest ex
     }
 
     /**
-     * AN OPENER THAT LEAVES A PARAGRAPH OPEN IS NOT COVERED, and this is the
-     * row a fix that closes the body for every opener breaks. A block quote
-     * opens inside the `dd`, its OWN paragraph is still open, and the
-     * flush-left line lazily continues THE QUOTE - so the follower stays inside
-     * at every at-or-past column. Corpus `444-*-11` is column 4.
-     *
-     * Matches the executable spec at `35148309` at every column, and is
-     * byte-identical before and after this change.
+     * A quote marker below the body column folds as text (corpus 426-2).
      *
      * @return array<string, array{0: int, 1: string}>
      */
     public static function blockQuoteBandProvider(): array
     {
         $inside = "<dl>\n  <dt>t</dt>\n  <dd>\n    <p>a</p>\n    <blockquote><p>q\ntail</p></blockquote>\n  </dd>\n</dl>";
-        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<p>&gt; q\ntail</p>";
+        $folded = "<dl>\n  <dt>t</dt>\n  <dd>a\n&gt; q\ntail</dd>\n</dl>";
 
         return [
             'column 0' => [0, "<dl>\n  <dt>t</dt>\n  <dd>a</dd>\n</dl>\n<blockquote><p>q\ntail</p></blockquote>"],

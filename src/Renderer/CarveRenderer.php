@@ -2765,7 +2765,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // back in (carve#1980).
                     $writtenLines = explode("\n", $written);
                     $out[] = self::DEFINITION_BODY_MARKER . array_shift($writtenLines);
-                    foreach ($writtenLines as $writtenLine) {
+                    foreach ($writtenLines as $index => $writtenLine) {
+                        if (
+                            $collected instanceof Footnote
+                            && $writtenLine === ''
+                            && preg_match('/^  #{1,6}(?:[ \t]|$)/', $writtenLines[$index + 1] ?? '') === 1
+                        ) {
+                            continue;
+                        }
                         $out[] = $this->indentContinuationLine($writtenLine, self::DEFINITION_BODY_INDENT);
                     }
 
@@ -2785,8 +2792,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                 $lines = explode("\n", $body);
                 $out[] = self::DEFINITION_BODY_MARKER . array_shift($lines);
+                // A paragraph's guarded opener must stay below the body's column on write-back.
+                $children = $child->getChildren();
+                $paragraphContinuation = count($children) === 1 && $children[0] instanceof Paragraph;
                 foreach ($lines as $line) {
-                    $out[] = $this->indentContinuationLine($line, self::DEFINITION_BODY_INDENT);
+                    $foldedOpener = $paragraphContinuation
+                        && preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|\|)/', $line) === 1;
+                    $out[] = $this->indentContinuationLine(
+                        $line,
+                        $paragraphContinuation
+                            ? (str_starts_with($line, $this->verbatimSentinels[3]) ? ''
+                                : ($foldedOpener ? ' ' : self::DEFINITION_BODY_INDENT))
+                            : self::DEFINITION_BODY_INDENT,
+                    );
                 }
             }
         }

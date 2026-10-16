@@ -120,20 +120,19 @@ class AnInvisibleLineBelowADescriptionColumnFoldsAsTextTest extends TestCase
     }
 
     /**
-     * The half that must NOT move. The amended BELOW THE BODY'S COLUMN THE BODY
-     * ENDS bullet is explicit that it is about OPENERS, so a fix that folded
-     * everything below the column fails here.
+     * Corpus 426-2/3 keeps these openers in the description paragraph.
      */
-    public function testAControlARealOpenerBelowTheColumnStillEndsTheBody(): void
+    public function testARealOpenerBelowTheColumnFollowsItsBand(): void
     {
         foreach ([' ', '  '] as $indent) {
             foreach (['> q', '# h', '| a |', '---', '::: note'] as $opener) {
                 $html = $this->html(":: t\n:  d\n" . $indent . $opener . "\n");
-                $this->assertStringStartsWith(
-                    "<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>",
-                    $html,
-                    $opener . ' at indent ' . strlen($indent) . ': ' . $html,
-                );
+                if ($opener === '::: note') {
+                    $this->assertStringStartsWith("<dl>\n  <dt>t</dt>\n  <dd>d</dd>\n</dl>", $html);
+                } else {
+                    $this->assertStringStartsWith("<dl>\n  <dt>t</dt>\n  <dd>d\n", $html);
+                    $this->assertStringEndsWith("</dd>\n</dl>", $html);
+                }
             }
         }
     }
