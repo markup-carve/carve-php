@@ -23,3 +23,4 @@
 
 2798: No user-visible change, by the author's own call in the pull request. The source-line rule moves onto the frame that already owns the map it reads, so the two resolvers cannot drift apart. The isolated lookup is cheaper, whole-document conversion is not measurably different, and the four behaviors the old ternary left implicit are now pinned by a test.
 3136: Moves a regex capture read inside its branch for PHPStan; output unchanged
+3482: Comment-only. It shortens the sentinel and quote-marker comments; no non-comment line in src moves.

@@ -50,6 +50,8 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'an-unclosed-fence-under-an-open-paragraph-in-a-container-opens-nothing',
+        'an-autolink-a-cross-reference-or-a-comment-is-atomic-to-every-outside-delimiter',
         'a-bare-closer-does-not-reach-inside-a-cross-reference',
         'an-autolink-or-a-cross-reference-is-atomic-to-brackets-and-braces',
         'a-block-quote-and-a-footnote-body-take-the-first-block-form',
@@ -1217,12 +1219,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '598-editorial-markup-closes-outside-a-cross-reference-or-a-bracket-run-5' => [
-            'reason' => 'PART 9 E2a (ruled 2026-10-15): a cross-reference is atomic, so the `~>` ending it is no arrow',
-            'html' => '<p><s>a &lt;/#x~&gt;y&gt; b</s></p>',
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
