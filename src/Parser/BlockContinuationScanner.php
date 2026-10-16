@@ -1794,6 +1794,21 @@ final class BlockContinuationScanner
             }
 
             if (
+                $recentDefinitionParagraph
+                && $nextIndent < $contentIndent
+                && $itemLines !== []
+                && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
+                && ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) !== null
+            ) {
+                $itemLines[] = ' ' . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState->openParagraph = false;
+                $trailingState->afterComment = false;
+                $i++;
+
+                continue;
+            }
+            if (
                 !$trailingState->openParagraph
                 && ($nextIndent === 0 || !$trailingState->afterComment)
                 && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationAttachesAtColumnZero($i))

@@ -111,6 +111,11 @@ final class DefinitionListBuilder
             // list marker ends the term.
             while ($i < $count) {
                 $nextLine = $lines[$i];
+                $quotedFence = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
+                    ? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($nextLine, " \t"))
+                    : null;
+                $quotedUnclosedFenceIsTermText = $quotedFence !== null
+                    && !$this->continuations->sourceFenceCloserInView($lines, $i, $quotedFence, 0);
                 if (preg_match('/^[ \t]+%%/', $nextLine) === 1) {
                     $parts[] = $this->foldedTermComment($lines, $i);
 
@@ -120,7 +125,7 @@ final class DefinitionListBuilder
                     IndentationHelper::isBlankLine($nextLine)
                     || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $nextLine)
-                    || $this->endsDefinitionTerm($nextLine, $lines, $i)
+                    || (!$quotedUnclosedFenceIsTermText && $this->endsDefinitionTerm($nextLine, $lines, $i))
                     || (($nextLine[0] ?? '') === '{'
                         && $this->wrappedBlockAttributeLength($lines, $i) !== null)
                     // A construct that renders nothing is not term text. The
@@ -1205,6 +1210,18 @@ final class DefinitionListBuilder
                     $paragraphOpen = $nestedLeadFence->length > 0
                         ? ($nestedLeadFence->closed && $nestedLeadFence->trailing->openParagraph)
                         : ($bodyState->openParagraph || $nestedLazyParagraph || $bodyTermOpen);
+                    if (
+                        $indent < $continuationColumn
+                        && $body !== []
+                        && str_starts_with($body[0], '>')
+                        && $bodyState->openParagraph
+                        && !IndentationHelper::isBlankLine($contLine)
+                    ) {
+                        $body[array_key_last($body)] .= "\n" . $trimmedCont;
+                        $i++;
+
+                        continue;
+                    }
                     if (!$paragraphOpen || ($bodyEndsWithAttribute && !$bodyTermOpen)) {
                         // AND THE BOUNDARY CLOSER IS SYNTHESIZED, exactly as
                         // the list-item collector synthesizes it: the closer

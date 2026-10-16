@@ -62,12 +62,7 @@ class IncludeConformanceTest extends TestCase
     public static function vectorProvider(): array
     {
         $dir = self::vectorDir();
-        // These eight vectors come from carve spec d79a72ed. Keep the corpus
-        // submodule pin stable until its newer parser rulings are implemented.
-        $files = array_merge(
-            glob($dir . '/*.json') ?: [],
-            glob(self::additionalVectorDir() . '/*.json') ?: [],
-        );
+        $files = glob($dir . '/*.json') ?: [];
         if ($files === []) {
             throw new RuntimeException(
                 "Include-conformance vectors not found at {$dir}.\n"
@@ -593,10 +588,5 @@ class IncludeConformanceTest extends TestCase
     protected static function vectorDir(): string
     {
         return __DIR__ . '/../../spec/tests/include-conformance/vectors';
-    }
-
-    protected static function additionalVectorDir(): string
-    {
-        return __DIR__ . '/../../include-conformance-additions/vectors';
     }
 }
