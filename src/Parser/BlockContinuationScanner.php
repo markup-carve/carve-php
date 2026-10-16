@@ -1015,6 +1015,32 @@ final class BlockContinuationScanner
                 break;
             }
 
+            $noteCommentFenceEnd = $markerNoteItem && !$isBlockQuoteLazyLine && $nextIndent >= $contentIndent
+                && $openCommentLength === null && $trailingState->fence === null
+                && !$trailingState->hasOpenDiv() && $trailingState->divDepth === 0
+                ? $this->commentFenceSpanEnd($nextTrimmed, $lines, $i) : null;
+            if ($noteCommentFenceEnd !== null) {
+                for ($spanIndex = $i + 1; $spanIndex < $noteCommentFenceEnd; $spanIndex++) {
+                    if (
+                        !IndentationHelper::isBlankLine($lines[$spanIndex])
+                        && IndentationHelper::getLeadingColumns($lines[$spanIndex]) < $contentIndent
+                    ) {
+                        $noteCommentFenceEnd = null;
+
+                        break;
+                    }
+                }
+            }
+            if ($noteCommentFenceEnd !== null) {
+                // A matched comment fence closes the note paragraph like a line comment.
+                $itemLines[] = str_repeat(' ', IndentationHelper::getLeadingColumns($nextLine) - $contentIndent) . '%%';
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceTrailingState($trailingState, '%%', true);
+                $i = $noteCommentFenceEnd;
+
+                continue;
+            }
+
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
                 // A marker at the body column of the marker-line note is the
                 // note's own line (PART 9 §16), so it does not end the item.
@@ -1393,7 +1419,7 @@ final class BlockContinuationScanner
                         $unclosedNoteText = $markerNoteItem && !$sawNestedNote
                             && (!$leadNoteHadBlank || $this->endsOnParagraphText($itemLines))
                             && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                            && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken, true)
+                            && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
                             && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
                             && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken)
                             && !$this->fenceClosesWithinColumn($lines, $i, $opener, $column, $noteCloserMemo);
@@ -1409,7 +1435,7 @@ final class BlockContinuationScanner
                                 && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken);
                             $closedNoteBodyFence = $markerNoteItem && ($trailingState->inFootnoteBody || !$sawNestedNote)
                                 && $column >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN
-                                && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken, true)
+                                && $this->noteKeepsItsBody($itemLines, $markerRunCursor, $markerRunBroken)
                                 && $this->noteSourceReaches($lines, $i, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN, $noteSourceCursor, $noteSourceBroken)
                                 && (
                                     $this->fenceClosesWithinColumn($lines, $i, $opener, $column, $noteCloserMemo)
@@ -4021,7 +4047,7 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Whether a line after the marker line opened a block in the note, which a low line cannot continue.
+     * Whether a line after the marker line ended the note paragraph.
      *
      * @param array<string> $itemLines
      * @param int $cursor first line not yet read, kept across calls
@@ -4032,7 +4058,9 @@ final class BlockContinuationScanner
         for ($count = count($itemLines); !$found && $cursor < $count; $cursor++) {
             $text = ltrim($itemLines[$cursor], " \t");
             $found = $text !== '' && ($this->getListParser)()->parseListItemMarker($text) === null
-                && ($this->isBlockElementStart($text) || $this->startsNewBlock($text));
+                && ($this->isBlockElementStart($text) || $this->startsNewBlock($text)
+                    || $this->isCommentLineOrFence($text) || $this->isReferenceDefinitionLine($text)
+                    || $this->isBlockAttributeLine($text));
         }
 
         return $found;
@@ -4076,18 +4104,17 @@ final class BlockContinuationScanner
 
     /**
      * Whether the marker-line note still runs: no collected line fell below its body column.
+     * Invisible blocks end paragraphs without ending the note's extent.
      *
      * @param array<string> $itemLines
      * @param int $cursor first line not yet read, kept across calls
      * @param bool $broken set once a line falls below the column
-     * @param bool $forFence whether a comment at the body's column stays with a fence
      */
-    private function noteKeepsItsBody(array $itemLines, int &$cursor, bool &$broken, bool $forFence = false): bool
+    private function noteKeepsItsBody(array $itemLines, int &$cursor, bool &$broken): bool
     {
         for ($count = count($itemLines); !$broken && $cursor < $count; $cursor++) {
             $text = ltrim($itemLines[$cursor], " \t");
-            $broken = ($text !== '' && IndentationHelper::getLeadingColumns($itemLines[$cursor]) < BlockGrammar::FOOTNOTE_BODY_COLUMN)
-                || (!$forFence && str_starts_with($text, '%%'));
+            $broken = $text !== '' && IndentationHelper::getLeadingColumns($itemLines[$cursor]) < BlockGrammar::FOOTNOTE_BODY_COLUMN;
         }
 
         return !$broken;
