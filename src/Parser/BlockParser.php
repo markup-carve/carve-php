@@ -3652,27 +3652,31 @@ class BlockParser
     /**
      * Whether a paragraph is open after this colon-body line, for the
      * paragraph-interruption gate on an unclosed fence (PART 9 §10 I4): null,
-     * or the prefixes carrying it ('>' quote, '-' item) ahead of 'p'. An item
-     * line reads its content only under an item's paragraph.
+     * or the prefixes carrying it ('>' quote, '-<content column>;' item) ahead
+     * of 'p'. An item line reads its content only under an item's paragraph.
+     * A line reaching the open item's content column is read there, so a
+     * block at that column closes the item's paragraph (CARVE-P0-011).
      *
      * @param string $line
      * @param string|null $wasOpen Paragraph prefix, if one is open.
+     * @param bool $inItem Whether the line was read at an item's content column.
      *
      * @return string|null
      */
-    private function opensColonBodyParagraph(string $line, ?string $wasOpen): ?string
+    private function opensColonBodyParagraph(string $line, ?string $wasOpen, bool $inItem = false): ?string
     {
         if (IndentationHelper::isBlankLine($line)) {
             return null;
         }
         $trimmed = ltrim($line, " \t");
+        $block = $inItem ? $trimmed : $line;
         if (
             $this->isBareColonFence($trimmed)
             || $this->fencedBlockParser->parseDivFenceOpener($trimmed) !== null
             || str_starts_with($trimmed, '%%')
-            || $this->parseSingleLineBlockAttributePayload($line) !== null
-            || $this->tableParser->isTableRow($line)
-            || $this->isReferenceDefinitionLine($line)
+            || $this->parseSingleLineBlockAttributePayload($block) !== null
+            || $this->tableParser->isTableRow($block)
+            || $this->isReferenceDefinitionLine($block)
             || preg_match('/^#{1,6}(?:[ \t]|$)/', $trimmed) === 1
             || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmed) === 1
         ) {
@@ -3687,14 +3691,26 @@ class BlockParser
 
             return $inner === null ? null : '>' . $inner;
         }
+        $open = $wasOpen !== null && preg_match('/^-(\d+);/', $wasOpen, $prefix) === 1 ? $prefix : null;
+        if ($open !== null && strspn($line, ' ') >= (int)$open[1]) {
+            $inner = $this->opensColonBodyParagraph(
+                substr($line, (int)$open[1]),
+                (string)substr((string)$wasOpen, strlen($open[0])),
+                true,
+            );
+
+            return $inner === null ? null : $open[0] . $inner;
+        }
         $item = $this->listParser->parseListItemMarker($trimmed);
-        if ($wasOpen !== null && ($item === null || !str_starts_with($wasOpen, '-'))) {
+        if ($wasOpen !== null && ($item === null || ($open === null && !$inItem))) {
             return $wasOpen;
         }
         if ($item !== null) {
             $inner = $this->opensColonBodyParagraph($item['content'], null);
+            $column = strlen($line) - strlen($item['content']) - ($item['attributesWidth'] ?? 0)
+                - ($item['type'] === 'task' ? 4 : 0);
 
-            return $inner === null ? null : '-' . $inner;
+            return $inner === null ? null : '-' . $column . ';' . $inner;
         }
 
         return 'p';
