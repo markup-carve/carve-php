@@ -457,7 +457,7 @@ final class DefinitionListBuilder
                 $bodyOpenerBase = null;
                 /** @var array<int, true> $bodyLazy Body indexes collected BELOW the content column. */
                 $bodyLazy = [];
-                /** @var array<int, true> $bodyDefinition Body indexes holding a definition written PAST the content column. */
+                /** @var array<int, true> $bodyDefinition Entries that close the body's paragraph. */
                 $bodyDefinition = [];
                 /** @var array<int, array{index: int, opener: array{fence: string, length: int, char?: string}, columns: int}> $bodyFenceSource Fence-shaped body entries, by body index. */
                 $bodyFenceSource = [];
@@ -472,6 +472,8 @@ final class DefinitionListBuilder
                 $retainedBelowComment = false;
                 $restoredDivLength = null;
                 $detachedFootnote = null;
+                $detachedFootnoteMap = [];
+                $bodyAtColumnBlock = false;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     $lastBody = $body === [] ? '' : $body[array_key_last($body)];
@@ -497,6 +499,8 @@ final class DefinitionListBuilder
                         && !IndentationHelper::isBlankLine($contLine)
                         && IndentationHelper::getLeadingColumns($contLine) > 0
                         && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn
+                        && !$this->lineOpensBlockForLooseness(ltrim($contLine, " \t"), true)
+                        && preg_match('/^\|.*\|[ \t]*$/', ltrim($contLine, " \t")) !== 1
                         && $this->bodyEntryStartsParagraph($body[array_key_last($body)])
                     ) {
                         $body[array_key_last($body)] .= "\n" . ltrim($contLine, " \t");
@@ -748,8 +752,10 @@ final class DefinitionListBuilder
                     ($this->advanceNestedLeadFenceStateCallback)($nestedLeadFence, $body);
                     if (
                         (
-                            ($indent === 0 && $paragraphFenceHasNoCloser && $nestedLeadFence->length === 0)
+                            ($indent === 0 && $paragraphFenceHasNoCloser && $nestedLeadFence->length === 0
+                                && !$bodyAtColumnBlock)
                             || ($indent > 0 && $indent < $continuationColumn
+                                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1
                                 && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
                                     || $this->isBlockAttributeLine($trimmedCont)
                                     || (str_starts_with(($body[0] ?? ''), '>')
@@ -798,33 +804,32 @@ final class DefinitionListBuilder
                         && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
                         && ($this->isReferenceDefinitionLine($trimmedCont) || $this->isBlockAttributeLine($trimmedCont))
                     ) {
-                        $detachedFootnote = $body[0];
+                        $detachedFootnote = $body;
+                        $detachedFootnoteMap = $bodyMap;
                         $body = [''];
                         $bodyMap = [$bodyMap[0]];
                         // Keep the line in the dd after detaching the marker-line note.
                     }
+                    $belowColumnMarker = $indent < $continuationColumn
+                        && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1
+                        && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
+                            || ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                            || $this->isBlockAttributeLine($trimmedCont));
                     if (
                         !IndentationHelper::isBlankLine($contLine)
                         && $indent > 0
                         && ($indent !== $continuationColumn || $paragraphFenceHasNoCloser)
                         && !$definitionPastTheColumn
                         && !$attributePastTheColumn
+                        && !($indent < $continuationColumn
+                            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
+                            && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont))
                         && !$formABlockOpen
                         && $lastBodyKey !== null
-                        && $body[$lastBodyKey] !== ''
+                        && ($body[$lastBodyKey] ?? '') !== ''
                         && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey]))
-                        && (
-                            ($indent < $continuationColumn
-                                && (($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
-                                    || ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                                    || $this->isBlockAttributeLine($trimmedCont)))
-                            || $paragraphFenceHasNoCloser
-                            || !$this->lineOpensBlockForLooseness(
-                                $trimmedCont,
-                                true,
-                                invisibleArms: false,
-                            )
-                        )
+                        && ($belowColumnMarker || $paragraphFenceHasNoCloser
+                            || !$this->lineOpensBlockForLooseness($trimmedCont, true, invisibleArms: false))
                     ) {
                         $body[$lastBodyKey] .= "\n" . $trimmedCont;
                         $i++;
@@ -837,7 +842,7 @@ final class DefinitionListBuilder
                     if (
                         $indent === $continuationColumn
                         && $lastBodyKey !== null
-                        && $body[$lastBodyKey] !== ''
+                        && ($body[$lastBodyKey] ?? '') !== ''
                         && !isset($bodyDefinition[$lastBodyKey])
                         && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
                         && !$this->bodyTermIsOpen($body, $termScan, $lines, $i)
@@ -971,11 +976,51 @@ final class DefinitionListBuilder
                             // capped one past the body's own column and cannot
                             // count further in.
                             if (
-                                $nestedColumn === 0
+                                ($nestedColumn === 0
+                                    && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) !== 1)
                                 || IndentationHelper::getLeadingColumns($entry, $nestedColumn) < $nestedColumn
                             ) {
                                 $entry = ltrim($entry, " \t");
                             }
+                        }
+                        $quotedContinuation = str_starts_with(($body[0] ?? ''), '>')
+                            && str_starts_with($trimmedCont, '>')
+                            && !str_starts_with(ltrim(substr($trimmedCont, 1), " \t"), '%%');
+                        $closesParagraphAtColumn = preg_match('/^#{1,6} .+$/', $trimmedCont) === 1
+                            || preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedCont) === 1
+                            || preg_match('/^\|.*\|[ \t]*$/', $trimmedCont) === 1
+                            || ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                            || $this->isBlockAttributeLine($trimmedCont)
+                            || $this->isCommentLineOrFence($trimmedCont)
+                            || (str_starts_with($trimmedCont, '>')
+                                && str_starts_with(ltrim(substr($trimmedCont, 1), " \t"), '%%'));
+                        if (
+                            $indent === $continuationColumn
+                            && !$quotedContinuation
+                            && $closesParagraphAtColumn
+                        ) {
+                            $bodyDefinition[count($body)] = true;
+                            $nestedLazyParagraph = false;
+                            $bodyAtColumnBlock = true;
+                        }
+                        if (
+                            preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
+                            && IndentationHelper::getLeadingColumns($entry) === 1
+                            && preg_match('/^([-*_])\1{2,}[ \t]*$/', $trimmedCont) === 1
+                        ) {
+                            $entry = ltrim($entry, " \t");
+                        }
+                        if (
+                            $definitionPastTheColumn
+                            || ($attributePastTheColumn && !str_starts_with(($body[0] ?? ''), '>'))
+                            || ($indent > $continuationColumn
+                                && !$quotedContinuation
+                                && $this->lineOpensBlockForLooseness($trimmedCont, true))
+                        ) {
+                            $bodyAtColumnBlock = true;
+                        }
+                        if ($attributePastTheColumn && str_starts_with(($body[0] ?? ''), '>')) {
+                            $nestedLazyParagraph = true;
                         }
                         $body[] = $entry;
                         $bodyMap[] = $this->sourceLineFor($i);
@@ -1113,7 +1158,9 @@ final class DefinitionListBuilder
 
                             continue;
                         }
-                        $bodyEndsWithAttribute = $this->isBlockAttributeLine($bodyLine);
+                        $bodyEndsWithAttribute = $this->isBlockAttributeLine($bodyLine)
+                            && !(str_starts_with(($body[0] ?? ''), '>')
+                                && IndentationHelper::getLeadingColumns($body[$bodyStateCursor]) > 0);
                     }
                     // A WRAPPED ATTRIBUTE BLOCK LEAVES NO PARAGRAPH EITHER, and
                     // the tracker above cannot say so: it reads one line, and
@@ -1239,7 +1286,7 @@ final class DefinitionListBuilder
                 $dd = new DefinitionDescription();
                 $this->stampNodeSourceLine($dd, $this->sourceLineFor($definitionStart));
                 if ($detachedFootnote !== null) {
-                    $this->parseBlocks($dd, [$detachedFootnote], 0, [$bodyMap[0]]);
+                    $this->parseBlocks($dd, $detachedFootnote, 0, $detachedFootnoteMap);
                 }
                 if (count($body) !== 1 || rtrim($body[0], " \t") !== '{empty}') {
                     $this->parseBlocks($dd, $body, 0, $bodyMap);

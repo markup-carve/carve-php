@@ -1088,8 +1088,9 @@ final class BlockQuoteBuilder
                 // are reproduced as measured rather than made consistent.
                 $trimmedInDiv = ltrim($content, " \t");
                 if (
-                    $this->isReferenceDefinitionLine($trimmedInDiv)
-                    || $this->isBlockAttributeLine($trimmedInDiv)
+                    (IndentationHelper::getLeadingColumns($content) === ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['column'] ?? 0)
+                        && ($this->isReferenceDefinitionLine($trimmedInDiv)
+                            || $this->isBlockAttributeLine($trimmedInDiv)))
                     || ($state['colonClaims'] === [] && $this->isCommentLineOrFence($trimmedInDiv))
                     || (
                         IndentationHelper::getLeadingColumns($content) === ($state['colonClaims'][array_key_last($state['colonClaims']) ?? 0]['column'] ?? 0)
