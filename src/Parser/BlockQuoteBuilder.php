@@ -547,7 +547,9 @@ final class BlockQuoteBuilder
         // A note body can indent the next quote marker beyond the quote prefix.
         $nextQuoted = isset($lines[$index + 1]) ? $this->blockQuoteLineContent(ltrim($lines[$index + 1], " \t")) : null;
         if (
-            $host['markers'] !== [] && $column >= $host['columns'][array_key_last($host['columns'])]
+            $host['markers'] !== []
+            && ($column === $host['columns'][array_key_last($host['columns'])]
+                || $column === ($host['descriptionColumn'] ?? PHP_INT_MAX))
             && ($this->isReferenceDefinitionLine($text) || $this->isBlockAttributeLine($text))
             && !(
                 preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $text) === 1
@@ -723,7 +725,10 @@ final class BlockQuoteBuilder
 
                 continue;
             }
-            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $inner) === 1) {
+            if (
+                ($at === 0 || $at === $host['columns'][count($host['columns']) - 1])
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $inner) === 1
+            ) {
                 $host['markers'][] = $at;
                 $host['columns'][] = $at + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                 $host['kinds'][] = 'note';
@@ -1253,7 +1258,11 @@ final class BlockQuoteBuilder
         // line out of the quote (markup-carve/carve-php#2632). A definition
         // written FLUSH LEFT after the quote reaches this tracker at column 0,
         // so it stays a definition and still ends the quote.
-            $isDefinitionLine = ($atContentColumn && $this->isReferenceDefinitionLine($trimmed))
+            $definitionColumn = IndentationHelper::getLeadingColumns($content);
+            $isDefinitionLine = (($definitionColumn === 0
+                || $definitionColumn === $hostColumns[array_key_last($hostColumns)]
+                || $definitionColumn === ($state['hosts']['descriptionColumn'] ?? PHP_INT_MAX))
+                && $this->isReferenceDefinitionLine($trimmed))
             || ($isFlushLeftCandidate && $this->isAbbreviationDefinitionLine($trimmed));
         // A FOOTNOTE DEFINITION PUSHES ITS BODY COLUMN before this reads the
         // line, so the column it was written at is one host down. Its extent
@@ -1262,11 +1271,9 @@ final class BlockQuoteBuilder
             $inNote = $hostKinds !== [] && $hostKinds[array_key_last($hostKinds)] === 'note';
             if ($inNote && !$isDefinitionLine) {
                 $column = IndentationHelper::getLeadingColumns($content);
-                $isDefinitionLine = $column >= $hostColumns[array_key_last($hostColumns)]
-                    || (
-                        (in_array($column, $hostColumns, true) || $column >= ($state['hosts']['descriptionColumn'] ?? PHP_INT_MAX))
-                        && $this->isReferenceDefinitionLine($trimmed)
-                    );
+                $isDefinitionLine = ($column === $hostColumns[array_key_last($hostColumns)]
+                    || in_array($column, $hostColumns, true))
+                    && $this->isReferenceDefinitionLine($trimmed);
             }
 
         // A FLOATING ATTRIBUTE ATTACHES FORWARD, so it is not a paragraph the

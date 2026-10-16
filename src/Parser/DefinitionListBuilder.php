@@ -715,7 +715,8 @@ final class DefinitionListBuilder
                     $definitionPastTheColumn = $indent > $continuationColumn
                         && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
                         && $this->isReferenceDefinitionLine($trimmedCont)
-                        && !$this->bodyTermIsOpen($body, $termScan, $lines, $i);
+                        && (!$this->bodyTermIsOpen($body, $termScan, $lines, $i)
+                            || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1);
                     // AN ATTRIBUTE BLOCK PAST THE COLUMN IS THE OTHER HALF OF
                     // THE SAME §10 I5 CLAUSE (markup-carve/carve#1911). A
                     // visible opener already reaches the push branch, because
@@ -896,9 +897,11 @@ final class DefinitionListBuilder
                             $continuationColumn,
                         );
                         if (
-                            preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                            && IndentationHelper::getLeadingColumns($contLine) > $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                            count($body) === 1
+                            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $body[0]) === 1
+                            && $indent > $continuationColumn
                             && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                            && !isset($lines[$i + 1])
                         ) {
                             $body[] = substr($entry, 0, strspn($entry, " \t")) . '\\' . ltrim($entry, " \t");
                             $bodyMap[] = $this->sourceLineFor($i);
@@ -948,7 +951,6 @@ final class DefinitionListBuilder
                         // code block.
                         if (
                             $definitionPastTheColumn
-                            && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) !== 1
                             && $bodyNestedState->fence === null
                             && !$bodyNestedState->inDiv
                             && !$bodyNestedState->absorbingFence
@@ -975,11 +977,10 @@ final class DefinitionListBuilder
                             // MEASURED ON THE ENTRY, because `$indent` is
                             // capped one past the body's own column and cannot
                             // count further in.
-                            if (
-                                ($nestedColumn === 0
-                                    && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) !== 1)
-                                || IndentationHelper::getLeadingColumns($entry, $nestedColumn) < $nestedColumn
-                            ) {
+                            $ownerColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
+                                ? 2 * BlockGrammar::DEFINITION_MARKER_WIDTH
+                                : $nestedColumn;
+                            if ($ownerColumn === 0 || IndentationHelper::getLeadingColumns($entry, $ownerColumn) < $ownerColumn) {
                                 $entry = ltrim($entry, " \t");
                             }
                         }
