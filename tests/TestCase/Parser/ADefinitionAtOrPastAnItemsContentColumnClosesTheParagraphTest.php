@@ -117,22 +117,11 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     }
 
     /**
-     * WHICH container the line reaches decides who owns it, and that is the
-     * half a residual column alone cannot answer. `- - a` opens items at
-     * content columns 2 and 4:
-     *
-     *  - column 3 reaches the OUTER item and not the inner one, so the
-     *    definition registers there and ends the outer item;
-     *  - column 4 reaches the INNER item, so it registers there instead and
-     *    leaves the outer item collecting - the flush-left line lands inside
-     *    it, after the sub-list.
-     *
-     * Reading the residual column without asking which container it reaches
-     * ends the outer item at column 4 as well, which is a different document.
-     *
-     * Rows 0 to 3 match the executable spec and carve-js, with carve-rs the
-     * outlier at 0, 2 and 3; rows 4 to 6 match the spec and carve-rs, with
-     * carve-js the outlier. carve-php matches the spec on every row.
+     * WHICH container the line reaches decides who owns it. `- - a` opens
+     * items at content columns 2 and 4: column 3 registers in the outer item,
+     * column 4 and past in the inner one. Either way the definition leaves no
+     * paragraph open anywhere in the stack, so the flush-left line ends both
+     * items (CARVE-P0-011).
      *
      * @return array<string, array{0: int, 1: string}>
      */
@@ -140,16 +129,15 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     {
         $ended = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
         $folded = "<ul>\n  <li>\n    <ul>\n      <li>a\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>";
-        $inOuter = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n    tail\n  </li>\n</ul>";
 
         return [
             'column 0' => [0, $ended],
             'below both columns, 1' => [1, $folded],
             'at the outer column' => [2, $ended],
             'past the outer column, below the inner' => [3, $ended],
-            'at the inner column' => [4, $inOuter],
-            'past the inner column' => [5, $inOuter],
-            'two past the inner column' => [6, $inOuter],
+            'at the inner column' => [4, $ended],
+            'past the inner column' => [5, $ended],
+            'two past the inner column' => [6, $ended],
         ];
     }
 
@@ -179,16 +167,15 @@ class ADefinitionAtOrPastAnItemsContentColumnClosesTheParagraphTest extends Test
     {
         $ended = "<ul>\n  <li>a\n    <ul>\n      <li>x</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
         $folded = "<ul>\n  <li>a\n    <ul>\n      <li>x\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>";
-        $inOuter = "<ul>\n  <li>a\n    <ul>\n      <li>x</li>\n    </ul>\n    tail\n  </li>\n</ul>";
 
         return [
             'column 0' => [0, $ended],
             'below both columns, 1' => [1, $folded],
             'at the outer column' => [2, $ended],
             'past the outer column, below the inner' => [3, $ended],
-            'at the inner column' => [4, $inOuter],
-            'past the inner column' => [5, $inOuter],
-            'two past the inner column' => [6, $inOuter],
+            'at the inner column' => [4, $ended],
+            'past the inner column' => [5, $ended],
+            'two past the inner column' => [6, $ended],
         ];
     }
 

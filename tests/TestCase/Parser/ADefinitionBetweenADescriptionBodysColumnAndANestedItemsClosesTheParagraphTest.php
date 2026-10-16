@@ -342,26 +342,23 @@ class ADefinitionBetweenADescriptionBodysColumnAndANestedItemsClosesTheParagraph
      * description body was is out of this change's reach entirely, and its
      * whole band is byte-identical before and after.
      *
-     * Rows 4 to 6 are a KNOWN DIVERGENCE and are pinned as one: this engine
-     * and both spec revisions keep `tail` inside the outer item, and carve-js
-     * puts it outside. That is the item host's own open question, not
-     * this ticket's band, and nothing here touches it.
+     * At rows 4 to 6 the definition registers in the inner item and leaves no
+     * paragraph open, so `tail` ends both items (CARVE-P0-011).
      *
      * @return array<string, array{0: int, 1: string}>
      */
     public static function itemHostProvider(): array
     {
         $ended = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
-        $inside = "<ul>\n  <li>\n    <ul>\n      <li>a</li>\n    </ul>\n    tail\n  </li>\n</ul>";
 
         return [
             'column 0' => [0, $ended],
             'below the outer column' => [1, "<ul>\n  <li>\n    <ul>\n      <li>a\n[r]: /url\ntail</li>\n    </ul>\n  </li>\n</ul>"],
             'at the outer column' => [2, $ended],
             'past the outer column, below the inner' => [3, $ended],
-            'at the inner column' => [4, $inside],
-            'one past the inner column' => [5, $inside],
-            'two past the inner column' => [6, $inside],
+            'at the inner column' => [4, $ended],
+            'one past the inner column' => [5, $ended],
+            'two past the inner column' => [6, $ended],
         ];
     }
 
