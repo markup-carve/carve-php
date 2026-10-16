@@ -5693,7 +5693,6 @@ class BlockParser
                 $retainedBelowComment
                 && (IndentationHelper::getLeadingColumns($nextLine) > 0
                     || !$this->startsInterruptingBlock(ltrim($nextLine, " \t"), $lines, $i))
-                && !$this->fencedBlockParser->isCodeFenceHead(ltrim($nextLine, " \t"), 0)
             ) {
                 $bodyLine = ltrim($nextLine, " \t");
                 $bodyLines[] = $bodyLine;

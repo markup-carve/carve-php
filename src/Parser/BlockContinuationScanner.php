@@ -2022,6 +2022,7 @@ final class BlockContinuationScanner
         // note's body two columns past its own base, which is what makes the
         // column computable here.
         $noteColumns = [];
+        $termOpen = false;
         foreach ($lines as $index => $line) {
             $opener = explode("\n", $line, 2)[0];
             $base = IndentationHelper::getLeadingColumns($opener);
@@ -2037,6 +2038,7 @@ final class BlockContinuationScanner
                 && $state->fence === null
                 && !$state->absorbingFence
                 && ($noteColumns === [] || $base < end($noteColumns))
+                && !$termOpen
             ) {
                 $trimmed = ltrim($opener, " \t");
                 $nested = $state->nestedDiv !== null ? 0 : $state->nestedColumn;
@@ -2092,6 +2094,11 @@ final class BlockContinuationScanner
                 while ($noteColumns !== [] && $base < end($noteColumns)) {
                     array_pop($noteColumns);
                 }
+            }
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ltrim($opener, " \t")) === 1) {
+                $termOpen = true;
+            } elseif (IndentationHelper::isBlankLine($opener) || preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($opener, " \t")) === 1) {
+                $termOpen = false;
             }
             $state = $this->advanceTrailingState($state, $opener, true);
         }
