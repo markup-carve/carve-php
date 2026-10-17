@@ -1297,6 +1297,9 @@ class ProseMirrorRenderer
      */
     protected function noteUnrepresentableState(Node $node): void
     {
+        if ($node instanceof Table && $node->getSourceFormat() !== null) {
+            $this->degraded['table_source_format'] = 'the editor schema cannot preserve a CSV or TSV table source fence';
+        }
         // An interleaved attribute run - `{key=c .a #b}` - is no longer one of
         // these. ProseMirror attributes are still a map, but the authored slot
         // order rides beside them in `carveAttrOrder` and the writer replays

@@ -20,6 +20,19 @@ use RuntimeException;
 
 class ProseMirrorBridgeTest extends TestCase
 {
+    public function testDelimitedTableSourceLossIsReported(): void
+    {
+        foreach (['csv', 'tsv'] as $format) {
+            $renderer = new ProseMirrorRenderer();
+            $renderer->render((new CarveConverter())->parse("{table}\n```{$format}\nh\n```\n"));
+            $this->assertArrayHasKey('table_source_format', $renderer->degradedTypes());
+        }
+
+        $renderer = new ProseMirrorRenderer();
+        $renderer->render((new CarveConverter())->parse("|= h |\n"));
+        $this->assertArrayNotHasKey('table_source_format', $renderer->degradedTypes());
+    }
+
     protected ProseMirrorRenderer $renderer;
 
     protected ProseMirrorToCarve $converter;

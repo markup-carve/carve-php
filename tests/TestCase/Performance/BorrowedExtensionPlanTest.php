@@ -230,7 +230,8 @@ CRV;
         }
         // Corpus 551 adds three link documents on both configured routes;
         // CARVE-P9-082 makes 589-32 a table both routes take.
-        self::assertSame(['tier2' => 71, 'events' => 71], $accepted, 'A configured fast-path routing change needs explicit review.');
+        // Corpus 617-3 is an unmarked CSV fence on both configured routes.
+        self::assertSame(['tier2' => 72, 'events' => 72], $accepted, 'A configured fast-path routing change needs explicit review.');
     }
 
     #[DataProvider('activeUnsupportedExtension')]
