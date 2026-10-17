@@ -144,13 +144,14 @@ final class DelimitedTable
             $header = $index < $headers;
             $row = new TableRow($header);
             $rowRange = $rowRanges[$index] ?? null;
-            if ($sourceMap !== null && $rowRange !== null) {
+            $emptyRecord = $rowRange !== null && $rowRange[0] === $rowRange[1];
+            if ($sourceMap !== null && $rowRange !== null && !$emptyRecord) {
                 $row->setPos($sourceMap->spanRange(...$rowRange));
             }
             for ($column = 0; $column < $width; $column++) {
                 $cell = new TableCell($header);
                 $text = new Text($fields[$column] ?? '');
-                if ($sourceMap !== null && isset($fieldRanges[$index][$column])) {
+                if ($sourceMap !== null && !$emptyRecord && isset($fieldRanges[$index][$column])) {
                     [$start, $end, $quoted, $escaped] = $fieldRanges[$index][$column];
                     $cell->setPos($sourceMap->spanRange($start, $end));
                     if (!$escaped) {

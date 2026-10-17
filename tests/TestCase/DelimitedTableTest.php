@@ -24,6 +24,15 @@ class DelimitedTableTest extends TestCase
         self::assertSame("d\ne", $slice($table['rows'][1]['cells'][0]['children'][0]['pos']));
     }
 
+    public function testEmptyCsvRecordHasNoSpanOnItsLineTerminator(): void
+    {
+        $source = "{table}\n```csv\na\n\n```\n";
+        $table = (new AstCodec())->encode((new BlockParser(trackPositions: true))->parse($source))['children'][0];
+        self::assertArrayNotHasKey('pos', $table['rows'][1]);
+        self::assertArrayNotHasKey('pos', $table['rows'][1]['cells'][0]);
+        self::assertArrayNotHasKey('pos', $table['rows'][1]['cells'][0]['children'][0]);
+    }
+
     public function testCaptionedCsvUsesTheTablePathAndKeepsItsSourceForm(): void
     {
         $source = "{table aligns=left,right,right}\n```csv\nItem,Qty,Price\nApple,12,0.40\n\"Pear, green\",3,0.55\n```\n^ Stock on hand\n";
