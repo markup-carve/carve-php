@@ -619,6 +619,17 @@ final class DefinitionListBuilder
                             if ($consumed > 1 && $indent === 0) {
                                 break;
                             }
+                            if ($consumed > 1 && $indent > 0) {
+                                // Below the body column, a matched fence retains the same item as a line comment.
+                                $body[] = '%%';
+                                $bodyMap[] = $this->sourceLineFor($i);
+                                $i += $consumed;
+                                $bodyState->openParagraph = false;
+                                $bodyStateCursor = count($body);
+                                $retainedBelowComment = true;
+
+                                continue;
+                            }
                             for ($end = $i + $consumed; $i < $end; $i++) {
                                 $body[] = $consumed > 1
                                     ? $this->keptCommentDelimiter($lines[$i]) : ltrim($lines[$i], " \t");
@@ -1236,6 +1247,28 @@ final class DefinitionListBuilder
                     $paragraphOpen = $nestedLeadFence->length > 0
                         ? ($nestedLeadFence->closed && $nestedLeadFence->trailing->openParagraph)
                         : ($bodyState->openParagraph || $nestedLazyParagraph || $bodyTermOpen);
+                    $lastBodySource = $body === [] ? -1 : ($bodyMap[array_key_last($body)] ?? -1);
+                    $attributeColumn = IndentationHelper::getLeadingColumns(
+                        $this->state->source->sourceLines[$lastBodySource] ?? '',
+                    );
+                    // An attribute at or past the item's content column cannot keep its paragraph open.
+                    if (
+                        $body !== []
+                        && $leadItem !== null
+                        && $this->isBlockAttributeLine(ltrim($body[array_key_last($body)], " \t"))
+                        && $attributeColumn > $continuationColumn
+                        && $attributeColumn < $continuationColumn + strlen($body[0]) - strlen($leadItem['content'])
+                    ) {
+                        $paragraphOpen = true;
+                        $bodyEndsWithAttribute = false;
+                    } elseif (
+                        $indent < $continuationColumn
+                        && $body !== []
+                        && $this->isBlockAttributeLine(ltrim($body[array_key_last($body)], " \t"))
+                        && $attributeColumn === $continuationColumn
+                    ) {
+                        $bodyEndsWithAttribute = true;
+                    }
                     if (
                         $indent > 0 && $indent < $continuationColumn
                         && $body !== []

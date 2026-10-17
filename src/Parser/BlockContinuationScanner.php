@@ -1880,6 +1880,7 @@ final class BlockContinuationScanner
                 && $nextIndent < $contentIndent
                 && $itemLines !== []
                 && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
+                && IndentationHelper::getLeadingColumns($sourceCommentLine) < $contentIndent
                 && ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed) !== null
             ) {
                 $itemLines[] = ' ' . $nextTrimmed;
