@@ -161,6 +161,8 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
 
     protected int $listDepth = 0;
 
+    protected int $listIndentBase = 0;
+
     public function __construct()
     {
         $this->headingIdTracker = new HeadingIdTracker();
@@ -782,7 +784,8 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
         $this->listDepth++;
         $text = '';
         $counter = $node->getStart();
-        $indent = str_repeat('  ', $this->listDepth - 1);
+        $indent = str_repeat('  ', $this->listDepth - 1 - $this->listIndentBase);
+        $column = str_repeat('  ', $this->listDepth - $this->listIndentBase);
 
         foreach ($node->getChildren() as $child) {
             if ($child instanceof ListItem) {
@@ -792,16 +795,30 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 } else {
                     $text .= $indent . $this->listItemPrefix;
                 }
-                $content = trim($this->renderChildren($child), StringUtil::TRIMMABLE_WHITESPACE);
-                if ($node->isTight()) {
-                    $nestedIndent = str_repeat('  ', $this->listDepth);
-                    $content = (string)preg_replace(
-                        '/\n\n(?=' . preg_quote($nestedIndent, '/') . '(?:-|\d+[.)]) )/',
-                        "\n",
-                        $content,
-                    );
+                $content = '';
+                foreach ($child->getChildren() as $index => $block) {
+                    if ($index === 0) {
+                        $content .= $this->renderNode($block);
+                    } elseif ($block instanceof ListBlock) {
+                        if ($node->isTight() && str_ends_with($content, "\n\n")) {
+                            $content = substr($content, 0, -1);
+                        }
+                        $content .= $this->renderNode($block);
+                    } else {
+                        $base = $this->listIndentBase;
+                        $this->listIndentBase = $this->listDepth;
+                        try {
+                            $rendered = $this->renderNode($block);
+                        } finally {
+                            $this->listIndentBase = $base;
+                        }
+                        $content .= implode("\n", array_map(
+                            static fn (string $line): string => $line === '' ? '' : $column . $line,
+                            explode("\n", $rendered),
+                        ));
+                    }
                 }
-                $text .= $content . "\n";
+                $text .= trim($content, StringUtil::TRIMMABLE_WHITESPACE) . "\n";
             }
         }
 

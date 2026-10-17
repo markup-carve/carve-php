@@ -397,6 +397,8 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected int $listDepth = 0;
 
+    protected int $listIndentBase = 0;
+
     protected int $blockQuoteDepth = 0;
 
     protected int $terminalWidth = 80;
@@ -999,7 +1001,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected function renderListItem(ListItem $node): string
     {
-        $indent = str_repeat('  ', $this->listDepth - 1);
+        $indent = str_repeat('  ', $this->listDepth - 1 - $this->listIndentBase);
         $parent = $node->getParent();
 
         if ($parent instanceof ListBlock && $parent->getListType() === ListBlock::TYPE_ORDERED) {
@@ -1011,7 +1013,28 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $marker = $this->style($bullet, self::FG_CYAN);
         }
 
-        $content = trim($this->renderChildren($node), StringUtil::TRIMMABLE_WHITESPACE);
+        $content = '';
+        foreach ($node->getChildren() as $index => $block) {
+            if ($index === 0 || $block instanceof ListBlock) {
+                $content .= $this->renderNode($block);
+
+                continue;
+            }
+
+            $base = $this->listIndentBase;
+            $this->listIndentBase = $this->listDepth;
+            try {
+                $rendered = $this->renderNode($block);
+            } finally {
+                $this->listIndentBase = $base;
+            }
+            $column = str_repeat('  ', $this->listDepth - $base);
+            $content .= implode("\n", array_map(
+                static fn (string $line): string => $line === '' ? '' : $column . $line,
+                explode("\n", $rendered),
+            ));
+        }
+        $content = trim($content, StringUtil::TRIMMABLE_WHITESPACE);
 
         // Handle task list items
         if ($node->isTask()) {
