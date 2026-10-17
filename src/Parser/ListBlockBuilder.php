@@ -1418,6 +1418,15 @@ final class ListBlockBuilder
             if (!($this->isBlockAttributeLineCallback)(ltrim($lines[$i], " \t"))) {
                 continue;
             }
+            $leadColumn = $this->containerContentColumn($lines[0], 0);
+            // A below-column attribute is paragraph text in the nested list.
+            if (
+                $leadColumn !== null
+                && IndentationHelper::getLeadingColumns($lines[$i]) > 0
+                && IndentationHelper::getLeadingColumns($lines[$i]) < $leadColumn
+            ) {
+                continue;
+            }
             $opener = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lines[$i + 1], " \t"));
             if ($opener === null) {
                 continue;

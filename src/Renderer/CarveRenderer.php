@@ -2283,6 +2283,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && $this->foldsIntoAnOpenParagraph($child)
                         && !$this->opensWithAnAttributeLine($rendered)
                     )
+                    || (
+                        !$separated
+                        && $previousEmitted instanceof DefinitionList
+                        && $this->foldsIntoAnOpenParagraph($child)
+                        && !$this->opensWithAnAttributeLine($rendered)
+                    )
                 ) {
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;

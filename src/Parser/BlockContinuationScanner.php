@@ -1605,6 +1605,7 @@ final class BlockContinuationScanner
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
                 $quotedLazyOpener = $trailingState->quoteParagraph && $column > $contentIndent
                     && ContainerPrefix::quoteContent($contentLine) === null
+                    && !$this->isCommentLineOrFence($nextTrimmed)
                     && ($nextTrimmed[0] ?? '') !== '`' && ($nextTrimmed[0] ?? '') !== '~'
                     && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)
                         || $this->isBlockAttributeLine($nextTrimmed));
@@ -1851,18 +1852,25 @@ final class BlockContinuationScanner
                 continue;
             }
 
-            $followingFence = $trailingState->fence === null
-                && $recentDefinitionParagraph
-                && $nextIndent < $contentIndent
-                && $itemLines !== []
+            // Only a comment below the content column retains the item.
+            $sourceFenceLine = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
+            $sourceCommentLine = $this->state->source->sourceLines[$itemLineMap[count($itemLineMap) - 1] ?? -1] ?? '';
+            $commentRetainsFence = $itemLines !== []
                 && $this->isCommentLineOrFence(ltrim($itemLines[array_key_last($itemLines)], " \t"))
+                && IndentationHelper::getLeadingColumns($sourceCommentLine) < $contentIndent
+                && !$this->isCommentLineOrFence(ltrim($itemLines[0], " \t"))
+                && preg_match('/^[ \t]*[`~]{3,}/m', implode("\n", $itemLines)) !== 1
+                && IndentationHelper::getLeadingColumns($sourceFenceLine) === 0
+                && ContainerPrefix::quoteContent($sourceFenceLine) === null;
+            $followingFence = $trailingState->fence === null
+                && $nextIndent < $contentIndent
+                && $commentRetainsFence
                 ? ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
                 : null;
             if ($followingFence !== null && !$this->sourceFenceCloserInView($lines, $i, $followingFence, 0)) {
-                $itemLines[] = $nextIndent > 0 ? ' ' . $nextTrimmed : $nextTrimmed;
+                $itemLines[] = $nextTrimmed;
                 $itemLineMap[] = $this->sourceLineFor($i);
-                $trailingState->openParagraph = false;
-                $trailingState->afterComment = false;
+                $trailingState = $this->advanceTrailingState($trailingState, $nextTrimmed, true);
                 $i++;
 
                 continue;
@@ -1920,7 +1928,8 @@ final class BlockContinuationScanner
                 for ($j = $i; $j < $commentFenceEnd; $j++) {
                     $itemLines[] = ($j > $i && $j < $commentFenceEnd - 1)
                         ? IndentationHelper::stripLeadingColumns($lines[$j], $contentIndent)
-                        : ltrim($lines[$j], " \t");
+                        : (IndentationHelper::getLeadingColumns($lines[$j]) > 0
+                            ? ' ' . ltrim($lines[$j], " \t") : $lines[$j]);
                     $itemLineMap[] = $this->sourceLineFor($j);
                 }
                 $i = $commentFenceEnd;
