@@ -120,7 +120,10 @@ final class BlockQuoteBuilder
             if ($quoteContent === null && in_array('note', $state['hosts']['kinds'] ?? [], true)) {
                 $quoteContent = $this->blockQuoteLineContent(ltrim($line, " \t"));
             }
-            if ($quoteContent !== null) {
+            if (
+                $quoteContent !== null && (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $this->blockQuoteLineContent($lines[$start]) ?? '') !== 1
+                    || $this->markerSitsAtColumn($j, $this->quoteOpeningColumn($lines[$start], $this->sourceLineFor($start))))
+            ) {
                 $this->trackBlockQuoteLazyState($quoteContent, $state, $lines, $j, $codeCloserMemo);
                 if (in_array('note', $state['hosts']['kinds'] ?? [], true)) {
                     $state['paragraphOpen'] = false;
@@ -280,6 +283,12 @@ final class BlockQuoteBuilder
             if ($content === null && in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
                 $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
             }
+            if (
+                $content !== null && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $this->blockQuoteLineContent($lines[$start]) ?? '') === 1
+                && !$this->markerSitsAtColumn($i, $quoteOpeningColumn)
+            ) {
+                $content = null;
+            }
             if ($content !== null) {
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
@@ -399,6 +408,9 @@ final class BlockQuoteBuilder
             $innerLines[] = $content;
             $innerLineMap[] = $this->sourceLineFor($start);
             $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $start, $codeCloserMemo);
+            if (in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
+                $lazyState['paragraphOpen'] = false;
+            }
             if ($nestedFirstBlock) {
                 [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 foreach ($attached as $index => $attachedLine) {

@@ -812,6 +812,13 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            // A sibling ends this item even when a comment fence is still open.
+            if (
+                $openCommentLength !== null && $nextIndent === $baseIndent
+                && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
+            ) {
+                break;
+            }
             $blankChildMarkerAtBoundary = $noteBlankAfterCodeFence;
             if ($nextIndent < $contentIndent) {
                 $noteBlankAfterCodeFence = false;
@@ -1926,6 +1933,18 @@ final class BlockContinuationScanner
             // across a `%%` line.
             $commentFenceEnd = $this->commentFenceSpanEnd($nextTrimmed, $lines, $i);
             if ($commentFenceEnd !== null) {
+                for ($j = $i + 1; $j < $commentFenceEnd; $j++) {
+                    if (
+                        IndentationHelper::getLeadingColumns($lines[$j]) === $baseIndent
+                        && ($this->getListParser)()->parseListItemMarker(ltrim($lines[$j], " \t")) !== null
+                    ) {
+                        $commentFenceEnd = null;
+
+                        break;
+                    }
+                }
+            }
+            if ($commentFenceEnd !== null) {
                 for ($j = $i; $j < $commentFenceEnd; $j++) {
                     $itemLines[] = ($j > $i && $j < $commentFenceEnd - 1)
                         ? IndentationHelper::stripLeadingColumns($lines[$j], $contentIndent)
@@ -2012,7 +2031,8 @@ final class BlockContinuationScanner
                 }
                 $foldedAsText = true;
             } else {
-                $itemLines[] = $nextTrimmed;
+                $itemLines[] = preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lastItemLine) === 1
+                    && str_starts_with($nextTrimmed, '%%%') ? ' ' . $nextTrimmed : $nextTrimmed;
                 if (!$trailingState->openParagraph || $this->lineOpensBlockForLooseness($nextTrimmed, true)) {
                     $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
                 }

@@ -6967,7 +6967,7 @@ class BlockParser
             if ($this->isInvisibleOrAttributeLine($nextLine)) {
                 break;
             }
-            $captionLines[] = $nextLine;
+            $captionLines[] = BlockGrammar::stripLazyFrame($nextLine);
             $i++;
         }
 
