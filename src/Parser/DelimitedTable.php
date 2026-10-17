@@ -15,7 +15,7 @@ final class DelimitedTable
     /**
      * @return list<list<string>>|null
      */
-    public static function rows(string $source, string $separator): ?array
+    public static function rows(string $source, string $separator, ?callable $onField = null, ?callable $onRow = null): ?array
     {
         if ($source === '') {
             return [];
@@ -26,6 +26,10 @@ final class DelimitedTable
         $quoted = false;
         $closed = false;
         $atStart = true;
+        $fieldStart = 0;
+        $rowStart = 0;
+        $wasQuoted = false;
+        $escaped = false;
         $length = strlen($source);
         for ($i = 0; $i < $length; $i++) {
             $char = $source[$i];
@@ -33,6 +37,7 @@ final class DelimitedTable
                 if ($char === '"') {
                     if (($source[$i + 1] ?? null) === '"') {
                         $field .= '"';
+                        $escaped = true;
                         $i++;
                     } else {
                         $quoted = false;
@@ -46,12 +51,22 @@ final class DelimitedTable
             }
             if ($char === $separator || $char === "\n") {
                 $row[] = $field;
+                if ($onField !== null) {
+                    $onField($fieldStart, $i, $wasQuoted, $escaped);
+                }
                 $field = '';
                 $closed = false;
                 $atStart = true;
+                $fieldStart = $i + 1;
+                $wasQuoted = false;
+                $escaped = false;
                 if ($char === "\n") {
                     $rows[] = $row;
+                    if ($onRow !== null) {
+                        $onRow($rowStart, $i);
+                    }
                     $row = [];
+                    $rowStart = $i + 1;
                 }
             } elseif ($char === '"') {
                 if (!$atStart || $closed) {
@@ -59,6 +74,7 @@ final class DelimitedTable
                 }
                 $quoted = true;
                 $atStart = false;
+                $wasQuoted = true;
             } else {
                 if ($closed) {
                     return null;
@@ -72,19 +88,41 @@ final class DelimitedTable
         }
         if ($source[$length - 1] !== "\n") {
             $row[] = $field;
+            if ($onField !== null) {
+                $onField($fieldStart, $length, $wasQuoted, $escaped);
+            }
             $rows[] = $row;
+            if ($onRow !== null) {
+                $onRow($rowStart, $length);
+            }
         }
 
         return $rows;
     }
 
-    public static function fromCode(CodeBlock $code): ?Table
+    public static function fromCode(CodeBlock $code, ?SourceMap $sourceMap = null): ?Table
     {
         $format = $code->getLanguage();
         if (($format !== 'csv' && $format !== 'tsv') || $code->getAttribute('table') !== '') {
             return null;
         }
-        $data = self::rows($code->getContent(), $format === 'csv' ? ',' : "\t");
+        /** @var list<list<array{int, int, bool, bool}>> $fieldRanges */
+        $fieldRanges = [];
+        /** @var list<array{int, int}> $rowRanges */
+        $rowRanges = [];
+        $fields = [];
+        $data = self::rows(
+            $code->getContent(),
+            $format === 'csv' ? ',' : "\t",
+            static function (int $start, int $end, bool $quoted, bool $escaped) use (&$fields): void {
+                $fields[] = [$start, $end, $quoted, $escaped];
+            },
+            static function (int $start, int $end) use (&$fields, &$fieldRanges, &$rowRanges): void {
+                $fieldRanges[] = $fields;
+                $fields = [];
+                $rowRanges[] = [$start, $end];
+            },
+        );
         if ($data === null) {
             return null;
         }
@@ -105,9 +143,23 @@ final class DelimitedTable
         foreach ($data as $index => $fields) {
             $header = $index < $headers;
             $row = new TableRow($header);
+            $rowRange = $rowRanges[$index] ?? null;
+            if ($sourceMap !== null && $rowRange !== null) {
+                $row->setPos($sourceMap->spanRange(...$rowRange));
+            }
             for ($column = 0; $column < $width; $column++) {
                 $cell = new TableCell($header);
-                $cell->appendChild(new Text($fields[$column] ?? ''));
+                $text = new Text($fields[$column] ?? '');
+                if ($sourceMap !== null && isset($fieldRanges[$index][$column])) {
+                    [$start, $end, $quoted, $escaped] = $fieldRanges[$index][$column];
+                    $cell->setPos($sourceMap->spanRange($start, $end));
+                    if (!$escaped) {
+                        $textStart = $start + (int)$quoted;
+                        $textEnd = $end - (int)$quoted;
+                        $text->setPos($sourceMap->spanFor($textStart, substr($code->getContent(), $textStart, $textEnd - $textStart)));
+                    }
+                }
+                $cell->appendChild($text);
                 $row->appendChild($cell);
             }
             $table->appendChild($row);

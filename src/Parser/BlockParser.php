@@ -2740,6 +2740,7 @@ class BlockParser
             && $this->listParser->parseListItemMarker(ltrim($previousSourceLine, " \t")) !== null;
 
         $payload = [];
+        $payloadSourceRows = [];
         $i = $start + 1;
         $count = count($lines);
         $closed = false;
@@ -2777,6 +2778,7 @@ class BlockParser
             $currentLine = self::stripLazyFrame($currentLine);
 
             $payload[] = $currentLine;
+            $payloadSourceRows[] = [$payloadSourceLine, 0, strlen($currentLine), $currentLine];
             $i++;
         }
 
@@ -2810,7 +2812,10 @@ class BlockParser
         ) {
             $this->sourceMapper()->recordOwnedFenceEnd($codeBlock, $this->sourceLineFor($i - 1));
         }
-        $table = DelimitedTable::fromCode($codeBlock);
+        $payloadMap = ($language === 'csv' || $language === 'tsv') && $codeBlock->getAttribute('table') === ''
+            ? $this->sourceMapper()->foldedLinesMap($payloadSourceRows)
+            : null;
+        $table = DelimitedTable::fromCode($codeBlock, $payloadMap);
         if ($table !== null) {
             $this->applyTableColumns($table);
             $parent->appendChild($table);
