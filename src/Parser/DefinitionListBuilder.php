@@ -1406,6 +1406,7 @@ final class DefinitionListBuilder
                     if (
                         preg_match('/^%{3,}$/', $entry) === 1
                         && IndentationHelper::getLeadingColumns($source) > 0
+                        && IndentationHelper::getLeadingColumns($source) !== $continuationColumn
                     ) {
                         $body[$bodyIndex] = ' ' . $entry;
                     }

@@ -11,6 +11,16 @@ use PHPUnit\Framework\TestCase;
 
 final class AMatchedDescriptionCommentKeepsItsBlockExtentTest extends TestCase
 {
+    public function testCommentAtOuterBodyColumnEndsNestedDescription(): void
+    {
+        $source = "[r][] [^p] [^c] [^d]\n\n:: t\n: :: t\n  : para\n    more\n  %%%\n  c\n  %%%\n    tail\n";
+        $expected = '<p>[r][] [^p] [^c] [^d]</p><dl><dt>t</dt><dd><dl><dt>t</dt><dd>para more</dd></dl><p>tail</p></dd></dl>';
+        self::assertSame(
+            preg_replace('/\s+/', '', $expected),
+            preg_replace('/\s+/', '', (new CarveConverter())->convert($source)),
+        );
+    }
+
     public function testMatchedCommentRemainsInsideNestedDescription(): void
     {
         $source = ":: t\n: :: t\n  : para\n %%%\n %%%\ntail\n";
