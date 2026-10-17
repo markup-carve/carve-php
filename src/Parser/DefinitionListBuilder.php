@@ -620,10 +620,10 @@ final class DefinitionListBuilder
                                 break;
                             }
                             if ($consumed > 1 && $indent > 0) {
-                                // Below the body column, a matched fence retains the same item as a line comment.
-                                $body[] = '%%';
-                                $bodyMap[] = $this->sourceLineFor($i);
-                                $i += $consumed;
+                                for ($end = $i + $consumed; $i < $end; $i++) {
+                                    $body[] = $this->keptCommentDelimiter($lines[$i]);
+                                    $bodyMap[] = $this->sourceLineFor($i);
+                                }
                                 $bodyState->openParagraph = false;
                                 $bodyStateCursor = count($body);
                                 $retainedBelowComment = true;
@@ -951,7 +951,7 @@ final class DefinitionListBuilder
                         );
                         if (
                             preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                            && $indent < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                            && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
                             && $this->lineOpensBlockForLooseness($trimmedCont, true)
                         ) {
                             $entry = $trimmedCont;
@@ -1405,7 +1405,8 @@ final class DefinitionListBuilder
                     // Keep the delimiter's residual column through the body rebase.
                     if (
                         preg_match('/^%{3,}$/', $entry) === 1
-                        && IndentationHelper::getLeadingColumns($source) > $continuationColumn
+                        && IndentationHelper::getLeadingColumns($source) > 0
+                        && IndentationHelper::getLeadingColumns($source) !== $continuationColumn
                     ) {
                         $body[$bodyIndex] = ' ' . $entry;
                     }

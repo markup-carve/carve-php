@@ -362,7 +362,7 @@ final class BlockQuoteBuilder
     private function quoteOpeningColumn(string $line, int $quoteSourceLine): int
     {
         $sourceTail = rtrim($this->state->source->sourceLines[$quoteSourceLine] ?? '', " \t");
-        $lineTail = rtrim($line, " \t");
+        $lineTail = rtrim(explode("\n", $line, 2)[0], " \t");
         $markerTail = ltrim($lineTail, " \t");
         $quoteOpeningColumn = str_ends_with($sourceTail, $markerTail)
             ? strlen($sourceTail) - strlen($markerTail)
