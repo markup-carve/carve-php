@@ -2811,10 +2811,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $children = $child->getChildren();
                 $paragraphContinuation = count($children) === 1 && $children[0] instanceof Paragraph;
                 foreach ($lines as $line) {
-                    $foldedOpener = $paragraphContinuation
-                        && preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|\|)/', $line) === 1;
+                    $opener = $paragraphContinuation
+                        ? ($this->rebaseProbe ??= new BlockParser())->descriptionContinuationOpener($line)
+                        : '';
                     $out[] = $this->indentContinuationLine(
-                        $foldedOpener ? '\\' . $line : $line,
+                        $opener !== '' ? '\\' . implode('\\', str_split($opener)) . substr($line, strlen($opener)) : $line,
                         $paragraphContinuation && str_starts_with($line, $this->verbatimSentinels[3])
                             ? '' : self::DEFINITION_BODY_INDENT,
                     );

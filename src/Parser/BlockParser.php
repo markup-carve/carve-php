@@ -7391,6 +7391,15 @@ class BlockParser
         return $this->startsInterruptingBlock($line, $lines, $index);
     }
 
+    public function descriptionContinuationOpener(string $line): string
+    {
+        if ($line === '' || !in_array($line[0], ['#', '>', '|'], true) || !$this->startsNewBlock($line)) {
+            return '';
+        }
+
+        return $line[0] === '#' ? substr($line, 0, strspn($line, '#')) : $line[0];
+    }
+
     /**
      * Check if line starts a visible block that interrupts an open paragraph.
      *
