@@ -11,6 +11,31 @@ use PHPUnit\Framework\TestCase;
 
 final class AMatchedDescriptionCommentKeepsItsBlockExtentTest extends TestCase
 {
+    public function testMatchedCommentRemainsInsideNestedDescription(): void
+    {
+        $source = ":: t\n: :: t\n  : para\n %%%\n %%%\ntail\n";
+        $expected = "<dl>\n<dt>t</dt>\n<dd>\n<dl>\n<dt>t</dt>\n<dd>\n<p>para</p>\n<p>tail</p>\n</dd>\n</dl>\n</dd>\n</dl>";
+        self::assertSame(
+            preg_replace('/\s+/', '', $expected),
+            preg_replace('/\s+/', '', (new CarveConverter())->convert($source)),
+        );
+
+        $ast = (new AstCodec())->encode((new BlockParser(trackPositions: true))->parse($source));
+        $outerItems = self::arrayAt(self::arrayAt(self::arrayAt($ast, 'children'), 0), 'items');
+        $outerDescription = self::arrayAt($outerItems, 1);
+        $nestedList = self::arrayAt(self::arrayAt($outerDescription, 'children'), 0);
+        $innerDescription = self::arrayAt(self::arrayAt($nestedList, 'items'), 1);
+        $children = self::arrayAt($innerDescription, 'children');
+        $comment = self::arrayAt($children, 1);
+        self::assertSame('comment', $comment['type']);
+        self::assertTrue($comment['block']);
+        self::assertSame('', $comment['content']);
+        self::assertSame('block', $comment['form']);
+        $pos = self::arrayAt($comment, 'pos');
+        self::assertSame(22, $pos['startOffset']);
+        self::assertSame(30, $pos['endOffset']);
+    }
+
     public function testMatchedCommentRetainsItsBodyAndExtent(): void
     {
         foreach ([1, 2] as $indent) {

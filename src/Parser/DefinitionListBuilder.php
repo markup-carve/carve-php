@@ -1405,7 +1405,7 @@ final class DefinitionListBuilder
                     // Keep the delimiter's residual column through the body rebase.
                     if (
                         preg_match('/^%{3,}$/', $entry) === 1
-                        && IndentationHelper::getLeadingColumns($source) > $continuationColumn
+                        && IndentationHelper::getLeadingColumns($source) > 0
                     ) {
                         $body[$bodyIndex] = ' ' . $entry;
                     }
