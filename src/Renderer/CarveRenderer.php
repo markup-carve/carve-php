@@ -2140,6 +2140,27 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             || $left instanceof DefinitionList;
     }
 
+    private function definitionListTailHasParagraph(DefinitionList $list): bool
+    {
+        $entries = $list->getChildren();
+        $last = $entries === [] ? null : $entries[array_key_last($entries)];
+        if (!$last instanceof DefinitionDescription) {
+            return false;
+        }
+        $blocks = $last->getChildren();
+
+        return $blocks !== [] && $this->leavesAParagraphOpen($blocks[array_key_last($blocks)]);
+    }
+
+    private function definitionTailNeedsJoin(?Node $previous, Node $child, bool $separated, string $rendered): bool
+    {
+        return !$separated
+            && $previous instanceof DefinitionList
+            && $this->definitionListTailHasParagraph($previous)
+            && $this->foldsIntoAnOpenParagraph($child)
+            && !$this->opensWithAnAttributeLine($rendered);
+    }
+
     protected function atMarkerColumn(string $text): string
     {
         return implode("\n", array_map(
@@ -2283,12 +2304,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && $this->foldsIntoAnOpenParagraph($child)
                         && !$this->opensWithAnAttributeLine($rendered)
                     )
-                    || (
-                        !$separated
-                        && $previousEmitted instanceof DefinitionList
-                        && $this->foldsIntoAnOpenParagraph($child)
-                        && !$this->opensWithAnAttributeLine($rendered)
-                    )
+                    || $this->definitionTailNeedsJoin($previousEmitted, $child, $separated, $rendered)
                 ) {
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;
@@ -2762,7 +2778,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($collected !== null) {
                     $this->definitionsWrittenInPlace[spl_object_id($collected)] = true;
                     $written = $collected instanceof Footnote
-                        ? $this->renderFootnote($collected, true)
+                        ? $this->renderFootnote($collected)
                         : $this->renderLinkReferenceDefinition($collected);
                     // A note's own continuation lines move right by the marker
                     // too. Left at the note's standalone column they fell one
@@ -2771,14 +2787,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // back in (carve#1980).
                     $writtenLines = explode("\n", $written);
                     $out[] = self::DEFINITION_BODY_MARKER . array_shift($writtenLines);
-                    foreach ($writtenLines as $index => $writtenLine) {
-                        if (
-                            $collected instanceof Footnote
-                            && $writtenLine === ''
-                            && preg_match('/^  #{1,6}(?:[ \t]|$)/', $writtenLines[$index + 1] ?? '') === 1
-                        ) {
-                            continue;
-                        }
+                    foreach ($writtenLines as $writtenLine) {
                         $out[] = $this->indentContinuationLine($writtenLine, self::DEFINITION_BODY_INDENT);
                     }
 
@@ -2805,11 +2814,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     $foldedOpener = $paragraphContinuation
                         && preg_match('/^(?:#{1,6}(?:[ \t]|$)|>|\|)/', $line) === 1;
                     $out[] = $this->indentContinuationLine(
-                        $line,
-                        $paragraphContinuation
-                            ? (str_starts_with($line, $this->verbatimSentinels[3]) ? ''
-                                : ($foldedOpener ? ' ' : self::DEFINITION_BODY_INDENT))
-                            : self::DEFINITION_BODY_INDENT,
+                        $foldedOpener ? '\\' . $line : $line,
+                        $paragraphContinuation && str_starts_with($line, $this->verbatimSentinels[3])
+                            ? '' : self::DEFINITION_BODY_INDENT,
                     );
                 }
             }
