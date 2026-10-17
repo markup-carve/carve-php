@@ -7,10 +7,23 @@ namespace MarkupCarve\Carve\Test\TestCase;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Lint\DelimitedTableLinter;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 class DelimitedTableTest extends TestCase
 {
+    public function testSourceBackedCsvFieldsKeepPositions(): void
+    {
+        $source = "{table}\n```csv\nα,\"b,c\"\n\"d\ne\",f\n```\n";
+        $table = (new AstCodec())->encode((new BlockParser(trackPositions: true))->parse($source))['children'][0];
+        $slice = static fn (array $pos): string => mb_substr($source, $pos['startOffset'], $pos['endOffset'] - $pos['startOffset'], 'UTF-8');
+        self::assertSame('α,"b,c"', $slice($table['rows'][0]['pos']));
+        self::assertSame('α', $slice($table['rows'][0]['cells'][0]['pos']));
+        self::assertSame('b,c', $slice($table['rows'][0]['cells'][1]['children'][0]['pos']));
+        self::assertSame("\"d\ne\",f", $slice($table['rows'][1]['pos']));
+        self::assertSame("d\ne", $slice($table['rows'][1]['cells'][0]['children'][0]['pos']));
+    }
+
     public function testCaptionedCsvUsesTheTablePathAndKeepsItsSourceForm(): void
     {
         $source = "{table aligns=left,right,right}\n```csv\nItem,Qty,Price\nApple,12,0.40\n\"Pear, green\",3,0.55\n```\n^ Stock on hand\n";
