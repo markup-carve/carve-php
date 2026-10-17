@@ -89,6 +89,7 @@ final class DelimitedTable
         $table->removeAttribute('table');
         $table->setAttributeOrder(array_values(array_filter($table->getAttributeOrder(), static fn (string $key): bool => $key !== 'table')));
         $table->setSourceFormat($format);
+        $table->setPos($code->getPos());
         $width = 0;
         foreach ($data as $fields) {
             $width = max($width, count($fields));
@@ -106,6 +107,7 @@ final class DelimitedTable
             }
             $table->appendChild($row);
         }
+        $table->setRowGroups($table->statedRowGroups());
         return $table;
     }
 

@@ -3164,13 +3164,18 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $separator = $format === 'csv' ? ',' : "\t";
         $lines = [];
-        foreach ($table->getChildren() as $row) {
+        $rows = $table->getChildren();
+        $footer = $table->getAttribute('footer-rows');
+        $footCount = $footer === null ? 0 : ($footer === '' ? 1 : (ctype_digit($footer) ? (int)$footer : 0));
+        $declared = $table->getAttribute('header-rows');
+        $headCount = $declared === null ? min(1, max(0, count($rows) - $footCount)) : ($declared === '' ? 1 : (ctype_digit($declared) ? (int)$declared : 0));
+        foreach ($rows as $index => $row) {
             if (!$row instanceof TableRow || $row->getAttributes() !== []) {
                 return null;
             }
             $fields = [];
             foreach ($row->getChildren() as $cell) {
-                if (!$cell instanceof TableCell || $cell->getAttributes() !== [] || $cell->getSpanMarker() !== null || $cell->hasBlockContent()) {
+                if (!$cell instanceof TableCell || $cell->isHeader() !== ($index < $headCount) || $cell->getAttributes() !== [] || $cell->getSpanMarker() !== null || $cell->hasBlockContent()) {
                     return null;
                 }
                 $value = '';
@@ -3179,6 +3184,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         return null;
                     }
                     $value .= $child->getContent();
+                }
+                if (str_contains($value, "\r")) {
+                    return null;
                 }
                 $fields[] = strpbrk($value, $separator . "\"\n") === false ? $value : '"' . str_replace('"', '""', $value) . '"';
             }
