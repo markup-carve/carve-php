@@ -9,6 +9,39 @@ namespace MarkupCarve\Carve\Node\Block;
  */
 class Table extends BlockNode
 {
+    protected ?string $sourceFormat = null;
+
+    /**
+     * @var list<int>|null
+     */
+    private ?array $sourceRecordWidths = null;
+
+    /**
+     * @param list<int> $widths
+     */
+    public function setSourceRecordWidths(array $widths): void
+    {
+        $this->sourceRecordWidths = $widths;
+    }
+
+    /**
+     * @return list<int>|null
+     */
+    public function getSourceRecordWidths(): ?array
+    {
+        return $this->sourceRecordWidths;
+    }
+
+    public function setSourceFormat(?string $format): void
+    {
+        $this->sourceFormat = $format;
+    }
+
+    public function getSourceFormat(): ?string
+    {
+        return $this->sourceFormat;
+    }
+
     /**
      * @var list<array{align?: string, valign?: string, width?: float}>
      */

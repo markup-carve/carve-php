@@ -80,6 +80,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\DelimitedTable;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
@@ -2853,6 +2854,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $core = static fn (array $body): array => ['headRows' => $body['headRows'], 'bodyRows' => $body['bodyRows']] + (isset($body['rowHeadColumns']) ? ['rowHeadColumns' => $body['rowHeadColumns']] : []);
         $stated = $table->statedRowGroups();
+        if ($table->getSourceFormat() !== null && $table->getAttribute('header-rows') === null) {
+            $metadata = clone $table;
+            $footer = DelimitedTable::rowCount($table->getAttribute('footer-rows')) ?? 0;
+            $metadata->setAttribute('header-rows', (string)min(1, max(0, count($table->getChildren()) - $footer)));
+            $stated = $metadata->statedRowGroups();
+        }
         if (
             $stated !== null && $stated['headRows'] === $groups['headRows'] && $stated['footRows'] === $groups['footRows']
             && array_map($core, $stated['bodies']) === array_map($core, $groups['bodies'])
@@ -2895,6 +2902,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderTable(Table $node): string
     {
+        if ($node->getSourceFormat() !== null) {
+            $delimited = $this->renderDelimitedTable($node);
+            if ($delimited !== null) {
+                return $delimited;
+            }
+            $this->recordUnspellableField($node, 'sourceFormat', 'The table cells cannot be written as delimited text');
+        }
         if ($node->getShortCaption() !== null) {
             $this->recordUnspellableField($node, 'shortCaption', 'Carve source cannot spell a short caption');
         }
@@ -3119,7 +3133,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderTableWithAttrs(Table $node, Closure $withAttrs): string
     {
-        $body = $withAttrs($this->renderTable($node));
+        $source = $this->renderTable($node);
+        $body = $withAttrs($node->getSourceFormat() !== null && str_starts_with($source, '```') ? "{table}\n" . $source : $source);
         $encoded = $node->getRenderHint("\0carve-prefix-attrs");
         if ($encoded === null || $encoded === '') {
             return $body;
@@ -3146,6 +3161,62 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $prefix = $this->renderAttrList($attrs, $order);
 
         return $prefix === '' ? $body : $prefix . "\n" . $body;
+    }
+
+    private function renderDelimitedTable(Table $table): ?string
+    {
+        $format = $table->getSourceFormat();
+        if ($format !== 'csv' && $format !== 'tsv') {
+            return null;
+        }
+        $separator = $format === 'csv' ? ',' : "\t";
+        $lines = [];
+        $rows = $table->getChildren();
+        $footCount = DelimitedTable::rowCount($table->getAttribute('footer-rows')) ?? 0;
+        $declared = $table->getAttribute('header-rows');
+        $headCount = DelimitedTable::rowCount($declared)
+            ?? min(1, max(0, count($rows) - $footCount));
+        foreach ($rows as $index => $row) {
+            if (!$row instanceof TableRow || $row->getAttributes() !== []) {
+                return null;
+            }
+            $fields = [];
+            foreach ($row->getChildren() as $cell) {
+                if (!$cell instanceof TableCell || $cell->isHeader() !== ($index < $headCount) || $cell->getAttributes() !== [] || $cell->getSpanMarker() !== null || $cell->hasBlockContent()) {
+                    return null;
+                }
+                $value = '';
+                foreach ($cell->getChildren() as $child) {
+                    if (!$child instanceof Text) {
+                        return null;
+                    }
+                    $value .= $child->getContent();
+                }
+                if (str_contains($value, "\r")) {
+                    return null;
+                }
+                $fields[] = strpbrk($value, $separator . "\"\n") === false ? $value : '"' . str_replace('"', '""', $value) . '"';
+            }
+            $line = implode($separator, $fields);
+            $lines[] = $line === '' ? '""' : $line;
+        }
+        $payload = implode("\n", $lines);
+        $fenceLength = 3;
+        if (preg_match_all('/`{3,}/', $payload, $matches) !== false) {
+            foreach ($matches[0] as $run) {
+                $fenceLength = max($fenceLength, strlen($run) + 1);
+            }
+        }
+        $fence = str_repeat('`', $fenceLength);
+        $source = $fence . $format . "\n" . $payload . ($payload === '' ? '' : "\n") . $fence;
+        if ($table->hasCaption()) {
+            $caption = $table->getCaption();
+            if ($caption !== null) {
+                $source .= "\n^ " . $this->renderCaptionInlines($caption);
+            }
+        }
+
+        return $source;
     }
 
     /**
