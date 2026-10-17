@@ -107,7 +107,11 @@ final class DelimitedTable
             }
             $table->appendChild($row);
         }
-        $table->setRowGroups($table->statedRowGroups());
+        $metadata = clone $table;
+        if ($metadata->getAttribute('header-rows') === null) {
+            $metadata->setAttribute('header-rows', (string)$headers);
+        }
+        $table->setRowGroups($metadata->statedRowGroups());
         return $table;
     }
 
