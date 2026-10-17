@@ -3562,7 +3562,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $this->tableCellDepth--;
         }
 
-        return $this->escapeCellPipes(trim($content, StringUtil::TRIMMABLE_WHITESPACE));
+        return str_replace(["\r", "\n"], ' ', $this->escapeCellPipes(trim($content, StringUtil::TRIMMABLE_WHITESPACE)));
     }
 
     /**

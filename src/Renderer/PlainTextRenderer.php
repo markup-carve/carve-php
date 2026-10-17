@@ -861,7 +861,9 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
             function (TableCell $cell, array $span): string {
                 $this->recordTableSpanFlattened($cell, $span);
 
-                return trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE);
+                $content = trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE);
+
+                return str_replace(["\r", "\n"], ' ', $content);
             },
         );
 

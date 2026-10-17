@@ -40,6 +40,15 @@ class DelimitedTableTest extends TestCase
     {
         $source = "{table}\n```csv\nName,Note\nA,\"one\ntwo\"\n```\n";
         self::assertStringContainsString("<td>one\ntwo</td>", (new CarveConverter())->convert($source));
+        self::assertStringContainsString('| A | one two |', CarveConverter::markdown()->convert($source));
+        self::assertStringContainsString("A | one two\n", CarveConverter::plainText()->convert($source));
+        self::assertStringContainsString('one two', CarveConverter::ansi()->convert($source));
+        self::assertStringNotContainsString("one\ntwo", CarveConverter::ansi()->convert($source));
+    }
+
+    public function testEmptyDelimitedTableDrawsNoAnsiBorder(): void
+    {
+        self::assertSame('', trim(CarveConverter::ansi()->convert("{table}\n```csv\n```\n")));
     }
 
     public function testUnmarkedAndMalformedFencesStayCode(): void

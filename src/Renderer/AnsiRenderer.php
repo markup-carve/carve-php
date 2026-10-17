@@ -1129,9 +1129,9 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             function (TableCell $cell, array $span): array {
                 $this->recordTableSpanFlattened($cell, $span);
 
-                return [
-                    'content' => trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE),
-                ];
+                $content = trim($this->renderChildren($cell->hasBlockContent() ? TableCellBlockFlattener::flatten($cell) : $cell), StringUtil::TRIMMABLE_WHITESPACE);
+
+                return ['content' => str_replace(["\r", "\n"], ' ', $content)];
             },
         );
 
@@ -1189,7 +1189,9 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         // Bottom border
-        $output .= $this->renderTableBorder($colWidths, 'bottom');
+        if ($rows !== []) {
+            $output .= $this->renderTableBorder($colWidths, 'bottom');
+        }
 
         // Table caption
         if ($node->hasCaption()) {
