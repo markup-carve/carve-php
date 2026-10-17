@@ -2853,6 +2853,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
         $core = static fn (array $body): array => ['headRows' => $body['headRows'], 'bodyRows' => $body['bodyRows']] + (isset($body['rowHeadColumns']) ? ['rowHeadColumns' => $body['rowHeadColumns']] : []);
         $stated = $table->statedRowGroups();
+        if ($table->getSourceFormat() !== null && $table->getAttribute('header-rows') === null) {
+            $metadata = clone $table;
+            $footer = \MarkupCarve\Carve\Parser\DelimitedTable::rowCount($table->getAttribute('footer-rows')) ?? 0;
+            $metadata->setAttribute('header-rows', (string) min(1, max(0, count($table->getChildren()) - $footer)));
+            $stated = $metadata->statedRowGroups();
+        }
         if (
             $stated !== null && $stated['headRows'] === $groups['headRows'] && $stated['footRows'] === $groups['footRows']
             && array_map($core, $stated['bodies']) === array_map($core, $groups['bodies'])

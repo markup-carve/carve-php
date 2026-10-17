@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Lint\DelimitedTableLinter;
 use PHPUnit\Framework\TestCase;
 
 class DelimitedTableTest extends TestCase
@@ -49,5 +50,35 @@ class DelimitedTableTest extends TestCase
         $malformed = $codec->encode($converter->parse("{table}\n```csv\n\"bad\n```\n"));
         self::assertSame('code_block', $plain['children'][0]['type']);
         self::assertSame('code_block', $malformed['children'][0]['type']);
+    }
+
+    public function testLintReportsMalformedQuotesAndWideRecords(): void
+    {
+        $linter = new DelimitedTableLinter();
+        $malformed = $linter->lint("{table}\n```csv\n\"bad\n```\n");
+        $wide = $linter->lint("{table}\n```csv\na,b\n1\n2,3,4\n```\n");
+        self::assertContains('delimited-table-malformed', array_map(static fn ($warning): string => $warning->rule, $malformed));
+        self::assertContains('delimited-table-wide-row', array_map(static fn ($warning): string => $warning->rule, $wide));
+        self::assertSame([], $linter->lint("{table}\n```csv\na,b\n1,2\n```\n"));
+    }
+
+    public function testImplicitHeaderWithFooterSurvivesFormatting(): void
+    {
+        $source = "{table footer-rows=1}\n```csv\nItem,Qty\nApple,2\nTotal,2\n```\n";
+        $converter = new CarveConverter();
+        $codec = new AstCodec();
+        $written = CarveConverter::toCarve($source);
+        self::assertStringNotContainsString('header-rows=', $written);
+        $before = $codec->encode($converter->parse($source));
+        $after = $codec->encode($converter->parse($written));
+        unset($before['srcByteLength'], $after['srcByteLength']);
+        self::assertSame($before, $after);
+    }
+
+    public function testWideRecordInsideQuoteUsesParsedFields(): void
+    {
+        $source = "> {table}\n> ```csv\n> \"x,y\",b\n> 1,2,3\n> ```\n";
+        $warnings = (new DelimitedTableLinter())->lint($source);
+        self::assertContains('delimited-table-wide-row', array_map(static fn ($warning): string => $warning->rule, $warnings));
     }
 }

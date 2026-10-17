@@ -2754,10 +2754,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $tableAttrs = $this->attributesBesideCarriers($node, $carriesWidths ? ['data-carve-col-widths'] : []);
         unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
         $hasBodyMetadata = isset($tableAttrs['body-rows']) || isset($tableAttrs['body-header-rows']) || isset($tableAttrs['body-header-cols']);
-        if (!$hasBodyMetadata || $node->statedRowGroups() !== null) {
+        if (!$hasBodyMetadata || $node->getRowGroups() !== null || $node->statedRowGroups() !== null) {
             unset($tableAttrs['header-rows'], $tableAttrs['footer-rows']);
         }
-        if ($node->statedRowGroups() !== null) {
+        if ($node->getRowGroups() !== null || $node->statedRowGroups() !== null) {
             unset($tableAttrs['body-rows'], $tableAttrs['body-header-rows'], $tableAttrs['body-header-cols']);
         }
         // A carrier leads the authored attributes (PART 10 section 13a).
@@ -2966,7 +2966,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             $lines[] = '  <tfoot' . $sectionAttrs($groups['footAttrs'] ?? null) . ">\n" . ($tfoot === '' ? '' : rtrim($tfoot, "\n") . "\n") . '  </tfoot>';
         }
 
-        return '<table' . $attrs . ">\n" . implode("\n", $lines) . "\n</table>\n";
+        return '<table' . $attrs . ">\n" . ($lines === [] ? '' : implode("\n", $lines) . "\n") . "</table>\n";
     }
 
     protected function renderTableRow(TableRow $node): string

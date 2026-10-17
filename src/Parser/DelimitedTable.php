@@ -89,6 +89,7 @@ final class DelimitedTable
         $table->removeAttribute('table');
         $table->setAttributeOrder(array_values(array_filter($table->getAttributeOrder(), static fn (string $key): bool => $key !== 'table')));
         $table->setSourceFormat($format);
+        $table->setSourceRecordWidths(array_map('count', $data));
         $table->setPos($code->getPos());
         $width = 0;
         foreach ($data as $fields) {
@@ -107,15 +108,24 @@ final class DelimitedTable
             }
             $table->appendChild($row);
         }
-        $metadata = clone $table;
-        if ($metadata->getAttribute('header-rows') === null) {
-            $metadata->setAttribute('header-rows', (string)$headers);
+        $hasGroups = false;
+        foreach (['header-rows', 'footer-rows', 'body-rows', 'body-header-rows', 'body-header-cols'] as $key) {
+            if ($table->getAttribute($key) !== null) {
+                $hasGroups = true;
+                break;
+            }
         }
-        $table->setRowGroups($metadata->statedRowGroups());
+        if ($hasGroups) {
+            $metadata = clone $table;
+            if ($metadata->getAttribute('header-rows') === null) {
+                $metadata->setAttribute('header-rows', (string)$headers);
+            }
+            $table->setRowGroups($metadata->statedRowGroups());
+        }
         return $table;
     }
 
-    private static function rowCount(?string $raw): ?int
+    public static function rowCount(?string $raw): ?int
     {
         if ($raw === null) {
             return null;

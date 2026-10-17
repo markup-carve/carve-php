@@ -62,6 +62,7 @@ use MarkupCarve\Carve\Extension\FencedRenderExtension;
 use MarkupCarve\Carve\Extension\MathBlockExtension;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
+use MarkupCarve\Carve\Lint\DelimitedTableLinter;
 use MarkupCarve\Carve\Lint\DefinitionTermFoldLinter;
 use MarkupCarve\Carve\Lint\FigureGroupLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
@@ -1349,6 +1350,7 @@ if (($options['command'] ?? null) === 'lint') {
     $semanticLinter = new SemanticAttributeLinter();
     $retiredLinter = new RetiredSpellingLinter();
     $tableColumnLinter = new TableColumnLinter();
+    $delimitedTableLinter = new DelimitedTableLinter();
     $templateSourceLinter = new TemplateSourceLinter();
     $figureGroupLinter = new FigureGroupLinter();
     $quoteFenceLinter = new QuoteFenceLinter();
@@ -1388,6 +1390,7 @@ if (($options['command'] ?? null) === 'lint') {
             $sourceLinter->lint($source),
             $retiredLinter->lint($source),
             $tableColumnLinter->lint($source),
+            $delimitedTableLinter->lint($source),
             $templateSourceLinter->lint($source),
             $figureGroupLinter->lint($source),
             $quoteFenceLinter->lint($source),
