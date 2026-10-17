@@ -23,6 +23,12 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - An unclosed code fence after a block attribute line, table row or reference definition in a container, including one inside a quote or item, ends at that container's closer instead of running to the end of the document (#3496, #3505, #3503, #3504, #3509, #3508).
 - Inside a container, under a plain paragraph, a list-item line containing a comment or attribute stays paragraph text, so a following unclosed fence is also paragraph text (#3501, #3500).
 - A definition or attribute line in a nested item, or a footnote definition in a quote, ends the paragraph there so a following line outside the item or quote starts a document paragraph (#3513, #3510, #3511).
+- Description lists and footnotes keep list-looking text in an open body paragraph, then recognize later definitions, headings and attributes at their written columns. A list marker still ends an open term (#3516, #3517, closes #3515).
+- Description bodies keep headings, rules, table rows, quote markers and captions below the body column as paragraph text; nested lists and quoted descriptions retain their correct boundaries in rendered output and Carve source (#3517, #3519, #3521, #3522, #3526).
+- Marker-line and nested footnotes retain their own headings, block openers and child lists, including after comments, definitions or attributes. A `>` that misses a quoted footnote's quote column becomes document text (#3517, #3519, #3520, #3525, #3526, #3527, #3528).
+- Comments and matched comment fences keep a following unclosed code fence in the item or description that remains open; sibling items and lines outside that container render separately. A caption folded after a description quote no longer leaks an internal marker into the figcaption (#3517, #3520, #3526, #3527, #3528).
+- Attribute lines attach to following code fences inside items and nested containers, including when tabs and spaces differ, and stay with the block at their written column (#3517, #3524, #3526, #3527).
+- HTML import records the form of block and braced comments in AST JSON, and consecutive or nested footnote headings stay in their definitions when written back (#3519).
 - Canonical Carve output leaves list-looking lines inside an ordinary paragraph's code span without extra spaces (#3512).
 - `WikilinksExtension` no longer closes `[[` at an escaped `\]]`, keeps `[[   ]]` literal, accepts empty display text or a single `]` in it, and gives a page named `0` its own link text (#3432, #3451).
 - An escaped include directive (`\{{ path }}`) stays literal: `IncludeExpander` no longer expands it, and the Carve writer no longer turns `{{ \{{ path }}` into a live directive (#3436).
@@ -39,6 +45,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Djot import keeps empty nested task items and representable DIV classes, reads `::: note` as a generic div with class `note`, and an unresolved reference holding NUL no longer selects a sanitized heading (#3424, #3428, #3431, #3460).
 
 ### Improvements
+- `IncludeExpander` accepts `@region:name` in an include directive to select lines between matching `// #region name` and `// #endregion name` or `#region` and `#endregion` markers. Invalid selections stay literal and report `include-region-invalid` (#3518).
 - `carve migrate --from markdown --directory SOURCE --output TARGET` converts a Markdown folder recursively, copies regular assets with their permissions and writes `migration-report.json`. It rewrites local links to converted files when the target and fragment resolve, lists unresolved ones for review, skips symlinks, refuses an existing target, two inputs that map to one output and an entry swapped during the run, and replaces ill-formed bytes (#3478, #3489, #3493, #3494, #3495).
 - The BBCode importer reads forum quote attributions: quoted names, phpBB `post_id` and Unix `time`, and vBulletin `name;id` (#3457).
 - The vendored ProseMirror schema map follows carve-grammars `264bdf5`, including table row continuation lines, cover markers and the combined bold-italic flag (#3438).
