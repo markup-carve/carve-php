@@ -81,4 +81,16 @@ class DelimitedTableTest extends TestCase
         $warnings = (new DelimitedTableLinter())->lint($source);
         self::assertContains('delimited-table-wide-row', array_map(static fn ($warning): string => $warning->rule, $warnings));
     }
+
+    public function testBlankRecordsAndInvalidHeaderCountSurviveFormatting(): void
+    {
+        $converter = new CarveConverter();
+        $sources = [
+            "{table}\n```csv\na\n\n\nb\n```\n",
+            "{table header-rows=x}\n```csv\na,b\n1,2\n```\n",
+        ];
+        foreach ($sources as $source) {
+            self::assertSame($converter->convert($source), $converter->convert(CarveConverter::toCarve($source)));
+        }
+    }
 }

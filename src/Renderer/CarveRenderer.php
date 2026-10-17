@@ -3172,10 +3172,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $separator = $format === 'csv' ? ',' : "\t";
         $lines = [];
         $rows = $table->getChildren();
-        $footer = $table->getAttribute('footer-rows');
-        $footCount = $footer === null ? 0 : ($footer === '' ? 1 : (ctype_digit($footer) ? (int)$footer : 0));
+        $footCount = DelimitedTable::rowCount($table->getAttribute('footer-rows')) ?? 0;
         $declared = $table->getAttribute('header-rows');
-        $headCount = $declared === null ? min(1, max(0, count($rows) - $footCount)) : ($declared === '' ? 1 : (ctype_digit($declared) ? (int)$declared : 0));
+        $headCount = DelimitedTable::rowCount($declared)
+            ?? min(1, max(0, count($rows) - $footCount));
         foreach ($rows as $index => $row) {
             if (!$row instanceof TableRow || $row->getAttributes() !== []) {
                 return null;
@@ -3197,12 +3197,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 }
                 $fields[] = strpbrk($value, $separator . "\"\n") === false ? $value : '"' . str_replace('"', '""', $value) . '"';
             }
-            $lines[] = implode($separator, $fields);
+            $line = implode($separator, $fields);
+            $lines[] = $line === '' ? '""' : $line;
         }
         $payload = implode("\n", $lines);
-        if ($payload === '' && $lines !== []) {
-            $payload = '""';
-        }
         $fenceLength = 3;
         if (preg_match_all('/`{3,}/', $payload, $matches) !== false) {
             foreach ($matches[0] as $run) {
