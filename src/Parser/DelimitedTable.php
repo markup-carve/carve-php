@@ -12,7 +12,9 @@ use MarkupCarve\Carve\Node\Inline\Text;
 
 final class DelimitedTable
 {
-    /** @return list<list<string>>|null */
+    /**
+     * @return list<list<string>>|null
+     */
     public static function rows(string $source, string $separator): ?array
     {
         if ($source === '') {
@@ -39,6 +41,7 @@ final class DelimitedTable
                 } else {
                     $field .= $char;
                 }
+
                 continue;
             }
             if ($char === $separator || $char === "\n") {
@@ -71,6 +74,7 @@ final class DelimitedTable
             $row[] = $field;
             $rows[] = $row;
         }
+
         return $rows;
     }
 
@@ -112,6 +116,7 @@ final class DelimitedTable
         foreach (['header-rows', 'footer-rows', 'body-rows', 'body-header-rows', 'body-header-cols'] as $key) {
             if ($table->getAttribute($key) !== null) {
                 $hasGroups = true;
+
                 break;
             }
         }
@@ -122,6 +127,7 @@ final class DelimitedTable
             }
             $table->setRowGroups($metadata->statedRowGroups());
         }
+
         return $table;
     }
 
@@ -133,6 +139,7 @@ final class DelimitedTable
         if ($raw === '') {
             return 1;
         }
+
         return ctype_digit($raw) ? min((int)$raw, PHP_INT_MAX) : null;
     }
 }

@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Lint;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\Table;
@@ -14,7 +14,9 @@ use MarkupCarve\Carve\Parser\DelimitedTable;
 
 final class DelimitedTableLinter
 {
-    /** @return list<LintWarning> */
+    /**
+     * @return list<\MarkupCarve\Carve\Lint\LintWarning>
+     */
     public function lint(string $source): array
     {
         $converter = new CarveConverter();
@@ -41,10 +43,17 @@ final class DelimitedTableLinter
                 $pending[] = $child;
             }
         }
+
         return $warnings;
     }
 
-    /** @param list<LintWarning> $warnings @param array<int, int>|null $map */
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
+     * @param \MarkupCarve\Carve\Node\Node $owner
+@param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings @param array<int, int>|null $map
+     * @param int $length
+     * @param array|null $map
+     */
     private function malformed(CodeBlock $code, Node $owner, array &$warnings, ?array $map, int $length): void
     {
         $format = $code->getLanguage();
@@ -57,7 +66,12 @@ final class DelimitedTableLinter
         $this->warn($code->getPos() ?? $owner->getPos(), 'delimited-table-malformed', 'This marked CSV/TSV fence has malformed quoting, so it remains a code block.', $warnings, $map, $length);
     }
 
-    /** @param list<LintWarning> $warnings @param array<int, int>|null $map */
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\Table $table
+@param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings @param array<int, int>|null $map
+     * @param int $length
+     * @param array|null $map
+     */
     private function wide(Table $table, array &$warnings, ?array $map, int $length): void
     {
         $pos = $table->getPos();
@@ -72,19 +86,32 @@ final class DelimitedTableLinter
         foreach ($widths as $rowWidth) {
             if ($rowWidth > $width) {
                 $this->warn($pos, 'delimited-table-wide-row', 'A CSV/TSV record has more fields than the first record; the table keeps the extra columns.', $warnings, $map, $length);
+
                 return;
             }
         }
     }
 
-    /** @param list<LintWarning> $warnings @param array<int, int>|null $map */
+    /**
+     * @param \MarkupCarve\Carve\Ast\SourceSpan|null $pos
+     * @param string $rule
+     * @param string $message
+@param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings @param array<int, int>|null $map
+     * @param int $length
+     * @param array|null $map
+     */
     private function warn(?SourceSpan $pos, string $rule, string $message, array &$warnings, ?array $map, int $length): void
     {
         if ($pos === null) {
             return;
         }
-        $warnings[] = new LintWarning($pos->startLine, $pos->startColumn, $rule, $message,
+        $warnings[] = new LintWarning(
+            $pos->startLine,
+            $pos->startColumn,
+            $rule,
+            $message,
             SourceOffsets::toByte($pos->startOffset, $map, $length),
-            SourceOffsets::toByte($pos->endOffset, $map, $length));
+            SourceOffsets::toByte($pos->endOffset, $map, $length),
+        );
     }
 }

@@ -80,6 +80,7 @@ use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockGrammar;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\DelimitedTable;
 use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\ReferenceDefinitionExtractor;
@@ -2855,8 +2856,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $stated = $table->statedRowGroups();
         if ($table->getSourceFormat() !== null && $table->getAttribute('header-rows') === null) {
             $metadata = clone $table;
-            $footer = \MarkupCarve\Carve\Parser\DelimitedTable::rowCount($table->getAttribute('footer-rows')) ?? 0;
-            $metadata->setAttribute('header-rows', (string) min(1, max(0, count($table->getChildren()) - $footer)));
+            $footer = DelimitedTable::rowCount($table->getAttribute('footer-rows')) ?? 0;
+            $metadata->setAttribute('header-rows', (string)min(1, max(0, count($table->getChildren()) - $footer)));
             $stated = $metadata->statedRowGroups();
         }
         if (
@@ -3216,6 +3217,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $source .= "\n^ " . $this->renderCaptionInlines($caption);
             }
         }
+
         return $source;
     }
 
