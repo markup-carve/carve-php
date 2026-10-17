@@ -172,6 +172,7 @@ final class ReferenceShape
         'list_item' => ['taskMarker'],
         'table_cell' => ['isHeader', 'rowspan', 'colspan', 'hasExplicitAlignment', 'hasExplicitVerticalAlignment', 'blockContent'],
         'table_row' => ['isHeader'],
+        'table' => ['sourceRecordWidths'],
         // Fence width is a writer concern, recomputed when formatting.
         // `labelNodes` is the label READ AS THE INLINE RUN it is; the reference
         // holds a label as text and scans it where it renders, so the nodes are

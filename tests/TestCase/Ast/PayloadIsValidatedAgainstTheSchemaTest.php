@@ -492,6 +492,8 @@ class PayloadIsValidatedAgainstTheSchemaTest extends TestCase
         // remove, so a pin that lost it again would make this comparison pass
         // for the wrong reason.
         $this->assertArrayHasKey('ruby', $upstreamSchema['$defs']);
+        // The CSV/TSV field ships before the coordinated spec pin update.
+        unset($vendoredSchema['$defs']['table']['properties']['sourceFormat']);
         $this->assertSame($upstreamSchema, $vendoredSchema);
     }
 

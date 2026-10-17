@@ -48,11 +48,13 @@ final class DelimitedTableLinter
     }
 
     /**
+     * Check malformed delimited input.
+     *
      * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
      * @param \MarkupCarve\Carve\Node\Node $owner
-@param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings @param array<int, int>|null $map
+     * @param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings
+     * @param array<int, int>|null $map
      * @param int $length
-     * @param array|null $map
      */
     private function malformed(CodeBlock $code, Node $owner, array &$warnings, ?array $map, int $length): void
     {
@@ -67,10 +69,12 @@ final class DelimitedTableLinter
     }
 
     /**
+     * Check parsed record widths.
+     *
      * @param \MarkupCarve\Carve\Node\Block\Table $table
-@param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings @param array<int, int>|null $map
+     * @param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings
+     * @param array<int, int>|null $map
      * @param int $length
-     * @param array|null $map
      */
     private function wide(Table $table, array &$warnings, ?array $map, int $length): void
     {
@@ -93,12 +97,14 @@ final class DelimitedTableLinter
     }
 
     /**
+     * Record one lint warning.
+     *
      * @param \MarkupCarve\Carve\Ast\SourceSpan|null $pos
      * @param string $rule
      * @param string $message
-@param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings @param array<int, int>|null $map
+     * @param list<\MarkupCarve\Carve\Lint\LintWarning> $warnings
+     * @param array<int, int>|null $map
      * @param int $length
-     * @param array|null $map
      */
     private function warn(?SourceSpan $pos, string $rule, string $message, array &$warnings, ?array $map, int $length): void
     {

@@ -427,6 +427,7 @@
   },
   "table": {
     "fields": [
+      "sourceFormat",
       "columns",
       "rowGroups",
       "caption",

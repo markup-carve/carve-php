@@ -64,7 +64,7 @@ class AstCodec
      *
      * @var int
      */
-    public const VERSION = 5;
+    public const VERSION = 6;
 
     /**
      * Node types this engine has and the wire does not, and what each publishes.
