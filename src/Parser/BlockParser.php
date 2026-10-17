@@ -5066,6 +5066,23 @@ class BlockParser
                 if (!$legacyNestedFence) {
                     $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 }
+                $lastLine = $itemLines[count($itemLines) - 1] ?? '';
+                $priorLine = $itemLines[count($itemLines) - 2] ?? '';
+                $nestedOpener = $this->fencedBlockParser->parseCodeFenceOpener(ltrim($lastLine, " \t"));
+                // An unclosed fence in the inner item leaves no paragraph for a flush follower.
+                $nestedUnclosedFence = $nextIndent === 0
+                    && $this->listParser->parseListItemMarker($lead) !== null
+                    && $this->isCommentLineOrFence(ltrim($priorLine, " \t"))
+                    && $nestedOpener !== null
+                    && !$this->continuationsMapper()->sourceFenceCloserInView(
+                        $lines,
+                        $i - 1,
+                        $nestedOpener,
+                        IndentationHelper::getLeadingColumns($lines[$i - 1]),
+                    );
+                if ($nestedUnclosedFence) {
+                    break;
+                }
                 $lastItemLine = array_key_last($itemLines);
                 $closedNestedFence = $nextIndent === 0
                     && $lastItemLine !== null
@@ -5741,7 +5758,7 @@ class BlockParser
                     && $authoredNext !== null
                     && $authoredNext < ($this->authoredFootnoteBodyFloor($start, $line) ?? 0)
                     && preg_match('/^%%(?!%)/', ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t")) !== 1)
-                && $trailingState->openParagraph
+                && ($trailingState->openParagraph || $trailingState->inFootnoteBody)
                 && $this->isCommentLineOrFence(ltrim($nextLine, " \t"))
             ) {
                 $holder = new Document();
