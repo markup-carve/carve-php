@@ -12,14 +12,27 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ## [0.1.13] - 2026-10-15
 
 ### Breaking
-- Empty link destinations are real links: `[text]()` and `![alt]()` parse as a link and an image with an empty URL, and a bare `[r]:` line is an empty reference definition. Escape the opening bracket to keep such text literal. AST JSON carries contract version `2.0`, so 0.1.12 readers refuse trees written by this release (#3448, #3472, markup-carve/carve#2878).
+- Empty link destinations are real links: `[text]()` and `![alt]()` parse as a link and an image with an empty URL, and a bare `[r]:` line is an empty reference definition. Escape the opening bracket to keep such text literal (#3448, #3472, markup-carve/carve#2878).
+- AST JSON carries contract version `1.2`. It adds `resolved: true` on a link or image reference that resolves to an empty definition, an optional root `astVersion` that `carve --json` writes, and `comment.form` (`block`, `line` or `braced`) on comments. Readers of contract 1.1, including 0.1.12, refuse trees written by this release (#3502, markup-carve/carve#3261).
 - Markdown, plain text and ANSI output report `table-span-flattened` for each merged table cell, and Markdown reports `table-header-row-demoted`, `table-header-row-hoisted` and `table-header-cell-demoted` for the header rows and cells it rewrites. A `--strict-losses` run over such tables now fails; allow the codes with `--allow-loss` where that is acceptable (#3456, #3473).
 
 ### Fixes
+- CSV and TSV fenced tables now parse and render, keep each written record on one row, and carry source positions for rows, cells and text. Empty records have no invented spans (#3529, #3533, #3535, #3536, #3537, markup-carve/carve#3239).
+- Plain text output writes list continuation blocks at the item content column (#3532).
+- AST and formatter output agree for blocks inside description bodies (#3530).
 - An autolink, a cross-reference or a comment is atomic to every outside delimiter: a `]` inside one no longer closes a label opened before it, a `~>` inside one ends no substitution, and a braced, editorial or bare `/` closer inside one closes nothing, so `[a <https://x]> b](u)` is one link (#3437, #3443, #3462, #3475, #3481, markup-carve/carve#3204, markup-carve/carve#3244).
 - An emphasis, braced or editorial delimiter followed by a combining mark, spacing mark, variation selector or zero-width joiner stays literal text, and the Carve writer keeps it literal (#3464, #3466, #3467, #3470, markup-carve/carve#3209).
-- Inside an unclosed code fence in a `:::` container, only the innermost container's own closer ends the fence, also after a quote or item holding only a comment. A colon line of another width used to open a nested container and turn the rest of the document into code (#3453, #3479, markup-carve/carve#3201).
-- An unclosed code fence right after a block attribute line in a container, bare or inside a quote or item, also ends at that container's closer instead of running to the end of the document (#3496).
+- Inside an unclosed code fence in a `:::` container, only the innermost container's own closer ends the fence, also after a quote or item holding only a comment, including a comment in a quoted item. A colon line of another width used to open a nested container and turn the rest of the document into code (#3453, #3479, #3507, markup-carve/carve#3201).
+- An unclosed code fence after a block attribute line, table row or reference definition in a container, including one inside a quote or item, ends at that container's closer instead of running to the end of the document (#3496, #3505, #3503, #3504, #3509, #3508).
+- Inside a container, under a plain paragraph, a list-item line containing a comment or attribute stays paragraph text, so a following unclosed fence is also paragraph text (#3501, #3500).
+- A definition or attribute line in a nested item, or a footnote definition in a quote, ends the paragraph there so a following line outside the item or quote starts a document paragraph (#3513, #3510, #3511).
+- Description lists and footnotes keep list-looking text in an open body paragraph, then recognize later definitions, headings and attributes at their written columns. A list marker still ends an open term (#3516, #3517, closes #3515).
+- Description bodies keep headings, rules, table rows, quote markers and captions below the body column as paragraph text; nested lists and quoted descriptions retain their correct boundaries in rendered output and Carve source (#3517, #3519, #3521, #3522, #3526).
+- Marker-line and nested footnotes retain their own headings, block openers and child lists, including after comments, definitions or attributes. A `>` that misses a quoted footnote's quote column becomes document text (#3517, #3519, #3520, #3525, #3526, #3527, #3528).
+- Comments and matched comment fences keep a following unclosed code fence in the item or description that remains open; sibling items and lines outside that container render separately. A caption folded after a description quote no longer leaks an internal marker into the figcaption (#3517, #3520, #3526, #3527, #3528).
+- Attribute lines attach to following code fences inside items and nested containers, including when tabs and spaces differ, and stay with the block at their written column (#3517, #3524, #3526, #3527).
+- HTML import records the form of block and braced comments in AST JSON, and consecutive or nested footnote headings stay in their definitions when written back (#3519).
+- Canonical Carve output leaves list-looking lines inside an ordinary paragraph's code span without extra spaces (#3512).
 - `WikilinksExtension` no longer closes `[[` at an escaped `\]]`, keeps `[[   ]]` literal, accepts empty display text or a single `]` in it, and gives a page named `0` its own link text (#3432, #3451).
 - An escaped include directive (`\{{ path }}`) stays literal: `IncludeExpander` no longer expands it, and the Carve writer no longer turns `{{ \{{ path }}` into a live directive (#3436).
 - Plain text and ANSI write a definition with an empty or blanked destination as the bare `[label]:`, without a trailing space, title or attributes (#3465).
@@ -35,6 +48,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Djot import keeps empty nested task items and representable DIV classes, reads `::: note` as a generic div with class `note`, and an unresolved reference holding NUL no longer selects a sanitized heading (#3424, #3428, #3431, #3460).
 
 ### Improvements
+- `IncludeExpander` accepts `@region:name` in an include directive to select lines between matching `// #region name` and `// #endregion name` or `#region` and `#endregion` markers. Invalid selections stay literal and report `include-region-invalid` (#3518).
 - `carve migrate --from markdown --directory SOURCE --output TARGET` converts a Markdown folder recursively, copies regular assets with their permissions and writes `migration-report.json`. It rewrites local links to converted files when the target and fragment resolve, lists unresolved ones for review, skips symlinks, refuses an existing target, two inputs that map to one output and an entry swapped during the run, and replaces ill-formed bytes (#3478, #3489, #3493, #3494, #3495).
 - The BBCode importer reads forum quote attributions: quoted names, phpBB `post_id` and Unix `time`, and vBulletin `name;id` (#3457).
 - The vendored ProseMirror schema map follows carve-grammars `264bdf5`, including table row continuation lines, cover markers and the combined bold-italic flag (#3438).
