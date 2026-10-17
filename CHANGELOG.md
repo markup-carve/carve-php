@@ -17,6 +17,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Markdown, plain text and ANSI output report `table-span-flattened` for each merged table cell, and Markdown reports `table-header-row-demoted`, `table-header-row-hoisted` and `table-header-cell-demoted` for the header rows and cells it rewrites. A `--strict-losses` run over such tables now fails; allow the codes with `--allow-loss` where that is acceptable (#3456, #3473).
 
 ### Fixes
+- CSV and TSV fenced tables now parse and render, keep each written record on one row, and carry source positions for rows, cells and text. Empty records have no invented spans (#3529, #3533, #3535, #3536, #3537, markup-carve/carve#3239).
+- Plain text output writes list continuation blocks at the item content column (#3532).
+- AST and formatter output agree for blocks inside description bodies (#3530).
 - An autolink, a cross-reference or a comment is atomic to every outside delimiter: a `]` inside one no longer closes a label opened before it, a `~>` inside one ends no substitution, and a braced, editorial or bare `/` closer inside one closes nothing, so `[a <https://x]> b](u)` is one link (#3437, #3443, #3462, #3475, #3481, markup-carve/carve#3204, markup-carve/carve#3244).
 - An emphasis, braced or editorial delimiter followed by a combining mark, spacing mark, variation selector or zero-width joiner stays literal text, and the Carve writer keeps it literal (#3464, #3466, #3467, #3470, markup-carve/carve#3209).
 - Inside an unclosed code fence in a `:::` container, only the innermost container's own closer ends the fence, also after a quote or item holding only a comment, including a comment in a quoted item. A colon line of another width used to open a nested container and turn the rest of the document into code (#3453, #3479, #3507, markup-carve/carve#3201).
