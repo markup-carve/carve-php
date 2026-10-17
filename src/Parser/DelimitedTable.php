@@ -106,7 +106,9 @@ final class DelimitedTable
         if (($format !== 'csv' && $format !== 'tsv') || $code->getAttribute('table') !== '') {
             return null;
         }
+        /** @var list<list<array{int, int, bool, bool}>> $fieldRanges */
         $fieldRanges = [];
+        /** @var list<array{int, int}> $rowRanges */
         $rowRanges = [];
         $fields = [];
         $data = self::rows(
@@ -141,8 +143,9 @@ final class DelimitedTable
         foreach ($data as $index => $fields) {
             $header = $index < $headers;
             $row = new TableRow($header);
-            if ($sourceMap !== null && isset($rowRanges[$index])) {
-                $row->setPos($sourceMap->spanRange(...$rowRanges[$index]));
+            $rowRange = $rowRanges[$index] ?? null;
+            if ($sourceMap !== null && $rowRange !== null) {
+                $row->setPos($sourceMap->spanRange(...$rowRange));
             }
             for ($column = 0; $column < $width; $column++) {
                 $cell = new TableCell($header);
