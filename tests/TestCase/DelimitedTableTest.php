@@ -50,6 +50,11 @@ class DelimitedTableTest extends TestCase
         $malformed = $codec->encode($converter->parse("{table}\n```csv\n\"bad\n```\n"));
         self::assertSame('code_block', $plain['children'][0]['type']);
         self::assertSame('code_block', $malformed['children'][0]['type']);
+        foreach (['a"b,c', '"a" ,b'] as $body) {
+            $source = "{table}\n```csv\n" . $body . "\n```\n";
+            $ast = $codec->encode($converter->parse($source));
+            self::assertSame('code_block', $ast['children'][0]['type']);
+        }
     }
 
     public function testLintReportsMalformedQuotesAndWideRecords(): void
