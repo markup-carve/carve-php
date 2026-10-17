@@ -3274,6 +3274,10 @@
             "minimum": 1
           }
         },
+        "sourceFormat": {
+          "enum": ["csv", "tsv"],
+          "description": "Author chose a delimited table fence. The canonical writer keeps this form; quoting and record separators may be normalized."
+        },
         "caption": {
           "type": "array",
           "items": {

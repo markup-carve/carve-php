@@ -2810,7 +2810,13 @@ class BlockParser
         ) {
             $this->sourceMapper()->recordOwnedFenceEnd($codeBlock, $this->sourceLineFor($i - 1));
         }
-        $parent->appendChild($codeBlock);
+        $table = DelimitedTable::fromCode($codeBlock);
+        if ($table !== null) {
+            $this->applyTableColumns($table);
+            $parent->appendChild($table);
+        } else {
+            $parent->appendChild($codeBlock);
+        }
 
         return $i - $start;
     }

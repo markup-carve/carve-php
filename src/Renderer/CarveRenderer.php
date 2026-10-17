@@ -2895,6 +2895,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderTable(Table $node): string
     {
+        if ($node->getSourceFormat() !== null) {
+            $delimited = $this->renderDelimitedTable($node);
+            if ($delimited !== null) {
+                return $delimited;
+            }
+            $this->recordUnspellableField($node, 'sourceFormat', 'The table cells cannot be written as delimited text');
+        }
         if ($node->getShortCaption() !== null) {
             $this->recordUnspellableField($node, 'shortCaption', 'Carve source cannot spell a short caption');
         }
@@ -3119,7 +3126,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function renderTableWithAttrs(Table $node, Closure $withAttrs): string
     {
-        $body = $withAttrs($this->renderTable($node));
+        $source = $this->renderTable($node);
+        $body = $withAttrs($node->getSourceFormat() !== null && str_starts_with($source, '```') ? "{table}\n" . $source : $source);
         $encoded = $node->getRenderHint("\0carve-prefix-attrs");
         if ($encoded === null || $encoded === '') {
             return $body;
@@ -3146,6 +3154,55 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $prefix = $this->renderAttrList($attrs, $order);
 
         return $prefix === '' ? $body : $prefix . "\n" . $body;
+    }
+
+    private function renderDelimitedTable(Table $table): ?string
+    {
+        $format = $table->getSourceFormat();
+        if ($format !== 'csv' && $format !== 'tsv') {
+            return null;
+        }
+        $separator = $format === 'csv' ? ',' : "\t";
+        $lines = [];
+        foreach ($table->getChildren() as $row) {
+            if (!$row instanceof TableRow || $row->getAttributes() !== []) {
+                return null;
+            }
+            $fields = [];
+            foreach ($row->getChildren() as $cell) {
+                if (!$cell instanceof TableCell || $cell->getAttributes() !== [] || $cell->getSpanMarker() !== null || $cell->hasBlockContent()) {
+                    return null;
+                }
+                $value = '';
+                foreach ($cell->getChildren() as $child) {
+                    if (!$child instanceof Text) {
+                        return null;
+                    }
+                    $value .= $child->getContent();
+                }
+                $fields[] = strpbrk($value, $separator . "\"\n") === false ? $value : '"' . str_replace('"', '""', $value) . '"';
+            }
+            $lines[] = implode($separator, $fields);
+        }
+        $payload = implode("\n", $lines);
+        if ($payload === '' && $lines !== []) {
+            $payload = '""';
+        }
+        $fenceLength = 3;
+        if (preg_match_all('/`{3,}/', $payload, $matches) !== false) {
+            foreach ($matches[0] as $run) {
+                $fenceLength = max($fenceLength, strlen($run) + 1);
+            }
+        }
+        $fence = str_repeat('`', $fenceLength);
+        $source = $fence . $format . "\n" . $payload . ($payload === '' ? '' : "\n") . $fence;
+        if ($table->hasCaption()) {
+            $caption = $table->getCaption();
+            if ($caption !== null) {
+                $source .= "\n^ " . $this->renderCaptionInlines($caption);
+            }
+        }
+        return $source;
     }
 
     /**
