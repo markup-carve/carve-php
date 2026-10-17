@@ -231,13 +231,29 @@ class SourcePositionTest extends TestCase
         $files = glob(dirname(__DIR__, 3) . '/tests/spec/tests/corpus/*.crv') ?: [];
         $total = 0;
         $placed = 0;
+        $previousTotal = 0;
+        $previousPlaced = 0;
+        $delimitedTotal = 0;
+        $delimitedPlaced = 0;
 
         foreach ($files as $file) {
+            $isDelimitedCorpus = str_starts_with(basename($file), '617-csv-and-tsv-table-bodies');
             $document = (new BlockParser(trackPositions: true))->parse((string)file_get_contents($file));
             foreach (self::walk($document) as $node) {
                 $total++;
                 if ($node->getPos() !== null) {
                     $placed++;
+                }
+                if (!$isDelimitedCorpus) {
+                    $previousTotal++;
+                    if ($node->getPos() !== null) {
+                        $previousPlaced++;
+                    }
+                } else {
+                    $delimitedTotal++;
+                    if ($node->getPos() !== null) {
+                        $delimitedPlaced++;
+                    }
                 }
             }
         }
@@ -250,8 +266,17 @@ class SourcePositionTest extends TestCase
         // it always did as a degenerate marker - there are just more of them
         // now that a CONSUMED marker keeps its own cell too, so the corpus's
         // unplaced-node count rose without any placement logic regressing.
+        // Delimited tables add literal field nodes without individual source spans.
+        // Keep the old corpus's floor while measuring the new source form separately.
         $this->assertGreaterThan(
             0.993,
+            $previousPlaced / $previousTotal,
+            sprintf('previous corpus position coverage fell: %d of %d nodes', $previousPlaced, $previousTotal),
+        );
+        $this->assertSame(98, $delimitedTotal, 'the delimited table corpus population moved');
+        $this->assertGreaterThanOrEqual(12, $delimitedPlaced, 'delimited table position coverage fell');
+        $this->assertGreaterThan(
+            0.99275,
             $placed / $total,
             sprintf('position coverage fell to %.1f%% (%d of %d nodes)', 100 * $placed / $total, $placed, $total),
         );

@@ -3276,7 +3276,7 @@
         },
         "sourceFormat": {
           "enum": ["csv", "tsv"],
-          "description": "Author chose a delimited table fence. The canonical writer keeps this form; quoting and record separators may be normalized."
+          "description": "Author chose a delimited table fence. The canonical Carve writer keeps this form; absent means a pipe table. Quoting and record separators may be normalized."
         },
         "caption": {
           "type": "array",
