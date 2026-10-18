@@ -381,6 +381,8 @@ class InlineParser
 
     protected bool $wordAttributesEnabled = true;
 
+    protected bool $rejectInitialBlockComment = false;
+
     /**
      * Smart quote characters (configurable via SmartQuotesExtension for locale support)
      */
@@ -644,7 +646,10 @@ class InlineParser
         ?SourceMap $sourceMap = null,
         bool $lineBlock = false,
         bool $separateQuoteScope = false,
+        bool $rejectInitialBlockComment = false,
     ): void {
+        $previousRejectInitialBlockComment = $this->rejectInitialBlockComment;
+        $this->rejectInitialBlockComment = $rejectInitialBlockComment;
         $outerCellWraps = $this->cellWraps;
         $this->cellWraps = $this->pendingCellWraps;
         $this->pendingCellWraps = [];
@@ -680,6 +685,7 @@ class InlineParser
         try {
             $this->parseInlines($parent, $text, separateQuoteScope: $separateQuoteScope);
         } finally {
+            $this->rejectInitialBlockComment = $previousRejectInitialBlockComment;
             $this->cellWraps = $outerCellWraps;
             $this->captionContextEnabled = $previousCaptionContext;
             $this->captionNumberEmitted = $previousCaptionNumberEmitted;
@@ -1102,7 +1108,10 @@ class InlineParser
             // in the run and prose resumes after the first `%}`. An opener
             // without a closer is ordinary text. Code and raw spans remain
             // opaque because their backtick handler consumes them as a unit.
-            if ($char === '{' && $nextChar === '%' && !$this->hasDecoratedBracedOpener($text, $pos) && $this->closerExistsFrom($text, '%}', $pos + 2)) {
+            if (
+                $char === '{' && $nextChar === '%' && !($this->rejectInitialBlockComment && $pos === 0)
+                && !$this->hasDecoratedBracedOpener($text, $pos) && $this->closerExistsFrom($text, '%}', $pos + 2)
+            ) {
                 $close = strpos($text, '%}', $pos + 2);
                 if ($close !== false) {
                     $this->flushText($parent, $textBuffer);

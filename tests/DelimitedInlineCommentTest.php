@@ -51,6 +51,14 @@ class DelimitedInlineCommentTest extends TestCase
         $this->assertSame("<p>a {% one</p>\n<p>two %} b</p>", $this->html("a {% one\n\ntwo %} b"));
     }
 
+    public function testBlockPositionContinuationMustBeIndented(): void
+    {
+        $this->assertSame('<blockquote><p>{%' . "\n" . 'c' . "\n" . '%}</p></blockquote>', $this->html("> {%\n> c\n> %}"));
+        $this->assertSame('<p>{%' . "\n" . '<strong>x</strong>' . "\n" . '%}</p>', $this->html("{%\n*x*\n%}"));
+        $this->assertSame('<p></p>', $this->html("{%\n  c\n  %}"));
+        $this->assertSame('<blockquote><p></p></blockquote>', $this->html("> {%\n>   c\n>   %}"));
+    }
+
     public function testWorksInTableCellsAndLinkTextBesideLineComments(): void
     {
         $html = $this->html("| A | B |\n|---|---|\n| x {% c %} y | z %% gone |");

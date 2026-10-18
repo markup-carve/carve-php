@@ -6102,6 +6102,7 @@ class BlockParser
             $content,
             $start,
             sourceMap: $this->foldedLinesMap($contentLines),
+            rejectInitialBlockComment: $this->rejectInitialBlockComment($content, $contentLines),
         );
         $placed = array_values(array_filter(
             $paragraph->getChildren(),
@@ -6140,6 +6141,49 @@ class BlockParser
         }
 
         return $i - $start;
+    }
+
+    /**
+     * @param string $content
+     * @param list<array{int, int, int, string}> $contentLines
+     */
+    private function rejectInitialBlockComment(string $content, array $contentLines): bool
+    {
+        if (!str_starts_with($content, '{%') || !str_contains($content, "\n")) {
+            return false;
+        }
+        $parts = explode("\n", $content);
+        if (str_contains($parts[0], '%}')) {
+            return false;
+        }
+        $openerColumn = $this->authoredParagraphColumn($contentLines[0], $parts[0]);
+        foreach ($parts as $index => $part) {
+            if ($index === 0) {
+                continue;
+            }
+            if (isset($contentLines[$index]) && $this->authoredParagraphColumn($contentLines[$index], $part) <= $openerColumn) {
+                return true;
+            }
+            if (str_contains($part, '%}')) {
+                break;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array{int, int, int, string} $line
+     * @param string $content
+     */
+    private function authoredParagraphColumn(array $line, string $content): int
+    {
+        $source = rtrim($this->state->source->sourceLines[$line[0]] ?? '', " \t");
+        if ($content !== '' && str_ends_with($source, $content)) {
+            return strlen($source) - strlen($content);
+        }
+
+        return $line[1];
     }
 
     /**
@@ -7288,7 +7332,13 @@ class BlockParser
         }
         unset($this->deferredScratchInlines[$paragraph]);
         [$content, $start, $contentLines] = $deferred;
-        $this->inlineParser->parse($paragraph, $content, $start, sourceMap: $this->foldedLinesMap($contentLines));
+        $this->inlineParser->parse(
+            $paragraph,
+            $content,
+            $start,
+            sourceMap: $this->foldedLinesMap($contentLines),
+            rejectInitialBlockComment: $this->rejectInitialBlockComment($content, $contentLines),
+        );
     }
 
     /**
