@@ -5014,7 +5014,7 @@ class BlockParser
         $bareLeadQuoteMemo = [];
         $nestedFence = new NestedLeadFenceState();
         $sourceLead = $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '';
-        $sourceLead = ContainerPrefix::stripQuoteMarkers(ltrim($sourceLead, " \t"));
+        $sourceLead = ltrim(ContainerPrefix::stripQuoteMarkers(ltrim($sourceLead, " \t")), " \t");
         $nestedFence->releaseAtListAncestor = $this->listParser->parseListItemMarker($sourceLead) !== null;
         $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
             || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
