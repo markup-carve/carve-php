@@ -25,6 +25,8 @@ final class NestedLeadFenceState
 
     public bool $onlyBlankBelow = true;
 
+    public bool $releaseAtListAncestor = false;
+
     public TrailingBlockState $trailing;
 
     public function __construct()
