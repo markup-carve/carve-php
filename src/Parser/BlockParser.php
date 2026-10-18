@@ -4256,6 +4256,18 @@ class BlockParser
         for ($n = count($itemLines); $state->nextLine < $n; $state->nextLine++) {
             $line = $itemLines[$state->nextLine];
             if (!$state->closed) {
+                // The enclosing list can start a paragraph after this nested
+                // fence loses its host column. Definition bodies retain their
+                // separate boundary handling.
+                if (
+                    $state->releaseAtListAncestor
+                    && !IndentationHelper::isBlankLine($line)
+                    && IndentationHelper::getLeadingColumns($line) < $state->column
+                ) {
+                    $state->length = 0;
+
+                    return;
+                }
                 if (
                     IndentationHelper::getLeadingColumns($line) === $state->column
                     && $this->fencedBlockParser->isCodeFenceCloser(ltrim($line, " \t"), $state->char, $state->length)
@@ -5001,6 +5013,9 @@ class BlockParser
         $bareLeadQuoteState = null;
         $bareLeadQuoteMemo = [];
         $nestedFence = new NestedLeadFenceState();
+        $sourceLead = $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '';
+        $sourceLead = ltrim(ContainerPrefix::stripQuoteMarkers(ltrim($sourceLead, " \t")), " \t");
+        $nestedFence->releaseAtListAncestor = $this->listParser->parseListItemMarker($sourceLead) !== null;
         $legacyNestedFence = $this->usesLegacyTrailingHook('nestedLeadFenceClosure')
             || $this->usesLegacyTrailingHook('nestedLeadEndsInAClosedFence')
             || $this->usesLegacyTrailingHook('nestedLeadParagraphOpenBelowAClosedFence');
