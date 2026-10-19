@@ -606,17 +606,29 @@ class IncludeExpander implements TransformerInterface
         }
 
         $spans = [];
+        $pos = $this->hostSpan($run);
+        // Match offsets only grow, so the site advances from the last one
+        // instead of rescanning the run's prefix per candidate.
+        $scanned = 0;
+        $lineOffset = 0;
+        $lineChars = 0;
         foreach ($matches[0] as $match) {
             [$literal, $offset] = $match;
             if ($index->matchIsEscaped($offset, strlen($literal))) {
                 continue;
             }
-            $pos = $this->hostSpan($run);
-            $prefix = substr($full, 0, $offset);
-            $lineOffset = substr_count($prefix, "\n");
+            $segment = substr($full, $scanned, $offset - $scanned);
+            $scanned = $offset;
+            $newlines = substr_count($segment, "\n");
+            if ($newlines > 0) {
+                $lineOffset += $newlines;
+                $lineChars = mb_strlen(substr($segment, (int)strrpos($segment, "\n") + 1), 'UTF-8');
+            } else {
+                $lineChars += mb_strlen($segment, 'UTF-8');
+            }
             $this->warningSite = [
                 'line' => ($pos === null ? 1 : $pos->startLine) + $lineOffset,
-                'column' => $lineOffset === 0 ? ($pos === null ? 1 : $pos->startColumn) + mb_strlen($prefix, 'UTF-8') : 1 + mb_strlen(substr($prefix, (int)strrpos($prefix, "\n") + 1), 'UTF-8'),
+                'column' => ($lineOffset === 0 ? ($pos === null ? 1 : $pos->startColumn) : 1) + $lineChars,
             ];
             $directive = $this->parseDirective($literal);
             if ($directive === null) {
