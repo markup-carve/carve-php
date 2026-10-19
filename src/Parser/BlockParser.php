@@ -4300,9 +4300,9 @@ class BlockParser
             }
             $state->initialized = true;
             $rest = (string)($itemLines[0] ?? '');
-            while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
-                $rest = substr($rest, $offset);
-                $state->column += $offset;
+            while (($head = $this->listParser->markerHeadAt($rest)) !== null) {
+                $rest = substr($rest, $head['content']);
+                $state->column += $this->listMarkerWidthFor($head['name'], $head['content'], $head['attrs']);
             }
             if ($state->column > 0 && $rest === ltrim($rest, " \t")) {
                 $opener = $this->fencedBlockParser->parseRawBlockOpener($rest)
