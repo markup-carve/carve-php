@@ -61,12 +61,7 @@ class IncludeConformanceTest extends TestCase
      *
      * @var array<string, array<string, string>>
      */
-    protected const AHEAD_OF_PIN = [
-        // CARVE-P11-073 keeps region markers on their lines (carve#3330).
-        'i01b-region-host-renders-no-marker' => [
-            'fmt' => "# Project\n\nIntro.\n\n%% #region requirements\n- PHP 8.3 or later\n- Composer 2.7\n%% #endregion requirements\n\nMore text.\n",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     /**
      * @throws \RuntimeException
