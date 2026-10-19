@@ -27,17 +27,35 @@ final class BorrowedRouteExpansionTest extends TestCase
         }
     }
 
-    public function testUnicodeInlineBoundariesAndSpecialSpacesStayOnTheAst(): void
+    public function testUnicodeInlineMarkupRoutesOnlyWhenUnambiguous(): void
     {
+        foreach (['Café', '東京', '한글', 'Δοκιμή', '१२३'] as $word) {
+            foreach (["%s *bold*\n", "*bold* %s\n", "[%s](/x)\n", "- %s\n"] as $template) {
+                $this->assertAcceptedParity(sprintf($template, $word));
+            }
+        }
+
+        foreach (
+            [
+                "Café *bold*\n",
+                "東京 [link](https://example.com)\n",
+                "# Café\n\nParagráph with *bold*, /emphasis/, and `code`.\n",
+                "- Café *bold*\n- 東京 [link](https://example.com)\n",
+            ] as $source
+        ) {
+            $this->assertAcceptedParity($source);
+        }
+
         foreach (
             [
                 "😀\n",
                 "a\u{00A0}b\n",
                 "a\u{2003}b\n",
                 "a\u{202E}b\n",
-                "Café *bold*\n",
                 "Café _emphasis_\n",
-                "東京 [link](https://example.com)\n",
+                "*a*\u{FE0F}\u{20E3}\n",
+                "e\u{0301} *bold*\n",
+                "हिन्दी *bold*\n",
                 "Café \"quote\"\n",
                 "é'a\n",
                 "invalid \xFF\n",

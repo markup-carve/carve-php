@@ -170,8 +170,11 @@ final class BorrowedHtmlLayout
             return true;
         }
 
-        return strpbrk($source, "\x00\t\v\f\r*/_`[\"'") === false
-            && preg_match('/[^\x00-\x7F\p{L}\p{M}\p{N}]/u', $source) === 0;
+        // A combining mark can make an ASCII delimiter part of a larger
+        // character, as in `*a*` followed by U+FE0F U+20E3. Use the AST then.
+        return strpbrk($source, "\x00\t\v\f\r") === false
+            && preg_match('/[^\x00-\x7F\p{L}\p{M}\p{N}]/u', $source) === 0
+            && (strpbrk($source, '*/`[]') === false || preg_match('/\p{M}/u', $source) === 0);
     }
 
     private function largePlainSource(string $source): bool
