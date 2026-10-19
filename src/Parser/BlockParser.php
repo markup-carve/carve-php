@@ -3089,13 +3089,7 @@ class BlockParser
         // and label preserved losslessly; and GROUPS DO NOT NEST - a bare
         // figure opener anywhere inside an open group's body, any depth, is a
         // generic container too.
-        if (
-            $className === 'figure'
-            && !$divInfo['invalidMetadata']
-            && $title === null
-            && $label === null
-            && $this->figureGroupDepth === 0
-        ) {
+        if ($this->isFigureGroupOpener($divInfo)) {
             return $this->parseFigureGroup($parent, $lines, $start, $fenceLength);
         }
 
@@ -3168,6 +3162,17 @@ class BlockParser
         $parent->appendChild($div);
 
         return $i - $start;
+    }
+
+    /**
+     * @param array{fence: string, length: int, className: string, label: string|null, invalidMetadata: bool} $opener
+     */
+    private function isFigureGroupOpener(array $opener): bool
+    {
+        return $opener['className'] === 'figure'
+            && !$opener['invalidMetadata']
+            && $opener['label'] === null
+            && $this->figureGroupDepth === 0;
     }
 
     /**
@@ -4827,6 +4832,17 @@ class BlockParser
             },
             static fn (string $line): string => IndentationHelper::stripLeadingColumns($line, $baseIndent),
         );
+        if ($attached !== [] && $i < $count && $this->isCaptionLine(IndentationHelper::stripLeadingColumns($lines[$i], $baseIndent))) {
+            $first = $attached[0];
+            $code = $this->fencedBlockParser->parseCodeFenceOpener($first)
+                ?? $this->fencedBlockParser->parseRawBlockOpener($first);
+            $div = $this->fencedBlockParser->parseDivFenceOpener($first);
+            if ($code !== null || ($div !== null && $this->isFigureGroupOpener($div))) {
+                $attached[] = IndentationHelper::stripLeadingColumns($lines[$i], $baseIndent);
+                $attachedRawLineMap[] = $i;
+                $i++;
+            }
+        }
         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
 
         return [$i, $attached, $attachedLineMap];
@@ -8031,6 +8047,21 @@ class BlockParser
             $afterFenceCloser = false;
             $opener = $this->fencedBlockParser->parseCodeFenceOpener($authored)
                 ?? $this->fencedBlockParser->parseRawBlockOpener($authored);
+            if (
+                $opener !== null && $k > 0 && $subCol > 0
+                && IndentationHelper::getLeadingColumns($subLines[$k - 1], $subCol) < $subCol
+                && $subLines[$k - 1] !== ''
+                && ($this->listParser->parseListItemMarker(ltrim($subLines[$k - 1], " \t")) !== null
+                    || !$this->lineOpensBlockForLooseness($subLines[$k - 1]))
+                && $this->continuationsMapper()->fenceRunOpensNothing(
+                    $authored,
+                    $subLines,
+                    $k,
+                    IndentationHelper::getLeadingColumns($sl),
+                )
+            ) {
+                $opener = null;
+            }
             if ($opener !== null) {
                 $fenceChar = $opener['fence'][0];
                 $fenceLength = $opener['length'];
@@ -8047,10 +8078,7 @@ class BlockParser
             if ($colon !== null) {
                 $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
                 if (
-                    $colon['className'] === 'figure'
-                    && !$colon['invalidMetadata']
-                    && $colon['label'] === null
-                    && $this->figureGroupDepth === 0
+                    $this->isFigureGroupOpener($colon)
                     && $end + 1 < $n
                     && IndentationHelper::isBlankLine($subLines[$end])
                     && IndentationHelper::getLeadingColumns($subLines[$end + 1]) === 0
