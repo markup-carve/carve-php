@@ -217,6 +217,36 @@ class IncludeExpander implements TransformerInterface
     protected ?string $warningFile = null;
 
     /**
+     * @var list<array{file: string, line: int, column: int}>
+     */
+    protected array $includeChain = [];
+
+    /**
+     * @var array{line: int, column: int}
+     */
+    protected array $warningSite = ['line' => 1, 'column' => 1];
+
+    /**
+     * @var list<array{file: string, includedBy: list<array{file: string, line: int, column: int}>, source: string, lineBase: int, section: array{start: int, end: int}|null, block: \MarkupCarve\Carve\Node\Block\CodeBlock|\MarkupCarve\Carve\Node\Block\Table|null, payload: string|null}>
+     */
+    protected array $included = [];
+
+    protected bool $collectIncluded = false;
+
+    public function collectIncluded(bool $enabled = true): void
+    {
+        $this->collectIncluded = $enabled;
+    }
+
+    /**
+     * @return list<array{file: string, includedBy: list<array{file: string, line: int, column: int}>, source: string, lineBase: int, section: array{start: int, end: int}|null, block: \MarkupCarve\Carve\Node\Block\CodeBlock|\MarkupCarve\Carve\Node\Block\Table|null, payload: string|null}>
+     */
+    public function getIncluded(): array
+    {
+        return $this->included;
+    }
+
+    /**
      * Scope id to file identity, so the collision pass - which runs once over
      * the assembled document, after every path context has been popped - can
      * still name the file each renamed id or label came from.
@@ -317,6 +347,9 @@ class IncludeExpander implements TransformerInterface
         $this->scopeRank = [];
         $this->fileByScope = [];
         $this->warningFile = $this->currentPath;
+        $this->includeChain = [];
+        $this->included = [];
+        $this->warningSite = ['line' => 1, 'column' => 1];
 
         if ($this->resolver === null) {
             return $document;
@@ -448,8 +481,11 @@ class IncludeExpander implements TransformerInterface
         $children = array_values($paragraph->getChildren());
         if ($children !== [] && $this->allTextLike($children)) {
             $content = $this->textLikeContent($children);
+            $pos = $paragraph->getPos();
+            $this->warningSite = ['line' => ($pos === null ? 1 : $pos->startLine), 'column' => ($pos === null ? 1 : $pos->startColumn)];
             $directive = $this->parseDirective($content);
             if ($directive !== null) {
+                $slot = count($this->included);
                 $replacement = $this->resolveDirective($directive, true, $currentPath, $stack, $depth, $budget, $parent, $paragraph);
                 if ($replacement !== null) {
                     $hostOffset = $paragraph->getRenderHint('includeHostOffset');
@@ -471,6 +507,9 @@ class IncludeExpander implements TransformerInterface
                                 $table->setRenderHint('includeHostOffset', $hostOffset);
                             }
                             $replacement[0] = $table;
+                        }
+                        if ($this->collectIncluded && isset($this->included[$slot])) {
+                            $this->included[$slot]['block'] = $replacement[0];
                         }
                     }
                     $parent->replaceChildWithMany($paragraph, $replacement);
@@ -572,6 +611,13 @@ class IncludeExpander implements TransformerInterface
             if ($index->matchIsEscaped($offset, strlen($literal))) {
                 continue;
             }
+            $pos = $this->hostSpan($run);
+            $prefix = substr($full, 0, $offset);
+            $lineOffset = substr_count($prefix, "\n");
+            $this->warningSite = [
+                'line' => ($pos === null ? 1 : $pos->startLine) + $lineOffset,
+                'column' => $lineOffset === 0 ? ($pos === null ? 1 : $pos->startColumn) + mb_strlen($prefix, 'UTF-8') : 1 + mb_strlen(substr($prefix, (int)strrpos($prefix, "\n") + 1), 'UTF-8'),
+            ];
             $directive = $this->parseDirective($literal);
             if ($directive === null) {
                 continue;
@@ -853,6 +899,29 @@ class IncludeExpander implements TransformerInterface
             }
         }
 
+        $site = ['file' => $currentPath ?? '', 'line' => $this->warningSite['line'], 'column' => $this->warningSite['column']];
+        $reach = [...$this->includeChain, $site];
+        $slot = count($this->included);
+        if ($this->collectIncluded) {
+            $section = null;
+            if ($directive['section'] !== null) {
+                $selected = DocumentRenderOrder::children($document, $id);
+                $first = $selected[0]->getPos() ?? null;
+                $last = $selected[count($selected) - 1]->getPos() ?? null;
+                if ($first !== null && $last !== null) {
+                    $section = ['start' => $first->startLine, 'end' => $last->endLine];
+                }
+            }
+            $this->included[] = [
+                'file' => $id,
+                'includedBy' => $reach,
+                'source' => $source,
+                'lineBase' => $sliceLineBase,
+                'section' => $section,
+                'block' => $directive['code'] !== null ? $code : null,
+                'payload' => $directive['code'] !== null ? $content : null,
+            ];
+        }
         $scope = $directive['path'] . '#' . (++$this->scopeSeq);
         $this->markScope($document, $scope);
         $this->scopeRank[$scope] = $this->scopeSeq;
@@ -861,7 +930,10 @@ class IncludeExpander implements TransformerInterface
         // content, so a warning it raises (a heading clamp, a nested cycle)
         // names the child rather than the document that included it.
         $outerFile = $this->warningFile;
+        $outerChain = $this->includeChain;
+        $outerSite = $this->warningSite;
         $this->warningFile = $id;
+        $this->includeChain = $reach;
         if ($directive['code'] === null) {
             $this->expandChildren($document, $id, [...$stack, $id], $depth + 1, $budget);
         }
@@ -875,6 +947,8 @@ class IncludeExpander implements TransformerInterface
         // Back in the parent: the remaining checks are about the DIRECTIVE, not
         // the child's content, so they are the including document's problem.
         $this->warningFile = $outerFile;
+        $this->includeChain = $outerChain;
+        $this->warningSite = $outerSite;
 
         $nodes = DocumentRenderOrder::children($document, $id);
         if ($block) {
@@ -890,6 +964,9 @@ class IncludeExpander implements TransformerInterface
         }
 
         $this->warn("Inline include resolved to block content for '{$directive['path']}'", self::RULE_BLOCK_IN_INLINE);
+        if ($this->collectIncluded) {
+            $this->included = array_slice($this->included, 0, $slot);
+        }
 
         return null;
     }
@@ -1945,7 +2022,7 @@ class IncludeExpander implements TransformerInterface
         }
 
         $this->seenRules[$key] = true;
-        $this->warnings[] = new ParseWarning($message, 1, 1, 'include', null, $file ?? $this->warningFile, $detail, $rule);
+        $this->warnings[] = new ParseWarning($message, $this->warningSite['line'], $this->warningSite['column'], 'include', null, $file ?? $this->warningFile, $detail, $rule, $this->includeChain === [] ? null : $this->includeChain);
     }
 
     /**
