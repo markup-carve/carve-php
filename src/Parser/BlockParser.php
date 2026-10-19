@@ -6966,13 +6966,13 @@ class BlockParser
                 for ($depth = 0; $depth < $quoteDepth; $depth++) {
                     $candidate = ContainerPrefix::quoteContent($candidate);
                     if ($candidate === null) {
-
                         break;
                     }
                     $candidate = ltrim($candidate, " \t");
                 }
                 if ($candidate === null || !IndentationHelper::isBlankLine($candidate)) {
                     $sourceBeforeSlot = $candidate;
+
                     break;
                 }
                 $sourceRun++;
