@@ -20,7 +20,7 @@ final class FenceAndContinuationConformanceTest extends TestCase
     public function testVectors(): void
     {
         foreach (['unclosed-code-fence' => 16, 'continuation-marker-refused' => 15] as $rule => $count) {
-            $data = json_decode((string)file_get_contents(__DIR__ . '/../../spec/tests/lint-rule-vectors/' . $rule . '.json'), true, 512, JSON_THROW_ON_ERROR);
+            $data = json_decode((string)file_get_contents(__DIR__ . '/../../Fixture/lint-rule-vectors/' . $rule . '.json'), true, 512, JSON_THROW_ON_ERROR);
             self::assertCount($count, $data['vectors']);
             foreach ($data['vectors'] as $vector) {
                 $actual = array_values(array_filter(
