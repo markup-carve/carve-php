@@ -7992,6 +7992,7 @@ class BlockParser
         $fenceLength = 0;
         $fenceBase = 0;
         $afterFenceCloser = false;
+        $childFenceRun = false;
         // A caption gap needs the parsed item to decide whether it loosens.
         $captionGap = false;
         $k = 0;
@@ -8019,6 +8020,12 @@ class BlockParser
             ) {
                 // Normalize only a block-start line owned by this item. A
                 // nested item's closing run belongs to its own recursive scan.
+                $authored = ltrim($sl, " \t");
+            }
+            if (
+                $childFenceRun && $subCol >= 0 && IndentationHelper::getLeadingColumns($sl, $subCol) < $subCol
+                && $this->fencedBlockParser->parseCodeFenceOpener(ltrim($sl, " \t")) !== null
+            ) {
                 $authored = ltrim($sl, " \t");
             }
             $afterFenceCloser = false;
@@ -8058,6 +8065,12 @@ class BlockParser
                 continue;
             }
             if ($sl !== '') {
+                if (
+                    $subCol >= 0 && IndentationHelper::getLeadingColumns($sl, $subCol) >= $subCol
+                    && $this->fencedBlockParser->parseCodeFenceOpener(ltrim($sl, " \t")) !== null
+                ) {
+                    $childFenceRun = true;
+                }
                 // `=== 0` only needs to know whether the run reaches column 1,
                 // so the walk stops there. Unbounded it re-measures the whole
                 // indentation run of every body line at every nesting level,
