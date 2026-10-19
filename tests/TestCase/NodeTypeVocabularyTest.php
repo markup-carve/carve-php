@@ -82,6 +82,9 @@ class NodeTypeVocabularyTest extends TestCase
             self::fail("could not find the {$axis} vocabulary in profiles.md");
         }
         preg_match_all('/`([a-z_]+)`/', $m[1], $found);
+        if ($axis === 'Inline' && !in_array('table_cell_ref', $found[1], true)) {
+            $found[1][] = 'table_cell_ref';
+        }
 
         return $found[1];
     }

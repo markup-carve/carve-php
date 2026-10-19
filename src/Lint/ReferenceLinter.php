@@ -203,30 +203,34 @@ class ReferenceLinter
         foreach ($this->brokenFragmentLinks($source, $fragmentLinks, $options['extensions'] ?? []) as [$node, $message]) {
             $warnings[] = $this->warning($node, 'broken-fragment-link', $message, $map, $length);
         }
-        if (preg_match_all('/@\{#[^}\r\n]*\}/u', $source, $matches, PREG_OFFSET_CAPTURE)) {
-            foreach ($matches[0] as [$candidate, $start]) {
-                if (TableCellRef::fromSource($candidate) !== null) {
-                    continue;
-                }
-                $insideText = false;
-                foreach ($textSpans as [$from, $to]) {
-                    if ($from <= $start && $start + strlen($candidate) <= $to) {
-                        $insideText = true;
-
-                        break;
-                    }
-                }
-                if (!$insideText) {
-                    continue;
-                }
-                $before = substr($source, 0, $start);
-                $line = preg_match_all('/\r\n|\r|\n/', $before) + 1;
-                $lf = strrpos($before, "\n");
-                $cr = strrpos($before, "\r");
-                $lineStart = max($lf === false ? -1 : $lf, $cr === false ? -1 : $cr);
-                $column = mb_strlen(substr($before, $lineStart + 1), 'UTF-8') + 1;
-                $warnings[] = new LintWarning($line, $column, 'malformed-table-cell-ref', 'Malformed table cell reference ' . $candidate . '.', $start, $start + strlen($candidate));
+        for ($scan = 0; ($start = strpos($source, '@{#', $scan)) !== false;) {
+            $end = TableCellRef::sourceEnd($source, $start);
+            $scan = $end ?? $start + 3;
+            if ($end === null) {
+                continue;
             }
+            $candidate = substr($source, $start, $end - $start);
+            if (TableCellRef::fromSource($candidate) !== null) {
+                continue;
+            }
+            $insideText = false;
+            foreach ($textSpans as [$from, $to]) {
+                if ($from <= $start && $start + strlen($candidate) <= $to) {
+                    $insideText = true;
+
+                    break;
+                }
+            }
+            if (!$insideText) {
+                continue;
+            }
+            $before = substr($source, 0, $start);
+            $line = preg_match_all('/\r\n|\r|\n/', $before) + 1;
+            $lf = strrpos($before, "\n");
+            $cr = strrpos($before, "\r");
+            $lineStart = max($lf === false ? -1 : $lf, $cr === false ? -1 : $cr);
+            $column = mb_strlen(substr($before, $lineStart + 1), 'UTF-8') + 1;
+            $warnings[] = new LintWarning($line, $column, 'malformed-table-cell-ref', 'Malformed table cell reference ' . $candidate . '.', $start, $start + strlen($candidate));
         }
         usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->start <=> $b->start);
 

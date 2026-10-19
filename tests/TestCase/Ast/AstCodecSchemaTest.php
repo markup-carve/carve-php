@@ -446,6 +446,14 @@ class AstCodecSchemaTest extends TestCase
      */
     private static function sampleFor(string $type, string $field): mixed
     {
+        if ($type === 'table_cell_ref') {
+            return match ($field) {
+                'target' => 's',
+                'row', 'column' => 1,
+                'source' => '@{#s[1][1]}',
+                default => '',
+            };
+        }
         if ($type === 'ruby' && $field === 'pairs') {
             return [['base' => [['type' => 'text', 'value' => 'x']], 'annotation' => []]];
         }

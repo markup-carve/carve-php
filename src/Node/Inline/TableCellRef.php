@@ -18,7 +18,7 @@ final class TableCellRef extends InlineNode
 
     public static function fromSource(string $source): ?self
     {
-        $selector = '(?:[1-9][0-9]*|"(?:\\\\["\\\\]|[^"\\\\\n])*")';
+        $selector = '(?:[1-9][0-9]*|"(?:\\\\["\\\\]|[^"\\\\\r\n])*")';
         if (preg_match('~^@\{#([A-Za-z0-9_][A-Za-z0-9_-]*)\[(' . $selector . ')\]\[(' . $selector . ')\]\}$~u', $source, $match) !== 1) {
             return null;
         }
@@ -63,7 +63,7 @@ final class TableCellRef extends InlineNode
             if (!$quoted && $text[$i] === '}') {
                 return $i + 1;
             }
-            if (!$quoted && ($text[$i] === "\n" || $text[$i] === "\r")) {
+            if ($text[$i] === "\n" || $text[$i] === "\r") {
                 return null;
             }
         }

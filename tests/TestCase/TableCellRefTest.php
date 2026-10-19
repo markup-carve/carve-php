@@ -64,5 +64,10 @@ final class TableCellRefTest extends TestCase
         self::assertContains('unresolved-table-cell-ref', array_column($warnings, 'rule'));
         self::assertStringContainsString('row key is absent', implode(' ', array_column($warnings, 'message')));
         self::assertContains('malformed-table-cell-ref', array_column((new ReferenceLinter())->lint('@{#s[99999999999999999999][2]}'), 'rule'));
+        $quotedBrace = '@{#s["a}b"][0]}';
+        $quotedWarning = (new ReferenceLinter())->lint($quotedBrace);
+        self::assertSame($quotedBrace, substr($quotedBrace, $quotedWarning[0]->start, $quotedWarning[0]->end - $quotedWarning[0]->start));
+        $unclosedQuote = "See @{#t[\"Q2][1] and *this*\nmore \"text\" here}";
+        self::assertStringContainsString('<strong>this</strong>', (new CarveConverter())->convert($unclosedQuote));
     }
 }

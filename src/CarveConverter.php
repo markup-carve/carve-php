@@ -51,6 +51,7 @@ use MarkupCarve\Carve\Renderer\SmartTypographyRendererInterface;
 use MarkupCarve\Carve\Renderer\SoftBreakMode;
 use MarkupCarve\Carve\Renderer\StaticRenderersInterface;
 use MarkupCarve\Carve\Renderer\StaticRenderExtensionsInterface;
+use MarkupCarve\Carve\Renderer\TableCellRefResolver;
 use MarkupCarve\Carve\Transform\RenderAwareTransformerInterface;
 use MarkupCarve\Carve\Transform\TransformerInterface;
 use MarkupCarve\Carve\Util\CycleCollection;
@@ -613,6 +614,7 @@ class CarveConverter
         // about the tree that gets published, whoever produced it - and §6
         // requires it to be part of parse(), not of serialization (#623).
         TextRunCoalescer::apply($document);
+        (new TableCellRefResolver())->resolve($document);
 
         return $document;
     }

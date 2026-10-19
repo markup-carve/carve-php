@@ -448,6 +448,21 @@
     ],
     "required": []
   },
+  "table_cell_ref": {
+    "fields": [
+      "value",
+      "target",
+      "row",
+      "column",
+      "source"
+    ],
+    "required": [
+      "target",
+      "row",
+      "column",
+      "source"
+    ]
+  },
   "table_row": {
     "fields": [
       "continuationLines"

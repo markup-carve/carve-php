@@ -590,6 +590,7 @@
     }
   },
   "unmapped": {
+    "table_cell_ref": "read-only table projection is preserved as authored Carve source",
     "caption_number": "numbered captions are a resolution artifact, not editor content",
     "citation": "a citation is one item in citation_group and rides in carveCitation's items attribute rather than becoming its own ProseMirror node",
     "raw_text": "raw text is the payload of a raw block, not a node an editor holds",
