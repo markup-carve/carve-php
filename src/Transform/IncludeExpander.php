@@ -42,6 +42,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\DelimitedTable;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
 use MarkupCarve\Carve\Renderer\Utility\DocumentRenderOrder;
 use Throwable;
@@ -462,6 +463,15 @@ class IncludeExpander implements TransformerInterface
                     }
                     if ($directive['code'] !== null && isset($replacement[0]) && $replacement[0] instanceof CodeBlock) {
                         $replacement[0]->setAttributesWithOrder($paragraph->getAttributeEntries(), $paragraph->getAttributeOrder());
+                        // `{table}` converts a csv/tsv code include as it does an authored fence (I1c).
+                        $table = DelimitedTable::fromCode($replacement[0]);
+                        if ($table !== null) {
+                            BlockParser::applyTableColumns($table);
+                            if ($hostOffset !== null) {
+                                $table->setRenderHint('includeHostOffset', $hostOffset);
+                            }
+                            $replacement[0] = $table;
+                        }
                     }
                     $parent->replaceChildWithMany($paragraph, $replacement);
                 }
