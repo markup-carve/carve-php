@@ -9,6 +9,16 @@ use PHPUnit\Framework\TestCase;
 
 class SourceLinterTest extends TestCase
 {
+    public function testRegionMarkersThatRenderAsText(): void
+    {
+        foreach (["#region a\n", "// #region a\n", "<!-- #region a -->\n", "%% #Region a\n"] as $source) {
+            $this->assertContains('region-marker-renders-as-text', array_column((new SourceLinter())->lint($source), 'rule'), $source);
+        }
+        foreach (["%% #region a\n", "```\n#region a\n```\n", "#regional\n"] as $source) {
+            $this->assertNotContains('region-marker-renders-as-text', array_column((new SourceLinter())->lint($source), 'rule'), $source);
+        }
+    }
+
     public function testReportsSharedTriggers(): void
     {
         $cases = [

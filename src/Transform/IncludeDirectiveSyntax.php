@@ -74,11 +74,12 @@ class IncludeDirectiveSyntax
      * `#Alpha@shift:1` as one unknown token and left a well-formed directive
      * literal. A quoted value stays whole, because a value's own `#` is not a
      * boundary and naming it in a diagnostic names a token that is nowhere in
-     * the source.
+     * the source. An option's value runs to the next `@` only, so `@code:c#`
+     * is one slot (`include_unquoted_value`).
      *
      * @var string
      */
-    private const SLOT = '/\G[#@]?(?:"(?:\\\\.|[^"\\\\\n])*+"|[^ #@\n])++/';
+    private const SLOT = '/\G(?:@(?:"(?:\\\\.|[^"\\\\\n])*+"|[^ @\n])++|#?(?:"(?:\\\\.|[^"\\\\\n])*+"|[^ #@\n])++)/';
 
     /**
      * @var string
@@ -168,7 +169,7 @@ class IncludeDirectiveSyntax
      * CarveRenderer::emitDirective) - so option order, spacing and the author's
      * exact spelling are preserved without this having to carry them.
      *
-     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
+     * @return array{path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto', error: string|null, errorPart: string|null}|null
      */
     public static function parse(string $text): ?array
     {
@@ -200,11 +201,22 @@ class IncludeDirectiveSyntax
         $section = null;
         $lines = null;
         $region = null;
+        $code = null;
         $shift = 0;
         $error = null;
         $errorPart = null;
         if ($rest !== '') {
             foreach (static::slots($rest) as $part) {
+                if ($part === '@code') {
+                    $code = ['lang' => null];
+
+                    continue;
+                }
+                if (preg_match('/^@code:([A-Za-z0-9_+#.\/-]+)$/', $part, $codeMatch)) {
+                    $code = ['lang' => $codeMatch[1]];
+
+                    continue;
+                }
                 // `explicit_identifier`, so a digit-leading id is nameable (I1a).
                 if (preg_match('/^#([A-Za-z0-9_][A-Za-z0-9_-]*)$/', $part, $sectionMatch)) {
                     // `include_section` is ONE optional slot. A second name is
@@ -271,6 +283,7 @@ class IncludeDirectiveSyntax
             'section' => $section,
             'lines' => $lines,
             'region' => $region,
+            'code' => $code,
             'shift' => $shift,
             'error' => $error,
             'errorPart' => $errorPart,
