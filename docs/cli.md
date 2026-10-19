@@ -13,6 +13,33 @@ echo '# Hello' | bin/carve           # render from stdin
 bin/carve merge base.crv ours.crv theirs.crv # structural three-way merge
 ~~~
 
+## Aligned tables
+
+Run `carve fmt --align-tables` to pad table cells to shared display widths.
+Use `carve fmt --align-tables --check` to check for this spelling. Plain
+`carve fmt` keeps canonical tables unaligned.
+
+Before:
+
+```carve
+| a | bb |
+| ccc | d |
+```
+
+After:
+
+```carve
+| a   | bb |
+| ccc | d  |
+```
+
+Width counts Unicode 18 grapheme clusters. A cluster containing an East Asian
+Width W or F character counts as two columns; other clusters count as one.
+Width is measured on the cell as written, so an escape such as `\ ` counts
+as two columns. Padding goes only after cell content. In PHP, use
+`CarveConverter::toCarve($source, alignTables: true)` or
+`(new CarveRenderer())->setAlignTables(true)`.
+
 ## Exact-case reference migration
 
 Exact-case lookup changes heading cross-references, numbered caption and equation

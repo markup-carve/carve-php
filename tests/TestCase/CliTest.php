@@ -19,6 +19,24 @@ class CliTest extends TestCase
      */
     private const SRC = "# Hi\n\n_em_ *strong* `code`\n";
 
+    public function testAlignedTableFormattingAndCheck(): void
+    {
+        $canonical = "| a | bb |\n| ccc | d |\n";
+        $aligned = "| a   | bb |\n| ccc | d  |\n";
+        $this->assertSame($aligned, $this->runCliInput(['fmt', '--align-tables'], $canonical)['out']);
+        $path = tempnam(sys_get_temp_dir(), 'carve-align-');
+        $this->assertNotFalse($path);
+        try {
+            file_put_contents($path, $canonical);
+            $this->assertSame(1, $this->runCliInput(['fmt', '--align-tables', '--check', $path], '')['exit']);
+            file_put_contents($path, $aligned);
+            $this->assertSame(0, $this->runCliInput(['fmt', '--align-tables', '--check', $path], '')['exit']);
+            $this->assertSame(1, $this->runCliInput(['fmt', '--check', $path], '')['exit']);
+        } finally {
+            unlink($path);
+        }
+    }
+
     public function testRoundTripPreservesMarkdownContainers(): void
     {
         $result = $this->runCliInput(['--markdown', '--roundtrip'], "::: aside\nText.\n:::\n");

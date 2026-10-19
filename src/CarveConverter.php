@@ -182,11 +182,15 @@ class CarveConverter
     /**
      * Format Carve source via parse only, without render-time transforms.
      */
-    public static function toCarve(string $source): string
+    public static function toCarve(string $source, bool $alignTables = false): string
     {
         $converter = self::carve();
+        $renderer = $converter->getRenderer();
+        if ($renderer instanceof CarveRenderer) {
+            $renderer->setAlignTables($alignTables);
+        }
 
-        return $converter->getRenderer()->render($converter->parse($source));
+        return $renderer->render($converter->parse($source));
     }
 
     /**
