@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Performance;
 
 use MarkupCarve\Carve\Extension\ExtensionInterface;
 use MarkupCarve\Carve\Extension\ExternalLinksExtension;
+use MarkupCarve\Carve\Extension\FrontmatterExtension;
 use MarkupCarve\Carve\Extension\HeadingNumbersExtension;
 use MarkupCarve\Carve\Extension\HeadingPermalinksExtension;
 use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
@@ -44,6 +45,15 @@ final class BorrowedExtensionPlan
         ];
         foreach ($extensions as $extension) {
             $class = $extension::class;
+            // A prior parse may have published frontmatter through this
+            // extension. Let the AST route clear that observable state.
+            if (
+                $extension instanceof FrontmatterExtension
+                && $class === FrontmatterExtension::class
+                && $extension->getFrontmatter() !== null
+            ) {
+                return null;
+            }
             if (isset(self::EVENTS[$class])) {
                 self::addEvent($plan, $extension);
 
@@ -72,6 +82,12 @@ final class BorrowedExtensionPlan
     private static function inactive(string $class, string $source): bool
     {
         return match ($class) {
+            // The converter registers these core extensions on its first
+            // parse. A later convert can still use the borrowed route when
+            // their syntax is absent from the new source.
+            'MarkupCarve\\Carve\\Extension\\FrontmatterExtension' => !str_starts_with($source, '---'),
+            'MarkupCarve\\Carve\\Extension\\MentionsExtension' =>
+                !str_contains($source, '@') && preg_match('/#[A-Za-z0-9_-]/', $source) === 0,
             'MarkupCarve\\Carve\\Extension\\AutolinkExtension' => !self::couldAutolink($source),
             'MarkupCarve\\Carve\\Extension\\CitationsExtension' => !str_contains($source, '[@'),
             'MarkupCarve\\Carve\\Extension\\CodeCalloutsExtension' =>
