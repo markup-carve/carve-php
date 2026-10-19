@@ -26,6 +26,9 @@ class AFenceRunThatDedentsOutOfAChildKeepsTheOuterItemTightTest extends TestCase
         yield '-9' => ["- outer\n  - head\n\n    ```\n    a\n  ```\n\n  tail\n- next\n", "<ul>\n  <li>outer\n    <ul>\n      <li>head\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>\ntail\n</code></pre>\n  </li>\n  <li>next</li>\n</ul>"];
         yield '-10' => ["- outer\n  - head\n\n    ```\n    a\n  ```\n\n- next\n", "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li>head\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>\n</code></pre>\n  </li>\n  <li><p>next</p></li>\n</ul>"];
         yield '-11' => ["- outer\n  - head\n\n    ```\n    a\n    ```\n\n  tail\n", "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li>head\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n    <p>tail</p>\n  </li>\n</ul>"];
+        yield '-12' => ["- outer\n  - head\n\n    ```\n    a\n    ```\n  ```\n  b\n\n  c\n", "<ul>\n  <li>outer\n    <ul>\n      <li>head\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>b\n\nc\n</code></pre>\n  </li>\n</ul>"];
+        yield '-13' => ["- outer\n  - head\n\n    ~~~\n    a\n  ```\n\n  tail\n", "<ul>\n  <li>outer\n    <ul>\n      <li>head\n        <pre><code>a\n</code></pre>\n      </li>\n    </ul>\n    <pre><code>\ntail\n</code></pre>\n  </li>\n</ul>"];
+        yield '-14' => ["- outer\n  - head\n    - deep\n\n      ```\n      a\n  ```\n\n  tail\n", "<ul>\n  <li>outer\n    <ul>\n      <li>head\n        <ul>\n          <li>deep\n            <pre><code>a\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n    <pre><code>\ntail\n</code></pre>\n  </li>\n</ul>"];
     }
 
     #[DataProvider('rows')]
