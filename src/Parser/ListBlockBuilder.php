@@ -2677,8 +2677,10 @@ final class ListBlockBuilder
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
-            if ($foldedChildFence && !$afterBlank && $base < $childContentFloor
-                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)) {
+            if (
+                $foldedChildFence && !$afterBlank && $base < $childContentFloor
+                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)
+            ) {
                 // CARVE-P0-015: a lazy below-column run does not end its child container.
                 continue;
             }
@@ -2745,12 +2747,19 @@ final class ListBlockBuilder
                 $childFence = $precedingMarker === null || $precedingMarker['content'] === ''
                     || $this->lineOpensBlockForLooseness($precedingMarker['content'], true)
                     ? null : $this->itemFenceOpenerAt($line);
-                if ($childFence !== null && !$this->itemFenceCloserAhead(
-                    $lines, $i, $childFence, $base, end($nestedColumns),
-                )) {
+                if (
+                    $childFence !== null && !$this->itemFenceCloserAhead(
+                        $lines,
+                        $i,
+                        $childFence,
+                        $base,
+                        end($nestedColumns),
+                    )
+                ) {
                     // CARVE-P0-014: retain the child's paragraph when its fence has no in-column closer.
                     $foldedChildFence = true;
                 }
+
                 continue;
             }
             if (
@@ -2957,8 +2966,10 @@ final class ListBlockBuilder
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($opener);
             $precedingMarker = $i > 0
                 ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
-            if ($code !== null && $precedingMarker !== null && $precedingMarker['content'] !== ''
-                && !$this->lineOpensBlockForLooseness($precedingMarker['content'], true)) {
+            if (
+                $code !== null && $precedingMarker !== null && $precedingMarker['content'] !== ''
+                && !$this->lineOpensBlockForLooseness($precedingMarker['content'], true)
+            ) {
                 $childColumn = IndentationHelper::getLeadingColumns($lines[$i - 1])
                     + $this->listMarkerWidth(ltrim($lines[$i - 1], " \t"), $precedingMarker);
                 // CARVE-P0-014: a below-column run cannot authorize a fence under a child's lead.

@@ -5101,7 +5101,7 @@ class BlockParser
 
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $bareLeadQuoteState = null;
-                $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
+                $this->advanceNestedLeadFenceState($nestedFence, array_slice($itemLines, 0, 1));
                 if (
                     $this->leadBottomOpensFence($lead)
                     && $this->listParser->parseListItemMarker($lead) !== null
@@ -5124,12 +5124,12 @@ class BlockParser
                         IndentationHelper::getLeadingColumns($itemLines[1]) === $lastMarkerColumn
                         && ($nextContent >= $count || IndentationHelper::getLeadingColumns($lines[$nextContent]) < $contentIndent + $nestedFence->column)
                     ) {
-                        $trailingState = $this->advanceTrailingState($trailingState, '');
-                        $i = $nextContent;
-
-                        continue;
+                        // A refused marker contributes no line; the following blank remains fence payload.
+                        array_pop($itemLines);
+                        array_pop($itemLineMap);
                     }
                 }
+                $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 // Keep the run for the child parser, including a fence that
                 // reaches the end of its item. The next content line still
                 // decides whether this item continues.
@@ -8078,9 +8078,13 @@ class BlockParser
                 $lazyFence = $this->fencedBlockParser->parseCodeFenceOpener(
                     ltrim(BlockGrammar::stripLazyFrame($sl), " \t"),
                 ) ?? $lazyFence;
-            } elseif ($lazyFence !== null && $this->fencedBlockParser->isCodeFenceCloser(
-                ltrim($sl, " \t"), $lazyFence['char'], $lazyFence['length'],
-            )) {
+            } elseif (
+                $lazyFence !== null && $this->fencedBlockParser->isCodeFenceCloser(
+                    ltrim($sl, " \t"),
+                    $lazyFence['char'],
+                    $lazyFence['length'],
+                )
+            ) {
                 // PART 9 §17 L1: an inline folded closer leaves the following blank outside code payload.
                 $lazyFence = null;
                 $k++;

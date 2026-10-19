@@ -2993,13 +2993,17 @@ final class BlockContinuationScanner
             $line = $lines[$j];
             $indent = IndentationHelper::getLeadingColumns($line, $columns + 1);
             if ($indent < $columns) {
-                if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
-                    && ($hostColumns === null || $indent < $hostColumns)) {
+                if (
+                    ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
+                    && ($hostColumns === null || $indent < $hostColumns)
+                ) {
                     return false;
                 }
                 // CARVE-P0-004: any closer from the host column through the opener's base is eligible.
-                if ($hostColumns !== null && $indent >= $hostColumns
-                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length'])) {
+                if (
+                    $hostColumns !== null && $indent >= $hostColumns
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length'])
+                ) {
                     return true;
                 }
 
