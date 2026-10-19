@@ -22,6 +22,7 @@ final class DocumentLinter
             (new RetiredSpellingLinter())->lint($source),
             (new TableColumnLinter())->lint($source),
             (new DelimitedTableLinter())->lint($source),
+            (new ConsumedKeyLinter())->lint($source),
             (new TemplateSourceLinter())->lint($source),
             (new FigureGroupLinter())->lint($source),
             (new QuoteFenceLinter())->lint($source),

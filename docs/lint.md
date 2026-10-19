@@ -63,7 +63,10 @@ opener at the column of the quote above it, which ends that quote instead of
 nesting inside it. `DefinitionTermFoldLinter` reports a block opener indented
 under a `:: ` term: a term has no content column, so the line folds into the
 term as text (`definition-term-block-folded`). Dedent it to the container's
-content column to open the block.
+content column to open the block. `ConsumedKeyLinter` reports a bare key one
+edit from the consumed key its block reads (`consumed-key-near-miss`): `{tabel}`
+on a `csv` or `tsv` fence, or `{lose}` on a list or definition list. The key
+stays an ordinary attribute, so the table or the loose list never happens.
 
 `ReferencesPlacementLinter` reports a `::: references` marker inside a
 container when citations are enabled. The marker renders as an ordinary div
