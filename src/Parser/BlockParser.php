@@ -7986,7 +7986,7 @@ class BlockParser
                     && $colon['label'] === null
                     && $this->figureGroupDepth === 0
                     && $end + 1 < $n
-                    && $subLines[$end] === ''
+                    && IndentationHelper::isBlankLine($subLines[$end])
                     && IndentationHelper::getLeadingColumns($subLines[$end + 1]) === 0
                     && $this->isCaptionLine($subLines[$end + 1])
                 ) {

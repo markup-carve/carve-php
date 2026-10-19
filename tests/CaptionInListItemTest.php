@@ -63,6 +63,14 @@ class CaptionInListItemTest extends TestCase
         $this->assertStringContainsString('<li><p>c</p></li>', $html);
     }
 
+    public function testWhitespaceOnlyGapBeforeFigureGroupCaptionStaysTight(): void
+    {
+        $html = CarveConverter::create()->convert("- ::: figure\n  ![a](b.png)\n  :::\n  \t\n  ^ cap\n- c\n");
+
+        $this->assertStringContainsString('<figcaption>cap</figcaption>', $html);
+        $this->assertStringContainsString('<li>c</li>', $html);
+    }
+
     #[DataProvider('nonFigureGroupOpeners')]
     public function testGenericFigureDivDoesNotClaimCaption(string $opener): void
     {
