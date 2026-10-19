@@ -665,14 +665,19 @@ class CliTest extends TestCase
         $source = $root . '/source';
         $output = $root . '/output';
         mkdir($source . '/chapters', 0777, true);
-        file_put_contents($source . '/index.md', "# Home\n\n[good](chapters/intro.md#Intro) [self](#Home) [query](?view=1) [encoded](chapters/a%23b.md#A) [bad](chapters/intro.md#intro) [gone](missing.md) [route](/docs/intro) ![image](lost.png) [asset](manual.pdf#page=2)\n");
-        file_put_contents($source . '/chapters/intro.md', "# Intro\n\n[home](../index.md#Home)\n");
+        file_put_contents($source . '/index.md', "# Home\n\n[good](chapters/intro.md#Intro) [self](#Home) [self-low](#home) [query](?view=1) [encoded](chapters/a%23b.md#A) [bad](chapters/intro.md#intro) [third](chapters/intro.md#intro-2) [quote](chapters/intro.md#quote-head) [empty](chapters/intro.md#) [gone](missing.md) [route](/docs/intro) ![image](lost.png) [asset](manual.pdf#page=2)\n");
+        file_put_contents($source . '/chapters/intro.md', "# Intro\n\n[home](../index.md#Home)\n\n# Intro\n\n# Intro\n\n> # Quote Head\n");
         file_put_contents($source . '/chapters/a#b.md', "# A\n");
         file_put_contents($source . '/manual.pdf', 'pdf');
         try {
             $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output, '--check-loss'], '');
             $this->assertSame(1, $result['exit'], $result['err']);
             $this->assertStringContainsString('(chapters/intro.crv#Intro)', (string)file_get_contents($output . '/index.crv'));
+            $this->assertStringContainsString('[empty](chapters/intro.crv#)', (string)file_get_contents($output . '/index.crv'));
+            $this->assertStringContainsString('[quote](chapters/intro.crv#Quote-Head)', (string)file_get_contents($output . '/index.crv'));
+            $this->assertContains(['target' => 'chapters/intro.md#intro', 'status' => 'rewritten'], json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR)['files'][2]['links']);
+            $this->assertContains(['target' => '#home', 'status' => 'rewritten'], json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR)['files'][2]['links']);
+            $this->assertStringContainsString('[third](chapters/intro.md#intro-2)', (string)file_get_contents($output . '/index.crv'));
             $this->assertStringContainsString('(chapters/a%23b.crv#A)', (string)file_get_contents($output . '/index.crv'));
             $this->assertStringContainsString('(../index.crv#Home)', (string)file_get_contents($output . '/chapters/intro.crv'));
             $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
@@ -701,8 +706,8 @@ class CliTest extends TestCase
         $source = $root . '/source';
         $output = $root . '/output';
         mkdir($source, 0777, true);
-        file_put_contents($source . '/page.md', "# Page\n\n[false anchor](other.md#shadow) [false code](other.md#ghost) [legacy](other.md#legacy)\n\n<a href=\" other.md \">raw</a>\n\n<img src=\" chart.png \" srcset=\"missing-responsive.png 2x, chart,v2.png 1x\">\n\n<link rel=\"preload\" as=\"image\" imagesrcset=\"chart,v2.png 2x\">\n\n<video poster=\"missing-poster.png\"></video>\n");
-        file_put_contents($source . '/other.md', "# Other\n\n<div data-id=\"shadow\">Text</div>\n\n`id=\"ghost\"`\n\n<a name=\"legacy\"></a>\n");
+        file_put_contents($source . '/page.md', "# Page\n\n[false anchor](other.md#shadow) [false code](other.md#ghost) [raw heading](other.md#fake) [native](other.md#same) [legacy](other.md#legacy)\n\n<a href=\" other.md \">raw</a>\n\n<img src=\" chart.png \" srcset=\"missing-responsive.png 2x, chart,v2.png 1x\">\n\n<link rel=\"preload\" as=\"image\" imagesrcset=\"chart,v2.png 2x\">\n\n<video poster=\"missing-poster.png\"></video>\n");
+        file_put_contents($source . '/other.md', "# Other\n\n<div data-id=\"shadow\">Text</div>\n\n`id=\"ghost\"`\n\n<h1 id=\"Fake\">Raw</h1>\n\n# Same\n\n<h1 id=\"Same\">Raw</h1>\n\n<a name=\"legacy\"></a>\n");
         file_put_contents($source . '/chart.png', 'png');
         file_put_contents($source . '/chart,v2.png', 'png');
         try {
@@ -712,6 +717,8 @@ class CliTest extends TestCase
             $page = array_values(array_filter($report['files'], static fn (array $file): bool => $file['source'] === 'page.md'))[0];
             $this->assertContains(['target' => 'other.md#shadow', 'status' => 'unresolved', 'reason' => 'fragment missing from target'], $page['links']);
             $this->assertContains(['target' => 'other.md#ghost', 'status' => 'unresolved', 'reason' => 'fragment missing from target'], $page['links']);
+            $this->assertContains(['target' => 'other.md#fake', 'status' => 'unresolved', 'reason' => 'fragment missing from target'], $page['links']);
+            $this->assertContains(['target' => 'other.md#same', 'status' => 'rewritten'], $page['links']);
             $this->assertContains(['target' => 'other.md#legacy', 'status' => 'rewritten'], $page['links']);
             $this->assertContains(['target' => 'other.md', 'status' => 'unresolved', 'reason' => 'raw HTML link needs manual rewrite'], $page['links']);
             $this->assertContains(['target' => 'chart.png', 'status' => 'valid'], $page['links']);
