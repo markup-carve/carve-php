@@ -13,44 +13,53 @@ class CaptionInListItemTest extends TestCase
     /**
      * Captionable hosts.
      *
-     * @return array<string, array{string}>
+     * @return array<string, array{string, string}>
      */
     public static function hosts(): array
     {
         return [
-            'table' => ['| a |'],
-            'image' => ['![a](b.png)'],
-            'quote' => ['> q'],
-            'listing' => ["```\n  x\n  ```"],
-            'equation' => ['$$`x`'],
-            'figure group' => ["::: figure\n  ![a](b.png)\n  :::"],
+            'table' => ['| a |', '<caption>cap</caption>'],
+            'image' => ['![a](b.png)', '<figcaption>cap</figcaption>'],
+            'quote' => ['> q', '<figcaption>cap</figcaption>'],
+            'listing' => ["```\n  x\n  ```", '<figcaption>cap</figcaption>'],
+            'equation' => ['$$`x`', '<figcaption>cap</figcaption>'],
+            'figure group' => ["::: figure\n  ![a](b.png)\n  :::", '<figcaption>cap</figcaption>'],
         ];
     }
 
     #[DataProvider('hosts')]
-    public function testOneBlankKeepsAttachedCaptionAndTightList(string $host): void
+    public function testOneBlankKeepsAttachedCaptionAndTightList(string $host, string $captionHtml): void
     {
         $html = CarveConverter::create()->convert("- {$host}\n\n  ^ cap\n- c\n");
 
-        $this->assertStringContainsString('>cap</', $html);
+        $this->assertStringContainsString($captionHtml, $html);
         $this->assertStringContainsString('<li>c</li>', $html);
     }
 
-    public function testTwoBlanksDetachTableCaptionAndLoosenList(): void
+    #[DataProvider('hosts')]
+    public function testTwoBlanksDetachCaptionAndLoosenList(string $host, string $captionHtml): void
     {
-        $html = CarveConverter::create()->convert("- | a |\n\n\n  ^ cap\n- c\n");
+        $html = CarveConverter::create()->convert("- {$host}\n\n\n  ^ cap\n- c\n");
+
+        $this->assertStringNotContainsString($captionHtml, $html);
+        $this->assertStringContainsString('<p>^ cap</p>', $html);
+        $this->assertStringContainsString('<li><p>c</p></li>', $html);
+    }
+
+    public function testTwoQuotedBlankLinesDetachCaption(): void
+    {
+        $html = CarveConverter::create()->convert("> - | a |\n>\n>\n>   ^ cap\n> - c\n");
 
         $this->assertStringNotContainsString('<caption>', $html);
         $this->assertStringContainsString('<p>^ cap</p>', $html);
         $this->assertStringContainsString('<li><p>c</p></li>', $html);
     }
 
-    public function testTwoBlanksDetachFigureGroupCaption(): void
+    public function testTabAfterCaretIsNotAFigureGroupCaption(): void
     {
-        $html = CarveConverter::create()->convert("- ::: figure\n  ![a](b.png)\n  :::\n\n\n  ^ cap\n- c\n");
+        $html = CarveConverter::create()->convert("- ::: figure\n  ![a](b.png)\n  :::\n\n  ^\tx\n- c\n");
 
         $this->assertStringNotContainsString('<figcaption>', $html);
-        $this->assertStringContainsString('<p>^ cap</p>', $html);
         $this->assertStringContainsString('<li><p>c</p></li>', $html);
     }
 }
