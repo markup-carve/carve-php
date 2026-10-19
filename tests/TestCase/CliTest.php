@@ -992,6 +992,19 @@ class CliTest extends TestCase
         }
     }
 
+    public function testMigrateReportsDroppedBbcodeQuoteUserId(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'bbcode', '--report', '-'],
+            '[quote="alice" post_id=12 user_id=3]q[/quote]',
+        );
+        $this->assertSame(0, $result['exit']);
+        $this->assertStringContainsString('^ alice #12', $result['out']);
+        $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('bbcode-quote-user-id-dropped', $report['diagnostics'][1]['code']);
+        $this->assertSame('line:1', $report['diagnostics'][1]['path']);
+    }
+
     public function testMigrateReportsHtmlDiagnosticTruncationAsLoss(): void
     {
         $source = str_repeat('<p onclick="x()">x</p>', 1100);
