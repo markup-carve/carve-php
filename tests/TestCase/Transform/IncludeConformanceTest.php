@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Transform;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
@@ -189,6 +190,13 @@ class IncludeConformanceTest extends TestCase
                 'actual' => $result['carveTarget'] ?? null,
             ];
         }
+        if (!empty($vector['checkPositions'])) {
+            $out[] = [
+                'label' => 'positions mismatch',
+                'expected' => $expected['positions'],
+                'actual' => $result['positions'] ?? null,
+            ];
+        }
         $out[] = ['label' => 'warnings mismatch', 'expected' => $expected['warnings'], 'actual' => $result['warnings']];
         $out[] = [
             'label' => 'dependencies mismatch',
@@ -273,6 +281,42 @@ class IncludeConformanceTest extends TestCase
                 'dependencies' => $run['dependencies'],
                 'rawWarningMessages' => $run['rawWarningMessages'],
             ];
+
+            if (!empty($vector['checkPositions'])) {
+                $document = $this->expandDocument($entry, $resolver, $currentPath, $options);
+                $ast = json_decode((new AstCodec())->encodeJson($document, 0, true), true, 512, JSON_THROW_ON_ERROR);
+                $positions = [];
+                $visit = function (mixed $value) use (&$visit, &$positions, $baseReal): void {
+                    if (!is_array($value)) {
+                        return;
+                    }
+                    if (isset($value['type']) && is_string($value['type']) && $value['type'] !== 'document') {
+                        $node = ['type' => $value['type']];
+                        if (isset($value['pos']) && is_array($value['pos'])) {
+                            $pos = $value['pos'];
+                            $node['pos'] = [
+                                'startLine' => $pos['startLine'],
+                                'startColumn' => $pos['startColumn'],
+                                'endLine' => $pos['endLine'],
+                                'endColumn' => $pos['endColumn'],
+                                'startOffset' => $pos['startOffset'],
+                                'endOffset' => $pos['endOffset'],
+                            ];
+                            if (isset($pos['file'])) {
+                                $node['pos']['file'] = $this->normalizeFsPath((string)$pos['file'], $baseReal);
+                            }
+                        }
+                        $positions[] = $node;
+                    }
+                    foreach ($value as $key => $child) {
+                        if ($key !== 'pos') {
+                            $visit($child);
+                        }
+                    }
+                };
+                $visit($ast);
+                $out['positions'] = $positions;
+            }
 
             if (!empty($vector['checkFlattened'])) {
                 // The EXPANDED document through the writer - what `flatten`
