@@ -45,6 +45,9 @@ trailing line endings. When the imported text matches and no known loss was
 reported, `literal-text-verified` records preserved/exact evidence. All other
 inputs retain the dropped/fallback `fidelity-unverified` warning.
 
+BBCode reports each dropped phpBB quote `user_id` as
+`bbcode-quote-user-id-dropped`, dropped/exact, at the quote's source line.
+
 Djot derives collapsed image-reference keys from child text. Paired quote
 wrappers, footnotes, symbols and ignored attributes do not contribute to the
 key. An unresolved image without a destination has no Carve image spelling. The

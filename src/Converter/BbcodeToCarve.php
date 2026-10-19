@@ -169,8 +169,47 @@ class BbcodeToCarve
     public function convertWithFidelityReport(string $bbcode): MigrationResult
     {
         $value = $this->convert($bbcode);
+        $source = str_replace(["\r\n", "\r"], "\n", StringUtil::toValidUtf8($bbcode));
+        $result = $this->assessedMigrationResult($source, $value, 'bbcode');
+        $diagnostics = $result->diagnostics;
+        $visible = $source;
+        foreach (
+            [
+                '/\[code(?:=[^\]]*)?\][\s\S]*?\[\/code\]/i',
+                '/\[(?:c|icode)\][\s\S]*?\[\/(?:c|icode)\]/i',
+                '/\[noparse\][\s\S]*?\[\/noparse\]/i',
+            ] as $pattern
+        ) {
+            $visible = preg_replace_callback(
+                $pattern,
+                static fn (array $match): string => preg_replace('/[^\n]/', ' ', $match[0]) ?? $match[0],
+                $visible,
+            ) ?? $visible;
+        }
+        preg_match_all('/\[quote(?:[= ]([^\]]*))?\]/i', $visible, $quotes, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        $line = 1;
+        $scanned = 0;
+        foreach ($quotes as $quote) {
+            $offset = $quote[0][1];
+            $line += substr_count($visible, "\n", $scanned, $offset - $scanned);
+            $scanned = $offset;
+            $attribution = $quote[1][0] ?? '';
+            $droppedUserId = false;
+            $this->formatAttribution($attribution, $droppedUserId);
+            if (!$droppedUserId) {
+                continue;
+            }
+            $diagnostics[] = new MigrationDiagnostic(
+                'bbcode-quote-user-id-dropped',
+                'The BBCode quote user_id cannot be represented in Carve and was dropped.',
+                'warning',
+                'dropped',
+                'exact',
+                'line:' . $line,
+            );
+        }
 
-        return $this->assessedMigrationResult(StringUtil::toValidUtf8($bbcode), $value, 'bbcode');
+        return new MigrationResult($value, 'bbcode', $diagnostics);
     }
 
     /**
@@ -1062,7 +1101,7 @@ class BbcodeToCarve
      * - "9" name="user" date="2024-01-01 12:30"
      * - id="9" name="user" date="2024-01-01"
      */
-    protected function formatAttribution(string $attribution): string
+    protected function formatAttribution(string $attribution, ?bool &$droppedUserId = null): string
     {
         $attribution = trim($attribution);
         $remaining = $attribution;
@@ -1085,8 +1124,6 @@ class BbcodeToCarve
             $remaining = str_replace($m[0], '', $remaining);
         }
 
-        $remaining = preg_replace('/\buser_id=["\']?\d+["\']?/i', '', $remaining) ?? $remaining;
-
         // Extract name="..."
         if (preg_match('/\bname=["\']([^"\']+)["\']/i', $remaining, $m)) {
             $name = $m[1];
@@ -1107,6 +1144,9 @@ class BbcodeToCarve
                 : ($datetime !== null ? $datetime . ' ' . $time : $time);
             $remaining = str_replace($m[0], '', $remaining);
         }
+
+        $droppedUserId = preg_match('/\buser_id=["\']?\d+["\']?/i', $remaining) === 1;
+        $remaining = preg_replace('/\buser_id=["\']?\d+["\']?/i', '', $remaining) ?? $remaining;
 
         // If no name attribute found, use remaining text as name
         $remaining = trim($remaining);

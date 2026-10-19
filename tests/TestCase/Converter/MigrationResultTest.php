@@ -18,6 +18,31 @@ use PHPUnit\Framework\TestCase;
 
 final class MigrationResultTest extends TestCase
 {
+    public function testBbcodeQuoteUserIdsAreReportedAtTheirSourceLines(): void
+    {
+        $source = "intro\r\n[quote=\"alice\" post_id=12 user_id=3]q[/quote]\n[quote=bob user_id=4]r[/quote]";
+        $result = (new BbcodeToCarve())->convertWithFidelityReport($source);
+        $rows = array_values(array_filter($result->diagnostics, static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-quote-user-id-dropped'));
+        self::assertCount(2, $rows);
+        self::assertSame(['line:2', 'line:3'], array_map(static fn (MigrationDiagnostic $row): ?string => $row->path, $rows));
+        foreach ($rows as $row) {
+            self::assertSame('dropped', $row->fidelity);
+            self::assertSame('exact', $row->confidence);
+        }
+    }
+
+    public function testBbcodeQuoteIdsInsideLiteralContentAreNotReported(): void
+    {
+        foreach (['[code][quote=user_id=7]x[/quote][/code]', '[c][quote=user_id=7]x[/icode]', '[noparse][quote=user_id=7]x[/quote][/noparse]', '[quote name="a user_id=3"]x[/quote]'] as $source) {
+            $codes = array_map(static fn (MigrationDiagnostic $row): string => $row->code, (new BbcodeToCarve())->convertWithFidelityReport($source)->diagnostics);
+            self::assertNotContains('bbcode-quote-user-id-dropped', $codes);
+        }
+        foreach (['[url=https://example.test][quote=alice user_id=7]x[/quote][/url]', '[url][quote=alice user_id=7]x[/quote][/url]', '[img][quote=alice user_id=7]x[/quote][/img]'] as $source) {
+            $result = (new BbcodeToCarve())->convertWithFidelityReport($source);
+            self::assertContains('bbcode-quote-user-id-dropped', array_map(static fn (MigrationDiagnostic $row): string => $row->code, $result->diagnostics));
+        }
+    }
+
     public function testLiteralTextHasExactEvidence(): void
     {
         foreach ([new MarkdownToCarve(), new DjotToCarve(), new BbcodeToCarve()] as $importer) {
