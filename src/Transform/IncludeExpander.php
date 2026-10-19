@@ -1372,6 +1372,10 @@ class IncludeExpander implements TransformerInterface
      */
     protected function lineCount(string $source): int
     {
+        // A leading U+FEFF is not content, so a file holding only one has no lines.
+        if (str_starts_with($source, "\u{FEFF}")) {
+            $source = substr($source, 3);
+        }
         $lines = preg_split('/\r\n|\n|\r/', $source) ?: [];
         if ($lines !== [] && end($lines) === '') {
             array_pop($lines);

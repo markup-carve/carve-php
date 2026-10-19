@@ -734,6 +734,11 @@ class IncludeExpanderTest extends TestCase
             $this->assertTrue($expander->getDependencies()[0]->isResolved());
         }
 
+        $document = $converter->parse('{{ bom.txt @lines:1-1 @code }}');
+        $expander = new IncludeExpander($this->resolver(['bom.txt' => "\u{FEFF}"]));
+        $converter->transform($document, $expander);
+        $this->assertSame([IncludeExpander::RULE_LINES_OUT_OF_RANGE], array_map(static fn ($w) => $w->getRule(), $expander->getWarnings()));
+
         $document = $converter->parse('{{ two.txt @lines:2-9 @code }}');
         $expander = new IncludeExpander($this->resolver(['two.txt' => "one\ntwo\n"]));
         $nodes = array_values($converter->transform($document, $expander)->getChildren());
