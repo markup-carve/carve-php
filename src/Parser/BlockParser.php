@@ -5063,10 +5063,13 @@ class BlockParser
 
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $bareLeadQuoteState = null;
+                $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
                 // Keep the run for the child parser, including a fence that
                 // reaches the end of its item. The next content line still
                 // decides whether this item continues.
-                $itemLines[] = $this->blankLineResidue($nextLine, $contentIndent, $trailingState);
+                $itemLines[] = $nestedFence->length > 0 && !$nestedFence->closed
+                    ? IndentationHelper::stripLeadingColumns($nextLine, $contentIndent)
+                    : $this->blankLineResidue($nextLine, $contentIndent, $trailingState);
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceTrailingState($trailingState, '');
                 $i++;
@@ -5353,27 +5356,6 @@ class BlockParser
                 }
             }
             $i++;
-        }
-
-        if (count($itemLines) > 1) {
-            $lead = $itemLines[0];
-            $offset = $this->listParser->innermostMarkerContentOffset($lead) ?? 0;
-            $bottom = substr($lead, $offset);
-            $emptyFence = $this->fencedBlockParser->parseCodeFenceOpener($bottom) !== null
-                || $this->fencedBlockParser->parseRawBlockOpener($bottom) !== null;
-            if ($emptyFence) {
-                foreach ($itemLines as $index => $line) {
-                    if ($index > 0 && !IndentationHelper::isBlankLine($line)) {
-                        $emptyFence = false;
-
-                        break;
-                    }
-                }
-            }
-            if ($emptyFence) {
-                $itemLines = [$lead];
-                $itemLineMap = [$itemLineMap[0]];
-            }
         }
 
         return $i;
