@@ -8037,6 +8037,17 @@ class BlockParser
      */
     protected function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): int
     {
+        // PART 9 §17 L1: lazy folded source lines still delimit a fence before a separating blank.
+        if (array_filter($subLines, static fn (string $line): bool => str_contains($line, "\n")) !== []) {
+            $expanded = [];
+            foreach ($subLines as $entry) {
+                $lazy = str_starts_with($entry, BlockGrammar::LAZY_FRAME);
+                foreach (explode("\n", $lazy ? BlockGrammar::stripLazyFrame($entry) : $entry) as $part) {
+                    $expanded[] = $lazy ? BlockGrammar::LAZY_FRAME . $part : $part;
+                }
+            }
+            $subLines = $expanded;
+        }
         // The content column of the sub-list item the scan is in; content at or
         // past it belongs to the sub-list, not this item. A marker at column 0
         // opens a sibling sub-list item or a new sibling sub-list, whose own
@@ -8055,6 +8066,7 @@ class BlockParser
         $fenceChar = null;
         $fenceLength = 0;
         $fenceBase = 0;
+        $lazyFence = null;
         $afterFenceCloser = false;
         $childFenceRun = false;
         // A caption gap needs the parsed item to decide whether it loosens.
@@ -8062,6 +8074,19 @@ class BlockParser
         $k = 0;
         while ($k < $n) {
             $sl = $subLines[$k];
+            if (str_starts_with($sl, BlockGrammar::LAZY_FRAME)) {
+                $lazyFence = $this->fencedBlockParser->parseCodeFenceOpener(
+                    ltrim(BlockGrammar::stripLazyFrame($sl), " \t"),
+                ) ?? $lazyFence;
+            } elseif ($lazyFence !== null && $this->fencedBlockParser->isCodeFenceCloser(
+                ltrim($sl, " \t"), $lazyFence['char'], $lazyFence['length'],
+            )) {
+                // PART 9 §17 L1: an inline folded closer leaves the following blank outside code payload.
+                $lazyFence = null;
+                $k++;
+
+                continue;
+            }
             if ($fenceChar !== null) {
                 // A run below the authored base closes once its available
                 // prefix has been removed. A deeper run remains payload.
