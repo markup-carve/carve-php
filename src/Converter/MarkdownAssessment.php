@@ -42,9 +42,10 @@ final class MarkdownAssessment
         $lines = explode("\n", str_replace(["\r\n", "\r"], "\n", $source));
         $this->sourceLines = $lines;
         foreach ($lines as $line) {
-            if (preg_match('/^ {0,3}\[([^\]\n]+)\]:[ \t]+(\S+)(?:[ \t]+"([^"\n]*)")?[ \t]*$/', $line, $m)) {
+            if (preg_match('/^ {0,3}\[([^\]\n]+)\]:[ \t]+(<(?:\\\\.|[^<>\\\\\n])*>|\S+)(?:[ \t]+"([^"\n]*)")?[ \t]*$/', $line, $m)) {
                 $key = self::label($m[1]);
-                $this->definitions[$key] ??= ['destination' => $m[2], 'title' => $m[3] ?? null];
+                $destination = str_starts_with($m[2], '<') ? substr($m[2], 1, -1) : $m[2];
+                $this->definitions[$key] ??= ['destination' => self::decodeDestination($destination), 'title' => $m[3] ?? null];
             }
         }
         $expected = $this->blocks($lines, 1);
@@ -78,6 +79,11 @@ final class MarkdownAssessment
         $pattern = $bareAutolink ? '/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u' : '/[^\\x21-\\x7e]|["<>\\\\`^{|}]/u';
 
         return preg_replace_callback($pattern, static fn (array $match): string => $bareAutolink ? rawurlencode($match[0]) : MarkdownDestinationEncoding::character($match[0]), $destination) ?? $destination;
+    }
+
+    private static function decodeDestination(string $destination): string
+    {
+        return preg_replace('/\\\\([!"#$%&\'()*+,\\-.\/:;<=>?@\[\]\\\\^_`{|}~])/', '$1', $destination) ?? $destination;
     }
 
     private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null): void
@@ -137,12 +143,14 @@ final class MarkdownAssessment
                     $this->emit('entity', $line, 'normalized');
                 }
                 $result .= $m[0];
-            } elseif (self::match('/^(!?)\[([^\]\n]*)\]\(([^ ()\n]+)(?:[ \t]+"([^"\n]*)")?\)/', $text, $i, $m)) {
-                if (!preg_match('~^(https?://|mailto:|[./#])~', $m[3]) && preg_match('/^[A-Za-z][\w+.-]*:/', $m[3])) {
+            } elseif (self::match('/^(!?)\[([^\]\n]*)\]\((<(?:\\\\.|[^<>\\\\\n])*>|(?:\\\\.|[^ ()\n])+)(?:[ \t]+"([^"\n]*)")?\)/', $text, $i, $m)) {
+                $rawDestination = str_starts_with($m[3], '<') ? substr($m[3], 1, -1) : $m[3];
+                $decodedDestination = self::decodeDestination($rawDestination);
+                if (!preg_match('~^(https?://|mailto:|[./#])~', $decodedDestination) && preg_match('/^[A-Za-z][\w+.-]*:/', $decodedDestination)) {
                     $this->complete = false;
                 }
                 $this->emit($m[1] === '!' ? 'image' : 'link', $line);
-                $destination = self::encodeDestination($m[3]);
+                $destination = self::encodeDestination($decodedDestination);
                 $title = isset($m[4]) ? ' title="' . self::escape($m[4]) . '"' : '';
                 $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
             } elseif (self::match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $text, $i, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
@@ -154,6 +162,7 @@ final class MarkdownAssessment
             } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
+                $href = str_replace(['\\', '`', '|'], ['%5C', '%60', '%7C'], $href);
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($m[1]) . '</a>';
             } elseif (self::match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $text, $i, $m) && !str_contains($m[2], $m[1][0])) {
                 if ((str_contains($m[1], '_') && $i > 0 && preg_match('/[A-Za-z0-9]/', $text[$i - 1])) || preg_match('/^\s|\s$/', $m[2])) {
@@ -231,7 +240,7 @@ final class MarkdownAssessment
 
                 continue;
             }
-            if (preg_match('/^ {0,3}\[[^\]\n]+\]:[ \t]+\S+(?:[ \t]+"[^"\n]*")?[ \t]*$/', $line)) {
+            if (preg_match('/^ {0,3}\[[^\]\n]+\]:[ \t]+(?:<(?:\\\\.|[^<>\\\\\n])*>|\S+)(?:[ \t]+"[^"\n]*")?[ \t]*$/', $line)) {
                 $this->emit('reference-definition', $n, 'normalized');
                 $i++;
 

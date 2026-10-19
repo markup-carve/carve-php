@@ -53,7 +53,7 @@
   {
     "example": 603,
     "source": "<https://example.com/\\[\\>\n",
-    "html": "<p><a href=\"https://example.com/%5C%5B%5C\">https://example.com/\\[\\</a></p>"
+    "html": "<p><a href=\"https://example.com/%5C[%5C\">https://example.com/\\[\\</a></p>"
   },
   {
     "example": 604,

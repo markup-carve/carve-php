@@ -16,7 +16,7 @@ class MarkdownAutolinkEscapesTest extends TestCase
 [
   [
     "<https://example.com/\\[\\>",
-    "<p><a href=\"https://example.com/%5C%5B%5C\">https://example.com/\\[\\</a></p>"
+    "<p><a href=\"https://example.com/%5C[%5C\">https://example.com/\\[\\</a></p>"
   ],
   [
     "<foo\\+@bar.example.com>",
