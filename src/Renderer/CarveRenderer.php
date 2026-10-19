@@ -1408,10 +1408,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     /**
      * @param array<\MarkupCarve\Carve\Node\Node> $blocks
      * @param bool $compactFootnoteBlocks Keep block openers in a note on a definition line.
+     * @param \MarkupCarve\Carve\Node\Block\ListItem|null $item
      *
      * @throws \MarkupCarve\Carve\Exception\RenderDepthExceededException
      */
-    protected function renderBlocks(array $blocks, bool $compactFootnoteBlocks = false): string
+    protected function renderBlocks(array $blocks, bool $compactFootnoteBlocks = false, ?ListItem $item = null): string
     {
         if ($this->blockDepth >= self::MAX_RENDER_DEPTH) {
             throw new RenderDepthExceededException(self::MAX_RENDER_DEPTH, 'Carve');
@@ -1441,8 +1442,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $previousList = null;
             $previousCompactDefinition = false;
             $listSeparated = false;
+            $previousEmitted = null;
+            $movedMarker = null;
             foreach ($blocks as $block) {
                 $rendered = $this->renderBlock($block);
+                $moved = $item !== null
+                    && self::spellsSomething($rendered)
+                    && $this->regionMarkerAtItemMarkerColumn($block, $previousEmitted, $movedMarker, $item);
+                if ($moved) {
+                    $rendered = $this->atMarkerColumn($rendered);
+                }
                 // Remember, for the NEXT block, whether a `^ ` line after it
                 // would be read back as a caption. Only then does the caption
                 // marker need escaping (PART 11 §2, carve-php#758).
@@ -1458,7 +1467,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // the blank line a part of its own would open. As far as the
                 // page is concerned it is the empty paragraph (PART 11 §10j).
                 if (self::spellsSomething($rendered)) {
-                    if ($listSeparated && $parts !== []) {
+                    if (
+                        $parts !== []
+                        && $previousEmitted !== null
+                        && $this->regionMarkerAdjacent($previousEmitted, $block, $rendered)
+                    ) {
+                        $parts[array_key_last($parts)] .= "\n" . $rendered;
+                    } elseif ($listSeparated && $parts !== []) {
                         // The tag OPENS the next block's first line rather than
                         // joining two blocks, so every host that indents line by
                         // line can see the break and prefix the line - see
@@ -1489,6 +1504,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     } else {
                         $parts[] = $rendered;
                     }
+                    $previousEmitted = $block;
+                    $movedMarker = $moved ? $block : null;
                 }
                 $previousCompactDefinition = $block->getRenderHint("\0carve-compact-definition") === '1';
             }
@@ -2149,6 +2166,88 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     }
 
     /**
+     * CARVE-P11-073: a `%%` line that I1b reads as a region marker.
+     */
+    protected function isRegionMarker(Node $node): bool
+    {
+        return $node instanceof Comment
+            && $this->isALineComment($node)
+            && preg_match('/^[ \t]*#(?:end)?region(?![A-Za-z0-9_])/', $node->getContent()) === 1;
+    }
+
+    /**
+     * CARVE-P11-073: a region marker and its sibling keep the blank line, or its
+     * absence, the author wrote. Leading attribute lines of the later block sit
+     * between the two without being part of its position.
+     */
+    protected function regionMarkerAdjacent(Node $previous, Node $block, string $rendered): bool
+    {
+        if (!$this->isRegionMarker($previous) && !$this->isRegionMarker($block)) {
+            return false;
+        }
+        // A block a following `%%` line cannot continue, whatever it is spelled as.
+        if (
+            !$previous instanceof Paragraph
+            && !$previous instanceof Image
+            && !$previous instanceof Heading
+            && !$previous instanceof CodeBlock
+            && !$previous instanceof ThematicBreak
+            && !$previous instanceof Comment
+        ) {
+            return false;
+        }
+        $before = $previous->getPos();
+        $after = $block->getPos();
+        if ($before === null || $after === null) {
+            return false;
+        }
+
+        return $after->startLine === $before->endLine + 1 + $this->leadingAttributeLines($block, $rendered);
+    }
+
+    /**
+     * The attribute lines the writer put above a block; only a paragraph's own
+     * text can also open with `{`.
+     */
+    protected function leadingAttributeLines(Node $block, string $rendered): int
+    {
+        if ($block instanceof Paragraph) {
+            return $this->renderAttrs($block) !== '' && str_starts_with($rendered, '{') ? 1 : 0;
+        }
+        $count = 0;
+        foreach (explode("\n", $rendered) as $line) {
+            if (!str_starts_with($line, '{')) {
+                break;
+            }
+            $count++;
+        }
+
+        return $count;
+    }
+
+    /**
+     * CARVE-P11-073: a region marker the reader kept in a list item from at or
+     * left of the item's marker column (X1) goes back to that column.
+     */
+    protected function regionMarkerAtItemMarkerColumn(Node $block, ?Node $previous, ?Node $movedMarker, ListItem $item): bool
+    {
+        if ($previous === null || !$this->isRegionMarker($block)) {
+            return false;
+        }
+        if (!$previous instanceof Paragraph && $movedMarker !== $previous) {
+            return false;
+        }
+        $at = $block->getPos();
+        $before = $previous->getPos();
+        $host = $item->getPos();
+        if ($at === null || $before === null || $host === null) {
+            return false;
+        }
+
+        return $at->startLine === $before->endLine + 1 && $at->startColumn <= $host->startColumn;
+    }
+
+    /**
      * Whether the WRITTEN form of a block opens with a block-attributes line.
      */
     protected function opensWithAnAttributeLine(string $rendered): bool
@@ -2225,7 +2324,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $children = $node->getChildren();
         if (!$tight || count($children) < 2) {
             return $this->atAnAuthoredBodyColumn(
-                fn (): string => $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($children)),
+                fn (): string => $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($children, false, $node)),
             );
         }
 
@@ -2258,6 +2357,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // joins it instead of opening below the paragraph above it. See
             // needsABlankLineAbove().
             $aSubListAlreadyOpened = false;
+            $movedMarker = null;
             foreach ($children as $index => $child) {
                 $next = $children[$index + 1] ?? null;
                 // A definition the author wrote BETWEEN these two blocks was
@@ -2358,6 +2458,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // unchanged (carve-php#1948).
                 if (!$separated && $previousEmitted instanceof ListBlock && $this->isALineComment($child)) {
                     $out .= "\n";
+                }
+                if ($this->regionMarkerAtItemMarkerColumn($child, $previousEmitted, $movedMarker, $node)) {
+                    $rendered = $this->atMarkerColumn($rendered);
+                    $movedMarker = $child;
                 }
                 $previous = $child;
                 $previousEmitted = $child;
