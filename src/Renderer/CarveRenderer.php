@@ -2185,6 +2185,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!$this->isRegionMarker($previous) && !$this->isRegionMarker($block)) {
             return false;
         }
+        // A collected definition (§7) is written apart, so it is no sibling of the marker.
+        if ($block instanceof LinkReferenceDefinition || $block instanceof Footnote) {
+            return false;
+        }
         // A block a following `%%` line cannot continue, whatever it is spelled as.
         if (
             !$previous instanceof Paragraph
@@ -2234,7 +2238,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($previous === null || !$this->isRegionMarker($block)) {
             return false;
         }
-        if (!$previous instanceof Paragraph && $movedMarker !== $previous) {
+        if (!$previous instanceof Paragraph && !$previous instanceof Image && $movedMarker !== $previous) {
             return false;
         }
         $at = $block->getPos();
