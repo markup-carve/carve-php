@@ -63,6 +63,12 @@ class FmtKeepsARegionsSelectionTest extends TestCase
 
         // A paragraph holding only an image is written as a block image.
         yield 'below an indented image' => [" ![Apollo](a.jpg)\n%% #region r\n", "![Apollo](a.jpg)\n%% #region r\n"];
+
+        // A collected definition is written apart, never adjacent to the marker.
+        yield 'above a link definition' => ["Text.\n\n%% #region r\n[x]: /u\n", "Text.\n\n%% #region r\n\n[x]: /u\n"];
+
+        // An image-only item holds its marker at the marker column, as a paragraph does.
+        yield 'below an image in an item' => ["- ![a](u)\n%% #endregion r\n", "- ![a](u)\n%% #endregion r\n"];
     }
 
     #[DataProvider('readings')]
