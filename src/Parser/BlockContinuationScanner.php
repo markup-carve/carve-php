@@ -1603,8 +1603,9 @@ final class BlockContinuationScanner
                     ? ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($contentLine, " \t"))
                         ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($contentLine, " \t"))
                     : null;
+                // CARVE-P0-014: a paragraph fence needs a closer inside its item.
                 $floorLookaheadRejected = $floorLookaheadOpener !== null
-                    && !$this->sourceFenceCloserInView($lines, $i, $floorLookaheadOpener, $contentIndent + IndentationHelper::getLeadingColumns($contentLine));
+                    && !$this->itemFenceCloserAhead($lines, $i, $floorLookaheadOpener, $column, $contentIndent);
                 $descendantParagraphFence = $markerNoteItem && !$sawNestedNote
                     && $trailingState->quoteParagraph && $column > $contentIndent
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
@@ -2961,9 +2962,8 @@ final class BlockContinuationScanner
     /**
      * Does a fence run written at `$columns` have a closer of its own?
      *
-     * AT THE RUN'S OWN COLUMN, which is where §10 has a closer written and the
-     * only column `CARVE-P0-013` reads one at: a run below it is not a closer
-     * and one indented past it is body text.
+     * CARVE-P0-004 permits a closer from the host's content column through the
+     * run's base. A line below the host is searched past; a deeper line is body.
      *
      * BOUNDED AT A MARKER BELOW THAT COLUMN, which ends the item holding the
      * run. Unbounded, the scan accepted a closer out of the next SIBLING item
@@ -2978,7 +2978,7 @@ final class BlockContinuationScanner
      * @param int $openIndex Source index of the run.
      * @param array{fence: string, length: int, char?: string} $opener
      * @param int $columns Leading columns of the run.
-     * @param int|null $hostColumns The host's content column, where a closer also ends the fence.
+     * @param int|null $hostColumns The host's content column, the lowest eligible closer column.
      */
     public function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns, ?int $hostColumns = null): bool
     {
@@ -2992,13 +2992,14 @@ final class BlockContinuationScanner
             $line = $lines[$j];
             $indent = IndentationHelper::getLeadingColumns($line, $columns + 1);
             if ($indent < $columns) {
-                if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null) {
+                if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null
+                    && ($hostColumns === null || $indent < $hostColumns)) {
                     return false;
                 }
-                // An opener past the host column may close at the host column;
-                // any other line at that column ends the search.
-                if ($hostColumns !== null && $indent === $hostColumns && !IndentationHelper::isBlankLine($line)) {
-                    return ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length']);
+                // CARVE-P0-004: any closer from the host column through the opener's base is eligible.
+                if ($hostColumns !== null && $indent >= $hostColumns
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length'])) {
+                    return true;
                 }
 
                 continue;

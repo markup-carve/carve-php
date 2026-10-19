@@ -659,6 +659,15 @@ final class ListBlockBuilder
                 $authoredBaseEligible,
                 $unclosedFenceBase,
             );
+            // PART 9 §17 L1: a blank before a second paragraph loosens this item.
+            $hasFenceRun = false;
+            foreach ($itemLines as $entry) {
+                $hasFenceRun = $hasFenceRun
+                    || ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim(BlockGrammar::stripLazyFrame($entry), " \t"), 0);
+            }
+            if ($hasFenceRun && $this->subContentHasLooseningBlank($itemLines, true) === BlockParser::GAP_LOOSENS) {
+                $list->setTight(false);
+            }
 
             if (
                 count($itemLines) > 1
@@ -1015,7 +1024,9 @@ final class ListBlockBuilder
                     : $this->itemFenceOpenerAt($stripped);
                 if ($subFenceOpener !== null) {
                     $subFenceColumns = $subIndent + IndentationHelper::getLeadingColumns($stripped);
-                    if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns, $subIndent)) {
+                    // CARVE-P0-014: only closers inside the nested item's content column can interrupt its paragraph.
+                    $hostColumn = $subIndent + $subTrailingState->nestedColumn;
+                    if ($this->itemFenceCloserAhead($lines, $i, $subFenceOpener, $subFenceColumns, $hostColumn)) {
                         $subTrailingState = $this->advanceTrailingState($subTrailingState, $stripped, true);
                         $subInterruptedParagraphFence = $subTrailingState->fence !== null;
                     } else {
@@ -1348,6 +1359,17 @@ final class ListBlockBuilder
             } elseif (
                 !$sawBlankLine
                 && $subTrailingState->openParagraph
+                && $subLines !== []
+                && $this->fenceRunOpensNothing(ltrim($subLine, " \t"), $lines, $i, $lineIndent)
+            ) {
+                // PART 0 O3: a below-column unmatched run lazily folds into the child's paragraph.
+                $subLines[] = BlockGrammar::LAZY_FRAME . ltrim($subLine, " \t");
+                $subLineMap[] = $this->sourceLineFor($i);
+                $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
+                $i++;
+            } elseif (
+                !$sawBlankLine
+                && $subTrailingState->openParagraph
                 && !($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($subLine, " \t"), 0)
                 && !$this->isBlockElementStart(ltrim($subLine, " \t"), $lines, $i)
                 && !$this->startsNewBlock(ltrim($subLine, " \t"), $lines, $i)
@@ -1369,9 +1391,8 @@ final class ListBlockBuilder
         // that ended the stream, so the nested parse sees an opener
         // with none and reads the body back as an inline code span -
         // carve#1399 one container further in (markup-carve/carve#2509).
-        // Written at the fence's own column, because that is the only
-        // column §10 accepts a closer at and the parse one level down
-        // asks the same question again.
+        // Written at the fence's own column so the parse one level down
+        // sees the closer that the collected stream could not retain.
         if ($subInterruptedParagraphFence && $subTrailingState->fence !== null) {
             $subLines[] = str_repeat(' ', $subTrailingState->fence->column)
                 . str_repeat($subTrailingState->fence->char, $subTrailingState->fence->length);
@@ -2527,9 +2548,16 @@ final class ListBlockBuilder
         $beforeLeadNote = null;
         $seenBlank = false;
         $nestedInlineParagraph = false;
-        $descendantFenceClosers = null;
+        $childContentFloor = $leadNestedColumn ?? 0;
+        $foldedChildFence = false;
         for ($i = 0; $i < $count; $i++) {
             $line = $lines[$i];
+            $lineMarker = ($this->getListParser)()->parseListItemMarker(ltrim($line, " \t"));
+            if ($lineMarker !== null && !IndentationHelper::isBlankLine($line)) {
+                $childContentFloor = IndentationHelper::getLeadingColumns($line)
+                    + $this->listMarkerWidth(ltrim($line, " \t"), $lineMarker);
+                $foldedChildFence = false;
+            }
             if ($i < $protectedPrefixEnd) {
                 continue;
             }
@@ -2646,6 +2674,11 @@ final class ListBlockBuilder
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
+            if ($foldedChildFence && !$afterBlank && $base < $childContentFloor
+                && ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim($line, " \t"), 0)) {
+                // CARVE-P0-015: a lazy below-column run does not end its child container.
+                continue;
+            }
             if ($unclosedFenceBase !== null && $i > $unclosedFenceStart && $base === $unclosedFenceBase && $base > 0) {
                 $nestedColumns = [];
             }
@@ -2678,26 +2711,11 @@ final class ListBlockBuilder
                         true,
                     );
                 }
-                if ($descendantFenceClosers === null) {
-                    $descendantFenceClosers = [];
-                    $runs = [];
-                    for ($j = $count - 1; $j >= 0; $j--) {
-                        $subject = ltrim($lines[$j], " \t");
-                        $column = IndentationHelper::getLeadingColumns($lines[$j]);
-                        $candidate = ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject);
-                        if ($candidate !== null) {
-                            $char = $candidate['fence'][0];
-                            $descendantFenceClosers[$j] = max($runs[$column][$char] ?? 0, $runs[0][$char] ?? 0) >= strlen($candidate['fence']);
-                        }
-                        if (preg_match('/^(`{3,}|~{3,})[ \t]*$/', $subject, $match) === 1) {
-                            $char = $match[1][0];
-                            $runs[$column][$char] = max($runs[$column][$char] ?? 0, strlen($match[1]));
-                        }
-                    }
-                }
                 $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t"));
                 if (
-                    $blockState->openParagraph && $blockState->fence === null && !$blockState->hasOpenDiv() && $fence !== null && !($descendantFenceClosers[$i] ?? false)
+                    $blockState->openParagraph && $blockState->fence === null && !$blockState->hasOpenDiv() && $fence !== null
+                    // CARVE-P0-014: a closer below the descendant's content column is searched past.
+                    && !$this->itemFenceCloserAhead($lines, $i, $fence, $base, end($nestedColumns))
                 ) {
                     $afterBlank = false;
 
@@ -2719,6 +2737,17 @@ final class ListBlockBuilder
                 continue;
             }
             if ($nestedColumns !== [] && $base >= end($nestedColumns)) {
+                $precedingMarker = $i > 0
+                    ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
+                $childFence = $precedingMarker === null || $precedingMarker['content'] === ''
+                    || $this->lineOpensBlockForLooseness($precedingMarker['content'], true)
+                    ? null : $this->itemFenceOpenerAt($line);
+                if ($childFence !== null && !$this->itemFenceCloserAhead(
+                    $lines, $i, $childFence, $base, end($nestedColumns),
+                )) {
+                    // CARVE-P0-014: retain the child's paragraph when its fence has no in-column closer.
+                    $foldedChildFence = true;
+                }
                 continue;
             }
             if (
@@ -2923,6 +2952,20 @@ final class ListBlockBuilder
             $end = $i;
             $code = ($this->getFencedBlockParser)()->parseCodeFenceOpener($opener)
                 ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($opener);
+            $precedingMarker = $i > 0
+                ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i - 1], " \t")) : null;
+            if ($code !== null && $precedingMarker !== null && $precedingMarker['content'] !== ''
+                && !$this->lineOpensBlockForLooseness($precedingMarker['content'], true)) {
+                $childColumn = IndentationHelper::getLeadingColumns($lines[$i - 1])
+                    + $this->listMarkerWidth(ltrim($lines[$i - 1], " \t"), $precedingMarker);
+                // CARVE-P0-014: a below-column run cannot authorize a fence under a child's lead.
+                if (!$this->itemFenceCloserAhead($lines, $i, $code, $base, $childColumn)) {
+                    $foldedChildFence = true;
+                    $afterBlank = false;
+
+                    continue;
+                }
+            }
             if ($code !== null && $skipOnlyClosedOpaqueAtMinimum) {
                 for (; $blockStateCursor < $i; $blockStateCursor++) {
                     if (($this->isBlockAttributeLineCallback)(ltrim($lines[$blockStateCursor], " \t"))) {
