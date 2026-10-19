@@ -249,7 +249,7 @@ final class BlockQuoteBuilder
             // instead of folding into the preceding quoted paragraph.
             if (
                 $this->isContinuationMarker($currentLine)
-                && $this->markerSitsAtColumn($i, $quoteOpeningColumn)
+                && $this->continuationMarkerSitsAtQuoteColumn($i, $quoteOpeningColumn)
             ) {
                 $i++; // consume the `+` marker
                 [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
@@ -376,6 +376,18 @@ final class BlockQuoteBuilder
             $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0,
             strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
         );
+    }
+
+    private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $sourceText = $this->state->source->sourceLines[$sourceLine] ?? null;
+        if ($sourceText === null) {
+            return $this->markerSitsAtColumn($index, $column);
+        }
+
+        // The outer `> ` prefix precedes the nested marker in the source.
+        return strrpos(rtrim($sourceText, " \t"), '+') === $column;
     }
 
     /**
