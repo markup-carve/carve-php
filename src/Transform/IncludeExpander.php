@@ -160,6 +160,16 @@ class IncludeExpander implements TransformerInterface
     /**
      * @var string
      */
+    public const RULE_DUPLICATE_OPTION = 'include-duplicate-option';
+
+    /**
+     * @var string
+     */
+    public const RULE_LINES_OUT_OF_RANGE = 'include-lines-out-of-range';
+
+    /**
+     * @var string
+     */
     public const RULE_CALL_LIMIT = 'include-call-limit';
 
     /**
@@ -853,6 +863,10 @@ class IncludeExpander implements TransformerInterface
                 return null;
             }
             $directive['lines'] = ['start' => $range[0], 'end' => $range[1]];
+        } elseif ($directive['lines'] !== null && $directive['lines']['start'] > $this->lineCount($source)) {
+            $this->warn("Include line range starts past the end of file: {$directive['path']}", self::RULE_LINES_OUT_OF_RANGE);
+
+            return null;
         }
         if ($directive['lines'] !== null) {
             $sliceLineBase = $directive['lines']['start'] - 1;
@@ -1050,6 +1064,8 @@ class IncludeExpander implements TransformerInterface
                     "Include directive cannot name two sections: '{$parts['errorPart']}'",
                     self::RULE_SELECTION_CONFLICT,
                 );
+            } elseif ($parts['error'] === IncludeDirectiveSyntax::ERROR_DUPLICATE_OPTION) {
+                $this->warn("Include option '{$parts['errorPart']}' repeats an option given earlier", self::RULE_DUPLICATE_OPTION);
             }
 
             return null;
@@ -1297,6 +1313,10 @@ class IncludeExpander implements TransformerInterface
      */
     protected static function regionRange(string $source, string $selected, bool $code): ?array
     {
+        // I1b: the file's leading U+FEFF is not content, so it cannot hide a line-1 marker.
+        if (str_starts_with($source, "\u{FEFF}")) {
+            $source = substr($source, 3);
+        }
         $lines = preg_split('/\r\n|\n|\r/', $source) ?: [];
         $stack = [];
         $seen = [];
@@ -1345,6 +1365,23 @@ class IncludeExpander implements TransformerInterface
         }
 
         return $stack === [] ? $range : null;
+    }
+
+    /**
+     * Physical lines in a file; a final line ending does not begin another one.
+     */
+    protected function lineCount(string $source): int
+    {
+        // A leading U+FEFF is not content, so a file holding only one has no lines.
+        if (str_starts_with($source, "\u{FEFF}")) {
+            $source = substr($source, 3);
+        }
+        $lines = preg_split('/\r\n|\n|\r/', $source) ?: [];
+        if ($lines !== [] && end($lines) === '') {
+            array_pop($lines);
+        }
+
+        return count($lines);
     }
 
     protected function sliceLines(string $source, int $start, int $end): string

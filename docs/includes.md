@@ -40,14 +40,20 @@ so without one `b.crv` and `./b.crv` are two files as far as the guard is
 concerned and only the depth limit stops the recursion.
 
 The transform recognizes `#section`, `@lines:N-M`, `@region:name`,
-`@shift:N`, `@shift:auto`, `@code`, and `@code:lang`. A directive uses at most
-one selector. In a Carve include, only `%% #region name` and
+`@shift:N`, `@shift:auto`, `@code`, and `@code:lang`. Each option key appears
+at most once: a repeat such as `@code:js @code:py` warns with
+`include-duplicate-option` and stays literal. A directive uses at most one
+selector. An `@lines` range that starts past the file's last line warns with
+`include-lines-out-of-range` and stays literal; one that ends past it is
+clamped. In a Carve include, only `%% #region name` and
 `%% #endregion name` mark a region. The selected lines are read as Carve. In a
 code include, `#region`, `// #region`, `-- #region`, `/* #region */`,
 `<!-- #region -->`, and `%% #region` forms are recognized, with corresponding
 `#endregion` forms. Keywords are case-sensitive. `%%%` is never a marker. A
-block comment closer must end the same line. Invalid or missing regions warn
-with `include-region-invalid` and leave the directive literal.
+block comment closer must end the same line. A file's leading U+FEFF is
+skipped before markers are matched, so a marker on line 1 still counts. Invalid
+or missing regions warn with `include-region-invalid` and leave the directive
+literal.
 
 `@code` makes the selected source one unparsed code block. Bare `@code` has no
 language; `@code:lang` sets it explicitly. It works with `@lines` and `@region`.
