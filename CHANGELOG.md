@@ -9,6 +9,27 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-10-19
+
+### Fixes
+- Unclosed fences, definitions, quotes, and footnotes now stay in their owning list or container. List tightness and caption gaps follow the authored lines (#3538, #3543, #3566, #3567, #3574, markup-carve/carve#3364).
+- A caption after a `+`-attached code, raw or figure-group fence stays with that fence, and a fence-looking line folded into a child item's paragraph no longer keeps the list tight. An unterminated fence on a nested list marker line keeps the blank lines below it (#3576, #3578, #3573, markup-carve/carve#3369, markup-carve/carve#3370).
+- Region markers stay beside their content through `fmt`, and definitions remain inside selected regions (#3555, #3556, #3564, markup-carve/carve#3330, markup-carve/carve#3350).
+- In a Carve include, only `%% #region` selects a region; a leading BOM no longer hides a marker. A repeated include option and a line range starting past the last line are the `include-duplicate-option` and `include-lines-out-of-range` warnings (#3544, #3563, markup-carve/carve#3326, markup-carve/carve#3348, markup-carve/carve#3349, markup-carve/carve#3351).
+- Code includes keep their blank final line and correct source span; `{table}` on a CSV or TSV code include produces a table (#3548, #3568, markup-carve/carve#3335, markup-carve/carve#3358, markup-carve/carve#3359).
+- `fmt` no longer duplicates a code fence's title attribute as its header (#3554).
+- Markdown migration keeps a destination's brackets and non-ASCII characters as written, assesses standalone images correctly, and resolves case-only heading fragments with a fixup report (#3547, #3552, #3571, #3572, #3577, markup-carve/carve#3323, markup-carve/carve#3372, markup-carve/carve#3373, markup-carve/carve#3378).
+- BBCode migration reads quote attribution fields consistently and reports dropped fields as `bbcode-quote-field-dropped` (#3542, #3545, #3569, markup-carve/carve#3341, markup-carve/carve#3357).
+- `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, markup-carve/carve-php#3559, markup-carve/carve-php#3560).
+
+### Improvements
+- `carve fmt --align-tables` aligns table columns by display width; the PHP formatter and converter expose the option (#3546).
+- Includes can insert a whole file or selected region as a code block (#3544).
+- `carve lint` checks included content when given an include root and reports near misses for consumed `table` and `loose` keys (#3557, #3561, markup-carve/carve#3339, markup-carve/carve#3340).
+
+### Performance
+- Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
+
 ## [0.1.13] - 2026-10-15
 
 ### Breaking
