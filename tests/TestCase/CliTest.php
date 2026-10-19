@@ -718,6 +718,53 @@ class CliTest extends TestCase
         }
     }
 
+    public function testMigrateMarkdownDirectoryReportsCaseOnlyFragmentFixups(): void
+    {
+        $root = sys_get_temp_dir() . '/carve-fixup-' . bin2hex(random_bytes(8));
+        $source = $root . '/source';
+        $output = $root . '/output';
+        mkdir($source, 0777, true);
+        file_put_contents($source . '/a.md', "# Guide\n\nSee [steps](b.md#install-steps), [same](b.md#Install-Steps) and [whole](b.md).\n");
+        file_put_contents($source . '/b.md', "# Install Steps\n\nRun it.\n\n# Twin\n\n# twin\n");
+        file_put_contents($source . '/c.md', "[twin](b.md#TWIN) [none](b.md#nothing)\n");
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output, '--check-loss'], '');
+            $this->assertSame(1, $result['exit'], $result['err']);
+            $this->assertSame("# Guide\n\nSee [steps](b.crv#Install-Steps), [same](b.crv#Install-Steps) and [whole](b.crv).\n", file_get_contents($output . '/a.crv'));
+            $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
+            $files = array_column($report['files'], null, 'source');
+            $this->assertContains(['target' => 'b.md#install-steps', 'status' => 'rewritten'], $files['a.md']['links']);
+            $fixups = array_values(array_filter($files['a.md']['diagnostics'], static fn (array $row): bool => $row['code'] === 'link-fragment-case-rewritten'));
+            $this->assertSame([
+                [
+                    'code' => 'link-fragment-case-rewritten',
+                    'message' => 'Rewrote link fragment #install-steps to #Install-Steps, the one heading id it matches without regard to case.',
+                    'severity' => 'info',
+                    'fidelity' => 'normalized',
+                    'confidence' => 'inferred',
+                    'path' => 'link:b.md#install-steps',
+                ],
+            ], $fixups);
+            $this->assertSame([
+                ['target' => 'b.md#TWIN', 'status' => 'unresolved', 'reason' => 'fragment missing from target'],
+                ['target' => 'b.md#nothing', 'status' => 'unresolved', 'reason' => 'fragment missing from target'],
+            ], $files['c.md']['links']);
+            $this->assertSame([], array_filter($files['c.md']['diagnostics'], static fn (array $row): bool => $row['code'] === 'link-fragment-case-rewritten'));
+            $this->assertSame(['c.md'], $report['review']);
+        } finally {
+            foreach (['output/a.crv', 'output/b.crv', 'output/c.crv', 'output/migration-report.json', 'source/a.md', 'source/b.md', 'source/c.md'] as $path) {
+                if (is_file($root . '/' . $path)) {
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
     public function testMigrateMarkdownDirectoryDoesNotTreatDataIdAsAnAnchor(): void
     {
         $root = sys_get_temp_dir() . '/carve-link-id-' . bin2hex(random_bytes(8));

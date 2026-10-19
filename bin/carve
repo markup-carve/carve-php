@@ -516,7 +516,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
 /**
  * Inspect a local link in a converted document.
  *
- * @return array{href:string, check:array<string,string>}|null
+ * @return array{href:string, check:array<string,string>, fixup?:array<string,string>}|null
  */
 function inspectMigratedLink(string $destination, string $source, array $outputs, array $ids, array $aliases): ?array
 {
@@ -578,9 +578,14 @@ function inspectMigratedLink(string $destination, string $source, array $outputs
         return $failure('encoded extension needs manual rewrite');
     }
     $newPath = $mapped !== $target && $path !== '' ? preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath) : $rawPath;
-    $href = $newPath . $query . ($rawFragment === null ? '' : '#' . ($fragment === '' || $resolved === $fragment ? $rawFragment : rawurlencode($resolved)));
+    $recased = $fragment === '' || $resolved === $fragment ? null : rawurlencode($resolved);
+    $href = $newPath . $query . ($rawFragment === null ? '' : '#' . ($recased ?? $rawFragment));
+    $result = ['href' => $href, 'check' => ['target' => $destination, 'status' => $href === $destination ? 'valid' : 'rewritten']];
+    if ($recased !== null) {
+        $result['fixup'] = MarkdownToCarve::fragmentFixup($destination, (string)$rawFragment, $recased)->toArray();
+    }
 
-    return ['href' => $href, 'check' => ['target' => $destination, 'status' => $href === $destination ? 'valid' : 'rewritten']];
+    return $result;
 }
 
 /**
@@ -686,8 +691,9 @@ function rawHtmlUrls(string $html): array
  * @param array<string, array<string, string|null>> $aliases
  * @param array<array<string, string>> $links
  * @param bool $changed
+ * @param array<array<string, string>> $fixups
  */
-function checkMigratedNode(array &$node, string $source, array $outputs, array $ids, array $aliases, array &$links, bool &$changed): void
+function checkMigratedNode(array &$node, string $source, array $outputs, array $ids, array $aliases, array &$links, bool &$changed, array &$fixups): void
 {
     if (in_array($node['type'] ?? null, ['raw_inline', 'raw_block'], true) && ($node['format'] ?? null) === 'html' && isset($node['content']) && is_string($node['content'])) {
         foreach (rawHtmlUrls($node['content']) as $url) {
@@ -717,6 +723,9 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
                 $links[] = ['target' => $node[$key], 'status' => 'unresolved', 'reason' => 'reference link needs manual rewrite'];
             } else {
                 $links[] = $result['check'];
+                if (isset($result['fixup'])) {
+                    $fixups[] = $result['fixup'];
+                }
                 if ($result['href'] !== $node[$key]) {
                     $node[$key] = $result['href'];
                     $changed = true;
@@ -731,12 +740,12 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
         if (array_is_list($child)) {
             foreach ($child as &$item) {
                 if (is_array($item)) {
-                    checkMigratedNode($item, $source, $outputs, $ids, $aliases, $links, $changed);
+                    checkMigratedNode($item, $source, $outputs, $ids, $aliases, $links, $changed, $fixups);
                 }
             }
             unset($item);
         } else {
-            checkMigratedNode($child, $source, $outputs, $ids, $aliases, $links, $changed);
+            checkMigratedNode($child, $source, $outputs, $ids, $aliases, $links, $changed, $fixups);
         }
     }
     unset($child);
@@ -811,7 +820,9 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets): ar
         $document = $codec->encode($htmlConverter->parse($text));
         $links = [];
         $changed = false;
-        checkMigratedNode($document, $file['source'], $outputs, $ids, $aliases, $links, $changed);
+        $fixups = [];
+        checkMigratedNode($document, $file['source'], $outputs, $ids, $aliases, $links, $changed, $fixups);
+        $file['diagnostics'] = [...$file['diagnostics'], ...$fixups];
         $file['links'] = $links;
         foreach ($links as $link) {
             if ($link['status'] === 'unresolved') {

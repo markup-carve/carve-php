@@ -246,6 +246,18 @@ class MarkdownToCarve
     private bool $frontmatterSynthesized = false;
 
     /**
+     * Case-only fragment rewrites of the last conversion, as `link-fragment-case-rewritten` rows.
+     *
+     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
+     */
+    private array $fragmentFixups = [];
+
+    /**
+     * The last conversion rendered with its original fragments, so assessment sees only the conversion.
+     */
+    private ?string $unfixedValue = null;
+
+    /**
      * Whether the claimed frontmatter block's opener named its format.
      *
      * A typed opener is frontmatter unconditionally (CARVE-P2-030), so the
@@ -1841,6 +1853,8 @@ class MarkdownToCarve
         $this->markdownHtmlSourceLines = [];
         $this->frontmatterSynthesized = false;
         $this->frontmatterOpenerTyped = false;
+        $this->fragmentFixups = [];
+        $this->unfixedValue = null;
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both
@@ -3313,15 +3327,15 @@ class MarkdownToCarve
             }
             $exact[$anchor->getAttribute('name')] = true;
         }
-        $changed = false;
-        $visit = function (array &$node) use (&$visit, $exact, $aliases, &$changed): void {
+        $rewritten = [];
+        $visit = function (array &$node, array $path = []) use (&$visit, $exact, $aliases, &$rewritten): void {
             if (($node['type'] ?? null) === 'link' && !isset($node['ref']) && isset($node['href']) && is_string($node['href']) && str_starts_with($node['href'], '#')) {
                 $fragment = rawurldecode(substr($node['href'], 1));
                 if (preg_match('//u', $fragment) === 1 && $fragment !== '' && !isset($exact[$fragment])) {
                     $match = $aliases[MarkdownHeadingFragments::lowercaseKey($fragment)] ?? null;
                     if ($match !== null) {
+                        $rewritten[] = [$path, $node['href']];
                         $node['href'] = '#' . rawurlencode($match);
-                        $changed = true;
                     }
                 }
             }
@@ -3330,25 +3344,49 @@ class MarkdownToCarve
                     continue;
                 }
                 if (array_is_list($child)) {
-                    foreach ($child as &$item) {
+                    foreach ($child as $index => &$item) {
                         if (is_array($item)) {
-                            $visit($item);
+                            $visit($item, [...$path, $key, $index]);
                         }
                     }
                     unset($item);
                 } else {
-                    $visit($child);
+                    $visit($child, [...$path, $key]);
                 }
             }
             unset($child);
         };
         $visit($document);
-        if (!$changed) {
+        if ($rewritten === []) {
             return $source;
         }
-        $result = $converter->render($codec->decode($document));
+        $trim = static fn (string $result): string => str_ends_with($source, "\n") ? $result : rtrim($result, "\n");
+        $result = $trim($converter->render($codec->decode($document)));
+        foreach ($rewritten as [$path, $destination]) {
+            $node = &$document;
+            foreach ($path as $step) {
+                $node = &$node[$step];
+            }
+            $to = substr($node['href'], 1);
+            $node['href'] = $destination;
+            unset($node);
+            $this->fragmentFixups[] = self::fragmentFixup($destination, substr($destination, 1), $to);
+        }
+        $this->unfixedValue = $trim($converter->render($codec->decode($document)));
 
-        return str_ends_with($source, "\n") ? $result : rtrim($result, "\n");
+        return $result;
+    }
+
+    public static function fragmentFixup(string $destination, string $from, string $to): MigrationDiagnostic
+    {
+        return new MigrationDiagnostic(
+            'link-fragment-case-rewritten',
+            'Rewrote link fragment #' . $from . ' to #' . $to . ', the one heading id it matches without regard to case.',
+            'info',
+            'normalized',
+            'inferred',
+            'link:' . $destination,
+        );
     }
 
     private function mergeFootnoteDiagnostics(self $importer, int $offset): void
@@ -3370,6 +3408,16 @@ class MarkdownToCarve
     }
 
     public function convertWithFidelityReport(string $markdown): MigrationResult
+    {
+        $result = $this->carrierFidelityReport($markdown);
+        if ($this->fragmentFixups === []) {
+            return $result;
+        }
+
+        return new MigrationResult($result->value, $result->sourceFormat, [...$result->diagnostics, ...$this->fragmentFixups], $result->mode, $result->adapter);
+    }
+
+    private function carrierFidelityReport(string $markdown): MigrationResult
     {
         $markdown = StringUtil::toValidUtf8($markdown);
         $result = $this->assessedFidelityReport($markdown);
@@ -3406,7 +3454,15 @@ class MarkdownToCarve
 
     protected function assessedFidelityReport(string $markdown): MigrationResult
     {
-        $value = $this->convert($markdown);
+        $converted = $this->convert($markdown);
+        $value = $this->unfixedValue ?? $converted;
+        $result = $this->assessedFidelityReportFor($markdown, $value);
+
+        return new MigrationResult($converted, $result->sourceFormat, $result->diagnostics, $result->mode, $result->adapter);
+    }
+
+    private function assessedFidelityReportFor(string $markdown, string $value): MigrationResult
+    {
         $supportedDialect = !$this->convertMath && !$this->convertHighlight && !$this->convertInlineFootnotes
             && !($this->convertAbbreviations && preg_match('/^[ \t]*\*\[/m', $markdown) === 1) && !$this->convertFencedDivs && !$this->convertAttributes && !$this->convertRawHtml;
         $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis || $this->boundaryDiagnostics !== [], $supportedDialect);
