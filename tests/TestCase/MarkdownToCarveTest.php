@@ -52,23 +52,16 @@ class MarkdownToCarveTest extends TestCase
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns).\n");
         $this->assertSame("# Über Uns\n\nSee [a](#%C3%9Cber-Uns).\n", $result->value);
+        $rows = $result->report()['diagnostics'];
+        $this->assertSame(['markdown-atx-heading', 'markdown-paragraph', 'markdown-link', 'link-fragment-case-rewritten'], array_column($rows, 'code'));
         $this->assertSame([
-            [
-                'code' => 'fidelity-unverified',
-                'message' => 'Markdown construct assessment is incomplete.',
-                'severity' => 'warning',
-                'fidelity' => 'dropped',
-                'confidence' => 'fallback',
-            ],
-            [
-                'code' => 'link-fragment-case-rewritten',
-                'message' => 'Rewrote link fragment #über-uns to #%C3%9Cber-Uns, the one heading id it matches without regard to case.',
-                'severity' => 'info',
-                'fidelity' => 'normalized',
-                'confidence' => 'inferred',
-                'path' => 'link:#über-uns',
-            ],
-        ], $result->report()['diagnostics']);
+            'code' => 'link-fragment-case-rewritten',
+            'message' => 'Rewrote link fragment #über-uns to #%C3%9Cber-Uns, the one heading id it matches without regard to case.',
+            'severity' => 'info',
+            'fidelity' => 'normalized',
+            'confidence' => 'inferred',
+            'path' => 'link:#über-uns',
+        ], $rows[3]);
 
         // Two spellings of one destination cannot be told apart, so both rows name the encoded one.
         $twin = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns) and [b](#%C3%BCber-uns).\n")->report()['diagnostics'];

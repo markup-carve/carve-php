@@ -73,6 +73,11 @@ final class MarkdownAssessment
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
+    private static function encodeDestination(string $destination): string
+    {
+        return preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $destination) ?? $destination;
+    }
+
     private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null): void
     {
         $message = $construct === 'ordered-task' ? MarkdownToCarve::ORDERED_TASK_ITEM_UNSPELLABLE : 'Assessed Markdown ' . $construct . '.';
@@ -121,7 +126,7 @@ final class MarkdownAssessment
                 $result .= self::escape($m[1]);
             } elseif ($bare !== null && $bare['start'] === $i) {
                 $body = substr($text, $bare['start'], $bare['end'] - $bare['start']);
-                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $bare['prefix'] . $body) ?? $bare['prefix'] . $body;
+                $href = self::encodeDestination($bare['prefix'] . $body);
                 $this->emit('bare-autolink', $line, 'normalized');
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($body) . '</a>';
                 $m = [$body];
@@ -135,13 +140,15 @@ final class MarkdownAssessment
                     $this->complete = false;
                 }
                 $this->emit($m[1] === '!' ? 'image' : 'link', $line);
+                $destination = self::encodeDestination($m[3]);
                 $title = isset($m[4]) ? ' title="' . self::escape($m[4]) . '"' : '';
-                $result .= $m[1] === '!' ? '<img src="' . self::escape($m[3]) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($m[3]) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
+                $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
             } elseif (self::match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $text, $i, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
                 $definition = $this->definitions[self::label(($m[3] ?? '') ?: $m[2])];
                 $this->emit('reference-link', $line, 'normalized');
+                $destination = self::encodeDestination($definition['destination']);
                 $title = $definition['title'] === null ? '' : ' title="' . self::escape($definition['title']) . '"';
-                $result .= $m[1] === '!' ? '<img src="' . self::escape($definition['destination']) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($definition['destination']) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
+                $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
             } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
