@@ -41,6 +41,18 @@ class IncludeExpanderTest extends TestCase
         }
     }
 
+    public function testCodeIncludeDropsOnlyTheFilesOwnBom(): void
+    {
+        $converter = new CarveConverter();
+        foreach (['@code' => "a\n\u{FEFF}b\n", '@code @lines:2-2' => "\u{FEFF}b\n"] as $options => $content) {
+            $document = $converter->parse("{{ child.txt {$options} }}\n");
+            $expander = new IncludeExpander($this->resolver(['child.txt' => "\u{FEFF}a\n\u{FEFF}b\n"]));
+            $node = $converter->transform($document, $expander)->getChildren()[0];
+            $this->assertInstanceOf(CodeBlock::class, $node);
+            $this->assertSame($content, $node->getContent());
+        }
+    }
+
     public function testNoResolverLeavesDirectiveLiteral(): void
     {
         $converter = new CarveConverter();

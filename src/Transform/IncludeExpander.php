@@ -804,7 +804,8 @@ class IncludeExpander implements TransformerInterface
         }
 
         if ($directive['code'] !== null) {
-            $payload = preg_replace('/^\x{FEFF}/u', '', $source) ?? $source;
+            // Only the file's own BOM is dropped, not a U+FEFF that opens a later selected line.
+            $payload = $sliceLineBase === 0 ? (preg_replace('/^\x{FEFF}/u', '', $source) ?? $source) : $source;
             $payloadLines = $payload === '' ? [] : (preg_split('/\r\n|\r|\n/', $payload) ?: []);
             if ($payloadLines !== [] && end($payloadLines) === '') {
                 array_pop($payloadLines);
