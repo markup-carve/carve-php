@@ -1001,7 +1001,7 @@ class CliTest extends TestCase
         $this->assertSame(0, $result['exit']);
         $this->assertStringContainsString('^ alice #12', $result['out']);
         $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
-        $this->assertSame('bbcode-quote-user-id-dropped', $report['diagnostics'][1]['code']);
+        $this->assertSame('bbcode-quote-field-dropped', $report['diagnostics'][1]['code']);
         $this->assertSame('line:1', $report['diagnostics'][1]['path']);
     }
 
