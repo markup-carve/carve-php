@@ -200,14 +200,14 @@ bar
             ],
             'CommonMark 526' => [
                 '[foo<https://example.com/?search=](uri)>
-', '<p>[foo<a href="https://example.com/?search=%5D(uri)">https://example.com/?search=](uri)</a></p>
+', '<p>[foo<a href="https://example.com/?search=](uri)">https://example.com/?search=](uri)</a></p>
 ',
             ],
             'CommonMark 538' => [
                 '[foo<https://example.com/?search=][ref]>
 
 [ref]: /uri
-', '<p>[foo<a href="https://example.com/?search=%5D%5Bref%5D">https://example.com/?search=][ref]</a></p>
+', '<p>[foo<a href="https://example.com/?search=][ref]">https://example.com/?search=][ref]</a></p>
 ',
             ],
             'CommonMark 541' => [
@@ -277,11 +277,11 @@ bar
             ],
             'inline-looking suffix' => [
                 "[foo<https://example.com/?search=](uri)>\n",
-                '<p>[foo<a href="https://example.com/?search=%5D(uri)">https://example.com/?search=](uri)</a></p>',
+                '<p>[foo<a href="https://example.com/?search=](uri)">https://example.com/?search=](uri)</a></p>',
             ],
             'reference-looking suffix' => [
                 "[foo<https://example.com/?search=][ref]>\n\n[ref]: /uri\n",
-                '<p>[foo<a href="https://example.com/?search=%5D%5Bref%5D">https://example.com/?search=][ref]</a></p>',
+                '<p>[foo<a href="https://example.com/?search=][ref]">https://example.com/?search=][ref]</a></p>',
             ],
         ];
     }

@@ -25,7 +25,6 @@ use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
-use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -7056,7 +7055,7 @@ class MarkdownToCarve
                 $link = new Link($href);
                 foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
                     if ($piece !== '') {
-                        $link->appendChild(in_array($piece, ['[', ']'], true) ? new EscapedText($piece) : new Text($piece));
+                        $link->appendChild(new Text($piece));
                     }
                 }
                 $paragraph->appendChild($link);
@@ -7075,7 +7074,7 @@ class MarkdownToCarve
             return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect): string {
                 $body = substr($match[0], 1, -1);
                 $prefix = preg_match('/^[A-Za-z][A-Za-z0-9+.-]{1,31}:/', $body) === 1 ? '' : 'mailto:';
-                $url = $prefix . str_replace(['\\', '[', ']', '`', '|'], ['%5C', '%5B', '%5D', '%60', '%7C'], $body);
+                $url = $prefix . str_replace(['\\', '`', '|'], ['%5C', '%60', '%7C'], $body);
                 $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
                     . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 
@@ -8459,12 +8458,12 @@ class MarkdownToCarve
                     $previous = $body;
                     $body = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]], $body) ?? $body;
                 } while ($body !== $previous);
-                if (!str_contains($body, '\\') && !str_contains($body, '`') && !str_contains($body, '|') && BracketScanner::rawRunCloses($body)) {
+                if (!str_contains($body, '\\') && !str_contains($body, '`') && !str_contains($body, '|')) {
                     return $protect($match[0]);
                 }
                 // Backslashes are literal in a CommonMark autolink. Encode
                 // them in the destination and write its label as literal text.
-                $url = str_replace(['\\', '[', ']', '`', '|'], ['%5C', '%5B', '%5D', '%60', '%7C'], $body);
+                $url = str_replace(['\\', '`', '|'], ['%5C', '%60', '%7C'], $body);
                 $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
                     . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 
@@ -8594,7 +8593,7 @@ class MarkdownToCarve
                 $link = new Link($href);
                 foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
                     if ($piece !== '') {
-                        $link->appendChild(in_array($piece, ['[', ']'], true) ? new EscapedText($piece) : new Text($piece));
+                        $link->appendChild(new Text($piece));
                     }
                 }
                 $paragraph->appendChild($link);
