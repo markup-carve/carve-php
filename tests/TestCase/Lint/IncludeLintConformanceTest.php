@@ -14,7 +14,7 @@ final class IncludeLintConformanceTest extends TestCase
     public function testVectors(): void
     {
         $data = json_decode((string)file_get_contents(__DIR__ . '/../../spec/tests/lint-include-conformance/vectors.json'), true, 512, JSON_THROW_ON_ERROR);
-        self::assertCount(23, $data['vectors']);
+        self::assertCount(29, $data['vectors']);
         foreach ($data['vectors'] as $vector) {
             $resolver = $vector['resolver'] === 'none' ? null : new class ($vector['files']) implements IncludeResolverInterface {
                 public function __construct(private array $files)
