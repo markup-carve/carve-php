@@ -97,6 +97,11 @@ class IncludeDirectiveSyntax
     public const ERROR_DUPLICATE_SECTION = 'duplicate-section';
 
     /**
+     * @var string
+     */
+    public const ERROR_DUPLICATE_OPTION = 'duplicate-option';
+
+    /**
      * Nodes whose source form is recoverable verbatim, and which may therefore
      * take part in a directive run.
      */
@@ -205,15 +210,34 @@ class IncludeDirectiveSyntax
         $shift = 0;
         $error = null;
         $errorPart = null;
+        $seen = [];
+        // Spec I1: a key given twice is an error, never "last one wins".
+        $repeats = static function (string $key, string $part) use (&$seen, &$error, &$errorPart): bool {
+            if (!isset($seen[$key])) {
+                $seen[$key] = true;
+
+                return false;
+            }
+            if ($error === null) {
+                $error = static::ERROR_DUPLICATE_OPTION;
+                $errorPart = $part;
+            }
+
+            return true;
+        };
         if ($rest !== '') {
             foreach (static::slots($rest) as $part) {
                 if ($part === '@code') {
-                    $code = ['lang' => null];
+                    if (!$repeats('code', $part)) {
+                        $code = ['lang' => null];
+                    }
 
                     continue;
                 }
                 if (preg_match('/^@code:([A-Za-z0-9_+#.\/-]+)$/', $part, $codeMatch)) {
-                    $code = ['lang' => $codeMatch[1]];
+                    if (!$repeats('code', $part)) {
+                        $code = ['lang' => $codeMatch[1]];
+                    }
 
                     continue;
                 }
@@ -245,26 +269,34 @@ class IncludeDirectiveSyntax
                         preg_match('/^@lines:([1-9]\d*)-([1-9]\d*)$/', $part, $lineMatch) === 1
                         && (int)$lineMatch[2] >= (int)$lineMatch[1]
                     ) {
-                        $lines = ['start' => (int)$lineMatch[1], 'end' => (int)$lineMatch[2]];
+                        if (!$repeats('lines', $part)) {
+                            $lines = ['start' => (int)$lineMatch[1], 'end' => (int)$lineMatch[2]];
+                        }
 
                         continue;
                     }
                 }
 
                 if (preg_match('/^@region:([A-Za-z_][A-Za-z0-9_-]*)$/', $part, $regionMatch)) {
-                    $region = $regionMatch[1];
+                    if (!$repeats('region', $part)) {
+                        $region = $regionMatch[1];
+                    }
 
                     continue;
                 }
 
                 if (preg_match('/^@shift:([+-]?\d+)$/', $part, $shiftMatch)) {
-                    $shift = (int)$shiftMatch[1];
+                    if (!$repeats('shift', $part)) {
+                        $shift = (int)$shiftMatch[1];
+                    }
 
                     continue;
                 }
 
                 if ($part === '@shift:auto') {
-                    $shift = 'auto';
+                    if (!$repeats('shift', $part)) {
+                        $shift = 'auto';
+                    }
 
                     continue;
                 }

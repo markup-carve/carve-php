@@ -717,6 +717,44 @@ class IncludeExpanderTest extends TestCase
         }
     }
 
+    public function testALeadingByteOrderMarkDoesNotHideALineOneRegionMarker(): void
+    {
+        $this->assertSame(['ok' => true, 'start' => 2, 'end' => 2], IncludeExpander::selectIncludeRegion("\u{FEFF}// #region b\nbomcode()\n// #endregion b\n", 'b', 'code'));
+        $this->assertSame(['ok' => true, 'start' => 2, 'end' => 2], IncludeExpander::selectIncludeRegion("\u{FEFF}%% #region b\nInside.\n%% #endregion b\n", 'b', 'carve'));
+    }
+
+    public function testALineRangeStartingPastTheEndWarnsAndKeepsResolvedDependency(): void
+    {
+        $converter = new CarveConverter();
+        foreach (['@lines:3-3 @code', '@lines:3-4'] as $options) {
+            $document = $converter->parse("{{ two.txt {$options} }}");
+            $expander = new IncludeExpander($this->resolver(['two.txt' => "one\ntwo\n"]));
+            $converter->transform($document, $expander);
+            $this->assertSame([IncludeExpander::RULE_LINES_OUT_OF_RANGE], array_map(static fn ($w) => $w->getRule(), $expander->getWarnings()));
+            $this->assertTrue($expander->getDependencies()[0]->isResolved());
+        }
+
+        $document = $converter->parse('{{ two.txt @lines:2-9 @code }}');
+        $expander = new IncludeExpander($this->resolver(['two.txt' => "one\ntwo\n"]));
+        $nodes = array_values($converter->transform($document, $expander)->getChildren());
+        $this->assertInstanceOf(CodeBlock::class, $nodes[0]);
+        $this->assertSame("two\n", $nodes[0]->getContent());
+        $this->assertSame([], $expander->getWarnings());
+    }
+
+    public function testAnOptionGivenTwiceWarnsAndStaysLiteral(): void
+    {
+        $converter = new CarveConverter();
+        foreach (['@code:js @code:py', '@lines:1-1 @lines:3-3 @code', '@shift:1 @shift:2 @code', '@code @code:js', '@shift:auto @shift:1'] as $options) {
+            $document = $converter->parse("{{ a.js {$options} }}");
+            $expander = new IncludeExpander($this->resolver(['a.js' => "one()\ntwo()\nthree()\n"]));
+            $nodes = array_values($converter->transform($document, $expander)->getChildren());
+            $this->assertNotInstanceOf(CodeBlock::class, $nodes[0], $options);
+            $this->assertSame([IncludeExpander::RULE_DUPLICATE_OPTION], array_map(static fn ($w) => $w->getRule(), $expander->getWarnings()), $options);
+            $this->assertSame([], $expander->getDependencies(), $options);
+        }
+    }
+
     public function testALineSliceKeepsTheCompleteChildsCoordinates(): void
     {
         $converter = new CarveConverter();
