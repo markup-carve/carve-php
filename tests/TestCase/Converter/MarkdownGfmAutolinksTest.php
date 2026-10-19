@@ -23,7 +23,8 @@ final class MarkdownGfmAutolinksTest extends TestCase
     {
         $rows = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/markdown-gfm-autolinks.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ($rows as $index => $row) {
-            yield 'native ' . $index => [$row['source'], $row['html']];
+            // `nativeHtml` overrides cmark-gfm where Carve keeps a destination bracket literal.
+            yield 'native ' . $index => [$row['source'], $row['nativeHtml'] ?? $row['html']];
         }
     }
 

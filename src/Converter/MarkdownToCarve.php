@@ -10480,7 +10480,7 @@ class MarkdownToCarve
             ? $this->decodeMarkdownScalar($this->referenceSourceText($url, $protected))
             : $this->decodeLinkTitle($url, $protected);
 
-        $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
+        $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\\\\`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
         $this->recordAuthoredDestination($encoded, $this->referenceSourceText($url, $protected));
 
         return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);
