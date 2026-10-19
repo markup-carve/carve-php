@@ -21,7 +21,7 @@ class MarkdownToCarveTest extends TestCase
         $this->assertStringContainsString('[raw](#fake)', (new MarkdownToCarve())->convert("# Real\n\n<h1 id=\"Fake\">Raw</h1>\n\n[raw](#fake)"));
         $this->assertStringContainsString('[native](#Fake)', (new MarkdownToCarve())->convert("# Fake\n\n<h1 id=\"Fake\">Raw</h1>\n\n[native](#fake)"));
         $this->assertStringContainsString('[version](#Version-02)', (new MarkdownToCarve())->convert("# Version 02\n\n[version](#version-02)"));
-        $this->assertStringContainsString('#%CE%9F%CE%94%CE%9F%CE%A3', (new MarkdownToCarve())->convert("# ΟΔΟΣ\n\n[street](#οδος)"));
+        $this->assertStringContainsString('#ΟΔΟΣ', (new MarkdownToCarve())->convert("# ΟΔΟΣ\n\n[street](#οδος)"));
     }
 
     public function testSameFileFragmentRewriteIsAFixupBesideACompleteAssessment(): void
@@ -42,7 +42,7 @@ class MarkdownToCarveTest extends TestCase
             $this->assertNotContains('link-fragment-case-rewritten', array_column((new MarkdownToCarve())->convertWithFidelityReport($markdown)->report()['diagnostics'], 'code'));
         }
         $unicode = (new MarkdownToCarve())->convertWithFidelityReport("# ΟΔΟΣ\n\n[street](#οδος)\n")->report()['diagnostics'];
-        $this->assertSame('Rewrote link fragment #οδος to #%CE%9F%CE%94%CE%9F%CE%A3, the one heading id it matches without regard to case.', end($unicode)['message']);
+        $this->assertSame('Rewrote link fragment #οδος to #ΟΔΟΣ, the one heading id it matches without regard to case.', end($unicode)['message']);
     }
 
     /**
@@ -51,12 +51,12 @@ class MarkdownToCarveTest extends TestCase
     public function testFragmentFixupNamesTheAuthoredSpelling(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns).\n");
-        $this->assertSame("# Über Uns\n\nSee [a](#%C3%9Cber-Uns).\n", $result->value);
+        $this->assertSame("# Über Uns\n\nSee [a](#Über-Uns).\n", $result->value);
         $rows = $result->report()['diagnostics'];
         $this->assertSame(['markdown-atx-heading', 'markdown-paragraph', 'markdown-link', 'link-fragment-case-rewritten'], array_column($rows, 'code'));
         $this->assertSame([
             'code' => 'link-fragment-case-rewritten',
-            'message' => 'Rewrote link fragment #über-uns to #%C3%9Cber-Uns, the one heading id it matches without regard to case.',
+            'message' => 'Rewrote link fragment #über-uns to #Über-Uns, the one heading id it matches without regard to case.',
             'severity' => 'info',
             'fidelity' => 'normalized',
             'confidence' => 'inferred',
@@ -66,7 +66,7 @@ class MarkdownToCarveTest extends TestCase
         // Two spellings of one destination cannot be told apart, so both rows name the encoded one.
         $twin = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns) and [b](#%C3%BCber-uns).\n")->report()['diagnostics'];
         $paths = array_column(array_filter($twin, static fn (array $row): bool => $row['code'] === 'link-fragment-case-rewritten'), 'path');
-        $this->assertSame(['link:#%C3%BCber-uns', 'link:#%C3%BCber-uns'], array_values($paths));
+        $this->assertSame(['link:#über-uns', 'link:#%C3%BCber-uns'], array_values($paths));
     }
 
     protected MarkdownToCarve $converter;

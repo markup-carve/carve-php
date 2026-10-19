@@ -77,7 +77,7 @@ final class MarkdownAssessment
     {
         $pattern = $bareAutolink ? '/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u' : '/[^\\x21-\\x7e]|["<>\\\\`^{|}]/u';
 
-        return preg_replace_callback($pattern, static fn (array $match): string => rawurlencode($match[0]), $destination) ?? $destination;
+        return preg_replace_callback($pattern, static fn (array $match): string => $bareAutolink ? rawurlencode($match[0]) : MarkdownDestinationEncoding::character($match[0]), $destination) ?? $destination;
     }
 
     private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null): void
