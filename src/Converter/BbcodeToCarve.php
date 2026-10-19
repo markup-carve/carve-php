@@ -62,6 +62,11 @@ class BbcodeToCarve
     protected array $codeSentinels = ['', ''];
 
     /**
+     * @var array<int, array{attribution: string, dropped: array<int, array{field: string, unnamed: bool}>}>
+     */
+    protected array $quoteFieldDrops = [];
+
+    /**
      * The preferred first code point of the run picked for the list boundary.
      *
      * @var int
@@ -94,6 +99,7 @@ class BbcodeToCarve
                 'BBCode input exceeds maximum length of ' . self::MAX_INPUT_LENGTH . ' bytes',
             );
         }
+        $this->quoteFieldDrops = [];
         $bbcode = StringUtil::toValidUtf8($bbcode);
 
         // A U+0000 IN THE INPUT IS REPLACED BY U+FFFD, before anything reads the
@@ -187,26 +193,38 @@ class BbcodeToCarve
             ) ?? $visible;
         }
         preg_match_all('/\[quote(?:[= ]([^\]]*))?\]/i', $visible, $quotes, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        $tags = [];
         $line = 1;
         $scanned = 0;
         foreach ($quotes as $quote) {
             $offset = $quote[0][1];
             $line += substr_count($visible, "\n", $scanned, $offset - $scanned);
             $scanned = $offset;
-            $attribution = $quote[1][0] ?? '';
-            $droppedUserId = false;
-            $this->formatAttribution($attribution, $droppedUserId);
-            if (!$droppedUserId) {
-                continue;
+            $tags[] = ['line' => $line, 'attribution' => str_replace('\\', '', $quote[1][0] ?? '')];
+        }
+        $next = 0;
+        foreach ($this->quoteFieldDrops as $quoteDrop) {
+            $wanted = str_replace('\\', '', $quoteDrop['attribution']);
+            $found = $next;
+            while (isset($tags[$found]) && $tags[$found]['attribution'] !== $wanted) {
+                $found++;
             }
-            $diagnostics[] = new MigrationDiagnostic(
-                'bbcode-quote-user-id-dropped',
-                'The BBCode quote user_id cannot be represented in Carve and was dropped.',
-                'warning',
-                'dropped',
-                'exact',
-                'line:' . $line,
-            );
+            $at = isset($tags[$found]) ? $found : min($next, count($tags) - 1);
+            if (isset($tags[$found])) {
+                $next = $found + 1;
+            }
+            foreach ($quoteDrop['dropped'] as $drop) {
+                $diagnostics[] = new MigrationDiagnostic(
+                    'bbcode-quote-field-dropped',
+                    $drop['unnamed']
+                        ? 'Dropped the unnamed quote attribution text "' . $drop['field'] . '", which an explicit name= replaced.'
+                        : 'Dropped the quote attribution field ' . $drop['field'] . '.',
+                    'warning',
+                    'dropped',
+                    'exact',
+                    'line:' . ($tags[$at]['line'] ?? 1),
+                );
+            }
         }
 
         return new MigrationResult($value, 'bbcode', $diagnostics);
@@ -1027,6 +1045,11 @@ class BbcodeToCarve
             }
 
             if (preg_match('/\\G\[quote(?:[= ]([^\]]*))?\]/i', $text, $m, 0, $i)) {
+                $dropped = [];
+                if (!empty($m[1])) {
+                    $this->formatAttribution($m[1], $dropped);
+                }
+                $this->quoteFieldDrops[] = ['attribution' => $m[1] ?? '', 'dropped' => $dropped ?? []];
                 $contents[] = '';
                 $authors[] = $m[1] ?? null;
                 $top++;
@@ -1100,8 +1123,11 @@ class BbcodeToCarve
      * - username date="2024-01-01"
      * - "9" name="user" date="2024-01-01 12:30"
      * - id="9" name="user" date="2024-01-01"
+     *
+     * @param string $attribution
+     * @param array<int, array{field: string, unnamed: bool}>|null $droppedFields
      */
-    protected function formatAttribution(string $attribution, ?bool &$droppedUserId = null): string
+    protected function formatAttribution(string $attribution, ?array &$droppedFields = null): string
     {
         $attribution = trim($attribution);
         $remaining = $attribution;
@@ -1120,6 +1146,9 @@ class BbcodeToCarve
         }
 
         if (preg_match('/\bpost_id=["\']?(\d+)["\']?/i', $remaining, $m)) {
+            if ($id !== null && $droppedFields !== null) {
+                $droppedFields[] = ['field' => 'id', 'unnamed' => false];
+            }
             $id = $m[1];
             $remaining = str_replace($m[0], '', $remaining);
         }
@@ -1139,19 +1168,43 @@ class BbcodeToCarve
         // Extract time="..." separately if present
         if (preg_match('/\btime=(?:["\']([^"\']+)["\']|(\d+)(?=\s|$))/i', $remaining, $m)) {
             $time = $m[1] !== '' ? $m[1] : $m[2];
+            // A Unix time replaces an explicit date rather than joining it.
+            if ($datetime !== null && $droppedFields !== null && preg_match('/^\d{9,11}$/', $time) === 1) {
+                $droppedFields[] = ['field' => 'date', 'unnamed' => false];
+            }
             $datetime = preg_match('/^\d{9,11}$/', $time) === 1
                 ? gmdate('Y-m-d', (int)$time)
                 : ($datetime !== null ? $datetime . ' ' . $time : $time);
             $remaining = str_replace($m[0], '', $remaining);
         }
 
-        $droppedUserId = preg_match('/\buser_id=["\']?\d+["\']?/i', $remaining) === 1;
-        $remaining = preg_replace('/\buser_id=["\']?\d+["\']?/i', '', $remaining) ?? $remaining;
+        $remaining = preg_replace_callback('/\b(user_id)=(?:"[^"]*"|\'[^\']*\'|\S+)/i', static function (array $match) use (&$droppedFields): string {
+            if ($droppedFields !== null) {
+                $droppedFields[] = ['field' => $match[1], 'unnamed' => false];
+            }
+
+            return '';
+        }, $remaining) ?? $remaining;
 
         // If no name attribute found, use remaining text as name
         $remaining = trim($remaining);
         if ($name === null && $remaining !== '') {
             $name = $remaining;
+        } elseif ($remaining !== '' && $droppedFields !== null) {
+            $rest = $remaining;
+            if (preg_match('/^["\'][^"\']+["\']/', $rest, $quotedName)) {
+                $droppedFields[] = ['field' => substr($quotedName[0], 1, -1), 'unnamed' => true];
+                $rest = substr($rest, strlen($quotedName[0]));
+            }
+            $rest = preg_replace_callback('/\b([A-Za-z_][\w-]*)=(?:"[^"]*"|\'[^\']*\'|\S+)/', static function (array $match) use (&$droppedFields): string {
+                $droppedFields[] = ['field' => $match[1], 'unnamed' => false];
+
+                return '';
+            }, $rest) ?? $rest;
+            $rest = trim($rest);
+            if ($rest !== '') {
+                $droppedFields[] = ['field' => $rest, 'unnamed' => true];
+            }
         }
 
         if ($name !== null && strlen($name) >= 2 && ($name[0] === '"' || $name[0] === "'") && $name[-1] === $name[0]) {

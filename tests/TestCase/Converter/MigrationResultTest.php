@@ -22,10 +22,12 @@ final class MigrationResultTest extends TestCase
     {
         $source = "intro\r\n[quote=\"alice\" post_id=12 user_id=3]q[/quote]\n[quote=bob user_id=4]r[/quote]";
         $result = (new BbcodeToCarve())->convertWithFidelityReport($source);
-        $rows = array_values(array_filter($result->diagnostics, static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-quote-user-id-dropped'));
+        $rows = array_values(array_filter($result->diagnostics, static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-quote-field-dropped'));
+        self::assertSame('fidelity-unverified', $result->diagnostics[0]->code);
         self::assertCount(2, $rows);
         self::assertSame(['line:2', 'line:3'], array_map(static fn (MigrationDiagnostic $row): ?string => $row->path, $rows));
         foreach ($rows as $row) {
+            self::assertSame('warning', $row->severity);
             self::assertSame('dropped', $row->fidelity);
             self::assertSame('exact', $row->confidence);
         }
@@ -33,14 +35,49 @@ final class MigrationResultTest extends TestCase
 
     public function testBbcodeQuoteIdsInsideLiteralContentAreNotReported(): void
     {
-        foreach (['[code][quote=user_id=7]x[/quote][/code]', '[c][quote=user_id=7]x[/icode]', '[noparse][quote=user_id=7]x[/quote][/noparse]', '[quote name="a user_id=3"]x[/quote]'] as $source) {
+        foreach (['[code][quote=user_id=7 foo=bar]x[/quote][/code]', '[c][quote=user_id=7 foo=bar]x[/icode]', '[noparse][quote=user_id=7 foo=bar]x[/quote][/noparse]', '[quote name="a user_id=3"]x[/quote]'] as $source) {
             $codes = array_map(static fn (MigrationDiagnostic $row): string => $row->code, (new BbcodeToCarve())->convertWithFidelityReport($source)->diagnostics);
-            self::assertNotContains('bbcode-quote-user-id-dropped', $codes);
+            self::assertNotContains('bbcode-quote-field-dropped', $codes);
         }
         foreach (['[url=https://example.test][quote=alice user_id=7]x[/quote][/url]', '[url][quote=alice user_id=7]x[/quote][/url]', '[img][quote=alice user_id=7]x[/quote][/img]'] as $source) {
             $result = (new BbcodeToCarve())->convertWithFidelityReport($source);
-            self::assertContains('bbcode-quote-user-id-dropped', array_map(static fn (MigrationDiagnostic $row): string => $row->code, $result->diagnostics));
+            self::assertContains('bbcode-quote-field-dropped', array_map(static fn (MigrationDiagnostic $row): string => $row->code, $result->diagnostics));
         }
+    }
+
+    public function testBbcodeReportsEveryDroppedQuoteAttributionPart(): void
+    {
+        $source = "[quote name=\"alice\" foo=bar name=\"bob\" stray]x[/quote]\n[quote=\"guest\" name=\"alice\"]y[/quote]";
+        $rows = array_values(array_filter(
+            (new BbcodeToCarve())->convertWithFidelityReport($source)->diagnostics,
+            static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-quote-field-dropped',
+        ));
+        self::assertSame([
+            'Dropped the quote attribution field foo.',
+            'Dropped the quote attribution field name.',
+            'Dropped the unnamed quote attribution text "stray", which an explicit name= replaced.',
+            'Dropped the unnamed quote attribution text "guest", which an explicit name= replaced.',
+        ], array_map(static fn (MigrationDiagnostic $row): string => $row->message, $rows));
+        self::assertSame(['line:1', 'line:1', 'line:1', 'line:2'], array_map(static fn (MigrationDiagnostic $row): ?string => $row->path, $rows));
+    }
+
+    public function testBbcodeReportsAnIdOrDateThatALaterFieldReplaces(): void
+    {
+        $cases = [
+            '[quote="9" post_id=12]q[/quote]' => ['> q', '^ #12', 'Dropped the quote attribution field id.'],
+            '[quote=alice id=9 post_id=12]q[/quote]' => ['> q', '^ alice #12', 'Dropped the quote attribution field id.'],
+            '[quote=alice date="2020-01-01" time=1700000000]q[/quote]' => ['> q', '^ alice (2023-11-14)', 'Dropped the quote attribution field date.'],
+        ];
+        foreach ($cases as $source => [$quote, $attribution, $message]) {
+            $result = (new BbcodeToCarve())->convertWithFidelityReport($source);
+            self::assertSame($quote . "\n" . $attribution . "\n", $result->value, $source);
+            $rows = array_values(array_filter($result->diagnostics, static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-quote-field-dropped'));
+            self::assertSame([$message], array_map(static fn (MigrationDiagnostic $row): string => $row->message, $rows), $source);
+            self::assertSame('line:1', $rows[0]->path, $source);
+        }
+        // A clock time joins the date instead of replacing it.
+        $rows = (new BbcodeToCarve())->convertWithFidelityReport('[quote=alice date="2020-01-01" time="10:00"]q[/quote]')->diagnostics;
+        self::assertNotContains('bbcode-quote-field-dropped', array_map(static fn (MigrationDiagnostic $row): string => $row->code, $rows));
     }
 
     public function testLiteralTextHasExactEvidence(): void
