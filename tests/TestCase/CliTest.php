@@ -421,6 +421,29 @@ class CliTest extends TestCase
         $this->assertStringContainsString('github', $result['err']);
     }
 
+    /**
+     * carve-php#3560: the separator is part of the documented `file:line:col
+     * rule — message` form carve-js and carve-rs print.
+     */
+    public function testLintSeparatesTheRuleFromTheMessage(): void
+    {
+        $result = $this->runCliInput(['lint'], "**bold**\n");
+
+        $this->assertSame(1, $result['exit']);
+        $this->assertStringStartsWith('-:1:1 markdown-strong-double-star — ', $result['out']);
+    }
+
+    /**
+     * carve-php#3559: lint reads no include target without --include-root, so
+     * the render default must not read as covering it.
+     */
+    public function testHelpDocumentsTheLintIncludeRoot(): void
+    {
+        $out = $this->runCli(['--help']);
+        $this->assertStringContainsString('carve lint [--include-root DIR]', $out);
+        $this->assertStringContainsString('`carve lint` has no default', $out);
+    }
+
     public function testHelpListsFormatFlags(): void
     {
         $out = $this->runCli(['--help']);
