@@ -11,6 +11,19 @@ use PHPUnit\Framework\TestCase;
 
 class MarkdownToCarveTest extends TestCase
 {
+    public function testLowercaseSameFileHeadingFragment(): void
+    {
+        $this->assertStringContainsString('[steps](#Install-Steps)', (new MarkdownToCarve())->convert("# Install Steps\n\n[steps](#install-steps)"));
+        $this->assertStringContainsString('[steps](#INSTALL-STEPS)', (new MarkdownToCarve())->convert("# Install Steps\n\n# install steps\n\n[steps](#INSTALL-STEPS)"));
+        $this->assertStringContainsString('[steps](#install-steps)', (new MarkdownToCarve())->convert("# Install Steps\n\n<a id=\"install-steps\"></a>\n\n[steps](#install-steps)"));
+        $this->assertStringContainsString('[third](#foo-2)', (new MarkdownToCarve())->convert("# Foo\n\n# Foo\n\n# Foo\n\n[third](#foo-2)"));
+        $this->assertStringContainsString('[quote](#Quote-Head)', (new MarkdownToCarve())->convert("> # Quote Head\n\n[quote](#quote-head)"));
+        $this->assertStringContainsString('[raw](#fake)', (new MarkdownToCarve())->convert("# Real\n\n<h1 id=\"Fake\">Raw</h1>\n\n[raw](#fake)"));
+        $this->assertStringContainsString('[native](#Fake)', (new MarkdownToCarve())->convert("# Fake\n\n<h1 id=\"Fake\">Raw</h1>\n\n[native](#fake)"));
+        $this->assertStringContainsString('[version](#Version-02)', (new MarkdownToCarve())->convert("# Version 02\n\n[version](#version-02)"));
+        $this->assertStringContainsString('#%CE%9F%CE%94%CE%9F%CE%A3', (new MarkdownToCarve())->convert("# ΟΔΟΣ\n\n[street](#οδος)"));
+    }
+
     protected MarkdownToCarve $converter;
 
     protected function setUp(): void

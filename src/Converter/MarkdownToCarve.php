@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use DOMDocument;
+use DOMElement;
+use DOMXPath;
 use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
@@ -324,6 +327,7 @@ class MarkdownToCarve
         bool $convertFencedDivs = false,
         bool $convertAttributes = false,
         bool $convertRawHtml = false,
+        private bool $rewriteHeadingFragments = true,
     ) {
         $this->convertMath = $convertMath;
         $this->convertHighlight = $convertHighlight;
@@ -3247,7 +3251,7 @@ class MarkdownToCarve
         }
 
         if ($frontmatter === []) {
-            return $carve;
+            return $this->rewriteSameFileHeadingLinks($carve);
         }
 
         $prefix = implode("\n", $frontmatter);
@@ -3257,9 +3261,94 @@ class MarkdownToCarve
         // blank the body already carries is the same boundary spelled twice.
         $body = ltrim($carve, "\n");
 
-        return $body === ''
+        return $this->rewriteSameFileHeadingLinks($body === ''
             ? $prefix . "\n"
-            : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body;
+            : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body);
+    }
+
+    private function rewriteSameFileHeadingLinks(string $source): string
+    {
+        if (!$this->rewriteHeadingFragments || !str_contains($source, '](#') || !class_exists(DOMDocument::class)) {
+            return $source;
+        }
+        $converter = CarveConverter::carve();
+        $codec = new AstCodec();
+        $document = $codec->encode($converter->parse($source));
+        $rawHeadingIds = MarkdownHeadingFragments::rawHtmlHeadingIds($document);
+        $html = CarveConverter::create()->convert($source);
+        $dom = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        try {
+            $dom->loadHTML('<?xml encoding="UTF-8"><body>' . $html, LIBXML_NONET);
+        } finally {
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+        }
+        $exact = [];
+        $aliases = [];
+        $xpath = new DOMXPath($dom);
+        foreach ($xpath->query('//*[@id]') ?: [] as $element) {
+            if (!$element instanceof DOMElement) {
+                continue;
+            }
+            $id = $element->getAttribute('id');
+            $exact[$id] = true;
+            $headingQuery = $element->localName === 'section' ? $xpath->query('./h1 | ./h2 | ./h3 | ./h4 | ./h5 | ./h6', $element) : false;
+            $heading = $headingQuery === false ? null : $headingQuery->item(0);
+            $isHeading = $heading !== null || in_array($element->localName, ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'], true);
+            if (!$isHeading || preg_match('/-(?:[2-9]|[1-9]\d+)$/D', $id) === 1) {
+                continue;
+            }
+            if (($rawHeadingIds[$id] ?? 0) > 0) {
+                $rawHeadingIds[$id]--;
+
+                continue;
+            }
+            $key = MarkdownHeadingFragments::lowercaseKey($id);
+            $aliases[$key] = array_key_exists($key, $aliases) && $aliases[$key] !== $id ? null : $id;
+        }
+        foreach ($xpath->query('//a[@name]') ?: [] as $anchor) {
+            if (!$anchor instanceof DOMElement) {
+                continue;
+            }
+            $exact[$anchor->getAttribute('name')] = true;
+        }
+        $changed = false;
+        $visit = function (array &$node) use (&$visit, $exact, $aliases, &$changed): void {
+            if (($node['type'] ?? null) === 'link' && !isset($node['ref']) && isset($node['href']) && is_string($node['href']) && str_starts_with($node['href'], '#')) {
+                $fragment = rawurldecode(substr($node['href'], 1));
+                if (preg_match('//u', $fragment) === 1 && $fragment !== '' && !isset($exact[$fragment])) {
+                    $match = $aliases[MarkdownHeadingFragments::lowercaseKey($fragment)] ?? null;
+                    if ($match !== null) {
+                        $node['href'] = '#' . rawurlencode($match);
+                        $changed = true;
+                    }
+                }
+            }
+            foreach ($node as $key => &$child) {
+                if ($key === 'attrs' || $key === 'position' || !is_array($child)) {
+                    continue;
+                }
+                if (array_is_list($child)) {
+                    foreach ($child as &$item) {
+                        if (is_array($item)) {
+                            $visit($item);
+                        }
+                    }
+                    unset($item);
+                } else {
+                    $visit($child);
+                }
+            }
+            unset($child);
+        };
+        $visit($document);
+        if (!$changed) {
+            return $source;
+        }
+        $result = $converter->render($codec->decode($document));
+
+        return str_ends_with($source, "\n") ? $result : rtrim($result, "\n");
     }
 
     private function mergeFootnoteDiagnostics(self $importer, int $offset): void

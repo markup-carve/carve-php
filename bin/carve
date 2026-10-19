@@ -53,6 +53,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Converter\MarkdownHeadingFragments;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
@@ -459,7 +460,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
                 throw new RuntimeException("cannot read $path");
             }
             // Ill-formed bytes are replaced, as single-file migration does (CARVE-P0-023).
-            $result = (new MarkdownToCarve())->convertWithFidelityReport($sourceText);
+            $result = (new MarkdownToCarve(rewriteHeadingFragments: false))->convertWithFidelityReport($sourceText);
             if (file_put_contents($target, $result->value) === false || !chmod($target, $fileMode & $sourceMode)) {
                 throw new RuntimeException("cannot write $destination");
             }
@@ -517,7 +518,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
  *
  * @return array{href:string, check:array<string,string>}|null
  */
-function inspectMigratedLink(string $destination, string $source, array $outputs, array $ids): ?array
+function inspectMigratedLink(string $destination, string $source, array $outputs, array $ids, array $aliases): ?array
 {
     if (preg_match('~^[a-z][a-z0-9+.-]*:|^//~i', $destination) === 1) {
         return null;
@@ -569,14 +570,15 @@ function inspectMigratedLink(string $destination, string $source, array $outputs
     if ($fragment !== '' && !isset($ids[$mapped])) {
         return $failure('asset fragment needs site check');
     }
-    if ($fragment !== '' && !isset($ids[$mapped][$fragment])) {
+    $resolved = isset($ids[$mapped][$fragment]) ? $fragment : ($aliases[$mapped][MarkdownHeadingFragments::lowercaseKey($fragment)] ?? null);
+    if ($fragment !== '' && $resolved === null) {
         return $failure('fragment missing from target');
     }
     if ($mapped !== $target && $path !== '' && preg_match('/\.(md|markdown)$/i', $rawPath) !== 1) {
         return $failure('encoded extension needs manual rewrite');
     }
     $newPath = $mapped !== $target && $path !== '' ? preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath) : $rawPath;
-    $href = $newPath . $query . ($rawFragment === null ? '' : '#' . $rawFragment);
+    $href = $newPath . $query . ($rawFragment === null ? '' : '#' . ($fragment === '' || $resolved === $fragment ? $rawFragment : rawurlencode($resolved)));
 
     return ['href' => $href, 'check' => ['target' => $destination, 'status' => $href === $destination ? 'valid' : 'rewritten']];
 }
@@ -681,10 +683,11 @@ function rawHtmlUrls(string $html): array
  * @param string $source
  * @param array<string, bool> $outputs
  * @param array<string, array<string, bool>> $ids
+ * @param array<string, array<string, string|null>> $aliases
  * @param array<array<string, string>> $links
  * @param bool $changed
  */
-function checkMigratedNode(array &$node, string $source, array $outputs, array $ids, array &$links, bool &$changed): void
+function checkMigratedNode(array &$node, string $source, array $outputs, array $ids, array $aliases, array &$links, bool &$changed): void
 {
     if (in_array($node['type'] ?? null, ['raw_inline', 'raw_block'], true) && ($node['format'] ?? null) === 'html' && isset($node['content']) && is_string($node['content'])) {
         foreach (rawHtmlUrls($node['content']) as $url) {
@@ -694,7 +697,7 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
 
                 continue;
             }
-            $result = inspectMigratedLink($destination, $source, $outputs, $ids);
+            $result = inspectMigratedLink($destination, $source, $outputs, $ids, $aliases);
             if ($result !== null) {
                 $links[] = $result['check']['status'] === 'rewritten'
                     ? ['target' => $destination, 'status' => 'unresolved', 'reason' => 'raw HTML link needs manual rewrite']
@@ -708,7 +711,7 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
         default => null,
     };
     if ($key !== null && isset($node[$key]) && is_string($node[$key]) && $node[$key] !== '') {
-        $result = inspectMigratedLink($node[$key], $source, $outputs, $ids);
+        $result = inspectMigratedLink($node[$key], $source, $outputs, $ids, $aliases);
         if ($result !== null) {
             if ($result['href'] !== $node[$key] && isset($node['ref'])) {
                 $links[] = ['target' => $node[$key], 'status' => 'unresolved', 'reason' => 'reference link needs manual rewrite'];
@@ -728,12 +731,12 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
         if (array_is_list($child)) {
             foreach ($child as &$item) {
                 if (is_array($item)) {
-                    checkMigratedNode($item, $source, $outputs, $ids, $links, $changed);
+                    checkMigratedNode($item, $source, $outputs, $ids, $aliases, $links, $changed);
                 }
             }
             unset($item);
         } else {
-            checkMigratedNode($child, $source, $outputs, $ids, $links, $changed);
+            checkMigratedNode($child, $source, $outputs, $ids, $aliases, $links, $changed);
         }
     }
     unset($child);
@@ -752,12 +755,15 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets): ar
 {
     $outputs = array_fill_keys(array_merge(array_column($files, 'output'), $assets), true);
     $ids = [];
+    $aliases = [];
     $htmlConverter = CarveConverter::create();
+    $codec = new AstCodec();
     foreach ($files as $file) {
         $text = file_get_contents($temporary . '/' . $file['output']);
         if ($text === false) {
             throw new RuntimeException('cannot read converted output');
         }
+        $rawHeadingIds = MarkdownHeadingFragments::rawHtmlHeadingIds($codec->encode($htmlConverter->parse($text)));
         $document = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
         try {
@@ -779,8 +785,21 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets): ar
             }
         }
         $ids[$file['output']] = array_fill_keys($found, true);
+        $aliases[$file['output']] = [];
+        foreach ((new DOMXPath($document))->query('//*[(@id and (self::h1 or self::h2 or self::h3 or self::h4 or self::h5 or self::h6) or (self::section and @id and (./h1 or ./h2 or ./h3 or ./h4 or ./h5 or ./h6))) and not(ancestor::template)]') ?: [] as $section) {
+            $id = $section->getAttribute('id');
+            if (preg_match('/-(?:[2-9]|[1-9]\d+)$/D', $id) === 1) {
+                continue;
+            }
+            if (($rawHeadingIds[$id] ?? 0) > 0) {
+                $rawHeadingIds[$id]--;
+
+                continue;
+            }
+            $key = MarkdownHeadingFragments::lowercaseKey($id);
+            $aliases[$file['output']][$key] = array_key_exists($key, $aliases[$file['output']]) && $aliases[$file['output']][$key] !== $id ? null : $id;
+        }
     }
-    $codec = new AstCodec();
     $writer = CarveConverter::carve();
     $broken = [];
     foreach ($files as &$file) {
@@ -792,7 +811,7 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets): ar
         $document = $codec->encode($htmlConverter->parse($text));
         $links = [];
         $changed = false;
-        checkMigratedNode($document, $file['source'], $outputs, $ids, $links, $changed);
+        checkMigratedNode($document, $file['source'], $outputs, $ids, $aliases, $links, $changed);
         $file['links'] = $links;
         foreach ($links as $link) {
             if ($link['status'] === 'unresolved') {
