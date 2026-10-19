@@ -2635,7 +2635,7 @@ class BlockParser
         }
     }
 
-    private function applyTableColumns(Table $table): void
+    public static function applyTableColumns(Table $table): void
     {
         $widest = 0;
         foreach ($table->getChildren() as $row) {

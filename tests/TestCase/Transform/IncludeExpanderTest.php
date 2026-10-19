@@ -41,6 +41,34 @@ class IncludeExpanderTest extends TestCase
         }
     }
 
+    /**
+     * @return array<string, array{string, string, string}>
+     */
+    public static function delimitedTableIncludes(): array
+    {
+        return [
+            'csv' => ['{table}', 'csv', "Plan,Seats,Price\nStarter,1,\"\$0\"\nTeam,10,\"\$49, billed yearly\"\n"],
+            'tsv' => ['{table}', 'tsv', "Name\tRole\nAda\tEngineer\n"],
+            'malformed quoting' => ['{table}', 'csv', "a,b\n\"bad\n"],
+            'no header row' => ['{table header-rows=0}', 'csv', "a,b\n1,2\n"],
+            'footer and columns' => ['{#t .wide table footer-rows=1 aligns=right}', 'csv', "a,b\n1,2\n3,4\n"],
+            'directive in a field' => ['{table}', 'csv', "a,b\n1,{{ other.crv }}\n"],
+        ];
+    }
+
+    #[DataProvider('delimitedTableIncludes')]
+    public function testTableCodeIncludeRendersAsAnAuthoredFence(string $attributes, string $language, string $data): void
+    {
+        $converter = new CarveConverter();
+        $authored = $converter->convert("{$attributes}\n```{$language}\n{$data}```\n");
+        $document = $converter->parse("{$attributes}\n{{ data.{$language} @code:{$language} }}\n");
+        $expander = new IncludeExpander($this->resolver(["data.{$language}" => $data, 'other.crv' => 'X']));
+        $html = $converter->render($converter->transform($document, $expander));
+
+        $this->assertSame($authored, $html);
+        $this->assertSame([], $expander->getWarnings());
+    }
+
     public function testCodeIncludeDropsOnlyTheFilesOwnBom(): void
     {
         $converter = new CarveConverter();
