@@ -6947,6 +6947,12 @@ class BlockParser
         // this caption would attach to, and the distance is the same question
         // for every one of them.
         $blankLines = $this->blankLineRunBefore($lines, $start);
+        // Item chunks can begin at the caption and omit the separator. The
+        // source view retains the authored blank run across that boundary.
+        $sourceLine = $this->sourceLineFor($start);
+        if ($sourceLine >= 0 && $sourceLine < count($this->state->source->sourceLines)) {
+            $blankLines = max($blankLines, $this->blankLineRunBefore($this->state->source->sourceLines, $sourceLine));
+        }
         if ($blankLines > 1) {
             return null;
         }
@@ -7944,6 +7950,16 @@ class BlockParser
             $colon = $this->fencedBlockParser->parseDivFenceOpener($authored);
             if ($colon !== null) {
                 $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
+                if (
+                    $colon['className'] === 'figure'
+                    && $end + 1 < $n
+                    && $subLines[$end] === ''
+                    && preg_match('/^\^[ \t]+\S/', ltrim($subLines[$end + 1], " \t")) === 1
+                ) {
+                    $k = $end + 2;
+
+                    continue;
+                }
                 $k = $end;
 
                 continue;
