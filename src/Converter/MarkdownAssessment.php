@@ -73,9 +73,11 @@ final class MarkdownAssessment
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    private static function encodeDestination(string $destination): string
+    private static function encodeDestination(string $destination, bool $bareAutolink = false): string
     {
-        return preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $destination) ?? $destination;
+        $pattern = $bareAutolink ? '/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u' : '/[^\\x21-\\x7e]|["<>\\\\`^{|}]/u';
+
+        return preg_replace_callback($pattern, static fn (array $match): string => rawurlencode($match[0]), $destination) ?? $destination;
     }
 
     private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null): void
@@ -126,7 +128,7 @@ final class MarkdownAssessment
                 $result .= self::escape($m[1]);
             } elseif ($bare !== null && $bare['start'] === $i) {
                 $body = substr($text, $bare['start'], $bare['end'] - $bare['start']);
-                $href = self::encodeDestination($bare['prefix'] . $body);
+                $href = self::encodeDestination($bare['prefix'] . $body, true);
                 $this->emit('bare-autolink', $line, 'normalized');
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($body) . '</a>';
                 $m = [$body];
@@ -406,7 +408,10 @@ final class MarkdownAssessment
                     $this->complete = false;
                 }
             }
-            $html .= '<p>' . $this->inline(trim(implode("\n", $body)), $n) . "</p>\n";
+            $before = count($this->diagnostics);
+            $inline = $this->inline(trim(implode("\n", $body)), $n);
+            $image = array_filter(array_slice($this->diagnostics, $before), static fn (MigrationDiagnostic $row): bool => in_array($row->code, ['markdown-image', 'markdown-reference-link'], true)) !== [];
+            $html .= $image && preg_match('/^<img\s[^>]*>$/', $inline) === 1 ? $inline . "\n" : '<p>' . $inline . "</p>\n";
         }
 
         return $html;

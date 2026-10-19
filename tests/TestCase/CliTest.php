@@ -1105,6 +1105,23 @@ class CliTest extends TestCase
         $this->assertSame(0, $result['exit']);
     }
 
+    public function testMigrateLossCheckAcceptsBracketDestinationsAndLoneImages(): void
+    {
+        foreach (
+            [
+                ['![x](/ü.png)', '![x](/%C3%BC.png)', ['markdown-paragraph', 'markdown-image']],
+                ['[a](/x[y]) and ![b](/p[q].png)', '[a](/x[y]) and ![b](/p[q].png)', ['markdown-paragraph', 'markdown-link', 'markdown-image']],
+            ] as [$source, $value, $codes]
+        ) {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--report', '-', '--check-loss'], $source);
+            $this->assertSame(0, $result['exit'], $source);
+            $this->assertSame($value, $result['out'], $source);
+            $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+            $this->assertSame($codes, array_column($report['diagnostics'], 'code'), $source);
+            $this->assertSame(['line:1', 'line:1'], array_slice(array_column($report['diagnostics'], 'path'), 0, 2), $source);
+        }
+    }
+
     public function testMigrateWritesTheVersionedReportForEveryImporter(): void
     {
         $result = $this->runCliInput(

@@ -394,6 +394,12 @@ bar
                 '[docs](/api/_v1_/index)',
                 '[docs](/api/_v1_/index)',
             ],
+            'keeps brackets in an explicit link destination' => ['[a](/x[y])', '[a](/x[y])'],
+            'keeps brackets in an image destination' => ['![b](/p[q].png)', '![b](/p[q].png)'],
+            'keeps brackets in an angle destination' => ['[a](</x[y]>)', '[a](/x[y])'],
+            'decodes escaped brackets in a destination' => ['[a](/x\\[y\\])', '[a](/x[y])'],
+            'keeps authored bracket encoding' => ['[a](/x%5By%5D)', '[a](/x%5By%5D)'],
+            'keeps brackets in a reference destination' => ["[a][r]\n\n[r]: /x[y]", "[a][r]\n\n[r]: /x[y]"],
             'percent-encodes parentheses in a link destination' => [
                 '[wiki](https://host/Titan_(moon))',
                 '[wiki](https://host/Titan_\\(moon\\))',

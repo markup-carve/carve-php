@@ -112,6 +112,25 @@ final class MarkdownAssessmentTest extends TestCase
         self::assertNotContains('fidelity-unverified', $codes);
     }
 
+    public function testBracketDestinationsAndImageParagraphsAreVerified(): void
+    {
+        foreach (
+            [
+                ['[a](/x[y]) and ![b](/p[q].png)', '[a](/x[y]) and ![b](/p[q].png)', ['markdown-paragraph', 'markdown-link', 'markdown-image']],
+                ['![x](/ü.png)', '![x](/%C3%BC.png)', ['markdown-paragraph', 'markdown-image']],
+                ['![x](/u.png "T")', '![x](/u.png "T")', ['markdown-paragraph', 'markdown-image']],
+                ["![x][r]\n\n[r]: /u.png", "![x][r]\n\n[r]: /u.png", ['markdown-paragraph', 'markdown-reference-link', 'markdown-reference-definition']],
+                ['a ![x](/u.png)', 'a ![x](/u.png)', ['markdown-paragraph', 'markdown-image']],
+                ["![x](/u.png)\n![y](/v.png)", "![x](/u.png)\n![y](/v.png)", ['markdown-paragraph', 'markdown-image', 'markdown-soft-break', 'markdown-image']],
+            ] as [$source, $expected, $codes]
+        ) {
+            $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+            self::assertSame($expected, $result->value, $source);
+            self::assertSame($codes, array_column($result->diagnostics, 'code'), $source);
+            self::assertSame('line:1', $result->diagnostics[0]->path, $source);
+        }
+    }
+
     public function testUnicodeHeadingFragmentIsVerified(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns).\n");
