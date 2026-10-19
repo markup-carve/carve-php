@@ -42,7 +42,38 @@ class MarkdownToCarveTest extends TestCase
             $this->assertNotContains('link-fragment-case-rewritten', array_column((new MarkdownToCarve())->convertWithFidelityReport($markdown)->report()['diagnostics'], 'code'));
         }
         $unicode = (new MarkdownToCarve())->convertWithFidelityReport("# ΟΔΟΣ\n\n[street](#οδος)\n")->report()['diagnostics'];
-        $this->assertSame('Rewrote link fragment #%CE%BF%CE%B4%CE%BF%CF%82 to #%CE%9F%CE%94%CE%9F%CE%A3, the one heading id it matches without regard to case.', end($unicode)['message']);
+        $this->assertSame('Rewrote link fragment #οδος to #%CE%9F%CE%94%CE%9F%CE%A3, the one heading id it matches without regard to case.', end($unicode)['message']);
+    }
+
+    /**
+     * CARVE-P2-031 (carve#3356): the row names the link as written, not percent-encoded.
+     */
+    public function testFragmentFixupNamesTheAuthoredSpelling(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns).\n");
+        $this->assertSame("# Über Uns\n\nSee [a](#%C3%9Cber-Uns).\n", $result->value);
+        $this->assertSame([
+            [
+                'code' => 'fidelity-unverified',
+                'message' => 'Markdown construct assessment is incomplete.',
+                'severity' => 'warning',
+                'fidelity' => 'dropped',
+                'confidence' => 'fallback',
+            ],
+            [
+                'code' => 'link-fragment-case-rewritten',
+                'message' => 'Rewrote link fragment #über-uns to #%C3%9Cber-Uns, the one heading id it matches without regard to case.',
+                'severity' => 'info',
+                'fidelity' => 'normalized',
+                'confidence' => 'inferred',
+                'path' => 'link:#über-uns',
+            ],
+        ], $result->report()['diagnostics']);
+
+        // Two spellings of one destination cannot be told apart, so both rows name the encoded one.
+        $twin = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns) and [b](#%C3%BCber-uns).\n")->report()['diagnostics'];
+        $paths = array_column(array_filter($twin, static fn (array $row): bool => $row['code'] === 'link-fragment-case-rewritten'), 'path');
+        $this->assertSame(['link:#%C3%BCber-uns', 'link:#%C3%BCber-uns'], array_values($paths));
     }
 
     protected MarkdownToCarve $converter;
