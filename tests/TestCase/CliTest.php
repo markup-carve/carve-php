@@ -1095,6 +1095,16 @@ class CliTest extends TestCase
         $this->assertSame("`<code>`{=html}[http://example.org](http://example.org)`</code>`{=html}\n", $result['out']);
     }
 
+    public function testMigrateLossCheckAcceptsUnicodeHeadingFragment(): void
+    {
+        $result = $this->runCliInput(
+            ['migrate', '--from', 'markdown', '--check-loss'],
+            "# Über Uns\n\nSee [a](#über-uns).\n",
+        );
+
+        $this->assertSame(0, $result['exit']);
+    }
+
     public function testMigrateWritesTheVersionedReportForEveryImporter(): void
     {
         $result = $this->runCliInput(

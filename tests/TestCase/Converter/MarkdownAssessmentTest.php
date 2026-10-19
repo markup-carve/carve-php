@@ -96,6 +96,35 @@ final class MarkdownAssessmentTest extends TestCase
         }
     }
 
+    public function testUnicodeExplicitLinkDestinationIsVerified(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport('See [a](/ü).');
+        self::assertSame('See [a](/%C3%BC).', $result->value);
+        self::assertSame(['markdown-paragraph', 'markdown-link'], array_column($result->diagnostics, 'code'));
+        self::assertSame(['line:1', 'line:1'], array_column($result->diagnostics, 'path'));
+    }
+
+    public function testUnicodeReferenceLinkDestinationIsVerified(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("See [a][r].\n\n[r]: /ü\n");
+        $codes = array_column($result->diagnostics, 'code');
+        self::assertContains('markdown-reference-link', $codes);
+        self::assertNotContains('fidelity-unverified', $codes);
+    }
+
+    public function testUnicodeHeadingFragmentIsVerified(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns).\n");
+        $codes = array_column($result->diagnostics, 'code');
+        $paths = array_column($result->diagnostics, 'path');
+        self::assertNotContains('fidelity-unverified', $codes);
+        foreach (['markdown-atx-heading' => 'line:1', 'markdown-paragraph' => 'line:3', 'markdown-link' => 'line:3'] as $code => $path) {
+            $index = array_search($code, $codes, true);
+            self::assertNotFalse($index);
+            self::assertSame($path, $paths[$index]);
+        }
+    }
+
     public function testGfmProtocolTextInsideCodeRemainsPreserved(): void
     {
         foreach (['`ftp://example.test`', "```\nftp://example.test\n```"] as $source) {
