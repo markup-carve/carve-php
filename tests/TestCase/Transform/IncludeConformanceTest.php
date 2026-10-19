@@ -55,6 +55,20 @@ class IncludeConformanceTest extends TestCase
     protected const KNOWN_DIFFERENCES = [];
 
     /**
+     * Goldens the pinned spec has not regenerated yet, as vector name => field
+     * => the value this engine now owes. A row fails once the golden already
+     * holds that value, so it retires with the spec bump that regenerates it.
+     *
+     * @var array<string, array<string, string>>
+     */
+    protected const AHEAD_OF_PIN = [
+        // CARVE-P11-073 keeps region markers on their lines (carve#3330).
+        'i01b-region-host-renders-no-marker' => [
+            'fmt' => "# Project\n\nIntro.\n\n%% #region requirements\n- PHP 8.3 or later\n- Composer 2.7\n%% #endregion requirements\n\nMore text.\n",
+        ],
+    ];
+
+    /**
      * @throws \RuntimeException
      *
      * @return array<string, array{0: array<string, mixed>}>
@@ -154,6 +168,10 @@ class IncludeConformanceTest extends TestCase
     {
         /** @var array<string, mixed> $expected */
         $expected = $vector['expected'];
+        foreach (self::AHEAD_OF_PIN[(string)$vector['name']] ?? [] as $field => $value) {
+            $this->assertNotSame($value, $expected[$field], "{$vector['name']}.{$field}: the golden caught up - delete its AHEAD_OF_PIN entry");
+            $expected[$field] = $value;
+        }
         $out = [
             [
                 'label' => 'html mismatch',
