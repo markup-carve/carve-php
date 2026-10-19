@@ -8458,7 +8458,7 @@ class MarkdownToCarve
                     $previous = $body;
                     $body = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]], $body) ?? $body;
                 } while ($body !== $previous);
-                if (!str_contains($body, '\\') && !str_contains($body, '`') && !str_contains($body, '|') && BracketScanner::rawRunCloses($body)) {
+                if (!str_contains($body, '\\') && !str_contains($body, '`') && !str_contains($body, '|')) {
                     return $protect($match[0]);
                 }
                 // Backslashes are literal in a CommonMark autolink. Encode

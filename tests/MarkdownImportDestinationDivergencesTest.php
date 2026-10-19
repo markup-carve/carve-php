@@ -53,6 +53,12 @@ final class MarkdownImportDestinationDivergencesTest extends TestCase
         yield 'C6' => ['https://e.com/a](b)c', '[https://e.com/a\](b)c](https://e.com/a%5D(b)c)', [$paragraph, $bare], 0];
         yield 'C7' => ['https://e.com/[x]{.c}', '[https://e.com/\[x\]{.c}](https://e.com/%5Bx%5D%7B.c%7D)', [$paragraph, $bare], 0];
         yield 'C8' => ['https://e.com/a[[b]]', '[https://e.com/a[[b]]](https://e.com/a%5B%5Bb%5D%5D)', [$paragraph, $bare], 0];
+
+        $unverified = [['fidelity-unverified', 'dropped', '']];
+
+        yield 'A5 angle form beside a bracket' => ['[foo<https://example.com/?search=](uri)>', '[foo<https://example.com/?search=](uri)>', $unverified, 1];
+        yield 'A6 angle form inside a bracket' => ['a [b <https://e.com/]> c', 'a [b <https://e.com/]> c', $unverified, 1];
+        yield 'A7 angle form before a destination shape' => ['<https://e.com/a[b> c](/u)', '<https://e.com/a[b> c](/u)', [$paragraph, $autolink], 0];
     }
 
     /**
