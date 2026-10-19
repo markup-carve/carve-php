@@ -1220,6 +1220,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected array $definitionsWrittenInPlace = [];
 
     /**
+     * CARVE-P11-073 (c): the last region marker's line; a definition above it is
+     * not hoisted past it.
+     */
+    protected ?int $lastRegionMarker = null;
+
+    /**
+     * Collected definitions written among the body's blocks rather than at its end.
+     *
+     * @var array<int, true>
+     */
+    protected array $definitionsKeptInPlace = [];
+
+    /**
      * A term defined twice is two lines the author wrote; which one wins is
      * resolution (PART 9R) and the formatter does not resolve, so every
      * authored node is written, each at its own position.
@@ -1293,7 +1306,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($residual !== [] && $document->hasAbbreviationsBeforeBody()) {
             $parts[] = implode("\n\n", $residual);
         }
-        $body = $this->renderBlocks($document->getChildren());
+        $body = $this->renderBlocks($this->keepDefinitionsAboveAMarker($document->getChildren()));
         if ($body !== '') {
             $parts[] = $body;
         }
@@ -1302,6 +1315,88 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $this->normalize(implode(self::BLOCK_SEPARATOR, $parts));
+    }
+
+    /**
+     * CARVE-P11-073 (c): a collected definition with a region marker below it
+     * goes back among the blocks, in source order, so no region gains or loses it.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $children
+     *
+     * @return array<\MarkupCarve\Carve\Node\Node>
+     */
+    protected function keepDefinitionsAboveAMarker(array $children): array
+    {
+        $this->lastRegionMarker = $this->lastRegionMarkerLine($children);
+        $this->definitionsKeptInPlace = [];
+        if ($this->lastRegionMarker === null) {
+            return $children;
+        }
+        $body = [];
+        $inPlace = [];
+        foreach ($children as $child) {
+            $pos = $child->getPos();
+            if (
+                ($child instanceof LinkReferenceDefinition || $child instanceof Footnote)
+                && $pos !== null
+                && $pos->file === null
+                && $this->staysAboveAMarker($pos->startLine)
+            ) {
+                $inPlace[] = $child;
+                $this->definitionsKeptInPlace[spl_object_id($child)] = true;
+
+                continue;
+            }
+            $body[] = $child;
+        }
+        usort($inPlace, static fn (Node $a, Node $b): int => ($a->getPos()->startLine ?? 0) <=> ($b->getPos()->startLine ?? 0));
+        foreach ($inPlace as $definition) {
+            $line = $definition->getPos()->startLine ?? 0;
+            $at = count($body);
+            foreach ($body as $index => $block) {
+                $start = $block->getPos()?->startLine;
+                if ($start !== null && $start > $line) {
+                    $at = $index;
+
+                    break;
+                }
+            }
+            array_splice($body, $at, 0, [$definition]);
+        }
+
+        return $body;
+    }
+
+    /**
+     * The start line of the last region marker anywhere in the tree.
+     *
+     * @param array<\MarkupCarve\Carve\Node\Node> $nodes
+     */
+    protected function lastRegionMarkerLine(array $nodes): ?int
+    {
+        $last = null;
+        $stack = $nodes;
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($this->isRegionMarker($node)) {
+                $line = $node->getPos()?->startLine;
+                if ($line !== null && ($last === null || $line > $last)) {
+                    $last = $line;
+                }
+
+                continue;
+            }
+            foreach ($node->getChildren() as $child) {
+                $stack[] = $child;
+            }
+        }
+
+        return $last;
+    }
+
+    protected function staysAboveAMarker(?int $line): bool
+    {
+        return $line !== null && $this->lastRegionMarker !== null && $line < $this->lastRegionMarker;
     }
 
     /**
@@ -2000,7 +2095,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // `- +`, pinned by corpus fixtures 16-reference-link-4 and
                     // 117-footnote-definition-inside-a-container-is-collected-2, and it
                     // round-trips there because nothing follows at a shallower column.
-                    && $this->listDepth > 1
+                    // A region marker below it keeps it there too (CARVE-P11-073 (c)).
+                    && ($this->listDepth > 1 || $this->staysAboveAMarker($item->getPos()?->startLine))
                 ) {
                     $line = $item->getPos()?->startLine;
                     $collected = $line === null ? null : ($this->definitionsByLine[$line] ?? null);
@@ -2185,8 +2281,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if (!$this->isRegionMarker($previous) && !$this->isRegionMarker($block)) {
             return false;
         }
-        // A collected definition (§7) is written apart, so it is no sibling of the marker.
-        if ($block instanceof LinkReferenceDefinition || $block instanceof Footnote) {
+        // A collected definition (§7) is written apart unless (c) kept it in place.
+        if (
+            ($block instanceof LinkReferenceDefinition || $block instanceof Footnote)
+            && !isset($this->definitionsKeptInPlace[spl_object_id($block)])
+        ) {
             return false;
         }
         // A block a following `%%` line cannot continue, whatever it is spelled as.
@@ -2197,6 +2296,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             && !$previous instanceof CodeBlock
             && !$previous instanceof ThematicBreak
             && !$previous instanceof Comment
+            && !$previous instanceof Table
+            && !$previous instanceof Div
+            && !$previous instanceof LinkReferenceDefinition
+            && !($previous instanceof BlockQuote && $previous->isFenced())
         ) {
             return false;
         }

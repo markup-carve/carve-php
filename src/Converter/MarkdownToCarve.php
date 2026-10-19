@@ -253,6 +253,14 @@ class MarkdownToCarve
     private array $fragmentFixups = [];
 
     /**
+     * CARVE-P2-031: each converted destination the conversion changed, mapped to
+     * the spelling the Markdown link wrote; null marks two spellings.
+     *
+     * @var array<string, string|null>
+     */
+    private array $authoredDestinations = [];
+
+    /**
      * The last conversion rendered with its original fragments, so assessment sees only the conversion.
      */
     private ?string $unfixedValue = null;
@@ -1854,6 +1862,7 @@ class MarkdownToCarve
         $this->frontmatterSynthesized = false;
         $this->frontmatterOpenerTyped = false;
         $this->fragmentFixups = [];
+        $this->authoredDestinations = [];
         $this->unfixedValue = null;
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
@@ -3370,11 +3379,36 @@ class MarkdownToCarve
             $to = substr($node['href'], 1);
             $node['href'] = $destination;
             unset($node);
-            $this->fragmentFixups[] = self::fragmentFixup($destination, substr($destination, 1), $to);
+            // CARVE-P2-031: the row names the destination as the Markdown link wrote it.
+            $written = $this->authoredDestinations()[$destination] ?? $destination;
+            $this->fragmentFixups[] = self::fragmentFixup($written, substr($written, 1), $to);
         }
         $this->unfixedValue = $trim($converter->render($codec->decode($document)));
 
         return $result;
+    }
+
+    private function recordAuthoredDestination(string $encoded, string $authored): void
+    {
+        $known = array_key_exists($encoded, $this->authoredDestinations) ? $this->authoredDestinations[$encoded] : $authored;
+        $this->authoredDestinations[$encoded] = $known === $authored ? $authored : null;
+    }
+
+    /**
+     * The destinations the last conversion changed, mapped back to the spelling the author wrote.
+     *
+     * @return array<string, string>
+     */
+    public function authoredDestinations(): array
+    {
+        $changed = [];
+        foreach ($this->authoredDestinations as $encoded => $authored) {
+            if ($authored !== null && $authored !== (string)$encoded) {
+                $changed[(string)$encoded] = $authored;
+            }
+        }
+
+        return $changed;
     }
 
     public static function fragmentFixup(string $destination, string $from, string $to): MigrationDiagnostic
@@ -3393,6 +3427,14 @@ class MarkdownToCarve
     {
         $this->flattenedEmphasis = $this->flattenedEmphasis || $importer->flattenedEmphasis;
         $this->carrierDamaged = $this->carrierDamaged || $importer->carrierDamaged;
+        foreach ($importer->authoredDestinations as $encoded => $authored) {
+            if ($authored === null) {
+                $this->authoredDestinations[$encoded] = null;
+
+                continue;
+            }
+            $this->recordAuthoredDestination($encoded, $authored);
+        }
         foreach (['tableDiagnostics', 'rawSpanWhitespaceDiagnostics', 'boundaryDiagnostics', 'leadingWhitespaceDiagnostics', 'codeFallbackDiagnostics'] as $property) {
             foreach ($importer->{$property} as $diagnostic) {
                 $path = $diagnostic->path;
@@ -10439,6 +10481,7 @@ class MarkdownToCarve
             : $this->decodeLinkTitle($url, $protected);
 
         $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
+        $this->recordAuthoredDestination($encoded, $this->referenceSourceText($url, $protected));
 
         return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);
     }

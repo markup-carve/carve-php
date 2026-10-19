@@ -403,6 +403,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
     $skipped = [];
     $review = [];
     $destinations = ['migration-report.json' => true];
+    $authored = [];
     try {
         foreach ($entries as $entry) {
             $path = $entry['path'];
@@ -451,7 +452,9 @@ function migrateMarkdownDirectory(string $source, string $output): array
                 throw new RuntimeException("cannot read $path");
             }
             // Ill-formed bytes are replaced, as single-file migration does (CARVE-P0-023).
-            $result = (new MarkdownToCarve(rewriteHeadingFragments: false))->convertWithFidelityReport($sourceText);
+            $importer = new MarkdownToCarve(rewriteHeadingFragments: false);
+            $result = $importer->convertWithFidelityReport($sourceText);
+            $authored[$path] = $importer->authoredDestinations();
             if (file_put_contents($target, $result->value) === false || !chmod($target, $fileMode & $sourceMode)) {
                 throw new RuntimeException("cannot write $destination");
             }
@@ -465,7 +468,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
             }
             $files[] = ['source' => $path, 'output' => $destination, 'diagnostics' => $diagnostics];
         }
-        $broken = checkMigratedLinks($temporary, $files, $assets);
+        $broken = checkMigratedLinks($temporary, $files, $assets, $authored);
         foreach ($broken as $path) {
             if (!in_array($path, $review, true)) {
                 $review[] = $path;
@@ -509,7 +512,7 @@ function migrateMarkdownDirectory(string $source, string $output): array
  *
  * @return array{href:string, check:array<string,string>, fixup?:array<string,string>}|null
  */
-function inspectMigratedLink(string $destination, string $source, array $outputs, array $ids, array $aliases): ?array
+function inspectMigratedLink(string $destination, string $source, array $outputs, array $ids, array $aliases, array $authored = []): ?array
 {
     if (preg_match('~^[a-z][a-z0-9+.-]*:|^//~i', $destination) === 1) {
         return null;
@@ -573,7 +576,11 @@ function inspectMigratedLink(string $destination, string $source, array $outputs
     $href = $newPath . $query . ($rawFragment === null ? '' : '#' . ($recased ?? $rawFragment));
     $result = ['href' => $href, 'check' => ['target' => $destination, 'status' => $href === $destination ? 'valid' : 'rewritten']];
     if ($recased !== null) {
-        $result['fixup'] = MarkdownToCarve::fragmentFixup($destination, (string)$rawFragment, $recased)->toArray();
+        // CARVE-P2-031: the row names the destination as the Markdown link wrote it.
+        $written = $authored[$destination] ?? $destination;
+        $hash = strpos($written, '#');
+        $from = $hash === false ? (string)$rawFragment : substr($written, $hash + 1);
+        $result['fixup'] = MarkdownToCarve::fragmentFixup($written, $from, $recased)->toArray();
     }
 
     return $result;
@@ -683,9 +690,19 @@ function rawHtmlUrls(string $html): array
  * @param array<array<string, string>> $links
  * @param bool $changed
  * @param array<array<string, string>> $fixups
+ * @param array<string, string> $authored
  */
-function checkMigratedNode(array &$node, string $source, array $outputs, array $ids, array $aliases, array &$links, bool &$changed, array &$fixups): void
-{
+function checkMigratedNode(
+    array &$node,
+    string $source,
+    array $outputs,
+    array $ids,
+    array $aliases,
+    array &$links,
+    bool &$changed,
+    array &$fixups,
+    array $authored = [],
+): void {
     if (in_array($node['type'] ?? null, ['raw_inline', 'raw_block'], true) && ($node['format'] ?? null) === 'html' && isset($node['content']) && is_string($node['content'])) {
         foreach (rawHtmlUrls($node['content']) as $url) {
             $destination = $url['target'];
@@ -708,7 +725,7 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
         default => null,
     };
     if ($key !== null && isset($node[$key]) && is_string($node[$key]) && $node[$key] !== '') {
-        $result = inspectMigratedLink($node[$key], $source, $outputs, $ids, $aliases);
+        $result = inspectMigratedLink($node[$key], $source, $outputs, $ids, $aliases, $authored);
         if ($result !== null) {
             if ($result['href'] !== $node[$key] && isset($node['ref'])) {
                 $links[] = ['target' => $node[$key], 'status' => 'unresolved', 'reason' => 'reference link needs manual rewrite'];
@@ -731,12 +748,12 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
         if (array_is_list($child)) {
             foreach ($child as &$item) {
                 if (is_array($item)) {
-                    checkMigratedNode($item, $source, $outputs, $ids, $aliases, $links, $changed, $fixups);
+                    checkMigratedNode($item, $source, $outputs, $ids, $aliases, $links, $changed, $fixups, $authored);
                 }
             }
             unset($item);
         } else {
-            checkMigratedNode($child, $source, $outputs, $ids, $aliases, $links, $changed, $fixups);
+            checkMigratedNode($child, $source, $outputs, $ids, $aliases, $links, $changed, $fixups, $authored);
         }
     }
     unset($child);
@@ -748,10 +765,11 @@ function checkMigratedNode(array &$node, string $source, array $outputs, array $
  * @param string $temporary
  * @param array<array<string, mixed>> $files
  * @param array<string> $assets
+ * @param array<string, array<string, string>> $authored
  * @return array<string>
  * @throws \RuntimeException
  */
-function checkMigratedLinks(string $temporary, array &$files, array $assets): array
+function checkMigratedLinks(string $temporary, array &$files, array $assets, array $authored = []): array
 {
     $outputs = array_fill_keys(array_merge(array_column($files, 'output'), $assets), true);
     $ids = [];
@@ -812,7 +830,7 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets): ar
         $links = [];
         $changed = false;
         $fixups = [];
-        checkMigratedNode($document, $file['source'], $outputs, $ids, $aliases, $links, $changed, $fixups);
+        checkMigratedNode($document, $file['source'], $outputs, $ids, $aliases, $links, $changed, $fixups, $authored[$file['source']] ?? []);
         $file['diagnostics'] = [...$file['diagnostics'], ...$fixups];
         $file['links'] = $links;
         foreach ($links as $link) {

@@ -788,6 +788,40 @@ class CliTest extends TestCase
         }
     }
 
+    /**
+     * CARVE-P2-031 (carve#3356): a directory fixup row names the link as written.
+     */
+    public function testMigrateMarkdownDirectoryFixupNamesTheAuthoredSpelling(): void
+    {
+        $root = sys_get_temp_dir() . '/carve-fixup-' . bin2hex(random_bytes(8));
+        $source = $root . '/source';
+        $output = $root . '/output';
+        mkdir($source, 0777, true);
+        file_put_contents($source . '/a.md', "See [b](b.md#über-uns).\n");
+        file_put_contents($source . '/b.md', "# Über Uns\n");
+        try {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output], '');
+            $this->assertSame(0, $result['exit'], $result['err']);
+            $this->assertSame("See [b](b.crv#%C3%9Cber-Uns).\n", file_get_contents($output . '/a.crv'));
+            $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
+            $files = array_column($report['files'], null, 'source');
+            $fixups = array_values(array_filter($files['a.md']['diagnostics'], static fn (array $row): bool => $row['code'] === 'link-fragment-case-rewritten'));
+            $this->assertSame('link:b.md#über-uns', $fixups[0]['path'] ?? null);
+            $this->assertSame('Rewrote link fragment #über-uns to #%C3%9Cber-Uns, the one heading id it matches without regard to case.', $fixups[0]['message'] ?? null);
+        } finally {
+            foreach (['output/a.crv', 'output/b.crv', 'output/migration-report.json', 'source/a.md', 'source/b.md'] as $path) {
+                if (is_file($root . '/' . $path)) {
+                    unlink($root . '/' . $path);
+                }
+            }
+            foreach (['output', 'source', ''] as $path) {
+                if (is_dir($root . '/' . $path)) {
+                    rmdir($root . '/' . $path);
+                }
+            }
+        }
+    }
+
     public function testMigrateMarkdownDirectoryDoesNotTreatDataIdAsAnAnchor(): void
     {
         $root = sys_get_temp_dir() . '/carve-link-id-' . bin2hex(random_bytes(8));

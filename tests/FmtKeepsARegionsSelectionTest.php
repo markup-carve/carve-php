@@ -69,6 +69,9 @@ class FmtKeepsARegionsSelectionTest extends TestCase
 
         // An image-only item holds its marker at the marker column, as a paragraph does.
         yield 'below an image in an item' => ["- ![a](u)\n%% #endregion r\n", "- ![a](u)\n%% #endregion r\n"];
+
+        // A definition above a marker is not hoisted past it, so the item keeps it.
+        yield 'a definition item above a marker' => ["- [ref]: /url\n%% #region r\n\nSee [it][ref].\n", "- [ref]: /url\n\n%% #region r\n\nSee [it][ref].\n"];
     }
 
     #[DataProvider('readings')]
