@@ -6946,15 +6946,51 @@ class BlockParser
         // apart - the hosts are decided further down this method, on the block
         // this caption would attach to, and the distance is the same question
         // for every one of them.
-        $blankLines = $this->blankLineRunBefore($lines, $start);
+        $localBlankLines = $this->blankLineRunBefore($lines, $start);
+        $blankLines = $localBlankLines;
+        // Item chunks can begin at the caption and omit the separator. Count
+        // the authored run too, stripping quote markers at the caption's depth.
+        $sourceLine = $this->sourceLineFor($start);
+        $sourceBeforeSlot = null;
+        if ($sourceLine >= 0 && $sourceLine < count($this->state->source->sourceLines)) {
+            $sourceLines = $this->state->source->sourceLines;
+            $captionSource = ltrim($sourceLines[$sourceLine], " \t");
+            $quoteDepth = 0;
+            while (($inside = ContainerPrefix::quoteContent($captionSource)) !== null) {
+                $quoteDepth++;
+                $captionSource = ltrim($inside, " \t");
+            }
+            $sourceRun = 0;
+            for ($at = $sourceLine - 1; $at >= 0; $at--) {
+                $candidate = ltrim($sourceLines[$at], " \t");
+                for ($depth = 0; $depth < $quoteDepth; $depth++) {
+                    $candidate = ContainerPrefix::quoteContent($candidate);
+                    if ($candidate === null) {
+                        break;
+                    }
+                    $candidate = ltrim($candidate, " \t");
+                }
+                if ($candidate === null || !IndentationHelper::isBlankLine($candidate)) {
+                    $sourceBeforeSlot = $candidate;
+
+                    break;
+                }
+                $sourceRun++;
+            }
+            if ($sourceRun > $blankLines) {
+                $blankLines = $sourceRun;
+            }
+        }
         if ($blankLines > 1) {
             return null;
         }
         // An invisible interrupter still occupies its source line. It renders
         // nothing, but it is not caption_slot's optional blank line and a
         // caption cannot attach across it (carve#1028).
-        $lineBeforeSlot = $start - $blankLines - 1;
-        if ($lineBeforeSlot >= 0 && $this->isInvisibleOrAttributeLine($lines[$lineBeforeSlot])) {
+        $lineBeforeSlot = $start - $localBlankLines - 1;
+        $localInterrupter = $lineBeforeSlot >= 0 && $this->isInvisibleOrAttributeLine($lines[$lineBeforeSlot]);
+        $sourceInterrupter = $sourceBeforeSlot !== null && $this->isInvisibleOrAttributeLine($sourceBeforeSlot);
+        if ($localInterrupter || $sourceInterrupter) {
             return null;
         }
 
@@ -7944,6 +7980,20 @@ class BlockParser
             $colon = $this->fencedBlockParser->parseDivFenceOpener($authored);
             if ($colon !== null) {
                 $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
+                if (
+                    $colon['className'] === 'figure'
+                    && !$colon['invalidMetadata']
+                    && $colon['label'] === null
+                    && $this->figureGroupDepth === 0
+                    && $end + 1 < $n
+                    && IndentationHelper::isBlankLine($subLines[$end])
+                    && IndentationHelper::getLeadingColumns($subLines[$end + 1]) === 0
+                    && $this->isCaptionLine($subLines[$end + 1])
+                ) {
+                    $k = $end + 2;
+
+                    continue;
+                }
                 $k = $end;
 
                 continue;
