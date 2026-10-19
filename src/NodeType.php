@@ -290,6 +290,11 @@ final class NodeType
     public const HEADING_REF = 'heading_ref';
 
     /**
+     * @var string
+     */
+    public const TABLE_CELL_REF = 'table_cell_ref';
+
+    /**
      * A citation group (`[@key]`), delivered by the citations extension.
      *
      * @var string
@@ -450,6 +455,7 @@ final class NodeType
             self::FOOTNOTE_REF,
             self::INLINE_FOOTNOTE,
             self::HEADING_REF,
+            self::TABLE_CELL_REF,
             self::CITATION_GROUP,
             self::CITATION,
             self::RUBY,

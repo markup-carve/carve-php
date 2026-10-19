@@ -71,6 +71,7 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -671,6 +672,7 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
 
     public function render(Document $document): string
     {
+        (new TableCellRefResolver())->resolve($document);
         $this->pickNarrowedSentinels($document);
         $this->referencedLinkDefinitions = $this->roundTripMode ? [] : ReferencedLinkDefinitions::labels($document);
         $this->prepareDocument($document);
@@ -1795,6 +1797,9 @@ class MarkdownRenderer implements RendererInterface, RenderLossAwareRendererInte
             $node instanceof FootnoteRef
             => '[^' . $this->escapeHtml($this->stripControls($node->getLabel())) . ']',
             $node instanceof HeadingRef => $this->renderHeadingRef($node),
+            $node instanceof TableCellRef => $node->getValue() === null
+                ? $this->escapeText($node->fallback())
+                : ($node->getAttribute('code') === '' ? $this->renderCode(new Code($node->getValue())) : $this->escapeText($node->getValue())),
             $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
             $node instanceof RawInline => $this->renderRawInline($node),
             // §27: emitted by EVERY renderer, never dropped. It is prose,

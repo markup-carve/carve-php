@@ -66,6 +66,7 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -584,6 +585,7 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     public function render(Document $document): string
     {
+        (new TableCellRefResolver())->resolve($document);
         $this->headingIdTracker->reset();
         $this->referencedLinkDefinitions = ReferencedLinkDefinitions::labels($document);
         $this->resetExpansionBudgetForDocument($document);
@@ -719,6 +721,9 @@ class AnsiRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 => $this->stripControls('[^' . $node->getLabel() . ']'),
                 $node instanceof FootnoteRef => $this->renderFootnoteRef($node),
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
+                $node instanceof TableCellRef => $node->getValue() === null
+                    ? $this->stripControls($node->fallback())
+                    : ($node->getAttribute('code') === '' ? $this->renderCode(new Code($node->getValue())) : $this->stripControls($node->getValue())),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof RawInline => $this->dropRawInline($node),
                 // §27: always emitted (unlike raw passthrough above). It is

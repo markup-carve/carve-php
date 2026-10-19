@@ -1693,6 +1693,7 @@
             "substitution",
             "superscript",
             "symbol",
+            "table_cell_ref",
             "tag",
             "text",
             "underline"
@@ -2280,6 +2281,21 @@
           },
           "then": {
             "$ref": "#/$defs/non_breaking_space"
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "const": "table_cell_ref"
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          "then": {
+            "$ref": "#/$defs/table_cell_ref"
           }
         }
       ]
@@ -3625,6 +3641,61 @@
       "properties": {
         "type": {
           "const": "non_breaking_space"
+        },
+        "attrs": {
+          "$ref": "#/$defs/attrs"
+        },
+        "pos": {
+          "$ref": "#/$defs/pos"
+        }
+      },
+      "additionalProperties": false
+    },
+    "table_cell_ref": {
+      "type": "object",
+      "title": "table_cell_ref (inline)",
+      "required": [
+        "type",
+        "target",
+        "row",
+        "column",
+        "source"
+      ],
+      "properties": {
+        "type": {
+          "const": "table_cell_ref"
+        },
+        "target": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_][A-Za-z0-9_-]*$"
+        },
+        "row": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "column": {
+          "oneOf": [
+            {
+              "type": "integer",
+              "minimum": 1
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "source": {
+          "type": "string"
+        },
+        "value": {
+          "type": "string"
         },
         "attrs": {
           "$ref": "#/$defs/attrs"

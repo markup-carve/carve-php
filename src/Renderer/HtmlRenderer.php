@@ -69,6 +69,7 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -310,6 +311,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             InlineFootnote::class => 'renderInlineFootnote',
             FootnoteRef::class => 'renderFootnoteRef',
             HeadingRef::class => 'renderHeadingRef',
+            TableCellRef::class => 'renderTableCellRef',
             CaptionNumber::class => 'renderCaptionNumber',
             NonBreakingSpace::class => 'renderNonBreakingSpace',
             SoftBreak::class => 'renderSoftBreak',
@@ -922,6 +924,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         // a later heading colliding with an explicit id dedupes
         // (-2, -3, …). Then resolve all heading ids+text so </#id>
         // cross-references work regardless of order.
+        (new TableCellRefResolver())->resolve($document);
         (new CrossReferenceResolver())->resolve($document, $this->getRenderContext()->headingIdTracker);
 
         // Section wrapping (grammar PART 9 §13): every top-level heading
@@ -2752,7 +2755,7 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $separatorWidths = $this->roundTripMode ? $node->getSeparatorWidths() : null;
         $carriesWidths = $separatorWidths !== null && self::carrierStatesEveryWidth($separatorWidths);
         $tableAttrs = $this->attributesBesideCarriers($node, $carriesWidths ? ['data-carve-col-widths'] : []);
-        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths']);
+        unset($tableAttrs['aligns'], $tableAttrs['valigns'], $tableAttrs['widths'], $tableAttrs['row-key']);
         $hasBodyMetadata = isset($tableAttrs['body-rows']) || isset($tableAttrs['body-header-rows']) || isset($tableAttrs['body-header-cols']);
         if (!$hasBodyMetadata || $node->getRowGroups() !== null || $node->statedRowGroups() !== null) {
             unset($tableAttrs['header-rows'], $tableAttrs['footer-rows']);
@@ -3489,6 +3492,23 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         $attrs = $this->renderAttributes($node);
 
         return '<ins' . $attrs . '>' . $this->renderChildren($node) . '</ins>';
+    }
+
+    protected function renderTableCellRef(TableCellRef $node): string
+    {
+        $value = $node->getValue();
+        if ($value === null) {
+            return $this->escape($node->fallback());
+        }
+        $attrs = $this->attributesBesideCarriers($node, []);
+        $code = isset($attrs['code']) && $attrs['code'] === '';
+        unset($attrs['code']);
+        $text = $this->escape($value);
+        if ($code) {
+            return '<code' . $this->renderAttributeArray($attrs) . '>' . $text . '</code>';
+        }
+
+        return $attrs === [] ? $text : '<span' . $this->renderAttributeArray($attrs) . '>' . $text . '</span>';
     }
 
     protected function renderHeadingRef(HeadingRef $node): string

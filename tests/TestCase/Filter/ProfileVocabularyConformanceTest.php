@@ -107,6 +107,7 @@ class ProfileVocabularyConformanceTest extends TestCase
             'footnote_ref' => ["ref[^a]\n\n[^a]: note\n", $inline],
             'inline_footnote' => ['a ^[inline note] b', $inline],
             'heading_ref' => ["# Target\n\nsee </#Target>\n", $inline],
+            'table_cell_ref' => ["{#s}\n|= K |= V |\n| Q2 | 150 |\n\n@{#s[\"Q2\"][\"V\"]}", $inline],
             'citation_group' => ["[@key]\n\n[@key]: entry\n", $inline],
             'caption_number' => ["![alt](/i.png)\n^ Figure #: cap\n", $inline],
             'span' => ['a [text]{.cls} b', $inline],

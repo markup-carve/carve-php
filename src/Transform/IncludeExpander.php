@@ -39,6 +39,7 @@ use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -1913,6 +1914,19 @@ class IncludeExpander implements TransformerInterface
      */
     protected function followRename(Node $node, array $ids, array $targets): void
     {
+        if ($node instanceof TableCellRef) {
+            foreach ($ids as $entry) {
+                if ($entry['old'] !== $node->getTarget() || $entry['new'] === $entry['old']) {
+                    continue;
+                }
+                $node->setTarget($entry['new']);
+                $node->setSource(str_replace('@{#' . $entry['old'] . '[', '@{#' . $entry['new'] . '[', $node->getSource()));
+
+                break;
+            }
+
+            return;
+        }
         if ($node instanceof HeadingRef) {
             $target = $node->getTargetId();
             // Exact, as the renderer resolves it (CARVE-P9R-010).

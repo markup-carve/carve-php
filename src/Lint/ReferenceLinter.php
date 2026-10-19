@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Inline\HeadingRef;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\InlineNode;
 use MarkupCarve\Carve\Node\Inline\Link;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
@@ -35,6 +36,7 @@ use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Renderer\HeadingIdTracker;
+use MarkupCarve\Carve\Renderer\TableCellRefResolver;
 use MarkupCarve\Carve\Util\StringUtil;
 
 class ReferenceLinter
@@ -48,6 +50,8 @@ class ReferenceLinter
     public function lint(string $source, array $options = []): array
     {
         [$document, $tracker, $nodes] = $this->resolve($source, $options['extensions'] ?? []);
+        $tableResolver = new TableCellRefResolver();
+        $tableResolver->resolve($document);
         $targets = $this->labelTargets($document, $nodes);
         $map = SourceOffsets::map($source);
         $length = strlen($source);
@@ -60,6 +64,7 @@ class ReferenceLinter
         $fragmentLinks = [];
         $ignoredLines = [];
         $inlineSpans = [];
+        $textSpans = [];
         foreach ($nodes as $node) {
             $pos = $node->getPos();
             if ($pos !== null && ($node instanceof CodeBlock || $node instanceof RawBlock || $node instanceof Comment)) {
@@ -69,6 +74,9 @@ class ReferenceLinter
             }
             if ($pos !== null && $node instanceof InlineNode) {
                 $inlineSpans[] = [SourceOffsets::toByte($pos->startOffset, $map, $length), SourceOffsets::toByte($pos->endOffset, $map, $length)];
+                if ($node instanceof Text) {
+                    $textSpans[] = end($inlineSpans);
+                }
             }
             $id = $node->getAttribute('id');
             if ($id !== null) {
@@ -115,6 +123,8 @@ class ReferenceLinter
                     $message = 'Cross-reference </#' . $target . '> has no matching heading id.';
                 }
                 $warnings[] = $this->warning($node, 'broken-crossref', $message, $map, $length);
+            } elseif ($node instanceof TableCellRef && $node->getValue() === null) {
+                $warnings[] = $this->warning($node, 'unresolved-table-cell-ref', 'Table cell reference ' . $node->getSource() . ': ' . ($tableResolver->reasonFor($node) ?? 'cell value could not resolve') . '.', $map, $length);
             } elseif ($node instanceof Link && UnresolvedReference::sourceOf($node) !== null) {
                 $bracket = $this->labelBracket($node, $source, $map, $length);
                 $caseOnly = $this->labelsDifferingOnlyInCase($node, $targets, ($bracket[0] ?? null) === '][]');
@@ -193,6 +203,31 @@ class ReferenceLinter
         foreach ($this->brokenFragmentLinks($source, $fragmentLinks, $options['extensions'] ?? []) as [$node, $message]) {
             $warnings[] = $this->warning($node, 'broken-fragment-link', $message, $map, $length);
         }
+        if (preg_match_all('/@\{#[^}\r\n]*\}/u', $source, $matches, PREG_OFFSET_CAPTURE)) {
+            foreach ($matches[0] as [$candidate, $start]) {
+                if (TableCellRef::fromSource($candidate) !== null) {
+                    continue;
+                }
+                $insideText = false;
+                foreach ($textSpans as [$from, $to]) {
+                    if ($from <= $start && $start + strlen($candidate) <= $to) {
+                        $insideText = true;
+
+                        break;
+                    }
+                }
+                if (!$insideText) {
+                    continue;
+                }
+                $before = substr($source, 0, $start);
+                $line = preg_match_all('/\r\n|\r|\n/', $before) + 1;
+                $lf = strrpos($before, "\n");
+                $cr = strrpos($before, "\r");
+                $lineStart = max($lf === false ? -1 : $lf, $cr === false ? -1 : $cr);
+                $column = mb_strlen(substr($before, $lineStart + 1), 'UTF-8') + 1;
+                $warnings[] = new LintWarning($line, $column, 'malformed-table-cell-ref', 'Malformed table cell reference ' . $candidate . '.', $start, $start + strlen($candidate));
+            }
+        }
         usort($warnings, static fn (LintWarning $a, LintWarning $b): int => $a->start <=> $b->start);
 
         return $warnings;
@@ -270,6 +305,7 @@ class ReferenceLinter
         $converter = (new CarveConverter())->addExtensions($headingIds);
         $converter->getParser()->enablePositionTracking();
         $document = $converter->parse($source);
+        (new TableCellRefResolver())->resolve($document);
         $tracker = $converter->getHeadingIdTracker();
         (new CrossReferenceResolver())->resolveCrossReferenceTargets($document, $tracker);
         $nodes = [];

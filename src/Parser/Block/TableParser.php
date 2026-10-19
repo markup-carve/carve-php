@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser\Block;
 
 use MarkupCarve\Carve\Node\Block\TableCell;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Util\StringUtil;
 
@@ -298,7 +299,7 @@ class TableParser
         // `|` is a delimiter, so a plain split is identical to the scan below.
         // A run left OPEN by the row above disqualifies it: there is a verbatim
         // span here even though this line carries no backtick of its own.
-        if ($openDelimiters === [] && !str_contains($line, '`') && !str_contains($line, '\\|')) {
+        if ($openDelimiters === [] && !str_contains($line, '`') && !str_contains($line, '\\|') && !str_contains($line, '@{#')) {
             $result = [];
             $at = 0;
             foreach (explode('|', $line) as $content) {
@@ -342,6 +343,16 @@ class TableParser
 
         for ($i = 0; $i < $length; $i++) {
             $char = $line[$i];
+
+            if (!$inCode && $char === '@' && substr($line, $i, 3) === '@{#') {
+                $end = TableCellRef::sourceEnd($line, $i);
+                if ($end !== null && TableCellRef::fromSource(substr($line, $i, $end - $i)) !== null) {
+                    $currentCell .= substr($line, $i, $end - $i);
+                    $i = $end - 1;
+
+                    continue;
+                }
+            }
 
             if (!$inCode && $char === '\\' && $i + 1 < $length && ctype_punct($line[$i + 1])) {
                 $currentCell .= substr($line, $i, 2);

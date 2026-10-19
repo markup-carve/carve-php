@@ -28,6 +28,7 @@ use MarkupCarve\Carve\Node\Inline\SmartPunctuation;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
@@ -533,6 +534,9 @@ class HeadingIdTracker
         }
         if ($child instanceof Text) {
             return $child->getContent();
+        }
+        if ($child instanceof TableCellRef) {
+            return $child->getValue() ?? $child->fallback();
         }
         if ($child instanceof SmartPunctuation) {
             // THE ONLY BRANCH THE MODE REACHES, and the reason it takes a flag

@@ -38,6 +38,7 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -1098,6 +1099,24 @@ class InlineParser
                 continue;
             }
 
+            if ($char === '@' && substr($text, $pos, 3) === '@{#') {
+                $end = TableCellRef::sourceEnd($text, $pos);
+                if ($end !== null) {
+                    $source = substr($text, $pos, $end - $pos);
+                    $this->flushText($parent, $textBuffer);
+                    $textBuffer = '';
+                    $reference = TableCellRef::fromSource($source) ?? new Text($source);
+                    if ($reference instanceof TableCellRef) {
+                        $end = $this->applyConsecutiveAttributes($reference, $text, $end);
+                    }
+                    $this->placeAt($reference, $pos, $end);
+                    $parent->appendChild($reference);
+                    $pos = $end;
+
+                    continue;
+                }
+            }
+
             // Delimited inline comment: unlike `%%`, this may begin anywhere
             // in the run and prose resumes after the first `%}`. An opener
             // without a closer is ordinary text. Code and raw spans remain
@@ -1586,6 +1605,17 @@ class InlineParser
                     $pos = $end;
 
                     return true;
+                }
+                if ($escaped === '@' && substr($text, $pos + 1, 3) === '@{#') {
+                    $end = TableCellRef::sourceEnd($text, $pos + 1);
+                    if ($end !== null) {
+                        $tail = new Text(substr($text, $pos + 2, $end - $pos - 2));
+                        $this->placeAt($tail, $pos + 2, $end);
+                        $parent->appendChild($tail);
+                        $pos = $end;
+
+                        return true;
+                    }
                 }
                 $pos += 2;
 
@@ -2479,6 +2509,7 @@ class InlineParser
         // Char handlers in parseInlines + parseSmartSymbol/parseSmartDash heads.
         $base = [
             '\\', "\n", '%', '$', '`', ':', '!', '[', '<', '/',
+            '@',
             '_', '*',
             '^', '~', ',', '=', '{', '"', "'", '-', '.', '(',
             '>', '+',

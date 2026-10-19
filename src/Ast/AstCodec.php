@@ -30,6 +30,7 @@ use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Mention;
 use MarkupCarve\Carve\Node\Inline\RawText;
 use MarkupCarve\Carve\Node\Inline\Ruby;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
@@ -2841,6 +2842,15 @@ class AstCodec
         $type = $data['type'] ?? null;
         if (!is_string($type)) {
             throw new AstDecodeException('Every node needs a string type');
+        }
+        if ($type === 'table_cell_ref') {
+            $source = is_string($data['source'] ?? null) ? TableCellRef::fromSource($data['source']) : null;
+            if (
+                $source === null || $source->getTarget() !== ($data['target'] ?? null)
+                || $source->getRow() !== ($data['row'] ?? null) || $source->getColumn() !== ($data['column'] ?? null)
+            ) {
+                throw new AstDecodeException('table_cell_ref source disagrees with target or selectors');
+            }
         }
 
         // Undo the wire shapes this codec writes, so a tree it produced decodes

@@ -60,6 +60,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
 use MarkupCarve\Carve\Node\Node;
@@ -304,6 +305,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
 
     public function render(Document $document): string
     {
+        (new TableCellRefResolver())->resolve($document);
         $this->headingIdTracker->reset();
         $this->referencedLinkDefinitions = ReferencedLinkDefinitions::labels($document);
         $this->resetExpansionBudgetForDocument($document);
@@ -449,6 +451,7 @@ class PlainTextRenderer implements RendererInterface, RenderLossAwareRendererInt
                 => $this->stripControls('[^' . $node->getLabel() . ']'),
                 $node instanceof FootnoteRef => '[' . $this->stripControls($node->getLabel()) . ']',
                 $node instanceof HeadingRef => $this->renderHeadingRef($node),
+                $node instanceof TableCellRef => $this->stripControls($node->getValue() ?? $node->fallback()),
                 $node instanceof CaptionNumber => $node->getNumber() === null ? '#' : (string)$node->getNumber(),
                 $node instanceof NonBreakingSpace => "\0",
                 $node instanceof SoftBreak => $this->softBreakMode === SoftBreakMode::Space ? ' ' : "\n",

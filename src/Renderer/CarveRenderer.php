@@ -74,6 +74,7 @@ use MarkupCarve\Carve\Node\Inline\Subscript;
 use MarkupCarve\Carve\Node\Inline\Substitution;
 use MarkupCarve\Carve\Node\Inline\Superscript;
 use MarkupCarve\Carve\Node\Inline\Symbol;
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Inline\Underline;
 use MarkupCarve\Carve\Node\Inline\UnresolvedReference;
@@ -4555,6 +4556,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $node instanceof Delete => $withAttrs($this->spellSameKind($node, '-', '{-' . $this->guardGraphemeContent('delete', $this->renderMarked('delete', $node)) . '-}')),
             $node instanceof Substitution => '{~' . $this->guardGraphemeContent('substitution', $this->renderInlines($node->getOld()->getChildren())) . '~>' . $this->renderInlines($node->getNew()->getChildren()) . '~}',
             $node instanceof HeadingRef => '</#' . $this->escapeCrossrefTarget($node->getTargetId()) . '>',
+            $node instanceof TableCellRef => $withAttrs($node->getSource()),
             $node instanceof CaptionNumber => '#',
             $node instanceof CitationGroup => $node->getRaw(),
             $node instanceof Ruby => $this->renderRuby($node),

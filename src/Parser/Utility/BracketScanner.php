@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser\Utility;
 
+use MarkupCarve\Carve\Node\Inline\TableCellRef;
 use MarkupCarve\Carve\Parser\InlineParser;
 use function str_repeat;
 use function strlen;
@@ -74,6 +75,14 @@ final class BracketScanner
         $bracketDepth = 1;
         $pos = $openPos + 1;
         while ($pos < $length) {
+            if ($text[$pos] === '@' && substr($text, $pos, 3) === '@{#') {
+                $end = TableCellRef::sourceEnd($text, $pos);
+                if ($end !== null && TableCellRef::fromSource(substr($text, $pos, $end - $pos)) !== null) {
+                    $pos = $end;
+
+                    continue;
+                }
+            }
             if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\' || $text[$pos] === '<') {
                 $opaqueEnd = self::opaqueEnd($text, $pos);
                 if ($opaqueEnd === null) {
@@ -126,7 +135,7 @@ final class BracketScanner
             return [$openPos => null];
         }
         $pos = $openPos + 1;
-        $pos += strcspn($text, '[]`{\\<', $pos);
+        $pos += strcspn($text, '[]`{\\<@', $pos);
         if ($pos < $length && $text[$pos] === ']') {
             return [$openPos => $pos];
         }
@@ -135,10 +144,18 @@ final class BracketScanner
         $ends = [];
         while ($pos < $length) {
             $char = $text[$pos];
-            if ($char !== '[' && $char !== ']' && $char !== '`' && $char !== '{' && $char !== '\\' && $char !== '<') {
-                $pos += strcspn($text, '[]`{\\<', $pos);
+            if ($char !== '[' && $char !== ']' && $char !== '`' && $char !== '{' && $char !== '\\' && $char !== '<' && $char !== '@') {
+                $pos += strcspn($text, '[]`{\\<@', $pos);
 
                 continue;
+            }
+            if ($char === '@' && substr($text, $pos, 3) === '@{#') {
+                $end = TableCellRef::sourceEnd($text, $pos);
+                if ($end !== null && TableCellRef::fromSource(substr($text, $pos, $end - $pos)) !== null) {
+                    $pos = $end;
+
+                    continue;
+                }
             }
             if ($char === '`' || $char === '{' || $char === '\\' || $char === '<') {
                 $opaqueEnd = self::opaqueEnd($text, $pos);
@@ -189,6 +206,14 @@ final class BracketScanner
         }
         $offsets = [];
         for ($pos = 0, $length = strlen($text); $pos < $length; $pos++) {
+            if ($text[$pos] === '@' && substr($text, $pos, 3) === '@{#') {
+                $end = TableCellRef::sourceEnd($text, $pos);
+                if ($end !== null && TableCellRef::fromSource(substr($text, $pos, $end - $pos)) !== null) {
+                    $pos = $end - 1;
+
+                    continue;
+                }
+            }
             if ($text[$pos] === '`' || $text[$pos] === '{' || $text[$pos] === '\\' || $text[$pos] === '<') {
                 $end = self::opaqueEnd($text, $pos);
                 if (is_int($end)) {
