@@ -406,6 +406,9 @@ class BbcodeToCarve
         $text = preg_replace_callback('/\[(?:c|icode)\].*?\[\/(?:c|icode)\]/is', $protect, $text) ?? $text;
         $text = preg_replace_callback('/\[url\].*?\[\/url\]/is', $protect, $text) ?? $text;
         $text = preg_replace_callback('/\[img(?:=[^\]]*)?\].*?\[\/img\]/is', $protect, $text) ?? $text;
+        // A quote opener with its fields after a space (`[quote name="bob"]`) is a
+        // tag too; the pattern below only sees `[tag=...]`.
+        $text = preg_replace_callback('/\[quote [^\]]*\]/i', $protect, $text) ?? $text;
         $text = preg_replace_callback('/\[\/?[a-z][a-z0-9]*(?:=[^\]]*)?\]/i', $protect, $text) ?? $text;
         // `[*]` is the list-item tag, and the pattern above cannot see it - it
         // requires a letter after the bracket. Left unprotected, two of them on
@@ -863,7 +866,8 @@ class BbcodeToCarve
         $copy = '';
         $origin = [];
         $from = 0;
-        preg_match_all('/\[(\/?)(\*|[a-z][a-z0-9]*)(=[^\]\n]*)?\]/i', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
+        // A quote opener also takes its fields after a space (`[quote name="bob"]`).
+        preg_match_all('/\[(\/?)(\*|[a-z][a-z0-9]*)(=[^\]\n]*|(?<=\[quote) [^\]\n]*)?\]/i', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
         foreach ($matches as $match) {
             [$whole, $at] = $match[0];
             if ($at > 0 && $text[$at - 1] === '\\') {
@@ -1108,126 +1112,197 @@ class BbcodeToCarve
         // Ensure blank line before blockquote for proper Carve block separation
         $output = "\n\n" . implode("\n", $quoted) . "\n";
 
-        if ($author !== null && $author !== '') {
-            $output .= '^ ' . $this->formatAttribution($author) . "\n";
+        $caption = $author === null ? '' : $this->formatAttribution($author);
+        if ($caption !== '') {
+            $output .= '^ ' . $caption . "\n";
         }
 
         return $output . "\n";
     }
 
     /**
-     * Parse BBCode quote attribution and format as "name (datetime) #id".
+     * Split an attribution into `key=value` fields, quoted texts and bare words.
      *
-     * Handles formats like:
-     * - username
-     * - username date="2024-01-01"
-     * - "9" name="user" date="2024-01-01 12:30"
-     * - id="9" name="user" date="2024-01-01"
+     * @return array<int, array{kind: string, key: string, value: string, quoted: bool, index: int}>
+     */
+    protected function attributionParts(string $attribution): array
+    {
+        $parts = [];
+        $length = strlen($attribution);
+        // ASCII whitespace only, so every engine splits an attribution at the same places.
+        $space = " \t\n\r\f";
+        $quotedEnd = static function (int $from) use ($attribution, $length): int {
+            if ($from >= $length || ($attribution[$from] !== '"' && $attribution[$from] !== "'")) {
+                return -1;
+            }
+            $close = strpos($attribution, $attribution[$from], $from + 1);
+
+            return $close === false ? -1 : $close;
+        };
+        $i = 0;
+        while ($i < $length) {
+            if (str_contains($space, $attribution[$i])) {
+                $i++;
+
+                continue;
+            }
+            $index = count($parts);
+            if (preg_match('/\G[A-Za-z_][A-Za-z0-9_-]*=/', $attribution, $key, 0, $i) === 1) {
+                $from = $i + strlen($key[0]);
+                $close = $quotedEnd($from);
+                if ($close === -1) {
+                    $to = $from + strcspn($attribution, $space, $from);
+                    $value = substr($attribution, $from, $to - $from);
+                    $i = $to;
+                } else {
+                    $value = substr($attribution, $from + 1, $close - $from - 1);
+                    $i = $close + 1;
+                }
+                $parts[] = ['kind' => 'field', 'key' => substr($key[0], 0, -1), 'value' => $value, 'quoted' => false, 'index' => $index];
+
+                continue;
+            }
+            $close = $quotedEnd($i);
+            if ($close !== -1) {
+                $parts[] = ['kind' => 'text', 'key' => '', 'value' => substr($attribution, $i + 1, $close - $i - 1), 'quoted' => true, 'index' => $index];
+                $i = $close + 1;
+
+                continue;
+            }
+            $to = $i + strcspn($attribution, $space, $i);
+            $parts[] = ['kind' => 'text', 'key' => '', 'value' => substr($attribution, $i, $to - $i), 'quoted' => false, 'index' => $index];
+            $i = $to;
+        }
+
+        return $parts;
+    }
+
+    /**
+     * Read a quote attribution into its `name (date) #id` caption and collect the
+     * parts it drops, in source order. docs/format-bridges.md, "BBCode quote
+     * attribution reading", is the contract.
      *
      * @param string $attribution
      * @param array<int, array{field: string, unnamed: bool}>|null $droppedFields
      */
     protected function formatAttribution(string $attribution, ?array &$droppedFields = null): string
     {
-        $attribution = trim($attribution);
-        $remaining = $attribution;
+        $parts = $this->attributionParts($attribution);
+        /** @var array<int, array{field: string, unnamed: bool, index: int}> $drops */
+        $drops = [];
+        /** @var array<string, array{kind: string, key: string, value: string, quoted: bool, index: int}> $first */
+        $first = [];
+        $texts = [];
+        foreach ($parts as $part) {
+            if ($part['kind'] === 'text') {
+                if ($part['value'] !== '') {
+                    $texts[] = $part;
+                }
+
+                continue;
+            }
+            $kind = strtolower($part['key']);
+            if ($kind === 'author') {
+                $kind = 'name';
+            }
+            $known = in_array($kind, ['name', 'post_id', 'id', 'date', 'time'], true);
+            $usable = $part['value'] !== '' && (($kind !== 'post_id' && $kind !== 'id') || preg_match('/^[0-9]+$/', $part['value']) === 1);
+            if (!$known || !$usable || isset($first[$kind])) {
+                $drops[] = ['field' => $part['key'], 'unnamed' => false, 'index' => $part['index']];
+            } else {
+                $first[$kind] = $part;
+            }
+        }
 
         $id = null;
-        $name = null;
-        $datetime = null;
-
-        // Extract id="..." or bare "..." at start (post/message ID)
-        if (preg_match('/^["\'](\d+)["\']/', $remaining, $m)) {
-            $id = $m[1];
-            $remaining = trim(substr($remaining, strlen($m[0])));
-        } elseif (preg_match('/\bid=["\']?(\d+)["\']?/i', $remaining, $m)) {
-            $id = $m[1];
-            $remaining = str_replace($m[0], '', $remaining);
-        }
-
-        if (preg_match('/\bpost_id=["\']?(\d+)["\']?/i', $remaining, $m)) {
-            if ($id !== null && $droppedFields !== null) {
-                $droppedFields[] = ['field' => 'id', 'unnamed' => false];
+        $leadingId = $texts !== [] && $texts[0]['quoted'] && $texts[0]['index'] === 0 && preg_match('/^[0-9]+$/', $texts[0]['value']) === 1
+            ? array_shift($texts)
+            : null;
+        if (isset($first['post_id'])) {
+            $id = $first['post_id']['value'];
+            if (isset($first['id'])) {
+                $drops[] = ['field' => $first['id']['key'], 'unnamed' => false, 'index' => $first['id']['index']];
             }
-            $id = $m[1];
-            $remaining = str_replace($m[0], '', $remaining);
+        } elseif (isset($first['id'])) {
+            $id = $first['id']['value'];
+        } elseif ($leadingId !== null) {
+            $id = $leadingId['value'];
+        }
+        // A leading `"9"` that a field outranks is reported under the field it stands for.
+        if ($leadingId !== null && (isset($first['post_id']) || isset($first['id']))) {
+            $drops[] = ['field' => 'id', 'unnamed' => false, 'index' => $leadingId['index']];
         }
 
-        // Extract name="..."
-        if (preg_match('/\bname=["\']([^"\']+)["\']/i', $remaining, $m)) {
-            $name = $m[1];
-            $remaining = str_replace($m[0], '', $remaining);
-        }
-
-        // Extract date="..." (may include time)
-        if (preg_match('/\bdate=["\']([^"\']+)["\']/i', $remaining, $m)) {
-            $datetime = $m[1];
-            $remaining = str_replace($m[0], '', $remaining);
-        }
-
-        // Extract time="..." separately if present
-        if (preg_match('/\btime=(?:["\']([^"\']+)["\']|(\d+)(?=\s|$))/i', $remaining, $m)) {
-            $time = $m[1] !== '' ? $m[1] : $m[2];
-            // A Unix time replaces an explicit date rather than joining it.
-            if ($datetime !== null && $droppedFields !== null && preg_match('/^\d{9,11}$/', $time) === 1) {
-                $droppedFields[] = ['field' => 'date', 'unnamed' => false];
-            }
-            $datetime = preg_match('/^\d{9,11}$/', $time) === 1
-                ? gmdate('Y-m-d', (int)$time)
-                : ($datetime !== null ? $datetime . ' ' . $time : $time);
-            $remaining = str_replace($m[0], '', $remaining);
-        }
-
-        $remaining = preg_replace_callback('/\b(user_id)=(?:"[^"]*"|\'[^\']*\'|\S+)/i', static function (array $match) use (&$droppedFields): string {
-            if ($droppedFields !== null) {
-                $droppedFields[] = ['field' => $match[1], 'unnamed' => false];
-            }
-
-            return '';
-        }, $remaining) ?? $remaining;
-
-        // If no name attribute found, use remaining text as name
-        $remaining = trim($remaining);
-        if ($name === null && $remaining !== '') {
-            $name = $remaining;
-        } elseif ($remaining !== '' && $droppedFields !== null) {
-            $rest = $remaining;
-            if (preg_match('/^["\'][^"\']+["\']/', $rest, $quotedName)) {
-                $droppedFields[] = ['field' => substr($quotedName[0], 1, -1), 'unnamed' => true];
-                $rest = substr($rest, strlen($quotedName[0]));
-            }
-            $rest = preg_replace_callback('/\b([A-Za-z_][\w-]*)=(?:"[^"]*"|\'[^\']*\'|\S+)/', static function (array $match) use (&$droppedFields): string {
-                $droppedFields[] = ['field' => $match[1], 'unnamed' => false];
-
-                return '';
-            }, $rest) ?? $rest;
-            $rest = trim($rest);
-            if ($rest !== '') {
-                $droppedFields[] = ['field' => $rest, 'unnamed' => true];
-            }
-        }
-
-        if ($name !== null && strlen($name) >= 2 && ($name[0] === '"' || $name[0] === "'") && $name[-1] === $name[0]) {
-            $name = substr($name, 1, -1);
-        }
-
-        if ($name !== null && $id === null && preg_match('/^(.+);(\d+)$/', $name, $m)) {
-            $name = $m[1];
+        $text = implode(' ', array_column($texts, 'value'));
+        if ($id === null && preg_match('/^(.+);([0-9]+)$/s', $text, $m) === 1) {
+            $text = $m[1];
             $id = $m[2];
+            foreach ($texts as $index => $part) {
+                if ($index === count($texts) - 1) {
+                    $part['value'] = preg_replace('/;[0-9]+$/', '', $part['value']) ?? '';
+                    $texts[$index] = $part;
+                }
+            }
         }
 
-        // Build output: name (datetime) #id
-        $output = $name ?? '';
-
-        if ($datetime !== null) {
-            $output .= ' (' . $datetime . ')';
+        $name = isset($first['name']) ? $first['name']['value'] : $text;
+        if (isset($first['name'])) {
+            $run = null;
+            foreach ($texts as $part) {
+                if ($part['quoted'] || $run === null || $part['index'] !== $run['last'] + 1) {
+                    if ($run !== null) {
+                        $drops[] = ['field' => $run['value'], 'unnamed' => true, 'index' => $run['index']];
+                    }
+                    $run = null;
+                    if ($part['value'] !== '') {
+                        if ($part['quoted']) {
+                            $drops[] = ['field' => $part['value'], 'unnamed' => true, 'index' => $part['index']];
+                        } else {
+                            $run = ['value' => $part['value'], 'index' => $part['index'], 'last' => $part['index']];
+                        }
+                    }
+                } else {
+                    $run['value'] .= ' ' . $part['value'];
+                    $run['last'] = $part['index'];
+                }
+            }
+            if ($run !== null) {
+                $drops[] = ['field' => $run['value'], 'unnamed' => true, 'index' => $run['index']];
+            }
         }
 
+        $date = isset($first['date']) ? $first['date']['value'] : null;
+        if (isset($first['time'])) {
+            $time = $first['time']['value'];
+            if (preg_match('/^[0-9]{9,11}$/', $time) === 1) {
+                if (isset($first['date'])) {
+                    $drops[] = ['field' => $first['date']['key'], 'unnamed' => false, 'index' => $first['date']['index']];
+                }
+                $date = gmdate('Y-m-d', (int)$time);
+            } else {
+                $date = $date !== null ? $date . ' ' . $time : $time;
+            }
+        }
+
+        if ($droppedFields !== null) {
+            usort($drops, static fn (array $a, array $b): int => $a['index'] <=> $b['index']);
+            foreach ($drops as $drop) {
+                $droppedFields[] = ['field' => $drop['field'], 'unnamed' => $drop['unnamed']];
+            }
+        }
+
+        $caption = [];
+        if ($name !== '') {
+            $caption[] = $name;
+        }
+        if ($date !== null) {
+            $caption[] = '(' . $date . ')';
+        }
         if ($id !== null) {
-            $output .= ' #' . $id;
+            $caption[] = '#' . $id;
         }
 
-        return trim($output);
+        return implode(' ', $caption);
     }
 
     /**
