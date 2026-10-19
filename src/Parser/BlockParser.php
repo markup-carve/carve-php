@@ -7982,6 +7982,9 @@ class BlockParser
                 $end = $this->colonSpanEndForLooseness($subLines, $k, $colon['length']);
                 if (
                     $colon['className'] === 'figure'
+                    && !$colon['invalidMetadata']
+                    && $colon['label'] === null
+                    && $this->figureGroupDepth === 0
                     && $end + 1 < $n
                     && $subLines[$end] === ''
                     && IndentationHelper::getLeadingColumns($subLines[$end + 1]) === 0

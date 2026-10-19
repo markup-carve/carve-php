@@ -62,4 +62,28 @@ class CaptionInListItemTest extends TestCase
         $this->assertStringNotContainsString('<figcaption>', $html);
         $this->assertStringContainsString('<li><p>c</p></li>', $html);
     }
+
+    #[DataProvider('nonFigureGroupOpeners')]
+    public function testGenericFigureDivDoesNotClaimCaption(string $opener): void
+    {
+        $html = CarveConverter::create()->convert("- {$opener}\n  ![a](b.png)\n  :::\n\n  ^ cap\n- c\n");
+
+        $this->assertStringNotContainsString('<figcaption>', $html);
+        $this->assertStringContainsString('<p>^ cap</p>', $html);
+        $this->assertStringContainsString('<li><p>c</p></li>', $html);
+    }
+
+    /**
+     * Figure divs that do not become figure groups.
+     *
+     * @return array<string, array{string}>
+     */
+    public static function nonFigureGroupOpeners(): array
+    {
+        return [
+            'label' => ['::: figure [lbl]'],
+            'attribute' => ['::: figure {#f}'],
+            'title' => ['::: figure "T"'],
+        ];
+    }
 }
