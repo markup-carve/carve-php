@@ -61,6 +61,30 @@ final class MigrationResultTest extends TestCase
         self::assertSame(['line:1', 'line:1', 'line:1', 'line:2'], array_map(static fn (MigrationDiagnostic $row): ?string => $row->path, $rows));
     }
 
+    public function testBbcodeReportsQuotedTextsAndBareRunsInSourceOrder(): void
+    {
+        $cases = [
+            '[quote="bob" name="alice" foo=bar stray words]x[/quote]' => ['bob', 'foo', 'stray words'],
+            '[quote="bob" name="alice" foo=bar name="carol" stray]q[/quote]' => ['bob', 'foo', 'name', 'stray'],
+            '[quote=Bob Smith name="x"]q[/quote]' => ['Bob Smith'],
+            '[quote=one two name=x "three" four five;12]q[/quote]' => ['one two', 'three', 'four five'],
+        ];
+        foreach ($cases as $source => $expected) {
+            $rows = array_values(array_filter(
+                (new BbcodeToCarve())->convertWithFidelityReport($source)->diagnostics,
+                static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-quote-field-dropped',
+            ));
+            $actual = array_map(static function (MigrationDiagnostic $row): string {
+                if (preg_match('/^Dropped the unnamed quote attribution text "(.*)", which/', $row->message, $match) === 1) {
+                    return $match[1];
+                }
+
+                return substr($row->message, strlen('Dropped the quote attribution field '), -1);
+            }, $rows);
+            self::assertSame($expected, $actual, $source);
+        }
+    }
+
     public function testBbcodeReportsAnIdOrDateThatALaterFieldReplaces(): void
     {
         $cases = [
