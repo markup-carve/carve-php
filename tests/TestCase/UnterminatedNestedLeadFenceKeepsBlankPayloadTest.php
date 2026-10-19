@@ -26,7 +26,9 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
     public function testWhitespacePayload(string $source, string $expectedPayload): void
     {
         $html = (new CarveConverter())->convert($source);
-        self::assertSame(1, preg_match('~<pre><code>(.*?)</code></pre>~s', $html, $matches));
+        if (preg_match('~<pre><code>(.*?)</code></pre>~s', $html, $matches) !== 1) {
+            self::fail('Expected a fenced code block in the rendered HTML.');
+        }
         self::assertSame($expectedPayload, $matches[1]);
     }
 
@@ -44,6 +46,29 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
             "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>\n",
             (new CarveConverter())->convert("- - ```\n\n    ```\ntail"),
         );
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function unusedNestedContinuationProvider(): array
+    {
+        return [
+            'one blank' => ["- - ```\n  +\n\ntail", ''],
+            'two blanks' => ["- - ```\n  +\n\n\ntail", ''],
+            'depth one keeps its blank' => ["- ```\n+\n\ntail", "\n"],
+        ];
+    }
+
+    #[DataProvider('unusedNestedContinuationProvider')]
+    public function testUnusedNestedContinuationKeepsBlankOutOfPayload(string $source, string $payload): void
+    {
+        $html = (new CarveConverter())->convert($source);
+        if (preg_match('~<pre><code>(.*?)</code></pre>~s', $html, $matches) !== 1) {
+            self::fail('Expected a fenced code block in the rendered HTML.');
+        }
+        self::assertSame($payload, $matches[1]);
+        self::assertStringContainsString("<p>tail</p>\n", $html);
     }
 
     /**

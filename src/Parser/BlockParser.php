@@ -5064,6 +5064,34 @@ class BlockParser
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $bareLeadQuoteState = null;
                 $this->advanceNestedLeadFenceState($nestedFence, $itemLines);
+                if (
+                    $this->leadBottomOpensFence($lead)
+                    && $this->listParser->parseListItemMarker($lead) !== null
+                    && count($itemLines) === 2
+                    && $this->isContinuationMarker(ltrim($itemLines[1], " \t"))
+                ) {
+                    $markerColumn = 0;
+                    $lastMarkerColumn = 0;
+                    $markerRest = $lead;
+                    for ($offset = $this->listParser->markerContentOffset($markerRest); $offset !== null; $offset = $this->listParser->markerContentOffset($markerRest)) {
+                        $lastMarkerColumn = $markerColumn;
+                        $markerRest = substr($markerRest, $offset);
+                        $markerColumn += $offset;
+                    }
+                    $nextContent = $i + 1;
+                    while ($nextContent < $count && IndentationHelper::isBlankLine($lines[$nextContent])) {
+                        $nextContent++;
+                    }
+                    if (
+                        IndentationHelper::getLeadingColumns($itemLines[1]) === $lastMarkerColumn
+                        && ($nextContent >= $count || IndentationHelper::getLeadingColumns($lines[$nextContent]) < $contentIndent + $nestedFence->column)
+                    ) {
+                        $trailingState = $this->advanceTrailingState($trailingState, '');
+                        $i = $nextContent;
+
+                        continue;
+                    }
+                }
                 // Keep the run for the child parser, including a fence that
                 // reaches the end of its item. The next content line still
                 // decides whether this item continues.
