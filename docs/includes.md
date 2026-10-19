@@ -40,14 +40,37 @@ so without one `b.crv` and `./b.crv` are two files as far as the guard is
 concerned and only the depth limit stops the recursion.
 
 The transform recognizes `#section`, `@lines:N-M`, `@region:name`,
-`@shift:N` and `@shift:auto`. A directive uses at most one selector.
-`@region:name` includes lines between matching `// #region name` and
-`// #endregion name` markers, or matching `#region` and `#endregion` markers.
-Invalid or missing regions warn with `include-region-invalid` and leave the
-directive literal. Automatic shifting places the included document's shallowest
-heading one level below the nearest preceding heading in the include site's own
-or enclosing block container. Failures leave the directive literal and add an
-include warning.
+`@shift:N`, `@shift:auto`, `@code`, and `@code:lang`. A directive uses at most
+one selector. In a Carve include, only `%% #region name` and
+`%% #endregion name` mark a region. The selected lines are read as Carve. In a
+code include, `#region`, `// #region`, `-- #region`, `/* #region */`,
+`<!-- #region -->`, and `%% #region` forms are recognized, with corresponding
+`#endregion` forms. Keywords are case-sensitive. `%%%` is never a marker. A
+block comment closer must end the same line. Invalid or missing regions warn
+with `include-region-invalid` and leave the directive literal.
+
+`@code` makes the selected source one unparsed code block. Bare `@code` has no
+language; `@code:lang` sets it explicitly. It works with `@lines` and `@region`.
+Combining it with `#section` warns with `include-selection-conflict`. An
+attribute line directly above a block directive applies to the code block.
+`@shift` has no effect on code content. In inline position, a code include
+warns with `include-block-in-inline` and stays literal. For example:
+
+```carve
+{.example #sample title="Selected source"}
+{{ snippets/example.js @region:demo @code:js }}
+```
+
+`IncludeExpander::selectIncludeRegion($source, $name, $mode)` returns the
+1-based content line range for mode `carve` or `code`, or the
+`include-region-invalid` rule. The linter reports
+`region-marker-renders-as-text` for source-style markers that would render as
+Carve text and for mixed-case `%%` markers.
+
+Automatic shifting places the included document's shallowest heading one level
+below the nearest preceding heading in the include site's own or enclosing
+block container. Failures leave the directive literal and add an include
+warning.
 
 ## Reported dependencies
 

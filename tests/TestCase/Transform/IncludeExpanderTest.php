@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Transform;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
 use MarkupCarve\Carve\Transform\IncludeContext;
 use MarkupCarve\Carve\Transform\IncludeDependency;
@@ -17,6 +18,41 @@ use RuntimeException;
 
 class IncludeExpanderTest extends TestCase
 {
+    public function testRegionSelectionUsesIncludeMode(): void
+    {
+        $source = "#region source\r\nx\r\n#endregion source\r\n%% #region carve\r\ny\r\n%% #endregion carve";
+        $this->assertSame(['ok' => false, 'rule' => IncludeExpander::RULE_REGION_INVALID], IncludeExpander::selectIncludeRegion($source, 'source', 'carve'));
+        $this->assertSame(['ok' => true, 'start' => 2, 'end' => 2], IncludeExpander::selectIncludeRegion($source, 'source', 'code'));
+        $this->assertSame(['ok' => true, 'start' => 5, 'end' => 5], IncludeExpander::selectIncludeRegion($source, 'carve', 'carve'));
+    }
+
+    public function testCodeIncludeUsesBareAndNamedLanguage(): void
+    {
+        $converter = new CarveConverter();
+        $source = "%% #region sample\n{{ nested.crv }}\n%% #endregion sample\n";
+        foreach (['@code' => null, '@code:js @region:sample' => 'js'] as $options => $language) {
+            $document = $converter->parse("{{ child.crv {$options} }}\n");
+            $expander = new IncludeExpander($this->resolver(['child.crv' => $source]));
+            $nodes = array_values($converter->transform($document, $expander)->getChildren());
+            $this->assertInstanceOf(CodeBlock::class, $nodes[0]);
+            $this->assertSame($language, $nodes[0]->getLanguage());
+            $this->assertStringContainsString('{{ nested.crv }}', $nodes[0]->getContent());
+            $this->assertSame([], $expander->getWarnings());
+        }
+    }
+
+    public function testCodeIncludeDropsOnlyTheFilesOwnBom(): void
+    {
+        $converter = new CarveConverter();
+        foreach (['@code' => "a\n\u{FEFF}b\n", '@code @lines:2-2' => "\u{FEFF}b\n"] as $options => $content) {
+            $document = $converter->parse("{{ child.txt {$options} }}\n");
+            $expander = new IncludeExpander($this->resolver(['child.txt' => "\u{FEFF}a\n\u{FEFF}b\n"]));
+            $node = $converter->transform($document, $expander)->getChildren()[0];
+            $this->assertInstanceOf(CodeBlock::class, $node);
+            $this->assertSame($content, $node->getContent());
+        }
+    }
+
     public function testNoResolverLeavesDirectiveLiteral(): void
     {
         $converter = new CarveConverter();
@@ -625,7 +661,7 @@ class IncludeExpanderTest extends TestCase
     {
         $converter = new CarveConverter();
         $converter->getParser()->enablePositionTracking();
-        $source = "Before.\r\n// #region demo\r\n## Pick\r\n\r\nBody.\r\n// #endregion demo\r\nAfter.";
+        $source = "Before.\r\n%% #region demo\r\n## Pick\r\n\r\nBody.\r\n%% #endregion demo\r\nAfter.";
         $document = $converter->parse("{{ child.crv @region:demo }}\n");
         $expander = new IncludeExpander($this->resolver(['child.crv' => $source]), 'main.crv');
         $expanded = $converter->transform($document, $expander);
@@ -640,9 +676,9 @@ class IncludeExpanderTest extends TestCase
         $converter = new CarveConverter();
         foreach (
             [
-                '// #region other\nBody.\n// #endregion other',
-                '// #region demo\nBody.\n// #endregion other',
-                '// #region demo\nBody.\n// #endregion demo\n// #region demo',
+                '%% #region other\nBody.\n%% #endregion other',
+                '%% #region demo\nBody.\n%% #endregion other',
+                '%% #region demo\nBody.\n%% #endregion demo\n%% #region demo',
             ] as $source
         ) {
             $document = $converter->parse('{{ child.crv @region:demo }}');

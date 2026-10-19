@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Transform;
 
 use Closure;
+use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Ast\TextRunCoalescer;
 use MarkupCarve\Carve\CarveConverter;
@@ -15,6 +16,7 @@ use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockNode;
 use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CitationDefinition;
+use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
@@ -458,6 +460,9 @@ class IncludeExpander implements TransformerInterface
                             $node->setRenderHint('includeHostOffset', $hostOffset);
                         }
                     }
+                    if ($directive['code'] !== null && isset($replacement[0]) && $replacement[0] instanceof CodeBlock) {
+                        $replacement[0]->setAttributesWithOrder($paragraph->getAttributeEntries(), $paragraph->getAttributeOrder());
+                    }
                     $parent->replaceChildWithMany($paragraph, $replacement);
                 }
 
@@ -643,7 +648,7 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
-     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, shift: int|'auto'} $directive
+     * @param array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto'} $directive
      * @param string|null $currentPath
      * @param bool $block
      * @param list<string> $stack
@@ -664,7 +669,7 @@ class IncludeExpander implements TransformerInterface
         ?Node $contextParent = null,
         ?Node $contextNode = null,
     ): ?array {
-        if (count(array_filter([$directive['section'], $directive['lines'], $directive['region']], static fn ($value) => $value !== null)) > 1) {
+        if (count(array_filter([$directive['section'], $directive['lines'], $directive['region']], static fn ($value) => $value !== null)) > 1 || ($directive['section'] !== null && $directive['code'] !== null)) {
             $this->warn('Include directive cannot combine selectors', self::RULE_SELECTION_CONFLICT);
 
             return null;
@@ -785,7 +790,7 @@ class IncludeExpander implements TransformerInterface
         $sliceLineBase = 0;
         $completeSource = $source;
         if ($directive['region'] !== null) {
-            $range = $this->regionRange($source, $directive['region']);
+            $range = self::regionRange($source, $directive['region'], $directive['code'] !== null);
             if ($range === null) {
                 $this->warn("Include has an invalid or missing region '{$directive['region']}': {$directive['path']}", self::RULE_REGION_INVALID);
 
@@ -798,9 +803,30 @@ class IncludeExpander implements TransformerInterface
             $source = $this->sliceLines($source, $directive['lines']['start'], $directive['lines']['end']);
         }
 
-        $document = $this->parseChild($source);
-        if ($directive['lines'] !== null) {
-            $this->shiftSourcePositions($document, $completeSource, $source, $sliceLineBase);
+        if ($directive['code'] !== null) {
+            // Only the file's own BOM is dropped, not a U+FEFF that opens a later selected line.
+            $payload = $sliceLineBase === 0 ? (preg_replace('/^\x{FEFF}/u', '', $source) ?? $source) : $source;
+            $payloadLines = $payload === '' ? [] : (preg_split('/\r\n|\r|\n/', $payload) ?: []);
+            if ($payloadLines !== [] && end($payloadLines) === '') {
+                array_pop($payloadLines);
+            }
+            $content = $payloadLines === [] ? '' : implode("\n", $payloadLines) . "\n";
+            $code = new CodeBlock($content, $directive['code']['lang']);
+            if ($this->trackPositions) {
+                $startLine = $sliceLineBase + 1;
+                $startOffset = $this->lineStartOffset($completeSource, $startLine);
+                $endOffset = $directive['lines'] === null
+                    ? mb_strlen($completeSource, 'UTF-8')
+                    : $this->lineStartOffset($completeSource, $directive['lines']['end'] + 1);
+                $code->setPos(new SourceSpan($startLine, $startLine + max(0, count($payloadLines) - 1), 1, 1, $startOffset, $endOffset));
+            }
+            $document = new Document();
+            $document->appendChild($code);
+        } else {
+            $document = $this->parseChild($source);
+            if ($directive['lines'] !== null) {
+                $this->shiftSourcePositions($document, $completeSource, $source, $sliceLineBase);
+            }
         }
         if ($directive['section'] !== null) {
             $document = $this->selectSection($document, $directive['section']);
@@ -826,12 +852,16 @@ class IncludeExpander implements TransformerInterface
         // names the child rather than the document that included it.
         $outerFile = $this->warningFile;
         $this->warningFile = $id;
-        $this->expandChildren($document, $id, [...$stack, $id], $depth + 1, $budget);
+        if ($directive['code'] === null) {
+            $this->expandChildren($document, $id, [...$stack, $id], $depth + 1, $budget);
+        }
         $this->stampSourceFile($document, $id);
-        $shift = $directive['shift'] === 'auto'
-            ? $this->autoShift($document, $block, $contextParent, $contextNode)
-            : $directive['shift'];
-        $this->shiftHeadings($document, $shift);
+        if ($directive['code'] === null) {
+            $shift = $directive['shift'] === 'auto'
+                ? $this->autoShift($document, $block, $contextParent, $contextNode)
+                : $directive['shift'];
+            $this->shiftHeadings($document, $shift);
+        }
         // Back in the parent: the remaining checks are about the DIRECTIVE, not
         // the child's content, so they are the including document's problem.
         $this->warningFile = $outerFile;
@@ -911,7 +941,7 @@ class IncludeExpander implements TransformerInterface
      * inline markers is split by core parsing and remains literal by design
      * (corpus pin: bare-path directive with no active inline markers).
      *
-     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, shift: int|'auto'}|null
+     * @return array{literal: string, path: string, section: string|null, lines: array{start: int, end: int}|null, region: string|null, code: array{lang: string|null}|null, shift: int|'auto'}|null
      */
     protected function parseDirective(string $text): ?array
     {
@@ -944,6 +974,7 @@ class IncludeExpander implements TransformerInterface
             'section' => $parts['section'],
             'lines' => $parts['lines'],
             'region' => $parts['region'],
+            'code' => $parts['code'],
             'shift' => $parts['shift'],
         ];
     }
@@ -1157,19 +1188,55 @@ class IncludeExpander implements TransformerInterface
     }
 
     /**
+     * @throws \InvalidArgumentException
+     *
+     * @return array{ok: true, start: int, end: int}|array{ok: false, rule: 'include-region-invalid'}
+     */
+    public static function selectIncludeRegion(string $source, string $name, string $mode): array
+    {
+        if ($mode !== 'carve' && $mode !== 'code') {
+            throw new InvalidArgumentException('Include region mode must be carve or code');
+        }
+
+        $range = self::regionRange($source, $name, $mode === 'code');
+
+        return $range === null
+            ? ['ok' => false, 'rule' => self::RULE_REGION_INVALID]
+            : ['ok' => true, 'start' => $range[0], 'end' => $range[1]];
+    }
+
+    /**
      * @return array{int, int}|null
      */
-    protected function regionRange(string $source, string $selected): ?array
+    protected static function regionRange(string $source, string $selected, bool $code): ?array
     {
         $lines = preg_split('/\r\n|\n|\r/', $source) ?: [];
         $stack = [];
         $seen = [];
         $range = null;
         foreach ($lines as $index => $line) {
-            if (preg_match('/^[ \t]*(?:\/\/[ \t]*)?#(?:end)?region\b/', $line) !== 1) {
+            $line = ltrim($line, " \t");
+            $closer = '';
+            if (str_starts_with($line, '%%') && !str_starts_with($line, '%%%')) {
+                $body = substr($line, 2);
+            } elseif (!$code) {
+                continue;
+            } elseif (str_starts_with($line, '//') || str_starts_with($line, '--')) {
+                $body = substr($line, 2);
+            } elseif (str_starts_with($line, '/*')) {
+                $body = substr($line, 2);
+                $closer = '\*\/';
+            } elseif (str_starts_with($line, '<!--')) {
+                $body = substr($line, 4);
+                $closer = '-->';
+            } else {
+                $body = $line;
+            }
+            $body = ltrim($body, " \t");
+            if (preg_match('/^#(?:end)?region(?![A-Za-z0-9_])/', $body) !== 1) {
                 continue;
             }
-            if (preg_match('/^[ \t]*(?:\/\/[ \t]*)?#(end)?region(?:[ \t]+([A-Za-z_][A-Za-z0-9_-]*))?[ \t]*$/', $line, $marker) !== 1) {
+            if (preg_match('/^#(end)?region(?:[ \t]+([A-Za-z_][A-Za-z0-9_-]*))?[ \t]*' . $closer . '[ \t]*$/', $body, $marker) !== 1) {
                 return null;
             }
             $name = $marker[2] ?? null;

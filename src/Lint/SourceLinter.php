@@ -71,6 +71,7 @@ class SourceLinter
             );
         }
         $ignored = [];
+        $comments = [];
         $inlineVerbatim = [];
         $ambiguousFenceEnds = [];
         $paragraphs = [];
@@ -149,6 +150,9 @@ class SourceLinter
                 if (in_array($type, ['code_block', 'raw_block', 'comment', 'frontmatter'], true)) {
                     for ($ln = $pos->startLine; $ln <= $pos->endLine; $ln++) {
                         $ignored[$ln] = true;
+                        if ($type === 'comment') {
+                            $comments[$ln] = true;
+                        }
                     }
                 }
                 if ($type === 'paragraph') {
@@ -351,6 +355,16 @@ class SourceLinter
         $fenceParser = new FencedBlockParser();
         foreach ($rows as $index => [$text, $start]) {
             $ln = $index + 1;
+            if (!isset($ignored[$ln]) && !isset($inlineVerbatim[$ln])) {
+                if (preg_match('/^[ \t]*(?:(?:\/\/|--|\/\*|<!--)[ \t]*)?#(?:end)?region(?![A-Za-z0-9_])/i', $text)) {
+                    $at = strspn($text, " \t");
+                    $emit($ln, $at, strlen($text) - $at, 'region-marker-renders-as-text', 'This line renders as text and is not a region marker for a Carve include. Use "%% #region name".');
+                }
+            }
+            if (!isset($inlineVerbatim[$ln]) && (!isset($ignored[$ln]) || isset($comments[$ln])) && preg_match('/^[ \t]*%%(?!%)[ \t]*#(?:end)?region(?![A-Za-z0-9_])/i', $text) && !preg_match('/^[ \t]*%%[ \t]*#(?:end)?region(?![A-Za-z0-9_])/', $text)) {
+                $at = strspn($text, " \t");
+                $emit($ln, $at, strlen($text) - $at, 'region-marker-renders-as-text', 'This line renders as text and is not a region marker for a Carve include. Use "%% #region name".');
+            }
             if (isset($ignored[$ln])) {
                 continue;
             }
