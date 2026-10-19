@@ -24,6 +24,27 @@ class MarkdownToCarveTest extends TestCase
         $this->assertStringContainsString('#%CE%9F%CE%94%CE%9F%CE%A3', (new MarkdownToCarve())->convert("# ΟΔΟΣ\n\n[street](#οδος)"));
     }
 
+    public function testSameFileFragmentRewriteIsAFixupBesideACompleteAssessment(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("# Install Steps\n\nSee [steps](#install-steps).\n");
+        $this->assertSame("# Install Steps\n\nSee [steps](#Install-Steps).\n", $result->value);
+        $rows = $result->report()['diagnostics'];
+        $this->assertSame(['markdown-atx-heading', 'markdown-paragraph', 'markdown-link', 'link-fragment-case-rewritten'], array_column($rows, 'code'));
+        $this->assertSame([
+            'code' => 'link-fragment-case-rewritten',
+            'message' => 'Rewrote link fragment #install-steps to #Install-Steps, the one heading id it matches without regard to case.',
+            'severity' => 'info',
+            'fidelity' => 'normalized',
+            'confidence' => 'inferred',
+            'path' => 'link:#install-steps',
+        ], $rows[3]);
+        foreach (["# Twin\n\n# twin\n\n[x](#TWIN)\n", "# Install Steps\n\n[x](#Install-Steps)\n"] as $markdown) {
+            $this->assertNotContains('link-fragment-case-rewritten', array_column((new MarkdownToCarve())->convertWithFidelityReport($markdown)->report()['diagnostics'], 'code'));
+        }
+        $unicode = (new MarkdownToCarve())->convertWithFidelityReport("# ΟΔΟΣ\n\n[street](#οδος)\n")->report()['diagnostics'];
+        $this->assertSame('Rewrote link fragment #%CE%BF%CE%B4%CE%BF%CF%82 to #%CE%9F%CE%94%CE%9F%CE%A3, the one heading id it matches without regard to case.', end($unicode)['message']);
+    }
+
     protected MarkdownToCarve $converter;
 
     protected function setUp(): void
