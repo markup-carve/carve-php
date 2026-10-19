@@ -99,7 +99,7 @@ final class MarkdownAssessmentTest extends TestCase
     public function testUnicodeExplicitLinkDestinationIsVerified(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport('See [a](/ü).');
-        self::assertSame('See [a](/%C3%BC).', $result->value);
+        self::assertSame('See [a](/ü).', $result->value);
         self::assertSame(['markdown-paragraph', 'markdown-link'], array_column($result->diagnostics, 'code'));
         self::assertSame(['line:1', 'line:1'], array_column($result->diagnostics, 'path'));
     }
@@ -117,7 +117,7 @@ final class MarkdownAssessmentTest extends TestCase
         foreach (
             [
                 ['[a](/x[y]) and ![b](/p[q].png)', '[a](/x[y]) and ![b](/p[q].png)', ['markdown-paragraph', 'markdown-link', 'markdown-image']],
-                ['![x](/ü.png)', '![x](/%C3%BC.png)', ['markdown-paragraph', 'markdown-image']],
+                ['![x](/ü.png)', '![x](/ü.png)', ['markdown-paragraph', 'markdown-image']],
                 ['![x](/u.png "T")', '![x](/u.png "T")', ['markdown-paragraph', 'markdown-image']],
                 ["![x][r]\n\n[r]: /u.png", "![x][r]\n\n[r]: /u.png", ['markdown-paragraph', 'markdown-reference-link', 'markdown-reference-definition']],
                 ['a ![x](/u.png)', 'a ![x](/u.png)', ['markdown-paragraph', 'markdown-image']],

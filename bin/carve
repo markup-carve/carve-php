@@ -53,6 +53,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
+use MarkupCarve\Carve\Converter\MarkdownDestinationEncoding;
 use MarkupCarve\Carve\Converter\MarkdownHeadingFragments;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
@@ -572,7 +573,7 @@ function inspectMigratedLink(string $destination, string $source, array $outputs
         return $failure('encoded extension needs manual rewrite');
     }
     $newPath = $mapped !== $target && $path !== '' ? preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath) : $rawPath;
-    $recased = $fragment === '' || $resolved === $fragment ? null : rawurlencode($resolved);
+    $recased = $fragment === '' || $resolved === $fragment ? null : MarkdownDestinationEncoding::fragment($resolved);
     $href = $newPath . $query . ($rawFragment === null ? '' : '#' . ($recased ?? $rawFragment));
     $result = ['href' => $href, 'check' => ['target' => $destination, 'status' => $href === $destination ? 'valid' : 'rewritten']];
     if ($recased !== null) {

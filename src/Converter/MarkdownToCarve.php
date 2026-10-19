@@ -3344,7 +3344,7 @@ class MarkdownToCarve
                     $match = $aliases[MarkdownHeadingFragments::lowercaseKey($fragment)] ?? null;
                     if ($match !== null) {
                         $rewritten[] = [$path, $node['href']];
-                        $node['href'] = '#' . rawurlencode($match);
+                        $node['href'] = '#' . MarkdownDestinationEncoding::fragment($match);
                     }
                 }
             }
@@ -10480,7 +10480,7 @@ class MarkdownToCarve
             ? $this->decodeMarkdownScalar($this->referenceSourceText($url, $protected))
             : $this->decodeLinkTitle($url, $protected);
 
-        $encoded = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\\\\`^{|}]/', static fn (array $match): string => rawurlencode($match[0]), $decoded) ?? $decoded;
+        $encoded = preg_replace_callback('/[^\x21-\x7e]|["<>\\\\`^{|}]/u', static fn (array $match): string => MarkdownDestinationEncoding::character($match[0]), $decoded) ?? $decoded;
         $this->recordAuthoredDestination($encoded, $this->referenceSourceText($url, $protected));
 
         return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);

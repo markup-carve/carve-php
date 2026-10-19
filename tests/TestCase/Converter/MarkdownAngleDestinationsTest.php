@@ -72,7 +72,7 @@ class MarkdownAngleDestinationsTest extends TestCase
   ],
   [
     "[link](foo%20b&auml;)\n",
-    "<p><a href=\"foo%20b%C3%A4\">link</a></p>"
+    "<p><a href=\"foo%20bä\">link</a></p>"
   ],
   [
     "[link](\"title\")\n",

@@ -802,12 +802,12 @@ class CliTest extends TestCase
         try {
             $result = $this->runCliInput(['migrate', '--from', 'markdown', '--directory', $source, '--output', $output], '');
             $this->assertSame(0, $result['exit'], $result['err']);
-            $this->assertSame("See [b](b.crv#%C3%9Cber-Uns).\n", file_get_contents($output . '/a.crv'));
+            $this->assertSame("See [b](b.crv#Über-Uns).\n", file_get_contents($output . '/a.crv'));
             $report = json_decode((string)file_get_contents($output . '/migration-report.json'), true, flags: JSON_THROW_ON_ERROR);
             $files = array_column($report['files'], null, 'source');
             $fixups = array_values(array_filter($files['a.md']['diagnostics'], static fn (array $row): bool => $row['code'] === 'link-fragment-case-rewritten'));
             $this->assertSame('link:b.md#über-uns', $fixups[0]['path'] ?? null);
-            $this->assertSame('Rewrote link fragment #über-uns to #%C3%9Cber-Uns, the one heading id it matches without regard to case.', $fixups[0]['message'] ?? null);
+            $this->assertSame('Rewrote link fragment #über-uns to #Über-Uns, the one heading id it matches without regard to case.', $fixups[0]['message'] ?? null);
         } finally {
             foreach (['output/a.crv', 'output/b.crv', 'output/migration-report.json', 'source/a.md', 'source/b.md'] as $path) {
                 if (is_file($root . '/' . $path)) {
@@ -1109,7 +1109,7 @@ class CliTest extends TestCase
     {
         foreach (
             [
-                ['![x](/ü.png)', '![x](/%C3%BC.png)', ['markdown-paragraph', 'markdown-image']],
+                ['![x](/ü.png)', '![x](/ü.png)', ['markdown-paragraph', 'markdown-image']],
                 ['[a](/x[y]) and ![b](/p[q].png)', '[a](/x[y]) and ![b](/p[q].png)', ['markdown-paragraph', 'markdown-link', 'markdown-image']],
             ] as [$source, $value, $codes]
         ) {
