@@ -93,6 +93,7 @@ use MarkupCarve\Carve\Renderer\Utility\TableCellBlockFlattener;
 use MarkupCarve\Carve\Transform\IncludeDirectiveSyntax;
 use MarkupCarve\Carve\Transform\IncludeRun;
 use MarkupCarve\Carve\Util\StringUtil;
+use MarkupCarve\Carve\Util\TableDisplayWidth;
 use MarkupCarve\Carve\Util\TableWidth;
 use Throwable;
 
@@ -489,6 +490,39 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         "\u{E007}",
         "\u{E008}",
     ];
+
+    private bool $alignTables = false;
+
+    public function setAlignTables(bool $enabled): self
+    {
+        $this->alignTables = $enabled;
+
+        return $this;
+    }
+
+    public function isAlignTables(): bool
+    {
+        return $this->alignTables;
+    }
+
+    /**
+     * Cells still hold verbatim sentinels; CARVE-P11-071 measures the bytes they become.
+     *
+     * @return array<string, string>
+     */
+    protected function writtenSentinelSpellings(): array
+    {
+        return [
+            $this->verbatimSentinels[0] => ' ',
+            $this->verbatimSentinels[1] => "\t",
+            $this->verbatimSentinels[2] => '',
+            $this->verbatimSentinels[3] => ' ',
+            $this->verbatimSentinels[4] => '\\ ',
+            $this->verbatimSentinels[5] => '',
+            $this->verbatimSentinels[6] => '',
+            $this->verbatimSentinels[7] => '',
+        ];
+    }
 
     private ?string $footnoteCodeGuard = null;
 
@@ -2915,6 +2949,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->recordUnspellableTableSectionAttributes($node);
 
         $rows = [];
+        $rowSlots = [];
         $tableRows = array_values(array_filter($node->getChildren(), static fn (Node $child): bool => $child instanceof TableRow));
         // `separatorWidths` is an AUTHOR-CHOICE field (PART 12 §3): its PRESENCE
         // says the author wrote a separator row rather than `|=` header cells,
@@ -3083,9 +3118,17 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if ($cells === []) {
                 throw new SourceUnspellableException('table_row', 'a table row with no cells has no Carve source spelling');
             }
-            $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
+            if ($this->alignTables) {
+                $rowSlots[] = ['prefix' => '|', 'cells' => $cells, 'attrs' => $this->renderAttrs($row)];
+            } else {
+                $rows[] = $this->renderTableRow($cells, $this->renderAttrs($row));
+            }
             foreach ($continuations[$rowIndex] as $line) {
-                $rows[] = '+' . implode('|', $line) . '|';
+                if ($this->alignTables) {
+                    $rowSlots[] = ['prefix' => '+', 'cells' => $line, 'attrs' => ''];
+                } else {
+                    $rows[] = '+' . implode('|', $line) . '|';
+                }
             }
         }
         if ($needsDelimiter) {
@@ -3115,7 +3158,29 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $this->separatorExpansionRemaining -= $width;
                 $separators[] = $this->renderTableSeparator($width, $alignment);
             }
-            array_splice($rows, 1 + count($continuations[0] ?? []), 0, '|' . implode('|', $separators !== [] ? $separators : ['---']) . '|');
+            if ($this->alignTables) {
+                array_splice($rowSlots, 1 + count($continuations[0] ?? []), 0, [['prefix' => '|', 'cells' => $separators !== [] ? $separators : ['---'], 'attrs' => '']]);
+            } else {
+                array_splice($rows, 1 + count($continuations[0] ?? []), 0, '|' . implode('|', $separators !== [] ? $separators : ['---']) . '|');
+            }
+        }
+        if ($this->alignTables) {
+            $written = $this->writtenSentinelSpellings();
+            $widths = [];
+            $cellWidths = [];
+            foreach ($rowSlots as $slotIndex => $slot) {
+                foreach ($slot['cells'] as $column => $cell) {
+                    $cellWidths[$slotIndex][$column] = TableDisplayWidth::width(strtr($cell, $written));
+                    $widths[$column] = max($widths[$column] ?? 0, $cellWidths[$slotIndex][$column]);
+                }
+            }
+            foreach ($rowSlots as $slotIndex => $slot) {
+                $cells = [];
+                foreach ($slot['cells'] as $column => $cell) {
+                    $cells[] = $cell . str_repeat(' ', $widths[$column] - $cellWidths[$slotIndex][$column]);
+                }
+                $rows[] = $slot['prefix'] . implode('|', $cells) . '|' . $slot['attrs'];
+            }
         }
         if ($node->hasCaption()) {
             $caption = $node->getCaption();

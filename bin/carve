@@ -1168,6 +1168,7 @@ function parseFmtArgs(array $argv): array
         'stamp' => false,
         'stampForm' => 'line',
         'migrate' => false,
+        'alignTables' => false,
         'help' => false,
         'files' => [],
     ];
@@ -1182,6 +1183,8 @@ function parseFmtArgs(array $argv): array
             $options['check'] = true;
         } elseif ($arg === '--migrate') {
             $options['migrate'] = true;
+        } elseif ($arg === '--align-tables') {
+            $options['alignTables'] = true;
         } elseif ($arg === '--stamp') {
             $options['stamp'] = true;
             $options['stampForm'] = 'line';
@@ -1260,6 +1263,7 @@ Formatter:
   fmt                 Format Carve source to stdout
   fmt -w, --write     Format files in place
   fmt --check         Exit non-zero if any file is not formatted
+  fmt --align-tables  Pad table cells to shared display widths (CARVE-P11-071)
   fmt --migrate       Also respell a reference that misses its target only by
                       letter case, when exactly one target matches
   fmt --stamp         Append/replace a one-line provenance marker
@@ -1433,6 +1437,7 @@ if (($options['command'] ?? null) === 'fmt') {
         }
         $formatted = CarveConverter::toCarve(
             $options['migrate'] ? (new ReferenceLinter())->rewriteCaseOnlyReferences($input) : $input,
+            $options['alignTables'],
         );
         if ($options['stamp']) {
             $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);
@@ -1456,6 +1461,7 @@ if (($options['command'] ?? null) === 'fmt') {
         }
         $formatted = CarveConverter::toCarve(
             $options['migrate'] ? (new ReferenceLinter())->rewriteCaseOnlyReferences($input) : $input,
+            $options['alignTables'],
         );
         if ($options['stamp']) {
             $formatted = CarveConverter::stampCarve($formatted, $generatedBy, $options['stampForm']);

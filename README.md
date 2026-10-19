@@ -83,3 +83,4 @@ They disable raw HTML passthrough and bound nesting depth.
 - [Djot image alternative text](docs/djot-image-alt-fidelity.md): multiline values and export diagnostics.
 - [Developer documentation](https://github.com/markup-carve/carve-php/blob/main/docs/development.md): contributing, custom renderers, parser internals and benchmarks.
 - [Table source metadata](docs/table-source-metadata.md): table body partitions and source attributes.
+- [Aligned table formatting](docs/cli.md#aligned-tables): optional `fmt --align-tables` output.
