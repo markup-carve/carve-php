@@ -156,10 +156,12 @@ final class DefinitionListBuilder
                 // trailing space from one a construct produced - trimming
                 // rendered output instead would eat the content of an
                 // all-space verbatim span (markup-carve/carve#926).
+                $lazy = str_starts_with($nextLine, BlockGrammar::LAZY_FRAME)
+                    || isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
                 if (str_starts_with($nextLine, BlockGrammar::LAZY_FRAME)) {
                     $nextLine = substr($nextLine, strlen(BlockGrammar::LAZY_FRAME));
                 }
-                $nextLine = rtrim($nextLine, " \t");
+                $nextLine = $lazy ? trim($nextLine, " \t") : rtrim($nextLine, " \t");
                 $last = count($parts) - 1;
                 if ($parts[$last] instanceof Comment) {
                     $parts[] = ['lines' => [$nextLine], 'sources' => [$i]];

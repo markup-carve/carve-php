@@ -1007,6 +1007,8 @@ final class BlockContinuationScanner
 
             if (
                 !$isBlockQuoteLazyLine
+                && !($openCommentLength !== null
+                    && ($this->getFencedBlockParser)()->isFencedCommentCloserAnyColumn($nextTrimmed, $openCommentLength))
                 && ($this->listContinuationEndsAtDedentedBlock($nextIndent, $nextTrimmed, $baseIndent, $lines, $i)
                     || $this->listContinuationEndsAtBaseColumn($nextIndent, $nextTrimmed, $baseIndent, $lines, $i))
             ) {
@@ -2033,7 +2035,11 @@ final class BlockContinuationScanner
             } else {
                 $itemLines[] = preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lastItemLine) === 1
                     && str_starts_with($nextTrimmed, '%%%') ? ' ' . $nextTrimmed : $nextTrimmed;
-                if (!$trailingState->openParagraph || $this->lineOpensBlockForLooseness($nextTrimmed, true)) {
+                if ($pendingDefinitionTerm && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed)) {
+                    $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
+                    $pendingDefinitionTerm = false;
+                    $definitionBodyHasTerm = true;
+                } elseif (!$trailingState->openParagraph || $this->lineOpensBlockForLooseness($nextTrimmed, true)) {
                     $openDefinitionBody = $this->advanceItemDefinitionBody($openDefinitionBody, $nextTrimmed);
                 }
                 $itemLineMap[] = $this->sourceLineFor($i);
