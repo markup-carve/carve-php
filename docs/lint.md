@@ -6,9 +6,9 @@ mean what the author intended. Every finding is a `LintWarning` carrying `line`,
 the two engines report the same finding in the same terms. Offsets are byte
 offsets into the source you passed.
 
-`MarkdownHabitLinter` and `TableColumnLinter` read the **source**; the others
-parse and walk the **AST**. They are separate classes because they answer
-separate questions, and none can be expressed in another's terms.
+`MarkdownHabitLinter` and `TableColumnLinter` read the **source**. Most other
+passes parse and walk the **AST**; `FenceAndContinuationLinter` also reads parser
+events for fences and continuation markers. Each class answers a separate question.
 
 ```php
 use MarkupCarve\Carve\Lint\DefinitionTermFoldLinter;
@@ -67,6 +67,10 @@ content column to open the block. `ConsumedKeyLinter` reports a bare key one
 edit from the consumed key its block reads (`consumed-key-near-miss`): `{tabel}`
 on a `csv` or `tsv` fence, or `{lose}` on a list or definition list. The key
 stays an ordinary attribute, so the table or the loose list never happens.
+`FenceAndContinuationLinter` reports an unclosed code or raw fence at its opener
+(`unclosed-code-fence`) and a `+` in a list item or definition description
+followed by a blank line or the end of the document
+(`continuation-marker-refused`). Both warnings describe where the construct ends.
 
 `ReferencesPlacementLinter` reports a `::: references` marker inside a
 container when citations are enabled. The marker renders as an ordinary div

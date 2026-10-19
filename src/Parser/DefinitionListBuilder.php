@@ -410,6 +410,7 @@ final class DefinitionListBuilder
                 // flush-left block, with no indentation. `: \+` is a literal `+`.
                 $bodyMap = [];
                 if (preg_match('/^\+[ \t]*$/', trim($m[2], StringUtil::WHITESPACE_CHARS))) {
+                    $this->state->session->recordRefusedContinuationMarker($this->state->source, $definitionSource, 'definition description');
                     [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
                         $lines,
                         $i,
@@ -563,6 +564,7 @@ final class DefinitionListBuilder
                     }
                     // Form B: `+` pull-left continuation.
                     if (preg_match('/^\+[ \t]*$/', $contLine)) {
+                        $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'definition description');
                         $i++;
                         if (!$this->continuationAttachesAtColumnZero($i)) {
                             break;

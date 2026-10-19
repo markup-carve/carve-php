@@ -219,6 +219,7 @@ final class ListBlockBuilder
             }
 
             if ($currentIndent === $baseIndent && $this->isContinuationMarker(ltrim($currentLine, " \t"))) {
+                $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'list item');
                 $next = $this->attachListContinuation($list, $lines, $i, $count, $baseIndent, $lastItemAttachColumn);
                 if ($next !== null) {
                     $i = $next;
@@ -467,6 +468,7 @@ final class ListBlockBuilder
             $lastItemAttachColumn = $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo);
 
             if ($this->isContinuationMarker(ltrim($itemContent, " \t"))) {
+                $this->state->session->recordRefusedContinuationMarker($this->state->source, $listItemSourceLine, 'list item');
                 // ...AND ONLY A FLUSH-LEFT ONE (SS17 L3, carve#1436). When the
                 // line below sits at any other column the marker attaches
                 // NOTHING, and this branch must not finish the item over it:
@@ -1098,6 +1100,7 @@ final class ListBlockBuilder
                     break;
                 }
                 if ($this->isContinuationMarker($trimmedLine)) {
+                    $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'list item');
                     // An unattached marker cannot close the nested
                     // stream. Its indented follower may still fold
                     // into the nested item's open paragraph.

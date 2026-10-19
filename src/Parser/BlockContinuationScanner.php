@@ -968,6 +968,7 @@ final class BlockContinuationScanner
                         && isset($lines[$i + 1])
                         && IndentationHelper::isBlankLine($lines[$i + 1])))
             ) {
+                $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'list item');
                 $i++;
 
                 continue;
