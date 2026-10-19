@@ -1881,7 +1881,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($language !== null && $language !== '') {
             $parts[] = $this->escapeFenceToken($language);
         }
-        $header = $node->getHeader() ?? $node->getAttribute('title');
+        $header = $node->getHeader();
         if (is_string($header)) {
             $parts[] = $this->quotedTitleToken($node, $header);
         }
