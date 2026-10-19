@@ -881,6 +881,7 @@ class IncludeExpander implements TransformerInterface
             return null;
         }
         if ($directive['lines'] !== null) {
+            $directive['lines']['end'] = min($directive['lines']['end'], $this->lineCount($source));
             $sliceLineBase = $directive['lines']['start'] - 1;
             $source = $this->sliceLines($source, $directive['lines']['start'], $directive['lines']['end']);
         }
@@ -888,19 +889,27 @@ class IncludeExpander implements TransformerInterface
         if ($directive['code'] !== null) {
             // Only the file's own BOM is dropped, not a U+FEFF that opens a later selected line.
             $payload = $sliceLineBase === 0 ? (preg_replace('/^\x{FEFF}/u', '', $source) ?? $source) : $source;
-            $payloadLines = $payload === '' ? [] : (preg_split('/\r\n|\r|\n/', $payload) ?: []);
-            if ($payloadLines !== [] && end($payloadLines) === '') {
+            $emptySelection = $directive['lines'] !== null && $directive['lines']['start'] > $directive['lines']['end'];
+            $payloadLines = $emptySelection || ($directive['lines'] === null && $payload === '')
+                ? []
+                : (preg_split('/\r\n|\r|\n/', $payload) ?: []);
+            if ($directive['lines'] === null && $payloadLines !== [] && end($payloadLines) === '') {
                 array_pop($payloadLines);
             }
             $content = $payloadLines === [] ? '' : implode("\n", $payloadLines) . "\n";
             $code = new CodeBlock($content, $directive['code']['lang']);
             if ($this->trackPositions) {
                 $startLine = $sliceLineBase + 1;
-                $startOffset = $this->lineStartOffset($completeSource, $startLine);
-                $endOffset = $directive['lines'] === null
-                    ? mb_strlen($completeSource, 'UTF-8')
-                    : $this->lineStartOffset($completeSource, $directive['lines']['end'] + 1);
-                $code->setPos(new SourceSpan($startLine, $startLine + max(0, count($payloadLines) - 1), 1, 1, $startOffset, $endOffset));
+                $hasBom = $startLine === 1 && str_starts_with($completeSource, "\xEF\xBB\xBF");
+                $startOffset = $this->lineStartOffset($completeSource, $startLine) + (int)$hasBom;
+                $endLine = $startLine + max(0, count($payloadLines) - 1);
+                $sourceLines = preg_split('/\r\n|\r|\n/', $completeSource) ?: [];
+                $lastText = $payloadLines === [] ? '' : ($sourceLines[$endLine - 1] ?? '');
+                $endColumn = 1 + mb_strlen($lastText, 'UTF-8');
+                $endOffset = $payloadLines === []
+                    ? $startOffset
+                    : $this->lineStartOffset($completeSource, $endLine) + mb_strlen($lastText, 'UTF-8');
+                $code->setPos(new SourceSpan($startLine, $endLine, 1 + (int)$hasBom, $payloadLines === [] ? 1 + (int)$hasBom : $endColumn, $startOffset, $endOffset));
             }
             $document = new Document();
             $document->appendChild($code);
