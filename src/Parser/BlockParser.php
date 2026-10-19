@@ -58,6 +58,27 @@ class BlockParser
 {
     use LegacyBlockParserProperties;
 
+    /**
+     * No loosening blank was found.
+     *
+     * @var int
+     */
+    public const GAP_NONE = 0;
+
+    /**
+     * The blank loosens the list.
+     *
+     * @var int
+     */
+    public const GAP_LOOSENS = 1;
+
+    /**
+     * The blank precedes a caption candidate.
+     *
+     * @var int
+     */
+    public const GAP_CAPTION = 2;
+
     private BlockParserState $state;
 
     private ?ListBlockBuilder $listsImplementation = null;
@@ -7904,7 +7925,7 @@ class BlockParser
      * dedented) sub-content lines. Mirrors carve-js: for each internal blank
      * line, look at the next non-blank line. Content at or past the sub-list's
      * content column belongs to that sub-list (its looseness is decided by its
-     * own recursive parse) and does not loosen THIS item; every other block
+     * own recursive parse). Returns a gap result for the caller to apply.
      *
      * @param array<string> $subLines The item's dedented sub-content lines.
      * @param bool $sourceIsTheItemBody Whether these lines are the item's WHOLE
@@ -7913,8 +7934,10 @@ class BlockParser
      *   blank does separate two of the item's rendered blocks and loosens it
      *   (markup-carve/carve#1602); the identical five lines reach this scan in
      *   both shapes, so only the caller can tell them apart.
+     *
+     * @return self::GAP_NONE|self::GAP_LOOSENS|self::GAP_CAPTION
      */
-    protected function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): bool
+    protected function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): int
     {
         // The content column of the sub-list item the scan is in; content at or
         // past it belongs to the sub-list, not this item. A marker at column 0
@@ -7935,6 +7958,8 @@ class BlockParser
         $fenceLength = 0;
         $fenceBase = 0;
         $afterFenceCloser = false;
+        // A caption gap needs the parsed item to decide whether it loosens.
+        $captionGap = false;
         $k = 0;
         while ($k < $n) {
             $sl = $subLines[$k];
@@ -8039,12 +8064,19 @@ class BlockParser
                 $candidate = $authored;
             }
             if (!$this->lineOpensBlockForLooseness($candidate)) {
-                return true;
+                if ($j === $k + 1 && $this->isCaptionLine($authored)) {
+                    $captionGap = true;
+                    $k++;
+
+                    continue;
+                }
+
+                return self::GAP_LOOSENS;
             }
             $k++;
         }
 
-        return false;
+        return $captionGap ? self::GAP_CAPTION : self::GAP_NONE;
     }
 
     /**

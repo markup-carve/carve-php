@@ -71,7 +71,7 @@ final class ListBlockBuilder
      * @param \Closure(string): (string) $markerFreeContentCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsNewBlockCallback
-     * @param \Closure(array<string>, bool): (bool) $subContentHasLooseningBlankCallback
+     * @param \Closure(array<string>, bool): int $subContentHasLooseningBlankCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Node, array<string>, array<int, int>|null, array<int, true>|null, int|null): (void))|null $parseItemBlocksCallback
      * @param (\Closure(): bool)|null $canRepairParagraphLocallyCallback
      * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
@@ -249,7 +249,10 @@ final class ListBlockBuilder
                 $lastItem = ($this->getListParser)()->getLastListItem($list);
                 if ($lastItem !== null) {
                     $wasListTight = $list->isTight();
-                    if (!$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)) {
+                    if (
+                        !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
+                        && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
+                    ) {
                         $list->setTight(false);
                     }
 
@@ -274,7 +277,8 @@ final class ListBlockBuilder
                     // parse, so it must not propagate up (nested-item looseness
                     // does not propagate, corpus 142). Only the outer item, which
                     // owns the blank before its own attached block, goes loose.
-                    if ($this->subContentHasLooseningBlank($subLines, false)) {
+                    $gap = $this->subContentHasLooseningBlank($subLines, false);
+                    if ($gap === BlockParser::GAP_LOOSENS) {
                         $list->setTight(false);
                     }
                     // A blank before a newly retained paragraph makes the list loose.
@@ -282,6 +286,12 @@ final class ListBlockBuilder
                         $before = count($lastItem->getChildren());
                         $this->callParseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible, null, $unclosedFenceBase);
                         $children = $lastItem->getChildren();
+                        if ($gap === BlockParser::GAP_CAPTION || ($lastItemHadBlankAfter && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) === 1)) {
+                            $captionHost = $children[count($children) - 1] ?? null;
+                            if ($captionHost instanceof Paragraph) {
+                                $list->setTight(false);
+                            }
+                        }
                         $previousList = $before > 0 ? $children[$before - 1] : null;
                         $nextList = $children[$before] ?? null;
                         if (
@@ -544,11 +554,19 @@ final class ListBlockBuilder
                 // `- x` / blank / `  b` went loose (carve-php#681). Content at or
                 // past the sub-list's own content column still belongs to the
                 // sub-list and does not propagate its looseness outwards.
-                if ($this->subContentHasLooseningBlank($itemLines, true)) {
+                $gap = $this->subContentHasLooseningBlank($itemLines, true);
+                if ($gap === BlockParser::GAP_LOOSENS) {
                     $list->setTight(false);
                 }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
+                if ($gap === BlockParser::GAP_CAPTION) {
+                    $children = $listItem->getChildren();
+                    $captionHost = $children[count($children) - 1] ?? null;
+                    if ($captionHost instanceof Paragraph) {
+                        $list->setTight(false);
+                    }
+                }
                 $list->appendChild($listItem);
 
                 continue;
@@ -575,11 +593,19 @@ final class ListBlockBuilder
                     $itemLineMap,
                     $authoredBaseEligible,
                 );
-                if ($this->subContentHasLooseningBlank($itemLines, true)) {
+                $gap = $this->subContentHasLooseningBlank($itemLines, true);
+                if ($gap === BlockParser::GAP_LOOSENS) {
                     $list->setTight(false);
                 }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
+                if ($gap === BlockParser::GAP_CAPTION) {
+                    $children = $listItem->getChildren();
+                    $captionHost = $children[count($children) - 1] ?? null;
+                    if ($captionHost instanceof Paragraph) {
+                        $list->setTight(false);
+                    }
+                }
                 $list->appendChild($listItem);
 
                 continue;
@@ -3522,7 +3548,7 @@ final class ListBlockBuilder
      * @param array<string> $subLines The item's dedented sub-content lines.
      * @param bool $sourceIsTheItemBody Whether these lines are the item's WHOLE
      */
-    private function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): bool
+    private function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): int
     {
         return ($this->subContentHasLooseningBlankCallback)($subLines, $sourceIsTheItemBody);
     }
