@@ -6988,8 +6988,9 @@ class BlockParser
         // nothing, but it is not caption_slot's optional blank line and a
         // caption cannot attach across it (carve#1028).
         $lineBeforeSlot = $start - $localBlankLines - 1;
-        $beforeSlot = $lineBeforeSlot >= 0 ? $lines[$lineBeforeSlot] : $sourceBeforeSlot;
-        if ($beforeSlot !== null && $this->isInvisibleOrAttributeLine($beforeSlot)) {
+        $localInterrupter = $lineBeforeSlot >= 0 && $this->isInvisibleOrAttributeLine($lines[$lineBeforeSlot]);
+        $sourceInterrupter = $sourceBeforeSlot !== null && $this->isInvisibleOrAttributeLine($sourceBeforeSlot);
+        if ($localInterrupter || $sourceInterrupter) {
             return null;
         }
 
