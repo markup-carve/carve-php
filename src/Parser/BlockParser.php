@@ -325,6 +325,42 @@ class BlockParser
     }
 
     /**
+     * @return list<array{line: int, column: int, marker: string, endLine: int, reason: string}>
+     */
+    public function getUnclosedCodeFences(): array
+    {
+        return $this->state->session->unclosedCodeFences;
+    }
+
+    /**
+     * @return list<array{line: int, column: int, host: string, reason: string}>
+     */
+    public function getRefusedContinuationMarkers(): array
+    {
+        return $this->state->session->refusedContinuationMarkers;
+    }
+
+    private function recordUnclosedCodeFence(int $start, int $end, string $marker): void
+    {
+        $line = $this->sourceLineFor($start);
+        $source = $this->state->source->sourceLines[$line] ?? '';
+        $column = strpos($source, $marker);
+        $endLine = $end > $start ? $this->sourceLineFor($end - 1) + 2 : $line + 2;
+        $next = $this->state->source->sourceLines[$endLine - 1] ?? null;
+        if ($next === '' && $endLine - 1 === array_key_last($this->state->source->sourceLines)) {
+            $next = null;
+        }
+        $reason = $next === null ? 'document' : (trim($next) === '+' ? 'continuation' : 'container');
+        $this->state->session->unclosedCodeFences[] = [
+            'line' => $line + 1,
+            'column' => $column === false ? 1 : mb_strlen(substr($source, 0, $column), 'UTF-8') + 1,
+            'marker' => $marker,
+            'endLine' => $endLine,
+            'reason' => $reason,
+        ];
+    }
+
+    /**
      * Whether to collect warnings during parsing
      */
     protected bool $collectWarnings = false;
@@ -2810,6 +2846,7 @@ class BlockParser
         // runs to the end of the block, even when empty (matching carve-js /
         // canonical djot), rather than degrading to an inline code span.
         if (!$closed) {
+            $this->recordUnclosedCodeFence($start, $i, str_repeat($fenceChar, $fenceLength));
             $this->addWarning('Unclosed code fence', $start, 1, true);
         }
 
@@ -3034,6 +3071,7 @@ class BlockParser
         }
 
         if (!$closed) {
+            $this->recordUnclosedCodeFence($start, $i, str_repeat($fenceChar, $fenceLength));
             $this->addWarning('Unclosed raw block', $start, 1, true);
         }
 

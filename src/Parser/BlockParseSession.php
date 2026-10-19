@@ -14,6 +14,38 @@ use MarkupCarve\Carve\Ast\SourceSpan;
 final class BlockParseSession
 {
     /**
+     * @var list<array{line: int, column: int, marker: string, endLine: int, reason: string}>
+     */
+    public array $unclosedCodeFences = [];
+
+    /**
+     * @var list<array{line: int, column: int, host: string, reason: string}>
+     */
+    public array $refusedContinuationMarkers = [];
+
+    public function recordRefusedContinuationMarker(BlockSourceState $source, int $line, string $host): void
+    {
+        $next = $source->sourceLines[$line + 1] ?? null;
+        if ($next === '' && $line + 1 === array_key_last($source->sourceLines)) {
+            $next = null;
+        }
+        if ($next !== null && trim($next) !== '') {
+            return;
+        }
+        $physical = $source->sourceLines[$line] ?? '';
+        $plus = strpos($physical, '+');
+        if ($plus === false) {
+            return;
+        }
+        $this->refusedContinuationMarkers[] = [
+            'line' => $line + 1,
+            'column' => mb_strlen(substr($physical, 0, $plus), 'UTF-8') + 1,
+            'host' => $host,
+            'reason' => $next === null ? 'document' : 'blank',
+        ];
+    }
+
+    /**
      * @var array<string, \MarkupCarve\Carve\Parser\ReferenceDefinition>
      */
     public array $references = [];
