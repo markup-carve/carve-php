@@ -61,7 +61,9 @@ class BbcodeToCarve
      */
     protected array $codeSentinels = ['', ''];
 
-    /** @var array<int, array{attribution: string, dropped: array<int, array{field: string, unnamed: bool}>}> */
+    /**
+     * @var array<int, array{attribution: string, dropped: array<int, array{field: string, unnamed: bool}>}>
+     */
     protected array $quoteFieldDrops = [];
 
     /**
@@ -1122,6 +1124,7 @@ class BbcodeToCarve
      * - "9" name="user" date="2024-01-01 12:30"
      * - id="9" name="user" date="2024-01-01"
      *
+     * @param string $attribution
      * @param array<int, array{field: string, unnamed: bool}>|null $droppedFields
      */
     protected function formatAttribution(string $attribution, ?array &$droppedFields = null): string
@@ -1143,6 +1146,9 @@ class BbcodeToCarve
         }
 
         if (preg_match('/\bpost_id=["\']?(\d+)["\']?/i', $remaining, $m)) {
+            if ($id !== null && $droppedFields !== null) {
+                $droppedFields[] = ['field' => 'id', 'unnamed' => false];
+            }
             $id = $m[1];
             $remaining = str_replace($m[0], '', $remaining);
         }
@@ -1162,6 +1168,10 @@ class BbcodeToCarve
         // Extract time="..." separately if present
         if (preg_match('/\btime=(?:["\']([^"\']+)["\']|(\d+)(?=\s|$))/i', $remaining, $m)) {
             $time = $m[1] !== '' ? $m[1] : $m[2];
+            // A Unix time replaces an explicit date rather than joining it.
+            if ($datetime !== null && $droppedFields !== null && preg_match('/^\d{9,11}$/', $time) === 1) {
+                $droppedFields[] = ['field' => 'date', 'unnamed' => false];
+            }
             $datetime = preg_match('/^\d{9,11}$/', $time) === 1
                 ? gmdate('Y-m-d', (int)$time)
                 : ($datetime !== null ? $datetime . ' ' . $time : $time);
@@ -1172,6 +1182,7 @@ class BbcodeToCarve
             if ($droppedFields !== null) {
                 $droppedFields[] = ['field' => $match[1], 'unnamed' => false];
             }
+
             return '';
         }, $remaining) ?? $remaining;
 
@@ -1187,6 +1198,7 @@ class BbcodeToCarve
             }
             $rest = preg_replace_callback('/\b([A-Za-z_][\w-]*)=(?:"[^"]*"|\'[^\']*\'|\S+)/', static function (array $match) use (&$droppedFields): string {
                 $droppedFields[] = ['field' => $match[1], 'unnamed' => false];
+
                 return '';
             }, $rest) ?? $rest;
             $rest = trim($rest);

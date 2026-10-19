@@ -61,6 +61,25 @@ final class MigrationResultTest extends TestCase
         self::assertSame(['line:1', 'line:1', 'line:1', 'line:2'], array_map(static fn (MigrationDiagnostic $row): ?string => $row->path, $rows));
     }
 
+    public function testBbcodeReportsAnIdOrDateThatALaterFieldReplaces(): void
+    {
+        $cases = [
+            '[quote="9" post_id=12]q[/quote]' => ['> q', '^ #12', 'Dropped the quote attribution field id.'],
+            '[quote=alice id=9 post_id=12]q[/quote]' => ['> q', '^ alice #12', 'Dropped the quote attribution field id.'],
+            '[quote=alice date="2020-01-01" time=1700000000]q[/quote]' => ['> q', '^ alice (2023-11-14)', 'Dropped the quote attribution field date.'],
+        ];
+        foreach ($cases as $source => [$quote, $attribution, $message]) {
+            $result = (new BbcodeToCarve())->convertWithFidelityReport($source);
+            self::assertSame($quote . "\n" . $attribution . "\n", $result->value, $source);
+            $rows = array_values(array_filter($result->diagnostics, static fn (MigrationDiagnostic $row): bool => $row->code === 'bbcode-quote-field-dropped'));
+            self::assertSame([$message], array_map(static fn (MigrationDiagnostic $row): string => $row->message, $rows), $source);
+            self::assertSame('line:1', $rows[0]->path, $source);
+        }
+        // A clock time joins the date instead of replacing it.
+        $rows = (new BbcodeToCarve())->convertWithFidelityReport('[quote=alice date="2020-01-01" time="10:00"]q[/quote]')->diagnostics;
+        self::assertNotContains('bbcode-quote-field-dropped', array_map(static fn (MigrationDiagnostic $row): string => $row->code, $rows));
+    }
+
     public function testLiteralTextHasExactEvidence(): void
     {
         foreach ([new MarkdownToCarve(), new DjotToCarve(), new BbcodeToCarve()] as $importer) {
