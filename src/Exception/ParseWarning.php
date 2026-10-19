@@ -30,6 +30,7 @@ class ParseWarning
      *   `message`, which is human-worded prose, this is the machine-readable
      *   contract a tool keys on - notably the cross-engine include-conformance
      *   suite, which asserts rule ids rather than wording.
+     * @param list<array{file: string, line: int, column: int}>|null $includedBy
      */
     public function __construct(
         protected string $message,
@@ -40,6 +41,7 @@ class ParseWarning
         protected ?string $file = null,
         protected ?string $detail = null,
         protected ?string $rule = null,
+        protected ?array $includedBy = null,
     ) {
     }
 
@@ -81,6 +83,14 @@ class ParseWarning
     public function getRule(): ?string
     {
         return $this->rule;
+    }
+
+    /**
+     * @return list<array{file: string, line: int, column: int}>|null
+     */
+    public function getIncludedBy(): ?array
+    {
+        return $this->includedBy;
     }
 
     /**

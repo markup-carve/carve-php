@@ -63,18 +63,9 @@ use MarkupCarve\Carve\Extension\FencedRenderExtension;
 use MarkupCarve\Carve\Extension\MathBlockExtension;
 use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Extension\TabsExtension;
-use MarkupCarve\Carve\Lint\DefinitionTermFoldLinter;
-use MarkupCarve\Carve\Lint\DelimitedTableLinter;
-use MarkupCarve\Carve\Lint\FigureGroupLinter;
+use MarkupCarve\Carve\Lint\IncludeLinter;
 use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
-use MarkupCarve\Carve\Lint\QuoteFenceLinter;
 use MarkupCarve\Carve\Lint\ReferenceLinter;
-use MarkupCarve\Carve\Lint\ReferencesPlacementLinter;
-use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
-use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
-use MarkupCarve\Carve\Lint\SourceLinter;
-use MarkupCarve\Carve\Lint\TableColumnLinter;
-use MarkupCarve\Carve\Lint\TemplateSourceLinter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\AnsiRenderer;
 use MarkupCarve\Carve\Renderer\ConversionDiagnosticCollector;
@@ -1153,6 +1144,12 @@ function parseLintArgs(array $argv): array
                 exit(1);
             }
             $options['extensions'][] = $extension;
+        } elseif ($arg === '--include-root') {
+            $options['includeRoot'] = $argv[++$i] ?? null;
+            if ($options['includeRoot'] === null) {
+                fwrite(STDERR, "Error: --include-root requires a directory\n");
+                exit(2);
+            }
         } elseif (str_starts_with($arg, '-')) {
             fwrite(STDERR, "Error: Unknown lint option: $arg\n");
             exit(1);
@@ -1380,18 +1377,17 @@ if (($options['command'] ?? null) === 'lint') {
         exit(0);
     }
 
-    $linter = new MarkdownHabitLinter();
-    $semanticLinter = new SemanticAttributeLinter();
-    $retiredLinter = new RetiredSpellingLinter();
-    $tableColumnLinter = new TableColumnLinter();
-    $delimitedTableLinter = new DelimitedTableLinter();
-    $templateSourceLinter = new TemplateSourceLinter();
-    $figureGroupLinter = new FigureGroupLinter();
-    $quoteFenceLinter = new QuoteFenceLinter();
-    $termFoldLinter = new DefinitionTermFoldLinter();
-    $referencesPlacementLinter = new ReferencesPlacementLinter();
-    $referenceLinter = new ReferenceLinter();
-    $sourceLinter = new SourceLinter();
+    $resolver = null;
+    $root = $options['includeRoot'] ?? null;
+    if ($root !== null) {
+        try {
+            $resolver = new FilesystemIncludeResolver(absoluteIncludeRoot($root));
+        } catch (RuntimeException) {
+            fwrite(STDERR, "Error: cannot use include root {$root}\n");
+            exit(2);
+        }
+    }
+    $linter = new IncludeLinter();
     $sources = [];
 
     if ($options['files'] === []) {
@@ -1417,33 +1413,26 @@ if (($options['command'] ?? null) === 'lint') {
         // caller builds a converter itself. The extension-aware reading is a
         // programmatic option rather than a flag: `carve` has no way to be told
         // which extensions the document will be published through.
-        $warnings = array_merge(
-            $linter->lint($source, ['platforms' => $options['platforms']]),
-            $semanticLinter->lint($source),
-            $referenceLinter->lint($source, ['extensions' => $options['extensions']]),
-            $sourceLinter->lint($source),
-            $retiredLinter->lint($source),
-            $tableColumnLinter->lint($source),
-            $delimitedTableLinter->lint($source),
-            $templateSourceLinter->lint($source),
-            $figureGroupLinter->lint($source),
-            $quoteFenceLinter->lint($source),
-            $termFoldLinter->lint($source),
-            $referencesPlacementLinter->lint($source, ['extensions' => $options['extensions']]),
-        );
-        usort(
-            $warnings,
-            static fn ($a, $b): int => [$a->line, $a->column] <=> [$b->line, $b->column],
-        );
+        $warnings = $linter->lint($source, $options, $resolver, $name === '-' ? null : (realpath($name) ?: $name));
         foreach ($warnings as $warning) {
             $found++;
+            $displayFile = $warning->file === null ? $name : str_replace('\\', '/', substr($warning->file, strlen((string)realpath((string)$root)) + 1));
+            $chain = $warning->includedBy === null ? '' : ' (included from ' . implode(' > ', array_map(
+                static function (array $site) use ($name, $root): string {
+                    $file = $site['file'] === (realpath($name) ?: $name) ? $name : str_replace('\\', '/', substr($site['file'], strlen((string)realpath((string)$root)) + 1));
+
+                    return $file . ':' . $site['line'] . ':' . $site['column'];
+                },
+                $warning->includedBy,
+            )) . ')';
             fwrite(STDOUT, sprintf(
-                "%s:%d:%d %s %s\n",
-                $name,
+                "%s:%d:%d %s %s%s\n",
+                $displayFile,
                 $warning->line,
                 $warning->column,
                 $warning->rule,
                 $warning->message,
+                $chain,
             ));
         }
     }

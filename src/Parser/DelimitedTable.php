@@ -15,7 +15,7 @@ final class DelimitedTable
     /**
      * @return list<list<string>>|null
      */
-    public static function rows(string $source, string $separator, ?callable $onField = null, ?callable $onRow = null): ?array
+    public static function rows(string $source, string $separator, ?callable $onField = null, ?callable $onRow = null, ?callable $onMalformed = null): ?array
     {
         if ($source === '') {
             return [];
@@ -70,6 +70,10 @@ final class DelimitedTable
                 }
             } elseif ($char === '"') {
                 if (!$atStart || $closed) {
+                    if ($onMalformed !== null) {
+                        $onMalformed($rowStart);
+                    }
+
                     return null;
                 }
                 $quoted = true;
@@ -77,6 +81,10 @@ final class DelimitedTable
                 $wasQuoted = true;
             } else {
                 if ($closed) {
+                    if ($onMalformed !== null) {
+                        $onMalformed($rowStart);
+                    }
+
                     return null;
                 }
                 $field .= $char;
@@ -84,6 +92,10 @@ final class DelimitedTable
             }
         }
         if ($quoted) {
+            if ($onMalformed !== null) {
+                $onMalformed($rowStart);
+            }
+
             return null;
         }
         if ($source[$length - 1] !== "\n") {

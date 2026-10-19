@@ -43,6 +43,10 @@ carve lint doc.crv
 ```
 
 `carve lint` runs these passes and exits non-zero when anything is reported.
+Pass `--include-root DIR` to lint included files. The root is required for expansion;
+without it, include targets are not read. Included findings show the target path
+relative to the root and the directive chain. In PHP, `IncludeLinter::lint()`
+accepts a resolver and source path after the lint options.
 Use `carve lint --extension citations doc.crv` to check references placement.
 
 Several passes have no section below. `TableColumnLinter` reports a table cell
