@@ -558,6 +558,32 @@ final class ListBlockBuilder
                 if ($gap === BlockParser::GAP_LOOSENS) {
                     $list->setTight(false);
                 }
+                $lastVisible = count($itemLines) - 1;
+                while (
+                    $lastVisible >= 0
+                    && ($this->isFoldableInvisibleLine(ltrim($itemLines[$lastVisible], " \t"))
+                        || $this->isCommentLineOrFence(ltrim($itemLines[$lastVisible], " \t")))
+                ) {
+                    $lastVisible--;
+                }
+                $nextItem = isset($lines[$i])
+                    ? ($this->getListParser)()->parseListItemMarker(ltrim($lines[$i], " \t")) : null;
+                if (
+                    $lastVisible >= 0
+                    && IndentationHelper::isBlankLine($itemLines[$lastVisible])
+                    && isset($lines[$i])
+                    && IndentationHelper::getLeadingColumns($lines[$i]) === $baseIndent
+                    && $nextItem !== null
+                    && ($this->getListParser)()->itemMatchesList($listInfo, $nextItem)
+                ) {
+                    $blankRun = 0;
+                    for ($j = $i - 1; $j >= 0 && $blankRun < 3 && IndentationHelper::isBlankLine($lines[$j]); $j--) {
+                        $blankRun++;
+                    }
+                    if ($blankRun < 3) {
+                        $list->setTight(false);
+                    }
+                }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 if ($gap === BlockParser::GAP_CAPTION) {

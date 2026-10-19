@@ -5291,6 +5291,17 @@ class BlockParser
                     ? $this->continuationsMapper()->advanceLiteralStateWithSourceFenceLookahead($trailingState, $stripped, $lines, $i, $contentIndent)
                     : $this->advanceTrailingState($trailingState, $stripped, true);
             }
+            $priorComment = isset($lines[$i - 1])
+                ? $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn(ltrim($lines[$i - 1], " \t"))
+                : null;
+            if (
+                $priorComment !== null
+                && IndentationHelper::getLeadingColumns($lines[$i - 1]) < $contentIndent
+                && $this->fencedBlockParser->isFencedCommentCloserAnyColumn($stripped, $priorComment['length'])
+            ) {
+                $trailingState->openParagraph = true;
+                $trailingState->afterComment = true;
+            }
             if ($divHeading) {
                 $trailingState->openParagraph = false;
             }
@@ -5863,6 +5874,29 @@ class BlockParser
                 'lines' => $bodyLines,
                 'lineMap' => $bodyLineMap,
             ];
+        } elseif ($this->state->session->discoveringDefinitions && array_key_exists($key, $this->state->session->footnotes)) {
+            $bodyLines = $this->footnoteBodyDefinitionReach(
+                $this->rebaseOverindentedItemBlocks(
+                    $bodyLines,
+                    array_fill_keys(array_keys($bodyLines), true),
+                    includeSublists: true,
+                ),
+            );
+            foreach ($bodyLines as $bodyIndex => $bodyLine) {
+                $definition = $this->referenceDefinitionExtractor->matchDefinitionLine($bodyLine);
+                if ($definition === null) {
+                    continue;
+                }
+                $sourceLine = $bodyLineMap[$bodyIndex] ?? $this->sourceLineFor($start);
+                $this->state->session->references[LabelKey::normalize($definition['label'])] = new ReferenceDefinition(
+                    $definition['url'],
+                    $definition['attrs'],
+                    $sourceLine,
+                    $definition['title'],
+                    false,
+                    $definition['label'],
+                );
+            }
         }
 
         return $i - $start;
@@ -8041,6 +8075,24 @@ class BlockParser
             }
             $j = $k + 1;
             while ($j < $n && $subLines[$j] === '') {
+                $j++;
+            }
+            while ($j < $n) {
+                if (IndentationHelper::isBlankLine($subLines[$j])) {
+                    $j++;
+
+                    continue;
+                }
+                $invisible = ltrim($subLines[$j], " \t");
+                $commentFence = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($invisible);
+                if ($commentFence !== null) {
+                    $j = $this->commentSpanEndForLooseness($subLines, $j, $commentFence['length'], -1, 0) + 1;
+
+                    continue;
+                }
+                if (!$this->isInvisibleOrAttributeLine($invisible, false)) {
+                    break;
+                }
                 $j++;
             }
             if ($j >= $n) {
