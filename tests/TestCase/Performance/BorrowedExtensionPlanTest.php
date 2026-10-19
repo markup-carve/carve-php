@@ -14,6 +14,7 @@ use MarkupCarve\Carve\Extension\ColorSwatchExtension;
 use MarkupCarve\Carve\Extension\DetailsExtension;
 use MarkupCarve\Carve\Extension\ExtensionInterface;
 use MarkupCarve\Carve\Extension\ExternalLinksExtension;
+use MarkupCarve\Carve\Extension\FrontmatterExtension;
 use MarkupCarve\Carve\Extension\GlossaryExtension;
 use MarkupCarve\Carve\Extension\HeadingNumbersExtension;
 use MarkupCarve\Carve\Extension\HeadingPermalinksExtension;
@@ -50,6 +51,48 @@ Visit [site](https://example.com/x) and [reference][site].
 | --- | --- |
 | [x](https://example.org) | [y](/inside) |
 CRV;
+
+    public function testDefaultExtensionsDoNotDisableBorrowedHtmlAfterParse(): void
+    {
+        $source = "# Title\n\nA paragraph with *strong* text.\n";
+        $converter = new CarveConverter();
+        $converter->parse("# Earlier document\n");
+
+        $chunks = [];
+        self::assertSame('complete', $converter->tryRenderHtmlStreaming(
+            $source,
+            static function (string $chunk) use (&$chunks): void {
+                $chunks[] = $chunk;
+            },
+        ));
+        self::assertSame((new CarveConverter())->convert($source), implode('', $chunks));
+
+        self::assertSame('needs-ast', $converter->tryRenderHtmlStreaming(
+            "Hey @alice and #release.\n",
+            static function (string $chunk): void {
+            },
+        ));
+
+        $converter->parse("---yaml\ntitle: Previous\n---\n\n# Previous\n");
+        $frontmatter = array_values(array_filter(
+            $converter->getExtensions(),
+            static fn (ExtensionInterface $extension): bool => $extension instanceof FrontmatterExtension,
+        ))[0];
+        self::assertInstanceOf(FrontmatterExtension::class, $frontmatter);
+        self::assertSame('title: Previous', $frontmatter->getContent());
+        self::assertSame('needs-ast', $converter->tryRenderHtmlStreaming(
+            $source,
+            static function (string $chunk): void {
+            },
+        ));
+        $converter->convert($source);
+        self::assertNull($frontmatter->getContent());
+        self::assertSame('complete', $converter->tryRenderHtmlStreaming(
+            $source,
+            static function (string $chunk): void {
+            },
+        ));
+    }
 
     public function testInactiveTierTwoStackUsesExactBorrowedHtml(): void
     {
