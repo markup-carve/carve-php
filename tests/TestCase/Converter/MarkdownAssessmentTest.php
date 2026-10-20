@@ -124,6 +124,16 @@ final class MarkdownAssessmentTest extends TestCase
         }
     }
 
+    public function testAnEscapedFinalPipeStaysCellContent(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("| h |\n| --- |\n| a\\|");
+
+        self::assertSame("|= h |\n| a\\| |", $result->value);
+        $codes = array_column($result->diagnostics, 'code');
+        self::assertNotContains('fidelity-unverified', $codes);
+        self::assertSame(2, count(array_keys($codes, 'markdown-table-cell', true)));
+    }
+
     public function testUnicodeReferenceLinkDestinationIsVerified(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("See [a][r].\n\n[r]: /ü\n");

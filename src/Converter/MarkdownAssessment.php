@@ -92,11 +92,13 @@ final class MarkdownAssessment
         $cells = [];
         $cell = '';
         $slashes = 0;
+        $endsWithSeparator = false;
         $row = trim($row);
         $length = strlen($row);
         for ($i = 0; $i < $length; $i++) {
             $char = $row[$i];
-            if ($char === '|' && $slashes % 2 === 0) {
+            $endsWithSeparator = $char === '|' && $slashes % 2 === 0;
+            if ($endsWithSeparator) {
                 $cells[] = trim($cell);
                 $cell = '';
             } else {
@@ -108,7 +110,7 @@ final class MarkdownAssessment
         if (str_starts_with($row, '|')) {
             array_shift($cells);
         }
-        if ($length > 0 && $row[$length - 1] === '|' && $slashes === 0) {
+        if ($endsWithSeparator) {
             array_pop($cells);
         }
 
