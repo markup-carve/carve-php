@@ -867,6 +867,8 @@ class BlockParser
                 $afterCloser = ContainerPrefix::stripQuoteMarkers($lines[$index + 2] ?? '');
                 if (
                     IndentationHelper::isBlankLine($lines[$index + 1] ?? '')
+                    && (!IndentationHelper::isBlankLine($lines[$index - 1] ?? '')
+                        || IndentationHelper::isBlankLine($lines[$index - 2] ?? ''))
                     && preg_match('/^[ \t]+\+[ \t]*$/D', $afterCloser) === 1
                 ) {
                     $explicitCloserTrim = true;

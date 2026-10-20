@@ -1593,6 +1593,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         && $this->regionMarkerAdjacent($previousEmitted, $block, $rendered)
                     ) {
                         $parts[array_key_last($parts)] .= "\n" . $rendered;
+                    } elseif (
+                        $parts !== [] && $item !== null && $block instanceof Paragraph
+                        && $previousEmitted instanceof ListBlock && $rendered === '+'
+                    ) {
+                        $parentList = $item->getParent();
+                        $separator = $parentList instanceof ListBlock && $parentList->isTight() ? "\n" : "\n\n";
+                        $parts[array_key_last($parts)] .= $separator . $rendered;
                     } elseif ($listSeparated && $parts !== []) {
                         // The tag OPENS the next block's first line rather than
                         // joining two blocks, so every host that indents line by
@@ -2551,9 +2558,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 } finally {
                     $this->extraNestedCodeBlank = $previousExtraNestedCodeBlank;
                 }
-                if ($child instanceof Paragraph && $previousEmitted instanceof ListBlock && $rendered === '\\+') {
-                    $rendered = '+';
-                }
                 if ($rendered === '') {
                     $previous = $child;
 
@@ -2682,7 +2686,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             if ($child instanceof CodeBlock) {
                 $content = $child->getContent();
 
-                return str_starts_with($content, "\n") || str_ends_with($content, "\n\n") ? $child : null;
+                return str_starts_with($content, "\n") ? $child : null;
             }
             if (!$child instanceof ListBlock) {
                 return null;
