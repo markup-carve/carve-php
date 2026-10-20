@@ -6991,6 +6991,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return true;
     }
 
+    public static function discardsInitialEmptyImportedQuoteLine(bool $startsQuote, bool $nextHasContent): bool
+    {
+        return $startsQuote && $nextHasContent;
+    }
+
     /**
      * @param string $text
      * @param string $extra Characters of the slot's own syntax to escape.

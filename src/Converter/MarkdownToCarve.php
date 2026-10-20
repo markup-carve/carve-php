@@ -3144,7 +3144,12 @@ class MarkdownToCarve
                 $converted = rtrim($converted) . '\\';
             }
 
-            array_push($result, ...explode("\n", $converted));
+            if (!($isBlockquote && $converted === '>' && CarveRenderer::discardsInitialEmptyImportedQuoteLine(
+                $prevLineType !== 'blockquote',
+                isset($lines[$i + 1]) && preg_match('/^[ \t]*>[ \t]*\S/', $lines[$i + 1]) === 1,
+            ))) {
+                array_push($result, ...explode("\n", $converted));
+            }
             if (
                 isset($emptyMarkerLines[$i])
                 && isset($lines[$i + 1])
