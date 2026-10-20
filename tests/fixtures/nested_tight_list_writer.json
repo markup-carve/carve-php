@@ -37,7 +37,8 @@
   {
     "source": "- - - ```\n      x\n\n\n    +\ntail\n",
     "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n\n</code></pre>\n          </li>\n        </ul>\n        <p>+</p>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>",
-    "fmt": "- - - ```\n      x\n\n\n      ```\n\n    +\n\ntail\n"
+    "fmt": "- - - ```\n      x\n\n      ```\n\n    +\n\ntail\n",
+    "reason": "The ccbbdcc9 formatter closes the nested fence after one payload blank."
   },
   {
     "source": "- 1. ```\n\n\n  +\ntail\n",
