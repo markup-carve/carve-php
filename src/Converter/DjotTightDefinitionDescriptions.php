@@ -59,13 +59,18 @@ final class DjotTightDefinitionDescriptions
                 return;
             }
             $prefix = substr($lines[$after->startLine - 1], 0, $sourceOffset($after->startOffset) - $offsets[$after->startLine - 1]);
+            preg_match('/^(?:> ?)+/', $prefix, $quotePrefix);
+            $markerPrefix = $quotePrefix[0] ?? '';
             $inserted = false;
             $count = count($lines);
             for ($line = $before->endLine - 1; $line < $after->startLine - 1; $line++) {
                 if (preg_match('/^[ \t>]*$/', $lines[$line]) === 1) {
-                    $edits[] = ['start' => $offsets[$line], 'end' => $offsets[$line] + strlen($lines[$line]) + (int)($line + 1 < $count), 'value' => $boundary && !$inserted ? $prefix . "+\n" : ''];
+                    $edits[] = ['start' => $offsets[$line], 'end' => $offsets[$line] + strlen($lines[$line]) + (int)($line + 1 < $count), 'value' => $boundary && !$inserted ? $markerPrefix . "+\n" : ''];
                     $inserted = true;
                 }
+            }
+            if ($boundary && $inserted && $prefix !== $markerPrefix) {
+                $edits[] = ['start' => $offsets[$after->startLine - 1], 'end' => $sourceOffset($after->startOffset), 'value' => $markerPrefix];
             }
         };
         $pending = [];
