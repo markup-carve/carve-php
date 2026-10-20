@@ -1802,9 +1802,7 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
-        if (MarkdownImportWork::$on) {
-            MarkdownImportWork::reset();
-        }
+        $workScope = MarkdownImportWork::$on ? MarkdownImportWork::enter() : null;
         if ($this->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
             $this->resolvedCrossrefs = [];
             try {
@@ -4723,26 +4721,33 @@ class MarkdownToCarve
      * @param int $index
      * @param string $text the line at the item's content column
      * @param int $contentCol
+     * @param int $sourceOffset
      *
      * @return array{string, int}|null
      */
-    protected function foldItemQuotedSetext(array $lines, int $index, string $text, int $contentCol): ?array
+    protected function foldItemQuotedSetext(array $lines, int $index, string $text, int $contentCol, int $sourceOffset = 0): ?array
     {
         $quoted = $this->normalizeBlockquoteMarkers($text);
         if (preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) !== 1 || trim($quote[2]) === '') {
             return null;
         }
-        $virtual = array_slice($lines, 0, $index + 1);
-        $virtual[$index] = $text;
+        $next = $lines[$index + 1] ?? null;
+        if ($next === null || trim($next) === '' || $this->indentWidth($next) < $contentCol) {
+            return null;
+        }
+        $virtual = [$text];
         for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
             if (trim($lines[$at]) === '' || $this->indentWidth($lines[$at]) < $contentCol) {
                 break;
             }
-            $virtual[$at] = $this->stripColumns($lines[$at], $contentCol);
+            $virtual[] = $this->stripColumns($lines[$at], $contentCol);
         }
-        $folded = $this->foldQuotedSetext($virtual, $index, $quote[1], $quote[2]);
+        if (MarkdownImportWork::$on) {
+            MarkdownImportWork::$quoteArraySlots += count($virtual);
+        }
+        $folded = $this->foldQuotedSetext($virtual, 0, $quote[1], $quote[2], $sourceOffset + $index);
 
-        return $folded === null ? null : [$quote[1] . $this->convertInlineFormatting($folded[0]), $folded[1]];
+        return $folded === null ? null : [$quote[1] . $this->convertInlineFormatting($folded[0]), $index + $folded[1]];
     }
 
     /**
@@ -4754,18 +4759,26 @@ class MarkdownToCarve
      * @param array<int, string> $lines
      * @param int $start
      * @param string $prefix
+     * @param int $contentCol
      *
      * @return array<int, string>
      */
-    protected function linesInsideQuote(array $lines, int $start, string $prefix): array
+    protected function linesInsideQuote(array $lines, int $start, string $prefix, int $contentCol): array
     {
-        $inside = $lines;
+        $inside = [];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
-            $body = $this->normalizeBlockquoteMarkers(ltrim($lines[$at], ' '));
-            if (!str_starts_with($body, $prefix)) {
-                continue;
+            if (MarkdownImportWork::$on) {
+                MarkdownImportWork::$quoteVisits++;
             }
-            $inside[$at] = substr($body, strlen($prefix));
+            $body = $this->normalizeBlockquoteMarkers(ltrim($lines[$at], ' '));
+            $held = str_starts_with($body, $prefix) ? substr($body, strlen($prefix)) : $lines[$at];
+            if ($at > $start && (trim($held) === '' || $this->indentWidth($held) < $contentCol)) {
+                break;
+            }
+            if (MarkdownImportWork::$on) {
+                MarkdownImportWork::$quoteArraySlots++;
+            }
+            $inside[] = $held;
         }
 
         return $inside;
@@ -4778,12 +4791,13 @@ class MarkdownToCarve
      *
      * @param array<int, string> $lines
      * @param string $text
+     * @param int $sourceOffset
      * @param string $prefix
      * @param int $start
      *
      * @return array{string, int}|null
      */
-    protected function foldQuotedSetext(array $lines, int $start, string $prefix, string $text): ?array
+    protected function foldQuotedSetext(array $lines, int $start, string $prefix, string $text, int $sourceOffset = 0): ?array
     {
         $lead = preg_match('/^[ \t]*(?:(?:[-*+]|\d{1,9}[.)]) {1,4}(?=\S))*/', $text, $markers) === 1 ? $markers[0] : '';
         $first = substr($text, strlen($lead));
@@ -4802,14 +4816,26 @@ class MarkdownToCarve
         // match a greedy `(?:> )+` over already-normalized markers, so `$text`
         // itself never opens with one.
         if (preg_match('/^> /', $this->normalizeBlockquoteMarkers($first)) === 1) {
+            $next = $lines[$start + 1] ?? null;
+            if ($next === null) {
+                return null;
+            }
+            $nextBody = $this->normalizeBlockquoteMarkers(ltrim($next, ' '));
+            if (str_starts_with($nextBody, $prefix)) {
+                $next = substr($nextBody, strlen($prefix));
+            }
+            if (trim($next) === '' || $this->indentWidth($next) < $this->columnWidth($lead)) {
+                return null;
+            }
             $held = $this->foldItemQuotedSetext(
-                $this->linesInsideQuote($lines, $start, $prefix),
-                $start,
+                $this->linesInsideQuote($lines, $start, $prefix, $this->columnWidth($lead)),
+                0,
                 $first,
                 $this->columnWidth($lead),
+                $sourceOffset + $start,
             );
 
-            return $held === null ? null : [$lead . $held[0], $held[1]];
+            return $held === null ? null : [$lead . $held[0], $start + $held[1]];
         }
         if (!$this->quoteParagraphIsOpen($first) || !$this->continuesParagraph($first)) {
             return null;
@@ -4851,7 +4877,7 @@ class MarkdownToCarve
                 return null;
             }
             if ($over <= 3 && preg_match('/^(?:=+|-+)$/', trim($rest, " \t")) === 1) {
-                $heading = $this->foldedHeading(trim($rest, " \t")[0] === '=' ? '#' : '##', $texts, $start);
+                $heading = $this->foldedHeading(trim($rest, " \t")[0] === '=' ? '#' : '##', $texts, $sourceOffset + $start);
 
                 return [$lead . $heading, $at];
             }
@@ -5356,10 +5382,6 @@ class MarkdownToCarve
      */
     protected function separateLooseItems(string $source, array $sourceBlanks): string
     {
-        if (MarkdownImportWork::$on) {
-            MarkdownImportWork::$assemblyLines += substr_count($source, "\n") + 1;
-            MarkdownImportWork::$assemblyBytes += strlen($source);
-        }
         if (preg_match('/\n[ \t>]*\n/', $source) !== 1) {
             return $source;
         }
@@ -5367,9 +5389,13 @@ class MarkdownToCarve
         if (!str_contains($source, "\r") && preg_match('/(?:^|\n)[ \t]*+(?![A-Za-z]++(?:[ \t]|\n|$))[^ \t\r\n]/', $source) === 0) {
             return $source;
         }
+        if (MarkdownImportWork::$on) {
+            MarkdownImportWork::$assemblyLines += substr_count($source, "\n") + 1;
+            MarkdownImportWork::$assemblyBytes += strlen($source);
+        }
+        $layoutBefore = MarkdownImportWork::$on ? MarkdownImportWork::layoutTotal() : 0;
+        $layoutWasOn = LayoutWork::$on;
         try {
-            $layoutBefore = LayoutWork::total();
-            $layoutWasOn = LayoutWork::$on;
             if (MarkdownImportWork::$on) {
                 LayoutWork::$on = true;
             }
@@ -5378,7 +5404,7 @@ class MarkdownToCarve
             return $source;
         } finally {
             if (MarkdownImportWork::$on) {
-                MarkdownImportWork::$layoutWork += LayoutWork::total() - $layoutBefore;
+                MarkdownImportWork::$layoutWork += MarkdownImportWork::layoutTotal() - $layoutBefore;
                 LayoutWork::$on = $layoutWasOn;
             }
         }
