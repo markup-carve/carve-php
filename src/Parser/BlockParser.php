@@ -2089,7 +2089,8 @@ class BlockParser
         ?int $firstIndex = null,
         ?int $lastIndex = null,
     ): void {
-        $text = rtrim(implode("\n", $group), "\n");
+        $normalizedGroup = array_map(static fn (string $line): string => ltrim($line, " \t"), $group);
+        $text = rtrim(implode("\n", $normalizedGroup), "\n");
         if (trim($text, StringUtil::WHITESPACE_CHARS) === '') {
             return;
         }
@@ -2116,7 +2117,7 @@ class BlockParser
         }
         $this->inlineParser->parse($paragraph, $text);
         $this->placeDegradedSoftBreaks($paragraph, $group, $lineMap, $firstIndex);
-        $this->placeDegradedTextRuns($paragraph, $group, $lineMap, $firstIndex);
+        $this->placeDegradedTextRuns($paragraph, $normalizedGroup, $lineMap, $firstIndex);
         $parent->appendChild($paragraph);
         if ($this->state->source->trackPositions) {
             $this->listsBuilder()->repairParagraphSuffixPosition($paragraph);
