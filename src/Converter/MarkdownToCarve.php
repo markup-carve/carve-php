@@ -1805,9 +1805,7 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
-        if (trim($markdown) === '') {
-            return $markdown;
-        }
+        $whitespaceOnly = strspn($markdown, " \t\r\n") === strlen($markdown) ? $markdown : null;
         $workScope = MarkdownImportWork::$on ? MarkdownImportWork::enter() : null;
         if ($this->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
             $this->resolvedCrossrefs = [];
@@ -1873,6 +1871,9 @@ class MarkdownToCarve
         $this->fragmentFixups = [];
         $this->authoredDestinations = [];
         $this->unfixedValue = null;
+        if ($whitespaceOnly !== null) {
+            return $whitespaceOnly;
+        }
 
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both
