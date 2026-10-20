@@ -3249,7 +3249,7 @@ class MarkdownToCarve
                 $result[] = str_starts_with($definition, '[') && str_ends_with($definition, ']:') && !str_contains($definition, "\n")
                     ? $definition : $this->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
             }
-            if (str_ends_with($markdown, "\n")) {
+            if (CarveRenderer::importedSourceEndsWithNewline($markdown)) {
                 $result[] = '';
             }
         }
@@ -3291,7 +3291,7 @@ class MarkdownToCarve
             $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
             $carve = $this->separateLooseItems($carve, $writtenBlanks);
             $carve = $this->applyHeadingIdPreservation($carve, $markdown);
-            $carve = CarveRenderer::trimImportedDocumentEdges($carve, str_ends_with($markdown, "\n"));
+            $carve = CarveRenderer::trimImportedDocumentEdges($carve, CarveRenderer::importedSourceEndsWithNewline($markdown));
 
             // An empty quote line is written as its markers alone, which is what
             // `carve fmt` writes. The separator space carries no content, so the

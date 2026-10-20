@@ -1672,6 +1672,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return rtrim($line, " \t");
     }
 
+    public static function importedSourceEndsWithNewline(string $source): bool
+    {
+        return str_ends_with($source, "\n") || str_ends_with($source, "\r");
+    }
+
     /**
      * Does this block put anything on the page that a re-parse can see?
      *
