@@ -54,14 +54,14 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
     public static function unusedNestedContinuationProvider(): array
     {
         return [
-            'one blank' => ["- - ```\n  +\n\ntail", ''],
-            'two blanks' => ["- - ```\n  +\n\n\ntail", ''],
+            'one blank' => ["- - ```\n  +\n\ntail", "\n"],
+            'two blanks' => ["- - ```\n  +\n\n\ntail", "\n\n"],
             'depth one keeps its blank' => ["- ```\n+\n\ntail", "\n"],
         ];
     }
 
     #[DataProvider('unusedNestedContinuationProvider')]
-    public function testUnusedNestedContinuationKeepsBlankOutOfPayload(string $source, string $payload): void
+    public function testUnusedNestedContinuationKeepsBlankAsPayload(string $source, string $payload): void
     {
         $html = (new CarveConverter())->convert($source);
         if (preg_match('~<pre><code>(.*?)</code></pre>~s', $html, $matches) !== 1) {
