@@ -145,8 +145,8 @@ class TheWriterRefusesAListNestedPastTheCapTest extends TestCase
         return [
             'mixed at the cap' => ['mixed', BlockParser::MAX_NESTING_DEPTH, true],
             'container past the cap' => ['container', BlockParser::MAX_NESTING_DEPTH + 1, true],
-            'ordered past the cap' => ['ordered', BlockParser::MAX_NESTING_DEPTH + 1, false],
-            'mixed far past the cap' => ['mixed', BlockParser::MAX_NESTING_DEPTH + 30, false],
+            'ordered past the cap' => ['ordered', BlockParser::MAX_NESTING_DEPTH + 1, true],
+            'mixed far past the cap' => ['mixed', BlockParser::MAX_NESTING_DEPTH + 30, true],
         ];
     }
 
