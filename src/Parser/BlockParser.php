@@ -1270,13 +1270,20 @@ class BlockParser
                 $found = true;
                 $this->state->session->discoveringDefinitions = true;
                 $collectedBodyLines = $body['lines'];
-                $body['lines'] = $this->footnoteBodyDefinitionReach(
-                    $this->rebaseOverindentedItemBlocks(
-                        $body['lines'],
-                        array_fill_keys(array_keys($body['lines']), true),
-                        includeSublists: true,
-                    ),
-                );
+                $plainBody = count($body['lines']) === 1 ? $body['lines'][0] : '';
+                if (
+                    $plainBody === ''
+                    || !str_contains('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', $plainBody[0])
+                    || strspn($plainBody, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .') !== strlen($plainBody)
+                ) {
+                    $body['lines'] = $this->footnoteBodyDefinitionReach(
+                        $this->rebaseOverindentedItemBlocks(
+                            $body['lines'],
+                            array_fill_keys(array_keys($body['lines']), true),
+                            includeSublists: true,
+                        ),
+                    );
+                }
                 foreach ($body['lines'] as $bodyIndex => $entry) {
                     if (
                         preg_match('/^%{3,}$/', $entry) === 1
