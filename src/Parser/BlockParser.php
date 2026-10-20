@@ -6226,7 +6226,7 @@ class BlockParser
             $paragraph,
             $content,
             $start,
-            sourceMap: $this->foldedLinesMap($contentLines),
+            sourceMap: $trackPositions ? $this->foldedLinesMap($contentLines) : null,
         );
         if ($trackPositions) {
             $placed = array_values(array_filter(
