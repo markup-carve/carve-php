@@ -26,7 +26,7 @@ class AttachedDefinitionBoundariesTest extends TestCase
     #[DataProvider('controls')]
     public function testDefinitionsKeepTheirAttachedBlockOwnership(array $control, int $index): void
     {
-        if ($index >= 2514 && $index <= 2597) {
+        if ($index >= 2514 && $index <= 2597 && str_starts_with($control['source'], "- a\n  - b\n  +\n")) {
             $this->markTestSkipped('pending markup-carve/carve#3421 relative rule');
         }
         $converter = new CarveConverter();
@@ -35,6 +35,13 @@ class AttachedDefinitionBoundariesTest extends TestCase
         foreach ([$converter->convert($control['source']), $converter->render($document), $converter->convert($written)] as $html) {
             $this->assertSame($this->htmlTree($control['html']), $this->htmlTree($html), $control['source']);
         }
+    }
+
+    public function testQuotedAttachedListKeepsItsReferenceDefinition(): void
+    {
+        $source = "> :: term\n> : body\n> +\n> - inner\n>   [r]: /url\n\nSee [r][].\n";
+        $html = (new CarveConverter())->convert($source);
+        $this->assertStringContainsString('<a href="/url">r</a>', $html);
     }
 
     private function htmlTree(string $html): array

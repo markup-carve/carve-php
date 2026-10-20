@@ -6336,12 +6336,23 @@ class BlockParser
         return $sourceLine >= 3
             && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine] ?? '', 2) >= 2
             && preg_match('/^[ \t]*\[(?!\^)/', $sourceLines[$sourceLine] ?? '') === 1
-            && isset($sourceLines[$sourceLine + 1])
-            && str_contains($sourceLines[$sourceLine + 1], '\\]')
-            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine + 1], 2) >= 2
             && preg_match('/^(?:[-*] |\d+[.)] )\S/', $sourceLines[$sourceLine - 1] ?? '') === 1
             && preg_match('/^\+[ \t]*$/D', $sourceLines[$sourceLine - 2] ?? '') === 1
             && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $sourceLines[$sourceLine - 3] ?? '') === 1;
+    }
+
+    private function followsAttachedDefinitionListReference(int $index): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $sourceLines = $this->state->source->sourceLines;
+
+        return $sourceLine >= 4
+            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine] ?? '', 2) >= 2
+            && preg_match('/^[ \t]*\[(?!\^)/', $sourceLines[$sourceLine - 1] ?? '') === 1
+            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine - 1], 2) >= 2
+            && preg_match('/^(?:[-*] |\d+[.)] )\S/', $sourceLines[$sourceLine - 2] ?? '') === 1
+            && preg_match('/^\+[ \t]*$/D', $sourceLines[$sourceLine - 3] ?? '') === 1
+            && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $sourceLines[$sourceLine - 4] ?? '') === 1;
     }
 
     /**
@@ -6353,7 +6364,7 @@ class BlockParser
     protected function tryParseReferenceDefinition(array $lines, int $start): ?int
     {
         $line = $lines[$start];
-        if ($this->isAttachedDefinitionListReference($start)) {
+        if ($this->isAttachedDefinitionListReference($start) || $this->followsAttachedDefinitionListReference($start)) {
             return null;
         }
 
