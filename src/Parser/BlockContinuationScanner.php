@@ -812,6 +812,13 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            if (
+                $nextIndent < $contentIndent
+                && $trailingState->hasOpenDiv()
+                && $this->lastCollectedLineBlockClosed($itemLines)
+            ) {
+                break;
+            }
             // A sibling ends this item even when a comment fence is still open.
             if (
                 $openCommentLength !== null && $nextIndent === $baseIndent
@@ -4465,6 +4472,30 @@ final class BlockContinuationScanner
         }
 
         return $this->trailingBlockHasEndedCore($kind, $line, $lines, $index, $trailingState);
+    }
+
+    /**
+     * @param array<string> $itemLines
+     */
+    private function lastCollectedLineBlockClosed(array $itemLines): bool
+    {
+        if ($itemLines === []) {
+            return false;
+        }
+        $last = $itemLines[array_key_last($itemLines)];
+        if (preg_match('/^:{3,}[ \t]*$/', ltrim($last, " \t")) !== 1) {
+            return false;
+        }
+        $column = IndentationHelper::getLeadingColumns($last);
+        for ($back = count($itemLines) - 2; $back >= 0; $back--) {
+            if (IndentationHelper::getLeadingColumns($itemLines[$back]) !== $column) {
+                continue;
+            }
+
+            return (($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($itemLines[$back], " \t"))['className'] ?? null) === '|';
+        }
+
+        return false;
     }
 
     /**

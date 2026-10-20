@@ -572,6 +572,6 @@
   {
     "id": "owner134-133",
     "source": "> - ::: |\n>   ```\n>   code\n>   ```\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code>\ncode\n</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code>\ncode\n</code><br>\n- tail</p></div></li></ul></blockquote>"
   }
 ]

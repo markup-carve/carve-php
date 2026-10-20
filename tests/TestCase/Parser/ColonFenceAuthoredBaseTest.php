@@ -108,7 +108,7 @@ class ColonFenceAuthoredBaseTest extends TestCase
 </ul>
 ',
             ],
-            ["- a\n\n  ::: box\n    ::: inner\n    x\n    :::\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>::: inner\nx\n:::</p>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],
+            ["- a\n\n  ::: box\n    ::: inner\n    x\n    :::\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <div class=\"inner\">\n        <p>x</p>\n      </div>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- a\n\n  ::: box\n  x\n   :::\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>x\n:::</p>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- a\n  ::: box\n  x\n   :::\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>x\n:::</p>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- head\n      ::: box\n      a\n    :::\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a\n:::\ntail</p>\n    </div>\n  </li>\n</ul>\n"],
@@ -132,7 +132,7 @@ class ColonFenceAuthoredBaseTest extends TestCase
             ["- head\n\n      ::: box\n      a\n\n    :::\n\n  tail\n", "<ul>\n  <li>head\n    <div class=\"box\">\n      <p>a</p>\n      <p>:::</p>\n      <p>tail</p>\n    </div>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      ```\n      x\n    ```\n      :::\n      ```\n      :::\n\n  tail\n", "<ul>\n  <li><p>head</p>\n    <div class=\"box\">\n      <pre><code>x\n  ```\n:::\n</code></pre>\n    </div>\n    <p>tail</p>\n  </li>\n</ul>\n"],
             ["- head\n\n      ::: box\n      a\n    :::\n\n      b\n      :::\n\n  tail\n", "<ul>\n  <li><p>head</p>\n    <div class=\"box\">\n      <p>a\n:::</p>\n      <p>b</p>\n    </div>\n    <p>tail</p>\n  </li>\n</ul>\n"],
-            ["- a\n\n  ::: box\n  x\n\n    ```\n  :::\n    ```\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>x</p>\n      <p><code></code></p>\n    </div>\n    <pre><code>:::\n</code></pre>\n  </li>\n  <li>b</li>\n</ul>\n"],
+            ["- a\n\n  ::: box\n  x\n\n    ```\n  :::\n    ```\n  :::\n- b\n", "<ul>\n  <li>a\n    <div class=\"box\">\n      <p>x</p>\n      <pre><code>:::\n</code></pre>\n    </div>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- a\n    ::: note\n    x\n    :::\n- b\n", "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>x</p>\n    </aside>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- a\n\n    ::: note\n    x\n    :::\n- b\n", "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>x</p>\n    </aside>\n  </li>\n  <li>b</li>\n</ul>\n"],
             ["- a\n\n    ::: note\n    x\n- b\n", "<ul>\n  <li>a\n    <aside class=\"admonition note\" aria-label=\"Note\">\n      <p>x</p>\n    </aside>\n  </li>\n  <li>b</li>\n</ul>\n"],

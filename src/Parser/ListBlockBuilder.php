@@ -1107,6 +1107,9 @@ final class ListBlockBuilder
             } elseif ($lineIndent === $baseIndent) {
                 // Line is at base indent - check if it starts a new block or list item
                 $trimmedLine = ltrim($subLine, " \t");
+                if ($subTrailingState->hasOpenDiv() && $this->lastCollectedLineBlockClosed($subLines)) {
+                    break;
+                }
                 $itemInfo = ($this->getListParser)()->parseListItemMarker($trimmedLine);
                 $sameStyle = !isset($listInfo['style']) || !isset($itemInfo['style']) || $itemInfo['style'] === $listInfo['style'];
                 if ($itemInfo !== null && $itemInfo['type'] === $listInfo['type'] && $itemInfo['marker'] === $listInfo['marker'] && $sameStyle) {
@@ -1574,6 +1577,30 @@ final class ListBlockBuilder
             $lines,
             includeSublists: true,
         ) !== $lines;
+    }
+
+    /**
+     * @param array<string> $lines
+     */
+    private function lastCollectedLineBlockClosed(array $lines): bool
+    {
+        if ($lines === []) {
+            return false;
+        }
+        $last = $lines[array_key_last($lines)];
+        if (preg_match('/^:{3,}[ \t]*$/', ltrim($last, " \t")) !== 1) {
+            return false;
+        }
+        $column = IndentationHelper::getLeadingColumns($last);
+        for ($back = count($lines) - 2; $back >= 0; $back--) {
+            if (IndentationHelper::getLeadingColumns($lines[$back]) !== $column) {
+                continue;
+            }
+
+            return (($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($lines[$back], " \t"))['className'] ?? null) === '|';
+        }
+
+        return false;
     }
 
     /**
@@ -2458,6 +2485,7 @@ final class ListBlockBuilder
      * @param bool $absorbLeadNoteBody Let a note at the start of a collected
      *   list or description chunk own openers at its body floor (PART 9 §16).
      * @param int|null $unclosedFenceBase
+     * @param bool $skipBareColonOpeners
      *
      * @return array<string>
      */
@@ -2470,6 +2498,7 @@ final class ListBlockBuilder
         bool $skipOnlyClosedOpaqueAtMinimum = false,
         bool $absorbLeadNoteBody = false,
         ?int $unclosedFenceBase = null,
+        bool $skipBareColonOpeners = false,
     ): array {
         // An uninterrupted marker-line descendant owns the entire chunk. Its
         // own recursive item parse will see any opener that reaches that item's
@@ -2962,6 +2991,11 @@ final class ListBlockBuilder
                 continue;
             }
             $opener = IndentationHelper::stripLeadingColumns($line, $base);
+            if ($skipBareColonOpeners && preg_match('/^:{3,}[ \t]*$/', $opener) === 1) {
+                $afterBlank = false;
+
+                continue;
+            }
             if (
                 !$this->lineOpensBlockForLooseness($opener, true)
                 || (!$includeSublists && ($this->getListParser)()->parseListItemMarker($opener) !== null)
@@ -3107,7 +3141,22 @@ final class ListBlockBuilder
                 }
                 $codeOpens = !$blockState->openParagraph;
             }
+            $nestedLiteralColumn = null;
             for ($j = $i; $j <= $end; $j++) {
+                if ($skipBareColonOpeners && $colon !== null && $colon['className'] !== '|' && $j > $i) {
+                    $candidateColumn = IndentationHelper::getLeadingColumns($lines[$j]);
+                    $candidate = ltrim($lines[$j], " \t");
+                    if ((($this->getFencedBlockParser)()->parseDivFenceOpener($candidate)['className'] ?? null) === '|' && $candidateColumn > $base) {
+                        $nestedLiteralColumn = $candidateColumn;
+                    } elseif ($nestedLiteralColumn !== null && $candidateColumn === $nestedLiteralColumn && preg_match('/^:{3,}[ \t]*$/', $candidate) === 1) {
+                        $nestedLiteralColumn = null;
+                    }
+                    if ($nestedLiteralColumn === null && $candidateColumn === $base && preg_match('/^:{3,}[ \t]*$/', $candidate) === 1) {
+                        $lines[$j] = IndentationHelper::stripLeadingColumns($lines[$j], $base);
+                    }
+
+                    continue;
+                }
                 if ($comment !== null && $commentClose !== null && $j > $i && $j < $commentClose) {
                     continue;
                 }
