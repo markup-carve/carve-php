@@ -74,9 +74,9 @@ followed by a blank line or the end of the document
 
 `ListColumnLinter` reports two ordered-list column traps of explicit numbers.
 A list marker in an item's paragraph that starts past the item's marker column
-and below its content column folds in as text
-(`list-marker-below-content-column`); the warning names the content column
-that nests it. Two adjacent ordered lists whose numbering continues but whose
+and below its content column folds in as text, and after a blank line it starts
+a separate list (`list-marker-below-content-column`); the warning names the
+content column that nests it. Two adjacent ordered lists whose numbering continues but whose
 markers start at different columns are two lists
 (`ordered-list-split-by-indent`); align the markers, or use `{start=N}` with
 the auto-numbered `.` marker.
