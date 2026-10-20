@@ -6996,6 +6996,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $startsQuote && $nextHasContent;
     }
 
+    public static function foldImportedEmptyItem(string $marker, string $firstChild): ?string
+    {
+        if (
+            preg_match('/^([ \t]*(?:[-*]|\d+[.)])) \+$/', $marker, $head) !== 1
+            || preg_match('/^([ \t]+)\S/', $firstChild, $indent) !== 1
+            || strlen($indent[1]) < strlen($head[1]) + 1
+        ) {
+            return null;
+        }
+
+        return $head[1] . ' ' . ltrim($firstChild, " \t");
+    }
+
     /**
      * @param string $text
      * @param string $extra Characters of the slot's own syntax to escape.
@@ -7229,7 +7242,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         return '"' . $this->escapeQuotedSlot($value, '"|') . '"';
     }
-
 
     protected function escapeCriticText(string $text): string
     {

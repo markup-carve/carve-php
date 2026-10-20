@@ -13,7 +13,8 @@ final class MarkdownListPaddingFixedPointTest extends TestCase
     public function testListPaddingSpellings(): void
     {
         $rows = [
-            'cm-109' => ['1.  foo
+            'cm-109' => [
+                '1.  foo
 
     - bar
 ', '{loose}
@@ -27,8 +28,10 @@ final class MarkdownListPaddingFixedPointTest extends TestCase
     </ul>
   </li>
 </ol>
-'],
-            'cm-254' => ['1.  A paragraph
+',
+            ],
+            'cm-254' => [
+                '1.  A paragraph
     with two lines.
 
         indented code
@@ -51,8 +54,10 @@ with two lines.</p>
     <blockquote><p>A block quote.</p></blockquote>
   </li>
 </ol>
-'],
-            'cm-257' => [' -    one
+',
+            ],
+            'cm-257' => [
+                ' -    one
 
      two
 ', '- one
@@ -65,8 +70,10 @@ with two lines.</p>
 </ul>
 <pre><code> two
 </code></pre>
-'],
-            'cm-259' => ['   > > 1.  one
+',
+            ],
+            'cm-259' => [
+                '   > > 1.  one
 >>
 >>     two
 ', '> > 1. one
@@ -81,8 +88,10 @@ with two lines.</p>
     </ol>
   </blockquote>
 </blockquote>
-'],
-            'cm-271' => ['  10.  foo
+',
+            ],
+            'cm-271' => [
+                '  10.  foo
 
            bar
 ', '{loose}
@@ -97,8 +106,10 @@ with two lines.</p>
 </code></pre>
   </li>
 </ol>
-'],
-            'cm-276' => ['-    foo
+',
+            ],
+            'cm-276' => [
+                '-    foo
 
   bar
 ', '- foo
@@ -108,8 +119,10 @@ bar
   <li>foo</li>
 </ul>
 <p>bar</p>
-'],
-            'cm-286' => [' 1.  A paragraph
+',
+            ],
+            'cm-286' => [
+                ' 1.  A paragraph
      with two lines.
 
          indented code
@@ -132,8 +145,10 @@ with two lines.</p>
     <blockquote><p>A block quote.</p></blockquote>
   </li>
 </ol>
-'],
-            'cm-287' => ['  1.  A paragraph
+',
+            ],
+            'cm-287' => [
+                '  1.  A paragraph
       with two lines.
 
           indented code
@@ -156,8 +171,10 @@ with two lines.</p>
     <blockquote><p>A block quote.</p></blockquote>
   </li>
 </ol>
-'],
-            'cm-288' => ['   1.  A paragraph
+',
+            ],
+            'cm-288' => [
+                '   1.  A paragraph
        with two lines.
 
            indented code
@@ -180,8 +197,10 @@ with two lines.</p>
     <blockquote><p>A block quote.</p></blockquote>
   </li>
 </ol>
-'],
-            'cm-290' => ['  1.  A paragraph
+',
+            ],
+            'cm-290' => [
+                '  1.  A paragraph
 with two lines.
 
           indented code
@@ -204,8 +223,10 @@ with two lines.</p>
     <blockquote><p>A block quote.</p></blockquote>
   </li>
 </ol>
-'],
-            'cm-291' => ['  1.  A paragraph
+',
+            ],
+            'cm-291' => [
+                '  1.  A paragraph
     with two lines.
 ', '1. A paragraph
    with two lines.
@@ -213,8 +234,10 @@ with two lines.</p>
   <li>A paragraph
 with two lines.</li>
 </ol>
-'],
-            'cm-309' => ['-   foo
+',
+            ],
+            'cm-309' => [
+                '-   foo
 
     notcode
 
@@ -245,7 +268,8 @@ code
 <!-- -->
 <pre><code>code
 </code></pre>
-'],
+',
+            ],
         ];
 
         foreach ($rows as $id => [$source, $expected, $html]) {
