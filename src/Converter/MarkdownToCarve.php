@@ -7417,13 +7417,8 @@ class MarkdownToCarve
                 if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
                     return null;
                 }
-                $quote = $title[1][0] === '(' ? '"' : $title[1][0];
                 $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
-                $escaped = QuotedSlotEscaper::escape($decoded, $quote);
-                if ($table) {
-                    $escaped = str_replace('`', '\\`', $escaped);
-                }
-                $rest = ' ' . $quote . $escaped . $quote;
+                $rest = ' ' . (new CarveRenderer())->spellImportedTitle($decoded, $table);
             }
 
             return '(' . $this->writeMarkdownDestination($url, $protected, table: $table) . $rest . ')';
@@ -8304,13 +8299,8 @@ class MarkdownToCarve
                 if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
                     return null;
                 }
-                $quote = $title[1][0] === '(' ? '"' : $title[1][0];
                 $decoded = $this->decodeMarkdownScalar($this->referenceSourceText(substr($title[1], 1, -1), $protected));
-                $escaped = QuotedSlotEscaper::escape($decoded, $quote);
-                if ($table) {
-                    $escaped = str_replace('`', '\\`', $escaped);
-                }
-                $rest = ' ' . $quote . $escaped . $quote;
+                $rest = ' ' . (new CarveRenderer())->spellImportedTitle($decoded, $table);
             }
 
             return '(' . $this->writeMarkdownDestination($url, originalSource: true, table: $table) . $rest . ')';

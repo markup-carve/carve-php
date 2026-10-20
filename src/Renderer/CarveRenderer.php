@@ -6979,6 +6979,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $this->escapeQuotedSlot($text, '"');
     }
 
+    public function spellImportedTitle(string $title, bool $table = false): string
+    {
+        $written = $this->escapeQuoted($title);
+
+        return '"' . ($table ? str_replace('`', '\\`', $written) : $written) . '"';
+    }
+
     /**
      * @param string $text
      * @param string $extra Characters of the slot's own syntax to escape.
@@ -7212,6 +7219,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         return '"' . $this->escapeQuotedSlot($value, '"|') . '"';
     }
+
 
     protected function escapeCriticText(string $text): string
     {
