@@ -751,10 +751,70 @@ class CarveFmtCorpusTest extends TestCase
             if (self::escapeFingerprint($converter, $codec, $without) !== $base) {
                 continue;
             }
+            // The nested marker fence owns the escaped plus at its marker column.
+            if ($escaped === '+' && self::nestedFencePlus($source, $offsets[0])) {
+                continue;
+            }
             $idle[$escaped] = ($idle[$escaped] ?? 0) + count($offsets);
         }
 
         return $idle;
+    }
+
+    private static function nestedFencePlus(string $source, int $slashOffset): bool
+    {
+        $before = substr($source, 0, $slashOffset);
+        $lineBreak = strrpos($before, "\n");
+        if ($lineBreak === false || preg_match('/^[ \t]*(?:\n|$)/', substr($source, $slashOffset + 2)) !== 1) {
+            return false;
+        }
+        $plusLine = substr($before, $lineBreak + 1);
+        $plusLine = preg_replace('/^(?:> ?)+/', '', $plusLine) ?? $plusLine;
+        if (preg_match('/^[ \t]*$/D', $plusLine) !== 1) {
+            return false;
+        }
+        $earlier = substr($source, 0, $lineBreak);
+        $lines = explode("\n", $earlier);
+        $closerLine = array_pop($lines);
+        if ($closerLine === null) {
+            return false;
+        }
+        $closerLine = preg_replace('/^(?:> ?)+/', '', $closerLine) ?? $closerLine;
+        if (preg_match('/^([ \t]*)(`{3,}|~{3,})[ \t]*$/D', $closerLine, $closer) !== 1) {
+            return false;
+        }
+        for ($index = count($lines) - 1; $index >= 0; $index--) {
+            $line = preg_replace('/^(?:> ?)+/', '', $lines[$index]) ?? $lines[$index];
+            if (preg_match('/^([ \t]*)((?:[-*] |\d+[.)] )+)(`{3,}|~{3,})/', $line, $opener) !== 1) {
+                continue;
+            }
+            preg_match_all('/(?:[-*] |\d+[.)] )/', $opener[2], $markers);
+            $lastMarker = $markers[0][array_key_last($markers[0])] ?? '';
+
+            return (count($markers[0]) > 1 || strlen($opener[1]) >= 2)
+                && strlen($plusLine) === strlen($opener[1]) + strlen($opener[2]) - strlen($lastMarker)
+                && strlen($closer[1]) === strlen($opener[1]) + strlen($opener[2])
+                && $closer[2][0] === $opener[3][0]
+                && strlen($closer[2]) >= strlen($opener[3]);
+        }
+
+        return false;
+    }
+
+    public function testNestedFencePlusExceptionDoesNotCoverOtherIdlePlusEscapes(): void
+    {
+        foreach (
+            [
+                "- - - ```\n      x\n      ```\n    \\+\n" => true,
+                "- a\n  - b\n    - ```\n      ```\n    \\+\n" => true,
+                "- a\n  \\+\n" => false,
+                "```\n```\n\\+\n" => false,
+            ] as $source => $expected
+        ) {
+            $offset = strpos($source, '\\+');
+            self::assertNotFalse($offset);
+            self::assertSame($expected, self::nestedFencePlus($source, $offset));
+        }
     }
 
     /**

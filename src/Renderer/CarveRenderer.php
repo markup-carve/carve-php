@@ -118,8 +118,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private int $indentedHostDepth = 0;
 
-    private bool $extraNestedCodeBlank = false;
-
     private CarveWriterState $writerState;
 
     private ?CanonicalAst $canonicalImplementation = null;
@@ -1546,20 +1544,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $movedMarker = null;
             foreach ($blocks as $index => $block) {
                 $next = $blocks[$index + 1] ?? null;
-                $firstInline = $next instanceof Paragraph ? ($next->getChildren()[0] ?? null) : null;
-                $previousExtraNestedCodeBlank = $this->extraNestedCodeBlank;
-                if (
-                    $item !== null && $index === 0 && $block instanceof ListBlock && $firstInline instanceof Text
-                    && str_starts_with($firstInline->getContent(), '+')
-                    && $this->nestedListSoleCode($block) !== null
-                ) {
-                    $this->extraNestedCodeBlank = true;
-                }
-                try {
-                    $rendered = $this->renderBlock($block);
-                } finally {
-                    $this->extraNestedCodeBlank = $previousExtraNestedCodeBlank;
-                }
+                $rendered = $this->renderBlock($block);
                 if (
                     $item !== null && $block instanceof Paragraph
                     && $previousEmitted instanceof ListBlock && $rendered === '\\+'
@@ -2016,7 +2001,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
         return $fence . $info . "\n" . $this->protectVerbatim($content)
             . (CodePayload::terminated($content) ? '' : "\n")
-            . ($this->extraNestedCodeBlank ? "\n" : '') . $fence;
+            . $fence;
     }
 
     protected function codeFenceInfo(CodeBlock $node): string
@@ -2464,6 +2449,38 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $current instanceof Paragraph;
     }
 
+    private function openParagraphReachesDown(?Node $block): bool
+    {
+        while ($block !== null) {
+            if ($block instanceof BlockQuote) {
+                $children = $block->getChildren();
+                $block = $children === [] ? null : $children[array_key_last($children)];
+
+                continue;
+            }
+            if ($block instanceof ListBlock) {
+                $items = $block->getChildren();
+                $item = $items === [] ? null : $items[array_key_last($items)];
+                $children = $item instanceof ListItem ? $item->getChildren() : [];
+                $block = $children === [] ? null : $children[array_key_last($children)];
+
+                continue;
+            }
+            if ($block instanceof DefinitionList) {
+                $descriptions = array_values(array_filter($block->getChildren(), static fn (Node $child): bool => $child instanceof DefinitionDescription));
+                $description = $descriptions === [] ? null : $descriptions[array_key_last($descriptions)];
+                $children = $description instanceof DefinitionDescription ? $description->getChildren() : [];
+                $block = $children === [] ? null : $children[array_key_last($children)];
+
+                continue;
+            }
+
+            return $this->leavesAParagraphOpen($block);
+        }
+
+        return false;
+    }
+
     private function nestedTightItemLosesTightness(ListItem $item): bool
     {
         $previous = null;
@@ -2474,6 +2491,13 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $child instanceof Paragraph && ($previous instanceof BlockQuote
                 || ($lastPreviousItem instanceof ListItem && $lastPreviousItem->getChildren() !== []))
             ) {
+                $inlines = $child->getChildren();
+                if (count($inlines) === 1 && ($inlines[0] instanceof Text || $inlines[0] instanceof EscapedText) && $inlines[0]->getContent() === '+') {
+                    $previous = $child;
+
+                    continue;
+                }
+
                 return true;
             }
             $previous = $child;
@@ -2542,21 +2566,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // like a definition description's or footnote's.  Let a
                 // definition list among its direct children raise its opener
                 // when its payload would otherwise be re-owned by the item.
-                $previousExtraNestedCodeBlank = $this->extraNestedCodeBlank;
-                $firstInline = $next instanceof Paragraph ? ($next->getChildren()[0] ?? null) : null;
-                if (
-                    $index === 0 && $child instanceof ListBlock && $firstInline instanceof Text
-                    && str_starts_with($firstInline->getContent(), '+')
-                    && $this->nestedListSoleCode($child) !== null
-                ) {
-                    $this->extraNestedCodeBlank = true;
-                }
-                try {
-                    $rendered = $this->atAnAuthoredBodyColumn(
-                        fn (): string => $this->renderBlock($child),
-                    );
-                } finally {
-                    $this->extraNestedCodeBlank = $previousExtraNestedCodeBlank;
+                $rendered = $this->atAnAuthoredBodyColumn(
+                    fn (): string => $this->renderBlock($child),
+                );
+                if ($child instanceof Paragraph && $rendered === '+' && ($this->listDepth > 1 || $this->indentedHostDepth > 0)) {
+                    $rendered = '\\+';
                 }
                 if ($rendered === '') {
                     $previous = $child;
@@ -2614,14 +2628,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     || ($previousEmitted !== null && $this->adjacentBlocksMerge($previousEmitted, $child))
                     || (
                         !$separated
-                        && $previousEmitted instanceof ListBlock
-                        && $this->listTailHasParagraph($previousEmitted)
-                        && $this->foldsIntoAnOpenParagraph($child)
-                        && !$this->opensWithAnAttributeLine($rendered)
-                    )
-                    || (
-                        !$separated
-                        && $previous instanceof Paragraph
+                        && $this->openParagraphReachesDown($previousEmitted)
                         && $this->foldsIntoAnOpenParagraph($child)
                         && !$this->opensWithAnAttributeLine($rendered)
                     )
@@ -2667,31 +2674,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         } finally {
             $this->blockDepth--;
             $this->colonFenceDepth = $previousColonFenceDepth;
-        }
-    }
-
-    private function nestedListSoleCode(ListBlock $list): ?CodeBlock
-    {
-        $current = $list;
-        while (true) {
-            $items = $current->getChildren();
-            if (count($items) !== 1) {
-                return null;
-            }
-            $item = $items[0];
-            if (!$item instanceof ListItem || $item->isTask() || count($item->getChildren()) !== 1) {
-                return null;
-            }
-            $child = $item->getChildren()[0];
-            if ($child instanceof CodeBlock) {
-                $content = $child->getContent();
-
-                return str_starts_with($content, "\n") ? $child : null;
-            }
-            if (!$child instanceof ListBlock) {
-                return null;
-            }
-            $current = $child;
         }
     }
 
