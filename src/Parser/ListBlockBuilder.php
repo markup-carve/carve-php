@@ -473,7 +473,7 @@ final class ListBlockBuilder
                 && $this->leadBottomIsContinuationMarker($itemContent)
                 && preg_match('/^(?:> ?)*[ \t]*(?:(?:[-*] |(?:\d+|[A-Za-z]+)[.)] )){2,}(?:\[[ xX]\][ \t]+)?\+[ \t]*$/D', $sourceLead) === 1
                 && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
-                && IndentationHelper::getLeadingColumns($lines[$i]) === 0
+                && IndentationHelper::getLeadingColumns($lines[$i], 1) === 0
             ) {
                 [$i, $attached, $attachedLineMap] = $this->followerKeepsQuoteDepth($listItemSourceLine, $i)
                     ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent)
@@ -862,7 +862,7 @@ final class ListBlockBuilder
             $sourceBody = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$sourceLine] ?? '');
             if (
                 $sourceLine > 0 && !IndentationHelper::isBlankLine($sourceBody)
-                && IndentationHelper::getLeadingColumns($sourceBody) === 0
+                && IndentationHelper::getLeadingColumns($sourceBody, 1) === 0
             ) {
                 $priorLine = $sourceLine - 1;
                 $priorBody = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$priorLine] ?? '');
@@ -877,7 +877,7 @@ final class ListBlockBuilder
                     }
                 }
             }
-            if ($sawBlankLine && !IndentationHelper::isBlankLine($subLine) && IndentationHelper::getLeadingColumns($subLine) < $subIndent) {
+            if ($sawBlankLine && !IndentationHelper::isBlankLine($subLine) && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent) {
                 $priorLine = $this->sourceLineFor($i) - 1;
                 while ($priorLine >= 0 && trim($this->state->source->sourceLines[$priorLine] ?? '') === '') {
                     $priorLine--;
@@ -892,7 +892,7 @@ final class ListBlockBuilder
             if (
                 $this->isContinuationMarker(ltrim($subLine, " \t"))
                 && !$this->physicalContinuationMarker($i)
-                && IndentationHelper::getLeadingColumns($subLine) < $subIndent
+                && IndentationHelper::getLeadingColumns($subLine, $subIndent) < $subIndent
                 && preg_match('/^(?:> ?)*[ \t]*(?:[-*] |\d+[.)] )(`{3,}|~{3,})/', $priorSource) === 1
             ) {
                 break;
@@ -904,7 +904,7 @@ final class ListBlockBuilder
             $tail = ltrim($subLine, " \t");
             if (
                 preg_match('/^[ \t]+\+[ \t]*$/D', $previousBody) === 1
-                && IndentationHelper::getLeadingColumns($previousBody) >= $subIndent
+                && IndentationHelper::getLeadingColumns($previousBody, $subIndent) >= $subIndent
                 && !IndentationHelper::isBlankLine($subLine)
                 && $quoteRest === ltrim($quoteRest, " \t")
                 && !$this->isBlockElementStart($tail, $lines, $i)
@@ -1037,7 +1037,9 @@ final class ListBlockBuilder
                     $markerHead = ltrim($stripped, " \t");
                     $markerOffset = ($this->getListParser)()->markerWalkOffset($markerHead, 0);
                     $subMarkerFence = $markerOffset === null ? null : $this->itemFenceOpenerAt(substr($markerHead, $markerOffset));
-                    $subMarkerFenceColumn = IndentationHelper::getLeadingColumns($stripped) + ($markerOffset ?? 0);
+                    if ($subMarkerFence !== null) {
+                        $subMarkerFenceColumn = IndentationHelper::getLeadingColumns($stripped) + $markerOffset;
+                    }
                 }
                 if (
                     $strippedIsMarker

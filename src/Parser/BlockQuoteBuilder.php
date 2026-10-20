@@ -466,11 +466,11 @@ final class BlockQuoteBuilder
         $count = count($lines);
         $nestedFirstBlock = preg_match('/^(?:> ?)+\+[ \t]*$/D', $content) === 1
             && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
-            && IndentationHelper::getLeadingColumns($lines[$i]) === 0
+            && IndentationHelper::getLeadingColumns($lines[$i], 1) === 0
             && $this->blockQuoteLineContent($lines[$i]) === null;
         $firstBlock = trim($content, " \t") === '+' && $this->physicalFirstBlockQuoteMarker($start) && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
-            && IndentationHelper::getLeadingColumns($lines[$i]) === 0
+            && IndentationHelper::getLeadingColumns($lines[$i], 1) === 0
             && $this->blockQuoteLineContent($lines[$i]) === null;
         if ($firstBlock) {
             [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);

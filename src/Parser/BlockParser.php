@@ -5409,7 +5409,7 @@ class BlockParser
             if (
                 preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
                 && !IndentationHelper::isBlankLine($nextLine)
-                && IndentationHelper::getLeadingColumns($nextLine) === 0
+                && IndentationHelper::getLeadingColumns($nextLine, 1) === 0
                 && trim($this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '') === ''
             ) {
                 $priorNonBlank = $this->sourceLineFor($i) - 1;
@@ -5426,9 +5426,9 @@ class BlockParser
             if (
                 preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
                 && preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
-                && IndentationHelper::getLeadingColumns($priorBody) >= $contentIndent
+                && IndentationHelper::getLeadingColumns($priorBody, $contentIndent) >= $contentIndent
                 && !IndentationHelper::isBlankLine($nextLine)
-                && IndentationHelper::getLeadingColumns($nextLine) === 0
+                && IndentationHelper::getLeadingColumns($nextLine, 1) === 0
                 && !$this->isBlockElementStart(ltrim($nextLine, " \t"), $lines, $i)
                 && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
             ) {
