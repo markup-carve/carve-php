@@ -353,7 +353,6 @@ class MarkdownToCarve
         bool $convertRawHtml = false,
         private bool $rewriteHeadingFragments = true,
     ) {
-        $this->importWriter = new CarveRenderer();
         $this->convertMath = $convertMath;
         $this->convertHighlight = $convertHighlight;
         $this->convertInlineFootnotes = $convertInlineFootnotes;
@@ -1806,6 +1805,7 @@ class MarkdownToCarve
     public function convert(string $markdown): string
     {
         $whitespaceOnly = strspn($markdown, " \t\r\n") === strlen($markdown) ? $markdown : null;
+        $this->importWriter = new CarveRenderer();
         $workScope = MarkdownImportWork::$on ? MarkdownImportWork::enter() : null;
         if ($this->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
             $this->resolvedCrossrefs = [];
