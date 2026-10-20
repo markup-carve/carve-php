@@ -24,8 +24,13 @@ final class MarkdownGfmAutolinksTest extends TestCase
         yield 'unclosed destination opener in bare URL' => ['http://a.b/[x](y', '[http://a.b/[x](y](http://a.b/[x]\\(y)'];
         yield 'bare URL followed by title-like text' => ['http://a.b/[x](y "t")', '[http://a.b/[x](y](http://a.b/[x]\\(y) \\"t\\")'];
         yield 'bare URL followed by prose' => ['http://a.b/[x](y tail', '[http://a.b/[x](y](http://a.b/[x]\\(y) tail'];
+        yield 'closed pair before unclosed pair in bare URL' => ['http://a.b/[x](y)[w](q', '[http://a.b/[x]\\(y)[w](q](http://a.b/[x](y)[w]\\(q)'];
+        yield 'escaped closer inside link label' => ['[link /a [b/c\\]](u)', '[link /a [b/c\\]](u)'];
         yield 'literal closing bracket before bare URL' => ['x]http://a.b/c', 'x][http://a.b/c](http://a.b/c)'];
         yield 'escaped closing bracket before bare URL' => ['x\\\\]http://a.b/c', 'x\\\\][http://a.b/c](http://a.b/c)'];
+        yield 'closed label before bare URL' => ['[x]http://a.b', '[x\\][http://a.b](http://a.b)'];
+        yield 'nested closed label before bare URL' => ['[a [b]]http://a.b', '[a [b]\\][http://a.b](http://a.b)'];
+        yield 'entity in closed label before bare URL' => ['[a&amp;b]http://a.b', '[a&b\\][http://a.b](http://a.b)'];
         yield 'literal backtick in table cell' => ["| h |\n| - |\n| a`b |", "|= h |\n| a\\`b |"];
         yield 'backtick in table autolink label' => ["| h |\n| - |\n| http://a.b/a`b |", "|= h |\n| [http://a.b/a\\`b](http://a.b/a`b) |"];
         yield 'www autolink with escaped table pipe' => ["| h |\n| - |\n| www.a.b/a\\|b |", "|= h |\n| [www.a.b/a\\|b](http://www.a.b/a%7Cb) |"];
@@ -40,6 +45,18 @@ final class MarkdownGfmAutolinksTest extends TestCase
     public function testMarkdownImportUsesMinimalLabelEscapes(string $markdown, string $expected): void
     {
         self::assertSame($expected . "\n", (new MarkdownToCarve())->convert($markdown . "\n"));
+    }
+
+    public function testParseSensitiveLabelEscapesPreserveLinks(): void
+    {
+        $converter = new CarveConverter();
+        $samples = [
+            'http://a.b/[x](y)[w](q' => '<p><a href="http://a.b/[x](y)[w](q">http://a.b/[x](y)[w](q</a></p>',
+            '[link /a [b/c\\]](u)' => '<p>[link /a <a href="u">b/c]</a></p>',
+        ];
+        foreach ($samples as $markdown => $html) {
+            self::assertSame($html . "\n", $converter->convert((new MarkdownToCarve())->convert($markdown . "\n")));
+        }
     }
 
     /**
