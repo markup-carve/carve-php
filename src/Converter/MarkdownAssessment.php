@@ -102,9 +102,9 @@ final class MarkdownAssessment
                 }
                 $slashes = $end - $i;
                 $beforePipe = $end < $length && $row[$end] === '|';
-                // GFM unescapes a table pipe at row level, so the inline pass never sees that backslash.
-                $cell .= str_repeat('\\', $beforePipe ? ($slashes % 2 === 1 ? $slashes - 1 : intdiv($slashes, 2)) : $slashes);
-                if ($beforePipe && $slashes % 2 === 1) {
+                // GFM unescapes a table pipe at row level: any backslash run before a pipe loses one backslash and the pipe stays in the cell.
+                $cell .= str_repeat('\\', $beforePipe ? $slashes - 1 : $slashes);
+                if ($beforePipe) {
                     $cell .= '|';
                     $i = $end;
                 } else {

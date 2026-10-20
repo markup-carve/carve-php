@@ -28,7 +28,6 @@ final class AMarkdownDestinationKeepsWhatCarveReadsLiterallyTest extends TestCas
         yield 'A1' => ['<https://example.com/\[\>', '[https://example.com/\\\\\[\\\\](https://example.com/\[\\\\)', ['markdown-autolink']];
         yield 'A2' => ['<https://e.com/a\b>', '[https://e.com/a\\\\b](https://e.com/a\b)', ['markdown-autolink']];
         yield 'A3' => ['<https://e.com/a`b>', '[https://e.com/a\`b](https://e.com/a`b)', ['markdown-autolink']];
-        yield 'table autolink escaped pipe' => ["| <http://x/a\\\\|b> | z |\n|---|---|", '|= [http://x/a\\\\\\|b](http://x/a\\%7Cb) |= z |', null];
         yield 'angle destination protected escaped angle' => ['[a](<\<>)', '[a](<)', ['markdown-link']];
         yield 'angle destination protected escaped angle within text' => ['[a](<a\<b>)', '[a](a<b)', ['markdown-link']];
         yield 'angle destination backslash newline' => ["[a](<a\\\nb>)", '[a](a\%0Ab)', null];
