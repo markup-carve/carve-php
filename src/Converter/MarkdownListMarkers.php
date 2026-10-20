@@ -105,6 +105,13 @@ class MarkdownListMarkers
         return $last === null ? null : $this->open[$last]['content'] + $this->open[$last]['shift'];
     }
 
+    public function openItemSourceContentColumn(): ?int
+    {
+        $last = array_key_last($this->open);
+
+        return $last === null ? null : $this->open[$last]['content'];
+    }
+
     /**
      * Whether a marker at `$col` would belong to an open list's level: the list
      * open directly in the item holding the marker, when the marker is within

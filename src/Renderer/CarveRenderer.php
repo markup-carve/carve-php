@@ -6986,6 +6986,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return '"' . ($table ? str_replace('`', '\\`', $written) : $written) . '"';
     }
 
+    public static function prefersSingleImportedListPadding(): bool
+    {
+        return true;
+    }
+
     /**
      * @param string $text
      * @param string $extra Characters of the slot's own syntax to escape.

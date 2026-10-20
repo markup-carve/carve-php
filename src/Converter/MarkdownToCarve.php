@@ -4279,10 +4279,10 @@ class MarkdownToCarve
     {
         $markerCol = $this->indentWidth($line);
         $parents = array_values(array_filter($listCols, static fn (int $col): bool => $col <= $markerCol));
-        $onePad = $this->paddingIsFree($lines, $index, $parents);
+        $onePad = CarveRenderer::prefersSingleImportedListPadding();
         $trial = clone $markers;
         $written = $trial->write($line, $onePad);
-        if ($written['shift'] < 0 && !$this->itemMovesFreely($lines, $index, $written['content'], $written['content'] + $written['shift'], $parents)) {
+        if ($written['shift'] < 0 && !$onePad && !$this->itemMovesFreely($lines, $index, $written['content'], $written['content'] + $written['shift'], $parents)) {
             $written = $markers->write($line, false, true);
         } else {
             $markers->write($line, $onePad);
@@ -4414,7 +4414,7 @@ class MarkdownToCarve
             $written = str_repeat(' ', max($list->openItemContentColumn(), $this->indentWidth($text)))
                 . $this->escapeBlockOpener(ltrim($text, " \t"));
         } elseif (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)])[ \t]/', $text) === 1 && !$continues) {
-            $free = $this->quotedPaddingIsFree($lines, $index, $prefix, $text);
+            $free = CarveRenderer::prefersSingleImportedListPadding();
             $hasWidePadding = preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) {2,4}\S/', $text) === 1;
             $trial = clone $list;
             $preview = $trial->write($text, $free);
@@ -4460,6 +4460,11 @@ class MarkdownToCarve
                 }
                 $written = str_repeat(' ', $list->openItemContentColumn() ?? $content) . $itemQuote . $held;
             }
+        }
+
+        $sourceContent = $list->openItemSourceContentColumn();
+        if (!$blank && $prev === null && $sourceContent !== null && !$opensItem && $this->indentWidth($text) >= $sourceContent) {
+            $written = $this->moveIndent($written, $sourceContent, $sourceContent + $list->shiftAt($sourceContent));
         }
 
         if ($blank) {
@@ -5134,7 +5139,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            if ($indent < $to || $this->opensItemAtOrLeftOf($lines[$at], $markerCol, $parents)) {
+            if ($indent <= $markerCol || $indent < $to || $this->opensItemAtOrLeftOf($lines[$at], $markerCol, $parents)) {
                 return true;
             }
             $holder = 0;
