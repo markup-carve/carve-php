@@ -91,26 +91,37 @@ final class MarkdownAssessment
     {
         $cells = [];
         $cell = '';
-        $slashes = 0;
-        $endsWithSeparator = false;
         $row = trim($row);
         $length = strlen($row);
         for ($i = 0; $i < $length; $i++) {
             $char = $row[$i];
-            $endsWithSeparator = $char === '|' && $slashes % 2 === 0;
-            if ($endsWithSeparator) {
+            if ($char === '\\') {
+                $end = $i;
+                while ($end < $length && $row[$end] === '\\') {
+                    $end++;
+                }
+                $slashes = $end - $i;
+                $beforePipe = $end < $length && $row[$end] === '|';
+                // GFM unescapes a table pipe at row level, so the inline pass never sees that backslash.
+                $cell .= str_repeat('\\', $beforePipe ? intdiv($slashes, 2) : $slashes);
+                if ($beforePipe && $slashes % 2 === 1) {
+                    $cell .= '|';
+                    $i = $end;
+                } else {
+                    $i = $end - 1;
+                }
+            } elseif ($char === '|') {
                 $cells[] = trim($cell);
                 $cell = '';
             } else {
                 $cell .= $char;
             }
-            $slashes = $char === '\\' ? $slashes + 1 : 0;
         }
         $cells[] = trim($cell);
-        if (str_starts_with($row, '|')) {
+        if ($cells[0] === '') {
             array_shift($cells);
         }
-        if ($endsWithSeparator) {
+        if ($cells !== [] && $cells[count($cells) - 1] === '') {
             array_pop($cells);
         }
 

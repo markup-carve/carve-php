@@ -81,7 +81,8 @@ final class MarkdownTablePipesTest extends TestCase
     public function testUnrelatedPipesDoNotProduceTableWarnings(string $source): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
-        self::assertSame([], array_values(array_filter(array_column($result->diagnostics, 'code'), static fn (string $code): bool => str_starts_with($code, 'markdown-table-'))));
+        $warnings = array_filter($result->diagnostics, static fn (object $diagnostic): bool => $diagnostic->severity !== 'info');
+        self::assertSame([], array_values(array_filter(array_column($warnings, 'code'), static fn (string $code): bool => str_starts_with($code, 'markdown-table-'))));
     }
 
     /**

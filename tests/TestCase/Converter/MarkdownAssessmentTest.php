@@ -132,6 +132,7 @@ final class MarkdownAssessmentTest extends TestCase
         $codes = array_column($result->diagnostics, 'code');
         self::assertNotContains('fidelity-unverified', $codes);
         self::assertSame(2, count(array_keys($codes, 'markdown-table-cell', true)));
+        self::assertNotContains('markdown-escape', $codes);
     }
 
     public function testUnicodeReferenceLinkDestinationIsVerified(): void
