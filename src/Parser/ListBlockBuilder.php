@@ -1440,9 +1440,18 @@ final class ListBlockBuilder
     ): void {
         $unclosedFenceBase ??= $this->hookUnclosedFenceBase;
         $this->hookUnclosedFenceBase = null;
-        $lines = $this->rebaseOverindentedItemBlocks($lines, $authoredBaseEligible, $leadNestedColumn, absorbLeadNoteBody: true, unclosedFenceBase: $unclosedFenceBase);
-        // Attribute lines and their fence use one local base after item rebasing.
-        $lines = $this->alignAttributeFenceRun($lines, $lineMap);
+        // A single unindented line has no body base or attribute fence to adjust.
+        if (
+            count($lines) !== 1
+            || str_contains($lines[0], "\n")
+            || IndentationHelper::getLeadingColumns($lines[0]) !== 0
+            || $unclosedFenceBase !== null
+            || $authoredBaseEligible !== []
+        ) {
+            $lines = $this->rebaseOverindentedItemBlocks($lines, $authoredBaseEligible, $leadNestedColumn, absorbLeadNoteBody: true, unclosedFenceBase: $unclosedFenceBase);
+            // Attribute lines and their fence use one local base after item rebasing.
+            $lines = $this->alignAttributeFenceRun($lines, $lineMap);
+        }
         // THESE LINES ARE THE ITEM'S BODY, so their column 0 IS the item's
         // content column and a marker reaching it opens a sublist (PART 9 §24
         // C3, markup-carve/carve#1517). Passed the way `$topLevel` is passed and

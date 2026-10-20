@@ -6105,23 +6105,26 @@ class BlockParser
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
-        // Where each folded line's content sits, so a multi-line paragraph can
-        // still place its inlines: [line index, column in that line, length].
+        // With position tracking, record where each folded line's content sits:
+        // [line index, column in that line, length].
         // Nested content arrives PRE-JOINED: a list item hands its body over as
         // one entry containing newlines, so recording it as a single segment
         // would produce text that appears in no source line at all. Split it
         // back into physical lines, which is what the map resolves against.
         /** @var list<array{int, int, int, string}> $contentLines */
         $contentLines = [];
-        $indent = strlen($line) - strlen($content);
-        $firstSourceLine = $this->sourceLineFor($start);
-        $indent += $this->state->frame->currentContentColumns[$firstSourceLine] ?? 0;
-        $sourceTail = rtrim($this->state->source->sourceLines[$firstSourceLine] ?? '', " \t");
-        $contentTail = rtrim($content, " \t");
-        if ($contentTail !== '' && str_ends_with($sourceTail, $contentTail)) {
-            $indent = max($indent, strlen($sourceTail) - strlen($contentTail));
+        $trackPositions = $this->state->source->trackPositions;
+        if ($trackPositions) {
+            $indent = strlen($line) - strlen($content);
+            $firstSourceLine = $this->sourceLineFor($start);
+            $indent += $this->state->frame->currentContentColumns[$firstSourceLine] ?? 0;
+            $sourceTail = rtrim($this->state->source->sourceLines[$firstSourceLine] ?? '', " \t");
+            $contentTail = rtrim($content, " \t");
+            if ($contentTail !== '' && str_ends_with($sourceTail, $contentTail)) {
+                $indent = max($indent, strlen($sourceTail) - strlen($contentTail));
+            }
+            $this->appendParagraphContentLines($contentLines, $firstSourceLine, $indent, $content);
         }
-        $this->appendParagraphContentLines($contentLines, $firstSourceLine, $indent, $content);
 
         $i = $start + 1;
         $count = count($lines);
@@ -6150,13 +6153,16 @@ class BlockParser
             // Strip leading whitespace from continuation lines (matching JS reference)
             $rawNextLine = self::stripLazyFrame($nextLine);
             $nextLine = ltrim($rawNextLine, " \t");
-            $this->appendParagraphContentLines(
-                $contentLines,
-                $this->sourceLineFor($i),
-                strlen($rawNextLine) - strlen($nextLine)
-                    + ($this->state->frame->currentContentColumns[$this->sourceLineFor($i)] ?? 0),
-                $nextLine,
-            );
+            if ($trackPositions) {
+                $sourceLine = $this->sourceLineFor($i);
+                $this->appendParagraphContentLines(
+                    $contentLines,
+                    $sourceLine,
+                    strlen($rawNextLine) - strlen($nextLine)
+                        + ($this->state->frame->currentContentColumns[$sourceLine] ?? 0),
+                    $nextLine,
+                );
+            }
             $contentParts[] = $nextLine;
             $hasUnclaimedColonFenceLine = $hasUnclaimedColonFenceLine
                 || $this->paragraphHasUnclaimedColonFenceLine($nextLine);
@@ -6220,36 +6226,38 @@ class BlockParser
             $paragraph,
             $content,
             $start,
-            sourceMap: $this->foldedLinesMap($contentLines),
+            sourceMap: $trackPositions ? $this->foldedLinesMap($contentLines) : null,
         );
-        $placed = array_values(array_filter(
-            $paragraph->getChildren(),
-            static fn (Node $node): bool => $node->getPos() !== null,
-        ));
-        $measured = $this->foldedLinesSpan($contentLines);
-        if ($placed !== []) {
-            $first = $placed[0]->getPos();
-            $last = $placed[count($placed) - 1]->getPos();
-            if ($first !== null && $last !== null) {
-                if ($measured !== null && $measured->endOffset < $last->endOffset) {
-                    $last = new SourceSpan(
-                        startLine: $last->startLine,
-                        endLine: $measured->endLine,
-                        startColumn: $last->startColumn,
-                        endColumn: $measured->endColumn,
-                        startOffset: $last->startOffset,
-                        endOffset: $measured->endOffset,
-                    );
-                    $placed[count($placed) - 1]->setPos($last);
+        if ($trackPositions) {
+            $placed = array_values(array_filter(
+                $paragraph->getChildren(),
+                static fn (Node $node): bool => $node->getPos() !== null,
+            ));
+            $measured = $this->foldedLinesSpan($contentLines);
+            if ($placed !== []) {
+                $first = $placed[0]->getPos();
+                $last = $placed[count($placed) - 1]->getPos();
+                if ($first !== null && $last !== null) {
+                    if ($measured !== null && $measured->endOffset < $last->endOffset) {
+                        $last = new SourceSpan(
+                            startLine: $last->startLine,
+                            endLine: $measured->endLine,
+                            startColumn: $last->startColumn,
+                            endColumn: $measured->endColumn,
+                            startOffset: $last->startOffset,
+                            endOffset: $measured->endOffset,
+                        );
+                        $placed[count($placed) - 1]->setPos($last);
+                    }
+                    $paragraph->setPos(new SourceSpan(
+                        startLine: $first->startLine,
+                        endLine: $measured !== null ? $measured->endLine : $last->endLine,
+                        startColumn: $first->startColumn,
+                        endColumn: $measured !== null ? $measured->endColumn : $last->endColumn,
+                        startOffset: $first->startOffset,
+                        endOffset: $measured !== null ? $measured->endOffset : $last->endOffset,
+                    ));
                 }
-                $paragraph->setPos(new SourceSpan(
-                    startLine: $first->startLine,
-                    endLine: $measured !== null ? $measured->endLine : $last->endLine,
-                    startColumn: $first->startColumn,
-                    endColumn: $measured !== null ? $measured->endColumn : $last->endColumn,
-                    startOffset: $first->startOffset,
-                    endOffset: $measured !== null ? $measured->endOffset : $last->endOffset,
-                ));
             }
         }
         $this->applyPendingAttributes($paragraph);
