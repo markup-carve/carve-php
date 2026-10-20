@@ -2308,7 +2308,8 @@ class MarkdownToCarve
             $contentCol = $listCols === [] ? 0 : (int)end($listCols);
             if (
                 $prevLineType === 'blank' && $contentCol > 0 && !$isList && !$isBlockquote && !$isHeading
-                && $indent > $contentCol && $indent - $contentCol <= 3 && $this->isParagraphLine($lines, $i)
+                && $indent > $contentCol && $this->indentWidth($line) - $contentCol <= 3
+                && $this->isParagraphLine($lines, $i)
             ) {
                 $line = str_repeat(' ', $contentCol) . ltrim($line, " \t");
                 $indent = $contentCol;

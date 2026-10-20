@@ -340,11 +340,11 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
     public function testAnItemsOwnContentColumnIsNotIndentedCodeAtAnyDepth(): void
     {
         $this->assertSame(
-            "- item\n\n" . self::COLUMN_4 . "more prose\n",
+            "- item\n\n  more prose\n",
             $this->converter->convert("- item\n\n" . self::COLUMN_4 . "more prose\n"),
         );
         $this->assertSame(
-            "1. item\n\n     more prose\n",
+            "1. item\n\n   more prose\n",
             $this->converter->convert("1. item\n\n     more prose\n"),
         );
         $this->assertSame(
