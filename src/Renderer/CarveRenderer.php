@@ -1629,6 +1629,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
     }
 
+    public static function needsBlankBeforeImportedHeading(string $previousKind): bool
+    {
+        return $previousKind !== 'blank';
+    }
+
     /**
      * Does this block put anything on the page that a re-parse can see?
      *

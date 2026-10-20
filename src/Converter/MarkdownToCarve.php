@@ -2786,7 +2786,7 @@ class MarkdownToCarve
                 ? $this->setextParagraphEnd($lines, $i, min($contentCol, $holderCol))
                 : null;
             if ($setext !== null) {
-                if ($prevLineType !== 'blank' && $prevLineType !== 'heading' && !isset($emptyMarkerLines[$i - 1])) {
+                if (CarveRenderer::needsBlankBeforeImportedHeading($prevLineType) && !isset($emptyMarkerLines[$i - 1])) {
                     $result[] = '';
                 }
 
@@ -2805,7 +2805,7 @@ class MarkdownToCarve
                 continue;
             }
 
-            if ($isHeading && $prevLineType !== 'blank' && $prevLineType !== 'heading' && !isset($emptyMarkerLines[$i - 1])) {
+            if ($isHeading && CarveRenderer::needsBlankBeforeImportedHeading($prevLineType) && !isset($emptyMarkerLines[$i - 1])) {
                 $result[] = '';
             }
             if ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote') {
