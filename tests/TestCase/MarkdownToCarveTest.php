@@ -635,7 +635,7 @@ bar
             ],
             'does not close a code span on the suffix of a longer inner run' => [
                 '``a ``` *b*``',
-                '``a ``` *b*``',
+                '````a ``` *b*````',
             ],
             'leaves literal placeholder-looking text intact' => [
                 'keep P0 and S0 tokens',
