@@ -6328,6 +6328,22 @@ class BlockParser
         return $i - $start;
     }
 
+    private function isAttachedDefinitionListReference(int $index): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $sourceLines = $this->state->source->sourceLines;
+
+        return $sourceLine >= 3
+            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine] ?? '', 2) >= 2
+            && preg_match('/^[ \t]*\[(?!\^)/', $sourceLines[$sourceLine] ?? '') === 1
+            && isset($sourceLines[$sourceLine + 1])
+            && str_contains($sourceLines[$sourceLine + 1], '\\]')
+            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine + 1], 2) >= 2
+            && preg_match('/^(?:[-*] |\d+[.)] )\S/', $sourceLines[$sourceLine - 1] ?? '') === 1
+            && preg_match('/^\+[ \t]*$/D', $sourceLines[$sourceLine - 2] ?? '') === 1
+            && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $sourceLines[$sourceLine - 3] ?? '') === 1;
+    }
+
     /**
      * Skip reference definitions (already extracted in first pass)
      *
@@ -6337,6 +6353,9 @@ class BlockParser
     protected function tryParseReferenceDefinition(array $lines, int $start): ?int
     {
         $line = $lines[$start];
+        if ($this->isAttachedDefinitionListReference($start)) {
+            return null;
+        }
 
         // A definition-shaped lazy line in a quote remains the open
         // paragraph's text (carve-php#1908, PART 1 S4).
@@ -6769,6 +6788,10 @@ class BlockParser
         bool $itemBody = false,
     ): bool {
         $line = $lines[$i];
+
+        if ($this->isReferenceDefinitionLine(ltrim($line, " \t")) && $this->isAttachedDefinitionListReference($i)) {
+            return false;
+        }
 
         // A definition-shaped lazy line in a quote is paragraph
         // text, so it cannot break the run (carve-php#1908, PART 1 S4).

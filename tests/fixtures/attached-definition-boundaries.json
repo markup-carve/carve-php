@@ -4313,11 +4313,11 @@
   },
   {
     "source": ":: term\n: body\n+\n- inner\n  [r]: /inner\n  [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>body</p>\n    <ul>\n      <li>inner\n        [r]]: /url\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>See <a href=\"/inner\">r</a>, [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>body</p>\n    <ul>\n      <li>inner\n[r]: /inner\n[r]]: /url</li>\n    </ul>\n  </dd>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>\n"
   },
   {
     "source": ":: term\n: body\n+\n- inner\n  [r]: /inner\n   [r\\]]: /url\n\nSee [r][], [r\\]][], and [^n].\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>body</p>\n    <ul>\n      <li>inner\n        [r]]: /url\n      </li>\n    </ul>\n  </dd>\n</dl>\n<p>See <a href=\"/inner\">r</a>, [r\\]][], and [^n].</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>\n    <p>body</p>\n    <ul>\n      <li>inner\n[r]: /inner\n[r]]: /url</li>\n    </ul>\n  </dd>\n</dl>\n<p>See [r][], [r\\]][], and [^n].</p>\n"
   },
   {
     "source": ":: term\n: body\n+\n- inner\n  [r]: /inner\n[r]: /url\n [r]: /again\n\nSee [r][], [r\\]][], and [^n].\n",
