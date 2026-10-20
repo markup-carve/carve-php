@@ -7318,7 +7318,8 @@ class MarkdownToCarve
                     if ($destinationAt !== false) {
                         $label = substr($written, 0, $destinationAt);
                         $unclosedAt = strrpos($label, ']\\(');
-                        if ($unclosedAt !== false) {
+                        $bareAt = strrpos($label, '](');
+                        if ($unclosedAt !== false && ($bareAt === false || $bareAt < $unclosedAt)) {
                             $written = substr_replace($label, '](', $unclosedAt, 3) . substr($written, $destinationAt);
                         }
                     }
