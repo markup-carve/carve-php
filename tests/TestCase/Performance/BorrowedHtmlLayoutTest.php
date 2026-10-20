@@ -12,6 +12,22 @@ use PHPUnit\Framework\TestCase;
 
 class BorrowedHtmlLayoutTest extends TestCase
 {
+    public function testProseEndingInPlusKeepsTheBorrowedPath(): void
+    {
+        foreach (["C++\n", "The language is C++\n", "- C++\n"] as $source) {
+            $attempt = (new BorrowedHtmlLayout())->render($source);
+            $this->assertNotNull($attempt);
+            $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
+        }
+    }
+
+    public function testBarePlusAfterContainerOpenersRejectsTheBorrowedPath(): void
+    {
+        foreach (["- a\n  - +\ntail", "> - +\n", "1. +\n"] as $source) {
+            $this->assertNull((new BorrowedHtmlLayout())->render($source));
+        }
+    }
+
     private const ROUTING_SOURCE = <<<'CRV'
 # Benchmark
 
