@@ -4320,7 +4320,8 @@ class MarkdownToCarve
                 continue;
             }
             $indent = $this->indentWidth($lines[$at]);
-            $incidentalContinuation = $indent > $contentCol && $this->isParagraphLine($lines, $at);
+            $incidentalContinuation = $indent > $contentCol && $indent - $contentCol <= 3 && $this->isParagraphLine($lines, $at);
+
             break;
         }
         $written = $markers->write($line, CarveRenderer::prefersSingleImportedListPadding($incidentalContinuation));
