@@ -232,11 +232,30 @@ final class BlockQuoteBuilder
 
         $parts = [];
         [$i, $innerLines, $innerLineMap, $lazyState, $codeCloserMemo] = $this->collectBlockQuoteOpening($lines, $start, $content);
+        $lazyStateActive = $i !== $start + 1
+            || in_array('note', $lazyState['hosts']['kinds'] ?? [], true)
+            || self::mayOpenQuotedHost($content);
         $count = count($lines);
         while ($i < $count) {
             $currentLine = $lines[$i];
             if (IndentationHelper::isBlankLine($currentLine)) {
                 break;
+            }
+
+            $content = $this->blockQuoteLineContent($currentLine);
+            if (!$lazyStateActive && ($content === null || self::mayOpenQuotedHost($content))) {
+                // All earlier lines had explicit quote markers. Replay their
+                // state only when a lazy line or attachment needs it.
+                for ($j = $start + 1; $j < $i; $j++) {
+                    $tracked = $this->blockQuoteLineContent($lines[$j]);
+                    if ($tracked !== null) {
+                        $this->trackBlockQuoteLazyState($tracked, $lazyState, $lines, $j, $codeCloserMemo);
+                        if (in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
+                            $lazyState['paragraphOpen'] = false;
+                        }
+                    }
+                }
+                $lazyStateActive = true;
             }
 
             // Continuation marker (Carve, PART 9 §17): a lone `+` at column 0
@@ -249,7 +268,7 @@ final class BlockQuoteBuilder
             // instead of folding into the preceding quoted paragraph.
             if (
                 $this->isContinuationMarker($currentLine)
-                && $this->markerSitsAtColumn($i, $quoteOpeningColumn)
+                && $this->continuationMarkerSitsAtQuoteColumn($i, $quoteOpeningColumn)
             ) {
                 $i++; // consume the `+` marker
                 [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
@@ -279,7 +298,6 @@ final class BlockQuoteBuilder
             }
 
             // Continue with "> " prefix (space required per spec)
-            $content = $this->blockQuoteLineContent($currentLine);
             if ($content === null && in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
                 $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
             }
@@ -292,7 +310,9 @@ final class BlockQuoteBuilder
             if ($content !== null) {
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
-                $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i, $codeCloserMemo);
+                if ($lazyStateActive) {
+                    $this->trackBlockQuoteLazyState($content, $lazyState, $lines, $i, $codeCloserMemo);
+                }
                 if (in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
                     $lazyState['paragraphOpen'] = false;
                 }
@@ -362,6 +382,16 @@ final class BlockQuoteBuilder
         return $i - $start;
     }
 
+    private static function mayOpenQuotedHost(string $content): bool
+    {
+        // Indented content can mark source lines while tracking. Keep it and
+        // common structural starts eager, even when every line is marked.
+        return isset($content[0]) && (
+            str_contains(" \t>-*+0123456789", $content[0])
+            || str_starts_with($content, '[^')
+        );
+    }
+
     private function quoteOpeningColumn(string $line, int $quoteSourceLine): int
     {
         $sourceTail = rtrim($this->state->source->sourceLines[$quoteSourceLine] ?? '', " \t");
@@ -376,6 +406,18 @@ final class BlockQuoteBuilder
             $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0,
             strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
         );
+    }
+
+    private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $sourceText = $this->state->source->sourceLines[$sourceLine] ?? null;
+        if ($sourceText === null) {
+            return $this->markerSitsAtColumn($index, $column);
+        }
+
+        // The outer `> ` prefix precedes the nested marker in the source.
+        return strrpos(rtrim($sourceText, " \t"), '+') === $column;
     }
 
     /**
