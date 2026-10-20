@@ -15,6 +15,8 @@ use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
+use MarkupCarve\Carve\Parser\ContainerPrefix;
+use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 
 final class DjotTightDefinitionDescriptions
@@ -54,22 +56,23 @@ final class DjotTightDefinitionDescriptions
                 $edits[] = ['start' => $start, 'end' => $start + strlen($marker[0][0]), 'value' => '%%'];
             }
         };
-        $clearGap = static function (?SourceSpan $before, ?SourceSpan $after, bool $boundary = false) use ($sourceOffset, $lines, $offsets, &$edits): void {
+        $clearGap = static function (?SourceSpan $before, ?SourceSpan $after, bool $boundary = false, bool $atRoot = false) use ($sourceOffset, $lines, $offsets, &$edits): void {
             if ($before === null || $after === null) {
                 return;
             }
             $prefix = substr($lines[$after->startLine - 1], 0, $sourceOffset($after->startOffset) - $offsets[$after->startLine - 1]);
-            preg_match('/^(?:> ?)+/', $prefix, $quotePrefix);
+            preg_match('/^[ \t]*(?:> ?)+/', $prefix, $quotePrefix);
             $markerPrefix = $quotePrefix[0] ?? '';
+            $rewriteBoundary = $boundary && $atRoot && $after->startLine === $after->endLine;
             $inserted = false;
             $count = count($lines);
             for ($line = $before->endLine - 1; $line < $after->startLine - 1; $line++) {
                 if (preg_match('/^[ \t>]*$/', $lines[$line]) === 1) {
-                    $edits[] = ['start' => $offsets[$line], 'end' => $offsets[$line] + strlen($lines[$line]) + (int)($line + 1 < $count), 'value' => $boundary && !$inserted ? $markerPrefix . "+\n" : ''];
+                    $edits[] = ['start' => $offsets[$line], 'end' => $offsets[$line] + strlen($lines[$line]) + (int)($line + 1 < $count), 'value' => $boundary && !$inserted ? ($rewriteBoundary ? $markerPrefix : $prefix) . "+\n" : ''];
                     $inserted = true;
                 }
             }
-            if ($boundary && $inserted && $prefix !== $markerPrefix) {
+            if ($rewriteBoundary && $inserted && $prefix !== $markerPrefix) {
                 $edits[] = ['start' => $offsets[$after->startLine - 1], 'end' => $sourceOffset($after->startOffset), 'value' => $markerPrefix];
             }
         };
@@ -120,11 +123,17 @@ final class DjotTightDefinitionDescriptions
                 if (!$node->isTight() && $safeChildren && $hasDefinition && !$paragraphGap) {
                     $tight = true;
                     $clearLoose($node);
+                    $listPos = $node->getPos();
+                    $listLine = $listPos === null ? 0 : $listPos->startLine;
+                    $atRoot = $listLine > 0 && IndentationHelper::getLeadingColumns(
+                        ContainerPrefix::stripQuoteMarkers($lines[$listLine - 1] ?? ''),
+                        1,
+                    ) === 0;
                     foreach ($items as $item) {
                         $children = $item->getChildren();
                         $count = count($children);
                         for ($i = 1; $i < $count; $i++) {
-                            $clearGap($children[$i - 1]->getPos(), $children[$i]->getPos(), $children[$i - 1] instanceof DefinitionList);
+                            $clearGap($children[$i - 1]->getPos(), $children[$i]->getPos(), $children[$i - 1] instanceof DefinitionList, $atRoot);
                         }
                     }
                     $count = count($items);

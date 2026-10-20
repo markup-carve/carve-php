@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use DOMDocument;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\DjotTightDefinitionDescriptions;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -100,5 +101,13 @@ class DjotDefinitionContainerOwnershipTest extends TestCase
         $html = (new CarveConverter())->convert($converted);
         self::assertStringNotContainsString('<span', $html);
         self::assertStringContainsString('[x ]{.c}', preg_replace('/\s+/', ' ', $html) ?? '');
+    }
+
+    public function testNestedTightDefinitionKeepsItsSiblingItem(): void
+    {
+        $source = "- a\n  - :: term\n    : body\n\n    para\n  - next\n";
+        $written = DjotTightDefinitionDescriptions::normalize($source);
+        $html = (new CarveConverter())->convert($written);
+        self::assertStringContainsString('<li>next</li>', $html);
     }
 }
