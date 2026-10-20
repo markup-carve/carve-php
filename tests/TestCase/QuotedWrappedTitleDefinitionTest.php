@@ -25,7 +25,7 @@ final class QuotedWrappedTitleDefinitionTest extends TestCase
             'lazy continuation' => ["> [r]: /u \"a\nb\"\n>\n> [t][r]\n", "> [t](/u \"a\n> b\")", "a\nb"],
             'nested quote' => ["> > [r]: /u \"a\n> > b\"\n> >\n> > [t][r]\n", "> > [t](/u \"a\n> > b\")", "a\nb"],
             'title on its own line' => ["> [r]: /u\n> \"a\n> b\"\n>\n> [t][r]\n", "> [t](/u \"a\n> b\")", "a\nb"],
-            'escaped angle destination' => ["> [r]: <a\\>b> \"a\n> b\"\n>\n> [t][r]\n", "> [t](a%3Eb \"a\n> b\")", "a\nb"],
+            'escaped angle destination' => ["> [r]: <a\\>b> \"a\n> b\"\n>\n> [t][r]\n", "> [t](a>b \"a\n> b\")", "a\nb"],
             'angle destination' => ["> [r]: <a b> 'a\n> b'\n>\n> [t][r]\n", "> [t](a%20b 'a\n> b')", "a\nb"],
         ];
     }

@@ -2,7 +2,8 @@
   {
     "example": 20,
     "source": "<https://example.com?find=\\*>\n",
-    "html": "<p><a href=\"https://example.com?find=%5C*\">https://example.com?find=\\*</a></p>"
+    "html": "<p><a href=\"https://example.com?find=%5C*\">https://example.com?find=\\*</a></p>",
+    "gfmHtml": "<p><a href=\"https://example.com?find=\\*\">https://example.com?find=\\*</a></p>"
   },
   {
     "example": 594,
@@ -53,7 +54,8 @@
   {
     "example": 603,
     "source": "<https://example.com/\\[\\>\n",
-    "html": "<p><a href=\"https://example.com/%5C[%5C\">https://example.com/\\[\\</a></p>"
+    "html": "<p><a href=\"https://example.com/%5C[%5C\">https://example.com/\\[\\</a></p>",
+    "gfmHtml": "<p><a href=\"https://example.com/\\[\\\">https://example.com/\\[\\</a></p>"
   },
   {
     "example": 604,

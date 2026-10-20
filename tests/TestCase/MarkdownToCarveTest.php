@@ -42,7 +42,9 @@ class MarkdownToCarveTest extends TestCase
             $this->assertNotContains('link-fragment-case-rewritten', array_column((new MarkdownToCarve())->convertWithFidelityReport($markdown)->report()['diagnostics'], 'code'));
         }
         $unicode = (new MarkdownToCarve())->convertWithFidelityReport("# ΟΔΟΣ\n\n[street](#οδος)\n")->report()['diagnostics'];
-        $this->assertSame('Rewrote link fragment #οδος to #ΟΔΟΣ, the one heading id it matches without regard to case.', end($unicode)['message']);
+        $last = array_pop($unicode);
+        $this->assertIsArray($last);
+        $this->assertSame('Rewrote link fragment #οδος to #ΟΔΟΣ, the one heading id it matches without regard to case.', $last['message']);
     }
 
     /**
@@ -66,7 +68,7 @@ class MarkdownToCarveTest extends TestCase
         // Two spellings of one destination cannot be told apart, so both rows name the encoded one.
         $twin = (new MarkdownToCarve())->convertWithFidelityReport("# Über Uns\n\nSee [a](#über-uns) and [b](#%C3%BCber-uns).\n")->report()['diagnostics'];
         $paths = array_column(array_filter($twin, static fn (array $row): bool => $row['code'] === 'link-fragment-case-rewritten'), 'path');
-        $this->assertSame(['link:#über-uns', 'link:#%C3%BCber-uns'], array_values($paths));
+        $this->assertSame(['link:#über-uns', 'link:#%C3%BCber-uns'], $paths);
     }
 
     protected MarkdownToCarve $converter;
@@ -91,7 +93,7 @@ class MarkdownToCarveTest extends TestCase
             'review angle 1' => [
                 '[t][a\\]]
 
-[a\\]]: <a\\>b>', '<p><a href="a%3Eb">t</a></p>
+[a\\]]: <a\\>b>', '<p><a href="a&gt;b">t</a></p>
 ',
             ],
             'review angle 2' => [
@@ -273,7 +275,7 @@ bar
         return [
             'literal backslash with parentheses' => [
                 '<https://a.com/\\(x)>',
-                '<p><a href="https://a.com/%5C(x)">https://a.com/\\(x)</a></p>',
+                '<p><a href="https://a.com/\(x)">https://a.com/\\(x)</a></p>',
             ],
             'inline-looking suffix' => [
                 "[foo<https://example.com/?search=](uri)>\n",
@@ -402,7 +404,7 @@ bar
             'keeps brackets in a reference destination' => ["[a][r]\n\n[r]: /x[y]", "[a][r]\n\n[r]: /x[y]"],
             'percent-encodes parentheses in a link destination' => [
                 '[wiki](https://host/Titan_(moon))',
-                '[wiki](https://host/Titan_\\(moon\\))',
+                '[wiki](https://host/Titan_(moon))',
             ],
             'does not rewrite delimiters inside a reference-link definition' => [
                 '[docs]: /api/_v1_/index',

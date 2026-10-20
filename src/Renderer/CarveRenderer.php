@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Renderer;
 use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
+use MarkupCarve\Carve\Converter\MarkdownDestinationEncoding;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
@@ -6818,34 +6819,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function escapeDestinationEscapes(string $text): string
     {
-        $length = strlen($text);
-        $openers = [];
-        $marked = [];
-        for ($i = 0; $i < $length; $i++) {
-            if ($text[$i] === '(') {
-                $openers[] = $i;
-            } elseif ($text[$i] === ')') {
-                if ($openers === []) {
-                    $marked[$i] = true;
-                } else {
-                    array_pop($openers);
-                }
-            }
-        }
-        foreach ($openers as $i) {
-            $marked[$i] = true;
-        }
-
-        $out = '';
-        for ($i = 0; $i < $length; $i++) {
-            $char = $text[$i];
-            $escapable = $char === '\\'
-                && $i + 1 < $length
-                && in_array($text[$i + 1], ['(', ')', '\\'], true);
-            $out .= isset($marked[$i]) || $escapable ? '\\' . $char : $char;
-        }
-
-        return $out;
+        return MarkdownDestinationEncoding::escapes($text);
     }
 
     protected function escapeQuoted(string $text): string

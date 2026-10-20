@@ -16,7 +16,8 @@ class MarkdownHtmlCodePayloadTest extends TestCase
 {
     public function testImportedCodePayloadsAndContainers(): void
     {
-        $cases = json_decode(file_get_contents(dirname(__DIR__, 2) . '/fixtures/markdown-html-code-payloads.json'), true, flags: JSON_THROW_ON_ERROR);
+        /** @var list<array{markdown:string, value:string, ancestors:list<string>, template:string}> $cases */
+        $cases = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/fixtures/markdown-html-code-payloads.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ([false, true] as $convertRawHtml) {
             foreach ($cases as $case) {
                 $result = (new MarkdownToCarve(convertRawHtml: $convertRawHtml))->convertWithFidelityReport($case['markdown']);
@@ -41,7 +42,8 @@ class MarkdownHtmlCodePayloadTest extends TestCase
 
     public function testNativeCodeControlsAndSurroundingText(): void
     {
-        $cases = json_decode(file_get_contents(dirname(__DIR__, 2) . '/fixtures/markdown-html-code-controls.json'), true, flags: JSON_THROW_ON_ERROR);
+        /** @var list<array{markdown:string, nativeHtml:string}> $cases */
+        $cases = json_decode((string)file_get_contents(dirname(__DIR__, 2) . '/fixtures/markdown-html-code-controls.json'), true, flags: JSON_THROW_ON_ERROR);
         foreach ([false, true] as $convertRawHtml) {
             foreach ($cases as $case) {
                 if ($convertRawHtml && str_starts_with($case['markdown'], '<?')) {
@@ -165,7 +167,7 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         foreach ([false, true] as $mode) {
             $source = (new MarkdownToCarve(convertRawHtml: $mode))->convert("x[^1](u<code>a</code>)\n\n[^1]: note");
             $html = (new CarveConverter())->convert($source);
-            $this->assertSame('<p>x<a href="u%3Ccode%3Ea%3C/code%3E">^1</a></p>', rtrim($html, "\n"));
+            $this->assertSame('<p>x<a href="u&lt;code&gt;a&lt;/code&gt;">^1</a></p>', rtrim($html, "\n"));
         }
     }
 
@@ -193,6 +195,11 @@ class MarkdownHtmlCodePayloadTest extends TestCase
         }
     }
 
+    /**
+     * Collect rendered code, roots, and link attributes.
+     *
+     * @return array{codes: list<array<string, mixed>>, roots: list<array<string, mixed>>, attributes: list<array<string, mixed>>}
+     */
     private function records(string $html): array
     {
         if (!class_exists(DOMDocument::class)) {

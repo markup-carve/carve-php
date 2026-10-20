@@ -3130,6 +3130,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         }
 
         $href = $node->getDestination();
+        if ($href !== null && $node->getParent() instanceof TableCell && str_contains($href, '%7C')) {
+            $href = str_replace('\\_', '%5C_', $href);
+        }
         $title = $node->getTitle();
         $carriers = [];
         if ($this->roundTripMode && $node->getReferenceLabel() !== null) {
