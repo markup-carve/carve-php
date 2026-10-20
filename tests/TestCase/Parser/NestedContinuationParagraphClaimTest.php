@@ -36,7 +36,7 @@ class NestedContinuationParagraphClaimTest extends TestCase
     #[DataProvider('claimBoundaryCases')]
     public function testMarkersDoNotReplaceAnOrdinaryClaim(array $case, int $index): void
     {
-        if ($index === 2) {
+        if ($index === 2 && $case['source'] === "- - +\n    - +\n x\n") {
             $this->markTestSkipped('pending markup-carve/carve#3421 relative rule');
         }
         $this->assertSame(trim($case['html']), trim((new CarveConverter())->convert($case['source'])), $case['source']);
