@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use InvalidArgumentException;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
@@ -126,6 +127,28 @@ trait RenderLossCollectorTrait
         ];
         if ($node->getPos() !== null) {
             $loss['pos'] = $node->getPos()->toArray();
+        }
+        $this->renderLosses[] = $loss;
+    }
+
+    protected function recordListTightnessLost(ListItem $item): void
+    {
+        if ($this->renderLossTarget === null) {
+            return;
+        }
+        $this->renderLossTotal++;
+        $this->renderLossCounts['list-tightness-lost'] = ($this->renderLossCounts['list-tightness-lost'] ?? 0) + 1;
+        if (count($this->renderLosses) >= $this->renderLossMaximum) {
+            return;
+        }
+        $loss = [
+            'code' => 'list-tightness-lost',
+            'target' => $this->renderLossTarget,
+            'nodeType' => 'block',
+            'message' => 'Wrote a nested list item loose to preserve its blocks',
+        ];
+        if ($item->getPos() !== null) {
+            $loss['pos'] = $item->getPos()->toArray();
         }
         $this->renderLosses[] = $loss;
     }

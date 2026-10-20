@@ -25,13 +25,10 @@ final class AMarkdownDestinationKeepsWhatCarveReadsLiterallyTest extends TestCas
         yield 'D6' => ['[a](/x(a))', '[a](/x(a))', ['markdown-link']];
         yield 'D7' => ["[a][r]\n\n[r]: /x`y", "[a][r]\n\n[r]: /x`y", ['markdown-reference-link', 'markdown-reference-definition']];
         yield 'D8' => ['![a](/p^q.png)', '![a](/p^q.png)', ['markdown-image']];
-        yield 'D9' => ["| h |\n| --- |\n| [a](/x\\|y) z |", "|= h |\n| [a](/x%7Cy) z |", null];
         yield 'A1' => ['<https://example.com/\[\>', '[https://example.com/\\\\\[\\\\](https://example.com/\[\\\\)', ['markdown-autolink']];
         yield 'A2' => ['<https://e.com/a\b>', '[https://e.com/a\\\\b](https://e.com/a\b)', ['markdown-autolink']];
         yield 'A3' => ['<https://e.com/a`b>', '[https://e.com/a\`b](https://e.com/a`b)', ['markdown-autolink']];
         yield 'table autolink escaped pipe' => ["| <http://x/a\\\\|b> | z |\n|---|---|", '|= [http://x/a\\\\\\|b](http://x/a\\%7Cb) |= z |', null];
-        yield 'table autolink single escaped pipe https' => ["| <https://example.com/a\\|b> | z |\n|---|---|", '|= [https://example.com/a\|b](https://example.com/a%7Cb) |= z |', null];
-        yield 'table autolink single escaped pipe http' => ["| <http://x/a\\|b> | z |\n|---|---|", '|= [http://x/a\|b](http://x/a%7Cb) |= z |', null];
         yield 'angle destination protected escaped angle' => ['[a](<\<>)', '[a](<)', ['markdown-link']];
         yield 'angle destination protected escaped angle within text' => ['[a](<a\<b>)', '[a](a<b)', ['markdown-link']];
         yield 'angle destination backslash newline' => ["[a](<a\\\nb>)", '[a](a\%0Ab)', null];
@@ -51,6 +48,29 @@ final class AMarkdownDestinationKeepsWhatCarveReadsLiterallyTest extends TestCas
         yield 'angle destination entity backslash before angle' => ['[a](<a&#92;&lt;b>)', '[a](a\<b)', null];
         yield 'control autolink' => ['<https://e.com/a[b]>', '<https://e.com/a[b]>', ['markdown-autolink']];
         yield 'control Unicode' => ['[a](/ü.png)', '[a](/ü.png)', ['markdown-link']];
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function tableAutolinkCases(): iterable
+    {
+        yield 'https' => ["| <https://example.com/a\\|b> | z |\n|---|---|", '|= [https://example.com/a\|b](https://example.com/a%7Cb) |= z |'];
+        yield 'http' => ["| <http://x/a\\|b> | z |\n|---|---|", '|= [http://x/a\|b](http://x/a%7Cb) |= z |'];
+    }
+
+    /**
+     * GFM unescapes the pipe at row level, so the autolink inside the cell is assessed completely.
+     */
+    #[DataProvider('tableAutolinkCases')]
+    public function testATableAutolinkWithAnEscapedPipeIsAssessed(string $source, string $expected): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport($source . "\n");
+        self::assertSame($expected . "\n", $result->value);
+        self::assertSame(
+            ['markdown-table', 'markdown-table-row', 'markdown-table-cell', 'markdown-autolink', 'markdown-table-cell'],
+            array_column($result->diagnostics, 'code'),
+        );
     }
 
     /**

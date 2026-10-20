@@ -125,16 +125,11 @@ class AnUnpairedMarkdownEmphasisRunStaysLiteralTest extends TestCase
         $this->assertSame($expected, (new MarkdownToCarve())->convert($markdown));
     }
 
-    /**
-     * The `]` escape is the whole difference on row 523, and it is written only
-     * where a pair straddles the run - a prose run holding no straddling pair
-     * keeps its bare bracket.
-     */
     public function testOnlyAStraddledRunGetsTheEscape(): void
     {
         $convert = new MarkdownToCarve();
 
-        $this->assertSame("/foo [bar/ baz\\]\n", $convert->convert("*foo [bar* baz]\n"));
+        $this->assertSame("/foo \\[bar/ baz]\n", $convert->convert("*foo [bar* baz]\n"));
         $this->assertSame("a [b] c\n", (new MarkdownToCarve())->convert("a [b] c\n"));
         $this->assertSame("foo [bar /baz/ qux]\n", (new MarkdownToCarve())->convert("foo [bar *baz* qux]\n"));
     }

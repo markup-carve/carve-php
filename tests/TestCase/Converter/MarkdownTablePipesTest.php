@@ -29,7 +29,12 @@ final class MarkdownTablePipesTest extends TestCase
     public static function oracleCases(): iterable
     {
         $cases = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/markdown-table-pipes-gfm.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($cases);
         foreach ($cases as $index => $case) {
+            self::assertIsArray($case);
+            self::assertIsString($case['md'] ?? null);
+            self::assertIsString($case['html'] ?? null);
+
             yield 'cmark-gfm ' . $index => [$case['md'], $case['html']];
         }
     }
@@ -76,7 +81,8 @@ final class MarkdownTablePipesTest extends TestCase
     public function testUnrelatedPipesDoNotProduceTableWarnings(string $source): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
-        self::assertSame([], array_values(array_filter(array_column($result->diagnostics, 'code'), static fn (string $code): bool => str_starts_with($code, 'markdown-table-'))));
+        $warnings = array_filter($result->diagnostics, static fn (object $diagnostic): bool => $diagnostic->severity !== 'info');
+        self::assertSame([], array_values(array_filter(array_column($warnings, 'code'), static fn (string $code): bool => str_starts_with($code, 'markdown-table-'))));
     }
 
     /**
@@ -125,10 +131,10 @@ final class MarkdownTablePipesTest extends TestCase
         self::assertSame(['markdown-table', 'markdown-table-row', 'markdown-table-cell', 'markdown-table-cell'], array_column($rows, 'code'));
     }
 
-    public function testEscapedBackticksUseClosedLiteralSpansInCells(): void
+    public function testEscapedBackticksKeepTableCellMeaning(): void
     {
         $carve = (new MarkdownToCarve())->convert("| a | b |\n|---|---|\n| `x|y` | z |");
-        self::assertSame("|= a |= b |\n| !`` ` ``{% %}x | y!`` ` ``{% %} |", $carve);
+        self::assertSame("|= a |= b |\n| \\`x | y\\` |", $carve);
         self::assertStringContainsString('<td>`x</td><td>y`</td>', (new CarveConverter())->convert($carve));
     }
 

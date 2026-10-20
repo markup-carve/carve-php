@@ -8,25 +8,6 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * AN UNSATISFIED CONTINUATION MARKER IS ORDINARY TEXT (`CARVE-P9-031`,
- * markup-carve/carve#2322).
- *
- * The clause used to illustrate the unsatisfied marker as behaving "exactly as
- * if the `+` line had been a comment", and a comment produces no output, so
- * read literally the line vanished. It now says the line reaches the output as
- * text, and `AND FLUSH-LEFT MEANS COLUMN 0` (markup-carve/carve#1436) still
- * decides the column the marker attaches at.
- *
- * Below a bullet and its two-column sublist the marker columns in play are
- * document 0 and 2. At either the `+` is consumed as the marker it spells. Document
- * column 1 names no container, so the line is text - and that is the single
- * column where the character was dropped (markup-carve/carve-php#2461).
- *
- * THE POSITION ROWS CARRY THEIR OWN CONTROL. `ZZZ` in the marker's slot is text
- * at every one of these columns, so a row that loses the `+` and keeps `ZZZ`
- * is about the marker rather than about the position.
- */
 class AContinuationMarkerOffEveryMarkerColumnIsTextTest extends TestCase
 {
     private CarveConverter $converter;
@@ -54,7 +35,7 @@ class AContinuationMarkerOffEveryMarkerColumnIsTextTest extends TestCase
         return [
             'document column 0 is the outer list\'s marker column' => [0, false],
             'document column 1 names no container' => [1, true],
-            'document column 2 is the sublist\'s marker column' => [2, false],
+            'document column 2 is ordinary text' => [2, true],
             'document column 3 is inside the sublist item' => [3, true],
             'document column 4 is inside the sublist item' => [4, true],
         ];

@@ -662,17 +662,17 @@
   {
     "id": "audit-133",
     "source": "> - ::: |\n>   ```\n>   code\n>   ```\n- tail\n",
-    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code>\ncode\n</code></p></div></li></ul></blockquote><ul><li>tail</li></ul>"
+    "html": "<blockquote><ul><li><div class=\"line-block\"><p><code>\ncode\n</code><br>\n- tail</p></div></li></ul></blockquote>"
   },
   {
     "id": "shifted-1-```-None",
     "source": "> - b\n>\n>   :::\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div><p>::: |\n<code></code></p></div>\n      para\n<code>\nlazy</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>b\n      <div><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "shifted-1-```-box",
     "source": "> - b\n>\n>   ::: box\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><p>::: |\n<code></code></p></div>\n      para\n<code>\nlazy</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "desc-code-1-```",
@@ -687,12 +687,12 @@
   {
     "id": "shifted-1-~~~-None",
     "source": "> - b\n>\n>   :::\n>     ::: |\n>     ~~~\n>   :::\n>   para\n>   ~~~\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div><p>::: |\n~~~</p></div>\n      para\n~~~\nlazy\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>b\n      <div><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "shifted-1-~~~-box",
     "source": "> - b\n>\n>   ::: box\n>     ::: |\n>     ~~~\n>   :::\n>   para\n>   ~~~\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><p>::: |\n~~~</p></div>\n      para\n~~~\nlazy\n    </li></ul></blockquote>"
+    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "desc-code-1-~~~",
@@ -707,17 +707,17 @@
   {
     "id": "no-blank-1",
     "source": "> - b\n>   ::: box\n>     ::: |\n>     ```\n>   :::\n>   para\n>   ```\nlazy\n",
-    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><p>::: |\n<code></code></p></div>\n      para\n<code>\nlazy</code></li></ul></blockquote>"
+    "html": "<blockquote><ul><li>b\n      <div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote>"
   },
   {
     "id": "shifted-2-```-None",
     "source": "> > - b\n> >\n> >   :::\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div><p>::: |\n<code></code></p></div>\n        para\n<code>\nlazy</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>b\n        <div><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "shifted-2-```-box",
     "source": "> > - b\n> >\n> >   ::: box\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><p>::: |\n<code></code></p></div>\n        para\n<code>\nlazy</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "desc-code-2-```",
@@ -732,12 +732,12 @@
   {
     "id": "shifted-2-~~~-None",
     "source": "> > - b\n> >\n> >   :::\n> >     ::: |\n> >     ~~~\n> >   :::\n> >   para\n> >   ~~~\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div><p>::: |\n~~~</p></div>\n        para\n~~~\nlazy\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>b\n        <div><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "shifted-2-~~~-box",
     "source": "> > - b\n> >\n> >   ::: box\n> >     ::: |\n> >     ~~~\n> >   :::\n> >   para\n> >   ~~~\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><p>::: |\n~~~</p></div>\n        para\n~~~\nlazy\n      </li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><div class=\"line-block\"><p>~~~<br>\n:::<br>\npara<br>\n~~~<br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "desc-code-2-~~~",
@@ -752,7 +752,7 @@
   {
     "id": "no-blank-2",
     "source": "> > - b\n> >   ::: box\n> >     ::: |\n> >     ```\n> >   :::\n> >   para\n> >   ```\nlazy\n",
-    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><p>::: |\n<code></code></p></div>\n        para\n<code>\nlazy</code></li></ul></blockquote></blockquote>"
+    "html": "<blockquote><blockquote><ul><li>b\n        <div class=\"box\"><div class=\"line-block\"><p><code>\n:::\npara\n</code><br>\nlazy</p></div></div></li></ul></blockquote></blockquote>"
   },
   {
     "id": "second-verse-after-miss",

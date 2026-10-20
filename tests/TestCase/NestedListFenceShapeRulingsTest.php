@@ -21,25 +21,27 @@ class NestedListFenceShapeRulingsTest extends TestCase
      */
     public static function cases(): array
     {
-        $plus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>x\n\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
-        $deepPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n\n</code></pre>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
-        $deepAttach = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n            tail\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $emptyPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $plus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>x\n</code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>tail</p>";
+        $deepPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n        +\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $deepAttach = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n</code></pre>\n          </li>\n        </ul>\n        +\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>";
+        $emptyPlus = "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code></code></pre>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n<p>tail</p>";
         $laterAttributePrefix = "<ul>\n  <li><p>outer</p>\n    <ul>\n      <li>head\n<code>\na\n</code></li>\n    </ul>\n    <p>tail</p>\n  </li>\n";
         $laterAttributeSource = "- outer\n  - head\n     ```\n     a\n```\n\n  tail\n";
 
-        $div2 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n        tail\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $div3 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n\n            </div>\n            tail\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>";
-        $div2Content = str_replace("\n\n        </div>", "\n          <p>x</p>\n        </div>", $div2);
-        $div3Content = str_replace("\n\n            </div>", "\n              <p>x</p>\n            </div>", $div3);
+        $div2 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n\n        </div>\n      </li>\n    </ul>\n    +\ntail\n  </li>\n</ul>";
+        $div3 = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n\n            </div>\n          </li>\n        </ul>\n        +\ntail\n      </li>\n    </ul>\n  </li>\n</ul>";
+        $div2Content = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n          <p>x\n+\ntail</p>\n        </div>\n      </li>\n    </ul>\n  </li>\n</ul>";
+        $div3Content = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n              <p>x\n+\ntail</p>\n            </div>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>";
+        $div2ContentBlank = "<ul>\n  <li>\n    <ul>\n      <li>\n        <div class=\"d\">\n          <p>x</p>\n        </div>\n      </li>\n    </ul>\n    <p>+\ntail</p>\n  </li>\n</ul>";
+        $div3ContentBlank = "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <div class=\"d\">\n              <p>x</p>\n            </div>\n          </li>\n        </ul>\n        <p>+\ntail</p>\n      </li>\n    </ul>\n  </li>\n</ul>";
 
         return [
             'div-depth-two-empty' => ["- - ::: d\n  +\ntail", $div2],
             'div-depth-three-empty' => ["- - - ::: d\n    +\ntail", $div3],
             'div-depth-two-content' => ["- - ::: d\n    x\n  +\ntail", $div2Content],
             'div-depth-three-content' => ["- - - ::: d\n      x\n    +\ntail", $div3Content],
-            'div-depth-two-content-blank' => ["- - ::: d\n    x\n\n  +\ntail", $div2Content],
-            'div-depth-three-content-blank' => ["- - - ::: d\n      x\n\n    +\ntail", $div3Content],
+            'div-depth-two-content-blank' => ["- - ::: d\n    x\n\n  +\ntail", $div2ContentBlank],
+            'div-depth-three-content-blank' => ["- - - ::: d\n      x\n\n    +\ntail", $div3ContentBlank],
             'refused-plus-keeps-blank' => ["- - ```\n    x\n  +\n\ntail\n", $plus],
             'third-level-refused-plus-keeps-blank' => ["- - - ```\n      x\n    +\n\ntail\n", $deepPlus],
             'refused-plus-keeps-blank-without-payload' => ["- - ```\n  +\n\ntail\n", $emptyPlus],

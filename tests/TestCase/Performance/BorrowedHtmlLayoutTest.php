@@ -12,6 +12,22 @@ use PHPUnit\Framework\TestCase;
 
 class BorrowedHtmlLayoutTest extends TestCase
 {
+    public function testProseEndingInPlusKeepsTheBorrowedPath(): void
+    {
+        foreach (["C++\n", "The language is C++\n", "- C++\n"] as $source) {
+            $attempt = (new BorrowedHtmlLayout())->render($source);
+            $this->assertNotNull($attempt);
+            $this->assertSame($this->authoritative()->convert($source), $attempt['html']);
+        }
+    }
+
+    public function testBarePlusAfterContainerOpenersRejectsTheBorrowedPath(): void
+    {
+        foreach (["- a\n  - +\ntail", "> - +\n", "1. +\n"] as $source) {
+            $this->assertNull((new BorrowedHtmlLayout())->render($source));
+        }
+    }
+
     private const ROUTING_SOURCE = <<<'CRV'
 # Benchmark
 
@@ -228,7 +244,8 @@ CRV;
         // Corpus 551 adds three accepted link documents; CARVE-P9-082 makes
         // 589-32 a table the fast path takes.
         // Corpus 617-3 is an unmarked CSV fence, so it remains ordinary code.
-        $this->assertSame(72, $accepted, 'A fast-path routing change needs explicit review.');
+        // Rows 588-3 and 588-4 now fall back because their lines end in plus.
+        $this->assertSame(70, $accepted, 'A fast-path routing change needs explicit review.');
     }
 
     public function testAmbiguousOrStatefulDocumentsFallBackBeforePublishingOutput(): void

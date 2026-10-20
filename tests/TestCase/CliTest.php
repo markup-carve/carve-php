@@ -1122,6 +1122,18 @@ class CliTest extends TestCase
         }
     }
 
+    public function testMigrateLossCheckAcceptsUnambiguousPipesAndLiteralBracket(): void
+    {
+        foreach (['a | b', '[c](/a|b)', 'a [b <https://e.com/]> c', "| h |\n| --- |\n| [a](/x\\|y) z |"] as $source) {
+            $result = $this->runCliInput(['migrate', '--from', 'markdown', '--report', '-', '--check-loss'], $source);
+            $this->assertSame(0, $result['exit'], $source);
+            $report = json_decode($result['err'], true, flags: JSON_THROW_ON_ERROR);
+            $this->assertIsArray($report);
+            $this->assertIsArray($report['diagnostics']);
+            $this->assertNotContains('fidelity-unverified', array_column($report['diagnostics'], 'code'), $source);
+        }
+    }
+
     public function testMigrateWritesTheVersionedReportForEveryImporter(): void
     {
         $result = $this->runCliInput(

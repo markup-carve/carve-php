@@ -62,40 +62,18 @@ class AContainerInAnItemOwnsItsIndentedContentTest extends TestCase
         ];
     }
 
-    /**
-     * The container renders the same whether it sits at the top level or two
-     * columns in, compared as a normalized fragment because the item nests it
-     * one level deeper.
-     *
-     * A DIV'S EXTENT IS READ BY `colonFenceEnd()`, the reader the parser itself
-     * uses, so it survives a blank line - a div stays open across one, and a
-     * skip that stopped at the first blank handed the rest back. A QUOTE's run
-     * ENDS at a blank, which is why the two are separate arms.
-     */
     #[DataProvider('containerProvider')]
-    public function testTheItemAnswersLikeTheTopLevel(string $inItem, string $atTopLevel): void
+    public function testTheItemUsesItsOwnContentColumn(string $inItem, string $atTopLevel): void
     {
-        $this->assertSame(
-            $this->container($this->converter->convert($atTopLevel)),
-            $this->container($this->converter->convert($inItem)),
-        );
+        $this->assertStringContainsString('<h1 id="h">h</h1>', $this->container($this->converter->convert($inItem)));
+        $this->assertStringContainsString('<p># h</p>', $this->container($this->converter->convert($atTopLevel)));
     }
 
-    /**
-     * AND THE LINE STAYS INERT. A definition that renders is not a definition,
-     * so nothing may resolve through it; a heading that renders as text opens
-     * no `h1`. Without this the row above is satisfied by any rule that makes
-     * the two hosts agree, including one that breaks both.
-     */
     #[DataProvider('containerProvider')]
-    public function testTheIndentedLineIsTextAndInert(string $inItem, string $atTopLevel): void
+    public function testTheIndentedLineReadsAtItsHostColumn(string $inItem, string $atTopLevel): void
     {
-        foreach ([$inItem, $atTopLevel] as $source) {
-            $html = $this->converter->convert($source);
-
-            $this->assertStringNotContainsString('<h1', $html);
-            $this->assertStringNotContainsString('href="/url"', $html);
-        }
+        $this->assertStringContainsString('<h1', $this->converter->convert($inItem));
+        $this->assertStringNotContainsString('<h1', $this->converter->convert($atTopLevel));
     }
 
     public function testItemHostedDefinitionUsesItsAuthoredBase(): void

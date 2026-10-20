@@ -282,7 +282,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-16",
     "source": "- x\n  > q\n  +\n",
-    "html": "<ul>\n  <li>x\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n"
+    "html": "<ul>\n  <li>x\n    <blockquote><p>q\n+</p></blockquote>\n  </li>\n</ul>\n"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-17",

@@ -488,8 +488,16 @@ final class DefinitionListBuilder
                 $detachedFootnote = null;
                 $detachedFootnoteMap = [];
                 $bodyAtColumnBlock = false;
+                $attachedDefinitionListOpen = false;
                 while ($i < $count) {
                     $contLine = $lines[$i];
+                    if (
+                        $attachedDefinitionListOpen
+                        && preg_match('/^[ \t]*\[/', $contLine) === 1
+                        && IndentationHelper::getLeadingColumns($contLine, $continuationColumn) < $continuationColumn
+                    ) {
+                        break;
+                    }
                     $lastBody = $body === [] ? '' : $body[array_key_last($body)];
                     // At the description column, caret text folds into its body.
                     if (
@@ -563,19 +571,55 @@ final class DefinitionListBuilder
                         }
                     }
                     // Form B: `+` pull-left continuation.
-                    if (preg_match('/^\+[ \t]*$/', $contLine)) {
+                    if (
+                        preg_match('/^\+[ \t]*$/', $contLine)
+                        && preg_match('/^(?:> ?)*\+[ \t]*$/D', $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '') === 1
+                    ) {
                         $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'definition description');
                         $i++;
                         if (!$this->continuationAttachesAtColumnZero($i)) {
                             break;
                         }
+                        $attachedItemColumn = 0;
+                        $attachedReferenceSeen = false;
+                        $quotedAttached = str_starts_with($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', '>');
                         [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock(
                             $lines,
                             $i,
                             $count,
-                            static fn (string $a): bool => (bool)preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a)
-                                || (bool)preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a),
+                            function (string $a) use (&$attachedItemColumn, &$attachedReferenceSeen, $quotedAttached): bool {
+                                if (
+                                    preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                                    || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1
+                                ) {
+                                    return true;
+                                }
+                                if ($quotedAttached) {
+                                    return false;
+                                }
+                                if ($attachedItemColumn === 0 && preg_match('/^([ \t]*)(?:[-*] |\d+[.)] )/', $a, $marker) === 1) {
+                                    $attachedItemColumn = IndentationHelper::getLeadingColumns($marker[1]) + strlen($marker[0]) - strlen($marker[1]);
+                                }
+                                $definition = $this->isReferenceDefinitionLine(ltrim($a, " \t"))
+                                    || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($a, " \t")) === 1;
+                                if (
+                                    $attachedReferenceSeen && ($definition
+                                    || (str_starts_with(ltrim($a, " \t"), '[')
+                                        && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) < $attachedItemColumn))
+                                ) {
+                                    return true;
+                                }
+                                if (
+                                    $attachedItemColumn > 0 && $definition
+                                    && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) >= $attachedItemColumn
+                                ) {
+                                    $attachedReferenceSeen = true;
+                                }
+
+                                return false;
+                            },
                         );
+                        $attachedDefinitionListOpen = $attachedReferenceSeen;
                         $attachedLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $attachedRawLineMap);
                         if ($attached) {
                             $body[] = '';

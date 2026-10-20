@@ -104,6 +104,37 @@ final class MarkdownAssessmentTest extends TestCase
         self::assertSame(['line:1', 'line:1'], array_column($result->diagnostics, 'path'));
     }
 
+    public function testUnambiguousPipesAndLiteralBracketHaveExactAssessments(): void
+    {
+        foreach (
+            [
+                ['a | b', 'a | b', ['markdown-paragraph'], ['line:1'], ['preserved']],
+                ['[c](/a|b)', '[c](/a|b)', ['markdown-paragraph', 'markdown-link'], ['line:1', 'line:1'], ['preserved', 'preserved']],
+                ['a [b <https://e.com/]> c', 'a [b <https://e.com/]> c', ['markdown-paragraph', 'markdown-autolink'], ['line:1', 'line:1'], ['preserved', 'normalized']],
+                ["| h |\n| --- |\n| [a](/x\\|y) z |", "|= h |\n| [a](/x%7Cy) z |", ['markdown-table', 'markdown-table-row', 'markdown-table-cell', 'markdown-table-row', 'markdown-table-cell', 'markdown-link'], ['line:1', 'line:1', 'line:1', 'line:3', 'line:3', 'line:3'], array_fill(0, 6, 'preserved')],
+            ] as [$source, $value, $codes, $paths, $fidelities]
+        ) {
+            $result = (new MarkdownToCarve())->convertWithFidelityReport($source);
+            self::assertSame($value, $result->value, $source);
+            self::assertSame($codes, array_column($result->diagnostics, 'code'), $source);
+            self::assertSame($paths, array_column($result->diagnostics, 'path'), $source);
+            self::assertSame($fidelities, array_column($result->diagnostics, 'fidelity'), $source);
+            self::assertSame(array_fill(0, count($codes), 'info'), array_column($result->diagnostics, 'severity'), $source);
+            self::assertSame(array_fill(0, count($codes), 'exact'), array_column($result->diagnostics, 'confidence'), $source);
+        }
+    }
+
+    public function testAnEscapedFinalPipeStaysCellContent(): void
+    {
+        $result = (new MarkdownToCarve())->convertWithFidelityReport("| h |\n| --- |\n| a\\|");
+
+        self::assertSame("|= h |\n| a\\| |", $result->value);
+        $codes = array_column($result->diagnostics, 'code');
+        self::assertNotContains('fidelity-unverified', $codes);
+        self::assertSame(2, count(array_keys($codes, 'markdown-table-cell', true)));
+        self::assertNotContains('markdown-escape', $codes);
+    }
+
     public function testUnicodeReferenceLinkDestinationIsVerified(): void
     {
         $result = (new MarkdownToCarve())->convertWithFidelityReport("See [a][r].\n\n[r]: /ü\n");

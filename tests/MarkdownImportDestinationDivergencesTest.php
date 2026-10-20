@@ -57,7 +57,7 @@ final class MarkdownImportDestinationDivergencesTest extends TestCase
         $unverified = [['fidelity-unverified', 'dropped', '']];
 
         yield 'A5 angle form beside a bracket' => ['[foo<https://example.com/?search=](uri)>', '[foo<https://example.com/?search=](uri)>', $unverified, 1];
-        yield 'A6 angle form inside a bracket' => ['a [b <https://e.com/]> c', 'a [b <https://e.com/]> c', $unverified, 1];
+        yield 'A6 angle form inside a bracket' => ['a [b <https://e.com/]> c', 'a [b <https://e.com/]> c', [$paragraph, $autolink], 0];
         yield 'A7 angle form before a destination shape' => ['<https://e.com/a[b> c](/u)', '<https://e.com/a[b> c](/u)', [$paragraph, $autolink], 0];
     }
 

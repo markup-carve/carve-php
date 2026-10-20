@@ -50,6 +50,18 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-fence-run-that-dedents-out-of-a-child-keeps-the-outer-item-tight',
+        'generated-container-documents',
+        'a-fence-run-folded-into-a-child-paragraph-loosens-the-outer-item',
+        'a-caption-after-a-continuation-marker-fence-stays-with-the-fence',
+        'a-lazily-folded-fence-opener-line-does-not-keep-a-list-tight',
+        'a-fence-run-folded-into-a-child-paragraph-loosens-the-outer-item-when-it-closes-at-the-outer-column',
+        'a-fence-closer-outside-the-child-folds-and-leaves-the-child-open',
+        'an-indented-plus-below-a-nested-fence-stays-content-at-every-depth',
+        'a-refused-marker-leaves-an-open-fence-s-blank-payload',
+        'a-column-zero-marker-below-an-open-div-attaches-beside-the-div',
+        'a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one',
+        'a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener',
         'a-block-at-an-item-content-column-ends-its-paragraph-before-an-unclosed-fence',
         'a-definition-or-attribute-line-in-a-nested-container-leaves-no-paragraph-for-an-unmarked-line',
         'a-line-is-read-in-the-container-whose-column-it-reaches',

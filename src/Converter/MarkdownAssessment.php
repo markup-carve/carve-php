@@ -84,6 +84,50 @@ final class MarkdownAssessment
         return preg_replace('/\\\\([!"#$%&\'()*+,\\-.\/:;<=>?@\[\]\\\\^_`{|}~])/', '$1', $destination) ?? $destination;
     }
 
+    /**
+     * @return list<string>
+     */
+    private static function tableCells(string $row): array
+    {
+        $cells = [];
+        $cell = '';
+        $row = trim($row);
+        $length = strlen($row);
+        for ($i = 0; $i < $length; $i++) {
+            $char = $row[$i];
+            if ($char === '\\') {
+                $end = $i;
+                while ($end < $length && $row[$end] === '\\') {
+                    $end++;
+                }
+                $slashes = $end - $i;
+                $beforePipe = $end < $length && $row[$end] === '|';
+                // GFM unescapes a table pipe at row level, so the inline pass never sees that backslash.
+                $cell .= str_repeat('\\', $beforePipe ? intdiv($slashes, 2) : $slashes);
+                if ($beforePipe && $slashes % 2 === 1) {
+                    $cell .= '|';
+                    $i = $end;
+                } else {
+                    $i = $end - 1;
+                }
+            } elseif ($char === '|') {
+                $cells[] = trim($cell);
+                $cell = '';
+            } else {
+                $cell .= $char;
+            }
+        }
+        $cells[] = trim($cell);
+        if ($cells[0] === '') {
+            array_shift($cells);
+        }
+        if ($cells !== [] && $cells[count($cells) - 1] === '') {
+            array_pop($cells);
+        }
+
+        return $cells;
+    }
+
     private function emit(string $construct, int $line, string $fidelity = 'preserved', ?string $code = null): void
     {
         $message = $construct === 'ordered-task' ? MarkdownToCarve::ORDERED_TASK_ITEM_UNSPELLABLE : 'Assessed Markdown ' . $construct . '.';
@@ -103,7 +147,7 @@ final class MarkdownAssessment
         return preg_match($anchored, $text, $matches, 0, $offset) === 1;
     }
 
-    private function inline(string $text, int $line, bool $linkLabel = false): string
+    private function inline(string $text, int $line, bool $linkLabel = false, bool $tableCell = false): string
     {
         $result = '';
         $bareLinks = $linkLabel ? [] : MarkdownBareLinks::ranges($text);
@@ -148,15 +192,15 @@ final class MarkdownAssessment
                     $this->complete = false;
                 }
                 $this->emit($m[1] === '!' ? 'image' : 'link', $line);
-                $destination = self::encodeDestination($decodedDestination);
+                $destination = MarkdownDestinationEncoding::href($decodedDestination, $tableCell);
                 $title = isset($m[4]) ? ' title="' . self::escape($m[4]) . '"' : '';
-                $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
+                $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true, $tableCell) . '</a>';
             } elseif (self::match('/^(!?)\[([^\]\n]+)\](?:\[([^\]\n]*)\])?/', $text, $i, $m) && isset($this->definitions[self::label(($m[3] ?? '') ?: $m[2])])) {
                 $definition = $this->definitions[self::label(($m[3] ?? '') ?: $m[2])];
                 $this->emit('reference-link', $line, 'normalized');
-                $destination = self::encodeDestination($definition['destination']);
+                $destination = MarkdownDestinationEncoding::href($definition['destination'], $tableCell);
                 $title = $definition['title'] === null ? '' : ' title="' . self::escape($definition['title']) . '"';
-                $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true) . '</a>';
+                $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true, $tableCell) . '</a>';
             } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
@@ -169,7 +213,7 @@ final class MarkdownAssessment
                 $kind = $m[1] === '~~' ? 'strikethrough' : (strlen($m[1]) === 2 ? 'strong' : 'emphasis');
                 $this->emit($kind, $line);
                 $tag = $kind === 'strong' ? 'strong' : ($kind === 'emphasis' ? 'em' : 's');
-                $result .= '<' . $tag . '>' . $this->inline($m[2], $line, $linkLabel) . '</' . $tag . '>';
+                $result .= '<' . $tag . '>' . $this->inline($m[2], $line, $linkLabel, $tableCell) . '</' . $tag . '>';
             } elseif (self::match('/^(?: {2,}|\\\\)\n/', $text, $i, $m)) {
                 $this->emit('hard-break', $line, 'normalized');
                 $result .= "<br>\n";
@@ -183,6 +227,9 @@ final class MarkdownAssessment
                 }
                 $this->emit('raw-html', $line, 'degraded', 'raw-preserved');
                 $result .= $m[0];
+            } elseif ($text[$i] === '[' && (strpos($text, ']', $i + 1) === false || self::match('~^\[[^\[\]\n]*<https?://[^<>\s]*\][^<>\s]*>~', $text, $i, $m))) {
+                $m = ['['];
+                $result .= '[';
             } else {
                 if (str_contains('*_`[\\<', $text[$i]) || self::match('~^(?:\~\~|www\.)~', $text, $i, $m) || (!$linkLabel && ($i === 0 || !preg_match('/[A-Za-z]/', $text[$i - 1])) && self::match('~^(?i:https?|ftp)://~', $text, $i, $m)) || (($i === 0 || !preg_match('/[\w.+-]/', $text[$i - 1])) && self::match('/^[\w.+-]+@[\w.-]+\.[A-Za-z]/', $text, $i, $m))) {
                     $this->complete = false;
@@ -287,9 +334,8 @@ final class MarkdownAssessment
                 continue;
             }
             if ($i + 1 < $count && str_contains($line, '|')) {
-                $cells = static fn (string $row): array => array_map('trim', explode('|', trim(trim($row), '|')));
-                $separators = $cells($lines[$i + 1]);
-                $headers = $cells($line);
+                $separators = self::tableCells($lines[$i + 1]);
+                $headers = self::tableCells($line);
                 if (count($separators) === count($headers) && count(array_filter($separators, static fn (string $cell): bool => (bool)preg_match('/^:?-{3,}:?$/', $cell))) === count($separators)) {
                     $this->emit('table', $n);
                     $this->emit('table-row', $n);
@@ -298,7 +344,7 @@ final class MarkdownAssessment
                         $separator = $separators[$column];
                         $align = str_starts_with($separator, ':') && str_ends_with($separator, ':') ? 'center' : (str_ends_with($separator, ':') ? 'right' : (str_starts_with($separator, ':') ? 'left' : ''));
 
-                        return '<' . $tag . ($align === '' ? '' : ' style="text-align: ' . $align . ';"') . '>' . $this->inline($body, $row) . '</' . $tag . '>';
+                        return '<' . $tag . ($align === '' ? '' : ' style="text-align: ' . $align . ';"') . '>' . $this->inline($body, $row, false, true) . '</' . $tag . '>';
                     };
                     $html .= "<table>\n<thead>\n<tr>";
                     foreach ($headers as $column => $cell) {
@@ -308,9 +354,9 @@ final class MarkdownAssessment
                     $i += 2;
                     $rows = '';
                     while ($i < $count && trim($lines[$i]) !== '' && str_contains($lines[$i], '|')) {
-                        $row = $cells($lines[$i]);
+                        $row = self::tableCells($lines[$i]);
                         $location = $first + $i;
-                        if (count($row) > count($headers) || str_contains($lines[$i], '\\|')) {
+                        if (count($row) > count($headers)) {
                             $this->complete = false;
                         }
                         $this->emit('table-row', $location);
@@ -411,7 +457,7 @@ final class MarkdownAssessment
             }
             $this->emit('paragraph', $n);
             foreach ($body as $text) {
-                if (preg_match('/\||\t/', $text)) {
+                if (str_contains($text, "\t")) {
                     $this->complete = false;
                 }
             }
