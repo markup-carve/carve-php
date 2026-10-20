@@ -2982,8 +2982,14 @@ final class ListBlockBuilder
             ) {
                 $childColumn = IndentationHelper::getLeadingColumns($lines[$i - 1])
                     + $this->listMarkerWidth(ltrim($lines[$i - 1], " \t"), $precedingMarker);
+                $attributeInFenceRun = isset($lines[$i + 1])
+                    && ($this->isBlockAttributeLineCallback)(ltrim($lines[$i + 1], " \t"));
+                $tableBoundaryAttribute = isset($lines[$i + 1], $lines[$i + 2])
+                    && IndentationHelper::getLeadingColumns($lines[$i + 1]) < $childColumn
+                    && ($this->getTableParser)()->isTableRow(ltrim($lines[$i + 1], " \t"))
+                    && ($this->isBlockAttributeLineCallback)(ltrim($lines[$i + 2], " \t"));
                 // CARVE-P0-014: a below-column run cannot authorize a fence under a child's lead.
-                if ($base >= $childColumn && !$this->itemFenceCloserAhead($lines, $i, $code, $base, $childColumn)) {
+                if (!$attributeInFenceRun && !$tableBoundaryAttribute && $base >= $childColumn && !$this->itemFenceCloserAhead($lines, $i, $code, $base, $childColumn)) {
                     $foldedChildFence = true;
                     $afterBlank = false;
 
