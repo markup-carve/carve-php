@@ -7365,21 +7365,20 @@ class MarkdownToCarve
 
             return $token;
         };
-        $writeCodeSpan = function (string $span, int $offset = 0, ?string $raw = null) use ($protectCode): string {
+        $codeWriter = null;
+        $writeCodeSpan = function (string $span, int $offset = 0, ?string $raw = null) use ($protectCode, &$codeWriter): string {
             $fence = strspn($span, '`');
-            if ($fence === 0 || $fence > 2 || !str_contains($span, "\n")) {
+            if ($fence === 0) {
                 return $protectCode($span, $raw);
             }
             $value = preg_replace('/\n[ \t]*/', ' ', substr($span, $fence, -$fence)) ?? '';
             if (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '') {
                 $value = substr($value, 1, -1);
             }
-            $document = new Document();
-            $paragraph = new Paragraph();
-            $paragraph->appendChild(new Code($value));
-            $document->appendChild($paragraph);
 
-            return $protectCode(rtrim((new CarveRenderer())->render($document), "\n"), $span);
+            $codeWriter ??= new CarveRenderer();
+
+            return $protectCode($codeWriter->spellImportedCodeSpan($value), $span);
         };
         $line = $this->protectCodeSpans($line, $writeCodeSpan);
         $line = preg_replace_callback('/(?<!\\\\)\[(?!\^)([^\[\]\n]+)\](?=\[\^([^\[\]\n]+)\])/', function (array $match) use ($protect): string {

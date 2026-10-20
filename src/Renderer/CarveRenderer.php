@@ -5517,6 +5517,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $this->renderCodeWithUnclosed($content, false);
     }
 
+    public function spellImportedCodeSpan(string $content): string
+    {
+        return $this->renderCode($content);
+    }
+
     private function renderVerbatimCode(string $content, string $nodeType): string
     {
         try {
