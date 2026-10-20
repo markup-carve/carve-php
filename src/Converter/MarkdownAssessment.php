@@ -103,7 +103,7 @@ final class MarkdownAssessment
                 $slashes = $end - $i;
                 $beforePipe = $end < $length && $row[$end] === '|';
                 // GFM unescapes a table pipe at row level, so the inline pass never sees that backslash.
-                $cell .= str_repeat('\\', $beforePipe ? intdiv($slashes, 2) : $slashes);
+                $cell .= str_repeat('\\', $beforePipe ? ($slashes % 2 === 1 ? $slashes - 1 : intdiv($slashes, 2)) : $slashes);
                 if ($beforePipe && $slashes % 2 === 1) {
                     $cell .= '|';
                     $i = $end;
@@ -177,6 +177,7 @@ final class MarkdownAssessment
             } elseif ($bare !== null && $bare['start'] === $i) {
                 $body = substr($text, $bare['start'], $bare['end'] - $bare['start']);
                 $href = self::encodeDestination($bare['prefix'] . $body);
+                $href = $tableCell ? str_replace('|', '%7C', $href) : $href;
                 $this->emit('bare-autolink', $line, 'normalized');
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($body) . '</a>';
                 $m = [$body];
@@ -203,7 +204,7 @@ final class MarkdownAssessment
                 $result .= $m[1] === '!' ? '<img src="' . self::escape($destination) . '" alt="' . self::escape($m[2]) . '"' . $title . '>' : '<a href="' . self::escape($destination) . '"' . $title . '>' . $this->inline($m[2], $line, true, $tableCell) . '</a>';
             } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
-                $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
+                $href = str_contains($m[1], '://') || str_starts_with($m[1], 'mailto:') ? $m[1] : 'mailto:' . $m[1];
                 $href = $tableCell ? str_replace('|', '%7C', $href) : $href;
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($m[1]) . '</a>';
             } elseif (self::match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $text, $i, $m) && !str_contains($m[2], $m[1][0])) {
@@ -221,6 +222,9 @@ final class MarkdownAssessment
                 $m = ["\n"];
                 $this->emit('soft-break', $line);
                 $result .= "\n";
+            } elseif (self::match('~^<(?:https?://|mailto:)[^<>\n]*>~', $text, $i, $m)) {
+                $m = ['<'];
+                $result .= '&lt;';
             } elseif (self::match('/^<(?:!--[\s\S]*?--|\/?[A-Za-z][^<>]*|\?[\s\S]*?\?)>/', $text, $i, $m)) {
                 if (preg_match('/^<\/?(?:section|h[1-6]|input)\b/i', $m[0])) {
                     $this->complete = false;

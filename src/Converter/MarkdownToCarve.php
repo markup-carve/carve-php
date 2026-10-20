@@ -6047,7 +6047,19 @@ class MarkdownToCarve
             $sourceCell = trim($cells[$c] ?? '');
             $cell = str_replace('\\|', '|', $sourceCell);
             $cell = $this->rewriteTablePipeAutolinks($cell);
+            $pinned = [];
+            if (preg_match_all('~<(https?://[A-Za-z0-9:/._\~?#&=%@+,;\\\\|-]*\\\\\\\\\|[A-Za-z0-9:/._\~?#&=%@+,;\\\\|-]*)>~', $sourceCell, $backslashed) > 0) {
+                foreach ($backslashed[1] as $body) {
+                    // GFM drops one backslash before each pipe; Carve spells the rest as written.
+                    $read = str_replace('\\|', '|', $body);
+                    $token = "\x00Q" . count($pinned) . "\x00";
+                    $label = str_replace(['\\', '|'], ['\\\\', '\\|'], $read);
+                    $pinned[$token] = '[' . $label . '](' . MarkdownDestinationEncoding::destination($read, true) . ')';
+                    $cell = str_replace('<' . $read . '>', $token, $cell);
+                }
+            }
             $cell = $this->convertInlineFormatting($cell, table: true);
+            $cell = strtr($cell, $pinned);
             if (str_contains($sourceCell, '\\|') && preg_match_all('~<https?://[^<>\s]+>~', $sourceCell, $autolinks) > 0) {
                 foreach ($autolinks[0] as $autolink) {
                     $body = substr($autolink, 1, -1);
