@@ -3260,9 +3260,7 @@ class MarkdownToCarve
             $converter = CarveConverter::carve();
             $document = $converter->parse($frontmatter === [] ? $carve : "\n" . $carve);
             if (MarkdownEmailText::link($document)) {
-                if (!getenv('CARVE_TEST_LEGACY')) {
-                    $this->minimizeTableEmailCellEscapes($document);
-                }
+                $this->minimizeTableEmailCellEscapes($document);
                 $trailingNewline = str_ends_with($carve, "\n");
                 $rendered = $converter->renderWithReport($document, maxRenderLosses: PHP_INT_MAX);
                 $carve = $trailingNewline ? $rendered->value : rtrim($rendered->value, "\n");
@@ -7051,6 +7049,7 @@ class MarkdownToCarve
             $last = $before[strlen($before) - 1];
             if ($last === ']') {
                 $depth = 1;
+                $matchedLabel = false;
                 for ($open = strlen($before) - 2; $open >= 0; $open--) {
                     if ($before[$open] !== '[' && $before[$open] !== ']') {
                         continue;
@@ -7064,6 +7063,7 @@ class MarkdownToCarve
                     }
                     $depth += $before[$open] === '[' ? -1 : 1;
                     if ($depth === 0) {
+                        $matchedLabel = true;
                         $label = substr($before, $open + 1, strlen($before) - $open - 2);
                         $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($label));
                         $canonical = $this->referenceDefinitionLabels[$key] ?? null;
@@ -7076,6 +7076,9 @@ class MarkdownToCarve
 
                         break;
                     }
+                }
+                if (!$matchedLabel) {
+                    return $before;
                 }
             }
             if (!in_array($last, ['!', '^', ']', '\\'], true)) {
@@ -7131,7 +7134,11 @@ class MarkdownToCarve
                 if (preg_match('/\[[^]]+\]\([^)]*$/', $body) === 1) {
                     $destinationAt = strrpos($written, '](');
                     if ($destinationAt !== false) {
-                        $written = str_replace(']\\(', '](', substr($written, 0, $destinationAt)) . substr($written, $destinationAt);
+                        $label = substr($written, 0, $destinationAt);
+                        $unclosedAt = strrpos($label, ']\\(');
+                        if ($unclosedAt !== false) {
+                            $written = substr_replace($label, '](', $unclosedAt, 3) . substr($written, $destinationAt);
+                        }
                     }
                 }
                 if ($table) {
@@ -8946,18 +8953,15 @@ class MarkdownToCarve
             $line,
         ) ?? $line;
 
-        if (!getenv('CARVE_TEST_LEGACY') && str_contains($line, ']\\(') && str_contains($sourceInput, '](<')) {
+        if (str_contains($line, ']\\(') && str_contains($sourceInput, '](<')) {
             $line = preg_replace('~\]\\\\\((`<[^`]*\n[^`]*>`\{=html\}\))~', ']($1', $line) ?? $line;
         }
-        if (!getenv('CARVE_TEST_LEGACY') && str_contains($line, '\\]') && str_contains($sourceInput, '[')) {
+        if (str_contains($line, '\\]') && preg_match('/([*_])[^]\n]*\[[^]\n]*\1[^]\n]*\]/', $sourceInput) === 1) {
             $line = preg_replace_callback(
                 '~(/[^/\n]* )\[([^]\n]*?/[^]\n]*)\\\\\]~',
                 static fn (array $match): string => $match[1] . '\\[' . $match[2] . ']',
                 $line,
             ) ?? $line;
-        }
-        if (!getenv('CARVE_TEST_LEGACY') && preg_match('~(?:^|[^\\\\])(?:\\\\\\\\)*\]https?://~m', $sourceInput) === 1) {
-            $line = preg_replace('~\\\\\](?=\[https?://)~', ']', $line) ?? $line;
         }
 
         return str_replace("\x00FNEMPTY\x00", '{empty}', $line);
