@@ -341,6 +341,8 @@ class MarkdownToCarve
 
     protected bool $convertRawHtml = false;
 
+    private CarveRenderer $importWriter;
+
     public function __construct(
         bool $convertMath = false,
         bool $convertHighlight = false,
@@ -351,6 +353,7 @@ class MarkdownToCarve
         bool $convertRawHtml = false,
         private bool $rewriteHeadingFragments = true,
     ) {
+        $this->importWriter = new CarveRenderer();
         $this->convertMath = $convertMath;
         $this->convertHighlight = $convertHighlight;
         $this->convertInlineFootnotes = $convertInlineFootnotes;
@@ -1802,6 +1805,9 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        if (trim($markdown) === '') {
+            return $markdown;
+        }
         $workScope = MarkdownImportWork::$on ? MarkdownImportWork::enter() : null;
         if ($this->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
             $this->resolvedCrossrefs = [];
@@ -3151,7 +3157,8 @@ class MarkdownToCarve
             if (
                 !($isBlockquote && $converted === '>' && CarveRenderer::discardsInitialEmptyImportedQuoteLine(
                     $prevLineType !== 'blockquote',
-                    isset($lines[$i + 1]) && preg_match('/^[ \t]*>[ \t]*\S/', $lines[$i + 1]) === 1,
+                    isset($lines[$i + 1]) && $this->quoteMarkerDepth($lines[$i + 1]) > 0
+                        && trim($this->stripContainerMarkers($lines[$i + 1])) !== '',
                 ))
             ) {
                 array_push($result, ...explode("\n", $converted));
@@ -3291,7 +3298,9 @@ class MarkdownToCarve
             $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
             $carve = $this->separateLooseItems($carve, $writtenBlanks);
             $carve = $this->applyHeadingIdPreservation($carve, $markdown);
-            $carve = CarveRenderer::trimImportedDocumentEdges($carve, CarveRenderer::importedSourceEndsWithNewline($markdown));
+            if (!$this->importingFootnoteBody) {
+                $carve = CarveRenderer::trimImportedDocumentEdges($carve, CarveRenderer::importedSourceEndsWithNewline($markdown));
+            }
 
             // An empty quote line is written as its markers alone, which is what
             // `carve fmt` writes. The separator space carries no content, so the
@@ -4312,8 +4321,7 @@ class MarkdownToCarve
     protected function writeListMarker(MarkdownListMarkers $markers, array $lines, int $index, string $line, bool &$separate = false): string
     {
         $markerCol = $this->indentWidth($line);
-        $contentCol = preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+/', $line, $marker) === 1
-            ? $this->itemContentColumn($marker[0]) : 0;
+        $contentCol = MarkdownListMarkers::sourceContentColumn($line);
         $incidentalContinuation = false;
         for ($at = $index + 1, $end = min(count($lines), $index + 4); $at < $end; $at++) {
             if (trim($lines[$at]) === '') {
@@ -7271,7 +7279,7 @@ class MarkdownToCarve
                 $value = substr($value, 1, -1);
             }
 
-            $codeWriter ??= new CarveRenderer();
+            $codeWriter ??= $this->importWriter;
 
             return $protectCode($codeWriter->spellImportedCodeSpan($value), $span);
         };
@@ -7309,7 +7317,7 @@ class MarkdownToCarve
                     return null;
                 }
                 $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
-                $rest = ' ' . (new CarveRenderer())->spellImportedTitle($decoded, $table);
+                $rest = ' ' . $this->importWriter->spellImportedTitle($decoded, $table);
             }
 
             return '(' . $this->writeMarkdownDestination($url, $protected, table: $table) . $rest . ')';
@@ -8191,7 +8199,7 @@ class MarkdownToCarve
                     return null;
                 }
                 $decoded = $this->decodeMarkdownScalar($this->referenceSourceText(substr($title[1], 1, -1), $protected));
-                $rest = ' ' . (new CarveRenderer())->spellImportedTitle($decoded, $table);
+                $rest = ' ' . $this->importWriter->spellImportedTitle($decoded, $table);
             }
 
             return '(' . $this->writeMarkdownDestination($url, originalSource: true, table: $table) . $rest . ')';
@@ -8972,6 +8980,9 @@ class MarkdownToCarve
 
         if ($table) {
             $line = $this->escapeTableInlineText($line);
+        }
+        if (str_contains($line, '\\')) {
+            $line = $this->importWriter->spellImportedLiteralBackslashes($line);
         }
 
         // Restore stashes and protected spans until stable: a protected or

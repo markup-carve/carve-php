@@ -6991,6 +6991,25 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return '"' . ($table ? str_replace('`', '\\`', $written) : $written) . '"';
     }
 
+    public function spellImportedLiteralBackslashes(string $text): string
+    {
+        $out = '';
+        for ($at = 0, $length = strlen($text); $at < $length;) {
+            if ($text[$at] !== '\\') {
+                $out .= $text[$at++];
+
+                continue;
+            }
+            $end = $at + strspn($text, '\\', $at);
+            $run = substr($text, $at, $end - $at);
+            $next = $text[$end] ?? '';
+            $out .= $run . (strlen($run) === 1 && $next !== '' && $next !== "\n" && preg_match('/[!-\/:-@\[-`{-~]/', $next) !== 1 ? '\\' : '');
+            $at = $end;
+        }
+
+        return $out;
+    }
+
     public static function prefersSingleImportedListPadding(bool $incidentalContinuation = false): bool
     {
         return !$incidentalContinuation;
