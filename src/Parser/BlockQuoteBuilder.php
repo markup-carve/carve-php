@@ -235,6 +235,7 @@ final class BlockQuoteBuilder
         $lazyStateActive = $i !== $start + 1
             || in_array('note', $lazyState['hosts']['kinds'] ?? [], true)
             || self::mayOpenQuotedHost($content);
+        $startsFootnoteDefinition = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $content) === 1;
         $count = count($lines);
         while ($i < $count) {
             $currentLine = $lines[$i];
@@ -302,7 +303,7 @@ final class BlockQuoteBuilder
                 $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
             }
             if (
-                $content !== null && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $this->blockQuoteLineContent($lines[$start]) ?? '') === 1
+                $content !== null && $startsFootnoteDefinition
                 && !$this->markerSitsAtColumn($i, $quoteOpeningColumn)
             ) {
                 $content = null;
