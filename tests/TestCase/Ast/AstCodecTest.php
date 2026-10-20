@@ -399,14 +399,31 @@ class AstCodecTest extends TestCase
     }
 
     /**
+     * The documents a JSON round trip does not return to their authored form,
+     * and the only ones.
+     *
+     * EMPTY now. `173` was the implicit-heading-reference gap: the parsed link
+     * records that its destination was derived from a heading, and that flag is
+     * not on the wire, so `[label][]` came back as `[label](#id)`.
+     *
+     * PART 12 §10 closed it as a side effect rather than by publishing the flag.
+     * A reference link now writes the REFERENCE rather than its resolved
+     * destination, so the authored `[label][]` survives whether or not the
+     * decoder can tell where the destination came from (markup-carve/carve#642).
+     *
+     * The three bare-dot documents used to be here on the stated grounds that
+     * "preserving it here would mean inventing a field the other engines do not
+     * publish". They do publish it: carve-js and carve-rs both put `bareMarker`
+     * on a list node, and the published AST schema allows it - this engine was
+     * the only one hiding it, and hiding it is what made `. first` decode as
+     * `1. first` (carve-php#711).
+     *
+     * The HTML is unaffected, and so is `fmt`, which reads the live tree rather
+     * than a decoded payload.
+     *
      * @var array<string>
      */
-    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [
-        // Decoding escapes the plus in row 5, changing HTML after another parse.
-        '626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-5.crv',
-        // Decoding escapes the plus in row 7, changing HTML after another parse.
-        '626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-7.crv',
-    ];
+    private const AUTHORED_FORM_NOT_ON_THE_WIRE = [];
 
     /**
      * @return array<string, mixed>
