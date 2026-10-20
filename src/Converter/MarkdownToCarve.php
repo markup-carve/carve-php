@@ -5289,6 +5289,9 @@ class MarkdownToCarve
             }
         }
         $verbatim = $this->verbatimLines($lines);
+        foreach ($lines as $at => $line) {
+            $lines[$at] = CarveRenderer::trimImportedLineEnd($line, $verbatim[$at] ?? false);
+        }
         $text = [];
         $sourceBlanks = [];
         $count = count($lines);

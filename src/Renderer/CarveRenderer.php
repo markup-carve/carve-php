@@ -1634,6 +1634,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $previousKind !== 'blank';
     }
 
+    public static function trimImportedLineEnd(string $line, bool $verbatim): string
+    {
+        if ($verbatim) {
+            return $line;
+        }
+
+        return rtrim($line, " \t");
+    }
+
     /**
      * Does this block put anything on the page that a re-parse can see?
      *
