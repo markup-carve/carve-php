@@ -489,6 +489,7 @@ final class DefinitionListBuilder
                 $detachedFootnoteMap = [];
                 $bodyAtColumnBlock = false;
                 $attachedDefinitionListOpen = false;
+                $bodyListContentColumns = [];
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     if (
@@ -763,6 +764,23 @@ final class DefinitionListBuilder
                     // which is what keeps a definition BELOW the column folding
                     // as §24 C3 requires.
                     $trimmedCont = ltrim($contLine, " \t");
+                    $marker = ($this->getListParser)()->parseListItemMarker($trimmedCont);
+                    if ($marker !== null) {
+                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
+                    }
+                    $markerColumn = $marker === null || $definitionColumn === null
+                        ? null : self::authoredSubjectColumn($authoredLine, $trimmedCont);
+                    if (
+                        $markerColumn !== null
+                        && IndentationHelper::getLeadingColumns(ContainerPrefix::stripQuoteMarkers($authoredDefinition)) > 0
+                        && $markerColumn >= $definitionColumn
+                        && $markerColumn < $definitionColumn + $continuationColumn
+                        && !$bodyNestedState->quoteParagraph
+                        && !str_starts_with(($body[0] ?? ''), '>')
+                    ) {
+                        // CARVE-P2-017: a reached outer column owns this marker.
+                        break;
+                    }
                     // These openers need the body's column unless an item inside it claims the line.
                     $belowDescriptionTextOpener = preg_match(
                         '/^(?:#{1,6}(?:[ \t]|$)|>|\||(?:[-*_][ \t]*){3,}$)/',
@@ -1133,6 +1151,29 @@ final class DefinitionListBuilder
                         }
                         if ($attributePastTheColumn && str_starts_with(($body[0] ?? ''), '>')) {
                             $nestedLazyParagraph = true;
+                        }
+                        $entryColumn = IndentationHelper::getLeadingColumns($entry);
+                        $entryMarker = $marker;
+                        $reachesOuterBody = false;
+                        $opensBlock = false;
+                        if (
+                            $bodyListContentColumns !== []
+                            && $entryColumn < $bodyListContentColumns[array_key_last($bodyListContentColumns)]
+                        ) {
+                            $opensBlock = $this->startsInterruptingBlock($trimmedCont, $lines, $i);
+                            if ($opensBlock || $entryMarker !== null) {
+                                // CARVE-P2-017: leave each nested body whose content column the opener misses.
+                                while ($bodyListContentColumns !== [] && $entryColumn < $bodyListContentColumns[array_key_last($bodyListContentColumns)]) {
+                                    array_pop($bodyListContentColumns);
+                                }
+                                $reachesOuterBody = true;
+                            }
+                        }
+                        if ($reachesOuterBody && $opensBlock) {
+                            $entry = ltrim($entry, " \t");
+                        }
+                        if ($entryMarker !== null) {
+                            $bodyListContentColumns[] = $entryColumn + $this->continuations->listMarkerWidth($trimmedCont, $entryMarker);
                         }
                         $body[] = $entry;
                         $bodyMap[] = $this->sourceLineFor($i);
