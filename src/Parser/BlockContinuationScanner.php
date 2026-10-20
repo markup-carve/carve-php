@@ -1390,7 +1390,7 @@ final class BlockContinuationScanner
                 if (
                     !$minimumFenceBase && !$inlineCodeParagraph && !$termContinuation && !$closesMetadataSameBaseFence && !$trailingState->afterComment && $trailingState->openParagraph && $trailingState->fence === null
                     && IndentationHelper::getLeadingColumns($nextLine) === $contentIndent
-                    && str_starts_with($nextTrimmed, '```')
+                    && (str_starts_with($nextTrimmed, '```') || str_starts_with($nextTrimmed, '~~~'))
                 ) {
                     $floorOpener = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextTrimmed)
                         ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextTrimmed);
