@@ -2710,7 +2710,7 @@ class MarkdownToCarve
                     if ($lazyQuote !== null && $this->indentWidth($line) >= $lazyQuote['col']) {
                         $result[] = '';
                     }
-                    $line = $this->writeListMarker($listMarkers, $line);
+                    $line = $this->writeListMarker($listMarkers, $lines, $i, $line);
                     $shiftBy = 0;
                     $item = $this->writeItemContent($lines, $i, $line, $contentCol);
                     if ($item !== null) {
@@ -3025,7 +3025,7 @@ class MarkdownToCarve
             if ($isList) {
                 $this->recordUnspellableOrderedTask($line, $i);
                 $separate = false;
-                $body = $this->writeListMarker($listMarkers, $body, $separate);
+                $body = $this->writeListMarker($listMarkers, $lines, $i, $body, $separate);
                 if (($separate && $prevLineType === 'list') || ($lazyQuote !== null && $this->indentWidth($line) >= $lazyQuote['col'])) {
                     $result[] = '';
                 }
@@ -4304,13 +4304,26 @@ class MarkdownToCarve
      * above it at its level.
      *
      * @param \MarkupCarve\Carve\Converter\MarkdownListMarkers $markers
+     * @param array<int, string> $lines
+     * @param int $index
      * @param string $line
      * @param bool $separate
      */
-    protected function writeListMarker(MarkdownListMarkers $markers, string $line, bool &$separate = false): string
+    protected function writeListMarker(MarkdownListMarkers $markers, array $lines, int $index, string $line, bool &$separate = false): string
     {
         $markerCol = $this->indentWidth($line);
-        $written = $markers->write($line, CarveRenderer::prefersSingleImportedListPadding());
+        $contentCol = preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+/', $line, $marker) === 1
+            ? $this->itemContentColumn($marker[0]) : 0;
+        $incidentalContinuation = false;
+        for ($at = $index + 1, $end = min(count($lines), $index + 4); $at < $end; $at++) {
+            if (trim($lines[$at]) === '') {
+                continue;
+            }
+            $indent = $this->indentWidth($lines[$at]);
+            $incidentalContinuation = $indent > $contentCol && $this->isParagraphLine($lines, $at);
+            break;
+        }
+        $written = $markers->write($line, CarveRenderer::prefersSingleImportedListPadding($incidentalContinuation));
         $separate = $written['separate'];
 
         return $this->moveIndent($written['line'], $markerCol, $markerCol + $written['outer']);

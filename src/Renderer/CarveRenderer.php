@@ -6986,9 +6986,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return '"' . ($table ? str_replace('`', '\\`', $written) : $written) . '"';
     }
 
-    public static function prefersSingleImportedListPadding(): bool
+    public static function prefersSingleImportedListPadding(bool $incidentalContinuation = false): bool
     {
-        return true;
+        return !$incidentalContinuation;
     }
 
     public static function discardsInitialEmptyImportedQuoteLine(bool $startsQuote, bool $nextHasContent): bool
