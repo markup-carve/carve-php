@@ -184,4 +184,22 @@ final class MarkdownTablePipesTest extends TestCase
         $carve = (new MarkdownToCarve())->convert('\\``a`');
         self::assertStringContainsString('<code>a</code>', (new CarveConverter())->convert($carve));
     }
+
+    #[DataProvider('assessedTablePipeSources')]
+    public function testPipeEscapedAutolinksAreAssessed(string $source): void
+    {
+        $codes = array_column((new MarkdownToCarve())->convertWithFidelityReport($source)->report()['diagnostics'], 'code');
+        self::assertNotContains('fidelity-unverified', $codes);
+        self::assertContains('markdown-autolink', $codes);
+    }
+
+    /**
+     * @return iterable<string, array{string}>
+     */
+    public static function assessedTablePipeSources(): iterable
+    {
+        yield 'table then paragraph' => ["| <https://e.com/a\\|b> | z |\n|---|---|\n\ntext <https://e.com/a\\|b>\n"];
+        yield 'paragraph escaped pipe' => ["text <https://e.com/a\\|b>\n"];
+        yield 'paragraph raw pipe' => ["text <https://e.com/a|b>\n"];
+    }
 }

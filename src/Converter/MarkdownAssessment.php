@@ -204,7 +204,7 @@ final class MarkdownAssessment
             } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
-                $href = str_replace('|', '%7C', $href);
+                $href = $tableCell ? str_replace('|', '%7C', $href) : $href;
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($m[1]) . '</a>';
             } elseif (self::match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $text, $i, $m) && !str_contains($m[2], $m[1][0])) {
                 if ((str_contains($m[1], '_') && $i > 0 && preg_match('/[A-Za-z0-9]/', $text[$i - 1])) || preg_match('/^\s|\s$/', $m[2])) {
