@@ -12,23 +12,11 @@ class MarkdownAutolinkEscapesTest extends TestCase
 {
     public function testAutolinkEscapeSemantics(): void
     {
-        $cases = json_decode(<<<'JSON'
-[
-  [
-    "<https://example.com/\\[\\>",
-    "<p><a href=\"https://example.com/%5C[%5C\">https://example.com/\\[\\</a></p>"
-  ],
-  [
-    "<foo\\+@bar.example.com>",
-    "<p>&lt;<a href=\"mailto:foo+@bar.example.com\">foo+@bar.example.com</a>&gt;</p>"
-  ],
-  [
-    "<foo+@bar.example.com>",
-    "<p><a href=\"mailto:foo+@bar.example.com\">foo+@bar.example.com</a></p>"
-  ]
-]
-JSON
-, true, flags: JSON_THROW_ON_ERROR);
+        $cases = [
+            ['<https://example.com/\[\>', '<p><a href="https://example.com/\[\">https://example.com/\[\</a></p>'],
+            ['<foo\+@bar.example.com>', '<p>&lt;<a href="mailto:foo+@bar.example.com">foo+@bar.example.com</a>&gt;</p>'],
+            ['<foo+@bar.example.com>', '<p><a href="mailto:foo+@bar.example.com">foo+@bar.example.com</a></p>'],
+        ];
         foreach ($cases as [$source, $expected]) {
             $converted = (new MarkdownToCarve())->convert($source);
             $this->assertSame($expected, rtrim((new CarveConverter())->convert($converted), "\n"), $source);

@@ -30,7 +30,7 @@ class MarkdownReferenceLabelsTest extends TestCase
         foreach (
             [
                 ['<http://a.b/x][Foo]>', '<p><a href="http://a.b/x][Foo]">http://a.b/x][Foo]</a></p>'],
-                ['see https://a.b/x][Foo] now', '<p>see <a href="https://a.b/x%5D%5BFoo%5D">https://a.b/x][Foo]</a> now</p>'],
+                ['see https://a.b/x][Foo] now', '<p>see <a href="https://a.b/x][Foo]">https://a.b/x][Foo]</a> now</p>'],
                 ['a][Foo]', '<p>a]<a href="/u">Foo</a></p>'],
                 ['[^1][Foo]', '<p>[^1]<a href="/u">Foo</a></p>'],
                 ['[foo][bar][Foo]', '<p><a href="/v">foo</a><a href="/u">Foo</a></p>'],

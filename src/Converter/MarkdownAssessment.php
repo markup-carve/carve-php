@@ -74,11 +74,9 @@ final class MarkdownAssessment
         return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     }
 
-    private static function encodeDestination(string $destination, bool $bareAutolink = false): string
+    private static function encodeDestination(string $destination): string
     {
-        $pattern = $bareAutolink ? '/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u' : '/[^\\x21-\\x7e]|["<>\\\\`^{|}]/u';
-
-        return preg_replace_callback($pattern, static fn (array $match): string => $bareAutolink ? rawurlencode($match[0]) : MarkdownDestinationEncoding::character($match[0]), $destination) ?? $destination;
+        return MarkdownDestinationEncoding::href($destination);
     }
 
     private static function decodeDestination(string $destination): string
@@ -134,7 +132,7 @@ final class MarkdownAssessment
                 $result .= self::escape($m[1]);
             } elseif ($bare !== null && $bare['start'] === $i) {
                 $body = substr($text, $bare['start'], $bare['end'] - $bare['start']);
-                $href = self::encodeDestination($bare['prefix'] . $body, true);
+                $href = self::encodeDestination($bare['prefix'] . $body);
                 $this->emit('bare-autolink', $line, 'normalized');
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($body) . '</a>';
                 $m = [$body];
@@ -143,7 +141,7 @@ final class MarkdownAssessment
                     $this->emit('entity', $line, 'normalized');
                 }
                 $result .= $m[0];
-            } elseif (self::match('/^(!?)\[([^\]\n]*)\]\((<(?:\\\\.|[^<>\\\\\n])*>|(?:\\\\.|[^ ()\n])+)(?:[ \t]+"([^"\n]*)")?\)/', $text, $i, $m)) {
+            } elseif (self::match('/^(!?)\[([^\]\n]*)\]\((<(?:\\\\.|[^<>\\\\\n])*>|(?:\\\\.|[^ ()\n]|\((?:\\\\.|[^()\n])*\))+)(?:[ \t]+"([^"\n]*)")?\)/', $text, $i, $m)) {
                 $rawDestination = str_starts_with($m[3], '<') ? substr($m[3], 1, -1) : $m[3];
                 $decodedDestination = self::decodeDestination($rawDestination);
                 if (!preg_match('~^(https?://|mailto:|[./#])~', $decodedDestination) && preg_match('/^[A-Za-z][\w+.-]*:/', $decodedDestination)) {
@@ -162,7 +160,7 @@ final class MarkdownAssessment
             } elseif (self::match('~^<(https?://[^<>\s]+|[^<>\s@]+@[^<>\s@]+\.[^<>\s@]+)>~', $text, $i, $m)) {
                 $this->emit('autolink', $line, 'normalized');
                 $href = str_contains($m[1], '://') ? $m[1] : 'mailto:' . $m[1];
-                $href = str_replace(['\\', '`', '|'], ['%5C', '%60', '%7C'], $href);
+                $href = str_replace('|', '%7C', $href);
                 $result .= '<a href="' . self::escape($href) . '">' . self::escape($m[1]) . '</a>';
             } elseif (self::match('/^(\*\*|__|~~|\*|_)([^\n]+?)\1/', $text, $i, $m) && !str_contains($m[2], $m[1][0])) {
                 if ((str_contains($m[1], '_') && $i > 0 && preg_match('/[A-Za-z0-9]/', $text[$i - 1])) || preg_match('/^\s|\s$/', $m[2])) {

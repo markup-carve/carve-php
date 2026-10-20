@@ -18,7 +18,9 @@ final class MarkdownTablePipesTest extends TestCase
         $actual = (new CarveConverter())->convert($carve);
         $actual = preg_replace('/(<h[1-6]) id="[^"]*"/', '$1', $actual) ?? $actual;
         $actual = preg_replace('/\s+scope="(?:col|row)"/', '', $actual) ?? $actual;
-        self::assertSame(preg_replace('/>\s+</', '><', trim(str_replace('&quot;', '"', $html))), preg_replace('/>\s+</', '><', trim(str_replace('&quot;', '"', $actual))));
+        // cmark-gfm percent-encodes characters a Carve destination keeps as written; compare the decoded URL.
+        $normalize = static fn (string $markup): string => preg_replace_callback('/href="([^"]*)"/', static fn (array $m): string => 'href="' . rawurldecode($m[1]) . '"', preg_replace('/>\s+</', '><', trim(str_replace('&quot;', '"', $markup))) ?? $markup) ?? $markup;
+        self::assertSame($normalize($html), $normalize($actual));
     }
 
     /**

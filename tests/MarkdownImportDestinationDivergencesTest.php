@@ -21,9 +21,9 @@ final class MarkdownImportDestinationDivergencesTest extends TestCase
         $autolink = ['markdown-autolink', 'normalized', 'line:1'];
         $bare = ['markdown-bare-autolink', 'normalized', 'line:1'];
 
-        yield 'A1' => ['<https://example.com/\[\>', '[https://example.com/' . str_repeat('\\', 3) . '[' . str_repeat('\\', 2) . '](https://example.com/%5C[%5C)', [$paragraph, $autolink], 0];
-        yield 'A2' => ['<https://e.com/a\b>', '[https://e.com/a' . str_repeat('\\', 2) . 'b](https://e.com/a%5Cb)', [$paragraph, $autolink], 0];
-        yield 'A3' => ['<https://e.com/a`b>', '[https://e.com/a\`b](https://e.com/a%60b)', [$paragraph, $autolink], 0];
+        yield 'A1' => ['<https://example.com/\[\>', '[https://example.com/' . str_repeat('\\', 3) . '[' . str_repeat('\\', 2) . '](https://example.com/\[' . str_repeat('\\', 2) . ')', [$paragraph, $autolink], 0];
+        yield 'A2' => ['<https://e.com/a\b>', '[https://e.com/a' . str_repeat('\\', 2) . 'b](https://e.com/a\b)', [$paragraph, $autolink], 0];
+        yield 'A3' => ['<https://e.com/a`b>', '[https://e.com/a\`b](https://e.com/a`b)', [$paragraph, $autolink], 0];
         yield 'A4' => ['<https://e.com/a[b]>', '<https://e.com/a[b]>', [$paragraph, $autolink], 0];
         yield 'B1' => ['[a](<😀>) and ![b](</x y.png>)', '[a](😀) and ![b](/x%20y.png)', [$paragraph, $link, $image], 0];
 
@@ -35,8 +35,8 @@ final class MarkdownImportDestinationDivergencesTest extends TestCase
                 'B5' => ['[a](<x> "t")', '[a](x "t")'],
                 'B6' => ['[a](<x)y>)', '[a](x\)y)'],
                 'B7' => ['[a](<>)', '[a]()'],
-                'B8' => ['[a](<\>>)', '[a](%3E)'],
-                'B9' => ['[a](<x\\y>)', '[a](x%5Cy)'],
+                'B8' => ['[a](<\>>)', '[a](>)'],
+                'B9' => ['[a](<x\\y>)', '[a](x\y)'],
                 'B10' => ['[a](/x\(y)', '[a](/x\(y)'],
             ] as $name => [$source, $output]
         ) {
@@ -45,14 +45,14 @@ final class MarkdownImportDestinationDivergencesTest extends TestCase
 
         yield 'B11' => ["[a][r]\n\n[r]: <x y>", "[a][r]\n\n[r]: x%20y", [$paragraph, ['markdown-reference-link', 'normalized', 'line:1'], ['markdown-reference-definition', 'normalized', 'line:3']], 0];
         yield 'B entity control' => ['[a](/x&amp;y)', '[a](/x&y)', [['fidelity-unverified', 'dropped', '']], 1];
-        yield 'C1' => ['see https://example.com/[a]b here', 'see [https://example.com/[a]b](https://example.com/%5Ba%5Db) here', [$paragraph, $bare], 0];
-        yield 'C2' => ['www.example.com/a[b]c', '[www.example.com/a[b]c](http://www.example.com/a%5Bb%5Dc)', [$paragraph, $bare], 0];
-        yield 'C3' => ['https://e.com/a]b', '[https://e.com/a\]b](https://e.com/a%5Db)', [$paragraph, $bare], 0];
-        yield 'C4' => ['https://e.com/a[b', '[https://e.com/a\[b](https://e.com/a%5Bb)', [$paragraph, $bare], 0];
-        yield 'C5' => ['see https://e.com/[x](y) z', 'see [https://e.com/[x]\(y)](https://e.com/%5Bx%5D(y)) z', [$paragraph, $bare], 0];
-        yield 'C6' => ['https://e.com/a](b)c', '[https://e.com/a\](b)c](https://e.com/a%5D(b)c)', [$paragraph, $bare], 0];
-        yield 'C7' => ['https://e.com/[x]{.c}', '[https://e.com/\[x\]{.c}](https://e.com/%5Bx%5D%7B.c%7D)', [$paragraph, $bare], 0];
-        yield 'C8' => ['https://e.com/a[[b]]', '[https://e.com/a[[b]]](https://e.com/a%5B%5Bb%5D%5D)', [$paragraph, $bare], 0];
+        yield 'C1' => ['see https://example.com/[a]b here', 'see [https://example.com/[a]b](https://example.com/[a]b) here', [$paragraph, $bare], 0];
+        yield 'C2' => ['www.example.com/a[b]c', '[www.example.com/a[b]c](http://www.example.com/a[b]c)', [$paragraph, $bare], 0];
+        yield 'C3' => ['https://e.com/a]b', '[https://e.com/a\]b](https://e.com/a]b)', [$paragraph, $bare], 0];
+        yield 'C4' => ['https://e.com/a[b', '[https://e.com/a\[b](https://e.com/a[b)', [$paragraph, $bare], 0];
+        yield 'C5' => ['see https://e.com/[x](y) z', 'see [https://e.com/[x]\(y)](https://e.com/[x](y)) z', [$paragraph, $bare], 0];
+        yield 'C6' => ['https://e.com/a](b)c', '[https://e.com/a\](b)c](https://e.com/a](b)c)', [$paragraph, $bare], 0];
+        yield 'C7' => ['https://e.com/[x]{.c}', '[https://e.com/\[x\]{.c}](https://e.com/[x]{.c})', [$paragraph, $bare], 0];
+        yield 'C8' => ['https://e.com/a[[b]]', '[https://e.com/a[[b]]](https://e.com/a[[b]])', [$paragraph, $bare], 0];
 
         $unverified = [['fidelity-unverified', 'dropped', '']];
 

@@ -207,7 +207,7 @@
   {
     "name": "control: a quoted destination after a space",
     "source": "[u]( \"t\")",
-    "carve": "[u](%22t%22)"
+    "carve": "[u](\"t\")"
   },
   {
     "name": "control: spaces around a destination",

@@ -6011,9 +6011,40 @@ class MarkdownToCarve
     {
         $row = '';
         for ($c = 0; $c < $width; $c++) {
-            $cell = str_replace('\\|', '|', trim($cells[$c] ?? ''));
+            $sourceCell = trim($cells[$c] ?? '');
+            $cell = str_replace('\\|', '|', $sourceCell);
             $cell = $this->rewriteTablePipeAutolinks($cell);
             $cell = $this->convertInlineFormatting($cell, table: true);
+            if (str_contains($sourceCell, '\\|') && preg_match_all('~<https?://[^<>\s]+>~', $sourceCell, $autolinks) > 0) {
+                foreach ($autolinks[0] as $autolink) {
+                    $body = substr($autolink, 1, -1);
+                    if (!str_contains($body, '\\|')) {
+                        continue;
+                    }
+                    $plainBody = str_replace(['\\\\|', '\\|'], '|', $body);
+                    $before = '](' . MarkdownDestinationEncoding::destination($plainBody, true) . ')';
+                    if (str_contains($body, '\\\\|')) {
+                        $after = '](' . MarkdownDestinationEncoding::destination(str_replace('\\\\|', '\\|', $body), true) . ')';
+                        $cell = str_replace($before, $after, $cell);
+                        $escapedBackslash = '!' . chr(96) . '\\' . chr(96) . '{% %}';
+                        $label = str_replace('\\\\|', $escapedBackslash . '\\|', $body);
+                        $cell = str_replace('[' . $label . '](', '[' . str_replace('\\\\|', str_repeat('\\', 3) . '|', $body) . '](', $cell);
+                    }
+                }
+            }
+            foreach (MarkdownBareLinks::rawUrls($sourceCell) as $candidate) {
+                $body = substr($sourceCell, $candidate['start'], $candidate['end'] - $candidate['start']);
+                if (!str_contains($body, '\\|') || ($sourceCell[$candidate['start'] - 1] ?? '') === '<' || substr($sourceCell, max(0, $candidate['start'] - 2), 2) === '](') {
+                    continue;
+                }
+                $url = str_replace('\\|', '|', $body);
+                $label = str_replace('|', '\\|', $url);
+                $label = str_replace('\\_', '\\\\_', $label);
+                $written = '[' . $label . '](' . MarkdownDestinationEncoding::destination($url, true) . ')';
+                if (preg_match('~\[[^]]*\]\((?:[^()]|\([^()]*\))*\)~', $cell, $link) === 1) {
+                    $cell = str_replace($link[0], $written, $cell);
+                }
+            }
             if ($cell === '<' || $cell === '^') {
                 $cell = '\\' . $cell;
             }
@@ -6131,8 +6162,7 @@ class MarkdownToCarve
                 $out .= $match[0];
             } else {
                 $label = preg_replace('/([!-\/:-@\[-`{-~])/', '\\\\$1', $body) ?? $body;
-                $url = preg_replace_callback('/[\x00-\x20\x7f-\xff"<>\[\\\\\]`^{|}]/', static fn (array $part): string => rawurlencode($part[0]), $body) ?? $body;
-                $url = str_replace(['&', '(', ')'], ['&amp;', '\\(', '\\)'], $url);
+                $url = MarkdownDestinationEncoding::destination($body, true);
                 $out .= '[' . $label . '](' . $url . ')' . substr($match[0], strlen($body));
             }
             $at += strlen($match[0]);
@@ -7049,7 +7079,7 @@ class MarkdownToCarve
             }, fn (int $at): ?int => $this->markdownActivationTailEnd($sourceInput, $at));
             foreach ($rawUrls as $candidate) {
                 $body = substr($sourceInput, $candidate['start'], $candidate['end'] - $candidate['start']);
-                $href = preg_replace_callback('/[^\x21-\x7e]|["<>\\\\`^{|}\[\]]/u', static fn (array $match): string => rawurlencode($match[0]), $candidate['prefix'] . $body) ?? $candidate['prefix'] . $body;
+                $href = $candidate['prefix'] . $body;
                 $document = new Document();
                 $paragraph = new Paragraph();
                 $link = new Link($href);
@@ -7070,11 +7100,11 @@ class MarkdownToCarve
             $line = $this->escapeCarveOnlyMarker($captured . substr($sourceInput, $cursor));
         }
 
-        $preserveReferenceAutolinks = static function (string $value) use ($protect): string {
-            return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect): string {
+        $preserveReferenceAutolinks = static function (string $value) use ($protect, $table): string {
+            return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect, $table): string {
                 $body = substr($match[0], 1, -1);
                 $prefix = preg_match('/^[A-Za-z][A-Za-z0-9+.-]{1,31}:/', $body) === 1 ? '' : 'mailto:';
-                $url = $prefix . str_replace(['\\', '`', '|'], ['%5C', '%60', '%7C'], $body);
+                $url = $prefix . ($table ? MarkdownDestinationEncoding::destination($body, true) : $body);
                 $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
                     . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 
@@ -7160,7 +7190,7 @@ class MarkdownToCarve
                 $rest = ' ' . $quote . $escaped . $quote;
             }
 
-            return '(' . $this->writeMarkdownDestination($url, $protected) . $rest . ')';
+            return '(' . $this->writeMarkdownDestination($url, $protected, table: $table) . $rest . ')';
         };
 
         $destinationClosers = static function (string $subject): array {
@@ -8047,7 +8077,7 @@ class MarkdownToCarve
                 $rest = ' ' . $quote . $escaped . $quote;
             }
 
-            return '(' . $this->writeMarkdownDestination($url, originalSource: true) . $rest . ')';
+            return '(' . $this->writeMarkdownDestination($url, originalSource: true, table: $table) . $rest . ')';
         };
 
         $protectDestination = function (string $alt, string $paren, ?string $source = null, bool $reference = false) use ($encodeDest, $protect): string {
@@ -8447,7 +8477,7 @@ class MarkdownToCarve
         ) ?? $line;
         $line = preg_replace_callback(
             '/<([A-Za-z][A-Za-z0-9+.-]*):[^<>\s]*>/',
-            function (array $match) use ($protect, $protected): string {
+            function (array $match) use ($protect, $protected, $table): string {
                 // CommonMark requires 2–32 scheme characters. Keep a Carve-only
                 // autolink literal while the surrounding Markdown still parses.
                 if (strlen($match[1]) < 2 || strlen($match[1]) > 32) {
@@ -8461,9 +8491,7 @@ class MarkdownToCarve
                 if (!str_contains($body, '\\') && !str_contains($body, '`') && !str_contains($body, '|')) {
                     return $protect($match[0]);
                 }
-                // Backslashes are literal in a CommonMark autolink. Encode
-                // them in the destination and write its label as literal text.
-                $url = str_replace(['\\', '`', '|'], ['%5C', '%60', '%7C'], $body);
+                $url = $table ? MarkdownDestinationEncoding::destination($body, true) : $body;
                 $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
                     . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 
@@ -8479,7 +8507,7 @@ class MarkdownToCarve
                 return $protect($match[0]);
             }
             $body = substr($match[0], 1, -1);
-            $url = 'mailto:' . str_replace(['|', '`'], ['%7C', '%60'], $body);
+            $url = 'mailto:' . ($table ? MarkdownDestinationEncoding::destination($body, true) : $body);
             $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
                 . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
 
@@ -8587,7 +8615,7 @@ class MarkdownToCarve
                     continue;
                 }
                 $body = $candidate['body'] ?? substr($line, $offset, $candidate['end'] - $offset);
-                $href = preg_replace_callback('/[^\\x21-\\x7e]|["<>\\\\`^{|}\\[\\]]/u', static fn (array $match): string => rawurlencode($match[0]), $candidate['prefix'] . $body) ?? $candidate['prefix'] . $body;
+                $href = $candidate['prefix'] . $body;
                 $document = new Document();
                 $paragraph = new Paragraph();
                 $link = new Link($href);
@@ -8868,6 +8896,13 @@ class MarkdownToCarve
             }
         }
 
+        $line = preg_replace_callback(
+            '/%00P(\d+)%00/',
+            fn (array $match): string => isset($protected[(int)$match[1]])
+                ? $this->decodeLinkTitle($protected[(int)$match[1]], $protected) : $match[0],
+            $line,
+        ) ?? $line;
+
         return str_replace("\x00FNEMPTY\x00", '{empty}', $line);
     }
 
@@ -8942,9 +8977,8 @@ class MarkdownToCarve
                 continue;
             }
             if ($char === '<' && preg_match('/\\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\s]*>/', $line, $autolink, 0, $i) === 1) {
-                // An autolink also prevents an enclosing Markdown link.
-                $deactivatedBefore = $i + strlen($autolink[0]);
-                $i = $deactivatedBefore - 1;
+                // Brackets inside an autolink are text; the enclosing link stays active.
+                $i += strlen($autolink[0]) - 1;
 
                 continue;
             }
@@ -10444,10 +10478,6 @@ class MarkdownToCarve
         ) ?? $label;
     }
 
-    /**
-     * A pointy destination's content as a bare Carve destination: backslash
-     * escapes decoded, and each character a bare one cannot hold percent-encoded.
-     */
     protected function bareDestination(string $pointy): string
     {
         $pointyLine = 0;
@@ -10456,33 +10486,37 @@ class MarkdownToCarve
 
             return "\\\n" . (($this->pointyContinuationStrip[$pointyLine] ?? false) ? '' : substr($match[0], 2));
         }, $pointy) ?? $pointy;
-        $url = preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $pointy) ?? $pointy;
+        $url = preg_replace_callback('/\\\\([!-\/:-@\[-`{-~])/', static fn (array $match): string => $match[1] === '&' ? $match[0] : $match[1], $pointy) ?? $pointy;
 
-        return preg_replace_callback('/[\s()<>\\\\]/', static fn (array $match): string => in_array($match[0], ['(', ')'], true) ? '\\' . $match[0] : rawurlencode($match[0]), $url) ?? $url;
+        return str_replace('\\%0A', '\\\\%0A', MarkdownDestinationEncoding::destination($url));
     }
 
     private function decodeMarkdownScalar(string $text): string
     {
-        $decoded = $this->decodeHtmlReferenceText($text);
-
-        return preg_replace('/\\\\([!-\/:-@\[-`{-~])/', '$1', $decoded) ?? $decoded;
+        return preg_replace_callback(
+            '/\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
+            fn (array $match): string => $match[1] ?? $this->decodeHtmlReferenceText($match[0]),
+            $text,
+            flags: PREG_UNMATCHED_AS_NULL,
+        ) ?? $text;
     }
 
     /**
      * @param string $url
      * @param array<string> $protected
      * @param bool $originalSource
+     * @param bool $table
      */
-    protected function writeMarkdownDestination(string $url, array $protected = [], bool $originalSource = false): string
+    protected function writeMarkdownDestination(string $url, array $protected = [], bool $originalSource = false, bool $table = false): string
     {
         $decoded = $originalSource
             ? $this->decodeMarkdownScalar($this->referenceSourceText($url, $protected))
             : $this->decodeLinkTitle($url, $protected);
 
-        $encoded = preg_replace_callback('/[^\x21-\x7e]|["<>\\\\`^{|}]/u', static fn (array $match): string => MarkdownDestinationEncoding::character($match[0]), $decoded) ?? $decoded;
+        $encoded = MarkdownDestinationEncoding::destination($decoded, $table);
         $this->recordAuthoredDestination($encoded, $this->referenceSourceText($url, $protected));
 
-        return str_replace(['(', ')'], ['\\(', '\\)'], $encoded);
+        return $encoded;
     }
 
     /**

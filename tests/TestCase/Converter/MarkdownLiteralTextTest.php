@@ -14,7 +14,7 @@ class MarkdownLiteralTextTest extends TestCase
     {
         $cases = [
             ['\\`not code`', '<p>`not code`</p>'],
-            ['<https://x/\\`a`>', '<p><a href="https://x/%5C%60a%60">https://x/\\`a`</a></p>'],
+            ['<https://x/\\`a`>', '<p><a href="https://x/\`a`">https://x/\\`a`</a></p>'],
             ['a&#13;# b', '<p>a # b</p>'],
             ['a&#10;# b', '<p>a # b</p>'],
             ['a&#13;&#13;b', '<p>a  b</p>'],

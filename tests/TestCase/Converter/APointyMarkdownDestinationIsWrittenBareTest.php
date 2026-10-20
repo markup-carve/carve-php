@@ -8,10 +8,7 @@ use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * Carve has no pointy link destination, so CommonMark's `<a b>` is written as
- * a bare destination, percent-encoding what a bare one cannot hold (#2073).
- */
+// CommonMark pointy destinations are written as bare Carve destinations.
 class APointyMarkdownDestinationIsWrittenBareTest extends TestCase
 {
     /**
@@ -24,10 +21,10 @@ class APointyMarkdownDestinationIsWrittenBareTest extends TestCase
             'a path with a space' => ['[k](</u v>)', '[k](/u%20v)'],
             'a title after it' => ['[k](</u v> "t")', '[k](/u%20v "t")'],
             'an image' => ['![i](<a b.png>)', '![i](a%20b.png)'],
-            'parentheses' => ['[k](<a(b)>)', '[k](a\\(b\\))'],
+            'parentheses' => ['[k](<a(b)>)', '[k](a(b))'],
             'an unbalanced parenthesis' => ['[x](<a)b>) c', '[x](a\\)b) c'],
-            'an escaped angle bracket' => ['[k](<a\\>b>)', '[k](a%3Eb)'],
-            'a backslash' => ['[k](<a\\\\b>)', '[k](a%5Cb)'],
+            'an escaped angle bracket' => ['[k](<a\\>b>)', '[k](a>b)'],
+            'a backslash' => ['[k](<a\\\\b>)', '[k](a\b)'],
             'a tag-like destination' => ['[k](<u>)', '[k](u)'],
             'a reference definition' => ["[t][r]\n\n[r]: </u v>", "[t][r]\n\n[r]: /u%20v"],
             'a definition label holding an escaped bracket' => ["[t][a\\]]\n\n[a\\]]: </u v>", '[t](/u%20v)'],
