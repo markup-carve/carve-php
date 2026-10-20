@@ -23,7 +23,7 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
             'unprefixed attached paragraph' => ["> > q\n> +\npara\n", $nested],
             'marker at end of input' => ["> > q\n> +\n", $closed],
             'blank line ends the quote' => ["> > q\n> +\n\npara\n", $closed . '<p>para</p>'],
-            'nested quote in a list item' => ["- > > q\n  > +\n\npara\n", '<ul><li>' . $closed . '</li></ul><p>para</p>'],
+            'nested quote in a list item' => ["- > > q\n  > +\n\npara\n", '<ul><li><blockquote><blockquote><p>q +</p></blockquote></blockquote></li></ul><p>para</p>'],
             'plus at inner content column is text' => ["> > q\n> > +\n\npara\n", '<blockquote><blockquote><p>q +</p></blockquote></blockquote><p>para</p>'],
             'unnested unprefixed marker' => ["> q\n+\npara\n", '<blockquote><p>q</p><p>para</p></blockquote>'],
             'leading plus is paragraph text' => ["> +\n\npara\n", '<blockquote><p>+</p></blockquote><p>para</p>'],

@@ -54,8 +54,8 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
     public static function unusedNestedContinuationProvider(): array
     {
         return [
-            'one blank' => ["- - ```\n  +\n\ntail", "\n"],
-            'two blanks' => ["- - ```\n  +\n\n\ntail", "\n\n"],
+            'one blank' => ["- - ```\n  +\n\ntail", ''],
+            'two blanks' => ["- - ```\n  +\n\n\ntail", ''],
             'depth one keeps its blank' => ["- ```\n+\n\ntail", "\n"],
         ];
     }

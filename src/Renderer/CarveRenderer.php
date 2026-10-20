@@ -116,6 +116,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private int $separatorExpansionRemaining = 1000000;
 
+    private int $indentedHostDepth = 0;
+
+    private bool $extraNestedCodeBlank = false;
+
     private CarveWriterState $writerState;
 
     private ?CanonicalAst $canonicalImplementation = null;
@@ -1540,8 +1544,28 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             $listSeparated = false;
             $previousEmitted = null;
             $movedMarker = null;
-            foreach ($blocks as $block) {
-                $rendered = $this->renderBlock($block);
+            foreach ($blocks as $index => $block) {
+                $next = $blocks[$index + 1] ?? null;
+                $firstInline = $next instanceof Paragraph ? ($next->getChildren()[0] ?? null) : null;
+                $previousExtraNestedCodeBlank = $this->extraNestedCodeBlank;
+                if (
+                    $item !== null && $index === 0 && $block instanceof ListBlock && $firstInline instanceof Text
+                    && str_starts_with($firstInline->getContent(), '+')
+                    && $this->nestedListSoleCode($block) !== null
+                ) {
+                    $this->extraNestedCodeBlank = true;
+                }
+                try {
+                    $rendered = $this->renderBlock($block);
+                } finally {
+                    $this->extraNestedCodeBlank = $previousExtraNestedCodeBlank;
+                }
+                if (
+                    $item !== null && $block instanceof Paragraph
+                    && $previousEmitted instanceof ListBlock && $rendered === '\\+'
+                ) {
+                    $rendered = '+';
+                }
                 $moved = $item !== null
                     && self::spellsSomething($rendered)
                     && $this->regionMarkerAtItemMarkerColumn($block, $previousEmitted, $movedMarker, $item);
@@ -1984,7 +2008,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $fence . $info . "\n" . $this->protectVerbatim($content)
-            . (CodePayload::terminated($content) ? '' : "\n") . $fence;
+            . (CodePayload::terminated($content) ? '' : "\n")
+            . ($this->extraNestedCodeBlank ? "\n" : '') . $fence;
     }
 
     protected function codeFenceInfo(CodeBlock $node): string
@@ -2083,7 +2108,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                         : $bullet . $itemAttrs . ($item->isTask() ? ' ' . self::taskMarker($item) . ' ' : ' ');
                 }
 
-                $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight()));
+                $needsLooseItem = ($this->listDepth > 1 || $this->indentedHostDepth > 0)
+                    && $node->isTight() && $this->nestedTightItemLosesTightness($item);
+                if ($needsLooseItem) {
+                    $this->recordListTightnessLost($item);
+                }
+                $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight() && !$needsLooseItem));
                 // A definition authored on an item's marker line is collected
                 // into the document, leaving the item empty. Spell it back on
                 // that same marker line. Using `+` for the empty item would
@@ -2427,6 +2457,24 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $current instanceof Paragraph;
     }
 
+    private function nestedTightItemLosesTightness(ListItem $item): bool
+    {
+        $previous = null;
+        foreach ($item->getChildren() as $child) {
+            $previousItems = $previous instanceof ListBlock ? $previous->getChildren() : [];
+            $lastPreviousItem = $previousItems === [] ? null : $previousItems[array_key_last($previousItems)];
+            if (
+                $child instanceof Paragraph && ($previous instanceof BlockQuote
+                || ($lastPreviousItem instanceof ListItem && $lastPreviousItem->getChildren() !== []))
+            ) {
+                return true;
+            }
+            $previous = $child;
+        }
+
+        return false;
+    }
+
     protected function renderListItem(ListItem $node, bool $tight = false): string
     {
         $children = $node->getChildren();
@@ -2487,9 +2535,25 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 // like a definition description's or footnote's.  Let a
                 // definition list among its direct children raise its opener
                 // when its payload would otherwise be re-owned by the item.
-                $rendered = $this->atAnAuthoredBodyColumn(
-                    fn (): string => $this->renderBlock($child),
-                );
+                $previousExtraNestedCodeBlank = $this->extraNestedCodeBlank;
+                $firstInline = $next instanceof Paragraph ? ($next->getChildren()[0] ?? null) : null;
+                if (
+                    $index === 0 && $child instanceof ListBlock && $firstInline instanceof Text
+                    && str_starts_with($firstInline->getContent(), '+')
+                    && $this->nestedListSoleCode($child) !== null
+                ) {
+                    $this->extraNestedCodeBlank = true;
+                }
+                try {
+                    $rendered = $this->atAnAuthoredBodyColumn(
+                        fn (): string => $this->renderBlock($child),
+                    );
+                } finally {
+                    $this->extraNestedCodeBlank = $previousExtraNestedCodeBlank;
+                }
+                if ($child instanceof Paragraph && $previousEmitted instanceof ListBlock && $rendered === '\\+') {
+                    $rendered = '+';
+                }
                 if ($rendered === '') {
                     $previous = $child;
 
@@ -2514,6 +2578,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     // at column 0 above it.
                     $atMarkerColumn = false;
                     $aSubListAlreadyOpened = true;
+                    $previous = $child;
+                    $previousEmitted = $child;
+
+                    continue;
+                }
+                if (
+                    ($this->listDepth > 1 || $this->indentedHostDepth > 0)
+                    && $child instanceof BlockQuote && $previousEmitted instanceof BlockQuote
+                ) {
+                    $out .= "\n" . $rendered;
                     $previous = $child;
                     $previousEmitted = $child;
 
@@ -2549,6 +2623,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     )
                     || $this->definitionTailNeedsJoin($previousEmitted, $child, $separated, $rendered)
                 ) {
+                    if ($this->listDepth > 1 || $this->indentedHostDepth > 0) {
+                        $out .= ($child instanceof Comment || $child instanceof CodeBlock
+                            || $previousEmitted instanceof Comment || $previousEmitted instanceof CodeBlock ? '' : "\n") . $rendered;
+                        $previous = $child;
+                        $previousEmitted = $child;
+                        $atMarkerColumn = false;
+
+                        continue;
+                    }
                     $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
                     $previous = $child;
                     $previousEmitted = $child;
@@ -2580,6 +2663,31 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         } finally {
             $this->blockDepth--;
             $this->colonFenceDepth = $previousColonFenceDepth;
+        }
+    }
+
+    private function nestedListSoleCode(ListBlock $list): ?CodeBlock
+    {
+        $current = $list;
+        while (true) {
+            $items = $current->getChildren();
+            if (count($items) !== 1) {
+                return null;
+            }
+            $item = $items[0];
+            if (!$item instanceof ListItem || $item->isTask() || count($item->getChildren()) !== 1) {
+                return null;
+            }
+            $child = $item->getChildren()[0];
+            if ($child instanceof CodeBlock) {
+                $content = $child->getContent();
+
+                return str_starts_with($content, "\n") || str_ends_with($content, "\n\n") ? $child : null;
+            }
+            if (!$child instanceof ListBlock) {
+                return null;
+            }
+            $current = $child;
         }
     }
 
@@ -3040,11 +3148,16 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                     continue;
                 }
-                $body = $this->atAnAuthoredBodyColumn(
-                    fn (): string => $this->withResetColonFenceDepth(
-                        fn (): string => $this->renderBlocks($child->getChildren()),
-                    ),
-                );
+                $this->indentedHostDepth++;
+                try {
+                    $body = $this->atAnAuthoredBodyColumn(
+                        fn (): string => $this->withResetColonFenceDepth(
+                            fn (): string => $this->renderBlocks($child->getChildren()),
+                        ),
+                    );
+                } finally {
+                    $this->indentedHostDepth--;
+                }
                 $body = $this->trimNonNbsp($body);
                 if ($body === '') {
                     $out[] = self::DEFINITION_BODY_MARKER . self::EMPTY_BODY_SENTINEL;
@@ -3879,7 +3992,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function renderFootnote(Footnote $node, bool $inDefinitionDescription = false): string
     {
         $this->footnoteCodeGuard ??= str_repeat($this->verbatimSentinels[7], 6);
-        $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren(), $inDefinitionDescription));
+        $this->indentedHostDepth++;
+        try {
+            $rawBody = $this->atAnAuthoredBodyColumn(fn (): string => $this->renderBlocks($node->getChildren(), $inDefinitionDescription));
+        } finally {
+            $this->indentedHostDepth--;
+        }
         $sentinel = preg_quote($this->verbatimSentinels[7], '/');
         $refusal = '/^((?:' . $sentinel . '){1,5})(.*)$/';
         foreach (explode("\n", $rawBody) as $line) {

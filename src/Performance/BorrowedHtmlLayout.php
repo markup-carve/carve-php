@@ -144,6 +144,7 @@ final class BorrowedHtmlLayout
             && !str_contains($source, '</#')
             && !str_contains($source, '%%')
             && !str_contains($source, ':::')
+            && preg_match('/(?:^|\n)[^\n]*\+[ \t]*(?:\n|$)/', $source) === 0
             && preg_match('/(?:^|\n)( *)([-*]) [^\n]*\n\n(?:\n)*\1\2 /', $source) === 0;
     }
 

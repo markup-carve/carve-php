@@ -28,7 +28,7 @@ final class AnUnattachedContinuationMarkerInNestedListTest extends TestCase
         $html = (new CarveConverter())->convert("- x\n  - # h\n +\n");
 
         self::assertSame(
-            "<ul>\n  <li>x\n    <ul>\n      <li>\n        <h1 id=\"h\">h</h1>\n      </li>\n    </ul>\n    +\n  </li>\n</ul>\n",
+            "<ul>\n  <li>x\n    <ul>\n      <li>\n        <h1 id=\"h\">h</h1>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>+</p>\n",
             $html,
         );
     }

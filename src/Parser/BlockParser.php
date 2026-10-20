@@ -842,7 +842,195 @@ class BlockParser
         // abbreviation-expansion budget (output-amplification DoS guard).
         $document->setSourceLength($sourceLength);
 
+        $this->adjustNestedFenceContinuationBlanks($document);
+        $this->reconcileNestedDivLazyPlus($document);
+
         return $document;
+    }
+
+    private function adjustNestedFenceContinuationBlanks(Node $document): void
+    {
+        $lines = $this->state->source->sourceLines;
+        $changes = [];
+        $lastNonBlank = -1;
+        $lastMarkerFence = -1;
+        $stackedFence = null;
+        $explicitCloserTrim = false;
+        foreach ($lines as $index => $line) {
+            $body = ContainerPrefix::stripQuoteMarkers($line);
+            if (preg_match('/^((?:[-*] |\d+[.)] )){2,}(`{3,}|~{3,})/', $body, $stackedOpener) === 1) {
+                $stackedFence = $stackedOpener[2];
+            } elseif (
+                $stackedFence !== null
+                && preg_match('/^[ \t]+' . preg_quote($stackedFence, '/') . '[ \t]*$/D', $body) === 1
+            ) {
+                $afterCloser = ContainerPrefix::stripQuoteMarkers($lines[$index + 2] ?? '');
+                if (
+                    IndentationHelper::isBlankLine($lines[$index + 1] ?? '')
+                    && preg_match('/^[ \t]+\+[ \t]*$/D', $afterCloser) === 1
+                ) {
+                    $explicitCloserTrim = true;
+                }
+                $stackedFence = null;
+            }
+            $physical = preg_match('/^\+[ \t]*$/D', $body) === 1;
+            $indented = preg_match('/^[ \t]+\+[ \t]*$/D', $body) === 1;
+            if ($physical || $indented) {
+                $previous = $physical ? $lastNonBlank : $lastMarkerFence;
+                if (
+                    preg_match('/^([ \t]*)((?:(?:[-*] |\d+[.)] ))+)(`{3,}|~{3,})/', ContainerPrefix::stripQuoteMarkers($lines[$previous] ?? ''), $opener) === 1
+                    && ($opener[1] !== '' || preg_match_all('/(?:[-*] |\d+[.)] )/', $opener[2]) >= 2)
+                ) {
+                    $follower = $lines[$index + 1] ?? '';
+                    if ($indented) {
+                        $contentColumn = IndentationHelper::getLeadingColumns($opener[1]) + strlen($opener[2]);
+                        if (
+                            IndentationHelper::getLeadingColumns($body) < $contentColumn
+                            && $index > $previous + 2
+                            && trim($lines[$index - 1] ?? '') === '' && !IndentationHelper::isBlankLine($follower)
+                        ) {
+                            $changes[$previous + 1] = -1;
+                        }
+                    } else {
+                        $deepFence = IndentationHelper::getLeadingColumns($opener[1]) >= 4
+                            || preg_match_all('/(?:[-*] |\d+[.)] )/', $opener[2]) >= 3;
+                        if (
+                            ($index === $previous + 1 || !str_starts_with($lines[$index], '>'))
+                            && !($deepFence && $index > $previous + 1 && IndentationHelper::isBlankLine($follower))
+                        ) {
+                            $changes[$previous + 1] = IndentationHelper::isBlankLine($follower)
+                                ? -1 : ($this->listParser->parseListItemMarker(ltrim(ContainerPrefix::stripQuoteMarkers($follower), " \t")) !== null ? 2 : 1);
+                        }
+                    }
+                }
+            }
+            if (trim($body) !== '') {
+                $lastNonBlank = $index;
+            }
+            if (preg_match('/^([ \t]*)((?:(?:[-*] |\d+[.)] ))+)(`{3,}|~{3,})/', $body) === 1) {
+                $lastMarkerFence = $index;
+            } elseif (preg_match('/^[ \t]*(`{3,}|~{3,})[ \t]*$/D', $body) === 1) {
+                $lastMarkerFence = -1;
+            }
+        }
+        if ($changes === [] && !$explicitCloserTrim) {
+            return;
+        }
+        $stack = [$document];
+        $unpositioned = [];
+        $codeBlocks = [];
+        $seen = [];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            $id = spl_object_id($node);
+            if (isset($seen[$id])) {
+                continue;
+            }
+            $seen[$id] = true;
+            if ($node instanceof CodeBlock) {
+                $codeBlocks[] = $node;
+                $position = $node->getPos();
+                $delta = $position === null ? 0 : ($changes[$position->startLine] ?? 0);
+                if ($position === null) {
+                    $unpositioned[] = $node;
+                } elseif ($delta !== 0) {
+                    $this->adjustCodeBlankCount($node, $delta);
+                }
+            }
+            foreach (array_reverse($node->getChildren()) as $child) {
+                $stack[] = $child;
+            }
+        }
+        if ($explicitCloserTrim && count($codeBlocks) === 1) {
+            $this->adjustCodeBlankCount($codeBlocks[0], -1);
+        }
+        if (count($changes) === 1 && $unpositioned !== []) {
+            $opening = array_key_first($changes);
+            $openingBody = ContainerPrefix::stripQuoteMarkers($lines[$opening - 1] ?? '');
+            if (preg_match('/^[ \t]{0,3}\d+[.)] (`{3,}|~{3,})/', $openingBody) === 1) {
+                return;
+            }
+            $before = implode("\n", array_slice($lines, 0, $opening - 1));
+            if (preg_match('/(?:^|\n)(?:> ?)*[ \t]*(?:(?:[-*] |\d+[.)] ))?(`{3,}|~{3,})/', $before) !== 1) {
+                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening]);
+            }
+        }
+    }
+
+    private function adjustCodeBlankCount(CodeBlock $code, int $delta): void
+    {
+        if ($delta > 0) {
+            $code->appendContent(str_repeat("\n", $delta));
+        } else {
+            $content = $code->getContent();
+            $code->setContent(str_ends_with($content, "\n") ? substr($content, 0, -1) : $content);
+        }
+    }
+
+    private function reconcileNestedDivLazyPlus(Node $document): void
+    {
+        $lines = $this->state->source->sourceLines;
+        $opening = ContainerPrefix::stripQuoteMarkers($lines[0] ?? '');
+        if (preg_match('/^(?:[-*] ){2,}:{3,} [A-Za-z0-9_]/', $opening) !== 1) {
+            return;
+        }
+        $plusLine = null;
+        foreach ($lines as $index => $line) {
+            $body = ContainerPrefix::stripQuoteMarkers($line);
+            $tail = isset($lines[$index + 1]) ? ContainerPrefix::stripQuoteMarkers($lines[$index + 1]) : '';
+            if (
+                preg_match('/^[ \t]+\+[ \t]*$/D', $body) === 1
+                && $tail !== ''
+                && $tail === ltrim($tail, " \t")
+            ) {
+                $plusLine = $index;
+
+                break;
+            }
+        }
+        if ($plusLine === null) {
+            return;
+        }
+        $div = null;
+        $plusParagraph = null;
+        $stack = [$document];
+        while ($stack !== []) {
+            $node = array_pop($stack);
+            if ($node instanceof Div) {
+                $div = $node;
+            } elseif ($node instanceof Paragraph) {
+                $first = $node->getChildren()[0] ?? null;
+                if ($first instanceof Text && $first->getContent() === '+') {
+                    $plusParagraph = $node;
+                }
+            }
+            foreach ($node->getChildren() as $child) {
+                $stack[] = $child;
+            }
+        }
+        if ($div === null || $plusParagraph === null || $plusParagraph->getParent() === $div) {
+            return;
+        }
+        $documentBlocks = $document->getChildren();
+        $lastDocumentBlock = $documentBlocks === [] ? null : $documentBlocks[array_key_last($documentBlocks)];
+        if ($lastDocumentBlock instanceof Paragraph && $lastDocumentBlock !== $plusParagraph) {
+            $plusParagraph->appendChild(new SoftBreak());
+            foreach ($lastDocumentBlock->getChildren() as $child) {
+                $plusParagraph->appendChild($child);
+            }
+            $document->removeChild($lastDocumentBlock);
+        }
+        if (!IndentationHelper::isBlankLine($lines[$plusLine - 1] ?? '')) {
+            $divBlocks = $div->getChildren();
+            $lastDivBlock = $divBlocks === [] ? null : $divBlocks[array_key_last($divBlocks)];
+            if ($lastDivBlock instanceof Paragraph) {
+                $lastDivBlock->appendChild(new SoftBreak());
+                foreach ($plusParagraph->getChildren() as $child) {
+                    $lastDivBlock->appendChild($child);
+                }
+                $plusParagraph->getParent()?->removeChild($plusParagraph);
+            }
+        }
     }
 
     protected function promoteBlockImages(Node $node): void
@@ -4592,7 +4780,7 @@ class BlockParser
 
     protected function isContinuationMarker(string $line): bool
     {
-        return rtrim($line, StringUtil::WHITESPACE_CHARS) === '+';
+        return str_starts_with($line, '+') && rtrim($line, StringUtil::WHITESPACE_CHARS) === '+';
     }
 
     /**
@@ -5216,8 +5404,47 @@ class BlockParser
         $openCommentColumn = 0;
         while ($i < $count) {
             $nextLine = $lines[$i];
+            if (
+                preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
+                && !IndentationHelper::isBlankLine($nextLine)
+                && IndentationHelper::getLeadingColumns($nextLine) === 0
+                && trim($this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '') === ''
+            ) {
+                $priorNonBlank = $this->sourceLineFor($i) - 1;
+                while ($priorNonBlank >= 0 && trim($this->state->source->sourceLines[$priorNonBlank] ?? '') === '') {
+                    $priorNonBlank--;
+                }
+                $lastSourceBody = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$priorNonBlank] ?? '');
+                if (preg_match('/^[ \t]+\+[ \t]*$/D', $lastSourceBody) === 1) {
+                    break;
+                }
+            }
+            $priorSource = $this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '';
+            $priorBody = ContainerPrefix::stripQuoteMarkers($priorSource);
+            if (
+                preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
+                && preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
+                && IndentationHelper::getLeadingColumns($priorBody) >= $contentIndent
+                && !IndentationHelper::isBlankLine($nextLine)
+                && IndentationHelper::getLeadingColumns($nextLine) === 0
+                && !$this->isBlockElementStart(ltrim($nextLine, " \t"), $lines, $i)
+                && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
+            ) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceTrailingState($trailingState, 'text');
+                $i++;
+
+                continue;
+            }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
+                if (
+                    preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
+                    && preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
+                ) {
+                    break;
+                }
                 $bareLeadQuoteState = null;
                 $this->advanceNestedLeadFenceState($nestedFence, array_slice($itemLines, 0, 1));
                 if (
@@ -5225,6 +5452,7 @@ class BlockParser
                     && $this->listParser->parseListItemMarker($lead) !== null
                     && count($itemLines) === 2
                     && $this->isContinuationMarker(ltrim($itemLines[1], " \t"))
+                    && preg_match('/^(?:> ?)*\+[ \t]*$/D', $this->state->source->sourceLines[$itemLineMap[1] ?? -1] ?? '') === 1
                 ) {
                     $markerColumn = 0;
                     $lastMarkerColumn = 0;
@@ -5272,6 +5500,15 @@ class BlockParser
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
             if ($nextIndent < $contentIndent || $isBlockQuoteLazyLine) {
                 $nextTrimmed = ltrim($nextLine, " \t");
+                $previousSource = $this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '';
+                $previousBody = ContainerPrefix::stripQuoteMarkers($previousSource);
+                if (
+                    $nextIndent === 0
+                    && preg_match('/^[ \t]+\+[ \t]*$/D', $previousBody) === 1
+                    && preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) >= 3
+                ) {
+                    break;
+                }
                 // A comment span's closing run is free of the column; a payload
                 // line that misses the item's prefix ends the item before the
                 // span is classified (`CARVE-P0-005`).
@@ -5521,6 +5758,10 @@ class BlockParser
             }
             if ($bareContinuationLead) {
                 $claimLine = ltrim($stripped, " \t");
+                $claimSource = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '');
+                if (preg_match('/^[ \t]+(?:(?:[-*] |\d+[.)] ))?\+[ \t]*$/D', $claimSource) === 1) {
+                    $bareContinuationLead = false;
+                }
                 $claimOpen = $this->advanceTrailingState(new TrailingBlockState(), $claimLine, true)->openParagraph;
                 $quoteWidth = ContainerPrefix::quoteMarkerWidth($claimLine, 0);
                 if ($quoteWidth !== null) {

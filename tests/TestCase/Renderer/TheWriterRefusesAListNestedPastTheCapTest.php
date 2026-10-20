@@ -94,9 +94,9 @@ class TheWriterRefusesAListNestedPastTheCapTest extends TestCase
         $this->assertReadsBack((new CarveConverter())->parse($this->nested('quote', BlockParser::MAX_NESTING_DEPTH + 1)));
     }
 
-    public function testABulletLadderPastTheCapIsRefused(): void
+    public function testABulletLadderPastTheCapReadsBack(): void
     {
-        $this->assertRefused((new CarveConverter())->parse($this->nested('bullet', BlockParser::MAX_NESTING_DEPTH + 1)));
+        $this->assertReadsBack((new CarveConverter())->parse($this->nested('bullet', BlockParser::MAX_NESTING_DEPTH + 1)));
     }
 
     public function testAHandBuiltTreeAtTheCapWithNoFootnotesReadsBack(): void

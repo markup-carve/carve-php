@@ -742,6 +742,22 @@ final class BlockContinuationScanner
         $spanFromMarkerLine = $openCommentLength !== null;
         while ($i < $count) {
             $nextLine = $lines[$i];
+            $sourceLine = $this->sourceLineFor($i);
+            $sourceLines = $this->state->source->sourceLines;
+            if (!IndentationHelper::isBlankLine($nextLine) && $sourceLine > 0 && trim($sourceLines[$sourceLine - 1] ?? '') === '') {
+                $prior = $sourceLine - 1;
+                while ($prior >= 0 && trim($sourceLines[$prior] ?? '') === '') {
+                    $prior--;
+                }
+                $priorBody = ContainerPrefix::stripQuoteMarkers($sourceLines[$prior] ?? '');
+                $currentBody = ContainerPrefix::stripQuoteMarkers($sourceLines[$sourceLine] ?? '');
+                if (
+                    preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
+                    && $currentBody === ltrim($currentBody, " \t")
+                ) {
+                    break;
+                }
+            }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
                 if (!$inBlankRun) {
@@ -812,6 +828,29 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            if (
+                $trailingState->fence !== null
+                && $nextIndent >= $contentIndent + $trailingState->fence->column
+                && $this->isContinuationMarker($nextTrimmed)
+                && !$this->physicalContinuationMarker($i)
+            ) {
+                $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $i++;
+
+                continue;
+            }
+            $sourceLine = $this->sourceLineFor($i);
+            $previousSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
+            $currentSource = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $quoteRest = preg_replace('/^(?:> ?)+/', '', $currentSource) ?? $currentSource;
+            if (
+                $nextIndent < $contentIndent
+                && preg_match('/^(?:> ?)*[ \t]+(?:[-*] |(?:\d+|[A-Za-z]+)[.)] )\+[ \t]*$/D', $previousSource) === 1
+                && $quoteRest === ltrim($quoteRest, " \t")
+            ) {
+                break;
+            }
             if (
                 $nextIndent < $contentIndent
                 && $trailingState->hasOpenDiv()
@@ -957,6 +996,20 @@ final class BlockContinuationScanner
 
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
 
+            if (
+                $nextIndent < $contentIndent
+                && $this->isContinuationMarker($nextTrimmed)
+                && !$this->physicalContinuationMarker($i)
+                && $trailingState->openParagraph
+            ) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState = $this->advanceTrailingState($trailingState, 'text');
+                $i++;
+
+                continue;
+            }
+
             // A MARKER THAT ATTACHES NOTHING DOES NOT END THE ITEM (SS17 L3,
             // carve#1436). The marker reaches a block at DOCUMENT COLUMN 0 and
             // nothing else; when the line below sits at any other column it
@@ -970,6 +1023,7 @@ final class BlockContinuationScanner
             if (
                 $nextIndent === $baseIndent
                 && $this->isContinuationMarker($nextTrimmed)
+                && $this->physicalContinuationMarker($i)
                 && ($this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
                     || ($trailingState->fence !== null
                         && isset($lines[$i + 1])
@@ -4345,6 +4399,13 @@ final class BlockContinuationScanner
     private function isContinuationMarker(string $line): bool
     {
         return ($this->isContinuationMarkerCallback)($line);
+    }
+
+    private function physicalContinuationMarker(int $index): bool
+    {
+        $line = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? null;
+
+        return $line === null || preg_match('/^(?:> ?)*\+[ \t]*$/D', $line) === 1;
     }
 
     /**

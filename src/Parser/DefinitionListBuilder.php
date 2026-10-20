@@ -563,7 +563,10 @@ final class DefinitionListBuilder
                         }
                     }
                     // Form B: `+` pull-left continuation.
-                    if (preg_match('/^\+[ \t]*$/', $contLine)) {
+                    if (
+                        preg_match('/^\+[ \t]*$/', $contLine)
+                        && preg_match('/^(?:> ?)*\+[ \t]*$/D', $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '') === 1
+                    ) {
                         $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'definition description');
                         $i++;
                         if (!$this->continuationAttachesAtColumnZero($i)) {

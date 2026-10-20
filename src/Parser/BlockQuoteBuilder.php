@@ -238,6 +238,11 @@ final class BlockQuoteBuilder
         $startsFootnoteDefinition = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $content) === 1;
         $count = count($lines);
         $nestedLineBlock = ['count' => 0, 'eligible' => null, 'divCount' => 0, 'literalColumn' => null];
+        $openingSource = $this->state->source->sourceLines[$quoteSourceLine] ?? '';
+        preg_match('/^(?:> ?)+/', $openingSource, $openingPrefix);
+        $openingDepth = substr_count($openingPrefix[0] ?? '', '>');
+        $openingBody = ContainerPrefix::stripQuoteMarkers($openingSource);
+        $openingListPlus = preg_match('/^(?:[-*] |(?:\d+|[A-Za-z]+)[.)] )\+[ \t]*$/D', $openingBody) === 1;
         while ($i < $count) {
             $currentLine = $lines[$i];
             if (IndentationHelper::isBlankLine($currentLine)) {
@@ -245,6 +250,13 @@ final class BlockQuoteBuilder
             }
 
             $content = $this->blockQuoteLineContent($currentLine);
+            if ($content === null && $openingListPlus && $openingDepth > 0) {
+                $currentSource = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
+                preg_match('/^(?:> ?)+/', $currentSource, $currentPrefix);
+                if (substr_count($currentPrefix[0] ?? '', '>') < $openingDepth) {
+                    break;
+                }
+            }
             if (!$lazyStateActive && ($content === null || self::mayOpenQuotedHost($content))) {
                 // All earlier lines had explicit quote markers. Replay their
                 // state only when a lazy line or attachment needs it.
@@ -422,8 +434,18 @@ final class BlockQuoteBuilder
             return $this->markerSitsAtColumn($index, $column);
         }
 
-        // The outer `> ` prefix precedes the nested marker in the source.
-        return strrpos(rtrim($sourceText, " \t"), '+') === $column;
+        return preg_match('/^(?:> ?)*\+[ \t]*$/D', $sourceText) === 1;
+    }
+
+    private function physicalFirstBlockQuoteMarker(int $index): bool
+    {
+        $source = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? null;
+        if ($source === null) {
+            return true;
+        }
+
+        return preg_match('/^(?:> ?)*(?:(?:(?:[-*] (?:\[[ xX]\] )?)|(?:\d+|[A-Za-z]+)[.)] )+|: +|\[\^[^\]]+\]: +)?(?:> ?)+\+[ \t]*$/D', $source) === 1
+            || preg_match('/^(?:> ?)*[ \t]+(?:(?:[-*] |(?:\d+|[A-Za-z]+)[.)] ))+(?:> ?)+\+[ \t]*$/D', $source) === 1;
     }
 
     /**
@@ -442,11 +464,11 @@ final class BlockQuoteBuilder
 
         $i = $start + 1;
         $count = count($lines);
-        $nestedFirstBlock = preg_match('/^(?:> )+\+[ \t]*$/D', $content) === 1
+        $nestedFirstBlock = preg_match('/^(?:> ?)+\+[ \t]*$/D', $content) === 1
             && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
             && IndentationHelper::getLeadingColumns($lines[$i]) === 0
             && $this->blockQuoteLineContent($lines[$i]) === null;
-        $firstBlock = trim($content, " \t") === '+' && isset($lines[$i])
+        $firstBlock = trim($content, " \t") === '+' && $this->physicalFirstBlockQuoteMarker($start) && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
             && IndentationHelper::getLeadingColumns($lines[$i]) === 0
             && $this->blockQuoteLineContent($lines[$i]) === null;

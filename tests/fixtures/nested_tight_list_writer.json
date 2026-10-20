@@ -1,0 +1,47 @@
+[
+  {
+    "source": "- a\n  - > q\n\n    > r",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>\n        <blockquote><p>q</p></blockquote>\n        <blockquote><p>r</p></blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>",
+    "fmt": "- a\n  - > q\n\n    > r\n"
+  },
+  {
+    "source": "- a\n  - b\n    - > q\n\n      > r",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <ul>\n          <li>\n            <blockquote><p>q</p></blockquote>\n            <blockquote><p>r</p></blockquote>\n          </li>\n        </ul>\n      </li>\n    </ul>\n  </li>\n</ul>",
+    "fmt": "- a\n  - b\n    - > q\n\n      > r\n"
+  },
+  {
+    "source": "- a\n  - > q\n\n    later",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>\n        <blockquote><p>q</p></blockquote>\n        <p>later</p>\n      </li>\n    </ul>\n  </li>\n</ul>",
+    "fmt": "- a\n  - > q\n\n    later\n"
+  },
+  {
+    "source": "- a\n  - b\n    - c\n\n    later",
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li><p>b</p>\n        <ul>\n          <li>c</li>\n        </ul>\n        <p>later</p>\n      </li>\n    </ul>\n  </li>\n</ul>",
+    "fmt": "- a\n  - b\n\n    - c\n\n    later\n"
+  },
+  {
+    "source": ":: t\n: - > q\n\n    > r",
+    "html": "<dl>\n  <dt>t</dt>\n  <dd>\n    <ul>\n      <li>\n        <blockquote><p>q</p></blockquote>\n        <blockquote><p>r</p></blockquote>\n      </li>\n    </ul>\n  </dd>\n</dl>",
+    "fmt": ":: t\n: - > q\n\n    > r\n"
+  },
+  {
+    "source": "[^a]: - > q\n\n    > r\n\nref[^a]",
+    "html": "<p>ref<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <ul>\n        <li>\n          <blockquote><p>q</p></blockquote>\n          <blockquote><p>r</p></blockquote>\n        </li>\n      </ul>\n      <p><a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>",
+    "fmt": "ref[^a]\n\n[^a]: - > q\n\n    > r\n"
+  },
+  {
+    "source": "- - ```\n\n\n  +\ntail\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ul>\n    <p>+\ntail</p>\n  </li>\n</ul>",
+    "fmt": "- - ```\n\n\n    ```\n\n  +\n  tail\n"
+  },
+  {
+    "source": "- - - ```\n      x\n\n\n    +\ntail\n",
+    "html": "<ul>\n  <li>\n    <ul>\n      <li>\n        <ul>\n          <li>\n            <pre><code>x\n\n</code></pre>\n          </li>\n        </ul>\n        <p>+</p>\n      </li>\n    </ul>\n  </li>\n</ul>\n<p>tail</p>",
+    "fmt": "- - - ```\n      x\n\n\n      ```\n\n    +\n\ntail\n"
+  },
+  {
+    "source": "- 1. ```\n\n\n  +\ntail\n",
+    "html": "<ul>\n  <li>\n    <ol>\n      <li>\n        <pre><code>\n</code></pre>\n      </li>\n    </ol>\n    <p>+\ntail</p>\n  </li>\n</ul>",
+    "fmt": "- 1. ```\n\n\n     ```\n\n  +\n  tail\n"
+  }
+]
