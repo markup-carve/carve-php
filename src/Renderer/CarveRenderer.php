@@ -1634,6 +1634,35 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $previousKind !== 'blank';
     }
 
+    public static function trimImportedDocumentEdges(string $text, bool $trailingNewline): string
+    {
+        if (trim($text, " \t\r\n") === '') {
+            return $text;
+        }
+        $start = 0;
+        $end = strlen($text);
+        while ($start < $end) {
+            $next = strpos($text, "\n", $start);
+            if ($next === false || trim(substr($text, $start, $next - $start), " \t\r") !== '') {
+                break;
+            }
+            $start = $next + 1;
+        }
+        while ($end > $start) {
+            $lineStart = $end;
+            while ($lineStart > $start && $text[$lineStart - 1] !== "\n") {
+                $lineStart--;
+            }
+            if (trim(substr($text, $lineStart, $end - $lineStart), " \t\r") !== '') {
+                break;
+            }
+            $end = $lineStart === $start ? $start : $lineStart - 1;
+        }
+        $body = substr($text, $start, $end - $start);
+
+        return $body !== '' && $trailingNewline ? $body . "\n" : $body;
+    }
+
     public static function trimImportedLineEnd(string $line, bool $verbatim): string
     {
         if ($verbatim) {
