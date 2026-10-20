@@ -230,6 +230,14 @@ final class BracketScanner
         if ($end > $start && (str_contains(" \t\n\r\0\x0B", $text[$start]) || str_contains(" \t\n\r\0\x0B", $text[$end - 1]))) {
             return null;
         }
+        $body = substr($text, $start, $end - $start);
+        if (preg_match('/[\s]/', $body, $match, PREG_OFFSET_CAPTURE) === 1) {
+            $space = $match[0][1];
+            $tail = substr($body, $space);
+            if (preg_match('/^ (?:"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')$/s', $tail) !== 1) {
+                return null;
+            }
+        }
 
         return $end;
     }

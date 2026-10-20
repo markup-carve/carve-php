@@ -29,6 +29,18 @@ class ADestinationIsOpaqueToTheBracketScanTest extends TestCase
     public static function opaqueDestinations(): array
     {
         return [
+            'a nested destination with a bracketed parenthesis' => [
+                '[outer [inner](foo](bar)) end](u)',
+                '<p><a href="u">outer inner end</a></p>',
+            ],
+            'a nested destination without an outer link tail' => [
+                '[outer [inner](foo](bar)) end]',
+                '<p>[outer <a href="foo](bar)">inner</a> end]</p>',
+            ],
+            'a nested destination within surrounding text' => [
+                'x [a [b](c](d)) e](f) y',
+                '<p>x <a href="f">a b e</a> y</p>',
+            ],
             // The two shapes the Djot importer writes, where the surrounding `[` is literal text.
             'an outstanding bracket before a destination holding the close' => [
                 'a [[http\:\/\/u\/\]](http://u/])',
@@ -123,5 +135,11 @@ class ADestinationIsOpaqueToTheBracketScanTest extends TestCase
     public function testTheSkipLeavesEveryOtherBracketShapeAlone(string $source, string $expected): void
     {
         $this->assertSame($expected, trim($this->converter->convert($source)));
+    }
+
+    public function testAnInvalidNestedDestinationDoesNotHideTheLabelClose(): void
+    {
+        $source = '[http://a.b/[x](y](http://a.b/[x]\\(y) \\"t\\")';
+        $this->assertSame('<p><a href="http://a.b/[x](y">http://a.b/[x](y</a> "t")</p>', trim($this->converter->convert($source)));
     }
 }

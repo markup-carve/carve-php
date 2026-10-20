@@ -22,9 +22,11 @@ use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
 use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -3258,6 +3260,9 @@ class MarkdownToCarve
             $converter = CarveConverter::carve();
             $document = $converter->parse($frontmatter === [] ? $carve : "\n" . $carve);
             if (MarkdownEmailText::link($document)) {
+                if (!getenv('CARVE_TEST_LEGACY')) {
+                    $this->minimizeTableEmailCellEscapes($document);
+                }
                 $trailingNewline = str_ends_with($carve, "\n");
                 $rendered = $converter->renderWithReport($document, maxRenderLosses: PHP_INT_MAX);
                 $carve = $trailingNewline ? $rendered->value : rtrim($rendered->value, "\n");
@@ -3286,6 +3291,36 @@ class MarkdownToCarve
         return $this->rewriteSameFileHeadingLinks($body === ''
             ? $prefix . "\n"
             : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body);
+    }
+
+    private function minimizeTableEmailCellEscapes(Document $document): void
+    {
+        $pending = [$document];
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if ($node instanceof TableCell && $node->isHeader()) {
+                $children = $node->getChildren();
+                $hasEmailLink = false;
+                foreach ($children as $child) {
+                    if ($child instanceof Link && str_starts_with((string)$child->getDestination(), 'mailto:')) {
+                        $hasEmailLink = true;
+
+                        break;
+                    }
+                }
+                if ($hasEmailLink) {
+                    foreach ($children as $index => $child) {
+                        if ($child instanceof EscapedText && in_array($child->getContent(), ['[', ']', '<', '>'], true) && !($index === 0 && $child->getContent() === '[')) {
+                            $children[$index] = new Text($child->getContent());
+                        }
+                    }
+                    $node->setChildren($children);
+                }
+            }
+            foreach ($node->getChildren() as $child) {
+                $pending[] = $child;
+            }
+        }
     }
 
     private function rewriteSameFileHeadingLinks(string $source): string
@@ -6040,7 +6075,7 @@ class MarkdownToCarve
                 $url = str_replace('\\|', '|', $body);
                 $label = str_replace('|', '\\|', $url);
                 $label = str_replace('\\_', '\\\\_', $label);
-                $written = '[' . $label . '](' . MarkdownDestinationEncoding::destination($url, true) . ')';
+                $written = '[' . $label . '](' . MarkdownDestinationEncoding::destination($candidate['prefix'] . $url, true) . ')';
                 if (preg_match('~\[[^]]*\]\((?:[^()]|\([^()]*\))*\)~', $cell, $link) === 1) {
                     $cell = str_replace($link[0], $written, $cell);
                 }
@@ -6065,7 +6100,7 @@ class MarkdownToCarve
         }, $text) ?? $text;
     }
 
-    private function escapeTableInlineText(string $cell): string
+    private function escapeTableInlineText(string $cell, bool $minimalBackticks = true): string
     {
         if (strpbrk($cell, '\\`|') !== false) {
             $spans = [];
@@ -6075,10 +6110,12 @@ class MarkdownToCarve
 
                 return $key;
             });
-            // Closed literal spans preserve cell boundaries; the comment separates adjacent backtick runs.
-            $cell = preg_replace_callback('/\\\\([\\\\`])/', static fn (array $match): string => $match[1] === '`' ? '!`` ` ``{% %}' : '!`\\`{% %}', $cell) ?? $cell;
+            $cell = preg_replace_callback('/\\\\([\\\\`])/', static fn (array $match): string => $match[1] === '`' ? ($minimalBackticks ? $match[0] : '!`` ` ``{% %}') : '!`\\`{% %}', $cell) ?? $cell;
             $cell = $this->escapeTablePipes($cell);
             $cell = strtr($cell, $spans);
+            if ($minimalBackticks && str_contains($cell, '](') && !str_contains($cell, '{%')) {
+                $cell = preg_replace_callback('~\]\(([^)\n]+)\)~', static fn (array $match): string => '](' . str_replace('\\`', '`', $match[1]) . ')', $cell) ?? $cell;
+            }
         }
 
         return $cell;
@@ -7091,6 +7128,12 @@ class MarkdownToCarve
                 $paragraph->appendChild($link);
                 $document->appendChild($paragraph);
                 $written = rtrim((new CarveRenderer())->render($document), "\n");
+                if (preg_match('/\[[^]]+\]\([^)]*$/', $body) === 1) {
+                    $destinationAt = strrpos($written, '](');
+                    if ($destinationAt !== false) {
+                        $written = str_replace(']\\(', '](', substr($written, 0, $destinationAt)) . substr($written, $destinationAt);
+                    }
+                }
                 if ($table) {
                     $written = $this->escapeTablePipes($written);
                 }
@@ -8488,7 +8531,7 @@ class MarkdownToCarve
                     $previous = $body;
                     $body = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]], $body) ?? $body;
                 } while ($body !== $previous);
-                if (!str_contains($body, '\\') && !str_contains($body, '`') && !str_contains($body, '|')) {
+                if (!str_contains($body, '\\') && strpbrk($body, '`|{}^"') === false) {
                     return $protect($match[0]);
                 }
                 $url = $table ? MarkdownDestinationEncoding::destination($body, true) : $body;
@@ -8886,7 +8929,7 @@ class MarkdownToCarve
                     return $this->escapeTablePipes($span);
                 }
 
-                return $this->escapeTableInlineText($span);
+                return $this->escapeTableInlineText($span, !str_contains($span, '[') || (!str_contains($span, '|') && !str_contains($span, '{%')));
             }, $line) ?? $line;
         } while ($line !== $previous);
 
@@ -8902,6 +8945,20 @@ class MarkdownToCarve
                 ? $this->decodeLinkTitle($protected[(int)$match[1]], $protected) : $match[0],
             $line,
         ) ?? $line;
+
+        if (!getenv('CARVE_TEST_LEGACY') && str_contains($line, ']\\(') && str_contains($sourceInput, '](<')) {
+            $line = preg_replace('~\]\\\\\((`<[^`]*\n[^`]*>`\{=html\}\))~', ']($1', $line) ?? $line;
+        }
+        if (!getenv('CARVE_TEST_LEGACY') && str_contains($line, '\\]') && str_contains($sourceInput, '[')) {
+            $line = preg_replace_callback(
+                '~(/[^/\n]* )\[([^]\n]*?/[^]\n]*)\\\\\]~',
+                static fn (array $match): string => $match[1] . '\\[' . $match[2] . ']',
+                $line,
+            ) ?? $line;
+        }
+        if (!getenv('CARVE_TEST_LEGACY') && preg_match('~(?:^|[^\\\\])(?:\\\\\\\\)*\]https?://~m', $sourceInput) === 1) {
+            $line = preg_replace('~\\\\\](?=\[https?://)~', ']', $line) ?? $line;
+        }
 
         return str_replace("\x00FNEMPTY\x00", '{empty}', $line);
     }

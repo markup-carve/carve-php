@@ -48,6 +48,10 @@ class AMarkdownAutolinkKeepsItsMeaningTest extends TestCase
         $cases['a pointy link destination'] = ['[a](<https://x>)', '<p><a href="https://x">a</a></p>'];
         $cases['an entity without a backslash'] = ['<https://x/?a=&amp;>', '<p><a href="https://x/?a=&amp;">https://x/?a=&amp;</a></p>'];
         $cases['nested protected spans in a label'] = ['<https://x/\\`a`>', '<p><a href="https://x/\`a`">https://x/\\`a`</a></p>'];
+        foreach (['{', '}', '^', '"'] as $punctuation) {
+            $url = 'https://a.b/a' . $punctuation . 'b';
+            $cases['pointy URL containing ' . $punctuation] = ['<' . $url . '>', '<p><a href="' . htmlspecialchars($url, ENT_QUOTES) . '">' . $url . '</a></p>'];
+        }
 
         return $cases;
     }

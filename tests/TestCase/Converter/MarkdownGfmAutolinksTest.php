@@ -19,10 +19,44 @@ final class MarkdownGfmAutolinksTest extends TestCase
     /**
      * @return iterable<string, array{string, string}>
      */
+    public static function minimalLabelEscapes(): iterable
+    {
+        yield 'unclosed destination opener in bare URL' => ['http://a.b/[x](y', '[http://a.b/[x](y](http://a.b/[x]\\(y)'];
+        yield 'bare URL followed by title-like text' => ['http://a.b/[x](y "t")', '[http://a.b/[x](y](http://a.b/[x]\\(y) \\"t\\")'];
+        yield 'bare URL followed by prose' => ['http://a.b/[x](y tail', '[http://a.b/[x](y](http://a.b/[x]\\(y) tail'];
+        yield 'literal closing bracket before bare URL' => ['x]http://a.b/c', 'x][http://a.b/c](http://a.b/c)'];
+        yield 'escaped closing bracket before bare URL' => ['x\\\\]http://a.b/c', 'x\\\\][http://a.b/c](http://a.b/c)'];
+        yield 'literal backtick in table cell' => ["| h |\n| - |\n| a`b |", "|= h |\n| a\\`b |"];
+        yield 'backtick in table autolink label' => ["| h |\n| - |\n| http://a.b/a`b |", "|= h |\n| [http://a.b/a\\`b](http://a.b/a`b) |"];
+        yield 'www autolink with escaped table pipe' => ["| h |\n| - |\n| www.a.b/a\\|b |", "|= h |\n| [www.a.b/a\\|b](http://www.a.b/a%7Cb) |"];
+        yield 'escaped pointy email in table cell' => ["| \\<a\\|b@x.com> | z |\n|---|---|\n", '|= <a\\|[b@x.com](mailto:b@x.com)> |= z |'];
+        yield 'email in bracketed table text' => ["| [a][&lt;a@x.com&gt;\\|z] | c |\n|---|---|", '|= \\[a][<[a@x.com](mailto:a@x.com)>\\|z] |= c |'];
+        yield 'email in table reference text' => ["| [a\\|&lt;x@y.io&gt;][ref] | c |\n|---|---|", '|= \\[a\\|<[x@y.io](mailto:x@y.io)>][ref] |= c |'];
+        yield 'invalid pointy destination after link text' => ["[link](<foo\nbar>)", "[link](`<foo\nbar>`{=html})"];
+        yield 'bracket crossing an emphasis closer' => ['*foo [bar* baz]', '/foo \\[bar/ baz]'];
+    }
+
+    #[DataProvider('minimalLabelEscapes')]
+    public function testMarkdownImportUsesMinimalLabelEscapes(string $markdown, string $expected): void
+    {
+        self::assertSame($expected . "\n", (new MarkdownToCarve())->convert($markdown . "\n"));
+    }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
     public static function controls(): iterable
     {
         $rows = json_decode((string)file_get_contents(__DIR__ . '/../../fixtures/markdown-gfm-autolinks.json'), true, flags: JSON_THROW_ON_ERROR);
+        self::assertIsArray($rows);
         foreach ($rows as $index => $row) {
+            self::assertIsArray($row);
+            self::assertIsString($row['source'] ?? null);
+            self::assertIsString($row['html'] ?? null);
+            if (isset($row['nativeHtml'])) {
+                self::assertIsString($row['nativeHtml']);
+            }
+
             // `nativeHtml` overrides cmark-gfm where Carve keeps a destination bracket literal.
             yield 'native ' . $index => [$row['source'], $row['nativeHtml'] ?? $row['html']];
         }
@@ -146,7 +180,9 @@ final class MarkdownGfmAutolinksTest extends TestCase
             return [$name, $attrs, $children];
         };
 
-        return $visit($document->getElementsByTagName('body')->item(0));
+        $body = $document->getElementsByTagName('body')->item(0);
+
+        return $body instanceof DOMNode && is_array($shape = $visit($body)) ? $shape : [];
     }
 
     public function testEmailAutolinkingKeepsTrailingNewlineConvention(): void
