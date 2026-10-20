@@ -582,16 +582,20 @@ final class DefinitionListBuilder
                         }
                         $attachedItemColumn = 0;
                         $attachedReferenceSeen = false;
+                        $quotedAttached = str_starts_with($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', '>');
                         [$i, $attached, $attachedRawLineMap] = $this->attachedFlushLeftBlock(
                             $lines,
                             $i,
                             $count,
-                            function (string $a) use (&$attachedItemColumn, &$attachedReferenceSeen): bool {
+                            function (string $a) use (&$attachedItemColumn, &$attachedReferenceSeen, $quotedAttached): bool {
                                 if (
                                     preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
                                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1
                                 ) {
                                     return true;
+                                }
+                                if ($quotedAttached) {
+                                    return false;
                                 }
                                 if ($attachedItemColumn === 0 && preg_match('/^([ \t]*)(?:[-*] |\d+[.)] )/', $a, $marker) === 1) {
                                     $attachedItemColumn = IndentationHelper::getLeadingColumns($marker[1]) + strlen($marker[0]) - strlen($marker[1]);
