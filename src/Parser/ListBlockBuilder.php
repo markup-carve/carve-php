@@ -843,6 +843,8 @@ final class ListBlockBuilder
         // sibling markers inside it are the nested list's own
         // business and must not get a loosening blank injected.
         $subSawListMarker = false;
+        $subMarkerFence = null;
+        $subMarkerFenceColumn = 0;
         // Whether a fence in this stream interrupted an open
         // paragraph on the strength of a closer only the SOURCE view
         // shows. See the hand-down below the loop.
@@ -1031,6 +1033,12 @@ final class ListBlockBuilder
                         . ltrim($stripped, " \t");
                 }
                 $strippedIsMarker = ($this->getListParser)()->parseListItemMarker(ltrim($stripped, " \t")) !== null;
+                if ($strippedIsMarker) {
+                    $markerHead = ltrim($stripped, " \t");
+                    $markerOffset = ($this->getListParser)()->markerWalkOffset($markerHead, 0);
+                    $subMarkerFence = $markerOffset === null ? null : $this->itemFenceOpenerAt(substr($markerHead, $markerOffset));
+                    $subMarkerFenceColumn = IndentationHelper::getLeadingColumns($stripped) + ($markerOffset ?? 0);
+                }
                 if (
                     $strippedIsMarker
                     && !$subSawListMarker
@@ -1123,7 +1131,14 @@ final class ListBlockBuilder
 
                     continue;
                 }
-                $subFenceOpener = $sawBlankLine || $subTrailingState->fence !== null
+                $insideMarkerFence = $subMarkerFence !== null;
+                $closesMarkerFence = $insideMarkerFence
+                    && IndentationHelper::getLeadingColumns($stripped) === $subMarkerFenceColumn
+                    && ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($stripped, " \t"), $subMarkerFence['char'] ?? $subMarkerFence['fence'][0], $subMarkerFence['length']);
+                if ($closesMarkerFence || ($insideMarkerFence && !$strippedIsMarker && IndentationHelper::getLeadingColumns($stripped) < $subMarkerFenceColumn)) {
+                    $subMarkerFence = null;
+                }
+                $subFenceOpener = ($insideMarkerFence && !$strippedIsMarker) || $sawBlankLine || $subTrailingState->fence !== null
                     || !$subTrailingState->openParagraph
                     ? null
                     : $this->itemFenceOpenerAt($stripped);
@@ -2224,7 +2239,11 @@ final class ListBlockBuilder
                 $subject = ltrim($line, " \t");
                 $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject)
                     ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($subject);
-                if ($fence !== null && !$this->continuations->sourceFenceCloserInView($lines, $index, $fence, $base, true)) {
+                $priorLine = ltrim($lines[$index - 1] ?? '', " \t");
+                $priorMarkerOffset = ($this->getListParser)()->markerWalkOffset($priorLine, 0);
+                $priorMarkerFence = $priorMarkerOffset !== null
+                    && $this->itemFenceOpenerAt(substr($priorLine, $priorMarkerOffset)) !== null;
+                if ($fence !== null && !$priorMarkerFence && !$this->continuations->sourceFenceCloserInView($lines, $index, $fence, $base, true)) {
                     return false;
                 }
             }
