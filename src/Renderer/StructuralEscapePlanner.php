@@ -121,7 +121,7 @@ final class StructuralEscapePlanner
                     continue;
                 }
                 $scan ??= self::destinationScan($flat);
-                if (!self::opensADestination($scan, $flat, $at) && !$bracketed) {
+                if (!self::opensADestination($scan, $flat, $at)) {
                     continue;
                 }
             } elseif (!$bracketed || isset($paired[$i])) {
