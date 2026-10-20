@@ -73,7 +73,7 @@ class ARawSpanEndingALineInWhitespaceIsDegradedTest extends TestCase
     public function testNamesALossTheEngineReallyTakes(): void
     {
         $value = (new MarkdownToCarve())->convert("<a href=\"foo  \nbar\">\n");
-        $this->assertStringContainsString("foo  \n", $value);
+        $this->assertStringContainsString("foo\n", $value);
         $this->assertStringContainsString("<a href=\"foo\nbar\">", (new CarveConverter())->convert($value));
     }
 

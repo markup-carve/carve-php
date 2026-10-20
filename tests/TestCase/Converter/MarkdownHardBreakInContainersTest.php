@@ -42,8 +42,8 @@ class MarkdownHardBreakInContainersTest extends TestCase
      */
     public function testTwoAdjacentItemsAreNotJoined(): void
     {
-        $this->assertSame("- a  \n- b\n", $this->converter->convert("- a  \n- b\n"));
-        $this->assertSame("1. a  \n2. b\n", $this->converter->convert("1. a  \n2. b\n"));
+        $this->assertSame("- a\n- b\n", $this->converter->convert("- a  \n- b\n"));
+        $this->assertSame("1. a\n2. b\n", $this->converter->convert("1. a  \n2. b\n"));
     }
 
     /**
@@ -52,7 +52,7 @@ class MarkdownHardBreakInContainersTest extends TestCase
      */
     public function testABlankLineInsideAQuoteEndsTheParagraph(): void
     {
-        $this->assertSame("> a  \n\n> b\n", $this->converter->convert("> a  \n\n> b\n"));
+        $this->assertSame("> a\n\n> b\n", $this->converter->convert("> a  \n\n> b\n"));
     }
 
     /**
@@ -61,6 +61,6 @@ class MarkdownHardBreakInContainersTest extends TestCase
     public function testTheTopLevelBreakIsUnchanged(): void
     {
         $this->assertSame("a\\\nb\n", $this->converter->convert("a  \nb\n"));
-        $this->assertSame("a  \n", $this->converter->convert("a  \n"));
+        $this->assertSame("a\n", $this->converter->convert("a  \n"));
     }
 }

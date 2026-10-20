@@ -21,6 +21,17 @@ namespace MarkupCarve\Carve\Converter;
  */
 class MarkdownListMarkers
 {
+    public static function sourceContentColumn(string $line): int
+    {
+        if (preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]+/', $line, $marker) !== 1) {
+            return 0;
+        }
+        $width = self::columns($marker[0]);
+        $markerWidth = self::columns(rtrim($marker[0], " \t"));
+
+        return $width - $markerWidth > 4 ? $markerWidth + 1 : $width;
+    }
+
     /**
      * Open lists, outermost first. `col` is the marker column and `content`
      * the item's content column in the source; `outer` is how far the marker
@@ -103,6 +114,13 @@ class MarkdownListMarkers
         $last = array_key_last($this->open);
 
         return $last === null ? null : $this->open[$last]['content'] + $this->open[$last]['shift'];
+    }
+
+    public function openItemSourceContentColumn(): ?int
+    {
+        $last = array_key_last($this->open);
+
+        return $last === null ? null : $this->open[$last]['content'];
     }
 
     /**

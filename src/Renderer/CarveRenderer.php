@@ -1629,6 +1629,54 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
     }
 
+    public static function needsBlankBeforeImportedHeading(string $previousKind): bool
+    {
+        return $previousKind !== 'blank';
+    }
+
+    public static function trimImportedDocumentEdges(string $text, bool $trailingNewline): string
+    {
+        if (trim($text, " \t\r\n") === '') {
+            return $text;
+        }
+        $start = 0;
+        $end = strlen($text);
+        while ($start < $end) {
+            $next = strpos($text, "\n", $start);
+            if ($next === false || trim(substr($text, $start, $next - $start), " \t\r") !== '') {
+                break;
+            }
+            $start = $next + 1;
+        }
+        while ($end > $start) {
+            $lineStart = $end;
+            while ($lineStart > $start && $text[$lineStart - 1] !== "\n") {
+                $lineStart--;
+            }
+            if (trim(substr($text, $lineStart, $end - $lineStart), " \t\r") !== '') {
+                break;
+            }
+            $end = $lineStart === $start ? $start : $lineStart - 1;
+        }
+        $body = substr($text, $start, $end - $start);
+
+        return $body !== '' && $trailingNewline ? $body . "\n" : $body;
+    }
+
+    public static function trimImportedLineEnd(string $line, bool $verbatim): string
+    {
+        if ($verbatim) {
+            return $line;
+        }
+
+        return rtrim($line, " \t");
+    }
+
+    public static function importedSourceEndsWithNewline(string $source): bool
+    {
+        return str_ends_with($source, "\n") || str_ends_with($source, "\r");
+    }
+
     /**
      * Does this block put anything on the page that a re-parse can see?
      *
@@ -5517,6 +5565,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $this->renderCodeWithUnclosed($content, false);
     }
 
+    public function spellImportedCodeSpan(string $content): string
+    {
+        return $this->renderCode($content);
+    }
+
     private function renderVerbatimCode(string $content, string $nodeType): string
     {
         try {
@@ -6929,6 +6982,55 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     protected function escapeQuoted(string $text): string
     {
         return $this->escapeQuotedSlot($text, '"');
+    }
+
+    public function spellImportedTitle(string $title, bool $table = false): string
+    {
+        $written = $this->escapeQuoted($title);
+
+        return '"' . ($table ? str_replace('`', '\\`', $written) : $written) . '"';
+    }
+
+    public function spellImportedLiteralBackslashes(string $text): string
+    {
+        $out = '';
+        for ($at = 0, $length = strlen($text); $at < $length;) {
+            if ($text[$at] !== '\\') {
+                $out .= $text[$at++];
+
+                continue;
+            }
+            $end = $at + strspn($text, '\\', $at);
+            $run = substr($text, $at, $end - $at);
+            $next = $text[$end] ?? '';
+            $out .= $run . (strlen($run) === 1 && $next !== '' && $next !== "\n" && preg_match('/[!-\/:-@\[-`{-~]/', $next) !== 1 ? '\\' : '');
+            $at = $end;
+        }
+
+        return $out;
+    }
+
+    public static function prefersSingleImportedListPadding(bool $incidentalContinuation = false): bool
+    {
+        return !$incidentalContinuation;
+    }
+
+    public static function discardsInitialEmptyImportedQuoteLine(bool $startsQuote, bool $nextHasContent): bool
+    {
+        return $startsQuote && $nextHasContent;
+    }
+
+    public static function foldImportedEmptyItem(string $marker, string $firstChild): ?string
+    {
+        if (
+            preg_match('/^([ \t]*(?:[-*]|\d+[.)])) \+$/', $marker, $head) !== 1
+            || preg_match('/^([ \t]+)\S/', $firstChild, $indent) !== 1
+            || strlen($indent[1]) < strlen($head[1]) + 1
+        ) {
+            return null;
+        }
+
+        return $head[1] . ' ' . ltrim($firstChild, " \t");
     }
 
     /**
