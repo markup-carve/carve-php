@@ -6195,8 +6195,7 @@ class MarkdownToCarve
                     continue;
                 }
                 $url = str_replace('\\|', '|', $body);
-                $label = str_replace('|', '\\|', $url);
-                $label = str_replace('\\_', '\\\\_', $label);
+                $label = str_replace('|', '\\|', str_replace('\\', '\\\\', $url));
                 $written = '[' . $label . '](' . MarkdownDestinationEncoding::destination($candidate['prefix'] . $url, true) . ')';
                 if (preg_match('~\[[^]]*\]\((?:[^()]|\([^()]*\))*\)~', $cell, $link) === 1) {
                     $cell = str_replace($link[0], $written, $cell);

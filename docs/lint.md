@@ -72,6 +72,15 @@ stays an ordinary attribute, so the table or the loose list never happens.
 followed by a blank line or the end of the document
 (`continuation-marker-refused`). Both warnings describe where the construct ends.
 
+`ListColumnLinter` reports two ordered-list column traps of explicit numbers.
+A list marker in an item's paragraph that starts past the item's marker column
+and below its content column folds in as text
+(`list-marker-below-content-column`); the warning names the content column
+that nests it. Two adjacent ordered lists whose numbering continues but whose
+markers start at different columns are two lists
+(`ordered-list-split-by-indent`); align the markers, or use `{start=N}` with
+the auto-numbered `.` marker.
+
 `ReferencesPlacementLinter` reports a `::: references` marker inside a
 container when citations are enabled. The marker renders as an ordinary div
 there; the generated list stays at document level. A top-level marker places

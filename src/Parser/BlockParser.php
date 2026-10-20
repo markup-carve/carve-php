@@ -1270,13 +1270,20 @@ class BlockParser
                 $found = true;
                 $this->state->session->discoveringDefinitions = true;
                 $collectedBodyLines = $body['lines'];
-                $body['lines'] = $this->footnoteBodyDefinitionReach(
-                    $this->rebaseOverindentedItemBlocks(
-                        $body['lines'],
-                        array_fill_keys(array_keys($body['lines']), true),
-                        includeSublists: true,
-                    ),
-                );
+                $plainBody = count($body['lines']) === 1 ? $body['lines'][0] : '';
+                if (
+                    $plainBody === ''
+                    || !str_contains('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', $plainBody[0])
+                    || strspn($plainBody, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .') !== strlen($plainBody)
+                ) {
+                    $body['lines'] = $this->footnoteBodyDefinitionReach(
+                        $this->rebaseOverindentedItemBlocks(
+                            $body['lines'],
+                            array_fill_keys(array_keys($body['lines']), true),
+                            includeSublists: true,
+                        ),
+                    );
+                }
                 foreach ($body['lines'] as $bodyIndex => $entry) {
                     if (
                         preg_match('/^%{3,}$/', $entry) === 1
@@ -2082,7 +2089,8 @@ class BlockParser
         ?int $firstIndex = null,
         ?int $lastIndex = null,
     ): void {
-        $text = rtrim(implode("\n", $group), "\n");
+        $normalizedGroup = array_map(static fn (string $line): string => ltrim($line, " \t"), $group);
+        $text = rtrim(implode("\n", $normalizedGroup), "\n");
         if (trim($text, StringUtil::WHITESPACE_CHARS) === '') {
             return;
         }
@@ -2109,7 +2117,7 @@ class BlockParser
         }
         $this->inlineParser->parse($paragraph, $text);
         $this->placeDegradedSoftBreaks($paragraph, $group, $lineMap, $firstIndex);
-        $this->placeDegradedTextRuns($paragraph, $group, $lineMap, $firstIndex);
+        $this->placeDegradedTextRuns($paragraph, $normalizedGroup, $lineMap, $firstIndex);
         $parent->appendChild($paragraph);
         if ($this->state->source->trackPositions) {
             $this->listsBuilder()->repairParagraphSuffixPosition($paragraph);

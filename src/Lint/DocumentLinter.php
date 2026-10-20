@@ -19,6 +19,7 @@ final class DocumentLinter
             (new SemanticAttributeLinter())->lint($source),
             (new ReferenceLinter())->lint($source, ['extensions' => $options['extensions'] ?? []]),
             (new SourceLinter())->lint($source),
+            (new ListColumnLinter())->lint($source),
             (new RetiredSpellingLinter())->lint($source),
             (new TableColumnLinter())->lint($source),
             (new DelimitedTableLinter())->lint($source),
