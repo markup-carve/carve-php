@@ -3948,7 +3948,8 @@ final class BlockContinuationScanner
                 return $state;
             }
             if ($inner->fence === null && !$inner->absorbingFence) {
-                $state->openParagraph = $inner->openParagraph;
+                $state->openParagraph = $inner->openParagraph
+                    && !$this->isContinuationMarker(substr($line, $contentOffset));
                 // THE FIRST MARKER'S COLUMN, not the walk's innermost. `- - a`
                 // opens two containers, and the shallower one is already deeper
                 // than this container - a line reaching it registers there, so

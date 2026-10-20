@@ -471,7 +471,7 @@ final class ListBlockBuilder
             if (
                 ($this->getListParser)()->parseListItemMarker($itemContent) !== null
                 && $this->leadBottomIsContinuationMarker($itemContent)
-                && preg_match('/^(?:> ?)*[ \t]*(?:(?:[-*] |(?:\d+|[A-Za-z]+)[.)] )){2,}\+[ \t]*$/D', $sourceLead) === 1
+                && preg_match('/^(?:> ?)*[ \t]*(?:(?:[-*] |(?:\d+|[A-Za-z]+)[.)] )){2,}(?:\[[ xX]\][ \t]+)?\+[ \t]*$/D', $sourceLead) === 1
                 && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
                 && IndentationHelper::getLeadingColumns($lines[$i]) === 0
             ) {
@@ -494,7 +494,7 @@ final class ListBlockBuilder
                 // the ordinary collector below is what owns it. The marker is
                 // consumed either way - it is never content - so the fall-
                 // through carries an EMPTY lead rather than a literal `+`.
-                [$i, $attached, $attachedLineMap] = preg_match('/^(?:> ?)*[ \t]*(?:(?:[-*] |(?:\d+|[A-Za-z]+)[.)] ))+\+[ \t]*$/D', $sourceLead) === 1
+                [$i, $attached, $attachedLineMap] = preg_match('/^(?:> ?)*[ \t]*(?:(?:[-*] |(?:\d+|[A-Za-z]+)[.)] ))+(?:\[[ xX]\][ \t]+)?\+[ \t]*$/D', $sourceLead) === 1
                     && $this->followerKeepsQuoteDepth($listItemSourceLine, $i)
                     ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent)
                     : [$i, [], []];
@@ -608,6 +608,16 @@ final class ListBlockBuilder
                     }
                 }
                 $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+                foreach ($itemLines as &$collectedLine) {
+                    if (
+                        str_starts_with($collectedLine, BlockGrammar::LAZY_FRAME)
+                        && !str_contains($collectedLine, "\n")
+                        && $this->isCommentLineOrFence(BlockGrammar::stripLazyFrame($collectedLine))
+                    ) {
+                        $collectedLine = BlockGrammar::stripLazyFrame($collectedLine);
+                    }
+                }
+                unset($collectedLine);
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 if ($gap === BlockParser::GAP_CAPTION) {
                     $children = $listItem->getChildren();
