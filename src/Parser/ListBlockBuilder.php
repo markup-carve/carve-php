@@ -151,16 +151,9 @@ final class ListBlockBuilder
         // Get the base indentation of this list
         $baseIndent = IndentationHelper::getLeadingColumns($line);
         $listSourceLine = $this->sourceLineFor($start);
-        $sourceTail = rtrim($this->state->source->sourceLines[$listSourceLine] ?? '', " \t");
-        $lineTail = rtrim($line, " \t");
-        if (str_contains(substr($sourceTail, 0, max(0, strlen($sourceTail) - strlen($lineTail))), '>')) {
-            $lineTail = ltrim($lineTail, " \t");
-        }
         $listOpeningColumn = $parent instanceof Document
             ? 0
-            : (str_ends_with($sourceTail, $lineTail)
-                ? strlen($sourceTail) - strlen($lineTail)
-                : ($this->state->frame->currentContentColumns[$listSourceLine] ?? 0));
+            : $this->resolveMarkerColumn($listSourceLine, $line);
 
         /** @var string $listType */
         $listType = $listInfo['type'];
@@ -432,16 +425,23 @@ final class ListBlockBuilder
             $taskMarker = $itemInfo['taskMarker'] ?? null;
             $listItem = new ListItem($taskMarker);
             $listItemSourceLine = $this->sourceLineFor($i);
-            $itemSource = $this->state->source->sourceLines[$listItemSourceLine] ?? '';
-            $itemMarker = ltrim($line, " \t");
-            $itemMarkerColumn = str_ends_with($itemSource, $itemMarker)
-                ? strlen($itemSource) - strlen($itemMarker)
-                : $listOpeningColumn;
-            $itemPrefix = substr($itemSource, 0, $itemMarkerColumn);
-            $itemOpeningColumn = str_contains($itemPrefix, "\t")
-                && $itemMarkerColumn <= $listOpeningColumn
-                ? 0
-                : (str_contains($itemPrefix, '>') ? $itemMarkerColumn : $listOpeningColumn);
+            $itemOpeningColumn = $listOpeningColumn;
+            if (!$parent instanceof Document && $i !== $start) {
+                $itemSource = $this->state->source->sourceLines[$listItemSourceLine] ?? '';
+                $itemMarker = ltrim($line, " \t");
+                $itemMarkerColumn = str_ends_with($itemSource, $itemMarker)
+                    ? strlen($itemSource) - strlen($itemMarker)
+                    : $listOpeningColumn;
+                $itemPrefix = substr($itemSource, 0, $itemMarkerColumn);
+                $itemOpeningColumn = str_contains($itemPrefix, "\t")
+                    && $itemMarkerColumn <= $listOpeningColumn
+                    && !str_contains($itemPrefix, '>')
+                    ? 0
+                    : $this->resolveMarkerColumn($listItemSourceLine, $currentLine);
+            }
+            if ($itemOpeningColumn === null) {
+                $this->state->session->unplaceableNodeIds[spl_object_id($listItem)] = true;
+            }
             // Attributes from an abutting `{...}` block attach to the <li>.
             if (isset($itemInfo['attributes'])) {
                 /** @var array<string, string|list<string>> $markerAttributes */
@@ -478,7 +478,7 @@ final class ListBlockBuilder
                 [$i, $attached, $attachedLineMap] = $this->followerKeepsQuoteDepth($listItemSourceLine, $i)
                     ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent)
                     : [$i, [], []];
-                $listItem->setPos($this->spanForLineMap([$listItemSourceLine]));
+                $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap([$listItemSourceLine], $itemOpeningColumn));
                 $this->callParseItemBlocks($listItem, [$itemContent, ...$attached], [$listItemSourceLine, ...$attachedLineMap]);
                 $list->appendChild($listItem);
 
@@ -512,7 +512,7 @@ final class ListBlockBuilder
                 // followed by a table gave the item the table's offset, past
                 // its own marker line entirely. `deriveContainerSpans` unions
                 // this with the body, so the extent still reaches the end.
-                    $listItem->setPos($this->spanForLineMap([$listItemSourceLine]));
+                    $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap([$listItemSourceLine], $itemOpeningColumn));
                     if ($attached !== []) {
                         $this->callParseItemBlocks($listItem, $attached, $attachedLineMap);
                     }
@@ -617,7 +617,7 @@ final class ListBlockBuilder
                         $list->setTight(false);
                     }
                 }
-                $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+                $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 foreach ($itemLines as &$collectedLine) {
                     if (
                         str_starts_with($collectedLine, BlockGrammar::LAZY_FRAME)
@@ -666,7 +666,7 @@ final class ListBlockBuilder
                 if ($gap === BlockParser::GAP_LOOSENS) {
                     $list->setTight(false);
                 }
-                $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+                $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
                 if ($gap === BlockParser::GAP_CAPTION) {
                     $children = $listItem->getChildren();
@@ -760,7 +760,7 @@ final class ListBlockBuilder
             // collected above); a non-list block opener after lead text stays
             // paragraph text, so tryParseParagraph folds it into the lead
             // paragraph rather than splitting it into a separate block.
-            $listItem->setPos($this->spanForLineMap($itemLineMap, $itemOpeningColumn));
+            $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
             $leadMarker = ($this->getListParser)()->parseListItemMarker(ltrim($itemContent, " \t"));
             $leadNestedColumn = $leadMarker === null
                 ? null
@@ -787,6 +787,13 @@ final class ListBlockBuilder
             $list->setAttributesWithOrder($listAttributes, $listAttributeOrder);
         }
         $this->consumeLooseKey($list);
+        if (!$parent instanceof Document) {
+            if ($listOpeningColumn === null) {
+                $this->state->session->unplaceableNodeIds[spl_object_id($list)] = true;
+            } else {
+                $list->setPos($this->spanForLineMap([$listSourceLine], $listOpeningColumn));
+            }
+        }
         $parent->appendChild($list);
 
         return $i - $start;
@@ -3842,6 +3849,55 @@ final class ListBlockBuilder
         bool $itemBody = false,
     ): void {
         ($this->parseBlocksCallback)($parent, $lines, $indent, $lineMap, $topLevel, $itemBody);
+    }
+
+    private function resolveMarkerColumn(int $sourceLine, string $parsedLine): ?int
+    {
+        $source = $this->state->source->sourceLines[$sourceLine] ?? null;
+        if ($source === null) {
+            return null;
+        }
+        $markerLine = ltrim($parsedLine, " \t");
+        $sourceTail = rtrim($source, " \t");
+        $parsedTail = rtrim($markerLine, " \t");
+        $markerColumn = $parsedTail !== '' && str_ends_with($sourceTail, $parsedTail)
+            ? strlen($sourceTail) - strlen($parsedTail)
+            : null;
+        $boundary = $this->state->frame->currentContentColumns[$sourceLine] ?? 0;
+        $leading = strspn($source, " \t");
+        if ($markerColumn === $leading) {
+            $markerVisualColumn = IndentationHelper::getLeadingColumns($source);
+            $contentColumn = $markerVisualColumn - IndentationHelper::getLeadingColumns($parsedLine);
+            $column = 0;
+            for ($opening = 0; $opening < $leading; $opening++) {
+                $nextColumn = $source[$opening] === "\t"
+                    ? $column + IndentationHelper::TAB_STOP - ($column % IndentationHelper::TAB_STOP)
+                    : $column + 1;
+                if ($contentColumn < $nextColumn) {
+                    return $opening;
+                }
+                $column = $nextColumn;
+            }
+
+            return $leading;
+        }
+
+        if ($markerColumn !== null) {
+            return $markerColumn;
+        }
+
+        $markerLength = strcspn($markerLine, " \t");
+        $marker = substr($markerLine, 0, $markerLength);
+        $offset = $marker !== '' ? strpos($source, $marker, min($boundary, strlen($source))) : false;
+        while ($offset !== false) {
+            $before = $offset === 0 ? '' : $source[$offset - 1];
+            if ($before === '' || $before === ' ' || $before === "\t") {
+                return $offset;
+            }
+            $offset = strpos($source, $marker, $offset + 1);
+        }
+
+        return $boundary;
     }
 
     private function sourceLineFor(int $index): int
