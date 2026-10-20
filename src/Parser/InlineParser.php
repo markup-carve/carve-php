@@ -5324,6 +5324,16 @@ class InlineParser
             return $this->destinationScans[$urlStart] = null;
         }
 
+        $plainLength = strspn($text, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789:/._-?&=%+#', $urlStart);
+        $plainEnd = $urlStart + $plainLength;
+        if ($plainLength > 0 && ($text[$plainEnd] ?? '') === ')') {
+            return $this->destinationScans[$urlStart] = [
+                'end' => $plainEnd,
+                'url' => substr($text, $urlStart, $plainLength),
+                'title' => null,
+            ];
+        }
+
         // A destination's parentheses BALANCE: the scan ends at the first
         // `)` with no opener left to pair with, so a URL carrying a
         // parenthesis (Wikipedia, MDN) is written plainly. Djot and
