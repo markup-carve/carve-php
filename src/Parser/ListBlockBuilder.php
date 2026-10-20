@@ -528,15 +528,25 @@ final class ListBlockBuilder
             // Task list checkbox is considered part of content, not marker
             $markerWidth = $this->listMarkerWidth($trimmedLine, $itemInfo);
             $contentIndent = $baseIndent + $markerWidth;
-            $trailingState = new TrailingBlockState();
-            $trailingState = $this->advanceTrailingStateWithFenceLookahead(
-                $trailingState,
-                $itemContent,
-                $lines,
-                $i - 1,
-                false,
-                $contentIndent,
-            );
+            // A plain word lead opens a paragraph and cannot open a nested block.
+            if (
+                $this->advanceTrailingStateCallback === null
+                && $this->advanceTrailingStateWithFenceLookaheadCallback === null
+                && $itemContent !== ''
+                && ctype_alnum($itemContent[0])
+                && strspn($itemContent, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ') === strlen($itemContent)
+            ) {
+                $trailingState = new TrailingBlockState(openParagraph: true, isLead: false);
+            } else {
+                $trailingState = $this->advanceTrailingStateWithFenceLookahead(
+                    new TrailingBlockState(),
+                    $itemContent,
+                    $lines,
+                    $i - 1,
+                    false,
+                    $contentIndent,
+                );
+            }
             // Remember this item's content column for the next iteration's
             // post-blank / nested-marker continuation gate (content-column model).
             $lastItemContentIndent = $contentIndent;
