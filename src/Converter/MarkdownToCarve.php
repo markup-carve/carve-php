@@ -1967,6 +1967,10 @@ class MarkdownToCarve
         $quoteMarkers = [];
         $quotePrev = null;
         $quoteLazy = null;
+        $quoteRunContentAt = [];
+        $quoteBlankEnd = -1;
+        $quoteBlankFutureContent = false;
+        $quoteBlankPrefix = '';
         // Whether the last line left a paragraph open inside a list item, and
         // the quote prefix and column of a quote paragraph it left open there:
         // a lazy line continues either.
@@ -2302,6 +2306,13 @@ class MarkdownToCarve
                 && !$paragraphMarker;
 
             $contentCol = $listCols === [] ? 0 : (int)end($listCols);
+            if (
+                $prevLineType === 'blank' && $contentCol > 0 && !$isList && !$isBlockquote && !$isHeading
+                && $indent > $contentCol && $indent - $contentCol <= 3 && $this->isParagraphLine($lines, $i)
+            ) {
+                $line = str_repeat(' ', $contentCol) . ltrim($line, " \t");
+                $indent = $contentCol;
+            }
 
             // A line with no marker lazily continues the quote's open paragraph
             // (CommonMark 5.1) unless it opens a block of its own; four columns in
@@ -2311,6 +2322,9 @@ class MarkdownToCarve
                 $plain = preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) +/', $line) !== 1 && $this->isParagraphLine([$line], 0);
                 if ($plain || $this->indentWidth($line) >= 4) {
                     $text = $plain ? $line : $this->escapeBlockOpener(ltrim($line, " \t"));
+                    if (preg_match('/^:{3,}(?:[ \t]|$)/', ltrim($text, " \t")) === 1) {
+                        $text = '\\' . ltrim($text, " \t");
+                    }
                     $text = $this->escapeDefinitionContinuation($quoteLazy . $text, $lines[$i - 1] ?? '', (string)end($result));
                     if (
                         preg_match('/\]\(<[^>\n]*\\\\$/', $text) === 1
@@ -2333,6 +2347,7 @@ class MarkdownToCarve
                 $quoteMarkers = [];
                 $quotePrev = null;
                 $quoteLazy = null;
+                $quoteRunContentAt = [];
             }
 
             // Inside an open raw-HTML block the line is literal content, not a
@@ -2553,6 +2568,23 @@ class MarkdownToCarve
                 continue;
             }
             $tableWidth = 0;
+
+            $itemQuoteLine = $isBlockquote && $contentCol > 0
+                ? $this->normalizeBlockquoteMarkers($this->stripColumns($line, $contentCol)) : null;
+            if ($itemQuoteLine !== null && trim($itemQuoteLine, '> ') === '') {
+                if (
+                    $lazyQuote !== null && isset($lines[$i + 1]) && $this->indentWidth($lines[$i + 1]) < $contentCol
+                    && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?=[ \t]|$)/', $lines[$i + 1]) === 1
+                ) {
+                    $prevLineType = 'list';
+
+                    continue;
+                }
+                $result[] = str_repeat(' ', $contentCol) . rtrim($itemQuoteLine);
+                $prevLineType = 'list';
+
+                continue;
+            }
 
             if ($isBlockquote && $contentCol > 0) {
                 // A quoted setext heading on a line that is NOT the item's
@@ -2798,7 +2830,10 @@ class MarkdownToCarve
                     if ($result !== [] && trim((string)end($result)) !== '') {
                         $result[] = '';
                     }
-                    array_push($result, $pad . '```=html', $pad . "<h{$level}></h{$level}>", $pad . '```', '');
+                    array_push($result, $pad . '```=html', $pad . "<h{$level}></h{$level}>", $pad . '```');
+                    if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '') {
+                        $result[] = '';
+                    }
                     $prevLineType = 'heading';
 
                     continue;
@@ -2822,10 +2857,15 @@ class MarkdownToCarve
                     }
                     array_push($result, ...$quoteFence['lines']);
                     $i = $quoteFence['end'];
+                    $leavesQuote = $quoteFence['leavesQuote'];
+                    $separated = false;
                     if ($i + 1 < $lineCount && str_starts_with(ltrim($lines[$i + 1]), '>') && trim(ltrim(ltrim($lines[$i + 1]), '> ')) !== '') {
                         $result[] = $quotePrefix;
+                    } elseif ($leavesQuote && $i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?=[ \t]|$)/', $lines[$i + 1]) !== 1) {
+                        $result[] = '';
+                        $separated = true;
                     }
-                    $prevLineType = 'blockquote';
+                    $prevLineType = $separated ? 'blank' : 'blockquote';
                     $quotePrev = null;
                     $quoteLazy = null;
 
@@ -2861,6 +2901,35 @@ class MarkdownToCarve
                 }
                 if (str_starts_with($body, '>') && preg_match('/^((?:> )+)(.*)$/s', $body, $quoted) === 1) {
                     $quotedText = $quoted[2];
+                    if (trim($quotedText) === '') {
+                        if ($i >= $quoteBlankEnd || $quoteBlankPrefix !== $quoted[1]) {
+                            $quoteBlankPrefix = $quoted[1];
+                            $quoteBlankEnd = $i + 1;
+                            while ($quoteBlankEnd < $lineCount) {
+                                $candidate = $this->normalizeBlockquoteMarkers(ltrim($lines[$quoteBlankEnd], ' '));
+                                if (!str_starts_with($candidate, $quoted[1]) || trim(substr($candidate, strlen($quoted[1]))) !== '') {
+                                    break;
+                                }
+                                $quoteBlankEnd++;
+                            }
+                            $candidate = $quoteBlankEnd < $lineCount ? $this->normalizeBlockquoteMarkers(ltrim($lines[$quoteBlankEnd], ' ')) : '';
+                            $quoteBlankFutureContent = str_starts_with($candidate, '>');
+                        }
+                        if (!$quoteBlankFutureContent) {
+                            if ($i + 1 === $quoteBlankEnd && isset($quoteRunContentAt[$quoted[1]]) && isset($lines[$quoteBlankEnd]) && trim($lines[$quoteBlankEnd]) !== '') {
+                                $result[] = '';
+                                $prevLineType = 'blank';
+                            } elseif (!isset($quoteRunContentAt[$quoted[1]]) && rtrim((string)end($result)) !== rtrim($quoted[1])) {
+                                $result[] = rtrim($quoted[1]);
+                            }
+                            $quotePrev = null;
+                            $quoteLazy = null;
+
+                            continue;
+                        }
+                    } else {
+                        $quoteRunContentAt[$quoted[1]] = true;
+                    }
                     if ($quotePrev !== null && strlen($quoted[1]) < strlen($quotePrev['prefix']) && $this->quoteParagraphIsOpen($quotePrev['text']) && preg_match('/^(?:[-*+]|0*1[.)])(?:[ \t]|$)/', ltrim($quotedText)) === 1) {
                         $result[] = rtrim($quoted[1]);
                     }
@@ -3062,7 +3131,7 @@ class MarkdownToCarve
             // the same reason - a break has nothing to break there.
             // A quote line holding only spaces is a blank line of the quote.
             if (trim(ltrim($body, '> ')) === '') {
-                $converted = $this->quotePrefixOf($body);
+                $converted = rtrim($this->quotePrefixOf($body));
             } elseif (
                 !$isHeading
                 && preg_match('/ {2,}$/', $body)
@@ -4228,7 +4297,7 @@ class MarkdownToCarve
      * @param string $text
      * @param bool $inRun
      * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
-     * @param array{prefix: string, text: string}|null $prev
+     * @param array{prefix: string, text: string, itemQuote?: string}|null $prev
      * @param string|null $lazy
      * @param array<int, string|null> $result
      */
@@ -4258,6 +4327,14 @@ class MarkdownToCarve
         }
         $blank = trim($text) === '';
         if (
+            !$blank && $prev !== null && $prev['prefix'] === $prefix
+            && ($markers[$prefix] ?? null)?->openItemContentColumn() === null
+            && preg_match('/^#{1,6}(?:[ \t]|$)/', ltrim($prev['text'], " \t")) === 1
+            && $this->isParagraphLine([$text], 0)
+        ) {
+            $result[] = rtrim($prefix);
+        }
+        if (
             $prev !== null
             && strlen($prefix) > strlen($prev['prefix'])
             && str_starts_with($prefix, $prev['prefix'])
@@ -4282,11 +4359,30 @@ class MarkdownToCarve
         // read a heading, a break or a bullet there as a block of its own
         // (carve-php#2348, #2350).
         $openBefore = $list->openItemContentColumn();
+        $itemQuote = $prev['itemQuote'] ?? null;
+        $opensItem = preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $text) === 1;
+        if ($opensItem) {
+            $itemQuote = null;
+        }
+        if ($itemQuote === null && !$opensItem && $prev !== null && $prev['prefix'] === $prefix && preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) +((?:> ?)+)(.*)$/', $prev['text'], $heldQuote) === 1 && $this->quoteParagraphIsOpen($heldQuote[2])) {
+            $itemQuote = $this->normalizeBlockquoteMarkers($heldQuote[1] . 'x');
+            $itemQuote = substr($itemQuote, 0, -1);
+        }
+        if ($itemQuote === null && preg_match('/^[ \t]*(?:[-*+]|\d+[.)]) +((?:> ?)+)(.*)$/', $text, $heldQuote) === 1 && $this->quoteParagraphIsOpen($heldQuote[2])) {
+            $itemQuote = $this->normalizeBlockquoteMarkers($heldQuote[1] . 'x');
+            $itemQuote = substr($itemQuote, 0, -1);
+        }
+        $continuedByLazy = $prev === null && $lazy !== null && $openBefore !== null
+            && str_starts_with($lazy, $prefix . str_repeat(' ', $openBefore) . '>')
+            && $this->isParagraphLine([$text], 0);
+        if ($continuedByLazy) {
+            $itemQuote = substr($lazy, strlen($prefix) + $openBefore);
+        }
         $paragraphCol = $openBefore ?? 0;
         $farPastContent = $this->indentWidth($text) - $paragraphCol >= 4;
-        $continues = $prev !== null && $prev['prefix'] === $prefix
+        $continues = $continuedByLazy || ($prev !== null && $prev['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($prev['text'])
-            && ($this->continuesParagraph($text) || $farPastContent);
+            && ($this->continuesParagraph($text) || $farPastContent));
         $heldMarker = $prev !== null && $prev['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($prev['text']) && $this->isHeldOrderedMarker($text, $list);
         // A marker that interrupts the paragraph above it has to go on
@@ -4349,6 +4445,13 @@ class MarkdownToCarve
             if ($content > $this->indentWidth($text)) {
                 $written = str_repeat(' ', $content + $list->shiftAt($content)) . ltrim($written, " \t");
             }
+            if ($itemQuote !== null) {
+                $held = $this->escapeBlockOpener(ltrim($text, " \t"));
+                if (preg_match('/^:{3,}(?:[ \t]|$)/', $held) === 1) {
+                    $held = '\\' . $held;
+                }
+                $written = str_repeat(' ', $list->openItemContentColumn() ?? $content) . $itemQuote . $held;
+            }
         }
 
         if ($blank) {
@@ -4358,7 +4461,13 @@ class MarkdownToCarve
             $open = $this->quoteParagraphIsOpen($text);
             $mixed = $prev !== null && $prev['prefix'] !== $prefix && $this->quoteParagraphIsOpen($prev['text']);
             $lazy = !$open ? null : ($mixed || ($continues && $lazy === '') ? '' : $prefix);
+            if ($itemQuote !== null && $list->openItemContentColumn() !== null) {
+                $lazy = $prefix . str_repeat(' ', $list->openItemContentColumn()) . $itemQuote;
+            }
             $prev = ['prefix' => $prefix, 'text' => $text];
+            if ($itemQuote !== null) {
+                $prev['itemQuote'] = $itemQuote;
+            }
         }
 
         return $prefix . $written;
@@ -5026,17 +5135,16 @@ class MarkdownToCarve
         $markerCol = $this->columnWidth($marker[1]);
         $contentCol = $this->columnWidth($marker[0]);
         $count = count($lines);
-        $at = $start + 1;
-        while (
-            $at < $count
-            && trim($lines[$at]) !== ''
-            && preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $lines[$at]) !== 1
-            && $this->indentWidth($lines[$at]) >= $contentCol
-        ) {
-            $at++;
-        }
-        while ($at < $count && trim($lines[$at]) === '') {
-            $at++;
+        for ($at = $start + 1; $at < $count; $at++) {
+            if (trim($lines[$at]) === '') {
+                continue;
+            }
+            if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])[ \t]/', $lines[$at]) === 1 || $this->indentWidth($lines[$at]) < $contentCol) {
+                break;
+            }
+            if ($this->indentWidth($lines[$at]) > $contentCol) {
+                return false;
+            }
         }
 
         return $at === $count || $this->opensItemAtOrLeftOf($lines[$at], $markerCol, $parents);
@@ -5446,7 +5554,7 @@ class MarkdownToCarve
      * @param string $opener The opening line with its markers normalized.
      * @param int|null $sourceLine
      *
-     * @return array{lines: array<int, string>, end: int, prefix: string}|null
+     * @return array{lines: array<int, string>, end: int, prefix: string, depth: int, leavesQuote: bool}|null
      */
     protected function collectQuotedFence(array $lines, int $start, string $opener, ?int $sourceLine = null): ?array
     {
@@ -5482,7 +5590,10 @@ class MarkdownToCarve
         $output[0] = $prefix . $canonical . $info;
         $output[] = $prefix . $canonical;
 
-        return ['lines' => $output, 'end' => $end, 'prefix' => $prefix];
+        $next = $lines[$end + 1] ?? null;
+        $nextDepth = $next === null ? 0 : substr_count($this->quotePrefixOf($this->normalizeBlockquoteMarkers(ltrim($next, ' '))), '>');
+
+        return ['lines' => $output, 'end' => $end, 'prefix' => $prefix, 'depth' => $depth, 'leavesQuote' => $next !== null && $nextDepth < $depth];
     }
 
     /**
@@ -6269,7 +6380,7 @@ class MarkdownToCarve
      * @param string $prefix
      * @param int $index
      * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
-     * @param array{prefix: string, text: string}|null $prev
+     * @param array{prefix: string, text: string, itemQuote?: string}|null $prev
      * @param string|null $lazy
      * @param array<int, string|null> $result
      *
@@ -6587,7 +6698,8 @@ class MarkdownToCarve
             // Strip the container's columns plus the one indent step CommonMark
             // takes, then put the container's columns back, so the body sits at
             // the item's content column and its own indentation survives.
-            $dedented = $margin . $this->stripColumns($line, $contentCol + 4);
+            $dedented = $contentCol > 0 && trim($line) === '' && $this->indentWidth($line) <= $contentCol + 4
+                ? '' : $margin . $this->stripColumns($line, $contentCol + 4);
             $body[] = $dedented;
             $length = strlen($dedented);
             for ($i = 0; $i < $length; $i++) {
