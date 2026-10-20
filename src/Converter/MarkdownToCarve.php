@@ -36,6 +36,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\LabelKey;
 use MarkupCarve\Carve\Parser\Utility\AttributeParser;
 use MarkupCarve\Carve\Parser\Utility\BracketScanner;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
 use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\CarrierMarkers;
@@ -1801,6 +1802,9 @@ class MarkdownToCarve
      */
     public function convert(string $markdown): string
     {
+        if (MarkdownImportWork::$on) {
+            MarkdownImportWork::reset();
+        }
         if ($this->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
             $this->resolvedCrossrefs = [];
             try {
@@ -4196,6 +4200,10 @@ class MarkdownToCarve
             for ($at = $from, $count = count($result); $at < $count; $at++) {
                 $moved = [];
                 foreach (explode("\n", (string)$result[$at]) as $text) {
+                    if (MarkdownImportWork::$on) {
+                        MarkdownImportWork::$shiftLines++;
+                        MarkdownImportWork::$shiftBytes += strlen($text);
+                    }
                     $moved[] = $this->moveIndent($text, $col, $col + $by);
                 }
                 $result[$at] = implode("\n", $moved);
@@ -4626,6 +4634,9 @@ class MarkdownToCarve
     protected function setextParagraphEnd(array $lines, int $start, int $contentCol): ?int
     {
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
+            if (MarkdownImportWork::$on) {
+                MarkdownImportWork::$setextVisits++;
+            }
             $line = $lines[$at];
             $indent = $this->indentWidth($line);
             if (trim($line) === '' || $indent < $contentCol) {
@@ -5345,6 +5356,10 @@ class MarkdownToCarve
      */
     protected function separateLooseItems(string $source, array $sourceBlanks): string
     {
+        if (MarkdownImportWork::$on) {
+            MarkdownImportWork::$assemblyLines += substr_count($source, "\n") + 1;
+            MarkdownImportWork::$assemblyBytes += strlen($source);
+        }
         if (preg_match('/\n[ \t>]*\n/', $source) !== 1) {
             return $source;
         }
@@ -5353,9 +5368,19 @@ class MarkdownToCarve
             return $source;
         }
         try {
+            $layoutBefore = LayoutWork::total();
+            $layoutWasOn = LayoutWork::$on;
+            if (MarkdownImportWork::$on) {
+                LayoutWork::$on = true;
+            }
             $document = CarveConverter::carve()->parse($source);
         } catch (Throwable) {
             return $source;
+        } finally {
+            if (MarkdownImportWork::$on) {
+                MarkdownImportWork::$layoutWork += LayoutWork::total() - $layoutBefore;
+                LayoutWork::$on = $layoutWasOn;
+            }
         }
         $lines = explode("\n", $source);
         $before = [];
@@ -7008,6 +7033,9 @@ class MarkdownToCarve
         $end = $index;
         $count = count($lines);
         for ($at = $index + 1; $at < $count; $at++) {
+            if (MarkdownImportWork::$on) {
+                MarkdownImportWork::$paragraphVisits++;
+            }
             $candidate = $inside($lines[$at]);
             $escapedPointy = preg_match('/\]\(<[^>\n]*\\\\$/', (string)end($parts)) === 1;
             $partialPointy = false;
@@ -7061,6 +7089,10 @@ class MarkdownToCarve
 
     protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false, bool $unwrapEmptyDestinations = true): string
     {
+        if (MarkdownImportWork::$on) {
+            MarkdownImportWork::$inlineLines++;
+            MarkdownImportWork::$inlineBytes += strlen($line);
+        }
         $sourceInput = $line;
         $foldedSourceLines = [];
         foreach ($this->foldedHeadingSources as $heading => $segments) {
