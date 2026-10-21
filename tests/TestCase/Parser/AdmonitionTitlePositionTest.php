@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\Parser\BlockParser;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -43,6 +44,42 @@ class AdmonitionTitlePositionTest extends TestCase
 
         $this->assertArrayHasKey('pos', $title, 'a title\'s inline content must carry a position');
         $this->assertSame('Pro Tip', $this->sliceOf($source, $title['pos']));
+    }
+
+    public static function nestedTitleCases(): iterable
+    {
+        yield 'continued list item' => [
+            "- x\n+\n::: figure \"t\"\nhi\n:::\n^ cap\n- c\n",
+            ['children', 0, 'items', 0, 'children', 1, 'title', 0],
+        ];
+
+        yield 'definition body' => [
+            ":: d\n: ::: note \"t\"\n  body\n  :::\n",
+            ['children', 0, 'items', 1, 'children', 0, 'title', 0],
+        ];
+    }
+
+    public function testNestedUnicodeTitleUsesCodepointPosition(): void
+    {
+        $source = "- x\n+\n::: note \"ü\"\nbody\n:::\n";
+        $title = $this->ast($source)['children'][0]['items'][0]['children'][1]['title'][0];
+
+        $this->assertSame('ü', $this->sliceOf($source, $title['pos']));
+        $this->assertSame(1, $title['pos']['endOffset'] - $title['pos']['startOffset']);
+        $this->assertSame(1, $title['pos']['endColumn'] - $title['pos']['startColumn']);
+    }
+
+    #[DataProvider('nestedTitleCases')]
+    public function testNestedTitleUsesItsSourceLine(string $source, array $path): void
+    {
+        $title = $this->ast($source);
+        foreach ($path as $part) {
+            $title = $title[$part];
+        }
+
+        $this->assertArrayHasKey('pos', $title);
+        $this->assertSame(strpos($source, '"t"') + 1, $title['pos']['startOffset']);
+        $this->assertSame('t', $this->sliceOf($source, $title['pos']));
     }
 
     /**

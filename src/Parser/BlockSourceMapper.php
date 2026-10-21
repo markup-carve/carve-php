@@ -184,7 +184,7 @@ final class BlockSourceMapper
         $map = new SourceMap();
         $map->add(0, $lineStart + $column, strlen($title), $line + 1, $column + 1);
 
-        return $map;
+        return $map->withSource($this->positionSource(), $this->state->source->positionIndex);
     }
 
     /**
