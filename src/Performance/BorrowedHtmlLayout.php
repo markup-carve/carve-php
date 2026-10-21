@@ -101,6 +101,7 @@ final class BorrowedHtmlLayout
         if (!$this->eligibleSource($source, $streaming)) {
             return null;
         }
+        $this->output->setNbspPossible(str_contains($source, "\u{00A0}"));
 
         $lines = explode("\n", $source);
         if (end($lines) === '') {
@@ -279,12 +280,12 @@ final class BorrowedHtmlLayout
         $count = count($lines);
         while ($i < $count) {
             $line = $lines[$i];
-            if (trim($line) === '' || preg_match('/^\[[^\]]+\]:/', $line) === 1) {
+            if (trim($line) === '' || ($line[0] === '[' && preg_match('/^\[[^\]]+\]:/', $line) === 1)) {
                 $i++;
 
                 continue;
             }
-            if (preg_match('/^(#{1,6}) +(.*)$/', $line, $heading) === 1) {
+            if ($line[0] === '#' && preg_match('/^(#{1,6}) +(.*)$/', $line, $heading) === 1) {
                 $level = strlen($heading[1]);
                 $title = rtrim($heading[2]);
                 if ($this->inlineComplex($title) || preg_match('/[*\/`[]/', $title) === 1) {
@@ -842,6 +843,10 @@ final class BorrowedHtmlLayout
      */
     private function decimalListItem(string $line): ?array
     {
+        if ($line === '' || $line[0] < '0' || $line[0] > '9') {
+            return null;
+        }
+
         if (preg_match('/^(\d+)\. ([^ ].*)$/', $line, $match) !== 1) {
             return null;
         }
@@ -864,6 +869,10 @@ final class BorrowedHtmlLayout
 
     private function thematicBreak(string $line): bool
     {
+        if ($line === '' || !str_contains('-*_', $line[0])) {
+            return false;
+        }
+
         return preg_match('/^(?:-{3,}|\*{3,}|_{3,})$/', $line) === 1;
     }
 
@@ -872,6 +881,10 @@ final class BorrowedHtmlLayout
      */
     private function fenceOpen(string $line): ?array
     {
+        if (strlen($line) < 3 || ($line[0] !== '`' && $line[0] !== '~') || $line[0] !== $line[1] || $line[0] !== $line[2]) {
+            return null;
+        }
+
         if (preg_match('/^(`{3,}|~{3,})/', $line, $match) !== 1) {
             return null;
         }

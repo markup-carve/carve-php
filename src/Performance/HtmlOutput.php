@@ -16,11 +16,21 @@ final class HtmlOutput
 
     private bool $wrote = false;
 
+    private bool $nbspPossible = true;
+
     private ?Closure $sink;
 
     public function __construct(?callable $sink = null, private bool $discard = false)
     {
         $this->sink = $sink === null ? null : Closure::fromCallable($sink);
+    }
+
+    /**
+     * Only disable this for valid UTF-8 source text without nonbreaking spaces.
+     */
+    public function setNbspPossible(bool $possible): void
+    {
+        $this->nbspPossible = $possible;
     }
 
     public function push(string $first = '', string ...$parts): void
@@ -84,8 +94,16 @@ final class HtmlOutput
             return;
         }
         if ($this->sink === null) {
-            $this->pending .= $attribute ? StringUtil::escapeHtmlAttribute($text)
-                : str_replace("\u{00A0}", '&nbsp;', htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8'));
+            if ($attribute) {
+                $this->pending .= StringUtil::escapeHtmlAttribute($text);
+            } else {
+                if (!$this->nbspPossible && strpbrk($text, '&<>') === false) {
+                    $this->pending .= $text;
+                } else {
+                    $escaped = htmlspecialchars($text, ENT_NOQUOTES | ENT_HTML5, 'UTF-8');
+                    $this->pending .= $this->nbspPossible ? str_replace("\u{00A0}", '&nbsp;', $escaped) : $escaped;
+                }
+            }
 
             return;
         }
@@ -97,7 +115,9 @@ final class HtmlOutput
             }
             $chunk = substr($text, $offset, $end - $offset);
             $this->push($attribute ? StringUtil::escapeHtmlAttribute($chunk)
-                : str_replace("\u{00A0}", '&nbsp;', htmlspecialchars($chunk, ENT_NOQUOTES | ENT_HTML5, 'UTF-8')));
+                : ($this->nbspPossible
+                    ? str_replace("\u{00A0}", '&nbsp;', htmlspecialchars($chunk, ENT_NOQUOTES | ENT_HTML5, 'UTF-8'))
+                    : htmlspecialchars($chunk, ENT_NOQUOTES | ENT_HTML5, 'UTF-8')));
             $offset = $end;
         }
     }
