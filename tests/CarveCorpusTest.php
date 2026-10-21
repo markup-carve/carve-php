@@ -52,6 +52,9 @@ class CarveCorpusTest extends TestCase
     protected const IMPLEMENTED = [
         'a-fence-run-that-dedents-out-of-a-child-keeps-the-outer-item-tight',
         'generated-container-documents',
+        'a-tab-indented-nested-list-starts-at-its-marker',
+        'definition-body-note-and-fence-owner-boundaries',
+        'nested-plus-below-fence-and-description',
         'a-fence-run-folded-into-a-child-paragraph-loosens-the-outer-item',
         'a-caption-after-a-continuation-marker-fence-stays-with-the-fence',
         'a-lazily-folded-fence-opener-line-does-not-keep-a-list-tight',
@@ -1250,24 +1253,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '616-a-line-is-read-in-the-container-whose-column-it-reaches-7' => [
-            'reason' => 'carve#3447 CARVE-P2-017: a marker below the dd body column that reaches the item opens a sibling list',
-            'html' => "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>para</dd>\n    </dl>\n    <ul>\n      <li>li</li>\n    </ul>\n  </li>\n</ul>",
-        ],
-        '154-under-indented-definition-attaches-over-indented-definition-folds' => [
-            'reason' => 'carve#3451 auto-ruling and CARVE-P2-028: a separator one column in folds into the open term',
-            'html' => "<ul>\n  <li>one\n    <dl>\n      <dt>term\n:  def</dt>\n    </dl>\n  </li>\n</ul>",
-        ],
-        '154-under-indented-definition-attaches-over-indented-definition-folds-2' => [
-            'reason' => 'carve#3451: a separator at the outer marker column ends the item and is paragraph text',
-            'html' => "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>:  def</p>",
-        ],
-        '620-generated-container-documents' => [
-            'reason' => 'carve#3451: a separator at the outer marker column ends the item and is paragraph text',
-            'html' => "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </li>\n</ul>\n<p>:  head</p>\n<p>a</p>",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
