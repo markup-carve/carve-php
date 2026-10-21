@@ -1951,15 +1951,17 @@ final class ListBlockBuilder
     }
 
     /**
+     * Rebase authored block openers within a collected container body.
+     *
      * @param array<string> $lines
      * @param array<int, true>|null $eligible
-     * @param bool $skipBareColonOpeners
-     * @param int|null $unclosedFenceBase
-     * @param bool $absorbLeadNoteBody
-     * @param bool $skipOnlyClosedOpaqueAtMinimum
-     * @param bool $skipOpaqueAtMinimum
-     * @param bool $includeSublists
      * @param int|null $leadNestedColumn
+     * @param bool $includeSublists
+     * @param bool $skipOpaqueAtMinimum
+     * @param bool $skipOnlyClosedOpaqueAtMinimum
+     * @param bool $absorbLeadNoteBody Let a leading note own openers at its body floor.
+     * @param int|null $unclosedFenceBase
+     * @param bool $skipBareColonOpeners
      *
      * @return array<string>
      */
