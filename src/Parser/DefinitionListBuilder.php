@@ -595,7 +595,7 @@ final class DefinitionListBuilder
                     }
                     $noteReleased = $noteBodyColumn !== null && !IndentationHelper::isBlankLine($contLine)
                         && $contColumn < $noteBodyColumn;
-                    if ($bodyColumn->reaches($contLine) && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($contLine, " \t")) === 1) {
+                    if ($bodyColumn->classify($contLine) === 'content' && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($contLine, " \t")) === 1) {
                         $noteBodyColumn = $contColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                     } elseif ($noteReleased) {
                         $noteBodyColumn = null;
@@ -2040,7 +2040,7 @@ final class DefinitionListBuilder
     {
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
 
-        return $decision['reason'] === null && $decision['owner'] !== null && $decision['owner']['kind'] === 'description';
+        return (new IndentedContainerColumn(0))->ownsContinuation($decision, 'description');
     }
 
     /**

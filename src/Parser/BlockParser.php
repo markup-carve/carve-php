@@ -3558,8 +3558,8 @@ class BlockParser
                 ? $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($i))
                 : null;
             if (
-                $markerDecision !== null && $markerDecision['reason'] === null
-                && ($markerDecision['owner']['kind'] ?? null) === 'footnote'
+                $markerDecision !== null
+                && (new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN))->ownsContinuation($markerDecision, 'footnote')
             ) {
                 if (!$this->continuationFollowerIsEligible($i + 1)) {
                     break;
@@ -3610,7 +3610,7 @@ class BlockParser
                 ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
             $containerColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN, $authoredFloor);
-            $reaches = $containerColumn->reaches($nextLine, $authoredNext);
+            $reaches = $containerColumn->classify($nextLine, $authoredNext) === 'content';
             if ($reaches) {
                 $retainedBelowComment = false;
                 $bodyLine = $containerColumn->strip($nextLine);

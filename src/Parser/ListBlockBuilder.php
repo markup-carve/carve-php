@@ -399,7 +399,7 @@ final class ListBlockBuilder
             // column, which nested a block one space under the marker.
             if (
                 ($lastItemHadBlankAfter || $indentedListMarker)
-                && $lastItemColumn->reaches($currentLine)
+                && $lastItemColumn->classify($currentLine) === 'content'
             ) {
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = ($this->getListParser)()->getLastListItem($list);
@@ -2405,8 +2405,7 @@ final class ListBlockBuilder
         $sourceLine = $this->sourceLineFor($index);
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
 
-        return ($decision['reason'] === null || $decision['reason'] === 'sibling' && ($decision['owner']['first'] ?? false)) && $decision['owner'] !== null
-            && $decision['owner']['kind'] === 'list';
+        return (new IndentedContainerColumn(0))->ownsContinuation($decision, 'list', true);
     }
 
     private function acceptedContinuationMarker(int $index): bool

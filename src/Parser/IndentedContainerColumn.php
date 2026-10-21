@@ -32,4 +32,45 @@ final class IndentedContainerColumn
     {
         return IndentationHelper::stripLeadingColumns($line, $this->contentColumn);
     }
+
+    /**
+     * Check whether a continuation marker belongs to this container kind.
+     *
+     * @param array{reason: ?string, owner: ?array<string, mixed>} $decision
+     * @param string $kind
+     * @param bool $allowFirstSibling
+     */
+    public function ownsContinuation(array $decision, string $kind, bool $allowFirstSibling = false): bool
+    {
+        return ($decision['owner']['kind'] ?? null) === $kind
+            && ($decision['reason'] === null
+                || ($allowFirstSibling && $decision['reason'] === 'sibling' && ($decision['owner']['first'] ?? false)));
+    }
+
+    /**
+     * Classify an admitted line against the container content column.
+     *
+     * @param string $line
+     * @param int|null $authoredColumn
+     * @param array{reason: ?string, owner: ?array<string, mixed>}|null $decision
+     * @param string|null $kind
+     *
+     * @return 'blank'|'content'|'owned-continuation'|'outside'
+     */
+    public function classify(string $line, ?int $authoredColumn = null, ?array $decision = null, ?string $kind = null): string
+    {
+        if (IndentationHelper::isBlankLine($line)) {
+            return 'blank';
+        }
+
+        if ($this->reaches($line, $authoredColumn)) {
+            return 'content';
+        }
+
+        if ($decision !== null && $kind !== null && $this->ownsContinuation($decision, $kind)) {
+            return 'owned-continuation';
+        }
+
+        return 'outside';
+    }
 }
