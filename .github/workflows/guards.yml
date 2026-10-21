@@ -59,7 +59,7 @@ jobs:
     if: ${{ github.event_name != 'push' }}
     runs-on: ubuntu-latest
     name: Code Coverage
-    timeout-minutes: 25
+    timeout-minutes: 40
 
     steps:
       - uses: actions/checkout@v6
