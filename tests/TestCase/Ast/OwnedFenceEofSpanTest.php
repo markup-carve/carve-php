@@ -49,6 +49,7 @@ class OwnedFenceEofSpanTest extends TestCase
                         if ($terminated) {
                             $source .= "\n";
                             $content .= "\n";
+                            $end++;
                         }
 
                         yield "$kind $host text=$text LF=$terminated" => [$source, $content, $end];
@@ -106,8 +107,8 @@ class OwnedFenceEofSpanTest extends TestCase
     {
         $document = (new BlockParser(trackPositions: true))->parse("> ```\n> \n\noutside\n");
         $quote = $document->getChildren()[0];
-        self::assertSame(8, $quote->getPos()?->endOffset);
-        self::assertSame(8, $quote->getChildren()[0]->getPos()?->endOffset);
+        self::assertSame(9, $quote->getPos()?->endOffset);
+        self::assertSame(9, $quote->getChildren()[0]->getPos()?->endOffset);
         self::assertSame('paragraph', $document->getChildren()[1]->getType());
     }
 

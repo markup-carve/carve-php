@@ -26,6 +26,7 @@ use MarkupCarve\Carve\Node\Inline\SoftBreak;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use WeakMap;
 
 /**
@@ -1351,6 +1352,21 @@ final class BlockSourceMapper
         }
 
         $endOffset = $end + ($endBytesOnEndLine ?? strlen($this->state->source->sourceLines[$endLine] ?? ''));
+        if (LayoutWork::$on && ($node instanceof CodeBlock || $node instanceof RawBlock)) {
+            LayoutWork::$spanStamps++;
+        }
+        $positionEndLine = $endLine + 1;
+        $positionEndLineByte = $end;
+        if (
+            ($node instanceof CodeBlock || $node instanceof RawBlock)
+            && $this->isBlankAtContentColumn($endLine)
+            && str_ends_with($node->getContent(), "\n")
+            && ($this->state->source->normalizedSource[$endOffset] ?? null) === "\n"
+        ) {
+            $endOffset++;
+            $positionEndLine++;
+            $positionEndLineByte = $endOffset;
+        }
         // PART 12 §4: begin at the markup that opens THIS block, not at the
         // container prefix that carried its line (carve#913).
         $opening = $start + ($this->state->frame->currentContentColumns[$startLine] ?? 0);
@@ -1364,9 +1380,9 @@ final class BlockSourceMapper
             min($opening, $endOffset),
             $endOffset,
             $startLine + 1,
-            $endLine + 1,
+            $positionEndLine,
             $start,
-            $end,
+            $positionEndLineByte,
         ));
     }
 

@@ -90,6 +90,8 @@ final class LayoutWork
 
     public static int $markerExtentWork = 0;
 
+    public static int $spanStamps = 0;
+
     /**
      * Reset every counter.
      *
@@ -108,6 +110,7 @@ final class LayoutWork
         self::$markerStackEntriesExamined = 0;
         self::$markerFollowerProbes = 0;
         self::$markerExtentWork = 0;
+        self::$spanStamps = 0;
     }
 
     /**
