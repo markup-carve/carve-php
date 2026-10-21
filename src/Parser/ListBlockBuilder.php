@@ -1219,6 +1219,7 @@ final class ListBlockBuilder
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, '');
                 }
                 $hadSubListMarker = $subSawListMarker;
+                $hadSubTerm = $subTermColumn !== null;
                 if ($strippedIsMarker) {
                     $subSawListMarker = true;
                     $subListMarkerLine = $stripped;
@@ -1233,7 +1234,12 @@ final class ListBlockBuilder
                 // The first nested marker starts at the item's content column
                 // even if the preceding paragraph was farther indented. Keep
                 // later markers at their source columns for sibling ownership.
-                $subLines[] = $strippedIsMarker && !$hadSubListMarker && $subTrailingState->openParagraph
+                // A definition body or open div owns its own child column.
+                $subLines[] = $strippedIsMarker
+                    && !$hadSubListMarker
+                    && !$hadSubTerm
+                    && $subTrailingState->openParagraph
+                    && !$subTrailingState->hasOpenDiv()
                     ? ltrim($stripped, " \t") : $stripped;
                 $subLineMap[] = $this->sourceLineFor($i);
                 // AT OR PAST the item's content column, exactly as
