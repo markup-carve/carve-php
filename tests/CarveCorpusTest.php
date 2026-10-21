@@ -50,10 +50,6 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
-        // Spec 3a0b958 adds four folded-fence corpus sources; all match their HTML.
-        'a-folded-fence-run-leaves-a-later-paragraph-loose',
-        'a-folded-child-fence-keeps-the-below-column-line-in-its-paragraph',
-        'an-unclosed-fence-run-with-no-closer-in-its-item-does-not-hide-a-blank-line',
         'a-fence-run-that-dedents-out-of-a-child-keeps-the-outer-item-tight',
         'a-folded-fence-run-leaves-a-later-paragraph-loose',
         'a-folded-child-fence-keeps-the-below-column-line-in-its-paragraph',
