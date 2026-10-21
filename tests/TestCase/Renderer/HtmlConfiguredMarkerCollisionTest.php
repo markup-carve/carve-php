@@ -84,4 +84,19 @@ class HtmlConfiguredMarkerCollisionTest extends TestCase
             (new CarveConverter(renderer: $renderer))->convert(":rocket: \u{E005}"),
         );
     }
+
+    public function testParsedSourceGuardsWithEscapesAndAmpersands(): void
+    {
+        $renderer = new HtmlRenderer();
+        $parser = new BlockParser();
+        $sources = [
+            "\\* & \u{E001}\u{E002}\u{E003}\u{E004}\nnext",
+            "\\* &#xE001; \u{E002}\nnext",
+        ];
+        foreach ($sources as $source) {
+            $document = $parser->parse($source);
+
+            $this->assertSame($renderer->render($document), $renderer->renderParsedSource($document, $source));
+        }
+    }
 }

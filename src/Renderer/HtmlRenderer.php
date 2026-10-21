@@ -853,9 +853,11 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     public function renderParsedSource(Document $document, string $source): string
     {
-        // Escapes and entities can create characters absent from the source.
+        // Numeric entities can create private-use characters absent from the
+        // source. Backslash escapes only expose characters already present in
+        // it, and named HTML entities do not encode private-use characters.
         if (
-            str_contains($source, '\\') || str_contains($source, '&')
+            str_contains($source, '&#')
             || $this->staticRenderExtensions !== [] || $this->staticRenderers !== []
         ) {
             return $this->render($document);
