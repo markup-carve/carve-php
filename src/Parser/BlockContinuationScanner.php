@@ -3707,10 +3707,14 @@ final class BlockContinuationScanner
                 if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null) {
                     return false;
                 }
-                // An opener past the host column may close at the host column;
-                // any other line at that column ends the search.
+                // An opener past the host column may close at the host column.
+                // Other lines there are fence payload, including a `+`.
                 if ($hostColumns !== null && $indent === $hostColumns && !IndentationHelper::isBlankLine($line)) {
-                    return ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length']);
+                    if (($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length'])) {
+                        return true;
+                    }
+
+                    continue;
                 }
 
                 continue;
