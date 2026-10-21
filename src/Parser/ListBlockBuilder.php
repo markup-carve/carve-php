@@ -1072,7 +1072,9 @@ final class ListBlockBuilder
                 break;
             }
             $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $sourceLine - 1);
-            if ($firstBlockOwner !== null && !$this->continuationMarkerHasIndentedFollower($i, $count, $lines)) {
+            // A marker-shaped payload line cannot attach a block outside the
+            // open fence. Its closer is still read in this stream.
+            if ($firstBlockOwner !== null && $subTrailingState->fence === null && !$this->continuationMarkerHasIndentedFollower($i, $count, $lines)) {
                 [$end, $attached, $rawMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 foreach ($attached as $at => $attachedLine) {
                     $subLines[] = $attachedLine;
@@ -1216,6 +1218,8 @@ final class ListBlockBuilder
                     $subLineMap[] = -1;
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, '');
                 }
+                $hadSubListMarker = $subSawListMarker;
+                $hadSubTerm = $subTermColumn !== null;
                 if ($strippedIsMarker) {
                     $subSawListMarker = true;
                     $subListMarkerLine = $stripped;
@@ -1227,7 +1231,16 @@ final class ListBlockBuilder
                 // branches below and arrives looking the same, so
                 // only this record tells them apart.
                 $subEligible[count($subLines)] = true;
-                $subLines[] = $stripped;
+                // The first nested marker starts at the item's content column
+                // even if the preceding paragraph was farther indented. Keep
+                // later markers at their source columns for sibling ownership.
+                // A definition body or open div owns its own child column.
+                $subLines[] = $strippedIsMarker
+                    && !$hadSubListMarker
+                    && !$hadSubTerm
+                    && $subTrailingState->openParagraph
+                    && !$subTrailingState->hasOpenDiv()
+                    ? ltrim($stripped, " \t") : $stripped;
                 $subLineMap[] = $this->sourceLineFor($i);
                 // AT OR PAST the item's content column, exactly as
                 // in collectPlainListItemContinuation(): an
@@ -1592,7 +1605,9 @@ final class ListBlockBuilder
                     && $subLines !== []
                     && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
                 ) {
-                    $subLines[] = $trimmedLine;
+                    // An existing inline fence keeps its ordinary paragraph boundary.
+                    $subLines[] = $subInlineFenceParagraph
+                        ? $trimmedLine : BlockGrammar::LAZY_FRAME . $trimmedLine;
                     $subLineMap[] = $this->sourceLineFor($i);
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
                     $i++;

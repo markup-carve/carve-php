@@ -3694,6 +3694,11 @@ final class BlockContinuationScanner
      */
     public function itemFenceCloserAhead(array $lines, int $openIndex, array $opener, int $columns, ?int $hostColumns = null): bool
     {
+        $prior = $lines[$openIndex - 1] ?? '';
+        if ((($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($prior, " \t"))['className'] ?? null) === '|') {
+            // A literal div reads its first body line as text, even when it looks like a fence.
+            return false;
+        }
         $char = $opener['char'] ?? $opener['fence'][0];
         if (!$this->codeCloserPossible($this->fenceCloserIndex($lines)['code'], $char, $opener['length'], $openIndex)) {
             return false;
@@ -3707,10 +3712,14 @@ final class BlockContinuationScanner
                 if (($this->getListParser)()->parseListItemMarker(ltrim($line, " \t")) !== null) {
                     return false;
                 }
-                // An opener past the host column may close at the host column;
-                // any other line at that column ends the search.
+                // An opener past the host column may close at the host column.
+                // Other lines there are fence payload, including a `+`.
                 if ($hostColumns !== null && $indent === $hostColumns && !IndentationHelper::isBlankLine($line)) {
-                    return ($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length']);
+                    if (($this->getFencedBlockParser)()->isCodeFenceCloser(ltrim($line, " \t"), $char, $opener['length'])) {
+                        return true;
+                    }
+
+                    continue;
                 }
 
                 continue;
