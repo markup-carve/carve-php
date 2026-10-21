@@ -28,7 +28,7 @@ final class IndentedContainerCollector
      *
      * @throws \LogicException
      *
-     * @return \Generator<array{index: int, line: string, source: string, sourceColumn: int, kind: 'blank'|'content'|'below'|'outside', precedingBlanks: array<int>}>
+     * @return \Generator<array{index: int, line: string, source: string, sourceColumn: int, kind: 'blank'|'content'|'owned-continuation'|'below'|'outside', precedingBlanks: list<int>}>
      */
     public static function admissions(
         array $lines,
