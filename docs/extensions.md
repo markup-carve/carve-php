@@ -1784,6 +1784,12 @@ order. `addInlinePattern()` and `addBlockPattern()` remain available as regex
 sugar over the same matcher contract. Callback examples live in
 [`CustomPatternsTest.php`](../tests/TestCase/Parser/CustomPatternsTest.php).
 
+For custom blocks, register an `addBlockMatcher()` callback through an
+extension's `register()` method. Return a block node and the number of lines
+consumed, or `null` to let parsing continue. The parser also exposes
+`addBlockPattern()` for regex-based callbacks. Subclassing `BlockParser` and
+overriding protected parse methods is outside this extension contract.
+
 For a raw-closure `addInlineMatcher()`, pass `triggerChars` (the literal first
 bytes the matcher can ever fire on, e.g. `'{'` above) so the parser only invokes
 it at those positions. Without it, the matcher runs at **every** scan position
