@@ -51,6 +51,9 @@ class CarveCorpusTest extends TestCase
      */
     protected const IMPLEMENTED = [
         'a-fence-run-that-dedents-out-of-a-child-keeps-the-outer-item-tight',
+        'a-folded-fence-run-leaves-a-later-paragraph-loose',
+        'a-folded-child-fence-keeps-the-below-column-line-in-its-paragraph',
+        'an-unclosed-fence-run-with-no-closer-in-its-item-does-not-hide-a-blank-line',
         'generated-container-documents',
         'a-tab-indented-nested-list-starts-at-its-marker',
         'definition-body-note-and-fence-owner-boundaries',
