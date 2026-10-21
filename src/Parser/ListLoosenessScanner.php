@@ -63,8 +63,8 @@ final class ListLoosenessScanner
             $expanded = [];
             foreach ($subLines as $entry) {
                 $lazy = str_starts_with($entry, BlockGrammar::LAZY_FRAME);
-                foreach (explode("\n", $lazy ? BlockGrammar::stripLazyFrame($entry) : $entry) as $part) {
-                    $expanded[] = $lazy ? BlockGrammar::LAZY_FRAME . $part : $part;
+                foreach (explode("\n", $lazy ? BlockGrammar::stripLazyFrame($entry) : $entry) as $partIndex => $part) {
+                    $expanded[] = ($lazy || $partIndex > 0) ? BlockGrammar::LAZY_FRAME . $part : $part;
                 }
             }
             $subLines = $expanded;
@@ -146,8 +146,8 @@ final class ListLoosenessScanner
             $opener = $this->fencedBlockParser()->parseCodeFenceOpener($authored)
                 ?? $this->fencedBlockParser()->parseRawBlockOpener($authored);
             if (
-                $opener !== null && $k > 0 && $subCol > 0
-                && IndentationHelper::getLeadingColumns($subLines[$k - 1], $subCol) < $subCol
+                $opener !== null && $k > 0
+                && ($subCol < 0 || IndentationHelper::getLeadingColumns($subLines[$k - 1], $subCol) < $subCol)
                 && $subLines[$k - 1] !== ''
                 && ($this->listParser()->parseListItemMarker(ltrim($subLines[$k - 1], " \t")) !== null
                     || !($this->lineOpensBlockForLooseness)($subLines[$k - 1]))
