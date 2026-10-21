@@ -216,4 +216,14 @@ class HtmlBreakGuardsAreNotFixedControlBytesTest extends TestCase
             (new CarveConverter())->convert("a\u{E000}b\nc\n"),
         );
     }
+
+    public function testAstConversionReservesAuthoredPrivateUseCharacters(): void
+    {
+        $source = "cafe\u{0301} \u{E001}\u{E002}\u{E003}\u{E004}\nnext\n";
+        $converter = new CarveConverter();
+
+        self::assertSame('needs-ast', $converter->tryRenderHtmlStreaming($source, static function (string $chunk): void {
+        }));
+        self::assertSame($converter->render($converter->parse($source)), $converter->convert($source));
+    }
 }
