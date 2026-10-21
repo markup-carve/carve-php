@@ -104,10 +104,9 @@ final class DefinitionListBuilder
             // of lines between comments is parsed on its own.
             /** @var list<array{lines: list<string>, sources: list<int>}|\MarkupCarve\Carve\Node\Block\Comment> $parts */
             $parts = [['lines' => [$termText], 'sources' => [$termStart]]];
-            $termColumn = self::authoredSubjectColumn(
-                ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($termStart)] ?? ''),
-                trim($lines[$termStart], " \t"),
-            );
+            $termSourceLine = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($termStart)] ?? '');
+            $termColumn = self::authoredSubjectColumn($termSourceLine, trim($lines[$termStart], " \t"));
+            $termHasOwnColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($termSourceLine, " \t")) === 1;
             $i++;
             // A term folds a following plain line like a heading (soft
             // break), so a wrapped term line does not strand the definition.
@@ -115,7 +114,7 @@ final class DefinitionListBuilder
             // list marker ends the term.
             while ($i < $count) {
                 $nextLine = $lines[$i];
-                if ($termColumn !== null && $nextLine !== ltrim($nextLine, " \t")) {
+                if ($termHasOwnColumn && $termColumn !== null && $nextLine !== ltrim($nextLine, " \t")) {
                     $nextColumn = self::authoredSubjectColumn(
                         ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? ''),
                         trim($nextLine, " \t"),
@@ -423,7 +422,7 @@ final class DefinitionListBuilder
                         ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? ''),
                         trim($lines[$i], " \t"),
                     );
-                    if ($termColumn !== null && $separatorColumn === $termColumn) {
+                    if ($termHasOwnColumn && $termColumn !== null && $separatorColumn === $termColumn) {
                         $lines[$i] = ltrim($lines[$i], " \t");
                     }
                 }
@@ -559,6 +558,7 @@ final class DefinitionListBuilder
                 $attachedDefinitionListOpen = false;
                 $bodyListContentColumns = [];
                 $bodyDescriptionContentColumns = [];
+                $preReleaseListEntries = [];
                 $releasedListLine = null;
                 $releasedBlockBase = null;
                 $syntheticTermColumns = [];
@@ -567,6 +567,7 @@ final class DefinitionListBuilder
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     $contColumn = IndentationHelper::getLeadingColumns($contLine);
+                    $releasedMarkerEntry = false;
                     if ($reachedTermColumn !== null && !IndentationHelper::isBlankLine($contLine) && $contColumn < $reachedTermColumn) {
                         $reachedTermColumn = null;
                     }
@@ -909,12 +910,10 @@ final class DefinitionListBuilder
                             && $bodyNestedState->fence === null
                         ) {
                             // CARVE-P2-017: the inner body cannot withhold this outer column.
-                            while (
-                                $bodyDescriptionContentColumns !== []
-                                && $contColumn < $bodyDescriptionContentColumns[array_key_last($bodyDescriptionContentColumns)]
-                            ) {
+                            while ($bodyDescriptionContentColumns !== [] && $contColumn < $bodyDescriptionContentColumns[array_key_last($bodyDescriptionContentColumns)]) {
                                 array_pop($bodyDescriptionContentColumns);
                             }
+                            $releasedMarkerEntry = true;
                             $body[] = '';
                             $bodyMap[] = -1;
                             $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
@@ -1372,6 +1371,10 @@ final class DefinitionListBuilder
                             $reachedTermColumn = $contColumn;
                         }
                         $body[] = $entry;
+                        if ($releasedMarkerEntry) {
+                            $preReleaseListEntries[$this->sourceLineFor($i)] = $entry;
+                            $releasedMarkerEntry = false;
+                        }
                         $bodyMap[] = $this->sourceLineFor($i);
                         if (
                             $bodyNestedState->fence === null
@@ -1418,6 +1421,7 @@ final class DefinitionListBuilder
                                 && $afterColumn < $bodyDescriptionContentColumns[array_key_last($bodyDescriptionContentColumns)]
                             ) {
                                 array_pop($bodyDescriptionContentColumns);
+                                $releasedListLine = $look;
                             }
                             if (
                                 $bodyListContentColumns !== []
@@ -1717,6 +1721,12 @@ final class DefinitionListBuilder
                         skipOnlyClosedOpaqueAtMinimum: true,
                         absorbLeadNoteBody: true,
                     );
+                    // CARVE-P2-017: keep a released marker's column after rebasing neighboring blocks.
+                    foreach ($bodyMap as $entryIndex => $entrySource) {
+                        if (isset($preReleaseListEntries[$entrySource]) && !str_contains($body[$entryIndex], "\n")) {
+                            $body[$entryIndex] = $preReleaseListEntries[$entrySource];
+                        }
+                    }
                 }
                 $syntheticTermColumn = null;
                 $syntheticTermEntryColumn = 0;
