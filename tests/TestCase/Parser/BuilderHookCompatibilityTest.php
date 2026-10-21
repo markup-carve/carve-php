@@ -12,6 +12,77 @@ use PHPUnit\Framework\TestCase;
 
 class BuilderHookCompatibilityTest extends TestCase
 {
+    public function testMarkerLeadCollectorKeepsTheSubclassOverride(): void
+    {
+        $parser = new class extends BlockParser {
+            public int $calls = 0;
+
+            protected function collectMarkerLeadItem(
+                array $lines,
+                int $i,
+                int $count,
+                int $baseIndent,
+                int $contentIndent,
+                array &$itemLines,
+                array &$itemLineMap,
+                array &$authoredBaseEligible = [],
+            ): int {
+                $this->calls++;
+
+                return parent::collectMarkerLeadItem(
+                    $lines,
+                    $i,
+                    $count,
+                    $baseIndent,
+                    $contentIndent,
+                    $itemLines,
+                    $itemLineMap,
+                    $authoredBaseEligible,
+                );
+            }
+        };
+
+        $parser->parse("- - inner\n  continuation\n");
+
+        self::assertGreaterThan(0, $parser->calls);
+    }
+
+    public function testLoosenessScannerKeepsTheColonSpanOverride(): void
+    {
+        $parser = new class extends BlockParser {
+            public int $calls = 0;
+
+            protected function colonSpanEndForLooseness(array $subLines, int $openIdx, int $fenceLength): int
+            {
+                $this->calls++;
+
+                return parent::colonSpanEndForLooseness($subLines, $openIdx, $fenceLength);
+            }
+        };
+
+        $parser->parse("- :::\n  x\n  :::\n\n  y\n");
+
+        self::assertGreaterThan(0, $parser->calls);
+    }
+
+    public function testContinuationScannerKeepsTheDefinitionBodyOverride(): void
+    {
+        $parser = new class extends BlockParser {
+            public int $calls = 0;
+
+            protected function advanceItemDefinitionBody(?int $openColumn, string $line): ?int
+            {
+                $this->calls++;
+
+                return parent::advanceItemDefinitionBody($openColumn, $line);
+            }
+        };
+
+        $parser->parse("- :: term\n  : body\n\n  more\n");
+
+        self::assertGreaterThan(0, $parser->calls);
+    }
+
     public function testAttachedContinuationsHonorTheExistingCollectorSignature(): void
     {
         foreach (["- a\n+\n", "- +\n"] as $lead) {
