@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Parser\Block\ListParser;
@@ -51,6 +52,54 @@ final class BlockParseSession
     public function foldedFenceColumn(Paragraph $paragraph): ?int
     {
         return $this->foldedFenceColumns[$paragraph] ?? null;
+    }
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, bool>|null
+     */
+    private ?WeakMap $foldedCloserBelowBase = null;
+
+    public function recordFoldedCloserBelowBase(Paragraph $paragraph): void
+    {
+        $this->foldedCloserBelowBase ??= new WeakMap();
+        $this->foldedCloserBelowBase[$paragraph] = true;
+    }
+
+    public function foldedCloserBelowBase(Paragraph $paragraph): bool
+    {
+        return $this->foldedCloserBelowBase[$paragraph] ?? false;
+    }
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Div, int>|null
+     */
+    private ?WeakMap $divOpenerColumns = null;
+
+    public function recordDivOpenerColumn(Div $div, int $column): void
+    {
+        $this->divOpenerColumns ??= new WeakMap();
+        $this->divOpenerColumns[$div] = $column;
+    }
+
+    public function divOpenerColumn(Div $div): ?int
+    {
+        return $this->divOpenerColumns[$div] ?? null;
+    }
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, int>|null
+     */
+    private ?WeakMap $admittedBlockBelowFoldedFenceColumns = null;
+
+    public function recordAdmittedBlockBelowFoldedFenceColumn(Paragraph $paragraph, int $column): void
+    {
+        $this->admittedBlockBelowFoldedFenceColumns ??= new WeakMap();
+        $this->admittedBlockBelowFoldedFenceColumns[$paragraph] = $column;
+    }
+
+    public function admittedBlockBelowFoldedFenceColumn(Paragraph $paragraph): ?int
+    {
+        return $this->admittedBlockBelowFoldedFenceColumns[$paragraph] ?? null;
     }
 
     /**

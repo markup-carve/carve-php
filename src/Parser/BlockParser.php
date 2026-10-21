@@ -2058,12 +2058,14 @@ class BlockParser
         $count = count($lines);
         $childrenBeforeBlank = null;
         $blankFollowerColumn = null;
+        $blankFollowerLine = null;
 
         while ($i < $count) {
             if ($childrenBeforeBlank !== null && count($parent->getChildren()) > $childrenBeforeBlank) {
-                $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn);
+                $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
                 $childrenBeforeBlank = null;
                 $blankFollowerColumn = null;
+                $blankFollowerLine = null;
             }
             $line = $lines[$i];
 
@@ -2079,6 +2081,14 @@ class BlockParser
             if ($childrenBeforeBlank !== null) {
                 $blankFollowerColumn = $this->authoredColumnOf($i, $line)
                     ?? IndentationHelper::getLeadingColumns($line);
+                if ($blankFollowerColumn === 0) {
+                    $physicalLine = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? $line;
+                    if (str_starts_with(ltrim($physicalLine), '>')) {
+                        $reach = ContainerPrefix::composedReach($physicalLine);
+                        $blankFollowerColumn = $reach[count($reach) - 1]['to'];
+                    }
+                }
+                $blankFollowerLine = $line;
             }
 
             // Try to parse block attributes first
@@ -2238,15 +2248,19 @@ class BlockParser
             CycleCollection::checkpoint();
         }
         if ($childrenBeforeBlank !== null) {
-            $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn);
+            $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
         }
         if ($topLevel) {
             $this->endContainerAttributeScope();
         }
     }
 
-    private function recordParsedItemBlank(Node $parent, int $childrenBeforeBlank, ?int $followerColumn): void
-    {
+    private function recordParsedItemBlank(
+        Node $parent,
+        int $childrenBeforeBlank,
+        ?int $followerColumn,
+        ?string $followerLine,
+    ): void {
         if (!$parent instanceof ListItem) {
             return;
         }
@@ -2258,7 +2272,7 @@ class BlockParser
             if (
                 $nextFence !== null && $itemContentColumn !== null
                 && $nextFence > $itemContentColumn
-                && ($nextFence === $followerColumn || $followerColumn === 0)
+                && $nextFence === $followerColumn
             ) {
                 return;
             }
@@ -2267,11 +2281,48 @@ class BlockParser
         if ($previous instanceof Paragraph && $followerColumn !== null) {
             $fenceColumn = $this->state->session->foldedFenceColumn($previous);
             $itemContentColumn = $this->state->session->listItemContentColumn($parent);
+            $admittedBlockFence = $this->state->session->admittedBlockBelowFoldedFenceColumn($previous);
+            if (
+                $admittedBlockFence !== null && $followerColumn < $admittedBlockFence
+                && $next instanceof Paragraph && $followerLine !== null
+                && $this->lineOpensBlockForLooseness(ltrim($followerLine, " \t"))
+            ) {
+                $this->state->session->recordAdmittedBlockBelowFoldedFenceColumn($next, $admittedBlockFence);
+
+                return;
+            }
+            if (
+                $fenceColumn !== null && $next instanceof Paragraph
+                && $itemContentColumn !== null
+                && $followerColumn < $fenceColumn
+                && !$this->state->session->foldedCloserBelowBase($previous)
+                && ($this->state->session->parsedNestedListContentColumn($parent) === null
+                    || $followerColumn < $this->state->session->parsedNestedListContentColumn($parent))
+            ) {
+                if ($followerLine !== null && $this->lineOpensBlockForLooseness(ltrim($followerLine, " \t"))) {
+                    $this->state->session->recordAdmittedBlockBelowFoldedFenceColumn($next, $fenceColumn);
+                }
+
+                return;
+            }
             if (
                 $fenceColumn !== null && ($followerColumn > $fenceColumn
                 || $followerColumn === $fenceColumn
                     && $itemContentColumn !== null && $fenceColumn > $itemContentColumn)
             ) {
+                return;
+            }
+        }
+        if ($next instanceof Paragraph && $followerColumn !== null) {
+            $nestedColumn = $this->state->session->parsedNestedListContentColumn($parent);
+            if (
+                $previous instanceof DefinitionList
+                && $nestedColumn !== null && $followerColumn >= $nestedColumn
+            ) {
+                return;
+            }
+            $divColumn = $previous instanceof Div ? $this->state->session->divOpenerColumn($previous) : null;
+            if ($divColumn !== null && $followerColumn < $divColumn) {
                 return;
             }
         }
@@ -3992,6 +4043,21 @@ class BlockParser
                 && $foldedFenceColumn > $itemContentColumn
             ) {
                 $this->state->session->recordFoldedFenceColumn($paragraph, $foldedFenceColumn);
+                $lastContentPart = end($contentParts);
+                $lastContentLine = $lastContentPart === false ? ''
+                    : substr($lastContentPart, (int)strrpos("\n" . $lastContentPart, "\n"));
+                $lastRawLine = self::stripLazyFrame($lines[$i - 1]);
+                $lastPhysicalIndex = $this->sourceLineFor($i - 1) + substr_count($lastRawLine, "\n");
+                $lastPhysicalLine = $this->state->source->sourceLines[$lastPhysicalIndex] ?? $lastRawLine;
+                $lastPhysicalTail = substr($lastPhysicalLine, (int)strrpos("\n" . $lastPhysicalLine, "\n"));
+                $lastReach = ContainerPrefix::composedReach($lastPhysicalTail);
+                $lastColumn = $lastReach[count($lastReach) - 1]['to'];
+                if (
+                    $this->fencedBlockParser->isCodeFenceHead($lastContentLine)
+                    && $lastColumn < $foldedFenceColumn
+                ) {
+                    $this->state->session->recordFoldedCloserBelowBase($paragraph);
+                }
             }
         }
         if ($trackPositions) {
