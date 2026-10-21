@@ -58,27 +58,6 @@ class BlockParser
     use BlockListMethods;
     use BlockColonMethods;
 
-    /**
-     * No loosening blank was found.
-     *
-     * @var int
-     */
-    public const GAP_NONE = 0;
-
-    /**
-     * The blank loosens the list.
-     *
-     * @var int
-     */
-    public const GAP_LOOSENS = 1;
-
-    /**
-     * The blank precedes a caption candidate.
-     *
-     * @var int
-     */
-    public const GAP_CAPTION = 2;
-
     private BlockParserState $state;
 
     private ?ListBlockBuilder $listsImplementation = null;
@@ -96,8 +75,6 @@ class BlockParser
     private ?BlockReferenceResolver $referencesService = null;
 
     private ?BlockContinuationScanner $continuationsService = null;
-
-    private ?ListLoosenessScanner $listLoosenessService = null;
 
     private ?NestedLeadFenceScanner $nestedLeadFenceService = null;
 
@@ -576,7 +553,6 @@ class BlockParser
         $this->sourceService = null;
         $this->referencesService = null;
         $this->continuationsService = null;
-        $this->listLoosenessService = null;
         $this->nestedLeadFenceService = null;
         $this->inlineParser = $this->inlineParser->copyForBlockParser($this);
         $this->referenceDefinitionExtractor = $this->referenceDefinitionExtractor->copyForInlineParser($this->inlineParser);
@@ -2078,12 +2054,20 @@ class BlockParser
     ): void {
         $i = 0;
         $count = count($lines);
+        $childrenBeforeBlank = null;
 
         while ($i < $count) {
+            if ($childrenBeforeBlank !== null && count($parent->getChildren()) > $childrenBeforeBlank) {
+                $this->recordParsedItemBlank($parent, $childrenBeforeBlank);
+                $childrenBeforeBlank = null;
+            }
             $line = $lines[$i];
 
             // Skip blank lines
             if (IndentationHelper::isBlankLine($line)) {
+                if ($parent instanceof ListItem && $childrenBeforeBlank === null && $parent->hasChildren()) {
+                    $childrenBeforeBlank = count($parent->getChildren());
+                }
                 $i++;
 
                 continue;
@@ -2174,6 +2158,12 @@ class BlockParser
             if ($fastPath) {
                 // Matchers may consume several lines; stamp the complete span.
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine, $i, $consumed);
+                if (
+                    $parent instanceof ListItem && $consumed > 1 && isset($lines[$i + $consumed])
+                    && IndentationHelper::isBlankLine($lines[$i + $consumed - 1]) && $parent->hasChildren()
+                ) {
+                    $childrenBeforeBlank = count($parent->getChildren());
+                }
                 $i += $consumed;
 
                 continue;
@@ -2230,11 +2220,35 @@ class BlockParser
                 $i,
                 $consumed,
             );
+            if (
+                $parent instanceof ListItem && $consumed > 1 && isset($lines[$i + $consumed])
+                && IndentationHelper::isBlankLine($lines[$i + $consumed - 1]) && $parent->hasChildren()
+            ) {
+                $childrenBeforeBlank = count($parent->getChildren());
+            }
             $i += $consumed;
             CycleCollection::checkpoint();
         }
+        if ($childrenBeforeBlank !== null) {
+            $this->recordParsedItemBlank($parent, $childrenBeforeBlank);
+        }
         if ($topLevel) {
             $this->endContainerAttributeScope();
+        }
+    }
+
+    private function recordParsedItemBlank(Node $parent, int $childrenBeforeBlank): void
+    {
+        if (!$parent instanceof ListItem) {
+            return;
+        }
+        $children = $parent->getChildren();
+        for ($index = $childrenBeforeBlank, $count = count($children); $index < $count; $index++) {
+            if ($children[$index] instanceof Paragraph) {
+                $this->state->session->recordParsedBlankBeforeParagraph($parent);
+
+                return;
+            }
         }
     }
 
@@ -5963,22 +5977,6 @@ class BlockParser
         );
     }
 
-    private function listLoosenessScanner(): ListLoosenessScanner
-    {
-        return $this->listLoosenessService ??= new ListLoosenessScanner(
-            fn (): FencedBlockParser => $this->fencedBlockParser,
-            fn (): ListParser => $this->listParser,
-            $this->continuationsMapper(),
-            $this->lineOpensBlockForLooseness(...),
-            $this->isFigureGroupOpener(...),
-            $this->isCaptionLine(...),
-            $this->markerContentColumn(...),
-            $this->isInvisibleOrAttributeLine(...),
-            $this->colonSpanEndForLooseness(...),
-            $this->commentSpanEndForLooseness(...),
-        );
-    }
-
     private function listsBuilder(): ListBlockBuilder
     {
         return $this->listsImplementation ??= new ListBlockBuilder(
@@ -6015,7 +6013,6 @@ class BlockParser
             markerFreeContentCallback: $this->markerFreeContent(...),
             parseBlocksCallback: $this->parseBlocks(...),
             startsNewBlockCallback: $this->startsNewBlock(...),
-            subContentHasLooseningBlankCallback: $this->subContentHasLooseningBlank(...),
             wrappedBlockAttributeLengthCallback: $this->wrappedBlockAttributeLength(...),
             isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             parseItemBlocksCallback: static::class !== self::class ? $this->parseItemBlocks(...) : null,

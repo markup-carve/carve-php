@@ -12,57 +12,8 @@ use MarkupCarve\Carve\Util\StringUtil;
 trait BlockBoundaryMethods
 {
     /**
-     * Compact-list looseness scan over an item's collected (content-column
-     * dedented) sub-content lines. Mirrors carve-js: for each internal blank
-     * line, look at the next non-blank line. Content at or past the sub-list's
-     * content column belongs to that sub-list (its looseness is decided by its
-     * own recursive parse). Returns a gap result for the caller to apply.
-     *
-     * @param array<string> $subLines The item's dedented sub-content lines.
-     * @param bool $sourceIsTheItemBody Whether these lines are the item's WHOLE
-     *   body rather than a chunk collected after a preceding block. A container
-     *   that is the whole body is not one block among several, so its interior
-     *   blank does separate two of the item's rendered blocks and loosens it
-     *   (markup-carve/carve#1602); the identical five lines reach this scan in
-     *   both shapes, so only the caller can tell them apart.
-     *
-     * @return self::GAP_NONE|self::GAP_LOOSENS|self::GAP_CAPTION
-     */
-    protected function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): int
-    {
-        return $this->listLoosenessScanner()->subContentHasLooseningBlank($subLines, $sourceIsTheItemBody);
-    }
-
-    /**
-     * The line index just past a colon fence opened at `$openIdx`, for the
-     * looseness scan.
-     *
-     * The closer is an EXACT-length colon run ({@see
-     * \MarkupCarve\Carve\Parser\Block\FencedBlockParser::isDivFenceCloser()}),
-     * which is what makes the span skippable at all: a longer run below is a
-     * nested opener, not this one's end. With no closer at all everything
-     * below the opener IS its content, so the span runs to the end of the
-     * chunk - the same answer a closer written on the last line would give.
-     *
-     * A COLON RUN INSIDE VERBATIM PAYLOAD CLOSES NOTHING. This walk tracks the
-     * code fence for the same reason the caller does: a `:::` line inside a
-     * code block is that block's text, and reading it as the container's end
-     * put the span's end ABOVE the real closer - so the caller resumed on the
-     * code fence's own closing line, opened a fence there, and swallowed the
-     * item-level blank and the paragraph below the container with it.
-     *
-     * @param array<string> $subLines The item's dedented sub-content lines.
-     * @param int $openIdx The index of the opener line.
-     * @param int $fenceLength The opener's colon-run length.
-     */
-    protected function colonSpanEndForLooseness(array $subLines, int $openIdx, int $fenceLength): int
-    {
-        return $this->listLoosenessScanner()->colonSpanEndForLooseness($subLines, $openIdx, $fenceLength);
-    }
-
-    /**
      * The line index of a fenced comment span's closer, opened at `$openIdx`,
-     * for the looseness scan - or the last index when the item ends first.
+     * for the item collector - or the last index when the item ends first.
      *
      * The caller's `continue` steps one further, so the last index lands past the
      * end and the scan finds nothing visible. That is the right answer twice
@@ -86,13 +37,20 @@ trait BlockBoundaryMethods
         int $baseIndent,
         int $contentIndent,
     ): int {
-        return $this->listLoosenessScanner()->commentSpanEndForLooseness(
-            $lines,
-            $openIdx,
-            $fenceLength,
-            $baseIndent,
-            $contentIndent,
-        );
+        $count = count($lines);
+        for ($index = $openIdx + 1; $index < $count; $index++) {
+            if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($lines[$index], $fenceLength)) {
+                return $index;
+            }
+            if (
+                !IndentationHelper::isBlankLine($lines[$index])
+                && IndentationHelper::getLeadingColumns($lines[$index], $contentIndent) <= $baseIndent
+            ) {
+                return $count;
+            }
+        }
+
+        return $count;
     }
 
     /**
@@ -172,7 +130,7 @@ trait BlockBoundaryMethods
     /**
      * The content column of a list-marker line, mirroring THIS parser's own
      * content-column model (see the `$markerWidth` computation in tryParseList),
-     * so the looseness scan's "belongs to the sub-list" test agrees with where
+     * so the list collector's "belongs to the sub-list" test agrees with where
      * the recursive parse actually places the content. Returns -1 when the line
      * is not a list marker. See listMarkerWidth for the width rule.
      */

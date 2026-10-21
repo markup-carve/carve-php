@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\Node\Block\LineBlock;
+use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\BlockParser;
@@ -47,22 +48,13 @@ class BuilderHookCompatibilityTest extends TestCase
         self::assertGreaterThan(0, $parser->calls);
     }
 
-    public function testLoosenessScannerKeepsTheColonSpanOverride(): void
+    public function testParsedBlockGapLoosensTheColonFenceItem(): void
     {
-        $parser = new class extends BlockParser {
-            public int $calls = 0;
+        $document = (new BlockParser())->parse("- :::\n  x\n  :::\n\n  y\n");
+        $list = $document->getChildren()[0];
 
-            protected function colonSpanEndForLooseness(array $subLines, int $openIdx, int $fenceLength): int
-            {
-                $this->calls++;
-
-                return parent::colonSpanEndForLooseness($subLines, $openIdx, $fenceLength);
-            }
-        };
-
-        $parser->parse("- :::\n  x\n  :::\n\n  y\n");
-
-        self::assertGreaterThan(0, $parser->calls);
+        self::assertInstanceOf(ListBlock::class, $list);
+        self::assertFalse($list->isTight());
     }
 
     public function testContinuationScannerKeepsTheDefinitionBodyOverride(): void

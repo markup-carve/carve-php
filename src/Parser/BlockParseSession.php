@@ -37,6 +37,22 @@ final class BlockParseSession
     private ?ContinuationMarkerClassifier $continuationMarkers = null;
 
     /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\ListItem, bool>|null
+     */
+    private ?WeakMap $itemsWithParsedBlankBeforeParagraph = null;
+
+    public function recordParsedBlankBeforeParagraph(ListItem $item): void
+    {
+        $this->itemsWithParsedBlankBeforeParagraph ??= new WeakMap();
+        $this->itemsWithParsedBlankBeforeParagraph[$item] = true;
+    }
+
+    public function itemHasParsedBlankBeforeParagraph(ListItem $item): bool
+    {
+        return $this->itemsWithParsedBlankBeforeParagraph[$item] ?? false;
+    }
+
+    /**
      * @return array{owner: array{kind: string, column: int, depth: int, content: int, first: bool}|null, reason: string|null, column: int, depth: int, stale: bool, open: bool}
      */
     public function continuationMarkerDecision(BlockSourceState $source, ListParser $lists, int $line): array
