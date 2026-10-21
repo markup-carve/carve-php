@@ -89,6 +89,42 @@ class RelativeContinuationMarkerTest extends TestCase
         $this->assertSame([2, 1], [$refusals[0]->line, $refusals[0]->column]);
     }
 
+    public function testIndentedFirstBlockMarkerUsesTheOpenerColumn(): void
+    {
+        $linter = new FenceAndContinuationLinter();
+        foreach ([0 => false, 1 => true, 2 => false, 3 => true, 4 => true] as $column => $refused) {
+            $fence = str_repeat(' ', $column) . '```';
+            $source = "- foo\n  - +\n{$fence}\n" . str_repeat(' ', $column) . "x\n{$fence}\n";
+            $warnings = array_values(array_filter(
+                $linter->lint($source),
+                static fn ($warning): bool => $warning->rule === 'continuation-marker-refused',
+            ));
+            $this->assertCount($refused ? 1 : 0, $warnings, "follower column {$column}");
+            if ($refused) {
+                $this->assertSame([2, 5], [$warnings[0]->line, $warnings[0]->column]);
+            }
+        }
+        foreach (["- foo\n  - +\n- x\n", "- foo\n  - +\n  * x\n", "- foo\n  - +\n  1. x\n"] as $source) {
+            $warnings = array_values(array_filter(
+                $linter->lint($source),
+                static fn ($warning): bool => $warning->rule === 'continuation-marker-refused',
+            ));
+            $this->assertCount(1, $warnings, $source);
+            $this->assertSame([2, 5], [$warnings[0]->line, $warnings[0]->column]);
+        }
+    }
+
+    public function testSeparateMarkerRefusesNestedListAtTheContentColumn(): void
+    {
+        $source = "- foo\n  - b\n  +\n    - x\n";
+        $warnings = array_values(array_filter(
+            (new FenceAndContinuationLinter())->lint($source),
+            static fn ($warning): bool => $warning->rule === 'continuation-marker-refused',
+        ));
+        $this->assertCount(1, $warnings);
+        $this->assertSame([3, 3], [$warnings[0]->line, $warnings[0]->column]);
+    }
+
     public function testAnUnclosedFenceEndingWithItsQuoteDoesNotHideALaterRefusal(): void
     {
         $warnings = (new FenceAndContinuationLinter())->lint("> ```\n> code\n- item\n+\n");
