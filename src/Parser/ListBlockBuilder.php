@@ -153,6 +153,8 @@ final class ListBlockBuilder
         $listOpeningColumn = $parent instanceof Document
             ? 0
             : $this->resolveMarkerColumn($listSourceLine, $line);
+        $listContentColumn = ($listOpeningColumn ?? $baseIndent)
+            + $this->listMarkerWidth(ltrim($line, " \t"), $listInfo);
 
         /** @var string $listType */
         $listType = $listInfo['type'];
@@ -407,6 +409,7 @@ final class ListBlockBuilder
                     if (
                         !$this->indentedContinuationOpensBlock($lines, $i, $baseIndent, $lastItemContentIndent)
                         && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) !== 1
+                        && !$this->continuationReachesNestedListContent($lastItem, $currentIndent)
                     ) {
                         $list->setTight(false);
                     }
@@ -965,8 +968,18 @@ final class ListBlockBuilder
             }
         }
         $parent->appendChild($list);
+        if ($parent instanceof ListItem) {
+            $this->state->session->recordParsedNestedListContentColumn($parent, $listContentColumn);
+        }
 
         return $i - $start;
+    }
+
+    private function continuationReachesNestedListContent(ListItem $item, int $column): bool
+    {
+        $contentColumn = $this->state->session->parsedNestedListContentColumn($item);
+
+        return $contentColumn !== null && $column >= $contentColumn;
     }
 
     /**

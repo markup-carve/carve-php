@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Parser\Block\ListParser;
+use WeakMap;
 
 /**
  * State owned by one document parse.
@@ -14,6 +16,24 @@ use MarkupCarve\Carve\Parser\Block\ListParser;
  */
 final class BlockParseSession
 {
+    /**
+     * Content column of a parsed nested list, keyed by its parent item.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\ListItem, int>|null
+     */
+    private ?WeakMap $parsedNestedListContentColumns = null;
+
+    public function recordParsedNestedListContentColumn(ListItem $item, int $column): void
+    {
+        $this->parsedNestedListContentColumns ??= new WeakMap();
+        $this->parsedNestedListContentColumns[$item] = $column;
+    }
+
+    public function parsedNestedListContentColumn(ListItem $item): ?int
+    {
+        return $this->parsedNestedListContentColumns[$item] ?? null;
+    }
+
     private ?ContinuationMarkerClassifier $continuationMarkers = null;
 
     /**
