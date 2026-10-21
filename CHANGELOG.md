@@ -9,6 +9,38 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+## [0.1.14] - 2026-10-22
+
+### Fixes
+- Borrowed HTML keeps Unicode letters and inline markup after inactive extensions register. Autolink fallbacks, link-label parentheses and brackets, angle destinations, bare URLs, paragraph links with pipes, and fixed smart symbols now keep their intended text (#3579, #3581, #3584, #3608, #3612, #3628, #3699).
+- Continuation markers and refused `+` lines follow their list or quote column, including relative column zero, open fences and blank followers. Lint reports refusals and the ordered-list and below-content-column traps at the authored column (#3592, #3594, #3596, #3602, #3613, #3624, #3659, #3675, #3678, #3680, #3691).
+- Nested marker-line fences keep the right blank payload and end at the right owner. Unterminated tilde runs, quoted tight-list fences and folded fence paragraphs now leave later list blocks and tightness in the correct state (#3582, #3595, #3622, #3626, #3665, #3668, #3671, #3692, #3695).
+- List tightness follows parsed blank boundaries. A blank at a nested list's content column loosens that list without loosening its parent (#3702, #3704).
+- Description bodies, footnotes and nested lists release or retain lines at their authored columns. This covers a list after a description, quoted definitions, tab-indented lists, folded description terms, bare Markdown markers and a below-column separator (#3644, #3645, #3646, #3647, #3650, #3651, #3652, #3667).
+- Markdown migration keeps destination spelling, trailing spaces and line endings, bounds quoted setext work to its item, and writes nested imports in canonical Carve. The writer keeps its conservative spelling past the nesting cap (#3597, #3615, #3618, #3627, #3640, #3662, #3663, #3670, #3684).
+- Nested admonition titles start at their authored AST position, and code or raw block spans include literal interior payload newlines (#3673, #3697).
+- Unclosed fences, definitions, quotes, and footnotes now stay in their owning list or container. List tightness and caption gaps follow the authored lines (#3538, #3543, #3566, #3567, #3574, markup-carve/carve#3364).
+- A caption after a `+`-attached code, raw or figure-group fence stays with that fence, and a fence-looking line folded into a child item's paragraph no longer keeps the list tight. An unterminated fence on a nested list marker line keeps the blank lines below it (#3576, #3578, #3573, markup-carve/carve#3369, markup-carve/carve#3370).
+- Region markers stay beside their content through `fmt`, and definitions remain inside selected regions (#3555, #3556, #3564, markup-carve/carve#3330, markup-carve/carve#3350).
+- In a Carve include, only `%% #region` selects a region; a leading BOM no longer hides a marker. A repeated include option and a line range starting past the last line are the `include-duplicate-option` and `include-lines-out-of-range` warnings (#3544, #3563, markup-carve/carve#3326, markup-carve/carve#3348, markup-carve/carve#3349, markup-carve/carve#3351).
+- Code includes keep their blank final line and correct source span; `{table}` on a CSV or TSV code include produces a table (#3548, #3568, markup-carve/carve#3335, markup-carve/carve#3358, markup-carve/carve#3359).
+- `fmt` no longer duplicates a code fence's title attribute as its header (#3554).
+- Markdown migration keeps a destination's brackets and non-ASCII characters as written, assesses standalone images correctly, and resolves case-only heading fragments with a fixup report (#3547, #3552, #3571, #3572, #3577, markup-carve/carve#3323, markup-carve/carve#3372, markup-carve/carve#3373, markup-carve/carve#3378).
+- BBCode migration reads quote attribution fields consistently and reports dropped fields as `bbcode-quote-field-dropped` (#3542, #3545, #3569, markup-carve/carve#3341, markup-carve/carve#3357).
+- `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, #3559, #3560).
+
+### Improvements
+- `carve fmt --align-tables` aligns table columns by display width; the PHP formatter and converter expose the option (#3546).
+- Includes can insert a whole file or selected region as a code block (#3544).
+- `carve lint` checks included content when given an include root and reports near misses for consumed `table` and `loose` keys (#3557, #3561, markup-carve/carve#3339, markup-carve/carve#3340).
+
+### Performance
+- Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers, borrowed HTML and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698, #3701; ee152759).
+- Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
+
+### Internal
+- Block-parser finalization, list looseness, list body rebasing, parser hooks and Markdown conversion's moved-definition pass were split into smaller passes. List items, descriptions and footnotes now share one indentation admission loop. These changes keep the same output (#3664, #3666, #3669, #3705, #3707, #3708).
+
 ## [0.1.13] - 2026-10-15
 
 ### Breaking
