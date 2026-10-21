@@ -317,7 +317,7 @@ final class BlockQuoteBuilder
             }
             if (
                 $content !== null && $startsFootnoteDefinition
-                && !$this->markerSitsAtColumn($i, $quoteOpeningColumn)
+                && $this->quoteMarkerColumn($i, $currentLine) !== $quoteOpeningColumn
             ) {
                 $content = null;
             }
@@ -424,6 +424,20 @@ final class BlockQuoteBuilder
             $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0,
             strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
         );
+    }
+
+    /**
+     * Source column of this line's `>`, measured past any enclosing quote markers.
+     */
+    private function quoteMarkerColumn(int $index, string $line): int
+    {
+        $sourceTail = rtrim($this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '', " \t");
+        $markerTail = ltrim(rtrim($line, " \t"), " \t");
+        if ($markerTail === '' || !str_ends_with($sourceTail, $markerTail)) {
+            return IndentationHelper::getLeadingColumns($sourceTail);
+        }
+
+        return strlen($sourceTail) - strlen($markerTail);
     }
 
     private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool

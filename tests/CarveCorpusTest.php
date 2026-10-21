@@ -1244,7 +1244,12 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '616-a-line-is-read-in-the-container-whose-column-it-reaches-7' => [
+            'reason' => 'carve#3447 CARVE-P2-017: a marker below the dd body column that reaches the item opens a sibling list',
+            'html' => "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>para</dd>\n    </dl>\n    <ul>\n      <li>li</li>\n    </ul>\n  </li>\n</ul>",
+        ],
+    ];
 
     protected CarveConverter $converter;
 

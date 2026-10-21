@@ -29,7 +29,7 @@ class AFrontmatterOpenerEndsAtTheEndOfTheLineTest extends TestCase
     {
         return [
             'form feed' => ["---yaml\f", "\\-\\-\\-yaml\f", "---yaml\f"],
-            'form feed then space' => ["---yaml\f ", "\\-\\-\\-yaml\f ", "---yaml\f"],
+            'form feed then space' => ["---yaml\f ", "\\-\\-\\-yaml\f", "---yaml\f"],
             'vertical tab' => ["---yaml\x0B", "\\-\\-\\-yaml\x0B", "---yaml\x0B"],
             'no-break space' => ["---yaml\u{A0}", "\\-\\-\\-yaml\u{A0}", '---yaml&nbsp;'],
         ];

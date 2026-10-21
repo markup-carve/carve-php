@@ -945,7 +945,7 @@ final class BlockContinuationScanner
                 $nestedNoteBodyColumn = null;
             }
             if (
-                $markerNoteItem && $trailingState->fence === null && $openCommentLength === null
+                $trailingState->fence === null && $openCommentLength === null
                 && $nextIndent >= $contentIndent
                 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $nextTrimmed) === 1
             ) {
@@ -1113,6 +1113,9 @@ final class BlockContinuationScanner
             }
 
             if ($nextIndent >= $contentIndent && !$isBlockQuoteLazyLine) {
+                $markerLeavesDescription = $openDefinitionBody === null || $nextIndent === $contentIndent || ($recentDefinitionParagraph
+                    && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $openDefinitionBody)
+                        < $contentIndent + $openDefinitionBody);
                 // A marker at the body column of the marker-line note is the
                 // note's own line (PART 9 §16), so it does not end the item.
                 if (
@@ -1122,7 +1125,7 @@ final class BlockContinuationScanner
                     && $openCommentLength === null
                     && !$trailingState->quoteParagraph
                     && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
-                    && ($openDefinitionBody === null || $nextIndent === $contentIndent)
+                    && $markerLeavesDescription
                     && $rejectedColonFenceLength === null
                     && !($nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $nestedNoteBodyColumn) >= $nestedNoteBodyColumn)
                     && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken))
@@ -1720,7 +1723,6 @@ final class BlockContinuationScanner
                     && !$wasInFence
                     && $trailingState->fence === null
                     && !$inlineAuthoredFence
-                    && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null
                     && !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
                 ) {
                     $trailingState->openParagraph = false;
@@ -4482,7 +4484,7 @@ final class BlockContinuationScanner
      * @param string $stripped The marker line with its leading indent removed.
      * @param array{type: string, content: string, attributesWidth?: int} $info
      */
-    private function listMarkerWidth(string $stripped, array $info): int
+    public function listMarkerWidth(string $stripped, array $info): int
     {
         return ($this->listMarkerWidthCallback)($stripped, $info);
     }

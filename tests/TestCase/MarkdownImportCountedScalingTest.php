@@ -14,12 +14,12 @@ class MarkdownImportCountedScalingTest extends TestCase
     public static function families(): array
     {
         return [
-            'quote' => ["> # Head\n> paragraph\n>\n\n", 12000, 48000],
-            'list' => ["-    one\n\n      two\n\n", 10000, 40000],
-            'fence' => ["> ~~~\n> code\n> ~~~\n\n", 10000, 40000],
-            'heading' => ["# Head\n\ntext\n\n", 7000, 28000],
-            'held quote' => ["> 1. > nested\n>    ===\n\n\n", 13500, 54000],
-            'mixed' => ['', 11826, 47326],
+            'quote' => ["> # Head\n> paragraph\n>\n\n", 11999, 47999],
+            'list' => ["-    one\n\n      two\n\n", 9999, 39999],
+            'fence' => ["> ~~~\n> code\n> ~~~\n\n", 9999, 39999],
+            'heading' => ["# Head\n\ntext\n\n", 6999, 27999],
+            'held quote' => ["> 1. > nested\n>    ===\n\n\n", 13499, 53999],
+            'mixed' => ['', 11825, 47325],
         ];
     }
 

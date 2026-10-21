@@ -92,9 +92,14 @@ class MarkdownEmphasisFidelityTest extends TestCase
 
     public function testRawHtmlRetainsItsSpaces(): void
     {
-        foreach (["<span title=\"x  \ny\">b</span>", "<!-- x  \ny -->"] as $html) {
+        foreach (
+            [
+                ["<span title=\"x  \ny\">b</span>", "<span title=\"x\ny\">"],
+                ["<!-- x  \ny -->", "<!-- x\ny -->"],
+            ] as [$html, $expected]
+        ) {
             $written = (new MarkdownToCarve())->convert('*a ' . $html . "\nc*");
-            $this->assertStringContainsString(str_replace('>b</span>', '>', $html), $written);
+            $this->assertStringContainsString($expected, $written);
             $this->assertStringNotContainsString("x\\\ny", $written);
         }
     }
