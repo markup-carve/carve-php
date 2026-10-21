@@ -659,12 +659,11 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         if ($minimalTree !== null && $documentTree !== null && $minimalTree == $documentTree) {
             return $minimal;
         }
-        // Every state the narrowing visits is verified against the conservative
-        // tree, so when that is not the document's tree no state reads back
-        // either. Past the cap that is the refuse arm of CARVE-P9-078, taken
-        // before a search whose every probe re-parses the whole deep document.
-        if ($atCap) {
+        // Past the cap, the conservative check avoids the search's repeated deep parses.
+        if ($atCap && $documentTree !== null) {
             $this->refuseUnlessItReadsBack($conservative, $document);
+
+            return $conservative;
         }
         if ($this->escapingIsRedundant($minimal, $conservative)) {
             return $minimal;
