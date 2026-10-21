@@ -9,7 +9,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-## [0.1.14] - 2026-10-21
+## [0.1.14] - 2026-10-22
 
 ### Fixes
 - Borrowed HTML keeps Unicode letters and inline markup after inactive extensions register. Autolink fallbacks, link-label parentheses and brackets, angle destinations, bare URLs, paragraph links with pipes, and fixed smart symbols now keep their intended text (#3579, #3581, #3584, #3608, #3612, #3628, #3699).
@@ -27,7 +27,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `fmt` no longer duplicates a code fence's title attribute as its header (#3554).
 - Markdown migration keeps a destination's brackets and non-ASCII characters as written, assesses standalone images correctly, and resolves case-only heading fragments with a fixup report (#3547, #3552, #3571, #3572, #3577, markup-carve/carve#3323, markup-carve/carve#3372, markup-carve/carve#3373, markup-carve/carve#3378).
 - BBCode migration reads quote attribution fields consistently and reports dropped fields as `bbcode-quote-field-dropped` (#3542, #3545, #3569, markup-carve/carve#3341, markup-carve/carve#3357).
-- `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, markup-carve/carve-php#3559, markup-carve/carve-php#3560).
+- `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, #3559, #3560).
 
 ### Improvements
 - `carve fmt --align-tables` aligns table columns by display width; the PHP formatter and converter expose the option (#3546).
@@ -36,8 +36,10 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Performance
 - Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers, borrowed HTML and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698, #3701; ee152759).
-- Block-parser finalization, list looseness, list body rebasing, parser hooks and Markdown conversion's moved-definition pass were split into smaller passes. List items, descriptions and footnotes now share one indentation admission loop. These changes keep the same output (#3664, #3666, #3669, #3705, #3707, #3708).
 - Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
+
+### Internal
+- Block-parser finalization, list looseness, list body rebasing, parser hooks and Markdown conversion's moved-definition pass were split into smaller passes. List items, descriptions and footnotes now share one indentation admission loop. These changes keep the same output (#3664, #3666, #3669, #3705, #3707, #3708).
 
 ## [0.1.13] - 2026-10-15
 
