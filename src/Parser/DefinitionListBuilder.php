@@ -1021,20 +1021,13 @@ final class DefinitionListBuilder
                     $paragraphFence = ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont)
                         ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont);
                     $paragraphFenceHasNoCloser = $paragraphFence !== null
-                        && !($indent > $continuationColumn
-                            ? $this->descriptionBodyCloserAhead(
-                                $lines,
-                                $i,
-                                $paragraphFence,
-                                $continuationColumn,
-                                $contColumn,
-                            )
-                            : $this->continuations->sourceFenceCloserInView(
-                                $lines,
-                                $i,
-                                $paragraphFence,
-                                $contColumn,
-                            ));
+                        && !$this->descriptionBodyCloserAhead(
+                            $lines,
+                            $i,
+                            $paragraphFence,
+                            $continuationColumn,
+                            $contColumn,
+                        );
                     if (
                         $continuationColumn > BlockGrammar::DEFINITION_MARKER_WIDTH + 1
                         && $indent === $continuationColumn - 1
