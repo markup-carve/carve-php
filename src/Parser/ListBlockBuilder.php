@@ -1251,6 +1251,15 @@ final class ListBlockBuilder
             } elseif ($lineIndent === $baseIndent) {
                 // Line is at base indent - check if it starts a new block or list item
                 $trimmedLine = ltrim($subLine, " \t");
+                if (
+                    $subTermColumn !== null
+                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmedLine) === 1
+                    && !$subTrailingState->quoteParagraph
+                    && $subTrailingState->fence === null
+                    && !$subTrailingState->hasOpenDiv()
+                ) {
+                    break;
+                }
                 if ($subTrailingState->hasOpenDiv() && $this->lastCollectedLineBlockClosed($subLines)) {
                     break;
                 }

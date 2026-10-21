@@ -1249,6 +1249,18 @@ class CarveCorpusTest extends TestCase
             'reason' => 'carve#3447 CARVE-P2-017: a marker below the dd body column that reaches the item opens a sibling list',
             'html' => "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>para</dd>\n    </dl>\n    <ul>\n      <li>li</li>\n    </ul>\n  </li>\n</ul>",
         ],
+        '154-under-indented-definition-attaches-over-indented-definition-folds' => [
+            'reason' => 'carve#3451 auto-ruling and CARVE-P2-028: a separator one column in folds into the open term',
+            'html' => "<ul>\n  <li>one\n    <dl>\n      <dt>term\n:  def</dt>\n    </dl>\n  </li>\n</ul>",
+        ],
+        '154-under-indented-definition-attaches-over-indented-definition-folds-2' => [
+            'reason' => 'carve#3451: a separator at the outer marker column ends the item and is paragraph text',
+            'html' => "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>:  def</p>",
+        ],
+        '620-generated-container-documents' => [
+            'reason' => 'carve#3451: a separator at the outer marker column ends the item and is paragraph text',
+            'html' => "<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </li>\n</ul>\n<p>:  head</p>\n<p>a</p>",
+        ],
     ];
 
     protected CarveConverter $converter;
