@@ -978,6 +978,7 @@ class BlockParser
                     && (!IndentationHelper::isBlankLine($lines[$index - 1] ?? '')
                         || IndentationHelper::isBlankLine($lines[$index - 2] ?? ''))
                     && preg_match('/^[ \t]+\+[ \t]*$/D', $afterCloser) === 1
+                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index + 2)['reason'] !== null
                 ) {
                     $explicitCloserTrim = true;
                 }
@@ -996,6 +997,7 @@ class BlockParser
                         IndentationHelper::getLeadingColumns($body) < $contentColumn
                         && $index > $previous + 2
                         && trim($lines[$index - 1] ?? '') === '' && !IndentationHelper::isBlankLine($follower)
+                        && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index)['reason'] !== null
                     ) {
                         $changes[$previous + 1] = -1;
                     }
@@ -4772,6 +4774,19 @@ class BlockParser
             function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, $lines, $baseIndent, $contentIndent): bool {
                 $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
                 $trimmed = ltrim($line, " \t");
+                $unclosedFences = $this->state->session->unclosedCodeFences;
+                $lastUnclosedFence = $unclosedFences === [] ? null : $unclosedFences[array_key_last($unclosedFences)];
+                $refusedAfterCloser = $this->isContinuationMarker($trimmed)
+                    && $index > 0
+                    && $lastUnclosedFence !== null
+                    && $lastUnclosedFence['reason'] === 'continuation'
+                    && $lastUnclosedFence['endLine'] === $this->sourceLineFor($index)
+                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index))['reason'] === 'blank'
+                    && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index - 1))['reason'] === null
+                    && $this->isContinuationMarker(ltrim($lines[$index - 1], " \t"));
+                if ($refusedAfterCloser) {
+                    $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($index), 'list item');
+                }
                 if (
                     IndentationHelper::isBlankLine($line)
                     // The attached block starts at document column zero even
@@ -4781,7 +4796,7 @@ class BlockParser
                             || $this->isContinuationMarker($trimmed)))
                     || ($lineIndent === $baseIndent
                         && $trailingState->fence === null
-                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed)))
+                        && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed) && !$refusedAfterCloser))
                 ) {
                     return true;
                 }

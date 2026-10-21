@@ -119,6 +119,13 @@ final class ContinuationMarkerClassifier
         [$body, $depth, $prefix] = $this->quoteBody($line);
         $column = self::columnAt($line, $prefix + strspn($body, " \t"));
         if (self::isPlus(ltrim($body, " \t"))) {
+            if ($depth > 0 && ($line[$prefix - 1] ?? '') === '>' && strspn($body, " \t") === 0) {
+                foreach ($this->stack as $entry) {
+                    if ($entry['kind'] === 'quote' && $entry['depth'] === $depth) {
+                        $column = max($column, $entry['column']);
+                    }
+                }
+            }
             if (LayoutWork::$on) {
                 LayoutWork::$markerLinesClassified++;
             }
