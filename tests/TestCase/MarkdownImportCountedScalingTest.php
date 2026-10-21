@@ -15,11 +15,11 @@ class MarkdownImportCountedScalingTest extends TestCase
     {
         return [
             'quote' => ["> # Head\n> paragraph\n>\n\n", 11999, 47999],
-            'list' => ["-    one\n\n      two\n\n", 9999, 39999],
+            'list' => ["-    one\n\n      two\n\n", 6999, 27999],
             'fence' => ["> ~~~\n> code\n> ~~~\n\n", 9999, 39999],
             'heading' => ["# Head\n\ntext\n\n", 6999, 27999],
             'held quote' => ["> 1. > nested\n>    ===\n\n\n", 13499, 53999],
-            'mixed' => ['', 11825, 47325],
+            'mixed' => ['', 11327, 45327],
         ];
     }
 

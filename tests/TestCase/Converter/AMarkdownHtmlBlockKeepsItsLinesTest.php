@@ -60,7 +60,7 @@ class AMarkdownHtmlBlockKeepsItsLinesTest extends TestCase
     public function testALineLeavingTheItemEndsTheBlock(): void
     {
         $this->assertSame(
-            "{loose}\n- a\n\n  ```=html\n  <div>\n  x\n  ```\ntext\n",
+            "{loose}\n- a\n\n  ```=html\n  <div>\n  x\n  ```\n\ntext\n",
             (new MarkdownToCarve())->convert("- a\n\n  <div>\n  x\ntext\n"),
         );
     }

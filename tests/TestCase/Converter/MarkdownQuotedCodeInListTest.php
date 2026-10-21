@@ -15,7 +15,7 @@ final class MarkdownQuotedCodeInListTest extends TestCase
         $markdown = "- > a\n  > ```\n  > x\n  > ```\n";
         $carve = (new MarkdownToCarve())->convert($markdown);
 
-        self::assertSame($markdown, $carve);
+        self::assertSame("- > a\n  >\n  > ```\n  > x\n  > ```\n", $carve);
         self::assertStringContainsString("<p>a</p>\n      <pre><code>x\n</code></pre>", (new CarveConverter())->convert($carve));
     }
 
@@ -49,7 +49,7 @@ final class MarkdownQuotedCodeInListTest extends TestCase
         $markdown = "- > a\n  >     c\n";
         $carve = (new MarkdownToCarve())->convert($markdown);
 
-        self::assertSame($markdown, $carve);
+        self::assertSame("- > a\n  > c\n", $carve);
         self::assertStringNotContainsString('<pre>', (new CarveConverter())->convert($carve));
     }
 

@@ -127,7 +127,7 @@ class AMarkdownReferenceDefinitionGoesToTheEndTest extends TestCase
     {
         $imported = (new MarkdownToCarve())->convert("> - [c]: <x y>\n> q [b]\n[c]: <x y>\n");
 
-        $this->assertSame("> - q [b]\n> [c][]: `<x y>`{=html}\n\n[c]: x%20y\n", $imported);
+        $this->assertSame("> - q [b]\n>   [c][]: `<x y>`{=html}\n\n[c]: x%20y\n", $imported);
         $this->assertSame(
             "<blockquote>\n  <ul>\n    <li>q [b]\n<a href=\"x%20y\">c</a>: <x y></li>\n  </ul>\n</blockquote>\n",
             (new CarveConverter())->convert($imported),

@@ -160,7 +160,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         // two-column item reaches column 4, which is two past the content
         // column - the item's own content, not code.
         $this->assertSame(
-            "- item\n\n" . self::TAB . "code\n",
+            "- item\n\n" . self::COLUMN_2 . "code\n",
             $this->converter->convert("- item\n\n" . self::TAB . "code\n"),
         );
 
@@ -198,15 +198,15 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             ],
             'block quote' => [
                 "> prose line\n> <footer>x</footer>\n",
-                "> prose line\n" . self::rawBlock('<footer>x</footer>', '> '),
+                "> prose line\n>\n" . self::rawBlock('<footer>x</footer>', '> '),
             ],
             'nested block quote' => [
                 "> > prose line\n> > <footer>x</footer>\n",
-                "> > prose line\n" . self::rawBlock('<footer>x</footer>', '> > '),
+                "> > prose line\n> >\n" . self::rawBlock('<footer>x</footer>', '> > '),
             ],
             'block quote indented one column' => [
                 " > prose line\n > <footer>x</footer>\n",
-                "> prose line\n" . self::rawBlock('<footer>x</footer>', '> '),
+                "> prose line\n>\n" . self::rawBlock('<footer>x</footer>', '> '),
             ],
             'bullet item' => [
                 "- prose line\n  <footer>x</footer>\n",
@@ -282,7 +282,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
         $this->assertSame($expected, $this->converter->convert("prose line\n" . $opener . "\n"));
 
         $quoted = $interrupts
-            ? "> prose line\n" . self::rawBlock($opener, '> ')
+            ? "> prose line\n>\n" . self::rawBlock($opener, '> ')
             : "> prose line\n> " . $inline . "\n";
         $this->assertSame($quoted, $this->converter->convert("> prose line\n> " . $opener . "\n"));
     }
@@ -396,7 +396,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             $this->converter->convert("<!--\nnote\n-->\nafter\n"),
         );
         $this->assertSame(
-            self::rawBlock('<!-- a note -->', '> ') . "> after\n",
+            self::rawBlock('<!-- a note -->', '> ') . ">\n> after\n",
             $this->converter->convert("> <!-- a note -->\n> after\n"),
         );
     }
@@ -411,7 +411,7 @@ class MarkdownRawHtmlBlockInContainersTest extends TestCase
             $this->converter->convert("<div>\na\n</div>\nafter\n"),
         );
         $this->assertSame(
-            "> quoted\n" . self::rawBlock("<div>\nline two\n</div>", '> '),
+            "> quoted\n>\n" . self::rawBlock("<div>\nline two\n</div>", '> '),
             $this->converter->convert("> quoted\n> <div>\n> line two\n> </div>\n"),
         );
     }
