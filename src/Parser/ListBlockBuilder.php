@@ -1594,7 +1594,9 @@ final class ListBlockBuilder
                     && $subLines !== []
                     && $this->fenceRunOpensNothing($trimmedLine, $lines, $i, $lineIndent)
                 ) {
-                    $subLines[] = $trimmedLine;
+                    // An existing inline fence keeps its ordinary paragraph boundary.
+                    $subLines[] = $subInlineFenceParagraph
+                        ? $trimmedLine : BlockGrammar::LAZY_FRAME . $trimmedLine;
                     $subLineMap[] = $this->sourceLineFor($i);
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
                     $i++;
