@@ -111,6 +111,18 @@ final class DefinitionListBuilder
             // list marker ends the term.
             while ($i < $count) {
                 $nextLine = $lines[$i];
+                $lazySeparator = str_starts_with($nextLine, BlockGrammar::LAZY_FRAME)
+                    && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, BlockGrammar::stripLazyFrame($nextLine)) === 1;
+                if ($lazySeparator) {
+                    $termSource = $this->sourceLineFor($termStart);
+                    $termColumn = self::authoredSubjectColumn(
+                        ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$termSource] ?? ''),
+                        $lines[$termStart],
+                    );
+                    $authored = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '');
+                    $separatorColumn = self::authoredSubjectColumn($authored, BlockGrammar::stripLazyFrame($nextLine));
+                    $lazySeparator = $termColumn !== null && $separatorColumn !== null && $separatorColumn < $termColumn;
+                }
                 $quotedFence = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)])
                     ? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($nextLine, " \t"))
                     : null;
@@ -125,7 +137,7 @@ final class DefinitionListBuilder
                     IndentationHelper::isBlankLine($nextLine)
                     || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextLine)
                     || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $nextLine)
-                    || (!$quotedUnclosedFenceIsTermText && $this->endsDefinitionTerm($nextLine, $lines, $i))
+                    || (!$lazySeparator && !$quotedUnclosedFenceIsTermText && $this->endsDefinitionTerm($nextLine, $lines, $i))
                     || (($nextLine[0] ?? '') === '{'
                         && $this->wrappedBlockAttributeLength($lines, $i) !== null)
                     // A construct that renders nothing is not term text. The
@@ -370,8 +382,23 @@ final class DefinitionListBuilder
         $count = count($lines);
 
         while ($i < $count && preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$i])) {
+            $lastTerm = $i;
             // An entry: one or more terms, then one or more definitions.
             $this->appendDefinitionTerms($dl, $lines, $i, $count);
+            // The separator answers to the term it follows, not the first of the entry.
+            for ($t = $i - 1; $t > $lastTerm; $t--) {
+                if (preg_match(BlockGrammar::DEFINITION_TERM_PATTERN . 's', $lines[$t]) === 1) {
+                    $lastTerm = $t;
+
+                    break;
+                }
+            }
+            $termSourceLine = ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($lastTerm)] ?? '');
+            $termColumn = self::authoredSubjectColumn(
+                $termSourceLine,
+                $lines[$lastTerm],
+            );
+            $termHasOwnColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($termSourceLine, " \t")) === 1;
             while ($i < $count) {
                 // A blank line before a `:  ` definition is a separator (djot
                 // parity): a definition may be separated from its term or a
@@ -393,6 +420,15 @@ final class DefinitionListBuilder
                     ($folded && !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, explode("\n", $lines[$i], 2)[0]))
                     || !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN . ($folded ? 's' : ''), $lines[$i], $m)
                 ) {
+                    break;
+                }
+                $bodySource = $this->sourceLineFor($i);
+                $bodySubject = $folded ? explode("\n", $lines[$i], 2)[0] : $lines[$i];
+                $bodyColumn = self::authoredSubjectColumn(
+                    ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$bodySource] ?? ''),
+                    $bodySubject,
+                );
+                if ($termHasOwnColumn && $termColumn !== null && $bodyColumn !== null && $bodyColumn < $termColumn) {
                     break;
                 }
                 $definitionStart = $i;
@@ -509,6 +545,25 @@ final class DefinitionListBuilder
                         break;
                     }
                     $lastBody = $body === [] ? '' : $body[array_key_last($body)];
+                    if (
+                        $termHasOwnColumn && $termColumn !== null
+                        && str_starts_with($contLine, BlockGrammar::LAZY_FRAME)
+                        && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, BlockGrammar::stripLazyFrame($contLine)) === 1
+                        && $body !== []
+                        && $this->bodyEntryStartsParagraph($lastBody)
+                    ) {
+                        $subject = BlockGrammar::stripLazyFrame($contLine);
+                        $authored = ContainerPrefix::stripQuoteMarkers(
+                            $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                        );
+                        $column = self::authoredSubjectColumn($authored, $subject);
+                        if ($column !== null && $column < $termColumn) {
+                            $body[array_key_last($body)] .= "\n" . $subject;
+                            $i++;
+
+                            continue;
+                        }
+                    }
                     // At the description column, caret text folds into its body.
                     if (
                         $body !== [] && preg_match('/^\^ +\S/', $contLine) === 1

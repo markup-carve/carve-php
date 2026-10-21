@@ -14,6 +14,6 @@ class DefinitionBodyBlankContinuationTest extends TestCase
     {
         $render = static fn (string $source): string => (new HtmlRenderer())->render((new BlockParser())->parse($source));
 
-        self::assertSame("<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n      <dd>\n        <p>head</p>\n        <p>a</p>\n      </dd>\n    </dl>\n  </li>\n</ul>\n", $render("- :: t\n:  head\n\n     a"));
+        self::assertSame("<ul>\n  <li>\n    <dl>\n      <dt>t</dt>\n    </dl>\n  </li>\n</ul>\n<p>:  head</p>\n<p>a</p>\n", $render("- :: t\n:  head\n\n     a"));
     }
 }

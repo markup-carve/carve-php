@@ -127,15 +127,12 @@ class PostBlankContentColumnTest extends TestCase
         );
     }
 
-    public function testDefinitionListMismatchedIndentKeepsWholeDl(): void
+    public function testDefinitionListMismatchedIndentLeavesTheItem(): void
     {
-        // When the `:  def` line sits at a lower column than its `:: term`, the
-        // definition still belongs to the def-list -- it must not strand as a
-        // document-level `<p>`. A bare `:  def` is not an independent block
-        // opener, so it never interrupts the item; the whole `<dl>` stays
-        // together (matches carve-js).
+        // carve#3451: a `:` below the column of the definition list it would
+        // continue does not attach; at the outer marker column the item ends.
         $this->assertHtml(
-            "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n      <dd>def</dd>\n    </dl>\n  </li>\n</ul>",
+            "<ul>\n  <li>one\n    <dl>\n      <dt>term</dt>\n    </dl>\n  </li>\n</ul>\n<p>:  def</p>",
             "- one\n  :: term\n:  def\n",
         );
     }

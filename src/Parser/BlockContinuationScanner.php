@@ -716,6 +716,7 @@ final class BlockContinuationScanner
         $pendingDefinitionTerm = false;
         // A term keeps its authored base until a blank or a sibling opener (CARVE-P0-004).
         $authoredTermColumn = null;
+        $openTermColumn = null;
         $authoredFenceOwnsLazy = false;
         $pendingTermFence = null;
         $termCodeTailEligible = true;
@@ -731,6 +732,7 @@ final class BlockContinuationScanner
             if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($seedLine, " \t"))) {
                 $pendingDefinitionTerm = true;
                 $authoredTermColumn = $contentIndent + IndentationHelper::getLeadingColumns($seedLine);
+                $openTermColumn = $authoredTermColumn;
             }
         }
         // The item tracker can report a paragraph even when the description's
@@ -779,6 +781,7 @@ final class BlockContinuationScanner
                 }
                 $floorParagraphWitness = false;
                 $authoredTermColumn = null;
+                $openTermColumn = null;
                 $floorInlineLength = null;
                 $inlineCodeParagraph = false;
                 $definitionContinuesBlank = $openDefinitionBody !== null
@@ -995,6 +998,41 @@ final class BlockContinuationScanner
             }
 
             $isBlockQuoteLazyLine = isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($i)]);
+
+            if (
+                $openTermColumn !== null && $nextIndent >= $openTermColumn
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) === 1
+            ) {
+                $openTermColumn = null;
+            }
+
+            if (
+                $nextIndent <= $baseIndent
+                && ($openTermColumn !== null || ($recentDefinitionBodyColumn !== null && $definitionBodyHasTerm))
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) === 1
+                && !$trailingState->quoteParagraph
+                && !$isBlockQuoteLazyLine
+                && $trailingState->fence === null
+                && !$trailingState->hasOpenDiv()
+            ) {
+                break;
+            }
+            if (
+                ($openTermColumn !== null || $recentDefinitionBodyColumn !== null)
+                && $nextIndent < $contentIndent
+                && $nextIndent > $baseIndent
+                && ($openTermColumn !== null || $recentDefinitionParagraph)
+                && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $nextTrimmed) === 1
+                && $trailingState->fence === null
+                && !$trailingState->hasOpenDiv()
+            ) {
+                $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $trailingState->openParagraph = true;
+                $i++;
+
+                continue;
+            }
 
             if (
                 $nextIndent < $contentIndent
@@ -1253,6 +1291,7 @@ final class BlockContinuationScanner
                 ) {
                     if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed)) {
                         $pendingDefinitionTerm = true;
+                        $openTermColumn = $nextIndent;
                         $termCodeTailEligible = true;
                         $pendingTermFence = null;
                         $definitionBodyHasTerm = false;
@@ -1289,6 +1328,7 @@ final class BlockContinuationScanner
                     && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $nextTrimmed) === 1
                 ) {
                     $authoredTermColumn = IndentationHelper::getLeadingColumns($nextLine);
+                    $openTermColumn = $authoredTermColumn;
                 } elseif (
                     $authoredTermColumn !== null
                     && (IndentationHelper::getLeadingColumns($nextLine) <= $authoredTermColumn
