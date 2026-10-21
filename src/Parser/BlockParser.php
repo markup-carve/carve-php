@@ -3519,8 +3519,16 @@ class BlockParser
         // (CARVE-P11-016, PART 9 section 24 C5).
         $trailingState = $this->advanceFootnoteBodyFenceState(new TrailingBlockState(), $content);
         $retainedBelowComment = false;
-        while ($i < $count) {
-            $nextLine = $lines[$i];
+        $footnoteColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN);
+        foreach (
+            IndentedContainerCollector::admissions(
+                $lines,
+                $i,
+                $count,
+                $footnoteColumn,
+            ) as $admission
+        ) {
+            $nextLine = $admission['line'];
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $retainedBelowComment = false;
                 // A BLANK RUN continues the footnote when the body resumes
@@ -3558,8 +3566,8 @@ class BlockParser
                 ? $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($i))
                 : null;
             if (
-                $markerDecision !== null && $markerDecision['reason'] === null
-                && ($markerDecision['owner']['kind'] ?? null) === 'footnote'
+                $markerDecision !== null
+                && (new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN))->ownsContinuation($markerDecision, 'footnote')
             ) {
                 if (!$this->continuationFollowerIsEligible($i + 1)) {
                     break;
@@ -3609,12 +3617,11 @@ class BlockParser
             $authoredFloor = $parent->getType() === 'list_item' && $start === 0
                 ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
-            $reaches = $authoredFloor === null || $authoredNext === null
-                ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
-                : $authoredNext >= $authoredFloor;
+            $containerColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN, $authoredFloor);
+            $reaches = $containerColumn->classify($nextLine, $authoredNext) === 'content';
             if ($reaches) {
                 $retainedBelowComment = false;
-                $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
+                $bodyLine = $containerColumn->strip($nextLine);
                 // A marker at the column folds into the body's open paragraph
                 // (§10 I2) and opens no item, so it joins that line and leaves
                 // the next line measured against the body.

@@ -188,6 +188,7 @@ final class ListBlockBuilder
         // Seeded with the bullet width; every item overwrites it once its own
         // marker width is known.
         $lastItemContentIndent = $baseIndent + 2;
+        $lastItemColumn = new IndentedContainerColumn($lastItemContentIndent);
         $lastItemAttachColumn = $baseIndent + 2;
         $unclosedFenceBase = null;
         $attachedParagraphOpen = false;
@@ -398,7 +399,7 @@ final class ListBlockBuilder
             // column, which nested a block one space under the marker.
             if (
                 ($lastItemHadBlankAfter || $indentedListMarker)
-                && $currentIndent >= $lastItemContentIndent
+                && $lastItemColumn->classify($currentLine) === 'content'
             ) {
                 // Content after blank line with indentation belongs to previous item
                 $lastItem = ($this->getListParser)()->getLastListItem($list);
@@ -721,6 +722,7 @@ final class ListBlockBuilder
             // Remember this item's content column for the next iteration's
             // post-blank / nested-marker continuation gate (content-column model).
             $lastItemContentIndent = $contentIndent;
+            $lastItemColumn = new IndentedContainerColumn($lastItemContentIndent);
 
             // When the item's content BEGINS, on the marker line, with another
             // list marker (`- - A`, `* - A`, `1. - A`, ...), the lead is itself
@@ -1006,6 +1008,7 @@ final class ListBlockBuilder
         $commentSpan = new CollectedCommentSpan();
         $subLineMap = [];
         $subIndent = $lastItemContentIndent;
+        $subColumn = new IndentedContainerColumn($subIndent);
         // Track the maximum content indent we've seen (for detecting drop-back to marker level)
         $maxContentIndent = $currentIndent;
         $sawBlankLine = false;
@@ -1050,8 +1053,15 @@ final class ListBlockBuilder
         // and for the same reader (markup-carve/carve#1896).
         $subEligible = [];
         $subRetainedMarker = false;
-        while ($i < $count) {
-            $subLine = $lines[$i];
+        foreach (
+            IndentedContainerCollector::admissions(
+                $lines,
+                $i,
+                $count,
+                $subColumn,
+            ) as $admission
+        ) {
+            $subLine = $admission['line'];
             $sourceLine = $this->sourceLineFor($i);
             if ($sourceLine >= 0) {
                 $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
@@ -1200,7 +1210,7 @@ final class ListBlockBuilder
                     $maxContentIndent = $lineIndent;
                 }
                 // Remove subIndent worth of indentation (handling tabs)
-                $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
+                $stripped = $subColumn->strip($subLine);
                 if ($sawBlankLine && trim($stripped) === '+') {
                     $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
                     $blankBeforeNestedContinuation = $blankBeforeNestedContinuation
@@ -2402,8 +2412,7 @@ final class ListBlockBuilder
         $sourceLine = $this->sourceLineFor($index);
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
 
-        return ($decision['reason'] === null || $decision['reason'] === 'sibling' && ($decision['owner']['first'] ?? false)) && $decision['owner'] !== null
-            && $decision['owner']['kind'] === 'list';
+        return (new IndentedContainerColumn(0))->ownsContinuation($decision, 'list', true);
     }
 
     private function acceptedContinuationMarker(int $index): bool
