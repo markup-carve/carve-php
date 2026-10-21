@@ -64,6 +64,12 @@ class CarveConverter
 {
     private bool $borrowedHtmlConfiguration = false;
 
+    private bool $onlyDefaultExtensions = true;
+
+    private bool $registeringDefaultExtension = false;
+
+    private ?string $conversionSource = null;
+
     /**
      * Implemented Carve specification version, used by `carve fmt --stamp`.
      * ReleaseVersionTest checks it against the vendored grammar.
@@ -360,7 +366,12 @@ class CarveConverter
             }
         }
 
-        $this->addExtension(new FrontmatterExtension());
+        $this->registeringDefaultExtension = true;
+        try {
+            $this->addExtension(new FrontmatterExtension());
+        } finally {
+            $this->registeringDefaultExtension = false;
+        }
     }
 
     /**
@@ -377,7 +388,12 @@ class CarveConverter
             }
         }
 
-        $this->addExtension(new MentionsExtension());
+        $this->registeringDefaultExtension = true;
+        try {
+            $this->addExtension(new MentionsExtension());
+        } finally {
+            $this->registeringDefaultExtension = false;
+        }
     }
 
     /**
@@ -494,7 +510,12 @@ class CarveConverter
             }
         }
 
-        return $this->render($this->parse($djot));
+        $this->conversionSource = $djot;
+        try {
+            return $this->render($this->parse($djot));
+        } finally {
+            $this->conversionSource = null;
+        }
     }
 
     /**
@@ -737,7 +758,14 @@ class CarveConverter
             }
         }
 
-        $html = $this->renderer->render($document);
+        $source = $this->conversionSource;
+        $html = $source !== null
+            && $this->borrowedHtmlConfiguration
+            && $this->onlyDefaultExtensions
+            && static::class === self::class
+            && $this->renderer::class === HtmlRenderer::class
+            ? $this->renderer->renderParsedSource($document, $source)
+            : $this->renderer->render($document);
 
         foreach ($this->outputTransformers as $transformer) {
             $html = $transformer($html);
@@ -887,6 +915,9 @@ class CarveConverter
      */
     public function addExtension(ExtensionInterface $extension): self
     {
+        if (!$this->registeringDefaultExtension) {
+            $this->onlyDefaultExtensions = false;
+        }
         $this->assertCompatibleExtension($extension);
         $registeredExtension = $extension instanceof BeforeRenderExtensionInterface ? clone $extension : $extension;
         $this->extensions[] = $registeredExtension;
