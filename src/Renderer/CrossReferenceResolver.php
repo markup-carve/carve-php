@@ -73,6 +73,36 @@ class CrossReferenceResolver
 
     public function resolve(Document $document, HeadingIdTracker $tracker): void
     {
+        if ($this::class === self::class) {
+            $headings = [];
+            $references = [];
+            $hasNumberedTarget = false;
+            $hasNestedLink = false;
+            $this->scanForRender(
+                $document,
+                $tracker,
+                $headings,
+                $references,
+                $hasNumberedTarget,
+                $hasNestedLink,
+            );
+            foreach ($headings as $heading) {
+                $tracker->getIdForHeading($heading);
+            }
+            if ($hasNumberedTarget) {
+                $this->resolveNumberedCaptions($document, $tracker);
+            }
+            foreach ($references as $reference) {
+                $id = $tracker->findId($reference->getTargetId());
+                $reference->setHref($id === null ? null : '#' . $id);
+            }
+            if ($hasNestedLink) {
+                $this->enforceLinksNeverNest($document, $tracker);
+            }
+
+            return;
+        }
+
         $this->trackIdFromNode($document, $tracker);
         $this->preresolveHeadingIds($document, $tracker);
         // Before the stamp: a figure/table caption id's display text (e.g.
@@ -82,6 +112,71 @@ class CrossReferenceResolver
         $this->resolveNumberedCaptions($document, $tracker);
         $this->stampCrossReferenceHrefs($document, $tracker);
         $this->enforceLinksNeverNest($document, $tracker);
+    }
+
+    /**
+     * Gather the render prerequisites in source order before assigning IDs.
+     * Explicit IDs anywhere in the tree reserve their names before headings.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Renderer\HeadingIdTracker $tracker
+     * @param list<\MarkupCarve\Carve\Node\Block\Heading> $headings
+     * @param list<\MarkupCarve\Carve\Node\Inline\HeadingRef> $references
+     * @param bool $insideHeadingRef
+     * @param bool $insideLink
+     * @param bool $insideHeading
+     * @param int $depth
+     * @param bool $hasNestedLink
+     * @param bool $hasNumberedTarget
+     */
+    private function scanForRender(
+        Node $node,
+        HeadingIdTracker $tracker,
+        array &$headings,
+        array &$references,
+        bool &$hasNumberedTarget,
+        bool &$hasNestedLink,
+        int $depth = 0,
+        bool $insideHeading = false,
+        bool $insideLink = false,
+        bool $insideHeadingRef = false,
+    ): void {
+        if ($depth >= self::MAX_RESOLVE_DEPTH) {
+            return;
+        }
+        if ($node->hasAttribute('id')) {
+            $tracker->trackId($node->getAttribute('id') ?? '');
+        }
+        if ($node instanceof Heading && !$insideHeading) {
+            $headings[] = $node;
+        }
+        if ($node instanceof Figure || $node instanceof FigureGroup || $node instanceof Table) {
+            $hasNumberedTarget = true;
+        }
+        if ($node instanceof HeadingRef && !$insideHeadingRef && $depth > 0) {
+            $references[] = $node;
+            if ($insideLink) {
+                $hasNestedLink = true;
+            }
+        }
+        if ($node instanceof Link && $insideLink) {
+            $hasNestedLink = true;
+        }
+        $childInsideLink = $node instanceof InlineFootnote ? false : $insideLink || $node instanceof Link;
+        foreach ($node->getChildren() as $child) {
+            $this->scanForRender(
+                $child,
+                $tracker,
+                $headings,
+                $references,
+                $hasNumberedTarget,
+                $hasNestedLink,
+                $depth + 1,
+                $insideHeading || $node instanceof Heading,
+                $childInsideLink,
+                $insideHeadingRef || $node instanceof HeadingRef,
+            );
+        }
     }
 
     /**
