@@ -3819,6 +3819,78 @@ final class BlockContinuationScanner
     }
 
     /**
+     * Advance an open nested div. A null result leaves the outer scanner in charge.
+     */
+    private function advanceNestedDivState(TrailingBlockState $state, string $line): ?TrailingBlockState
+    {
+        $nestedDiv = $state->nestedDiv;
+        if ($nestedDiv === null) {
+            return null;
+        }
+
+        $column = IndentationHelper::getLeadingColumns($line);
+        $text = ltrim($line, " \t");
+        if ($column >= $state->nestedDivColumn || $text === '') {
+            $local = IndentationHelper::stripLeadingColumns($line, $state->nestedDivColumn);
+            $child = $this->advanceTrailingStateCore($nestedDiv, $local, true);
+            $state->nestedDiv = $child;
+            $state->openParagraph = $child->openParagraph;
+            $state->afterComment = $child->afterComment;
+            $state->afterInvisible = $child->afterInvisible;
+            $fence = $child->fence;
+            if ($fence === null) {
+                $state->fence = null;
+            } else {
+                $state->openFence(
+                    $fence->char,
+                    $fence->length,
+                    $fence->column + $state->nestedDivColumn,
+                    $fence->hostColumn + $state->nestedDivColumn,
+                    $fence->pairedInline,
+                );
+            }
+            $state->nestedDivBody = $state->nestedDivBody || $text !== '';
+            if (!$child->inDiv && $child->divDepth === 0) {
+                $state->nestedDiv = null;
+                $state->nestedDivHosts = [];
+                $state->nestedColumn = 0;
+                $state->nestedIsQuote = false;
+            }
+
+            return $state;
+        }
+        if (
+            $nestedDiv->afterComment && $column > 0
+            && (!$this->startsNewBlock($text) || ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
+        ) {
+            $child = clone $nestedDiv;
+            $child->openParagraph = true;
+            $child->afterComment = false;
+            $state->nestedDiv = $child;
+            $state->openParagraph = true;
+            $state->afterComment = false;
+
+            return $state;
+        }
+        $marker = ($this->getListParser)()->parseListItemMarker($text);
+        $structuralMarker = false;
+        foreach ($state->nestedDivHosts as $host) {
+            $structuralMarker = $structuralMarker || ($column <= $host['marker'] && $column >= $host['parent']);
+        }
+        if (
+            $state->nestedDivBody && $state->openParagraph
+            && ($marker !== null ? !$structuralMarker : !$this->startsNewBlock($text))
+        ) {
+            return $state;
+        }
+        $state->nestedDiv = null;
+        $state->nestedDivHosts = [];
+        $state->fence = null;
+
+        return null;
+    }
+
+    /**
      * The tracker above, reading the line from a byte OFFSET.
      *
      * Every branch asks the same question of the same bytes as the copying
@@ -3851,64 +3923,10 @@ final class BlockContinuationScanner
     ): TrailingBlockState {
         $state = clone $state;
         if ($state->nestedDiv !== null) {
-            $column = IndentationHelper::getLeadingColumns($line);
-            $text = ltrim($line, " \t");
-            if ($column >= $state->nestedDivColumn || $text === '') {
-                $local = IndentationHelper::stripLeadingColumns($line, $state->nestedDivColumn);
-                $child = $this->advanceTrailingStateCore($state->nestedDiv, $local, true);
-                $state->nestedDiv = $child;
-                $state->openParagraph = $child->openParagraph;
-                $state->afterComment = $child->afterComment;
-                $state->afterInvisible = $child->afterInvisible;
-                $fence = $child->fence;
-                if ($fence === null) {
-                    $state->fence = null;
-                } else {
-                    $state->openFence(
-                        $fence->char,
-                        $fence->length,
-                        $fence->column + $state->nestedDivColumn,
-                        $fence->hostColumn + $state->nestedDivColumn,
-                        $fence->pairedInline,
-                    );
-                }
-                $state->nestedDivBody = $state->nestedDivBody || $text !== '';
-                if (!$child->inDiv && $child->divDepth === 0) {
-                    $state->nestedDiv = null;
-                    $state->nestedDivHosts = [];
-                    $state->nestedColumn = 0;
-                    $state->nestedIsQuote = false;
-                }
-
-                return $state;
+            $nestedResult = $this->advanceNestedDivState($state, $line);
+            if ($nestedResult !== null) {
+                return $nestedResult;
             }
-            if (
-                $state->nestedDiv->afterComment && $column > 0
-                && (!$this->startsNewBlock($text) || ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
-            ) {
-                $child = clone $state->nestedDiv;
-                $child->openParagraph = true;
-                $child->afterComment = false;
-                $state->nestedDiv = $child;
-                $state->openParagraph = true;
-                $state->afterComment = false;
-
-                return $state;
-            }
-            $marker = ($this->getListParser)()->parseListItemMarker($text);
-            $structuralMarker = false;
-            foreach ($state->nestedDivHosts as $host) {
-                $structuralMarker = $structuralMarker || ($column <= $host['marker'] && $column >= $host['parent']);
-            }
-            if (
-                $state->nestedDivBody && $state->openParagraph
-                && ($marker !== null ? !$structuralMarker : !$this->startsNewBlock($text))
-            ) {
-                return $state;
-            }
-            $state->nestedDiv = null;
-            $state->nestedDivHosts = [];
-            $state->fence = null;
         }
         if ($state->afterComment && $state->nestedColumn > 0) {
             $column = IndentationHelper::getLeadingColumns($line);
