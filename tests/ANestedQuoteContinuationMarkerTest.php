@@ -16,13 +16,13 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
     public static function sourceProvider(): array
     {
         $nested = '<blockquote><blockquote><p>q</p><p>para</p></blockquote></blockquote>';
-        $closed = '<blockquote><blockquote><p>q</p></blockquote></blockquote>';
+        $refused = '<blockquote><blockquote><p>q +</p></blockquote></blockquote>';
 
         return [
             'prefixed attached paragraph' => ["> > q\n> +\n> para\n", $nested],
-            'unprefixed attached paragraph' => ["> > q\n> +\npara\n", $nested],
-            'marker at end of input' => ["> > q\n> +\n", $closed],
-            'blank line ends the quote' => ["> > q\n> +\n\npara\n", $closed . '<p>para</p>'],
+            'unprefixed attached paragraph' => ["> > q\n> +\npara\n", '<blockquote><blockquote><p>q + para</p></blockquote></blockquote>'],
+            'marker at end of input' => ["> > q\n> +\n", $refused],
+            'blank line ends the quote' => ["> > q\n> +\n\npara\n", $refused . '<p>para</p>'],
             'nested quote in a list item' => ["- > > q\n  > +\n\npara\n", '<ul><li><blockquote><blockquote><p>q +</p></blockquote></blockquote></li></ul><p>para</p>'],
             'plus at inner content column is text' => ["> > q\n> > +\n\npara\n", '<blockquote><blockquote><p>q +</p></blockquote></blockquote><p>para</p>'],
             'unnested unprefixed marker' => ["> q\n+\npara\n", '<blockquote><p>q</p><p>para</p></blockquote>'],

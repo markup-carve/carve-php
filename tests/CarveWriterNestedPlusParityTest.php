@@ -26,7 +26,7 @@ final class CarveWriterNestedPlusParityTest extends TestCase
             ],
             'nested fence payload spacing' => [
                 "- - ```\n\n\n  +\ntail\n",
-                "- - ```\n\n    ```\n\n  +\n  tail\n",
+                "- - ```\n\n    ```\n\n  \\+\n  tail\n",
             ],
             'stacked task box' => [
                 "- > [x] a\n+\ntail",

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Parser\Block\ListParser;
 
 /**
  * State owned by one document parse.
@@ -13,6 +14,42 @@ use MarkupCarve\Carve\Ast\SourceSpan;
  */
 final class BlockParseSession
 {
+    private ?ContinuationMarkerClassifier $continuationMarkers = null;
+
+    /**
+     * @return array{owner: array{kind: string, column: int, depth: int, content: int, first: bool}|null, reason: string|null, column: int, depth: int, stale: bool, open: bool}
+     */
+    public function continuationMarkerDecision(BlockSourceState $source, ListParser $lists, int $line): array
+    {
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+
+        return $this->continuationMarkers->decision($line);
+    }
+
+    /**
+     * @return array{kind: string, column: int, depth: int, content: int, first: bool}|null
+     */
+    public function firstBlockMarkerOwner(BlockSourceState $source, ListParser $lists, int $line): ?array
+    {
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+
+        return $this->continuationMarkers->firstBlockOwner($line);
+    }
+
+    public function innermostListColumnBefore(BlockSourceState $source, ListParser $lists, int $line): ?int
+    {
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+
+        return $this->continuationMarkers->innermostListColumnBefore($line);
+    }
+
+    public function footnoteColumnBefore(BlockSourceState $source, ListParser $lists, int $line): ?int
+    {
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+
+        return $this->continuationMarkers->footnoteColumnBefore($line);
+    }
+
     /**
      * @var list<array{line: int, column: int, marker: string, endLine: int, reason: string}>
      */

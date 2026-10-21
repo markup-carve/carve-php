@@ -110,7 +110,7 @@ class ContainerAndBracketBoundariesTest extends TestCase
         $this->assertSame('<p><strong>outer <em>inner</em></strong> <em>later</em> [r] <em>last</em></p>' . "\n", $html);
     }
 
-    public function testAttachedBlankPayloadLines(): void
+    public function testRefusedMarkerLeavesBlankLinesOutsideTheFence(): void
     {
         foreach (['-', '1.'] as $marker) {
             foreach (['```', '~~~', '``` php'] as $fence) {
@@ -119,19 +119,19 @@ class ContainerAndBracketBoundariesTest extends TestCase
                     $document = (new CarveConverter())->parse($source);
                     $code = $document->getChildren()[0]->getChildren()[0]->getChildren()[0];
                     $this->assertInstanceOf(CodeBlock::class, $code, $source);
-                    $this->assertSame(str_repeat("\n", $blanks), $code->getContent(), $source);
-                    $this->assertCount(2, $document->getChildren(), $source);
+                    $this->assertSame('', $code->getContent(), $source);
+                    $this->assertCount(3, $document->getChildren(), $source);
                 }
             }
         }
     }
 
-    public function testBlankPayloadAfterALaterFenceInAnItem(): void
+    public function testRefusedMarkerLeavesTheLaterFenceEmpty(): void
     {
         $document = (new CarveConverter())->parse("- a\n\n  ```\n+\n\ntail\n");
         $code = $document->getChildren()[0]->getChildren()[0]->getChildren()[1];
         $this->assertInstanceOf(CodeBlock::class, $code);
-        $this->assertSame("\n", $code->getContent());
+        $this->assertSame('', $code->getContent());
     }
 
     public function testLabelNodesKeepDocumentExtensions(): void

@@ -35,7 +35,7 @@ final class DefinitionListBuilder
      * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node): (void) $applyPendingAttributesCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock|\MarkupCarve\Carve\Node\Block\DefinitionList): (void) $consumeLooseKeyCallback
-     * @param \Closure(int): (bool) $continuationAttachesAtColumnZeroCallback
+     * @param \Closure(int): (bool) $continuationFollowerIsEligibleCallback
      * @param \Closure(): (void) $endContainerAttributeScopeCallback
      * @param \Closure(string, array<string>|null, int|null): (bool) $endsDefinitionTermCallback
      * @param \Closure(string): (bool) $isBlockAttributeLineCallback
@@ -65,7 +65,7 @@ final class DefinitionListBuilder
         private ?Closure $advanceTrailingStateWithFenceLookaheadCallback,
         private Closure $applyPendingAttributesCallback,
         private Closure $consumeLooseKeyCallback,
-        private Closure $continuationAttachesAtColumnZeroCallback,
+        private Closure $continuationFollowerIsEligibleCallback,
         private Closure $endContainerAttributeScopeCallback,
         private Closure $endsDefinitionTermCallback,
         private Closure $isBlockAttributeLineCallback,
@@ -445,16 +445,21 @@ final class DefinitionListBuilder
                 // sole content is a lone `+`, the body is the FOLLOWING
                 // flush-left block, with no indentation. `: \+` is a literal `+`.
                 $bodyMap = [];
-                if (preg_match('/^\+[ \t]*$/', trim($m[2], StringUtil::WHITESPACE_CHARS))) {
+                $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $definitionSource);
+                if (($firstBlockOwner['kind'] ?? null) === 'description' && $firstBlockOwner['column'] === $definitionColumn) {
                     $this->state->session->recordRefusedContinuationMarker($this->state->source, $definitionSource, 'definition description');
                     [$i, $body, $bodyRawMap] = $this->collectAttachedBlock(
                         $lines,
                         $i,
                         $count,
-                        static fn (string $a): bool => IndentationHelper::isBlankLine($a)
-                            || preg_match('/^\+[ \t]*$/', $a)
-                            || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a)
-                            || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a),
+                        function (string $a, int $at): bool {
+                            $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($at));
+
+                            return IndentationHelper::isBlankLine($a)
+                                || $decision['column'] >= 0 && $decision['owner'] !== null && $decision['reason'] === null
+                                || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $a) === 1
+                                || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $a) === 1;
+                        },
                     );
                     $bodyMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $bodyRawMap);
                 } else {
@@ -541,6 +546,23 @@ final class DefinitionListBuilder
                         $noteBodyColumn = $contColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                     } elseif ($noteReleased) {
                         $noteBodyColumn = null;
+                    }
+                    $priorSourceLine = $this->sourceLineFor($i) - 1;
+                    if ($priorSourceLine >= 0) {
+                        $priorMarker = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $priorSourceLine);
+                        if ($priorMarker['column'] >= 0 && $priorMarker['reason'] === null && $priorMarker['stale'] && ($priorMarker['owner']['kind'] ?? null) === 'list') {
+                            break;
+                        }
+                    }
+                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
+                    if ($decision['column'] >= 0) {
+                        if (
+                            $decision['reason'] === null && $decision['owner'] !== null
+                            && $decision['owner']['kind'] !== 'description' && $definitionColumn !== null
+                            && $decision['owner']['column'] < $definitionColumn + $continuationColumn
+                        ) {
+                            break;
+                        }
                     }
                     if (
                         $attachedDefinitionListOpen
@@ -641,13 +663,10 @@ final class DefinitionListBuilder
                         }
                     }
                     // Form B: `+` pull-left continuation.
-                    if (
-                        preg_match('/^\+[ \t]*$/', $contLine)
-                        && preg_match('/^(?:> ?)*\+[ \t]*$/D', $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '') === 1
-                    ) {
+                    if ($this->descriptionMarkerAttaches($i)) {
                         $this->state->session->recordRefusedContinuationMarker($this->state->source, $this->sourceLineFor($i), 'definition description');
                         $i++;
-                        if (!$this->continuationAttachesAtColumnZero($i)) {
+                        if (!$this->continuationFollowerIsEligible($i)) {
                             break;
                         }
                         $attachedItemColumn = 0;
@@ -673,17 +692,19 @@ final class DefinitionListBuilder
                                 $definition = $this->isReferenceDefinitionLine(ltrim($a, " \t"))
                                     || preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($a, " \t")) === 1;
                                 if (
+                                    $attachedItemColumn > 0 && $definition
+                                    && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) >= $attachedItemColumn
+                                ) {
+                                    $attachedReferenceSeen = true;
+
+                                    return false;
+                                }
+                                if (
                                     $attachedReferenceSeen && ($definition
                                     || (str_starts_with(ltrim($a, " \t"), '[')
                                         && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) < $attachedItemColumn))
                                 ) {
                                     return true;
-                                }
-                                if (
-                                    $attachedItemColumn > 0 && $definition
-                                    && IndentationHelper::getLeadingColumns($a, $attachedItemColumn) >= $attachedItemColumn
-                                ) {
-                                    $attachedReferenceSeen = true;
                                 }
 
                                 return false;
@@ -1797,9 +1818,16 @@ final class DefinitionListBuilder
         ($this->consumeLooseKeyCallback)($node);
     }
 
-    private function continuationAttachesAtColumnZero(int $index): bool
+    private function continuationFollowerIsEligible(int $index): bool
     {
-        return ($this->continuationAttachesAtColumnZeroCallback)($index);
+        return ($this->continuationFollowerIsEligibleCallback)($index);
+    }
+
+    private function descriptionMarkerAttaches(int $index): bool
+    {
+        $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
+
+        return $decision['reason'] === null && $decision['owner'] !== null && $decision['owner']['kind'] === 'description';
     }
 
     /**

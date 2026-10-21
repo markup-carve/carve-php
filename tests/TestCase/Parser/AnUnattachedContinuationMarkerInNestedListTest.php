@@ -13,7 +13,7 @@ final class AnUnattachedContinuationMarkerInNestedListTest extends TestCase
     {
         $html = (new CarveConverter())->convert("- x\n  - L\n+\n  p\n");
 
-        self::assertSame("<ul>\n  <li>x\n    <ul>\n      <li>L\np</li>\n    </ul>\n  </li>\n</ul>\n", $html);
+        self::assertSame("<ul>\n  <li>x\n    <ul>\n      <li>L\n+\np</li>\n    </ul>\n  </li>\n</ul>\n", $html);
     }
 
     public function testAPlusBelowTheNestedMarkerColumnIsText(): void

@@ -211,14 +211,13 @@ class OneWhitespaceDefinitionInEveryConstructTest extends TestCase
     }
 
     /**
-     * The continuation marker still works with a trailing run of whitespace,
-     * which is what its docblock's `/^\+[ \t]*$/` says.
+     * A refused marker stays literal with any trailing space or tab run.
      */
-    public function testTheContinuationMarkerStillTakesATrailingWhitespaceRun(): void
+    public function testTheRefusedMarkerKeepsATrailingWhitespaceRunLiteral(): void
     {
         foreach (['', ' ', "\t", " \t "] as $run) {
             $this->assertStringContainsString(
-                '<p>a</p> <p>b</p>',
+                '<p>+</p> <p>b</p>',
                 $this->html("- a\n\n+" . $run . "\n\n  b\n"),
                 'run: ' . json_encode($run),
             );

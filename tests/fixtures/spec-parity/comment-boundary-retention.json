@@ -257,7 +257,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-11",
     "source": "> intro\n>\n+\n  more\n",
-    "html": "<blockquote><p>intro</p></blockquote>\n<p>more</p>\n"
+    "html": "<blockquote><p>intro</p></blockquote>\n<p>+\nmore</p>"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-12",
@@ -267,7 +267,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-13",
     "source": "- intro\n+\n  more\n",
-    "html": "<ul>\n  <li>intro\nmore</li>\n</ul>\n"
+    "html": "<ul>\n  <li>intro\n+\nmore</li>\n</ul>"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-14",
@@ -287,7 +287,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-17",
     "source": "- x\n  > q\n+\n",
-    "html": "<ul>\n  <li>x\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>\n"
+    "html": "<ul>\n  <li>x\n    <blockquote><p>q\n+</p></blockquote>\n  </li>\n</ul>"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-18",
@@ -302,7 +302,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-2",
     "source": "[^a]: intro\n+\n more\n\nsee[^a]\n",
-    "html": "<p>more</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+    "html": "<p>+\nmore</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-3",
@@ -312,7 +312,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-4",
     "source": "[^a]: intro\n+\n  more\n\nsee[^a]\n",
-    "html": "<p>more</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>\n"
+    "html": "<p>+\nmore</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-5",
@@ -327,7 +327,7 @@
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-7",
     "source": ":: term\n:  intro\n+\n  more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>\n"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro\n+\nmore</dd>\n</dl>"
   },
   {
     "id": "comment-boundary-retention/435-the-continuation-marker-s-column-gate-reaches-every-container-8",

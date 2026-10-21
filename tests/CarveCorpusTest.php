@@ -62,6 +62,12 @@ class CarveCorpusTest extends TestCase
         'a-column-zero-marker-below-an-open-div-attaches-beside-the-div',
         'a-dangling-plus-marker-adds-nothing-and-a-nested-quote-reads-it-like-an-unnested-one',
         'a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener',
+        // markup-carve/carve#3421: the relative continuation-marker rule.
+        'a-task-item-takes-a-first-block-continuation-marker-after-its-checkbox',
+        'a-continuation-marker-uses-its-container-column',
+        'a-first-block-marker-on-an-indented-opener-reads-two-columns',
+        'a-refused-continuation-plus-remains-text',
+        'a-refused-plus-without-the-inner-quote-prefix-renders-as-text',
         'a-block-at-an-item-content-column-ends-its-paragraph-before-an-unclosed-fence',
         'a-definition-or-attribute-line-in-a-nested-container-leaves-no-paragraph-for-an-unmarked-line',
         'a-line-is-read-in-the-container-whose-column-it-reaches',

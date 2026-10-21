@@ -108,7 +108,7 @@ class TheContinuationMarkerSColumnGateReachesEveryContainerTest extends TestCase
         $src = "> intro\n>\n@\n  more\n";
 
         $this->assertSame(
-            $this->html(str_replace("@\n", '', $src)),
+            '<blockquote><p>intro</p></blockquote><p>+ more</p>',
             $this->html(str_replace('@', '+', $src)),
         );
     }

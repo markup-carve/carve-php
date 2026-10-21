@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Parser;
 use Closure;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
+use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Util\StringUtil;
 
 /**
@@ -27,7 +28,7 @@ final class BlockContinuationScanner
      * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateCallback
      * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
      * @param \Closure(string, array<string>, int): ?int $commentFenceSpanEndCallback
-     * @param \Closure(int): bool $continuationAttachesAtColumnZeroCallback
+     * @param \Closure(int): bool $continuationFollowerIsEligibleCallback
      * @param \Closure(int, int, array<string>): bool $continuationMarkerHasIndentedFollowerCallback
      * @param \Closure(array<string>, int, int, int, int): bool $definitionBodyContinuesPastBlankCallback
      * @param \Closure(string): bool $entryOpensContainerCallback
@@ -64,7 +65,7 @@ final class BlockContinuationScanner
         private ?Closure $advanceTrailingStateCallback,
         private ?Closure $advanceTrailingStateWithFenceLookaheadCallback,
         private Closure $commentFenceSpanEndCallback,
-        private Closure $continuationAttachesAtColumnZeroCallback,
+        private Closure $continuationFollowerIsEligibleCallback,
         private Closure $continuationMarkerHasIndentedFollowerCallback,
         private Closure $definitionBodyContinuesPastBlankCallback,
         private Closure $entryOpensContainerCallback,
@@ -438,7 +439,7 @@ final class BlockContinuationScanner
      */
     public function collectAttachedBlock(array $lines, int $i, int $count, callable $isBoundary, ?callable $transform = null): array
     {
-        if (!$this->continuationAttachesAtColumnZero($i)) {
+        if (!$this->continuationFollowerIsEligible($i)) {
             return [$i, [], []];
         }
         $fenced = $this->attachedFencedBlockEnd($lines, $i, $count, $transform);
@@ -453,6 +454,9 @@ final class BlockContinuationScanner
         $collected = [];
         $rawLineMap = [];
         for ($j = 0; $j < $take; $j++) {
+            if (LayoutWork::$on) {
+                LayoutWork::$markerExtentWork++;
+            }
             $rawIndex = $i + $j;
             $collected[] = $transform === null ? $lines[$rawIndex] : $transform($lines[$rawIndex]);
             $rawLineMap[] = $rawIndex;
@@ -835,7 +839,7 @@ final class BlockContinuationScanner
                 $trailingState->fence !== null
                 && $nextIndent >= $contentIndent + $trailingState->fence->column
                 && $this->isContinuationMarker($nextTrimmed)
-                && !$this->physicalContinuationMarker($i)
+                && !$this->markerAttachesToList($i)
             ) {
                 $itemLines[] = IndentationHelper::stripLeadingColumns($nextLine, $contentIndent);
                 $itemLineMap[] = $this->sourceLineFor($i);
@@ -844,12 +848,13 @@ final class BlockContinuationScanner
                 continue;
             }
             $sourceLine = $this->sourceLineFor($i);
-            $previousSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
             $currentSource = $this->state->source->sourceLines[$sourceLine] ?? '';
+            $previousSource = $this->state->source->sourceLines[$sourceLine - 1] ?? '';
             $quoteRest = preg_replace('/^(?:> ?)+/', '', $currentSource) ?? $currentSource;
             if (
                 $nextIndent < $contentIndent
-                && preg_match('/^(?:> ?)*[ \t]+(?:[-*] |(?:\d+|[A-Za-z]+)[.)] )\+[ \t]*$/D', $previousSource) === 1
+                && str_contains($previousSource, '+')
+                && ($this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $sourceLine - 1)['kind'] ?? null) === 'list'
                 && $quoteRest === ltrim($quoteRest, " \t")
             ) {
                 break;
@@ -1037,7 +1042,7 @@ final class BlockContinuationScanner
             if (
                 $nextIndent < $contentIndent
                 && $this->isContinuationMarker($nextTrimmed)
-                && !$this->physicalContinuationMarker($i)
+                && !$this->markerAttachesToList($i)
                 && $trailingState->openParagraph
             ) {
                 $itemLines[] = BlockGrammar::LAZY_FRAME . $nextTrimmed;
@@ -1061,7 +1066,7 @@ final class BlockContinuationScanner
             if (
                 $nextIndent === $baseIndent
                 && $this->isContinuationMarker($nextTrimmed)
-                && $this->physicalContinuationMarker($i)
+                && $this->markerAttachesToList($i)
                 && ($this->continuationMarkerHasIndentedFollower($i + 1, $count, $lines)
                     || ($trailingState->fence !== null
                         && isset($lines[$i + 1])
@@ -1156,6 +1161,20 @@ final class BlockContinuationScanner
                         < $contentIndent + $openDefinitionBody);
                 // A marker at the body column of the marker-line note is the
                 // note's own line (PART 9 §16), so it does not end the item.
+                $priorSource = $this->state->source->sourceLines[$this->sourceLineFor($i - 1)] ?? '';
+                $attachedChildFollower = false;
+                if (str_contains($priorSource, '+')) {
+                    $priorDecision = $this->state->session->continuationMarkerDecision(
+                        $this->state->source,
+                        ($this->getListParser)(),
+                        $this->sourceLineFor($i - 1),
+                    );
+                    $attachedChildFollower = $priorDecision['reason'] === null && $priorDecision['owner'] !== null
+                        && $priorDecision['owner']['kind'] !== 'list'
+                        && $priorDecision['owner']['column'] >= IndentationHelper::getLeadingColumns(
+                            $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '',
+                        );
+                }
                 if (
                     $trailingState->fence === null
                     && (!$trailingState->hasOpenDiv() || ($minimumFenceBase && $floorParagraphWitness && !$floorExistingDiv && !$floorSawFenceState && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + $trailingState->divColumn) < $contentIndent + $trailingState->divColumn))
@@ -1165,6 +1184,7 @@ final class BlockContinuationScanner
                     && ($this->getListParser)()->parseListItemMarker($nextTrimmed) !== null
                     && $markerLeavesDescription
                     && $rejectedColonFenceLength === null
+                    && !$attachedChildFollower
                     && !($nestedNoteBodyColumn !== null && IndentationHelper::getLeadingColumns($nextLine, $nestedNoteBodyColumn) >= $nestedNoteBodyColumn)
                     && !($trailingState->inFootnoteBody && IndentationHelper::getLeadingColumns($nextLine, $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN) >= $contentIndent + BlockGrammar::FOOTNOTE_BODY_COLUMN && $this->leadNoteExtendsThrough($itemLines, $noteCursor, $noteBroken))
                     && !(
@@ -2019,7 +2039,7 @@ final class BlockContinuationScanner
             if (
                 !$trailingState->openParagraph
                 && ($nextIndent === 0 || !$trailingState->afterComment)
-                && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationAttachesAtColumnZero($i))
+                && !($leadIsBareContinuationMarker && $nextIndent === 0 && $this->continuationFollowerIsEligible($i))
             ) {
                 // The closer lookahead can find a closer beyond the line that
                 // ends this item. Preserve that decision when the collected
@@ -3891,7 +3911,7 @@ final class BlockContinuationScanner
             // prose that a flush-left line still folds into (corpus 357-6) -
             // reading it as a body ended the item there.
             $state->inFootnoteBody = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, BlockGrammar::subjectFrom($line, $definitionAt, $end)) === 1;
-            $state->footnoteColumn = 0;
+            $state->footnoteColumn = $definitionAt - $at;
 
             return $state;
         }
@@ -4148,9 +4168,9 @@ final class BlockContinuationScanner
         return ($this->commentFenceSpanEndCallback)($line, $lines, $index);
     }
 
-    private function continuationAttachesAtColumnZero(int $index): bool
+    private function continuationFollowerIsEligible(int $index): bool
     {
-        return ($this->continuationAttachesAtColumnZeroCallback)($index);
+        return ($this->continuationFollowerIsEligibleCallback)($index);
     }
 
     /**
@@ -4445,11 +4465,12 @@ final class BlockContinuationScanner
         return ($this->isContinuationMarkerCallback)($line);
     }
 
-    private function physicalContinuationMarker(int $index): bool
+    private function markerAttachesToList(int $index): bool
     {
-        $line = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? null;
+        $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
 
-        return $line === null || preg_match('/^(?:> ?)*\+[ \t]*$/D', $line) === 1;
+        return $decision['reason'] === null && $decision['owner'] !== null
+            && $decision['owner']['kind'] === 'list';
     }
 
     /**
