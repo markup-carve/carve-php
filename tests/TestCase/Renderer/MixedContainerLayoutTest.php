@@ -29,6 +29,47 @@ class MixedContainerLayoutTest extends TestCase
 {
     use ScalingGuardTrait;
 
+    public function testPlainListsAndQuotesMatchTheRecursiveRendererInBothModes(): void
+    {
+        $document = (new CarveConverter())->parse("- alpha\n- beta\n\n> quoted text\n");
+        self::assertSame(
+            (new class extends HtmlRenderer {
+            })->render($document),
+            (new HtmlRenderer())->render($document),
+        );
+        $results = [];
+        foreach (
+            [
+                new class extends HtmlRenderer {
+                },
+                new HtmlRenderer(),
+            ] as $renderer
+        ) {
+            $extension = new class implements StaticRenderExtensionInterface {
+                /**
+                 * @var list<string>
+                 */
+                public array $seen = [];
+
+                public function register(CarveConverter $converter): void
+                {
+                }
+
+                public function renderStaticHtml(RenderEvent $event, HtmlRenderer $renderer): bool
+                {
+                    $this->seen[] = $event->getNode()->getType();
+
+                    return false;
+                }
+            };
+            $renderer->setRenderMode(RenderMode::STATIC);
+            $renderer->addStaticRenderExtension($extension);
+            $results[] = [$renderer->render($document), $extension->seen];
+        }
+
+        self::assertSame($results[0], $results[1]);
+    }
+
     public function testMixedFramesMatchTheRecursiveRenderer(): void
     {
         $reference = new class extends HtmlRenderer {

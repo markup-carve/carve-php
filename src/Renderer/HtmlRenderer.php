@@ -168,6 +168,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
 
     protected int $renderDepth = 0;
 
+    private ?string $parsedSourceForGuards = null;
+
     protected bool $suppressAutomaticAbbreviation = false;
 
     /**
@@ -676,6 +678,15 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      */
     protected function pickBreakGuards(object|array $root): void
     {
+        if ($this->parsedSourceForGuards !== null) {
+            $this->breakGuards = DocumentSentinels::pickRenderMarkers(
+                $this->parsedSourceForGuards . DocumentSentinels::collectStrings([$this->symbols, $this->labels]),
+                4,
+                self::BREAK_GUARD_FIRST,
+            );
+
+            return;
+        }
         $this->breakGuards = DocumentSentinels::pickRenderMarkers(
             DocumentSentinels::collectStrings([$root, $this->symbols, $this->labels]),
             4,
@@ -831,6 +842,36 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 return $html;
             },
         ));
+    }
+
+    /**
+     * Render a document just parsed by the default converter. With escapes and
+     * entities excluded, its built-in extensions cannot add private-use text
+     * absent from the source. Renderer configuration is checked separately.
+     *
+     * @internal
+     */
+    public function renderParsedSource(Document $document, string $source): string
+    {
+        // Escapes and entities can create characters absent from the source.
+        if (
+            str_contains($source, '\\') || str_contains($source, '&')
+            || $this->staticRenderExtensions !== [] || $this->staticRenderers !== []
+        ) {
+            return $this->render($document);
+        }
+        foreach ($this->listeners as $event => $listeners) {
+            if ($event !== 'render.frontmatter' || count($listeners) !== 1) {
+                return $this->render($document);
+            }
+        }
+
+        $this->parsedSourceForGuards = $source;
+        try {
+            return $this->render($document);
+        } finally {
+            $this->parsedSourceForGuards = null;
+        }
     }
 
     /**
@@ -1152,8 +1193,18 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 $this::class === self::class
                 && $this->canPlanContainer($node)
             ) {
+                if ($node instanceof ListBlock && $this->isPlainTightList($node)) {
+                    return $this->renderPlainTightList($node);
+                }
                 if ($node instanceof BlockQuote) {
                     $children = $node->getChildren();
+                    if (
+                        count($children) === 1 && $children[0]::class === Paragraph::class
+                        && !$children[0]->isBlockImage()
+                        && !$this->hasListenersFor('render.block_quote')
+                    ) {
+                        return $this->renderBlockQuote($node);
+                    }
                     if (
                         !$this->hasListenersFor('render.block_quote')
                         && ($this->renderMode !== RenderMode::STATIC || $this->staticRenderExtensions === [])
@@ -1257,6 +1308,54 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
         return in_array($node::class, [Div::class, Section::class, BlockQuote::class, ListBlock::class, Figure::class, FigureGroup::class], true)
             && !($node instanceof ListBlock && $this->canRenderListChain($node))
             && !($node instanceof Div && $node->hasClassEntry('footnotes'));
+    }
+
+    private function isPlainTightList(ListBlock $node): bool
+    {
+        if (
+            !$node->isTight() || $node->getListType() !== ListBlock::TYPE_BULLET
+            || $this->roundTripMode || $this->renderDepth >= self::MAX_RENDER_DEPTH - 2
+            || ($this->renderMode === RenderMode::STATIC && $this->staticRenderExtensions !== [])
+            || $this->getRenderableAttributes($node) !== []
+            || $this->hasListenersFor('render.list_item')
+            || $this->hasListenersFor('render.paragraph')
+        ) {
+            return false;
+        }
+        foreach ($node->getChildren() as $item) {
+            if (
+                $item::class !== ListItem::class || $item->isTask()
+                || $this->getRenderableAttributes($item) !== []
+                || count($item->getChildren()) !== 1
+                || $item->getChildren()[0]::class !== Paragraph::class
+                || $item->getChildren()[0]->isBlockImage()
+                || $this->getRenderableAttributes($item->getChildren()[0]) !== []
+            ) {
+                return false;
+            }
+            foreach ($item->getChildren()[0]->getChildren() as $inline) {
+                if ($inline::class !== Text::class || str_contains($inline->getContent(), "\n")) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private function renderPlainTightList(ListBlock $node): string
+    {
+        $html = "<ul>\n";
+        $this->renderDepth += 2;
+        try {
+            foreach ($node->getChildren() as $item) {
+                $html .= '  <li>' . $this->renderChildren($item->getChildren()[0]) . "</li>\n";
+            }
+        } finally {
+            $this->renderDepth -= 2;
+        }
+
+        return $html . "</ul>\n";
     }
 
     private function renderContainerLayout(Node $node): string
