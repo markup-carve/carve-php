@@ -341,7 +341,19 @@ class BlockParser
      */
     public function getRefusedContinuationMarkers(): array
     {
-        $markers = $this->state->session->refusedContinuationMarkers;
+        $markers = array_values(array_filter(
+            $this->state->session->refusedContinuationMarkers,
+            function (array $marker): bool {
+                $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $marker['line'] - 1);
+
+                if ($decision['column'] < 0) {
+                    return $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $marker['line'] - 1) !== null
+                        && !$this->firstBlockQuoteAtAncestorColumn($marker['line'] - 1);
+                }
+
+                return $decision['owner'] !== null && $decision['reason'] !== null;
+            },
+        ));
         $unclosedEnds = [];
         foreach ($this->state->session->unclosedCodeFences as $unclosed) {
             $unclosedEnds[$unclosed['line'] - 1] = $unclosed['reason'] === 'container' ? $unclosed['endLine'] - 1 : null;
@@ -389,7 +401,7 @@ class BlockParser
             $firstBlock = $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $index);
             if (($firstBlock['kind'] ?? null) === 'list' && $firstBlock['depth'] === 0) {
                 $follower = $this->state->source->sourceLines[$index + 1] ?? null;
-                if ($follower !== null && trim($follower) !== '') {
+                if ($follower !== null && trim($follower) !== '' && !$this->firstBlockQuoteAtAncestorColumn($index)) {
                     $followerColumn = ContinuationMarkerClassifier::columnAt($follower, strspn($follower, " \t"));
                     $sibling = ($followerColumn === 0 || $followerColumn === $firstBlock['column'])
                         && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) !== null;
@@ -407,28 +419,15 @@ class BlockParser
             if ($decision['column'] < 0 || $decision['reason'] === null) {
                 continue;
             }
-            if ($decision['owner'] === null && !$decision['open']) {
-                continue;
-            }
-            if (($decision['owner']['kind'] ?? null) === 'quote' && $decision['depth'] === 0) {
-                continue;
-            }
-            if (($decision['owner']['kind'] ?? null) === 'footnote' && in_array($decision['reason'], ['blank', 'document'], true)) {
-                continue;
-            }
             $previous = $this->state->source->sourceLines[$index - 1] ?? '';
+            $previousItem = $this->listParser->parseListItemMarker(ltrim($previous, " \t"));
+            $taskCheckboxColumn = ($previousItem['type'] ?? null) === 'task'
+                && $decision['column'] === IndentationHelper::getLeadingColumns($previous) + 2;
+            if ($decision['owner'] === null && !$taskCheckboxColumn) {
+                continue;
+            }
             if ($this->leadBottomOpensFence($previous) && $decision['column'] > IndentationHelper::getLeadingColumns($previous)) {
                 continue;
-            }
-            if (($decision['owner']['kind'] ?? null) === 'list') {
-                $previousColumn = IndentationHelper::getLeadingColumns($previous);
-                if (
-                    $previousColumn > 0 && $previousColumn === $decision['column']
-                    && $this->listParser->parseListItemMarker(ltrim($previous, " \t")) !== null
-                    && in_array($decision['reason'], ['blank', 'document'], true)
-                ) {
-                    continue;
-                }
             }
             $host = match ($decision['owner']['kind'] ?? null) {
                 'list' => 'list item',
@@ -446,6 +445,30 @@ class BlockParser
         }
 
         return $markers;
+    }
+
+    private function firstBlockQuoteAtAncestorColumn(int $index): bool
+    {
+        $line = $this->state->source->sourceLines[$index] ?? '';
+        $follower = $this->state->source->sourceLines[$index + 1] ?? '';
+        if (!str_starts_with(ltrim($follower, " \t"), '>')) {
+            return false;
+        }
+        $followerColumn = IndentationHelper::getLeadingColumns($follower);
+        $offset = strspn($line, " \t");
+        for ($depth = 0; $depth < 64; $depth++) {
+            $marker = $this->listParser->parseListItemMarker(substr($line, $offset));
+            if ($marker === null) {
+                break;
+            }
+            $column = ContinuationMarkerClassifier::columnAt($line, $offset);
+            if ($column === $followerColumn) {
+                return true;
+            }
+            $offset += strlen(substr($line, $offset)) - strlen($marker['content']);
+        }
+
+        return false;
     }
 
     private function recordUnclosedCodeFence(int $start, int $end, string $marker): void
