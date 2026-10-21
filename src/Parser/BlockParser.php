@@ -3519,8 +3519,16 @@ class BlockParser
         // (CARVE-P11-016, PART 9 section 24 C5).
         $trailingState = $this->advanceFootnoteBodyFenceState(new TrailingBlockState(), $content);
         $retainedBelowComment = false;
-        while ($i < $count) {
-            $nextLine = $lines[$i];
+        $footnoteColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN);
+        foreach (IndentedContainerCollector::admissions(
+            $lines,
+            $i,
+            $count,
+            0,
+            $footnoteColumn,
+            fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
+        ) as $admission) {
+            $nextLine = $admission['line'];
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $retainedBelowComment = false;
                 // A BLANK RUN continues the footnote when the body resumes

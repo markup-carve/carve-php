@@ -586,8 +586,17 @@ final class DefinitionListBuilder
                 $syntheticTermColumns = [];
                 $reachedTermColumn = null;
                 $noteBodyColumn = null;
-                while ($i < $count) {
-                    $contLine = $lines[$i];
+                foreach (
+                    IndentedContainerCollector::admissions(
+                        $lines,
+                        $i,
+                        $count,
+                        $definitionColumn ?? 0,
+                        $bodyColumn,
+                        fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
+                    ) as $admission
+                ) {
+                    $contLine = $admission['line'];
                     $contColumn = IndentationHelper::getLeadingColumns($contLine);
                     $releasedMarkerEntry = false;
                     if ($reachedTermColumn !== null && !IndentationHelper::isBlankLine($contLine) && $contColumn < $reachedTermColumn) {

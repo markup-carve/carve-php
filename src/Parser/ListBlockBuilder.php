@@ -1053,8 +1053,17 @@ final class ListBlockBuilder
         // and for the same reader (markup-carve/carve#1896).
         $subEligible = [];
         $subRetainedMarker = false;
-        while ($i < $count) {
-            $subLine = $lines[$i];
+        foreach (
+            IndentedContainerCollector::admissions(
+                $lines,
+                $i,
+                $count,
+                $baseIndent,
+                $subColumn,
+                fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
+            ) as $admission
+        ) {
+            $subLine = $admission['line'];
             $sourceLine = $this->sourceLineFor($i);
             if ($sourceLine >= 0) {
                 $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
