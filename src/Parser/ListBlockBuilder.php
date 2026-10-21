@@ -878,8 +878,9 @@ final class ListBlockBuilder
             }
             if (
                 $hasFoldedFenceRun
-                && ($hasJoinedCloser || (isset($itemLines[1])
-                    && !$hasLazyFrame
+                && ($hasJoinedCloser || (!$hasLazyFrame
+                    && in_array('', $itemLines, true)
+                    && isset($itemLines[1])
                     && $this->fenceRunOpensNothing(ltrim($itemLines[1], " \t"), $itemLines, 1, 0)))
                 && $this->subContentHasLooseningBlank($itemLines, true) === BlockParser::GAP_LOOSENS
             ) {

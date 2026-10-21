@@ -9,12 +9,7 @@ use MarkupCarve\Carve\Renderer\CarveRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
-/**
- * An unterminated fence at an item's content column opens no block and owns
- * the blank below it, so the item stays tight. A tilde run reads like a
- * backtick run (markup-carve/carve-php#3623).
- */
-class AnUnterminatedTildeFenceKeepsTheItemTightTest extends TestCase
+class AFoldedFenceRunKeepsBlankSeparatedParagraphsLooseTest extends TestCase
 {
     /**
      * @return array<string, array{string}>
@@ -29,19 +24,20 @@ class AnUnterminatedTildeFenceKeepsTheItemTightTest extends TestCase
     }
 
     #[DataProvider('runs')]
-    public function testBlankBelowAnUnterminatedRunDoesNotLoosenTheItem(string $run): void
+    public function testBlankBelowAnUnterminatedRunLoosensTheItem(string $run): void
     {
         $html = CarveConverter::create()->convert("- q\n  {$run}\n\n  tail\n");
 
-        $this->assertStringNotContainsString('<p>', $html);
+        $this->assertSame(2, substr_count($html, '<p>'));
     }
 
-    public function testFmtKeepsTheLooseKeyWhereTheBlankCannotSayIt(): void
+    public function testFmtUsesTheBlankToExpressLooseness(): void
     {
         $source = "- outer\n  - head\n     ~~~\n     a\n ~~~\n\n    tail\n";
 
         $formatted = CarveConverter::create(null, new CarveRenderer())->convert($source);
 
-        $this->assertStringContainsString("  {loose}\n  - head", $formatted);
+        $this->assertStringNotContainsString('{loose}', $formatted);
+        $this->assertStringContainsString("\n\n    tail\n", $formatted);
     }
 }

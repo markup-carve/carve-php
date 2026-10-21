@@ -147,7 +147,8 @@ final class ListLoosenessScanner
                 ?? $this->fencedBlockParser()->parseRawBlockOpener($authored);
             if (
                 $opener !== null && $k > 0
-                && (($subCol < 0 && $k === 1)
+                && (($subCol < 0 && $k === 1
+                    && ($k + 1 >= $n || $this->listParser()->parseListItemMarker(ltrim($subLines[$k + 1], " \t")) === null))
                     || ($subCol > 0 && IndentationHelper::getLeadingColumns($subLines[$k - 1], $subCol) < $subCol))
                 && $subLines[$k - 1] !== ''
                 && ($this->listParser()->parseListItemMarker(ltrim($subLines[$k - 1], " \t")) !== null
