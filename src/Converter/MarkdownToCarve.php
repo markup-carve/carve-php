@@ -1880,7 +1880,10 @@ class MarkdownToCarve
         $plain = str_replace(["\r\n", "\r"], "\n", $markdown);
         $plainBody = rtrim($plain, "\n");
         if (
-            !MarkdownImportWork::$on && $plainBody !== '' && $plainBody[0] !== ' ' && !str_contains($plainBody, '  ')
+            !MarkdownImportWork::$on && !$this->carrierFallbackMode && !$this->carrierDamaged
+            && $this->carrierSlots === []
+            && $plainBody !== '' && $plainBody[0] !== ' ' && !str_contains($plainBody, '  ')
+            && !str_contains($plainBody, 'CARVEINLINE')
             && preg_match('/\A[\p{L}\p{N} ]+\z/u', $plainBody) === 1
         ) {
             return $plain;
