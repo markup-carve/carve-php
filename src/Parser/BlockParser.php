@@ -4144,7 +4144,107 @@ class BlockParser
             return $plain;
         }
 
+        if (
+            ($lines[$start][0] ?? '') === '-'
+            && ($lines[$start][1] ?? '') === ' '
+            && ctype_alnum($lines[$start][2] ?? '')
+        ) {
+            $wrapped = $this->tryParseWrappedTightList($parent, $lines, $start);
+            if ($wrapped !== null) {
+                return $wrapped;
+            }
+        }
+
         return $this->listsBuilder()->tryParseList($parent, $lines, $start);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     */
+    private function tryParseWrappedTightList(Node $parent, array $lines, int $start): ?int
+    {
+        if (
+            $this::class !== self::class || $parent::class !== Document::class
+            || !str_starts_with($lines[$start], '- ')
+            || $this->state->source->trackPositions || $this->state->source->trackSourceLines
+            || $this->collectWarnings || $this->strictMode
+            || LayoutWork::$on
+            || $this->state->session->pendingAttributes !== []
+            || $this->inlineParser::class !== InlineParser::class
+            || $this->listParser::class !== ListParser::class
+            || str_contains($this->state->source->originalSource, '*[')
+        ) {
+            return null;
+        }
+        foreach ($this->blockMatchers as $matcher) {
+            if ($matcher['pattern'] !== '/^--- ?(\w*)[ \t]*$/') {
+                return null;
+            }
+        }
+
+        $contents = [];
+        $i = $start;
+        $count = count($lines);
+        while ($i < $count && str_starts_with($lines[$i], '- ')) {
+            $first = substr($lines[$i], 2);
+            if (
+                $first === '' || !ctype_alnum($first[0]) || $first !== rtrim($first, " \t")
+                || $this->listParser->parseListItemMarker($first) !== null
+            ) {
+                return null;
+            }
+            $pieces = [$first];
+            $i++;
+            while ($i < $count && !IndentationHelper::isBlankLine($lines[$i]) && !str_starts_with($lines[$i], '- ')) {
+                $line = $lines[$i];
+                if (
+                    !str_starts_with($line, '  ') || ($line[2] ?? '') === ' '
+                    || ($line[2] ?? '') === "\t" || $line !== rtrim($line, " \t")
+                ) {
+                    return null;
+                }
+                $text = substr($line, 2);
+                if (
+                    !ctype_alnum($text[0] ?? '') && ($text[0] ?? '') !== '['
+                    || preg_match('/^\[[^]]+\]:/', $text) === 1
+                    || $this->listParser->parseListItemMarker($text) !== null
+                ) {
+                    return null;
+                }
+                $pieces[] = $text;
+                $i++;
+            }
+            $contents[] = implode("\n", $pieces);
+        }
+        if ($contents === [] || ($i < $count && !IndentationHelper::isBlankLine($lines[$i]))) {
+            return null;
+        }
+        $next = $i;
+        while ($next < $count && IndentationHelper::isBlankLine($lines[$next])) {
+            $next++;
+        }
+        if (
+            $next < $count
+            && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
+                || $this->listParser->parseListItemMarker($lines[$next]) !== null
+                || $this->isContinuationMarker($lines[$next]))
+        ) {
+            return null;
+        }
+
+        $list = new ListBlock(ListBlock::TYPE_BULLET, marker: '-');
+        foreach ($contents as $content) {
+            $item = new ListItem();
+            $paragraph = new Paragraph();
+            $this->inlineParser->parse($paragraph, $content);
+            $item->appendChild($paragraph);
+            $list->appendChild($item);
+        }
+        $parent->appendChild($list);
+
+        return $i - $start;
     }
 
     /**
