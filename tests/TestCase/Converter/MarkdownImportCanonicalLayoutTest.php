@@ -15,9 +15,9 @@ final class MarkdownImportCanonicalLayoutTest extends TestCase
     {
         yield 'heading followed by quoted paragraph' => ["> # Foo\n> bar\n", "> # Foo\n>\n> bar\n"];
         yield 'heading in a quoted item stays tight' => ["> - a\n>   # h\n>   b\n", "> - a\n>   # h\n>   b\n"];
-        yield 'quoted blanks between heading and paragraph' => ["> # Head\n>\n>\n> paragraph\n", "> # Head\n>\n>\n> paragraph\n", false];
-        yield 'empty inner quote before outer paragraph' => ["> > a\n> >\n> c\n", "> > a\n> >\n> c\n", false];
-        yield 'empty inner quote at end' => ["> a\n> >\n", "> a\n> >\n", false];
+        yield 'quoted blanks between heading and paragraph' => ["> # Head\n>\n>\n> paragraph\n", "> # Head\n>\n> paragraph\n"];
+        yield 'empty inner quote before outer paragraph' => ["> > a\n> >\n> c\n", "> > a\n>\n> c\n"];
+        yield 'empty inner quote at end' => ["> a\n> >\n", "> a\n>\n> >\n"];
         yield 'lazy quoted paragraph' => ["> # Foo\n> bar\nbaz\n", "> # Foo\n>\n> bar\n> baz\n"];
         yield 'empty quote' => [">\n>  \n> \n", ">\n"];
         yield 'quoted blank before paragraph' => ["> bar\n>\nbaz\n", "> bar\n\nbaz\n"];
@@ -25,7 +25,7 @@ final class MarkdownImportCanonicalLayoutTest extends TestCase
         yield 'quoted fence followed by code' => ["> ```\nfoo\n```\n", "> ```\n> ```\n\nfoo\n\n```\n```\n"];
         yield 'quoted fence followed by indented code' => ["> ~~~\n> body\n> ~~~\n    code\n", "> ```\n> body\n> ```\n\n```\ncode\n```\n"];
         yield 'padded list with continuation' => [" -    one\n\n      two\n", "- one\n\n  two\n"];
-        yield 'padded list with incidental continuation indent' => ["1.  first\n\n       second\n", "1.  first\n\n    second\n", false];
+        yield 'padded list with incidental continuation indent' => ["1.  first\n\n       second\n", "1. first\n\n   second\n"];
         yield 'blank indented code payload' => ["- Foo\n\n      bar\n\n\n      baz\n", "{loose}\n- Foo\n\n  ```\n  bar\n\n\n  baz\n  ```\n"];
         yield 'indented code payload with spaces' => ["- Foo\n\n      bar\n        \n      baz\n", "{loose}\n- Foo\n\n  ```\n  bar\n    \n  baz\n  ```\n"];
         yield 'lazy quote inside quoted item' => ["> 1. > Blockquote\ncontinued here.\n", "> 1. > Blockquote\n>    > continued here.\n"];

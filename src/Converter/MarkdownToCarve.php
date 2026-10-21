@@ -14,6 +14,7 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
+use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\Figure;
@@ -3410,19 +3411,84 @@ class MarkdownToCarve
         }
 
         if ($frontmatter === []) {
-            return $this->rewriteSameFileHeadingLinks($carve);
+            return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($carve), $carrierOriginal);
         }
 
         $prefix = implode("\n", $frontmatter);
         // The boundary under a frontmatter closer is the writer's own block
-        // separator, and a frontmatter-only document still ends on a newline,
-        // so the import is a `carve fmt` fixed point (carve-php#2984). Any
-        // blank the body already carries is the same boundary spelled twice.
+        // separator. Any blank the body already carries is the same boundary
+        // spelled twice.
         $body = ltrim($carve, "\n");
 
-        return $this->rewriteSameFileHeadingLinks($body === ''
+        return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($body === ''
             ? $prefix . "\n"
-            : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body);
+            : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body), $carrierOriginal);
+    }
+
+    private function canonicalImportLayout(string $carve, string $markdown): string
+    {
+        // Footnote fragments are formatted with their owning document.
+        if ($this->importingFootnoteBody) {
+            return $carve;
+        }
+        // Preserve the carrier's final-newline state even when no container
+        // needs a layout pass.
+        if (!CarveRenderer::importedSourceEndsWithNewline($markdown)) {
+            $carve = rtrim($carve, "\n");
+        }
+        // Carrier markers spell authored Carve structures that Markdown
+        // cannot express. Preserve their restored list boundaries.
+        if ($this->carrierSlots !== []) {
+            return $carve;
+        }
+        $layoutBefore = MarkdownImportWork::$on ? MarkdownImportWork::layoutTotal() : 0;
+        $layoutWasOn = LayoutWork::$on;
+        try {
+            if (MarkdownImportWork::$on) {
+                LayoutWork::$on = true;
+            }
+            $converter = CarveConverter::carve();
+            $document = $converter->parse($carve);
+            $pending = [$document];
+            $hasContainer = false;
+            while ($pending !== []) {
+                $node = array_pop($pending);
+                if ($node instanceof BlockQuote || $node instanceof ListBlock) {
+                    $hasContainer = true;
+
+                    break;
+                }
+                array_push($pending, ...$node->getChildren());
+            }
+            if (!$hasContainer) {
+                return $carve;
+            }
+            $written = $converter->render($document);
+        } catch (Throwable) {
+            return $carve;
+        } finally {
+            if (MarkdownImportWork::$on) {
+                MarkdownImportWork::$layoutWork += MarkdownImportWork::layoutTotal() - $layoutBefore;
+                LayoutWork::$on = $layoutWasOn;
+            }
+        }
+
+        $written = !CarveRenderer::importedSourceEndsWithNewline($markdown) && str_ends_with($written, "\n")
+            ? substr($written, 0, -1)
+            : $written;
+        if ($written !== $carve) {
+            $converter = new CarveConverter();
+            try {
+                $sameHtml = $converter->convert($written) === $converter->convert($carve);
+            } catch (Throwable) {
+                $sameHtml = false;
+            }
+            if (!$sameHtml) {
+                return $carve;
+            }
+        }
+
+        return $written;
     }
 
     private function minimizeTableEmailCellEscapes(Document $document): void
@@ -4401,7 +4467,8 @@ class MarkdownToCarve
             !$blank && $prev !== null && $prev['prefix'] === $prefix
             && ($markers[$prefix] ?? null)?->openItemContentColumn() === null
             && preg_match('/^#{1,6}(?:[ \t]|$)/', ltrim($prev['text'], " \t")) === 1
-            && $this->isParagraphLine([$text], 0)
+            && ($this->isParagraphLine([$text], 0)
+                || preg_match('/^#{1,6}(?:[ \t]|$)/', ltrim($text, " \t")) === 1)
         ) {
             $result[] = rtrim($prefix);
         }
@@ -4452,7 +4519,7 @@ class MarkdownToCarve
         $paragraphCol = $openBefore ?? 0;
         $farPastContent = $this->indentWidth($text) - $paragraphCol >= 4;
         $continues = $continuedByLazy || ($prev !== null && $prev['prefix'] === $prefix
-            && $this->quoteParagraphIsOpen($prev['text'])
+            && ($this->quoteParagraphIsOpen($prev['text']) || ($openBefore !== null && $farPastContent))
             && ($this->continuesParagraph($text) || $farPastContent));
         $heldMarker = $prev !== null && $prev['prefix'] === $prefix
             && $this->quoteParagraphIsOpen($prev['text']) && $this->isHeldOrderedMarker($text, $list);
@@ -4474,7 +4541,7 @@ class MarkdownToCarve
         if ($heldMarker) {
             $written = substr($text, 0, strlen($text) - strlen(ltrim($text, " \t"))) . $this->escapeBlockOpener(ltrim($text, " \t"));
         } elseif ($continues && $list->openItemContentColumn() !== null) {
-            $written = str_repeat(' ', max($list->openItemContentColumn(), $this->indentWidth($text)))
+            $written = str_repeat(' ', $list->openItemContentColumn())
                 . $this->escapeBlockOpener(ltrim($text, " \t"));
         } elseif (preg_match('/^([ \t]*)(?:[-*+]|\d+[.)])[ \t]/', $text) === 1 && !$continues) {
             $step = $list->write($text, CarveRenderer::prefersSingleImportedListPadding());
