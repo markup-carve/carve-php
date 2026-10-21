@@ -4155,7 +4155,117 @@ class BlockParser
             }
         }
 
+        if (($lines[$start][0] ?? '') >= '0' && ($lines[$start][0] ?? '') <= '9') {
+            $wrapped = $this->tryParseWrappedOrderedList($parent, $lines, $start);
+            if ($wrapped !== null) {
+                return $wrapped;
+            }
+        }
+
         return $this->listsBuilder()->tryParseList($parent, $lines, $start);
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     */
+    private function tryParseWrappedOrderedList(Node $parent, array $lines, int $start): ?int
+    {
+        if (
+            $this::class !== self::class || $parent::class !== Document::class
+            || preg_match('/^\d+[.)] /', $lines[$start]) !== 1
+            || $this->state->source->trackPositions || $this->state->source->trackSourceLines
+            || $this->collectWarnings || $this->strictMode || LayoutWork::$on
+            || $this->state->session->pendingAttributes !== []
+            || $this->inlineParser::class !== InlineParser::class
+            || $this->listParser::class !== ListParser::class
+            || str_contains($this->state->source->originalSource, '*[')
+        ) {
+            return null;
+        }
+        foreach ($this->blockMatchers as $matcher) {
+            if ($matcher['pattern'] !== '/^--- ?(\w*)[ \t]*$/') {
+                return null;
+            }
+        }
+
+        $first = $this->listParser->parseListItemMarker($lines[$start]);
+        if ($first === null || $first['type'] !== ListBlock::TYPE_ORDERED || isset($first['attributes'])) {
+            return null;
+        }
+        $contents = [];
+        $i = $start;
+        $count = count($lines);
+        while ($i < $count && preg_match('/^\d+[.)] /', $lines[$i]) === 1) {
+            $item = $this->listParser->parseListItemMarker($lines[$i]);
+            if ($item === null || isset($item['attributes']) || !$this->listParser->itemMatchesList($first, $item)) {
+                return null;
+            }
+            $text = $item['content'];
+            if (
+                $text === '' || (!ctype_alnum($text[0]) && ($text[0] !== '*' || !ctype_alnum($text[1] ?? '')))
+                || $text !== rtrim($text, " \t")
+                || $this->listParser->parseListItemMarker($text) !== null
+            ) {
+                return null;
+            }
+            $pieces = [$text];
+            $indent = strlen($lines[$i]) - strlen($text);
+            $prefix = str_repeat(' ', $indent);
+            $i++;
+            while (
+                $i < $count && !IndentationHelper::isBlankLine($lines[$i])
+                && preg_match('/^\d+[.)] /', $lines[$i]) !== 1
+            ) {
+                $line = $lines[$i];
+                if (
+                    !str_starts_with($line, $prefix)
+                    || ($line[$indent] ?? '') === ' ' || ($line[$indent] ?? '') === "\t"
+                    || $line !== rtrim($line, " \t")
+                ) {
+                    return null;
+                }
+                $continuation = substr($line, $indent);
+                if (
+                    (!ctype_alnum($continuation[0] ?? '') && ($continuation[0] ?? '') !== '[')
+                    || preg_match('/^\[[^]]+\]:/', $continuation) === 1
+                    || $this->listParser->parseListItemMarker($continuation) !== null
+                ) {
+                    return null;
+                }
+                $pieces[] = $continuation;
+                $i++;
+            }
+            $contents[] = implode("\n", $pieces);
+        }
+        if ($contents === [] || ($i < $count && !IndentationHelper::isBlankLine($lines[$i]))) {
+            return null;
+        }
+        $next = $i;
+        while ($next < $count && IndentationHelper::isBlankLine($lines[$next])) {
+            $next++;
+        }
+        if (
+            $next < $count
+            && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
+                || $this->listParser->parseListItemMarker($lines[$next]) !== null
+                || $this->isContinuationMarker($lines[$next]))
+        ) {
+            return null;
+        }
+
+        $list = new ListBlock(ListBlock::TYPE_ORDERED, $first['start'] ?? 1, marker: $first['marker']);
+        foreach ($contents as $content) {
+            $item = new ListItem();
+            $paragraph = new Paragraph();
+            $this->inlineParser->parse($paragraph, $content);
+            $item->appendChild($paragraph);
+            $list->appendChild($item);
+        }
+        $parent->appendChild($list);
+
+        return $i - $start;
     }
 
     /**
