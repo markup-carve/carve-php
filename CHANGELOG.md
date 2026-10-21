@@ -15,6 +15,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Borrowed HTML keeps Unicode letters and inline markup after inactive extensions register. Autolink fallbacks, link-label parentheses and brackets, angle destinations, bare URLs, paragraph links with pipes, and fixed smart symbols now keep their intended text (#3579, #3581, #3584, #3608, #3612, #3628, #3699).
 - Continuation markers and refused `+` lines follow their list or quote column, including relative column zero, open fences and blank followers. Lint reports refusals and the ordered-list and below-content-column traps at the authored column (#3592, #3594, #3596, #3602, #3613, #3624, #3659, #3675, #3678, #3680, #3691).
 - Nested marker-line fences keep the right blank payload and end at the right owner. Unterminated tilde runs, quoted tight-list fences and folded fence paragraphs now leave later list blocks and tightness in the correct state (#3582, #3595, #3622, #3626, #3665, #3668, #3671, #3692, #3695).
+- List tightness follows parsed blank boundaries. A blank at a nested list's content column loosens that list without loosening its parent (#3702, #3704).
 - Description bodies, footnotes and nested lists release or retain lines at their authored columns. This covers a list after a description, quoted definitions, tab-indented lists, folded description terms, bare Markdown markers and a below-column separator (#3644, #3645, #3646, #3647, #3650, #3651, #3652, #3667).
 - Markdown migration keeps destination spelling, trailing spaces and line endings, bounds quoted setext work to its item, and writes nested imports in canonical Carve. The writer keeps its conservative spelling past the nesting cap (#3597, #3615, #3618, #3627, #3640, #3662, #3663, #3670, #3684).
 - Nested admonition titles start at their authored AST position, and code or raw block spans include literal interior payload newlines (#3673, #3697).
@@ -34,8 +35,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `carve lint` checks included content when given an include root and reports near misses for consumed `table` and `loose` keys (#3557, #3561, markup-carve/carve#3339, markup-carve/carve#3340).
 
 ### Performance
-- Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698; ee152759).
-- Block-parser finalization, list looseness and list body rebasing were split into smaller passes while keeping the same output (#3664, #3666, #3669).
+- Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers, borrowed HTML and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698, #3701; ee152759).
+- Block-parser finalization, list looseness, list body rebasing and parser hooks were split into smaller passes while keeping the same output (#3664, #3666, #3669, #3705).
 - Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
 
 ## [0.1.13] - 2026-10-15
