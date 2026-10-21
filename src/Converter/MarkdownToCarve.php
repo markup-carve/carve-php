@@ -1876,6 +1876,19 @@ class MarkdownToCarve
             return $whitespaceOnly;
         }
 
+        // Preserve exact edges when a plain paragraph needs no rewrite.
+        $plain = str_replace(["\r\n", "\r"], "\n", $markdown);
+        $plainBody = rtrim($plain, "\n");
+        if (
+            !MarkdownImportWork::$on && !$this->carrierFallbackMode && !$this->carrierDamaged
+            && $this->carrierSlots === []
+            && $plainBody !== '' && $plainBody[0] !== ' ' && !str_contains($plainBody, '  ')
+            && !str_contains($plainBody, 'CARVEINLINE')
+            && preg_match('/\A[\p{L}\p{N} ]+\z/u', $plainBody) === 1
+        ) {
+            return $plain;
+        }
+
         $allLines = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
         // Frontmatter is opaque metadata in Markdown and in Carve alike - both
         // strip it before block parsing - so it survives verbatim and only the
