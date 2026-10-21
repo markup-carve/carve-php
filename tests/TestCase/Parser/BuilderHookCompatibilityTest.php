@@ -12,6 +12,41 @@ use PHPUnit\Framework\TestCase;
 
 class BuilderHookCompatibilityTest extends TestCase
 {
+    public function testMarkerLeadCollectorKeepsTheSubclassOverride(): void
+    {
+        $parser = new class extends BlockParser {
+            public int $calls = 0;
+
+            protected function collectMarkerLeadItem(
+                array $lines,
+                int $i,
+                int $count,
+                int $baseIndent,
+                int $contentIndent,
+                array &$itemLines,
+                array &$itemLineMap,
+                array &$authoredBaseEligible = [],
+            ): int {
+                $this->calls++;
+
+                return parent::collectMarkerLeadItem(
+                    $lines,
+                    $i,
+                    $count,
+                    $baseIndent,
+                    $contentIndent,
+                    $itemLines,
+                    $itemLineMap,
+                    $authoredBaseEligible,
+                );
+            }
+        };
+
+        $parser->parse("- - inner\n  continuation\n");
+
+        self::assertGreaterThan(0, $parser->calls);
+    }
+
     public function testLoosenessScannerKeepsTheColonSpanOverride(): void
     {
         $parser = new class extends BlockParser {
