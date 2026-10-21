@@ -917,6 +917,27 @@ final class ListBlockBuilder
             if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
                 $list->setTight(false);
             }
+            $blankAfterFoldedLine = false;
+            $foldedBeforeBlank = false;
+            $previousItemLine = null;
+            foreach ($itemLines as $itemLine) {
+                if ($itemLine === '') {
+                    $foldedBeforeBlank = $foldedBeforeBlank || ($previousItemLine !== null && str_contains($previousItemLine, "\n"));
+                } elseif ($foldedBeforeBlank) {
+                    $blankAfterFoldedLine = true;
+
+                    break;
+                } else {
+                    $previousItemLine = $itemLine;
+                }
+            }
+            if (
+                $list->isTight() && $blankAfterFoldedLine
+                && array_filter($itemLines, static fn (string $line): bool => str_contains($line, "\n")) !== []
+                && count(array_filter($listItem->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph)) > 1
+            ) {
+                $list->setTight(false);
+            }
 
             $list->appendChild($listItem);
         }
