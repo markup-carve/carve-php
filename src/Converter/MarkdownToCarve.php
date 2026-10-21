@@ -2013,7 +2013,12 @@ class MarkdownToCarve
             if (!$inCodeBlock) {
                 $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols);
             }
-            if (!$inCodeBlock && preg_match('/^([ \t]*)(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1) {
+            $bareMarker = !$inCodeBlock && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1;
+            $bareParagraphMarker = $bareMarker
+                && $listCols !== []
+                && $this->indentWidth($lines[$i]) >= (int)end($listCols)
+                && ($itemParagraph || $prevLineType === 'text');
+            if ($bareMarker) {
                 $column = $this->indentWidth($lines[$i]);
                 $holder = 0;
                 foreach ($listCols as $col) {
@@ -2025,6 +2030,7 @@ class MarkdownToCarve
                 $next = $lines[$i + 1] ?? '';
                 if (
                     $column - $holder < 4
+                    && !$bareParagraphMarker
                     && ($prevLineType !== 'text' || $listMarkers->hasListAt($column))
                 ) {
                     $lines[$i] = $marker . ' +';
@@ -2143,6 +2149,16 @@ class MarkdownToCarve
             }
             $shiftCol = $inCodeBlock ? $fenceItemCol : ($listCols === [] ? 0 : (int)end($listCols));
             $shiftBy = $inCodeBlock ? $fenceShift : $listMarkers->shiftAt($shiftCol);
+
+            if ($bareParagraphMarker) {
+                $text = rtrim(ltrim($line, " \t"), " \t");
+                $contentCol = (int)end($listCols);
+                $result[] = $this->convertInlineFormatting(str_repeat(' ', $contentCol) . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
+                $itemParagraph = true;
+                $prevLineType = 'list';
+
+                continue;
+            }
 
             if ($overMarker) {
                 $text = $this->escapeBlockOpener(ltrim($line, " \t"));
