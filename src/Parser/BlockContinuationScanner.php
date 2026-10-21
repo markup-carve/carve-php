@@ -17,11 +17,19 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 final class BlockContinuationScanner
 {
+    /**
+     * Track the active definition body column across collected item lines.
+     *
+     * @param int|null $openColumn
+     * @param string $line
+     */
     public static function advanceDefinitionBody(?int $openColumn, string $line): ?int
     {
+        // A new separator replaces the previous body's content column.
         if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $line, $match) === 1) {
             return BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($match[1]);
         }
+        // A term ends the current body before the following blank is read.
         if ($openColumn === null || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $line) === 1) {
             return null;
         }
