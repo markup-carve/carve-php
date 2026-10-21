@@ -591,9 +591,7 @@ final class DefinitionListBuilder
                         $lines,
                         $i,
                         $count,
-                        $definitionColumn ?? 0,
                         $bodyColumn,
-                        fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
                     ) as $admission
                 ) {
                     $contLine = $admission['line'];

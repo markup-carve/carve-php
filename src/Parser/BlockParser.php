@@ -3525,9 +3525,7 @@ class BlockParser
                 $lines,
                 $i,
                 $count,
-                0,
                 $footnoteColumn,
-                fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
             ) as $admission
         ) {
             $nextLine = $admission['line'];

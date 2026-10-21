@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser;
 
-use Closure;
 use Generator;
 use LogicException;
 use MarkupCarve\Carve\Parser\Utility\IndentationHelper;
@@ -22,38 +21,27 @@ final class IndentedContainerCollector
      * @param array<string> $lines
      * @param int $index
      * @param int $count
-     * @param int $markerColumn
      * @param \MarkupCarve\Carve\Parser\IndentedContainerColumn $column
-     * @param \Closure(int): string $sourceLineAt
      *
      * @throws \LogicException
      *
-     * @return \Generator<array{index: int, line: string, source: string, sourceColumn: int, kind: 'blank'|'content'|'owned-continuation'|'below'|'outside', precedingBlanks: list<int>}>
+     * @return \Generator<array{index: int, line: string, kind: 'blank'|'content'|'owned-continuation'|'outside', precedingBlanks: list<int>}>
      */
     public static function admissions(
-        array $lines,
+        array &$lines,
         int &$index,
         int $count,
-        int $markerColumn,
         IndentedContainerColumn $column,
-        Closure $sourceLineAt,
     ): Generator {
         $precedingBlanks = [];
         while ($index < $count) {
             $at = $index;
             $line = $lines[$at];
-            $source = $sourceLineAt($at);
-            $reach = ContainerPrefix::composedReach($source);
-            $sourceColumn = $reach[count($reach) - 1]['to'];
-            $classification = $column->classify($line, $sourceColumn);
-            $kind = $classification === 'outside'
-                ? ($sourceColumn < $markerColumn ? 'outside' : 'below') : $classification;
+            $kind = $column->classify($line);
 
             yield [
                 'index' => $at,
                 'line' => $line,
-                'source' => $source,
-                'sourceColumn' => $sourceColumn,
                 'kind' => $kind,
                 'precedingBlanks' => $precedingBlanks,
             ];

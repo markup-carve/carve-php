@@ -1058,9 +1058,7 @@ final class ListBlockBuilder
                 $lines,
                 $i,
                 $count,
-                $baseIndent,
                 $subColumn,
-                fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
             ) as $admission
         ) {
             $subLine = $admission['line'];
