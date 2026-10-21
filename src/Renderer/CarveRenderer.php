@@ -118,6 +118,8 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
     private int $indentedHostDepth = 0;
 
+    private int $quoteHostDepth = 0;
+
     private CarveWriterState $writerState;
 
     private ?CanonicalAst $canonicalImplementation = null;
@@ -2092,7 +2094,12 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             return $fence . ' >' . self::fencedDivBody($this->renderColonFenceBody($node)) . $fence;
         }
 
-        $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren()));
+        $this->quoteHostDepth++;
+        try {
+            $inner = $this->withResetColonFenceDepth(fn (): string => $this->renderBlocks($node->getChildren()));
+        } finally {
+            $this->quoteHostDepth--;
+        }
         $lines = explode("\n", $inner);
 
         $quoted = implode("\n", array_map(static fn (string $line): string => $line === '' ? '>' : '> ' . $line, $lines));
@@ -2649,8 +2656,28 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                     continue;
                 }
+                if (!$separated && $previousEmitted instanceof ListBlock) {
+                    $lastItems = $previousEmitted->getChildren();
+                    $lastItem = $lastItems === [] ? null : $lastItems[array_key_last($lastItems)];
+                    if ($lastItem instanceof ListItem && $lastItem->getChildren() === [] && !$child instanceof Paragraph) {
+                        $out .= self::indentLines($rendered, 1);
+                        $previous = $child;
+                        $previousEmitted = $child;
+                        $atMarkerColumn = false;
+
+                        continue;
+                    }
+                    if ($this->quoteHostDepth > 0 && !$child instanceof Paragraph) {
+                        $out .= "\n" . $rendered;
+                        $previous = $child;
+                        $previousEmitted = $child;
+                        $atMarkerColumn = false;
+
+                        continue;
+                    }
+                }
                 if (
-                    ($this->listDepth > 1 || $this->indentedHostDepth > 0)
+                    ($this->listDepth > 1 || $this->indentedHostDepth > 0 || $this->quoteHostDepth > 0)
                     && $child instanceof BlockQuote && $previousEmitted instanceof BlockQuote
                 ) {
                     $out .= "\n" . $rendered;
@@ -2683,6 +2710,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     || $this->definitionTailNeedsJoin($previousEmitted, $child, $separated, $rendered)
                 ) {
                     if ($this->listDepth > 1 || $this->indentedHostDepth > 0) {
+                        if ($previousEmitted instanceof Paragraph && $child instanceof Paragraph && !$separated) {
+                            $out .= $this->atMarkerColumn('+') . "\n" . $this->atMarkerColumn($rendered);
+                            $previous = $child;
+                            $previousEmitted = $child;
+                            $atMarkerColumn = true;
+
+                            continue;
+                        }
                         $out .= ($child instanceof Comment || $child instanceof CodeBlock
                             || $previousEmitted instanceof Comment || $previousEmitted instanceof CodeBlock ? '' : "\n") . $rendered;
                         $previous = $child;

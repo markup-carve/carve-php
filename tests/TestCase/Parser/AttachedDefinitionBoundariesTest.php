@@ -26,9 +26,6 @@ class AttachedDefinitionBoundariesTest extends TestCase
     #[DataProvider('controls')]
     public function testDefinitionsKeepTheirAttachedBlockOwnership(array $control, int $index): void
     {
-        if ($index >= 2514 && $index <= 2597 && str_starts_with($control['source'], "- a\n  - b\n  +\n")) {
-            $this->markTestSkipped('pending markup-carve/carve#3421 relative rule');
-        }
         $converter = new CarveConverter();
         $document = $converter->parse($control['source']);
         $written = (new CarveRenderer())->render($document);

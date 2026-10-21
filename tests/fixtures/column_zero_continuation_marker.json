@@ -57,11 +57,11 @@
   },
   {
     "source": "- a\n  > +\npara",
-    "html": "<ul>\n  <li>a\n    <blockquote><p>+\npara</p></blockquote>\n  </li>\n</ul>"
+    "html": "<ul>\n  <li>a\n    <blockquote><p>para</p></blockquote>\n  </li>\n</ul>"
   },
   {
     "source": "- a\n  - +\nflush",
-    "html": "<ul>\n  <li>a\n    <ul>\n      <li></li>\n    </ul>\n  </li>\n</ul>\n<p>flush</p>"
+    "html": "<ul>\n  <li>a\n    <ul>\n      <li>flush</li>\n    </ul>\n  </li>\n</ul>"
   },
   {
     "source": "- a\n  - > +\nflush",

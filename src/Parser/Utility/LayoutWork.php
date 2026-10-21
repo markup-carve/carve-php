@@ -82,6 +82,14 @@ final class LayoutWork
      */
     public static int $footnotePrescan = 0;
 
+    public static int $markerLinesClassified = 0;
+
+    public static int $markerStackEntriesExamined = 0;
+
+    public static int $markerFollowerProbes = 0;
+
+    public static int $markerExtentWork = 0;
+
     /**
      * Reset every counter.
      *
@@ -96,6 +104,10 @@ final class LayoutWork
         self::$commentPrescan = 0;
         self::$referencePrescan = 0;
         self::$footnotePrescan = 0;
+        self::$markerLinesClassified = 0;
+        self::$markerStackEntriesExamined = 0;
+        self::$markerFollowerProbes = 0;
+        self::$markerExtentWork = 0;
     }
 
     /**

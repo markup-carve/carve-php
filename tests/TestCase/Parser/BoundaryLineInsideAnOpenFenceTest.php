@@ -494,7 +494,7 @@ class BoundaryLineInsideAnOpenFenceTest extends TestCase
      */
     public function testAContinuationMarkerAtEndOfInputAttachesNothing(): void
     {
-        $this->assertSame('<ul><li>x</li></ul>', $this->html("- x\n+\n"));
+        $this->assertSame('<ul><li>x +</li></ul>', $this->html("- x\n+\n"));
     }
 
     // ------------------------------------------------------------------ controls

@@ -30,7 +30,7 @@ class AMarkerLeftOfAQuotesColumnIsTextTest extends TestCase
     public static function columnProvider(): array
     {
         return [
-            'column 0, the list marker column' => [0, false],
+            'column 0, the list marker column' => [0, true],
             'column 1, no container' => [1, true],
             'column 2, ordinary text' => [2, true],
             'column 3, inside the quote content' => [3, true],

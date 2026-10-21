@@ -56,7 +56,7 @@ class UnterminatedNestedLeadFenceKeepsBlankPayloadTest extends TestCase
         return [
             'one blank' => ["- - ```\n  +\n\ntail", ''],
             'two blanks' => ["- - ```\n  +\n\n\ntail", ''],
-            'depth one keeps its blank' => ["- ```\n+\n\ntail", "\n"],
+            'depth one closes at the refused marker' => ["- ```\n+\n\ntail", ''],
         ];
     }
 

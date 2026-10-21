@@ -157,7 +157,7 @@
   {
     "id": "comment-controls/column-gate/0/marker",
     "source": "[^a]: intro\n+\n more\n\nsee[^a]\n",
-    "html": "<p>more</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<p>+\nmore</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "comment-controls/column-gate/0/comment",
@@ -167,7 +167,7 @@
   {
     "id": "comment-controls/column-gate/1/marker",
     "source": "[^a]: intro\n+\n  more\n\nsee[^a]\n",
-    "html": "<p>more</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<p>+\nmore</p>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "comment-controls/column-gate/1/comment",
@@ -177,7 +177,7 @@
   {
     "id": "comment-controls/column-gate/2/marker",
     "source": ":: term\n:  intro\n+\n  more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro\n+\nmore</dd>\n</dl>"
   },
   {
     "id": "comment-controls/column-gate/2/comment",
@@ -187,7 +187,7 @@
   {
     "id": "comment-controls/column-gate/3/marker",
     "source": ":: term\n:  intro\n+\n more\n",
-    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro</dd>\n</dl>\n<p>more</p>"
+    "html": "<dl>\n  <dt>term</dt>\n  <dd>intro\n+\nmore</dd>\n</dl>"
   },
   {
     "id": "comment-controls/column-gate/3/comment",
@@ -197,7 +197,7 @@
   {
     "id": "comment-controls/column-gate/4/marker",
     "source": "> intro\n>\n+\n  more\n",
-    "html": "<blockquote><p>intro</p></blockquote>\n<p>more</p>"
+    "html": "<blockquote><p>intro</p></blockquote>\n<p>+\nmore</p>"
   },
   {
     "id": "comment-controls/column-gate/4/comment",
@@ -207,7 +207,7 @@
   {
     "id": "comment-controls/column-gate/5/marker",
     "source": "- intro\n+\n  more\n",
-    "html": "<ul>\n  <li>intro\nmore</li>\n</ul>"
+    "html": "<ul>\n  <li>intro\n+\nmore</li>\n</ul>"
   },
   {
     "id": "comment-controls/column-gate/5/comment",
@@ -217,7 +217,7 @@
   {
     "id": "comment-controls/column-gate/6/marker",
     "source": "> [^a]: intro\n> +\n>   more\n>\n> see[^a]\n",
-    "html": "<blockquote>\n  <p>more</p>\n  <p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<blockquote>\n  <p>+\nmore</p>\n  <p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n</blockquote>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "comment-controls/column-gate/6/comment",
@@ -227,7 +227,7 @@
   {
     "id": "comment-controls/column-gate/7/marker",
     "source": "::: note\n[^a]: intro\n+\n  more\n:::\n\nsee[^a]\n",
-    "html": "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>more</p>\n</aside>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
+    "html": "<aside class=\"admonition note\" aria-label=\"Note\">\n  <p>+\nmore</p>\n</aside>\n<p>see<a id=\"fnref1\" href=\"#fn1\" role=\"doc-noteref\"><sup>1</sup></a></p>\n<section role=\"doc-endnotes\" aria-label=\"Footnotes\">\n  <hr>\n  <ol>\n    <li id=\"fn1\">\n      <p>intro<a href=\"#fnref1\" role=\"doc-backlink\" aria-label=\"Back to reference\">↩</a></p>\n    </li>\n  </ol>\n</section>"
   },
   {
     "id": "comment-controls/column-gate/7/comment",

@@ -28,12 +28,12 @@ class AContinuationMarkerOffEveryMarkerColumnIsTextTest extends TestCase
     }
 
     /**
-     * @return array<string, array{int, bool}>
+     * @return array<string, array{int, string|bool}>
      */
     public static function markerColumnProvider(): array
     {
         return [
-            'document column 0 is the outer list\'s marker column' => [0, false],
+            'document column 0 is the outer list\'s marker column' => [0, "<ul>\n  <li>x\n    <ul>\n      <li>L\n+</li>\n    </ul>\n  </li>\n</ul>"],
             'document column 1 names no container' => [1, true],
             'document column 2 is ordinary text' => [2, true],
             'document column 3 is inside the sublist item' => [3, true],
@@ -42,12 +42,12 @@ class AContinuationMarkerOffEveryMarkerColumnIsTextTest extends TestCase
     }
 
     #[DataProvider('markerColumnProvider')]
-    public function testTheMarkerReachesTheOutputOnlyOffAMarkerColumn(int $column, bool $reaches): void
+    public function testTheMarkerReachesTheOutputOnlyOffAMarkerColumn(int $column, string|bool $reaches): void
     {
         $pad = str_repeat(' ', $column);
         $html = $this->converter->convert("- x\n  - L\n{$pad}+\n");
 
-        $this->assertSame($reaches, str_contains($html, '+'), $html);
+        $this->assertSame($reaches, is_string($reaches) ? trim($html) : str_contains($html, '+'), $html);
     }
 
     /**

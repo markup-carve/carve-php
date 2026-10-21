@@ -27,7 +27,7 @@ final class IndentedListAttachedParagraphTest extends TestCase
     public function testIndentedLineDoesNotAttach(): void
     {
         self::assertSame(
-            self::TABLE . "<ul>\n  <li></li>\n</ul>\n<p>line two</p>\n",
+            self::TABLE . "<ul>\n  <li>line two</li>\n</ul>\n",
             CarveConverter::create()->convert("| a | b |\n  - +\n  line two\n"),
         );
     }

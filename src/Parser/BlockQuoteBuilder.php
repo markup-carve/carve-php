@@ -32,7 +32,6 @@ final class BlockQuoteBuilder
      * @param \Closure(string): (bool) $isAbbreviationDefinitionLineCallback
      * @param \Closure(string): (bool) $isBlockAttributeLineCallback
      * @param \Closure(string, int): (bool) $isCommentLineOrFenceCallback
-     * @param \Closure(string): (bool) $isContinuationMarkerCallback
      * @param \Closure(string): (bool) $isDefinitionLineForEnclosingItemCallback
      * @param \Closure(string): (bool) $isReferenceDefinitionLineCallback
      * @param \Closure(string, array{type: string, content: string, attributesWidth?: int}): (int) $listMarkerWidthCallback
@@ -56,7 +55,6 @@ final class BlockQuoteBuilder
         private Closure $isAbbreviationDefinitionLineCallback,
         private Closure $isBlockAttributeLineCallback,
         private Closure $isCommentLineOrFenceCallback,
-        private Closure $isContinuationMarkerCallback,
         private Closure $isDefinitionLineForEnclosingItemCallback,
         private Closure $isReferenceDefinitionLineCallback,
         private Closure $listMarkerWidthCallback,
@@ -241,12 +239,57 @@ final class BlockQuoteBuilder
         $openingSource = $this->state->source->sourceLines[$quoteSourceLine] ?? '';
         preg_match('/^(?:> ?)+/', $openingSource, $openingPrefix);
         $openingDepth = substr_count($openingPrefix[0] ?? '', '>');
-        $openingBody = ContainerPrefix::stripQuoteMarkers($openingSource);
-        $openingListPlus = preg_match('/^(?:[-*] |(?:\d+|[A-Za-z]+)[.)] )\+[ \t]*$/D', $openingBody) === 1;
+        $openingOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $quoteSourceLine);
+        $openingListPlus = ($openingOwner['kind'] ?? null) === 'list';
         while ($i < $count) {
             $currentLine = $lines[$i];
             if (IndentationHelper::isBlankLine($currentLine)) {
                 break;
+            }
+
+            $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
+            if ($decision['column'] >= 0 && $decision['reason'] === null && $openingDepth > 1) {
+                $nextPhysical = $this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '';
+                $nextDepth = 0;
+                while (($rest = ContainerPrefix::quoteContent($nextPhysical)) !== null) {
+                    $nextPhysical = $rest;
+                    $nextDepth++;
+                }
+                if (
+                    $decision['depth'] > 0 && $decision['depth'] < $openingDepth && $nextDepth >= $decision['depth']
+                    && ($this->getListParser)()->parseListItemMarker(ltrim($innerLines[0] ?? '', " \t")) === null
+                ) {
+                    if ($nextDepth === $decision['depth'] && trim($nextPhysical) !== '') {
+                        $innerLines[] = str_repeat('> ', $openingDepth - 1);
+                        $innerLineMap[] = -1;
+                        $continued = str_repeat('> ', $openingDepth - 1) . $nextPhysical;
+                        $innerLines[] = $continued;
+                        $innerLineMap[] = $this->sourceLineFor($i + 1);
+                        $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i + 1, $codeCloserMemo);
+                        $i += 2;
+                    } else {
+                        $innerLines[] = '';
+                        $innerLineMap[] = -1;
+                        $i++;
+                    }
+
+                    continue;
+                }
+            }
+
+            if ($decision['column'] >= 0) {
+                $nextSource = $this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '';
+                if (
+                    $decision['reason'] === null && ($decision['owner']['kind'] ?? null) === 'list'
+                    && $decision['column'] < $quoteOpeningColumn
+                    && ContainerPrefix::quoteContent(ltrim($nextSource, " \t")) === null
+                ) {
+                    $innerLines[] = '';
+                    $innerLineMap[] = -1;
+                    $i++;
+
+                    continue;
+                }
             }
 
             $content = $this->blockQuoteLineContent($currentLine);
@@ -281,7 +324,7 @@ final class BlockQuoteBuilder
             // behind a blank-line separator, so they parse as their own block
             // instead of folding into the preceding quoted paragraph.
             if (
-                $this->isContinuationMarker($currentLine)
+                $decision['column'] >= 0
                 && $this->continuationMarkerSitsAtQuoteColumn($i, $quoteOpeningColumn)
             ) {
                 $i++; // consume the `+` marker
@@ -443,23 +486,66 @@ final class BlockQuoteBuilder
     private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool
     {
         $sourceLine = $this->sourceLineFor($index);
-        $sourceText = $this->state->source->sourceLines[$sourceLine] ?? null;
-        if ($sourceText === null) {
-            return $this->markerSitsAtColumn($index, $column);
-        }
+        $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $sourceLine);
 
-        return preg_match('/^(?:> ?)*\+[ \t]*$/D', $sourceText) === 1;
+        return $decision['reason'] === null && $decision['owner'] !== null
+            && $decision['owner']['kind'] === 'quote' && $decision['owner']['column'] === $column;
     }
 
-    private function physicalFirstBlockQuoteMarker(int $index): bool
+    private function firstBlockQuoteFollowerAtOrigin(int $start, int $follower): bool
     {
-        $source = $this->state->source->sourceLines[$this->sourceLineFor($index)] ?? null;
-        if ($source === null) {
-            return true;
+        $opening = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
+        $next = $this->state->source->sourceLines[$this->sourceLineFor($follower)] ?? '';
+        $previous = $this->state->source->sourceLines[$this->sourceLineFor($start) - 1] ?? '';
+        if ($previous !== ltrim($previous, " \t") && ContainerPrefix::quoteContent(ltrim($previous, " \t")) !== null) {
+            return false;
+        }
+        $openingDepth = 0;
+        while (($rest = ContainerPrefix::quoteContent($opening)) !== null) {
+            $opening = $rest;
+            $openingDepth++;
+        }
+        $nextDepth = 0;
+        $nextBody = $next;
+        while (($rest = ContainerPrefix::quoteContent($nextBody)) !== null) {
+            $nextBody = $rest;
+            $nextDepth++;
+        }
+        $owner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $this->sourceLineFor($start));
+        if (
+            $openingDepth > 0 && ($nextDepth > ($owner['depth'] ?? $openingDepth)
+            || ($owner['depth'] ?? $openingDepth) === $openingDepth && $nextDepth >= $openingDepth)
+        ) {
+            return false;
+        }
+        $column = IndentationHelper::getLeadingColumns($next);
+        if ($column === 0 && ($this->getListParser)()->parseListItemMarker(ltrim($next, " \t")) !== null) {
+            return false;
         }
 
-        return preg_match('/^(?:> ?)*(?:(?:(?:[-*] (?:\[[ xX]\] )?)|(?:\d+|[A-Za-z]+)[.)] )+|: +|\[\^[^\]]+\]: +)?(?:> ?)+\+[ \t]*$/D', $source) === 1
-            || preg_match('/^(?:> ?)*[ \t]+(?:(?:[-*] |(?:\d+|[A-Za-z]+)[.)] ))+(?:> ?)+\+[ \t]*$/D', $source) === 1;
+        return $column === 0 || $column === IndentationHelper::getLeadingColumns($opening);
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $count
+     * @param int $start
+     */
+    private function firstBlockAttachedExtent(array $lines, int $start, int $count): int
+    {
+        $fenceEnd = $this->continuations->attachedFencedBlockEnd($lines, $start, $count, null);
+        if ($fenceEnd >= $start) {
+            return $fenceEnd - $start + 1;
+        }
+        if (!($this->getTableParser)()->isTableRow($lines[$start])) {
+            return 1;
+        }
+        $end = $start + 1;
+        while ($end < $count && ($this->getTableParser)()->isTableRow($lines[$end])) {
+            $end++;
+        }
+
+        return $end - $start;
     }
 
     /**
@@ -478,16 +564,43 @@ final class BlockQuoteBuilder
 
         $i = $start + 1;
         $count = count($lines);
-        $nestedFirstBlock = preg_match('/^(?:> ?)+\+[ \t]*$/D', $content) === 1
+        $openingSource = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
+        $openingOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $this->sourceLineFor($start));
+        $contentColumn = ContinuationMarkerClassifier::columnAt(
+            $openingSource,
+            strlen($openingSource) - strlen($content) + strspn($content, " \t"),
+        );
+        $contentRest = $content;
+        $contentQuoteDepth = 0;
+        while (($next = ContainerPrefix::quoteContent($contentRest)) !== null) {
+            $contentRest = $next;
+            $contentQuoteDepth++;
+        }
+        $nestedFirstBlock = ($openingOwner['kind'] ?? null) === 'quote' && $contentQuoteDepth > 0
             && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
-            && IndentationHelper::getLeadingColumns($lines[$i], 1) === 0
-            && $this->blockQuoteLineContent($lines[$i]) === null;
-        $firstBlock = trim($content, " \t") === '+' && $this->physicalFirstBlockQuoteMarker($start) && isset($lines[$i])
+            && $this->firstBlockQuoteFollowerAtOrigin($start, $i);
+        $firstBlock = ($openingOwner['kind'] ?? null) === 'quote' && $openingOwner['column'] === $contentColumn
+            && $contentQuoteDepth === 0 && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
-            && IndentationHelper::getLeadingColumns($lines[$i], 1) === 0
-            && $this->blockQuoteLineContent($lines[$i]) === null;
+            && $this->firstBlockQuoteFollowerAtOrigin($start, $i);
         if ($firstBlock) {
-            [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+            $opening = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
+            $origin = IndentationHelper::getLeadingColumns($opening);
+            $attachmentLines = $lines;
+            if ($origin > 0) {
+                for ($at = $i; $at < $count; $at++) {
+                    if (!IndentationHelper::isBlankLine($attachmentLines[$at]) && IndentationHelper::getLeadingColumns($attachmentLines[$at]) >= $origin) {
+                        $attachmentLines[$at] = IndentationHelper::stripLeadingColumns($attachmentLines[$at], $origin);
+                    }
+                }
+            }
+            [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($attachmentLines, $i, $count);
+            if ($innerLines === [] && isset($attachmentLines[$i]) && !IndentationHelper::isBlankLine($attachmentLines[$i])) {
+                $take = $this->firstBlockAttachedExtent($attachmentLines, $i, $count);
+                $innerLines = array_slice($attachmentLines, $i, $take);
+                $rawLineMap = range($i, $i + $take - 1);
+                $i += $take;
+            }
             $innerLineMap = array_map(fn (int $raw): int => $this->sourceLineFor($raw), $rawLineMap);
             $firstBlock = $innerLines !== [];
         }
@@ -500,8 +613,14 @@ final class BlockQuoteBuilder
             }
             if ($nestedFirstBlock) {
                 [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+                if ($attached === [] && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])) {
+                    $take = $this->firstBlockAttachedExtent($lines, $i, $count);
+                    $attached = array_slice($lines, $i, $take);
+                    $attachedLineMap = range($i, $i + $take - 1);
+                    $end = $i + $take;
+                }
                 foreach ($attached as $index => $attachedLine) {
-                    $innerLines[] = $attachedLine;
+                    $innerLines[] = ContainerPrefix::quoteContent($attachedLine) ?? $attachedLine;
                     $innerLineMap[] = $this->sourceLineFor($attachedLineMap[$index]);
                 }
                 if ($attached !== []) {
@@ -1617,11 +1736,6 @@ final class BlockQuoteBuilder
     private function isCommentLineOrFence(string $line, int $at = 0): bool
     {
         return ($this->isCommentLineOrFenceCallback)($line, $at);
-    }
-
-    private function isContinuationMarker(string $line): bool
-    {
-        return ($this->isContinuationMarkerCallback)($line);
     }
 
     /**

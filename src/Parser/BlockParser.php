@@ -338,7 +338,105 @@ class BlockParser
      */
     public function getRefusedContinuationMarkers(): array
     {
-        return $this->state->session->refusedContinuationMarkers;
+        $markers = $this->state->session->refusedContinuationMarkers;
+        $unclosedEnds = [];
+        foreach ($this->state->session->unclosedCodeFences as $unclosed) {
+            $unclosedEnds[$unclosed['line'] - 1] = $unclosed['reason'] === 'container' ? $unclosed['endLine'] - 1 : null;
+        }
+        $codeFence = null;
+        $codeFenceEnd = null;
+        $commentFence = null;
+        foreach ($this->state->source->sourceLines as $index => $line) {
+            $fenceLine = ltrim($line, " \t");
+            while (($quoteBody = ContainerPrefix::quoteContent($fenceLine)) !== null) {
+                $fenceLine = ltrim($quoteBody, " \t");
+            }
+            if ($codeFence !== null && $codeFenceEnd !== null && $index >= $codeFenceEnd) {
+                $codeFence = null;
+            }
+            if ($codeFence !== null) {
+                if ($this->fencedBlockParser->isCodeFenceCloser($fenceLine, $codeFence['char'], $codeFence['length'])) {
+                    $codeFence = null;
+                }
+
+                continue;
+            }
+            if ($commentFence !== null) {
+                if ($this->fencedBlockParser->isFencedCommentCloserAnyColumn($fenceLine, $commentFence)) {
+                    $commentFence = null;
+                }
+
+                continue;
+            }
+            $codeFence = $this->fencedBlockParser->parseCodeFenceOpener($fenceLine);
+            if ($codeFence !== null) {
+                $codeFenceEnd = $unclosedEnds[$index] ?? null;
+
+                continue;
+            }
+            $commentFence = $this->fencedBlockParser->parseFencedCommentOpenerAnyColumn($fenceLine)['length'] ?? null;
+            if ($commentFence !== null) {
+                continue;
+            }
+            if (!str_contains($line, '+')) {
+                continue;
+            }
+            $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index);
+            if ($decision['column'] < 0 || $decision['reason'] === null) {
+                continue;
+            }
+            if ($decision['owner'] === null && !$decision['open']) {
+                continue;
+            }
+            if (($decision['owner']['kind'] ?? null) === 'quote' && $decision['depth'] === 0) {
+                continue;
+            }
+            if (($decision['owner']['kind'] ?? null) === 'footnote' && in_array($decision['reason'], ['blank', 'document'], true)) {
+                continue;
+            }
+            if ($decision['reason'] === 'right' && ($decision['owner']['kind'] ?? null) === 'list') {
+                $follower = $this->state->source->sourceLines[$index + 1] ?? '';
+                if (
+                    IndentationHelper::getLeadingColumns($follower, $decision['owner']['content'] + 1)
+                    <= $decision['owner']['content']
+                ) {
+                    continue;
+                }
+            }
+            $previous = $this->state->source->sourceLines[$index - 1] ?? '';
+            if ($this->leadBottomOpensFence($previous) && $decision['column'] > IndentationHelper::getLeadingColumns($previous)) {
+                continue;
+            }
+            if (($decision['owner']['kind'] ?? null) === 'list') {
+                $previousColumn = IndentationHelper::getLeadingColumns($previous);
+                if (
+                    $previousColumn > 0 && $previousColumn === $decision['column']
+                    && $this->listParser->parseListItemMarker(ltrim($previous, " \t")) !== null
+                    && in_array($decision['reason'], ['blank', 'document'], true)
+                ) {
+                    continue;
+                }
+            }
+            $plus = strpos($line, '+');
+            if ($plus === false) {
+                continue;
+            }
+            $host = match ($decision['owner']['kind'] ?? null) {
+                'list' => 'list item',
+                'quote' => 'block quote',
+                'description' => 'definition description',
+                'footnote' => 'footnote body',
+                default => 'document',
+            };
+            $markers[] = [
+                'line' => $index + 1,
+                'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
+                'host' => $host,
+                'reason' => $decision['reason'],
+            ];
+        }
+
+        return $markers;
     }
 
     private function recordUnclosedCodeFence(int $start, int $end, string $marker): void
@@ -844,7 +942,6 @@ class BlockParser
         $document->setSourceLength($sourceLength);
 
         $this->adjustNestedFenceContinuationBlanks($document);
-        $this->reconcileNestedDivLazyPlus($document);
 
         return $document;
     }
@@ -853,7 +950,6 @@ class BlockParser
     {
         $lines = $this->state->source->sourceLines;
         $changes = [];
-        $lastNonBlank = -1;
         $lastMarkerFence = -1;
         $stackedFence = null;
         $explicitCloserTrim = false;
@@ -876,39 +972,23 @@ class BlockParser
                 }
                 $stackedFence = null;
             }
-            $physical = preg_match('/^\+[ \t]*$/D', $body) === 1;
             $indented = preg_match('/^[ \t]+\+[ \t]*$/D', $body) === 1;
-            if ($physical || $indented) {
-                $previous = $physical ? $lastNonBlank : $lastMarkerFence;
+            if ($indented) {
+                $previous = $lastMarkerFence;
                 if (
                     preg_match('/^([ \t]*)((?:(?:[-*] |\d+[.)] ))+)(`{3,}|~{3,})/', ContainerPrefix::stripQuoteMarkers($lines[$previous] ?? ''), $opener) === 1
                     && ($opener[1] !== '' || preg_match_all('/(?:[-*] |\d+[.)] )/', $opener[2]) >= 2)
                 ) {
                     $follower = $lines[$index + 1] ?? '';
-                    if ($indented) {
-                        $contentColumn = IndentationHelper::getLeadingColumns($opener[1]) + strlen($opener[2]);
-                        if (
-                            IndentationHelper::getLeadingColumns($body) < $contentColumn
-                            && $index > $previous + 2
-                            && trim($lines[$index - 1] ?? '') === '' && !IndentationHelper::isBlankLine($follower)
-                        ) {
-                            $changes[$previous + 1] = -1;
-                        }
-                    } else {
-                        $deepFence = IndentationHelper::getLeadingColumns($opener[1]) >= 4
-                            || preg_match_all('/(?:[-*] |\d+[.)] )/', $opener[2]) >= 3;
-                        if (
-                            ($index === $previous + 1 || !str_starts_with($lines[$index], '>'))
-                            && !($deepFence && $index > $previous + 1 && IndentationHelper::isBlankLine($follower))
-                        ) {
-                            $changes[$previous + 1] = IndentationHelper::isBlankLine($follower)
-                                ? -1 : ($this->listParser->parseListItemMarker(ltrim(ContainerPrefix::stripQuoteMarkers($follower), " \t")) !== null ? 2 : 1);
-                        }
+                    $contentColumn = IndentationHelper::getLeadingColumns($opener[1]) + strlen($opener[2]);
+                    if (
+                        IndentationHelper::getLeadingColumns($body) < $contentColumn
+                        && $index > $previous + 2
+                        && trim($lines[$index - 1] ?? '') === '' && !IndentationHelper::isBlankLine($follower)
+                    ) {
+                        $changes[$previous + 1] = -1;
                     }
                 }
-            }
-            if (trim($body) !== '') {
-                $lastNonBlank = $index;
             }
             if (preg_match('/^([ \t]*)((?:(?:[-*] |\d+[.)] ))+)(`{3,}|~{3,})/', $body) === 1) {
                 $lastMarkerFence = $index;
@@ -967,72 +1047,6 @@ class BlockParser
         } else {
             $content = $code->getContent();
             $code->setContent(str_ends_with($content, "\n") ? substr($content, 0, -1) : $content);
-        }
-    }
-
-    private function reconcileNestedDivLazyPlus(Node $document): void
-    {
-        $lines = $this->state->source->sourceLines;
-        $opening = ContainerPrefix::stripQuoteMarkers($lines[0] ?? '');
-        if (preg_match('/^(?:[-*] ){2,}:{3,} [A-Za-z0-9_]/', $opening) !== 1) {
-            return;
-        }
-        $plusLine = null;
-        foreach ($lines as $index => $line) {
-            $body = ContainerPrefix::stripQuoteMarkers($line);
-            $tail = isset($lines[$index + 1]) ? ContainerPrefix::stripQuoteMarkers($lines[$index + 1]) : '';
-            if (
-                preg_match('/^[ \t]+\+[ \t]*$/D', $body) === 1
-                && $tail !== ''
-                && $tail === ltrim($tail, " \t")
-            ) {
-                $plusLine = $index;
-
-                break;
-            }
-        }
-        if ($plusLine === null) {
-            return;
-        }
-        $div = null;
-        $plusParagraph = null;
-        $stack = [$document];
-        while ($stack !== []) {
-            $node = array_pop($stack);
-            if ($node instanceof Div) {
-                $div = $node;
-            } elseif ($node instanceof Paragraph) {
-                $first = $node->getChildren()[0] ?? null;
-                if ($first instanceof Text && $first->getContent() === '+') {
-                    $plusParagraph = $node;
-                }
-            }
-            foreach ($node->getChildren() as $child) {
-                $stack[] = $child;
-            }
-        }
-        if ($div === null || $plusParagraph === null || $plusParagraph->getParent() === $div) {
-            return;
-        }
-        $documentBlocks = $document->getChildren();
-        $lastDocumentBlock = $documentBlocks === [] ? null : $documentBlocks[array_key_last($documentBlocks)];
-        if ($lastDocumentBlock instanceof Paragraph && $lastDocumentBlock !== $plusParagraph) {
-            $plusParagraph->appendChild(new SoftBreak());
-            foreach ($lastDocumentBlock->getChildren() as $child) {
-                $plusParagraph->appendChild($child);
-            }
-            $document->removeChild($lastDocumentBlock);
-        }
-        if (!IndentationHelper::isBlankLine($lines[$plusLine - 1] ?? '')) {
-            $divBlocks = $div->getChildren();
-            $lastDivBlock = $divBlocks === [] ? null : $divBlocks[array_key_last($divBlocks)];
-            if ($lastDivBlock instanceof Paragraph) {
-                $lastDivBlock->appendChild(new SoftBreak());
-                foreach ($plusParagraph->getChildren() as $child) {
-                    $lastDivBlock->appendChild($child);
-                }
-                $plusParagraph->getParent()?->removeChild($plusParagraph);
-            }
         }
     }
 
@@ -4846,25 +4860,52 @@ class BlockParser
             return false;
         }
 
-        return !$this->continuationAttachesAtColumnZero($index);
+        return !$this->continuationFollowerIsEligible($index);
     }
 
-    protected function continuationAttachesAtColumnZero(int $index): bool
+    protected function continuationFollowerIsEligible(int $index): bool
     {
-        $sourceLine = $this->sourceLineFor($index);
-        if ($sourceLine < 0) {
+        $prior = $this->sourceLineFor($index - 1);
+        $current = $this->sourceLineFor($index);
+        if ($prior < 0 || $current < 0) {
+            return false;
+        }
+        $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $prior);
+        if ($decision['owner'] !== null && $decision['reason'] === null) {
             return true;
         }
-        $line = $this->state->source->sourceLines[$sourceLine] ?? null;
-        if ($line === null) {
-            return true;
+        $first = $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $prior);
+        if ($first === null) {
+            return false;
         }
-        $rest = $line;
-        while (preg_match('/^[ \t]*>[ \t]?/', $rest, $m) === 1) {
-            $rest = substr($rest, strlen($m[0]));
+        $line = $this->state->source->sourceLines[$current] ?? '';
+        $opener = $this->state->source->sourceLines[$prior] ?? '';
+        $openingBody = $opener;
+        $body = $line;
+        while (($next = ContainerPrefix::quoteContent($openingBody)) !== null) {
+            $openingBody = $next;
+            $body = ContainerPrefix::quoteContent($body) ?? '';
+            if ($body === '') {
+                return false;
+            }
+        }
+        $origin = ContinuationMarkerClassifier::columnAt($opener, strlen($opener) - strlen($openingBody));
+        if ($origin === 0) {
+            $origin = IndentationHelper::getLeadingColumns($opener);
+        }
+        $column = ContinuationMarkerClassifier::columnAt($line, strlen($line) - strlen($body) + strspn($body, " \t"));
+        if ($column !== 0 && $column !== $origin && $column !== $first['column']) {
+            return false;
+        }
+        $trimmed = ltrim($body, " \t");
+        if (
+            $column === $first['column'] && $column !== $origin
+            && !$this->startsNewBlock($trimmed) && !$this->isBlockElementStart($trimmed)
+        ) {
+            return false;
         }
 
-        return $rest === ltrim($rest, " \t");
+        return $this->listParser->parseListItemMarker($trimmed) === null;
     }
 
     protected function isContinuationMarker(string $line): bool
@@ -5432,8 +5473,14 @@ class BlockParser
             return false;
         }
 
-        if ($this->listParser->parseListItemMarker($nextTrimmed) !== null || $this->isContinuationMarker($nextTrimmed)) {
+        if ($this->listParser->parseListItemMarker($nextTrimmed) !== null) {
             return true;
+        }
+        if ($index !== null && $this->isContinuationMarker($nextTrimmed)) {
+            $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($index));
+            if ($decision['owner'] !== null && $decision['reason'] === null) {
+                return true;
+            }
         }
 
         return $baseIndent === 0
@@ -5493,6 +5540,16 @@ class BlockParser
         $openCommentColumn = 0;
         while ($i < $count) {
             $nextLine = $lines[$i];
+            $priorSourceLine = $this->sourceLineFor($i) - 1;
+            if (
+                !IndentationHelper::isBlankLine($nextLine)
+                && str_contains($this->state->source->sourceLines[$priorSourceLine] ?? '', '+')
+                && $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $priorSourceLine) !== null
+                && IndentationHelper::getLeadingColumns($nextLine, $contentIndent) < $contentIndent
+                && !$this->continuationFollowerIsEligible($i)
+            ) {
+                break;
+            }
             if (
                 preg_match_all('/(?:[-*] |\d+[.)] )/', $sourceLead) === 2
                 && !IndentationHelper::isBlankLine($nextLine)
@@ -5519,7 +5576,7 @@ class BlockParser
                 && !$this->isBlockElementStart(ltrim($nextLine, " \t"), $lines, $i)
                 && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
             ) {
-                $itemLines[] = BlockGrammar::LAZY_FRAME . ltrim($nextLine, " \t");
+                $itemLines[] = ' ' . ltrim($nextLine, " \t");
                 $itemLineMap[] = $this->sourceLineFor($i);
                 $trailingState = $this->advanceTrailingState($trailingState, 'text');
                 $i++;
@@ -5697,7 +5754,7 @@ class BlockParser
                 // nested parse as ` x`, and by then they cannot be told apart.
                 if (
                     $bareContinuationLead
-                    && !$this->continuationAttachesAtColumnZero($i)
+                    && !$this->continuationFollowerIsEligible($i)
                 ) {
                     break;
                 }
@@ -6116,9 +6173,6 @@ class BlockParser
         if (IndentationHelper::getLeadingColumns($lines[$ahead], $bodyColumn) >= $bodyColumn) {
             return $ahead;
         }
-        if ($allowContinuationMarker && preg_match('/^\+[ \t]*$/', $lines[$ahead]) === 1) {
-            return $ahead;
-        }
 
         return null;
     }
@@ -6160,7 +6214,7 @@ class BlockParser
         if (
             trim($content, " \t") === '+' && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
-            && $this->continuationAttachesAtColumnZero($i)
+            && $this->continuationFollowerIsEligible($i)
         ) {
             [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
                 $lines,
@@ -6214,7 +6268,17 @@ class BlockParser
             // Form B: a `+` continuation marker plus its attached flush-left
             // block (ends at a blank line, another `+`, or the next footnote
             // definition) - the same rebase the footnote body reader uses.
-            if (preg_match('/^\+[ \t]*$/', $nextLine)) {
+            $footnoteMarker = trim($nextLine, " \t") === '+';
+            $markerDecision = $footnoteMarker
+                ? $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $this->sourceLineFor($i))
+                : null;
+            if (
+                $markerDecision !== null && $markerDecision['reason'] === null
+                && ($markerDecision['owner']['kind'] ?? null) === 'footnote'
+            ) {
+                if (!$this->continuationFollowerIsEligible($i + 1)) {
+                    break;
+                }
                 $i++;
                 // ...AND THE NOTE ENDS WHERE A COMMENT ENDS IT
                 // (markup-carve/carve#1814). The gate below decides
@@ -6227,9 +6291,6 @@ class BlockParser
                 // before any extent is measured. The `+` is consumed
                 // either way, so the enclosing parse resumes on the
                 // line the marker did not take.
-                if (!$this->continuationAttachesAtColumnZero($i)) {
-                    break;
-                }
                 [$i, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock(
                     $lines,
                     $i,
@@ -6408,33 +6469,6 @@ class BlockParser
         return $i - $start;
     }
 
-    private function isAttachedDefinitionListReference(int $index): bool
-    {
-        $sourceLine = $this->sourceLineFor($index);
-        $sourceLines = $this->state->source->sourceLines;
-
-        return $sourceLine >= 3
-            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine] ?? '', 2) >= 2
-            && preg_match('/^[ \t]*\[(?!\^)/', $sourceLines[$sourceLine] ?? '') === 1
-            && preg_match('/^(?:[-*] |\d+[.)] )\S/', $sourceLines[$sourceLine - 1] ?? '') === 1
-            && preg_match('/^\+[ \t]*$/D', $sourceLines[$sourceLine - 2] ?? '') === 1
-            && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $sourceLines[$sourceLine - 3] ?? '') === 1;
-    }
-
-    private function followsAttachedDefinitionListReference(int $index): bool
-    {
-        $sourceLine = $this->sourceLineFor($index);
-        $sourceLines = $this->state->source->sourceLines;
-
-        return $sourceLine >= 4
-            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine] ?? '', 2) >= 2
-            && preg_match('/^[ \t]*\[(?!\^)/', $sourceLines[$sourceLine - 1] ?? '') === 1
-            && IndentationHelper::getLeadingColumns($sourceLines[$sourceLine - 1], 2) >= 2
-            && preg_match('/^(?:[-*] |\d+[.)] )\S/', $sourceLines[$sourceLine - 2] ?? '') === 1
-            && preg_match('/^\+[ \t]*$/D', $sourceLines[$sourceLine - 3] ?? '') === 1
-            && preg_match(self::DEFINITION_BODY_LINE_PREFIX, $sourceLines[$sourceLine - 4] ?? '') === 1;
-    }
-
     /**
      * Skip reference definitions (already extracted in first pass)
      *
@@ -6444,10 +6478,6 @@ class BlockParser
     protected function tryParseReferenceDefinition(array $lines, int $start): ?int
     {
         $line = $lines[$start];
-        if ($this->isAttachedDefinitionListReference($start) || $this->followsAttachedDefinitionListReference($start)) {
-            return null;
-        }
-
         // A definition-shaped lazy line in a quote remains the open
         // paragraph's text (carve-php#1908, PART 1 S4).
         if (isset($this->state->session->blockQuoteLazySourceLines[$this->sourceLineFor($start)])) {
@@ -6880,8 +6910,22 @@ class BlockParser
     ): bool {
         $line = $lines[$i];
 
-        if ($this->isReferenceDefinitionLine(ltrim($line, " \t")) && $this->isAttachedDefinitionListReference($i)) {
-            return false;
+        if (
+            count($contentLines) === 1 && trim($contentLines[0], " \t") === '+'
+            && $this->listParser->parseListItemMarker(ltrim($line, " \t")) !== null
+        ) {
+            $prior = $this->sourceLineFor($i - 1);
+            if ($prior >= 0) {
+                $marker = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $prior);
+                if (
+                    ($marker['owner']['kind'] ?? null) === 'list' && $marker['reason'] === 'sibling'
+                ) {
+                    return true;
+                }
+                if (($marker['owner']['kind'] ?? null) === 'quote' && $marker['reason'] === 'sibling' && $marker['depth'] > 0) {
+                    return false;
+                }
+            }
         }
 
         // A definition-shaped lazy line in a quote is paragraph
@@ -9880,7 +9924,7 @@ class BlockParser
             $this->usesLegacyTrailingHook('advanceTrailingBlockState') ? $this->advanceTrailingState(...) : null,
             $this->usesLegacyTrailingHook('advanceTrailingBlockStateWithFenceLookahead') ? $this->advanceTrailingStateWithFenceLookahead(...) : null,
             $this->commentFenceSpanEnd(...),
-            $this->continuationAttachesAtColumnZero(...),
+            $this->continuationFollowerIsEligible(...),
             $this->continuationMarkerHasIndentedFollower(...),
             $this->definitionBodyContinuesPastBlank(...),
             $this->entryOpensContainer(...),
@@ -9934,7 +9978,6 @@ class BlockParser
             indentedContinuationOpensBlockCallback: $this->indentedContinuationOpensBlock(...),
             isBlockElementStartCallback: $this->isBlockElementStart(...),
             isCommentLineOrFenceCallback: $this->isCommentLineOrFence(...),
-            isContinuationMarkerCallback: $this->isContinuationMarker(...),
             isFoldableInvisibleLineCallback: $this->isFoldableInvisibleLine(...),
             keptCommentDelimiterCallback: $this->keptCommentDelimiter(...),
             leadBottomIsContinuationMarkerCallback: $this->leadBottomIsContinuationMarker(...),
@@ -9965,7 +10008,7 @@ class BlockParser
             advanceTrailingStateWithFenceLookaheadCallback: $this->usesLegacyTrailingHook('advanceTrailingBlockStateWithFenceLookahead') ? $this->advanceTrailingStateWithFenceLookahead(...) : null,
             applyPendingAttributesCallback: $this->applyPendingAttributes(...),
             consumeLooseKeyCallback: $this->consumeLooseKey(...),
-            continuationAttachesAtColumnZeroCallback: $this->continuationAttachesAtColumnZero(...),
+            continuationFollowerIsEligibleCallback: $this->continuationFollowerIsEligible(...),
             endContainerAttributeScopeCallback: $this->endContainerAttributeScope(...),
             endsDefinitionTermCallback: $this->endsDefinitionTerm(...),
             isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
@@ -10036,7 +10079,6 @@ class BlockParser
             isAbbreviationDefinitionLineCallback: $this->isAbbreviationDefinitionLine(...),
             isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             isCommentLineOrFenceCallback: $this->isCommentLineOrFence(...),
-            isContinuationMarkerCallback: $this->isContinuationMarker(...),
             isDefinitionLineForEnclosingItemCallback: $this->isDefinitionLineForEnclosingItem(...),
             isReferenceDefinitionLineCallback: $this->isReferenceDefinitionLine(...),
             listMarkerWidthCallback: $this->listMarkerWidth(...),

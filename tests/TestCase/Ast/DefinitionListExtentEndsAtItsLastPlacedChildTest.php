@@ -110,17 +110,13 @@ class DefinitionListExtentEndsAtItsLastPlacedChildTest extends TestCase
         $this->assertSame(15, $list['pos']['endOffset']);
     }
 
-    public function testAFormBContinuationMarkerAttachingNothingIsNotAChild(): void
+    public function testARefusedContinuationMarkerIsTextInsideTheList(): void
     {
-        // Was line 3, offset 16. The §17 L3 marker is flush-left and the list
-        // does consume it - but with no block following there is nothing for it
-        // to attach, so it produces no child and the extent stops before it.
-        // Same sentence as the attribute line, one construct over. No corpus
-        // document has this shape; codex review found it on carve-php#1366.
+        // A refused `+` is never dropped (markup-carve/carve#3421): it folds into `def` as text.
         $list = $this->definitionList(":: term\n:  def\n+\n");
 
-        $this->assertSame(2, $list['pos']['endLine']);
-        $this->assertSame(14, $list['pos']['endOffset']);
+        $this->assertSame(3, $list['pos']['endLine']);
+        $this->assertSame(16, $list['pos']['endOffset']);
     }
 
     public function testTheDefinitionBelowStillResolves(): void
