@@ -1718,7 +1718,8 @@ final class BlockContinuationScanner
                     && $trailingState->fence === null
                     && ($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0);
                 $quotedLazyOpener = $trailingState->quoteParagraph && $column > $contentIndent
-                    && ContainerPrefix::quoteContent($contentLine) === null
+                    && (ContainerPrefix::quoteContent($nextTrimmed) === null
+                        || $column - $contentIndent >= $trailingState->nestedColumn)
                     && !$this->isCommentLineOrFence($nextTrimmed)
                     && ($nextTrimmed[0] ?? '') !== '`' && ($nextTrimmed[0] ?? '') !== '~'
                     && ($this->isBlockElementStart($nextTrimmed) || $this->startsNewBlock($nextTrimmed)
