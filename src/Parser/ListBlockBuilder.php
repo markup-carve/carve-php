@@ -695,6 +695,10 @@ final class ListBlockBuilder
             // Task list checkbox is considered part of content, not marker
             $markerWidth = $this->listMarkerWidth($trimmedLine, $itemInfo);
             $contentIndent = $baseIndent + $markerWidth;
+            $this->state->session->recordListItemContentColumn(
+                $listItem,
+                ($itemOpeningColumn ?? $baseIndent) + $markerWidth,
+            );
             // A plain word lead opens a paragraph and cannot open a nested block.
             if (
                 $this->advanceTrailingStateCallback === null

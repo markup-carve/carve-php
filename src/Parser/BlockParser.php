@@ -27,6 +27,8 @@ use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Code;
+use MarkupCarve\Carve\Node\Inline\HardBreak;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -2055,11 +2057,13 @@ class BlockParser
         $i = 0;
         $count = count($lines);
         $childrenBeforeBlank = null;
+        $blankFollowerColumn = null;
 
         while ($i < $count) {
             if ($childrenBeforeBlank !== null && count($parent->getChildren()) > $childrenBeforeBlank) {
-                $this->recordParsedItemBlank($parent, $childrenBeforeBlank);
+                $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn);
                 $childrenBeforeBlank = null;
+                $blankFollowerColumn = null;
             }
             $line = $lines[$i];
 
@@ -2071,6 +2075,10 @@ class BlockParser
                 $i++;
 
                 continue;
+            }
+            if ($childrenBeforeBlank !== null) {
+                $blankFollowerColumn = $this->authoredColumnOf($i, $line)
+                    ?? IndentationHelper::getLeadingColumns($line);
             }
 
             // Try to parse block attributes first
@@ -2230,19 +2238,42 @@ class BlockParser
             CycleCollection::checkpoint();
         }
         if ($childrenBeforeBlank !== null) {
-            $this->recordParsedItemBlank($parent, $childrenBeforeBlank);
+            $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn);
         }
         if ($topLevel) {
             $this->endContainerAttributeScope();
         }
     }
 
-    private function recordParsedItemBlank(Node $parent, int $childrenBeforeBlank): void
+    private function recordParsedItemBlank(Node $parent, int $childrenBeforeBlank, ?int $followerColumn): void
     {
         if (!$parent instanceof ListItem) {
             return;
         }
         $children = $parent->getChildren();
+        $next = $children[$childrenBeforeBlank] ?? null;
+        if ($next instanceof Paragraph && $followerColumn !== null) {
+            $nextFence = $this->state->session->foldedFenceColumn($next);
+            $itemContentColumn = $this->state->session->listItemContentColumn($parent);
+            if (
+                $nextFence !== null && $itemContentColumn !== null
+                && $nextFence === $followerColumn && $followerColumn > $itemContentColumn
+            ) {
+                return;
+            }
+        }
+        $previous = $children[$childrenBeforeBlank - 1] ?? null;
+        if ($previous instanceof Paragraph && $followerColumn !== null) {
+            $fenceColumn = $this->state->session->foldedFenceColumn($previous);
+            $itemContentColumn = $this->state->session->listItemContentColumn($parent);
+            if (
+                $fenceColumn !== null && ($followerColumn > $fenceColumn
+                || $followerColumn === $fenceColumn
+                    && $itemContentColumn !== null && $fenceColumn > $itemContentColumn)
+            ) {
+                return;
+            }
+        }
         for ($index = $childrenBeforeBlank, $count = count($children); $index < $count; $index++) {
             if ($children[$index] instanceof Paragraph) {
                 $this->state->session->recordParsedBlankBeforeParagraph($parent);
@@ -3808,6 +3839,11 @@ class BlockParser
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
+        $foldedFenceColumn = null;
+        if ($this->fencedBlockParser->isCodeFenceHead(explode("\n", $content, 2)[0])) {
+            $foldedFenceColumn = $this->authoredColumnOf($start, $line)
+                ?? IndentationHelper::getLeadingColumns($line);
+        }
         // With position tracking, record where each folded line's content sits:
         // [line index, column in that line, length].
         // Nested content arrives PRE-JOINED: a list item hands its body over as
@@ -3856,6 +3892,10 @@ class BlockParser
             // Strip leading whitespace from continuation lines (matching JS reference)
             $rawNextLine = self::stripLazyFrame($nextLine);
             $nextLine = ltrim($rawNextLine, " \t");
+            if ($foldedFenceColumn === null && $this->fencedBlockParser->isCodeFenceHead($nextLine)) {
+                $foldedFenceColumn = $this->authoredColumnOf($i, $rawNextLine)
+                    ?? IndentationHelper::getLeadingColumns($rawNextLine);
+            }
             if ($trackPositions) {
                 $sourceLine = $this->sourceLineFor($i);
                 $this->appendParagraphContentLines(
@@ -3931,6 +3971,28 @@ class BlockParser
             $start,
             sourceMap: $trackPositions ? $this->foldedLinesMap($contentLines) : null,
         );
+        if ($foldedFenceColumn !== null) {
+            $textBeforeCode = false;
+            $hasCode = false;
+            foreach ($paragraph->getChildren() as $inline) {
+                if ($inline instanceof Text) {
+                    $textBeforeCode = true;
+                } elseif ($inline instanceof Code) {
+                    $hasCode = true;
+                    if ($textBeforeCode && str_contains($inline->getContent(), "\n")) {
+                        break;
+                    }
+                }
+            }
+            $itemContentColumn = $parent instanceof ListItem
+                ? $this->state->session->listItemContentColumn($parent) : null;
+            if (
+                $hasCode || $textBeforeCode && $itemContentColumn !== null
+                && $foldedFenceColumn > $itemContentColumn
+            ) {
+                $this->state->session->recordFoldedFenceColumn($paragraph, $foldedFenceColumn);
+            }
+        }
         if ($trackPositions) {
             $placed = array_values(array_filter(
                 $paragraph->getChildren(),

@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
 use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use WeakMap;
 
@@ -16,6 +17,42 @@ use WeakMap;
  */
 final class BlockParseSession
 {
+    /**
+     * Physical opener column of a folded fence inside a parsed paragraph.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, int>|null
+     */
+    private ?WeakMap $foldedFenceColumns = null;
+
+    /**
+     * Authored content column of each parsed list item.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\ListItem, int>|null
+     */
+    private ?WeakMap $listItemContentColumns = null;
+
+    public function recordListItemContentColumn(ListItem $item, int $column): void
+    {
+        $this->listItemContentColumns ??= new WeakMap();
+        $this->listItemContentColumns[$item] = $column;
+    }
+
+    public function listItemContentColumn(ListItem $item): ?int
+    {
+        return $this->listItemContentColumns[$item] ?? null;
+    }
+
+    public function recordFoldedFenceColumn(Paragraph $paragraph, int $column): void
+    {
+        $this->foldedFenceColumns ??= new WeakMap();
+        $this->foldedFenceColumns[$paragraph] = $column;
+    }
+
+    public function foldedFenceColumn(Paragraph $paragraph): ?int
+    {
+        return $this->foldedFenceColumns[$paragraph] ?? null;
+    }
+
     /**
      * Content column of a parsed nested list, keyed by its parent item.
      *
