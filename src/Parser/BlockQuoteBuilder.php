@@ -235,6 +235,7 @@ final class BlockQuoteBuilder
         $lazyStateActive = $i !== $start + 1
             || in_array('note', $lazyState['hosts']['kinds'] ?? [], true)
             || self::mayOpenQuotedHost($content);
+        $startsFootnoteDefinition = preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $content) === 1;
         $count = count($lines);
         $nestedLineBlock = ['count' => 0, 'eligible' => null, 'divCount' => 0, 'literalColumn' => null];
         $openingSource = $this->state->source->sourceLines[$quoteSourceLine] ?? '';
@@ -313,6 +314,12 @@ final class BlockQuoteBuilder
             // Continue with "> " prefix (space required per spec)
             if ($content === null && in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
                 $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
+            }
+            if (
+                $content !== null && $startsFootnoteDefinition
+                && $this->quoteMarkerColumn($i, $currentLine) !== $quoteOpeningColumn
+            ) {
+                $content = null;
             }
             if ($content !== null) {
                 $innerLines[] = $content;
@@ -417,6 +424,20 @@ final class BlockQuoteBuilder
             $this->state->frame->currentContentColumns[$quoteSourceLine] ?? 0,
             strlen($sourceTail) - strlen(ltrim($sourceTail, " \t")),
         );
+    }
+
+    /**
+     * Source column of this line's `>`, measured past any enclosing quote markers.
+     */
+    private function quoteMarkerColumn(int $index, string $line): int
+    {
+        $sourceTail = rtrim($this->state->source->sourceLines[$this->sourceLineFor($index)] ?? '', " \t");
+        $markerTail = ltrim(rtrim($line, " \t"), " \t");
+        if ($markerTail === '' || !str_ends_with($sourceTail, $markerTail)) {
+            return IndentationHelper::getLeadingColumns($sourceTail);
+        }
+
+        return strlen($sourceTail) - strlen($markerTail);
     }
 
     private function continuationMarkerSitsAtQuoteColumn(int $index, int $column): bool
