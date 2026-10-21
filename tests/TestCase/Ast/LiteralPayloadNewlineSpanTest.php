@@ -58,6 +58,8 @@ class LiteralPayloadNewlineSpanTest extends TestCase
             'closed raw fence stops at closer' => ["```=html\nx\n```\n", 'raw_block', 14],
             'unclosed code without final LF' => ["```\nx", 'code_block', 5],
             'unclosed raw without final LF' => ["```=html\nx", 'raw_block', 10],
+            'terminal code blank excludes EOF LF' => ["```\nx\n\n", 'code_block', 6],
+            'terminal raw blank excludes EOF LF' => ["```=html\nx\n\n", 'raw_block', 11],
         ];
     }
 

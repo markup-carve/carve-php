@@ -1360,6 +1360,9 @@ final class BlockSourceMapper
         if (
             ($node instanceof CodeBlock || $node instanceof RawBlock)
             && $this->isBlankAtContentColumn($endLine)
+            && $endLine + 1 < count($this->state->source->sourceLines)
+                - (int)str_ends_with($this->state->source->normalizedSource, "\n")
+            && rtrim($this->state->source->sourceLines[$endLine], " \t") === $this->state->source->sourceLines[$endLine]
             && str_ends_with($node->getContent(), "\n")
             && ($this->state->source->normalizedSource[$endOffset] ?? null) === "\n"
         ) {
