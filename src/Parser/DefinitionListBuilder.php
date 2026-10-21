@@ -377,6 +377,60 @@ final class DefinitionListBuilder
     }
 
     /**
+     * Find the next description body and normalize a separator at its authored column.
+     *
+     * @param array<string> $lines
+     * @param int|null $termColumn
+     * @param bool $termHasOwnColumn
+     * @param int $count
+     * @param int $i
+     *
+     * @return array<int, string>|null
+     */
+    private function definitionBodyAt(array &$lines, int &$i, int $count, bool $termHasOwnColumn, ?int $termColumn): ?array
+    {
+        if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($lines[$i], " \t")) === 1) {
+            $separatorColumn = self::authoredSubjectColumn(
+                ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? ''),
+                trim($lines[$i], " \t"),
+            );
+            if ($termHasOwnColumn && $termColumn !== null && $separatorColumn === $termColumn) {
+                $lines[$i] = ltrim($lines[$i], " \t");
+            }
+        }
+        // A blank line can separate a term from its next description body.
+        if (IndentationHelper::isBlankLine($lines[$i])) {
+            $look = $i;
+            while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
+                $look++;
+            }
+            if ($look < $count && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $lines[$look])) {
+                $i = $look;
+            } else {
+                return null;
+            }
+        }
+        $folded = str_contains($lines[$i], "\n");
+        if (
+            ($folded && !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, explode("\n", $lines[$i], 2)[0]))
+            || !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN . ($folded ? 's' : ''), $lines[$i], $m)
+        ) {
+            return null;
+        }
+        $bodySource = $this->sourceLineFor($i);
+        $bodySubject = $folded ? explode("\n", $lines[$i], 2)[0] : $lines[$i];
+        $bodyColumn = self::authoredSubjectColumn(
+            ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$bodySource] ?? ''),
+            $bodySubject,
+        );
+        if ($termHasOwnColumn && $termColumn !== null && $bodyColumn !== null && $bodyColumn < $termColumn) {
+            return null;
+        }
+
+        return $m;
+    }
+
+    /**
      * Carve definition list (§4.5): `:: term` (exactly two colons, not a
      * `:::` div) lines, then `: definition` (colon + two spaces) lines.
      * Deeper-indented lines continue a definition; a single blank line may
@@ -417,44 +471,8 @@ final class DefinitionListBuilder
             );
             $termHasOwnColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($termSourceLine, " \t")) === 1;
             while ($i < $count) {
-                if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($lines[$i], " \t")) === 1) {
-                    $separatorColumn = self::authoredSubjectColumn(
-                        ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? ''),
-                        trim($lines[$i], " \t"),
-                    );
-                    if ($termHasOwnColumn && $termColumn !== null && $separatorColumn === $termColumn) {
-                        $lines[$i] = ltrim($lines[$i], " \t");
-                    }
-                }
-                // A blank line before a `:  ` definition is a separator (djot
-                // parity): a definition may be separated from its term or a
-                // previous definition by a blank line. A blank not followed by a
-                // `:  ` definition ends the entry.
-                if (IndentationHelper::isBlankLine($lines[$i])) {
-                    $look = $i;
-                    while ($look < $count && IndentationHelper::isBlankLine($lines[$look])) {
-                        $look++;
-                    }
-                    if ($look < $count && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, $lines[$look])) {
-                        $i = $look;
-                    } else {
-                        break;
-                    }
-                }
-                $folded = str_contains($lines[$i], "\n");
-                if (
-                    ($folded && !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, explode("\n", $lines[$i], 2)[0]))
-                    || !preg_match(BlockGrammar::DEFINITION_BODY_PATTERN . ($folded ? 's' : ''), $lines[$i], $m)
-                ) {
-                    break;
-                }
-                $bodySource = $this->sourceLineFor($i);
-                $bodySubject = $folded ? explode("\n", $lines[$i], 2)[0] : $lines[$i];
-                $bodyColumn = self::authoredSubjectColumn(
-                    ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$bodySource] ?? ''),
-                    $bodySubject,
-                );
-                if ($termHasOwnColumn && $termColumn !== null && $bodyColumn !== null && $bodyColumn < $termColumn) {
+                $m = $this->definitionBodyAt($lines, $i, $count, $termHasOwnColumn, $termColumn);
+                if ($m === null) {
                     break;
                 }
                 $definitionStart = $i;
