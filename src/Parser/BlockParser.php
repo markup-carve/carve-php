@@ -1016,8 +1016,11 @@ class BlockParser
                 ) {
                     $follower = $lines[$index + 1] ?? '';
                     $contentColumn = IndentationHelper::getLeadingColumns($opener[1]) + strlen($opener[2]);
+                    // A marker one column left is ordinary text and must not trim the fence blank.
+                    preg_match('/(?:[-*] |\d+[.)] )$/D', $opener[2], $lastMarker);
+                    $lastMarkerColumn = $contentColumn - strlen($lastMarker[0] ?? '');
                     if (
-                        IndentationHelper::getLeadingColumns($body) < $contentColumn
+                        IndentationHelper::getLeadingColumns($body) === $lastMarkerColumn
                         && $index > $previous + 2
                         && trim($lines[$index - 1] ?? '') === '' && !IndentationHelper::isBlankLine($follower)
                         && $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index)['reason'] !== null
