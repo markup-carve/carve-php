@@ -1856,11 +1856,8 @@ class BlockParser
      * Recognize a block-attribute line (single- or multi-line) starting at
      * $start, WITHOUT applying it. Returns the joined attribute string and
      * sets $consumed to the number of lines the block spans, or returns null
-     * when the line is not a block-attribute line. Mirrors the recognition
-     * rules of tryParseBlockAttributes() exactly: `{...}` with the first
-     * content character in [.#a-zA-Z] (excludes braced inline markers like
-     * `{=x=}`); a multi-line block needs indented
-     * continuation lines and a closing `}`.
+     * when the line is not a block-attribute line. Uses the same scanner as
+     * tryParseBlockAttributes(), including validation of wrapped lines.
      *
      * @param array<string> $lines
      * @param int $start
@@ -1868,57 +1865,10 @@ class BlockParser
      */
     protected function scanBlockAttributeLines(array $lines, int $start, ?int &$consumed): ?string
     {
-        $consumed = 0;
-        $line = $lines[$start];
+        $match = WrappedBlockAttributeScanner::scan($lines, $start, $this->inlineParser);
+        $consumed = $match['length'] ?? 0;
 
-        if (!str_starts_with($line, '{')) {
-            return null;
-        }
-
-        // A bare `{}` line is NOT a block-attribute block: block_attributes
-        // requires at least one attribute (grammar §15), and there is no
-        // block-level blessed-empty exception (only the inline `[text]{}` form
-        // is blessed). So it stays a literal paragraph, matching carve-js /
-        // carve-rs.
-
-        // Single-line block: {.class #id key=value}, including adjacent
-        // blocks that merge in order: {.class}{#id}.
-        $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
-        if ($singleLineAttrStr !== null) {
-            $attrStr = $singleLineAttrStr;
-            if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
-                return null;
-            }
-            $consumed = 1;
-
-            return $attrStr;
-        }
-
-        // Multi-line block: { on the first line, } on a later line, with
-        // indented continuation lines in between.
-        $count = count($lines);
-        $attrContent = substr($line, 1);
-        $i = $start + 1;
-        while ($i < $count) {
-            $nextLine = $lines[$i];
-            if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
-                $attrStr = trim($attrContent . ' ' . $closeMatch[1]);
-                if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
-                    return null;
-                }
-                $consumed = $i - $start + 1;
-
-                return $attrStr;
-            }
-            if (preg_match('/^\s+(.*)$/', $nextLine, $contMatch)) {
-                $attrContent .= ' ' . $contMatch[1];
-                $i++;
-            } else {
-                return null;
-            }
-        }
-
-        return null;
+        return $match['payload'] ?? null;
     }
 
     /**
@@ -2162,87 +2112,26 @@ class BlockParser
             // dispatch probes, dominates - so only the prose fast path is kept.)
             $ws = strspn($line, " \t");
             $fc = $line[$ws] ?? '';
+            $fastPath = true;
             if ($fc !== '' && ($fc >= 'a' && $fc <= 'z' || $fc >= 'A' && $fc <= 'Z')) {
                 $consumed = $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
-                // END LINE, not just the start. A block matched here can run
-                // several lines - an extension matcher registered through
-                // `addBlockPattern()` places no span of its own, so this stamp
-                // is the only one it gets - and stamping the opener alone gave
-                // it a one-line extent. A tagged frontmatter opener (`---json`)
-                // reaches this path through the `-` family while a bare `---`
-                // takes the branch above, which already passes the end line: one
-                // construct, two spans, decided by whether the author wrote the
-                // format tag (markup-carve/carve#1451). Blocks whose own parser
-                // already placed them are unaffected - `stampBlockSpan()` never
-                // overwrites a span.
-                $this->stampSourceLine(
-                    $parent,
-                    $childrenBefore,
-                    $sourceLine,
-                    $i,
-                    $consumed,
-                );
-                $i += $consumed;
-
-                continue;
-            }
-
-            // Two unambiguous hot punctuation families. A pipe can only open
-            // a table among core blocks. A hyphen can open a thematic break or
-            // a list (the initial bare `---` frontmatter ambiguity already had
-            // its extension-first check above). Avoid probing every unrelated
-            // fence/container parser for every row and list item.
-            if ($fc === '|') {
+            } elseif ($fc === '|') {
                 $consumed = $this->tryParseTable($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
-                // END LINE, not just the start. A block matched here can run
-                // several lines - an extension matcher registered through
-                // `addBlockPattern()` places no span of its own, so this stamp
-                // is the only one it gets - and stamping the opener alone gave
-                // it a one-line extent. A tagged frontmatter opener (`---json`)
-                // reaches this path through the `-` family while a bare `---`
-                // takes the branch above, which already passes the end line: one
-                // construct, two spans, decided by whether the author wrote the
-                // format tag (markup-carve/carve#1451). Blocks whose own parser
-                // already placed them are unaffected - `stampBlockSpan()` never
-                // overwrites a span.
-                $this->stampSourceLine(
-                    $parent,
-                    $childrenBefore,
-                    $sourceLine,
-                    $i,
-                    $consumed,
-                );
-                $i += $consumed;
-
-                continue;
-            }
-            if ($fc === '-') {
+            } elseif ($fc === '-') {
                 $consumed = $this->tryParseThematicBreak($parent, $line, $i)
                     ?? $this->tryParseList($parent, $lines, $i)
                     ?? $this->tryBlockMatchers($parent, $lines, $i)
                     ?? $this->tryParseParagraph($parent, $lines, $i, $topLevel, $itemBody);
-                // END LINE, not just the start. A block matched here can run
-                // several lines - an extension matcher registered through
-                // `addBlockPattern()` places no span of its own, so this stamp
-                // is the only one it gets - and stamping the opener alone gave
-                // it a one-line extent. A tagged frontmatter opener (`---json`)
-                // reaches this path through the `-` family while a bare `---`
-                // takes the branch above, which already passes the end line: one
-                // construct, two spans, decided by whether the author wrote the
-                // format tag (markup-carve/carve#1451). Blocks whose own parser
-                // already placed them are unaffected - `stampBlockSpan()` never
-                // overwrites a span.
-                $this->stampSourceLine(
-                    $parent,
-                    $childrenBefore,
-                    $sourceLine,
-                    $i,
-                    $consumed,
-                );
+            } else {
+                $fastPath = false;
+            }
+            if ($fastPath) {
+                // Matchers may consume several lines; stamp the complete span.
+                $this->stampSourceLine($parent, $childrenBefore, $sourceLine, $i, $consumed);
                 $i += $consumed;
 
                 continue;
@@ -2420,148 +2309,14 @@ class BlockParser
      */
     protected function tryParseBlockAttributes(array $lines, int $start): ?int
     {
-        $line = $lines[$start];
-
-        // Must start with {
-        if (!str_starts_with($line, '{')) {
+        $match = WrappedBlockAttributeScanner::scan($lines, $start, $this->inlineParser);
+        if ($match === null) {
             return null;
         }
 
-        // A bare `{}` line is NOT a block-attribute block (block_attributes
-        // needs >= 1 attribute, no block-level blessed-empty); it stays a
-        // literal paragraph, matching carve-js / carve-rs.
+        $this->parseAttributeString($match['payload']);
 
-        // Check for single-line attribute: {.class}, {#id}, {key=value}, or
-        // adjacent blocks like {.class}{#id}.
-        $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
-        if ($singleLineAttrStr !== null) {
-            $attrStr = $singleLineAttrStr;
-            // Exclude * = + - ~ ^ which are braced inline markers. `_` leads an
-            // identifier, so `{_k=1}` is a block-attribute line; the boolean
-            // form that collides with forced underline is refused by
-            // `isValidAttrPayload` instead (carve-php#2021).
-            if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
-                return null;
-            }
-
-            // The whole payload must be a valid attribute block, else it is
-            // not a block-attribute line (§14) and stays literal paragraph
-            // text. One invalid name (`.123`, `#1`, `2=v`, `.a!b`) -- even
-            // mixed with valid ones (`.ok .1`) -- invalidates the whole line,
-            // matching the inline path and carve-js.
-            if (!$this->inlineParser->isValidAttrPayload($attrStr)) {
-                return null;
-            }
-
-            // A definition that follows renders nothing, and §15 A2a says
-            // pending floats PAST anything that renders nothing to the next
-            // VISIBLE block. This used to drop the attributes here and hand
-            // them to the reference definition instead, so `{#i}` above
-            // `[f]: u` was lost to the document and reappeared on every link
-            // that used the label - the one place §15's "next block element"
-            // was read as a construct that emits nothing (carve-php#702).
-            $this->parseAttributeString($attrStr);
-
-            return 1;
-        }
-
-        // Try multi-line attributes: { on first line, } on a later line
-        // Collect lines until we find the closing }
-        $count = count($lines);
-
-        $attrContent = substr($line, 1); // Remove opening {
-        // Which quote character, if any, the payload so far ends INSIDE. A
-        // QUOTED VALUE STOPS AT THE NEWLINE (PART 4), so this is what refuses
-        // the block at the line boundary below.
-        $openQuote = $this->attrPayloadOpenQuote($attrContent, null);
-        $i = $start + 1;
-
-        while ($i < $count) {
-            if ($openQuote !== null) {
-                return null;
-            }
-
-            $nextLine = $lines[$i];
-
-            // Check if this line ends the attribute block
-            if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
-                $attrContent .= ' ' . $closeMatch[1];
-                $attrStr = trim($attrContent);
-
-                // Exclude * = + - ~ ^ which are braced inline markers; `_` leads an
-                // identifier and is refused for the boolean form alone.
-                if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
-                    return null;
-                }
-                // The whole payload must be valid, else it is not a block-
-                // attribute line (§14) and stays literal. One invalid name --
-                // even mixed with valid ones -- invalidates the whole line.
-                if (!$this->inlineParser->isValidAttrPayload($attrStr)) {
-                    return null;
-                }
-                $this->parseAttributeString($attrStr);
-
-                return $i - $start + 1;
-            }
-
-            // A BLANK LINE ENDS THE ATTEMPT (PART 15 A5, and `continuation`
-            // in the grammar says "NOT a blank line"): the text is then
-            // literal, not a block_attributes. A line of spaces or tabs is a
-            // blank line - it was previously accepted as interior padding
-            // because it matched the indent test below.
-            if (IndentationHelper::isBlankLine($nextLine)) {
-                return null;
-            }
-
-            // CONTINUATION LINE, INDENTED OR NOT. `continuation = newline,
-            // opt_ws` puts the indentation in `opt_ws`, which is optional, and
-            // `attr_separator = (whitespace | continuation), opt_ws` admits one
-            // line break per separator with no cardinality limit - so a block
-            // may span any number of lines. Requiring an indent here capped the
-            // block at ONE line break: `{.a` + `.b}` worked because the second
-            // line matched the CLOSE branch above, and `{.a` + `.b` + `.c}`
-            // did not, because `.b` reached this test unindented.
-            //
-            // `opt_ws` is spaces and tabs, not PCRE `\s` - the charlist this
-            // engine keeps getting wrong. The difference is UNOBSERVABLE today,
-            // because the payload tokenizer splits on any whitespace and reads
-            // a leftover vertical tab as an attribute separator; it is spelled
-            // correctly here so a sweep of the indentation strips finds one
-            // charlist, not two.
-            // A LINE BREAK FALLS BETWEEN ATTRIBUTES, NEVER INSIDE ONE.
-            // `attr_separator = (whitespace | continuation), opt_ws` puts the
-            // break between two attributes, and `opt_pad` puts it at the ends;
-            // no production splits one attribute across lines. So a
-            // continuation line is a whole number of attributes, and one that
-            // is not a valid attribute list on its own can never become part of
-            // a valid block - `# h` never does, whatever follows it.
-            //
-            // Stopping HERE rather than at the closing brace is also what
-            // keeps the widened scan linear, and it is the ONLY bound needed. A
-            // `{` line is not a valid attribute list on its own, so a scan
-            // always stops at the next block start; a document of `{`-opening
-            // block starts therefore cannot re-walk the same run once per
-            // start. Without this the same document measured 6.4s at 4,000
-            // openers against 0.3s before the widening. A memo of ranges
-            // already known to hold no closing line was written first and then
-            // removed: with this bound in place nothing could reach it, and no
-            // mutation of it could be made to fail.
-            //
-            // No exception for a quoted value: a line break can never be
-            // inside one, because the check at the top of this loop has already
-            // refused the block when the payload reached the boundary with a
-            // quote open.
-            $fragment = ltrim($nextLine, " \t");
-            if (!$this->inlineParser->isValidAttrPayload($fragment)) {
-                return null;
-            }
-
-            $attrContent .= ' ' . $fragment;
-            $openQuote = $this->attrPayloadOpenQuote($fragment, $openQuote);
-            $i++;
-        }
-
-        return null;
+        return $match['length'];
     }
 
     /**
@@ -2707,43 +2462,6 @@ class BlockParser
         }
 
         return $this->attachedBlockKind($line, $lines, $index);
-    }
-
-    /**
-     * The quote character an attribute payload ends inside, or null.
-     *
-     * Follows the executable spec's brace scanner - a backslash escapes the
-     * next character only while a quote is open - with one deliberate
-     * difference: Carve accepts SINGLE-quoted values as well as double-quoted
-     * ones (a documented enhancement over djot), so both open a value here and
-     * only the matching character closes it. Tracking `"` alone would let
-     * `{k='a` + `b'}` through the newline rule that `{k="a` + `b"}` is refused
-     * by, and the escape matters for the same reason: read `\\"` as an ordinary
-     * closing quote and `{k="a\\" b` looks balanced when it is not.
-     */
-    private function attrPayloadOpenQuote(string $chunk, ?string $openQuote): ?string
-    {
-        $length = strlen($chunk);
-        for ($k = 0; $k < $length; $k++) {
-            $char = $chunk[$k];
-            if ($char === '\\' && $openQuote !== null) {
-                $k++;
-
-                continue;
-            }
-            if ($openQuote === null) {
-                if ($char === '"' || $char === "'") {
-                    $openQuote = $char;
-                }
-
-                continue;
-            }
-            if ($char === $openQuote) {
-                $openQuote = null;
-            }
-        }
-
-        return $openQuote;
     }
 
     /**
@@ -6640,7 +6358,7 @@ class BlockParser
      * Whether a block-attribute line could start at `$at`, by its first byte.
      *
      * The offset-side head for
-     * {@see self::parseSingleLineBlockAttributePayload()}, pinned against it by
+     * {@see WrappedBlockAttributeScanner::singleLinePayload()}, pinned against it by
      * `OffsetHeadsAgreeWithTheirParsersTest` for the reason
      * {@see \MarkupCarve\Carve\Parser\Block\TableParser::isTableRowHead()} gives.
      */
@@ -6822,85 +6540,12 @@ class BlockParser
      */
     protected function parseSingleLineBlockAttributePayload(string $line): ?string
     {
-        // THE HEAD IS READ BEFORE THE COPY. `rtrim()` cannot move byte zero, so
-        // asking the head first answers the same question and skips copying the
-        // line for every one that is not an attribute block at all
-        // (markup-carve/carve-php#1437). Spelled inline rather than through
-        // `isBlockAttributeHead()` for the reason
-        // `IndentationHelper::isBlankFrom()` gives; the pair is pinned by
-        // `OffsetHeadsAgreeWithTheirParsersTest`.
-        if (($line[0] ?? '') !== '{') {
-            return null;
-        }
-
-        $line = rtrim($line, " \t");
-        $length = strlen($line);
-
-        $parts = [];
-        $pos = 0;
-        while ($pos < $length) {
-            if ($line[$pos] !== '{') {
-                return null;
-            }
-
-            $end = $this->findSingleLineAttributeBlockEnd($line, $pos);
-            if ($end === null) {
-                return null;
-            }
-
-            $part = trim(substr($line, $pos + 1, $end - $pos - 1), ' ');
-            if (!AttributeParser::inlineInteriorIsSpaceOnly($part)) {
-                return null;
-            }
-            // An EMPTY `{}` is not a block-attribute block, so a line holding
-            // one is not a block-attribute line - wherever it sits. Joining the
-            // payloads with a space made the empty one vanish silently, so
-            // `{}{x}` produced the payload `x` and the line was consumed;
-            // standalone that dropped the whole document, because there was no
-            // block to attach to. carve-js and carve-rs keep the line literal
-            // in every position (#638).
-            if ($part === '') {
-                return null;
-            }
-            $parts[] = $part;
-            $pos = $end + 1;
-        }
-
-        return trim(implode(' ', $parts));
+        return WrappedBlockAttributeScanner::singleLinePayload($line);
     }
 
     protected function findSingleLineAttributeBlockEnd(string $line, int $start): ?int
     {
-        $length = strlen($line);
-        $quote = null;
-        for ($i = $start + 1; $i < $length; $i++) {
-            $char = $line[$i];
-            if ($char === "\n") {
-                return null;
-            }
-            if ($char === '\\' && $i + 1 < $length) {
-                $i++;
-
-                continue;
-            }
-            if ($quote !== null) {
-                if ($char === $quote) {
-                    $quote = null;
-                }
-
-                continue;
-            }
-            if ($char === '"' || $char === "'") {
-                $quote = $char;
-
-                continue;
-            }
-            if ($char === '}') {
-                return $i;
-            }
-        }
-
-        return null;
+        return WrappedBlockAttributeScanner::findSingleLineAttributeBlockEnd($line, $start);
     }
 
     /**
