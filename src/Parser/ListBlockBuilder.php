@@ -1218,6 +1218,7 @@ final class ListBlockBuilder
                     $subLineMap[] = -1;
                     $subTrailingState = $this->advanceTrailingState($subTrailingState, '');
                 }
+                $hadSubListMarker = $subSawListMarker;
                 if ($strippedIsMarker) {
                     $subSawListMarker = true;
                     $subListMarkerLine = $stripped;
@@ -1229,7 +1230,11 @@ final class ListBlockBuilder
                 // branches below and arrives looking the same, so
                 // only this record tells them apart.
                 $subEligible[count($subLines)] = true;
-                $subLines[] = $stripped;
+                // The first nested marker starts at the item's content column
+                // even if the preceding paragraph was farther indented. Keep
+                // later markers at their source columns for sibling ownership.
+                $subLines[] = $strippedIsMarker && !$hadSubListMarker && $subTrailingState->openParagraph
+                    ? ltrim($stripped, " \t") : $stripped;
                 $subLineMap[] = $this->sourceLineFor($i);
                 // AT OR PAST the item's content column, exactly as
                 // in collectPlainListItemContinuation(): an
