@@ -3520,14 +3520,16 @@ class BlockParser
         $trailingState = $this->advanceFootnoteBodyFenceState(new TrailingBlockState(), $content);
         $retainedBelowComment = false;
         $footnoteColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN);
-        foreach (IndentedContainerCollector::admissions(
-            $lines,
-            $i,
-            $count,
-            0,
-            $footnoteColumn,
-            fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
-        ) as $admission) {
+        foreach (
+            IndentedContainerCollector::admissions(
+                $lines,
+                $i,
+                $count,
+                0,
+                $footnoteColumn,
+                fn (int $at): string => $this->state->source->sourceLines[$this->sourceLineFor($at)] ?? $lines[$at],
+            ) as $admission
+        ) {
             $nextLine = $admission['line'];
             if (IndentationHelper::isBlankLine($nextLine)) {
                 $retainedBelowComment = false;
