@@ -2513,6 +2513,23 @@ class InlineParser
     }
 
     /**
+     * Whether a plain ASCII run has no registered inline handler or
+     * abbreviation expansion to apply.
+     *
+     * @internal
+     */
+    public function canCopyPlainText(string $text): bool
+    {
+        if ($this::class !== self::class || $this->blockParser->getAbbreviations() !== []) {
+            return false;
+        }
+        $sig = $this->significantInlineBytes($this->hasConditionalInlineMatchers ? $text : null);
+
+        return $sig !== null
+            && strcspn($text, implode('', array_keys($sig))) === strlen($text);
+    }
+
+    /**
      * The closed-verbatim-span single-space strip: one leading and one trailing
      * space are removed when the content BOTH begins and ends with a space - but
      * NOT when it consists entirely of spaces. The all-space guard matches the
