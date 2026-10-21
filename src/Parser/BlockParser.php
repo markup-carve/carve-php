@@ -2257,7 +2257,8 @@ class BlockParser
             $itemContentColumn = $this->state->session->listItemContentColumn($parent);
             if (
                 $nextFence !== null && $itemContentColumn !== null
-                && $nextFence === $followerColumn && $followerColumn > $itemContentColumn
+                && $nextFence > $itemContentColumn
+                && ($nextFence === $followerColumn || $followerColumn === 0)
             ) {
                 return;
             }
