@@ -540,8 +540,11 @@ final class DefinitionListBuilder
                 $bodyLazy = [];
                 /** @var array<int, true> $bodyDefinition Entries that close the body's paragraph. */
                 $bodyDefinition = [];
-                /** @var array<int, array{index: int, opener: array{fence: string, length: int, char?: string}, columns: int}> $bodyFenceSource Fence-shaped body entries, by body index. */
+                /** @var array<int, array{index: int, opener: array{fence: string, length: int, char?: string}, columns: int, nested: bool, eligible: bool, paragraph: bool}> $bodyFenceSource Fence-shaped body entries, by body index. */
                 $bodyFenceSource = [];
+                $nestedDescriptionBodyColumn = null;
+                /** @var array<int, array{strip: int, column: int, char: string, length: int}> $bodyEligibleFenceSource */
+                $bodyEligibleFenceSource = [];
                 // Whether the fence the tracker has open interrupted a paragraph
                 // on the strength of a closer the collected body cannot see.
                 $bodyInterruptedParagraphFence = false;
@@ -598,7 +601,7 @@ final class DefinitionListBuilder
                     if (
                         $attachedDefinitionListOpen
                         && preg_match('/^[ \t]*\[/', $contLine) === 1
-                        && IndentationHelper::getLeadingColumns($contLine, $continuationColumn) < $continuationColumn
+                        && $contColumn < $continuationColumn
                     ) {
                         break;
                     }
@@ -652,8 +655,8 @@ final class DefinitionListBuilder
                         && $body !== []
                         && $bodyNestedState->fence === null
                         && !IndentationHelper::isBlankLine($contLine)
-                        && IndentationHelper::getLeadingColumns($contLine) > 0
-                        && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn
+                        && $contColumn > 0
+                        && $contColumn < $continuationColumn
                         && !$this->lineOpensBlockForLooseness(ltrim($contLine, " \t"), true)
                         && preg_match('/^\|.*\|[ \t]*$/', ltrim($contLine, " \t")) !== 1
                         && $this->bodyEntryStartsParagraph($body[array_key_last($body)])
@@ -686,6 +689,7 @@ final class DefinitionListBuilder
                                 || $this->lineOpensBlockForLooseness($subject, true, invisibleArms: false))
                         ) {
                             $contLine = str_repeat(' ', $relativeColumn) . $subject;
+                            $contColumn = $relativeColumn;
                             if ($restoredDivLength !== null && ($this->getFencedBlockParser)()->isDivFenceCloser($subject, $restoredDivLength)) {
                                 $restoredDivLength = null;
                             } elseif ($restoredDivLength === null) {
@@ -760,7 +764,7 @@ final class DefinitionListBuilder
                     // reader of five spellings, and the only one that made the
                     // answer depend on which character an editor inserted
                     // (carve-php#964).
-                    $indent = IndentationHelper::getLeadingColumns($contLine, $continuationColumn + 1);
+                    $indent = min($contColumn, $continuationColumn + 1);
                     if (
                         $indent === 0
                         && !IndentationHelper::isBlankLine($contLine)
@@ -1017,12 +1021,20 @@ final class DefinitionListBuilder
                     $paragraphFence = ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont)
                         ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont);
                     $paragraphFenceHasNoCloser = $paragraphFence !== null
-                        && !$this->continuations->sourceFenceCloserInView(
-                            $lines,
-                            $i,
-                            $paragraphFence,
-                            IndentationHelper::getLeadingColumns($contLine),
-                        );
+                        && !($indent > $continuationColumn
+                            ? $this->descriptionBodyCloserAhead(
+                                $lines,
+                                $i,
+                                $paragraphFence,
+                                $continuationColumn,
+                                $contColumn,
+                            )
+                            : $this->continuations->sourceFenceCloserInView(
+                                $lines,
+                                $i,
+                                $paragraphFence,
+                                $contColumn,
+                            ));
                     if (
                         $continuationColumn > BlockGrammar::DEFINITION_MARKER_WIDTH + 1
                         && $indent === $continuationColumn - 1
@@ -1062,7 +1074,7 @@ final class DefinitionListBuilder
                     }
                     if (
                         $indent > $continuationColumn
-                        && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                        && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
                         && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
                         && ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
                     ) {
@@ -1088,7 +1100,7 @@ final class DefinitionListBuilder
                     if (
                         preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
                         && $indent >= $continuationColumn
-                        && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                        && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
                         && ($this->isReferenceDefinitionLine($trimmedCont) || $this->isBlockAttributeLine($trimmedCont))
                     ) {
                         $detachedFootnote = $body;
@@ -1158,27 +1170,19 @@ final class DefinitionListBuilder
                             || ($this->getListParser)()->parseListItemMarker($trimmedCont) !== null
                             || ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont) !== null
                             || ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont) !== null;
-                        // §10 I4'S CLOSER IS SOUGHT IN THE SOURCE, NOT IN WHAT
-                        // THE BODY HAS COLLECTED SO FAR (carve-php#2233). The
-                        // tracker below asks the same question of `$body`, which
-                        // stops at the line being read - so a closer written
-                        // under a below-column line was invisible, the fence
-                        // never armed, and the body reported the open paragraph
-                        // `CARVE-P0-013` says a fenced body does not leave. The
-                        // search does not stop at the below-column line either
-                        // (`CARVE-P0-014`), which is why the SOURCE view is the
-                        // one that can answer it.
-                        //
-                        // ONLY THE SOURCE POSITION IS RECORDED HERE; the search
-                        // itself runs in the tracker walk below, and only where
-                        // the answer changes a reading. Settling it eagerly per
-                        // fence-shaped line is a forward scan per line, which a
-                        // body of N openers before one closer pays N times.
+                        // 01-layout.ebnf keeps the source closer decision with its opener.
                         if ($paragraphFence !== null) {
                             $bodyFenceSource[count($body)] = [
                                 'index' => $i,
                                 'opener' => $paragraphFence,
-                                'columns' => IndentationHelper::getLeadingColumns($contLine),
+                                'columns' => $contColumn,
+                                'nested' => $bodyNestedState->nestedColumn > 0 || $bodyAtColumnBlock
+                                    || ($nestedDescriptionBodyColumn !== null
+                                        && $contColumn >= $continuationColumn + $nestedDescriptionBodyColumn)
+                                    || ($this->getListParser)()->parseListItemMarker(($body[0] ?? '')) !== null,
+                                'eligible' => !$paragraphFenceHasNoCloser,
+                                'paragraph' => $lastBodyKey !== null && ($body[$lastBodyKey] ?? '') !== ''
+                                    && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey])),
                             ];
                         }
                         if ($releasedListLine === $i) {
@@ -1202,7 +1206,7 @@ final class DefinitionListBuilder
                         $entry = IndentationHelper::stripLeadingColumns($contLine, $stripColumns);
                         if (
                             preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
-                            && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                            && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
                             && $this->lineOpensBlockForLooseness($trimmedCont, true)
                         ) {
                             $entry = $trimmedCont;
@@ -1211,7 +1215,7 @@ final class DefinitionListBuilder
                             count($body) === 1
                             && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $body[0]) === 1
                             && $indent > $continuationColumn
-                            && IndentationHelper::getLeadingColumns($contLine) < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
+                            && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
                             && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
                             && !isset($lines[$i + 1])
                         ) {
@@ -1340,7 +1344,21 @@ final class DefinitionListBuilder
                         if ($attributePastTheColumn && str_starts_with(($body[0] ?? ''), '>')) {
                             $nestedLazyParagraph = true;
                         }
-                        $entryColumn = IndentationHelper::getLeadingColumns($entry);
+                        $entryColumn = $entry === $trimmedCont ? 0 : max(0, $contColumn - $continuationColumn);
+                        if (
+                            $nestedDescriptionBodyColumn !== null && $entryColumn < $nestedDescriptionBodyColumn
+                            && ($this->startsInterruptingBlock($trimmedCont, $lines, $i)
+                                || IndentationHelper::isBlankLine($body[count($body) - 1] ?? ''))
+                        ) {
+                            $nestedDescriptionBodyColumn = null;
+                        }
+                        if (
+                            $bodyState->fence === null
+                            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $entry, $nestedDefinitionMatch) === 1
+                        ) {
+                            $nestedDescriptionBodyColumn = $entryColumn + BlockGrammar::DEFINITION_MARKER_WIDTH
+                                + strlen($nestedDefinitionMatch[1]);
+                        }
                         $entryMarker = $marker;
                         $reachesOuterBody = false;
                         $opensBlock = false;
@@ -1471,13 +1489,15 @@ final class DefinitionListBuilder
                         $closerKnownAhead = isset($bodyFenceSource[$bodyStateCursor])
                             && $wasOpenParagraph
                             && !$wasInFence
-                            && $this->descriptionBodyCloserAhead(
-                                $lines,
-                                $bodyFenceSource[$bodyStateCursor]['index'],
-                                $bodyFenceSource[$bodyStateCursor]['opener'],
-                                $continuationColumn,
-                                $bodyFenceSource[$bodyStateCursor]['columns'],
-                            );
+                            && ($bodyFenceSource[$bodyStateCursor]['columns'] > $continuationColumn
+                                ? $bodyFenceSource[$bodyStateCursor]['eligible']
+                                : $this->descriptionBodyCloserAhead(
+                                    $lines,
+                                    $bodyFenceSource[$bodyStateCursor]['index'],
+                                    $bodyFenceSource[$bodyStateCursor]['opener'],
+                                    $continuationColumn,
+                                    $bodyFenceSource[$bodyStateCursor]['columns'],
+                                ));
                         $trackerLine = $bodyLine;
                         if (!$closerKnownAhead && $wasOpenParagraph && !$wasInFence && $useIndexedBodyFence) {
                             $fenceAt = IndentationHelper::pastLeadingWhitespace($bodyLine);
@@ -1600,6 +1620,19 @@ final class DefinitionListBuilder
                         && !IndentationHelper::isBlankLine($contLine)
                     ) {
                         $body[array_key_last($body)] .= "\n" . $trimmedCont;
+                        $i++;
+
+                        continue;
+                    }
+                    if (
+                        $bodyState->fence !== null
+                        && $bodyInterruptedParagraphFence
+                        && $bodyOpenerBase !== null && $bodyOpenerBase > 0
+                        && $indent < $continuationColumn
+                        && !IndentationHelper::isBlankLine($contLine)
+                    ) {
+                        $body[] = str_repeat(' ', $continuationColumn) . BlockGrammar::LAZY_FRAME . ltrim($contLine, " \t");
+                        $bodyMap[] = $this->sourceLineFor($i);
                         $i++;
 
                         continue;
@@ -1731,8 +1764,55 @@ final class DefinitionListBuilder
                 $syntheticTermColumn = null;
                 $syntheticTermEntryColumn = 0;
                 $syntheticTermBlank = false;
+                foreach ($bodyFenceSource as $fenceSource) {
+                    if (
+                        !$fenceSource['nested']
+                        && $fenceSource['paragraph']
+                        && $fenceSource['columns'] > $continuationColumn
+                        && $fenceSource['eligible']
+                    ) {
+                        $bodyEligibleFenceSource[$this->sourceLineFor($fenceSource['index'])] = [
+                            'strip' => $fenceSource['columns'] - $continuationColumn,
+                            'column' => $fenceSource['columns'],
+                            'char' => $fenceSource['opener']['char'] ?? $fenceSource['opener']['fence'][0],
+                            'length' => $fenceSource['opener']['length'],
+                        ];
+                    }
+                }
+                // 01-layout.ebnf keeps payload columns when rebasing an eligible opener.
+                $normalizedFence = null;
                 foreach ($body as $bodyIndex => $entry) {
                     $entrySource = $bodyMap[$bodyIndex] ?? -1;
+                    if (isset($bodyEligibleFenceSource[$entrySource])) {
+                        $normalizedFence = $bodyEligibleFenceSource[$entrySource];
+                        $body[$bodyIndex] = ltrim($entry, " \t");
+                        $entry = $body[$bodyIndex];
+                    } elseif ($normalizedFence !== null && !str_contains($entry, BlockGrammar::LAZY_FRAME)) {
+                        $entryColumn = IndentationHelper::getLeadingColumns($entry);
+                        $subject = ltrim($entry, " \t");
+                        if (
+                            ($entryColumn === 0 || $entryColumn === $normalizedFence['strip'])
+                            && ($this->getFencedBlockParser)()->isCodeFenceCloser(
+                                $subject,
+                                $normalizedFence['char'],
+                                $normalizedFence['length'],
+                            )
+                        ) {
+                            $body[$bodyIndex] = $subject;
+                            $entry = $subject;
+                            $normalizedFence = null;
+                        } elseif (
+                            $entryColumn > 0
+                            && IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$entrySource] ?? '')
+                            < $normalizedFence['column']
+                        ) {
+                            $body[$bodyIndex] = IndentationHelper::stripLeadingColumns(
+                                $entry,
+                                min($entryColumn, $normalizedFence['strip']),
+                            );
+                            $entry = $body[$bodyIndex];
+                        }
+                    }
                     $source = $this->state->source->sourceLines[$bodyMap[$bodyIndex] ?? -1] ?? '';
                     if (isset($syntheticTermColumns[$entrySource])) {
                         $syntheticTermColumn = $syntheticTermColumns[$entrySource];
