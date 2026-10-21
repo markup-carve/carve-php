@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Converter;
 
 use Closure;
 use MarkupCarve\Carve\Parser\InlineParser;
+use MarkupCarve\Carve\Renderer\CarveRenderer;
 
 final class MarkdownEmphasis
 {
@@ -279,16 +280,27 @@ final class MarkdownEmphasis
             $italic = $frame['italic'];
             $strike = $frame['strike'];
             if ($frame['keep']) {
-                $intraword = preg_match('/[\p{L}\p{N}]$/u', $neighbor($pair['open'], true))
-                    || preg_match('/^[\p{L}\p{N}]/u', $neighbor($pair['close'] + $pair['width'], false));
-                $besideLiteral = false;
-                foreach ([$pair['open'] - 1, $pair['close'] + $pair['width']] as $neighborIndex) {
-                    if ($neighborIndex >= 0 && in_array($source[$neighborIndex] ?? '', $pair['kind'] === '~' ? ['*', '_', '~'] : ['*', '_'], true) && !isset($claimed[$neighborIndex])) {
-                        $besideLiteral = true;
-                    }
+                $content = implode('', array_slice($output, $frame['slot'] + 1));
+                $previous = $frame['slot'] > 0 ? substr($output[$frame['slot'] - 1], -1) : '';
+                if ($previous === "\x00" && $pair['scope'] !== -1) {
+                    $previous = $neighbor($pair['open'], true);
                 }
-                $besideSlash = $pair['kind'] === '/' && $pair['scope'] !== -1 && ($neighbor($pair['open'], true) === '/' || ($source[$pair['close'] + $pair['width']] ?? '') === '/' || substr($source, $pair['close'] + $pair['width'], 2) === '\\/');
-                $braced = $besideSlash || $frame['repeated'] || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic) || ($frame['kind'] === '~' && ($strike || $frame['literalTilde'])) || $frame['force'] || $intraword || $besideLiteral || $first === $pair['kind'] || $last === $pair['kind'] || ($frame['parent'] === '/' && $italic) || ($pair['kind'] === '/' && ($first === '*' || $last === '*' || ($frame['parent'] === '*' && $strong)));
+                $followingOffset = $pair['close'] + $pair['width'];
+                $following = ($source[$followingOffset] ?? '') === '\\'
+                    ? $neighbor($followingOffset + 1, false) : $neighbor($followingOffset, false);
+                if (preg_match('/\G\x00P(\d+)\x00/', $source, $protectedMatch, 0, $followingOffset) === 1) {
+                    $value = $protectedSpans[(int)$protectedMatch[1]] ?? '';
+                    $following = str_starts_with($value, '\\') ? self::after($value, 1) : self::after($value, 0);
+                }
+                $parent = $stack[count($stack) - 1] ?? null;
+                if ($parent !== null && $followingOffset === $parent['end']) {
+                    $following = $parent['kind'];
+                }
+                $writtenContent = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protectedSpans[(int)$match[1]] ?? $match[0], $content) ?? $content;
+                $spelling = CarveRenderer::spellImportedEmphasis($pair['kind'], $writtenContent, $previous, $following);
+                $braced = str_starts_with($spelling, '{') || $frame['repeated'] || $frame['force']
+                    || ($frame['kind'] === '*' && $strong) || ($frame['kind'] === '/' && $italic)
+                    || ($frame['kind'] === '~' && ($strike || $frame['literalTilde']));
                 $strong = $strong || $pair['kind'] === '*';
                 $italic = $italic || $pair['kind'] === '/';
                 $strike = $strike || $pair['kind'] === '~';

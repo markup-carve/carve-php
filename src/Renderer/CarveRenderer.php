@@ -5544,6 +5544,19 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $needsForced ? '{' . $delimiter . $content . $delimiter . '}' : $delimiter . $content . $delimiter;
     }
 
+    public static function spellImportedEmphasis(string $delimiter, string $content, string $prevChar, string $nextChar): string
+    {
+        static $writer;
+        $writer ??= new self();
+
+        return $writer->renderEmphasis($delimiter, $content, $prevChar, $nextChar);
+    }
+
+    public static function quoteImportedAttrValue(string $value): string
+    {
+        return (new self())->quoteAttrValue($value);
+    }
+
     /**
      * Serialize an inline literal back to `` !`content` `` / `` !`content`{.cls
      * #id} `` (grammar PART 9 §27): a `!` prefix on a verbatim span, mirroring

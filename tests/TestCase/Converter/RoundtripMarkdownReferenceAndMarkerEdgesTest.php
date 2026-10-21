@@ -122,7 +122,7 @@ CARVE;
 
 MD;
 
-        $this->assertSame("*[HTML]: Hyper Text\n\n[HTML]{abbr=\"Other\"}\n", (new MarkdownToCarve())->convert($markdown));
+        $this->assertSame("*[HTML]: Hyper Text\n\n[HTML]{abbr=Other}\n", (new MarkdownToCarve())->convert($markdown));
     }
 
     public function testAnAbbrIsKeptWhenTheDocumentDefinesNothing(): void
