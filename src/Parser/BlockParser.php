@@ -3609,12 +3609,11 @@ class BlockParser
             $authoredFloor = $parent->getType() === 'list_item' && $start === 0
                 ? null : $this->authoredFootnoteBodyFloor($start, $lines[$start]);
             $authoredNext = $this->authoredColumnOf($i, $nextLine);
-            $reaches = $authoredFloor === null || $authoredNext === null
-                ? IndentationHelper::getLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN) >= self::FOOTNOTE_BODY_COLUMN
-                : $authoredNext >= $authoredFloor;
+            $containerColumn = new IndentedContainerColumn(self::FOOTNOTE_BODY_COLUMN, $authoredFloor);
+            $reaches = $containerColumn->reaches($nextLine, $authoredNext);
             if ($reaches) {
                 $retainedBelowComment = false;
-                $bodyLine = IndentationHelper::stripLeadingColumns($nextLine, self::FOOTNOTE_BODY_COLUMN);
+                $bodyLine = $containerColumn->strip($nextLine);
                 // A marker at the column folds into the body's open paragraph
                 // (§10 I2) and opens no item, so it joins that line and leaves
                 // the next line measured against the body.

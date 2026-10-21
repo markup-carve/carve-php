@@ -481,6 +481,7 @@ final class DefinitionListBuilder
                 // `:  two` may sit in one entry, and each one's continuations
                 // answer to its own column.
                 $continuationColumn = BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($m[1]);
+                $bodyColumn = new IndentedContainerColumn($continuationColumn);
                 $definitionSource = $this->sourceLineFor($definitionStart);
                 $authoredDefinition = $this->state->source->sourceLines[$definitionSource] ?? '';
                 $definitionColumn = self::authoredSubjectColumn($authoredDefinition, $lines[$definitionStart]);
@@ -594,7 +595,7 @@ final class DefinitionListBuilder
                     }
                     $noteReleased = $noteBodyColumn !== null && !IndentationHelper::isBlankLine($contLine)
                         && $contColumn < $noteBodyColumn;
-                    if ($contColumn >= $continuationColumn && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($contLine, " \t")) === 1) {
+                    if ($bodyColumn->reaches($contLine) && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($contLine, " \t")) === 1) {
                         $noteBodyColumn = $contColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN;
                     } elseif ($noteReleased) {
                         $noteBodyColumn = null;
@@ -1214,7 +1215,7 @@ final class DefinitionListBuilder
                         ) {
                             $stripColumns += $releasedBlockBase;
                         }
-                        $entry = IndentationHelper::stripLeadingColumns($contLine, $stripColumns);
+                        $entry = (new IndentedContainerColumn($stripColumns))->strip($contLine);
                         if (
                             preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ($body[0] ?? '')) === 1
                             && $contColumn < $continuationColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN
