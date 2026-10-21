@@ -21,7 +21,6 @@ use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
-use MarkupCarve\Carve\Node\Block\LinkReferenceDefinition;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -1097,29 +1096,7 @@ class BlockParser
      */
     protected function orderCollectedDefinitions(Document $document): void
     {
-        $children = $document->getChildren();
-        $slots = [];
-        $collected = [];
-        foreach ($children as $index => $child) {
-            if ($child instanceof Footnote || $child instanceof LinkReferenceDefinition) {
-                $slots[] = $index;
-                $collected[] = [count($slots), $child->getPos()->startOffset ?? PHP_INT_MAX, $child];
-            }
-        }
-        if (count($slots) < 2) {
-            return;
-        }
-
-        // Stable: the collection index breaks a tie rather than usort's
-        // unspecified order for equal keys.
-        usort(
-            $collected,
-            static fn (array $a, array $b): int => [$a[1], $a[0]] <=> [$b[1], $b[0]],
-        );
-        foreach ($slots as $k => $index) {
-            $children[$index] = $collected[$k][2];
-        }
-        $document->setChildren($children);
+        (new DocumentFinalizationPass($this->state))->orderDefinitions($document);
     }
 
     protected function appendLinkReferenceDefinitions(Document $document): void
@@ -1271,108 +1248,49 @@ class BlockParser
      */
     private function finishIntegratedDefinitionPass(Document $document, array $lines): void
     {
-        // Parsing one footnote body can discover another definition inside it.
-        // Iterate to a fixed point instead of relying on foreach's snapshot;
-        // otherwise the nested note is registered but its body stays empty.
-        $finishedFootnoteBodies = [];
-        while (true) {
-            $found = false;
-            foreach ($this->state->session->discoveredFootnoteBodies as $label => $body) {
-                if (isset($finishedFootnoteBodies[$label])) {
-                    continue;
-                }
-                $finishedFootnoteBodies[$label] = true;
-                $found = true;
-                $this->state->session->discoveringDefinitions = true;
-                $collectedBodyLines = $body['lines'];
-                $plainBody = count($body['lines']) === 1 ? $body['lines'][0] : '';
-                if (
-                    $plainBody === ''
-                    || !str_contains('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ', $plainBody[0])
-                    || strspn($plainBody, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 .') !== strlen($plainBody)
-                ) {
-                    $body['lines'] = $this->footnoteBodyDefinitionReach(
-                        $this->rebaseOverindentedItemBlocks(
-                            $body['lines'],
-                            array_fill_keys(array_keys($body['lines']), true),
-                            includeSublists: true,
-                        ),
-                    );
-                }
-                foreach ($body['lines'] as $bodyIndex => $entry) {
-                    if (
-                        preg_match('/^%{3,}$/', $entry) === 1
-                        && isset($collectedBodyLines[$bodyIndex])
-                        && IndentationHelper::getLeadingColumns($collectedBodyLines[$bodyIndex]) > 0
-                    ) {
-                        $body['lines'][$bodyIndex] = ' ' . $entry;
-                    }
-                }
-                // The document walk has already finished. Its pending block
-                // attributes belong after the document, not before this
-                // deferred body, so isolate the same parser-global state that
-                // the standalone footnote pass isolates below.
-                $outerPendingSpan = $this->state->session->pendingAttributeSpan;
-                $outerPendingAttributes = $this->state->session->pendingAttributes;
-                $outerPendingAttributeOrder = $this->state->session->pendingAttributeOrder;
-                $this->state->session->pendingAttributes = [];
-                $this->state->session->pendingAttributeSpan = null;
-                $this->state->session->pendingAttributeOrder = [];
-                $this->footnoteBodyDepth++;
-                try {
-                    if (count($body['lines']) !== 1 || rtrim($body['lines'][0], " \t") !== '{empty}') {
-                        $this->parseBlocks($this->state->session->footnotes[$label], $body['lines'], 0, $body['lineMap']);
-                    }
-                    $this->endContainerAttributeScope();
-                } finally {
-                    $this->footnoteBodyDepth--;
-                    $this->state->session->discoveringDefinitions = false;
-                    $this->state->session->pendingAttributeSpan = $outerPendingSpan;
-                    $this->state->session->pendingAttributes = $outerPendingAttributes;
-                    $this->state->session->pendingAttributeOrder = $outerPendingAttributeOrder;
-                }
-            }
-            if (!$found) {
-                break;
-            }
-        }
-        if ($this->state->session->discoveredAbbreviationLines !== []) {
-            $firstAbbreviationLine = min(array_keys($this->state->session->discoveredAbbreviationLines));
-            $firstBodyLine = null;
-            foreach ($lines as $lineNumber => $line) {
-                if (IndentationHelper::isBlankLine($line) || isset($this->state->session->discoveredAbbreviationLines[$lineNumber])) {
-                    continue;
-                }
-                $firstBodyLine = $lineNumber;
+        (new DocumentDefinitionPass(
+            $this->state,
+            fn (array $bodyLines, array $eligible, bool $includeSublists): array => $this->rebaseOverindentedItemBlocks(
+                $bodyLines,
+                $eligible,
+                includeSublists: $includeSublists,
+            ),
+            $this->footnoteBodyDefinitionReach(...),
+            $this->parseDeferredFootnoteBody(...),
+            $this->resolveForwardReferences(...),
+            $this->settleDeferredImageCaptions(...),
+            $this->hasFootnote(...),
+        ))->finish($document, $lines);
+    }
 
-                break;
+    /**
+     * @param string $label
+     * @param array{lines: array<string>, lineMap: array<int, int>} $body
+     */
+    private function parseDeferredFootnoteBody(string $label, array $body): void
+    {
+        // A deferred body must not inherit pending attributes from the document.
+        $session = $this->state->session;
+        $outerPendingSpan = $session->pendingAttributeSpan;
+        $outerPendingAttributes = $session->pendingAttributes;
+        $outerPendingAttributeOrder = $session->pendingAttributeOrder;
+        $session->pendingAttributes = [];
+        $session->pendingAttributeSpan = null;
+        $session->pendingAttributeOrder = [];
+        $session->discoveringDefinitions = true;
+        $this->footnoteBodyDepth++;
+        try {
+            if (count($body['lines']) !== 1 || rtrim($body['lines'][0], " \t") !== '{empty}') {
+                $this->parseBlocks($session->footnotes[$label], $body['lines'], 0, $body['lineMap']);
             }
-            $this->state->session->abbreviationsBeforeBody = $firstBodyLine === null || $firstAbbreviationLine < $firstBodyLine;
+            $this->endContainerAttributeScope();
+        } finally {
+            $this->footnoteBodyDepth--;
+            $session->discoveringDefinitions = false;
+            $session->pendingAttributeSpan = $outerPendingSpan;
+            $session->pendingAttributes = $outerPendingAttributes;
+            $session->pendingAttributeOrder = $outerPendingAttributeOrder;
         }
-        $this->resolveForwardReferences($document);
-        foreach ($this->state->session->footnotes as $footnote) {
-            $this->resolveForwardReferences($footnote);
-        }
-        $this->settleDeferredImageCaptions($document);
-        $this->state->session->warnings = array_values(array_filter(
-            $this->state->session->warnings,
-            function (ParseWarning $warning): bool {
-                if (
-                    preg_match("/^Undefined footnote '(.+)'$/", $warning->getMessage(), $match) === 1
-                    && $this->hasFootnote($match[1])
-                ) {
-                    return false;
-                }
-                if (
-                    preg_match("/^Undefined reference '(.+)'$/", $warning->getMessage(), $match) === 1
-                    && isset($this->state->session->references[$match[1]])
-                ) {
-                    return false;
-                }
-
-                return true;
-            },
-        ));
     }
 
     private function resolveForwardReferences(Node $node, int $depth = 0): void
@@ -9359,25 +9277,7 @@ class BlockParser
      */
     protected function validateReferences(): void
     {
-        // Check for unused reference definitions (defined but never used)
-        // Skip heading auto-references (URLs start with #)
-        // Skip footnote definitions (labels start with ^)
-        foreach ($this->state->session->references as $label => $def) {
-            if (
-                !isset($this->state->session->usedReferences[$label])
-                && !str_starts_with($def->url, '#')
-                && !str_starts_with($label, '^')
-            ) {
-                $this->addWarning(
-                    "Reference '{$label}' defined but never used",
-                    $def->line,
-                    1,
-                    false,
-                    'reference',
-                    null,
-                );
-            }
-        }
+        (new DocumentFinalizationPass($this->state))->validateReferences($this->addWarning(...));
     }
 
     /**
@@ -9637,32 +9537,11 @@ class BlockParser
      */
     protected function validateAnchorLinks(Document $document): void
     {
-        if ($this->state->session->anchorLinks === []) {
-            return;
-        }
-
-        // Collect all known anchor targets
-        $knownIds = $this->state->session->headingIds;
-
-        // From explicit {#id} attributes on any node in the AST
-        $this->collectExplicitIds($document, $knownIds);
-
-        // Validate each tracked anchor link. Matching is exact (case-sensitive):
-        // a plain `[link](#fragment)` href is emitted verbatim and HTML fragment
-        // navigation is case-sensitive, so a `#my-heading` link to a
-        // case-preserved `My-Heading` id is genuinely broken and must warn.
-        foreach ($this->state->session->anchorLinks as $anchor) {
-            if (!isset($knownIds[$anchor['fragment']])) {
-                $this->addWarning(
-                    "Broken anchor link '#{$anchor['fragment']}' — no element with this ID exists",
-                    $anchor['line'],
-                    $anchor['column'],
-                    false,
-                    'anchor',
-                    null,
-                );
-            }
-        }
+        (new DocumentFinalizationPass($this->state))->validateAnchors(
+            $document,
+            $this->collectExplicitIds(...),
+            $this->addWarning(...),
+        );
     }
 
     /**
