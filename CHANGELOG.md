@@ -36,7 +36,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ### Performance
 - Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers, borrowed HTML and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698, #3701; ee152759).
-- Block-parser finalization, list looseness, list body rebasing and parser hooks were split into smaller passes while keeping the same output (#3664, #3666, #3669, #3705).
+- Block-parser finalization, list looseness, list body rebasing, parser hooks and Markdown conversion's moved-definition pass were split into smaller passes while keeping the same output (#3664, #3666, #3669, #3705, #3707).
 - Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
 
 ## [0.1.13] - 2026-10-15
