@@ -83,7 +83,7 @@ class AListMarkerEndsATermInABodyTest extends TestCase
 : :: term
   : def
   - child
-', '<dl><dt>t</dt><dd><dl><dt>term</dt><dd>def - child</dd></dl></dd></dl>',
+', '<dl><dt>t</dt><dd><dl><dt>term</dt><dd>def</dd></dl><ul><li>child</li></ul></dd></dl>',
             ],
             'dd-para' => [
                 ':: t
