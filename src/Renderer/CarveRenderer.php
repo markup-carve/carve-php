@@ -2666,7 +2666,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
 
                         continue;
                     }
-                    if ($this->quoteHostDepth > 0 && !$child instanceof Paragraph) {
+                    if (
+                        $this->quoteHostDepth > 0 && !$child instanceof Paragraph
+                        && !$child instanceof CodeBlock
+                    ) {
                         $out .= "\n" . $rendered;
                         $previous = $child;
                         $previousEmitted = $child;
