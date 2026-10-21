@@ -1868,57 +1868,10 @@ class BlockParser
      */
     protected function scanBlockAttributeLines(array $lines, int $start, ?int &$consumed): ?string
     {
-        $consumed = 0;
-        $line = $lines[$start];
+        $match = WrappedBlockAttributeScanner::scan($lines, $start, $this->inlineParser);
+        $consumed = $match['length'] ?? 0;
 
-        if (!str_starts_with($line, '{')) {
-            return null;
-        }
-
-        // A bare `{}` line is NOT a block-attribute block: block_attributes
-        // requires at least one attribute (grammar §15), and there is no
-        // block-level blessed-empty exception (only the inline `[text]{}` form
-        // is blessed). So it stays a literal paragraph, matching carve-js /
-        // carve-rs.
-
-        // Single-line block: {.class #id key=value}, including adjacent
-        // blocks that merge in order: {.class}{#id}.
-        $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
-        if ($singleLineAttrStr !== null) {
-            $attrStr = $singleLineAttrStr;
-            if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
-                return null;
-            }
-            $consumed = 1;
-
-            return $attrStr;
-        }
-
-        // Multi-line block: { on the first line, } on a later line, with
-        // indented continuation lines in between.
-        $count = count($lines);
-        $attrContent = substr($line, 1);
-        $i = $start + 1;
-        while ($i < $count) {
-            $nextLine = $lines[$i];
-            if (preg_match('/^(.*)\}[ \t]*$/', $nextLine, $closeMatch)) {
-                $attrStr = trim($attrContent . ' ' . $closeMatch[1]);
-                if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
-                    return null;
-                }
-                $consumed = $i - $start + 1;
-
-                return $attrStr;
-            }
-            if (preg_match('/^\s+(.*)$/', $nextLine, $contMatch)) {
-                $attrContent .= ' ' . $contMatch[1];
-                $i++;
-            } else {
-                return null;
-            }
-        }
-
-        return null;
+        return $match['payload'] ?? null;
     }
 
     /**
@@ -2359,51 +2312,6 @@ class BlockParser
      */
     protected function tryParseBlockAttributes(array $lines, int $start): ?int
     {
-        $line = $lines[$start];
-
-        // Must start with {
-        if (!str_starts_with($line, '{')) {
-            return null;
-        }
-
-        // A bare `{}` line is NOT a block-attribute block (block_attributes
-        // needs >= 1 attribute, no block-level blessed-empty); it stays a
-        // literal paragraph, matching carve-js / carve-rs.
-
-        // Check for single-line attribute: {.class}, {#id}, {key=value}, or
-        // adjacent blocks like {.class}{#id}.
-        $singleLineAttrStr = $this->parseSingleLineBlockAttributePayload($line);
-        if ($singleLineAttrStr !== null) {
-            $attrStr = $singleLineAttrStr;
-            // Exclude * = + - ~ ^ which are braced inline markers. `_` leads an
-            // identifier, so `{_k=1}` is a block-attribute line; the boolean
-            // form that collides with forced underline is refused by
-            // `isValidAttrPayload` instead (carve-php#2021).
-            if (!preg_match('/^[.#:a-zA-Z_]/', $attrStr) || str_starts_with($attrStr, '%')) {
-                return null;
-            }
-
-            // The whole payload must be a valid attribute block, else it is
-            // not a block-attribute line (§14) and stays literal paragraph
-            // text. One invalid name (`.123`, `#1`, `2=v`, `.a!b`) -- even
-            // mixed with valid ones (`.ok .1`) -- invalidates the whole line,
-            // matching the inline path and carve-js.
-            if (!$this->inlineParser->isValidAttrPayload($attrStr)) {
-                return null;
-            }
-
-            // A definition that follows renders nothing, and §15 A2a says
-            // pending floats PAST anything that renders nothing to the next
-            // VISIBLE block. This used to drop the attributes here and hand
-            // them to the reference definition instead, so `{#i}` above
-            // `[f]: u` was lost to the document and reappeared on every link
-            // that used the label - the one place §15's "next block element"
-            // was read as a construct that emits nothing (carve-php#702).
-            $this->parseAttributeString($attrStr);
-
-            return 1;
-        }
-
         $match = WrappedBlockAttributeScanner::scan($lines, $start, $this->inlineParser);
         if ($match === null) {
             return null;
@@ -6635,85 +6543,12 @@ class BlockParser
      */
     protected function parseSingleLineBlockAttributePayload(string $line): ?string
     {
-        // THE HEAD IS READ BEFORE THE COPY. `rtrim()` cannot move byte zero, so
-        // asking the head first answers the same question and skips copying the
-        // line for every one that is not an attribute block at all
-        // (markup-carve/carve-php#1437). Spelled inline rather than through
-        // `isBlockAttributeHead()` for the reason
-        // `IndentationHelper::isBlankFrom()` gives; the pair is pinned by
-        // `OffsetHeadsAgreeWithTheirParsersTest`.
-        if (($line[0] ?? '') !== '{') {
-            return null;
-        }
-
-        $line = rtrim($line, " \t");
-        $length = strlen($line);
-
-        $parts = [];
-        $pos = 0;
-        while ($pos < $length) {
-            if ($line[$pos] !== '{') {
-                return null;
-            }
-
-            $end = $this->findSingleLineAttributeBlockEnd($line, $pos);
-            if ($end === null) {
-                return null;
-            }
-
-            $part = trim(substr($line, $pos + 1, $end - $pos - 1), ' ');
-            if (!AttributeParser::inlineInteriorIsSpaceOnly($part)) {
-                return null;
-            }
-            // An EMPTY `{}` is not a block-attribute block, so a line holding
-            // one is not a block-attribute line - wherever it sits. Joining the
-            // payloads with a space made the empty one vanish silently, so
-            // `{}{x}` produced the payload `x` and the line was consumed;
-            // standalone that dropped the whole document, because there was no
-            // block to attach to. carve-js and carve-rs keep the line literal
-            // in every position (#638).
-            if ($part === '') {
-                return null;
-            }
-            $parts[] = $part;
-            $pos = $end + 1;
-        }
-
-        return trim(implode(' ', $parts));
+        return WrappedBlockAttributeScanner::singleLinePayload($line);
     }
 
     protected function findSingleLineAttributeBlockEnd(string $line, int $start): ?int
     {
-        $length = strlen($line);
-        $quote = null;
-        for ($i = $start + 1; $i < $length; $i++) {
-            $char = $line[$i];
-            if ($char === "\n") {
-                return null;
-            }
-            if ($char === '\\' && $i + 1 < $length) {
-                $i++;
-
-                continue;
-            }
-            if ($quote !== null) {
-                if ($char === $quote) {
-                    $quote = null;
-                }
-
-                continue;
-            }
-            if ($char === '"' || $char === "'") {
-                $quote = $char;
-
-                continue;
-            }
-            if ($char === '}') {
-                return $i;
-            }
-        }
-
-        return null;
+        return WrappedBlockAttributeScanner::findSingleLineAttributeBlockEnd($line, $start);
     }
 
     /**

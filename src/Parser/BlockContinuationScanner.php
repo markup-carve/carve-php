@@ -1125,6 +1125,24 @@ final class BlockContinuationScanner
         return $residue === '' ? '' : str_repeat(' ', $fenceColumn) . $residue;
     }
 
+    private function quotedMarkerAfterBlankReleasesItem(string $nextLine, int $index): bool
+    {
+        $sourceLine = $this->sourceLineFor($index);
+        $sourceLines = $this->state->source->sourceLines;
+        if (IndentationHelper::isBlankLine($nextLine) || $sourceLine <= 0 || trim($sourceLines[$sourceLine - 1] ?? '') !== '') {
+            return false;
+        }
+        $prior = $sourceLine - 1;
+        while ($prior >= 0 && trim($sourceLines[$prior] ?? '') === '') {
+            $prior--;
+        }
+        $priorBody = ContainerPrefix::stripQuoteMarkers($sourceLines[$prior] ?? '');
+        $currentBody = ContainerPrefix::stripQuoteMarkers($sourceLines[$sourceLine] ?? '');
+
+        return preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
+            && $currentBody === ltrim($currentBody, " \t");
+    }
+
     /**
      * Collect continuation lines for a normal list item.
      *
@@ -1253,21 +1271,8 @@ final class BlockContinuationScanner
         $spanFromMarkerLine = $openCommentLength !== null;
         while ($i < $count) {
             $nextLine = $lines[$i];
-            $sourceLine = $this->sourceLineFor($i);
-            $sourceLines = $this->state->source->sourceLines;
-            if (!IndentationHelper::isBlankLine($nextLine) && $sourceLine > 0 && trim($sourceLines[$sourceLine - 1] ?? '') === '') {
-                $prior = $sourceLine - 1;
-                while ($prior >= 0 && trim($sourceLines[$prior] ?? '') === '') {
-                    $prior--;
-                }
-                $priorBody = ContainerPrefix::stripQuoteMarkers($sourceLines[$prior] ?? '');
-                $currentBody = ContainerPrefix::stripQuoteMarkers($sourceLines[$sourceLine] ?? '');
-                if (
-                    preg_match('/^[ \t]+\+[ \t]*$/D', $priorBody) === 1
-                    && $currentBody === ltrim($currentBody, " \t")
-                ) {
-                    break;
-                }
+            if ($this->quotedMarkerAfterBlankReleasesItem($nextLine, $i)) {
+                break;
             }
 
             if (IndentationHelper::isBlankLine($nextLine)) {
@@ -3819,7 +3824,8 @@ final class BlockContinuationScanner
     }
 
     /**
-     * Advance an open nested div. A null result leaves the outer scanner in charge.
+     * Advance an open nested div. A null result clears its claim and lets the
+     * outer scanner continue with the same state.
      */
     private function advanceNestedDivState(TrailingBlockState $state, string $line): ?TrailingBlockState
     {
@@ -3891,7 +3897,7 @@ final class BlockContinuationScanner
     }
 
     /**
-     * The tracker above, reading the line from a byte OFFSET.
+     * Advance the trailing block tracker, reading the line from a byte offset.
      *
      * Every branch asks the same question of the same bytes as the copying
      * spelling did; what changed is that none of them cuts the tail out of the

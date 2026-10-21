@@ -2792,6 +2792,58 @@ final class ListBlockBuilder
     }
 
     /**
+     * @param array<string> $lines
+     * @param array<int, true>|null $eligible
+     * @param int|null $unclosedFenceBase
+     * @param bool $includeSublists
+     * @param int|null $leadNestedColumn
+     */
+    private function shouldScanAuthoredBase(
+        array $lines,
+        ?array $eligible,
+        ?int $leadNestedColumn,
+        bool $includeSublists,
+        ?int $unclosedFenceBase,
+    ): bool {
+        // An uninterrupted marker-line descendant owns the entire chunk. Its
+        // own recursive item parse will see any opener that reaches that item's
+        // minimum; the parent has no authored-base decision to make until a
+        // blank permits a return. Avoiding a second walk at every ancestor is
+        // also what keeps a deep list ladder linear.
+        $hasBlank = false;
+        foreach ($lines as $line) {
+            if (IndentationHelper::isBlankLine($line)) {
+                $hasBlank = true;
+
+                break;
+            }
+        }
+        if ($unclosedFenceBase === null && $leadNestedColumn !== null && !$hasBlank) {
+            $quoteReleasesDefinition = false;
+            foreach ($lines as $index => $line) {
+                if (IndentationHelper::getLeadingColumns($line) !== 0 || $this->blockQuoteLineContent($line) === null) {
+                    continue;
+                }
+                $end = $this->blockQuoteExtentThroughDefinition($lines, $index);
+                if ($this->containerExtentBeforeADefinition($lines, $index, $end) < $end) {
+                    $quoteReleasesDefinition = true;
+
+                    break;
+                }
+            }
+            if (!$quoteReleasesDefinition) {
+                return false;
+            }
+        }
+
+        if ($unclosedFenceBase === null && !$this->hasAuthoredBaseCandidate($lines, $eligible, $leadNestedColumn, $includeSublists, $hasBlank)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Apply an authored block base after a container's minimum content column
      * has been stripped. Item calls exclude sublists because their residual
      * indentation is another list level; definition and footnote bodies include
@@ -2821,38 +2873,7 @@ final class ListBlockBuilder
         ?int $unclosedFenceBase = null,
         bool $skipBareColonOpeners = false,
     ): array {
-        // An uninterrupted marker-line descendant owns the entire chunk. Its
-        // own recursive item parse will see any opener that reaches that item's
-        // minimum; the parent has no authored-base decision to make until a
-        // blank permits a return. Avoiding a second walk at every ancestor is
-        // also what keeps a deep list ladder linear.
-        $hasBlank = false;
-        foreach ($lines as $line) {
-            if (IndentationHelper::isBlankLine($line)) {
-                $hasBlank = true;
-
-                break;
-            }
-        }
-        if ($unclosedFenceBase === null && $leadNestedColumn !== null && !$hasBlank) {
-            $quoteReleasesDefinition = false;
-            foreach ($lines as $index => $line) {
-                if (IndentationHelper::getLeadingColumns($line) !== 0 || $this->blockQuoteLineContent($line) === null) {
-                    continue;
-                }
-                $end = $this->blockQuoteExtentThroughDefinition($lines, $index);
-                if ($this->containerExtentBeforeADefinition($lines, $index, $end) < $end) {
-                    $quoteReleasesDefinition = true;
-
-                    break;
-                }
-            }
-            if (!$quoteReleasesDefinition) {
-                return $lines;
-            }
-        }
-
-        if ($unclosedFenceBase === null && !$this->hasAuthoredBaseCandidate($lines, $eligible, $leadNestedColumn, $includeSublists, $hasBlank)) {
+        if (!$this->shouldScanAuthoredBase($lines, $eligible, $leadNestedColumn, $includeSublists, $unclosedFenceBase)) {
             return $lines;
         }
 
