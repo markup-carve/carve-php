@@ -445,10 +445,88 @@ trait BlockListMethods
                 || $this->listParser->parseListItemMarker($lines[$next]) !== null
                 || $this->isContinuationMarker($lines[$next]))
         ) {
+            if ($i < $count && str_starts_with($lines[$next], '- ')) {
+                return $this->tryParsePlainLooseList($parent, $lines, $start);
+            }
+
             return null;
         }
 
         $list = new ListBlock(ListBlock::TYPE_BULLET, marker: '-');
+        foreach ($contents as $content) {
+            $item = new ListItem();
+            $paragraph = new Paragraph();
+            $paragraph->appendChild(new Text($content));
+            $item->appendChild($paragraph);
+            $list->appendChild($item);
+        }
+        $parent->appendChild($list);
+
+        return $i - $start;
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $parent
+     * @param array<string> $lines
+     * @param int $start
+     */
+    private function tryParsePlainLooseList(Node $parent, array $lines, int $start): ?int
+    {
+        if (
+            $this::class !== self::class || $parent::class !== Document::class
+            || ($lines[$start][0] ?? '') !== '-' || ($lines[$start][1] ?? '') !== ' '
+            || $this->state->source->trackPositions || $this->state->source->trackSourceLines
+            || $this->collectWarnings || $this->strictMode
+            || $this->state->session->pendingAttributes !== []
+            || $this->inlineParser::class !== InlineParser::class
+            || $this->listParser::class !== ListParser::class
+            || str_contains($this->state->source->originalSource, '*[')
+        ) {
+            return null;
+        }
+        foreach ($this->blockMatchers as $matcher) {
+            if ($matcher['pattern'] !== '/^--- ?(\\w*)[ \\t]*$/') {
+                return null;
+            }
+        }
+
+        $contents = [];
+        $i = $start;
+        $count = count($lines);
+        $sawBlank = false;
+        while ($i < $count && str_starts_with($lines[$i], '- ')) {
+            $content = substr($lines[$i], 2);
+            if (
+                $content === '' || $content !== rtrim($content, ' ')
+                || !$this->inlineParser->canCopyPlainText($content)
+            ) {
+                return null;
+            }
+            $contents[] = $content;
+            $i++;
+            if ($i + 1 < $count && IndentationHelper::isBlankLine($lines[$i]) && str_starts_with($lines[$i + 1], '- ')) {
+                $sawBlank = true;
+                $i++;
+            }
+        }
+        if (!$sawBlank || ($i < $count && !IndentationHelper::isBlankLine($lines[$i]))) {
+            return null;
+        }
+        $next = $i;
+        while ($next < $count && IndentationHelper::isBlankLine($lines[$next])) {
+            $next++;
+        }
+        if (
+            $next < $count
+            && (IndentationHelper::getLeadingColumns($lines[$next]) !== 0
+                || $this->listParser->parseListItemMarker($lines[$next]) !== null
+                || $this->isContinuationMarker($lines[$next]))
+        ) {
+            return null;
+        }
+
+        $list = new ListBlock(ListBlock::TYPE_BULLET, marker: '-');
+        $list->setTight(false);
         foreach ($contents as $content) {
             $item = new ListItem();
             $paragraph = new Paragraph();
