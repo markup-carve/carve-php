@@ -526,10 +526,15 @@ final class DefinitionListBuilder
                 $bodyAtColumnBlock = false;
                 $attachedDefinitionListOpen = false;
                 $bodyListContentColumns = [];
+                $syntheticTermColumns = [];
+                $reachedTermColumn = null;
                 $noteBodyColumn = null;
                 while ($i < $count) {
                     $contLine = $lines[$i];
                     $contColumn = IndentationHelper::getLeadingColumns($contLine);
+                    if ($reachedTermColumn !== null && !IndentationHelper::isBlankLine($contLine) && $contColumn < $reachedTermColumn) {
+                        $reachedTermColumn = null;
+                    }
                     $noteReleased = $noteBodyColumn !== null && !IndentationHelper::isBlankLine($contLine)
                         && $contColumn < $noteBodyColumn;
                     if ($contColumn >= $continuationColumn && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($contLine, " \t")) === 1) {
@@ -892,9 +897,27 @@ final class DefinitionListBuilder
 
                         continue;
                     }
+                    $termPastTheColumn = false;
+                    if (
+                        $indent > $continuationColumn
+                        && $reachedTermColumn === null
+                        && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $trimmedCont) === 1
+                        && $this->bodyEntryStartsParagraph($body[0])
+                        && ($noteBodyColumn === null || $contColumn < $noteBodyColumn)
+                    ) {
+                        $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
+                        $termPastTheColumn = $bodyNestedState->nestedColumn === 0
+                            && !$bodyNestedState->quoteParagraph
+                            && $bodyNestedState->fence === null
+                            && !$bodyNestedState->inDiv
+                            && !$bodyNestedState->absorbingFence
+                            && (str_contains($body[0], "\n")
+                                || ($this->getListParser)()->parseListItemMarker(ltrim($lastBody, " \t")) !== null);
+                    }
                     $definitionPastTheColumn = $indent > $continuationColumn
-                        && ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
-                        && $this->isReferenceDefinitionLine($trimmedCont)
+                        && ($termPastTheColumn
+                            || (ReferenceDefinitionExtractor::isDefinitionHead($trimmedCont)
+                                && $this->isReferenceDefinitionLine($trimmedCont)))
                         && (!$this->bodyTermIsOpen($body, $termScan, $lines, $i)
                             || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1);
                     // AN ATTRIBUTE BLOCK PAST THE COLUMN IS THE OTHER HALF OF
@@ -1173,7 +1196,10 @@ final class DefinitionListBuilder
                             $ownerColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, ($body[0] ?? '')) === 1
                                 ? 2 * BlockGrammar::DEFINITION_MARKER_WIDTH
                                 : $nestedColumn;
-                            if ($ownerColumn === 0 || IndentationHelper::getLeadingColumns($entry, $ownerColumn) < $ownerColumn) {
+                            if (
+                                !$termPastTheColumn
+                                && ($ownerColumn === 0 || IndentationHelper::getLeadingColumns($entry, $ownerColumn) < $ownerColumn)
+                            ) {
                                 $entry = ltrim($entry, " \t");
                             }
                         }
@@ -1238,6 +1264,13 @@ final class DefinitionListBuilder
                         }
                         if ($entryMarker !== null) {
                             $bodyListContentColumns[] = $entryColumn + $this->continuations->listMarkerWidth($trimmedCont, $entryMarker);
+                        }
+                        if ($termPastTheColumn && $definitionPastTheColumn) {
+                            // CARVE-P2-017: end the folded paragraph before parsing the reached term.
+                            $body[] = '';
+                            $bodyMap[] = -1;
+                            $syntheticTermColumns[$this->sourceLineFor($i)] = $contColumn;
+                            $reachedTermColumn = $contColumn;
                         }
                         $body[] = $entry;
                         $bodyMap[] = $this->sourceLineFor($i);
@@ -1553,8 +1586,48 @@ final class DefinitionListBuilder
                         absorbLeadNoteBody: true,
                     );
                 }
+                $syntheticTermColumn = null;
+                $syntheticTermEntryColumn = 0;
+                $syntheticTermBlank = false;
                 foreach ($body as $bodyIndex => $entry) {
+                    $entrySource = $bodyMap[$bodyIndex] ?? -1;
                     $source = $this->state->source->sourceLines[$bodyMap[$bodyIndex] ?? -1] ?? '';
+                    if (isset($syntheticTermColumns[$entrySource])) {
+                        $syntheticTermColumn = $syntheticTermColumns[$entrySource];
+                        $syntheticTermEntryColumn = IndentationHelper::getLeadingColumns($entry);
+                        $syntheticTermBlank = false;
+                    } elseif (IndentationHelper::isBlankLine($entry)) {
+                        $syntheticTermBlank = $syntheticTermColumn !== null;
+                    } elseif (
+                        ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($entry, " \t")) !== null
+                        || ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($entry, " \t")) !== null
+                    ) {
+                        $syntheticTermColumn = null;
+                    } elseif (
+                        $syntheticTermColumn !== null
+                        && ($syntheticTermBlank
+                            || preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($entry, " \t")) === 1
+                            || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($entry, " \t")) === 1)
+                        && IndentationHelper::getLeadingColumns($source) === $syntheticTermColumn
+                    ) {
+                        $entryColumn = IndentationHelper::getLeadingColumns($entry);
+                        if ($entryColumn > $syntheticTermEntryColumn) {
+                            $body[$bodyIndex] = IndentationHelper::stripLeadingColumns(
+                                $entry,
+                                $entryColumn - $syntheticTermEntryColumn,
+                            );
+                        }
+                        if (
+                            $syntheticTermBlank
+                            && preg_match(BlockGrammar::DEFINITION_BODY_LINE_PREFIX, ltrim($entry, " \t")) !== 1
+                            && preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($entry, " \t")) !== 1
+                        ) {
+                            $syntheticTermColumn = null;
+                        }
+                        $syntheticTermBlank = false;
+                    } else {
+                        $syntheticTermBlank = false;
+                    }
                     // Keep the delimiter's residual column through the body rebase.
                     if (
                         preg_match('/^%{3,}$/', $entry) === 1
