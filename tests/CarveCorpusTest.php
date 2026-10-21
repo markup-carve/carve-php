@@ -50,6 +50,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-lazy-colon-shaped-line-in-a-quote-paragraph-keeps-no-indentation',
         'a-fence-run-that-dedents-out-of-a-child-keeps-the-outer-item-tight',
         'a-folded-fence-run-leaves-a-later-paragraph-loose',
         'a-folded-child-fence-keeps-the-below-column-line-in-its-paragraph',
