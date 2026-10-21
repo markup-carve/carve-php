@@ -281,4 +281,14 @@ class BlockAttributeBlockSpansManyLinesTest extends TestCase
         $this->assertCount(12, self::multiLineProvider());
         $this->assertCount(13, self::literalProvider());
     }
+
+    public function testInvalidAttributesDoNotGiveAHeadingAPrescanId(): void
+    {
+        foreach (["{#a .!}\n# H\n\nSee [H][].\n", "{#a\n.!}\n# H\n\nSee [H][].\n"] as $source) {
+            $html = (new CarveConverter())->convert($source);
+            $this->assertStringContainsString('<section id="H">', $html);
+            $this->assertStringContainsString('<a href="#H">H</a>', $html);
+            $this->assertStringNotContainsString('id="a"', $html);
+        }
+    }
 }
