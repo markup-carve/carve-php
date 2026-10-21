@@ -4144,7 +4144,11 @@ class BlockParser
             return $plain;
         }
 
-        if (($lines[$start][0] ?? '') === '-' && ($lines[$start][1] ?? '') === ' ') {
+        if (
+            ($lines[$start][0] ?? '') === '-'
+            && ($lines[$start][1] ?? '') === ' '
+            && ctype_alnum($lines[$start][2] ?? '')
+        ) {
             $wrapped = $this->tryParseWrappedTightList($parent, $lines, $start);
             if ($wrapped !== null) {
                 return $wrapped;
