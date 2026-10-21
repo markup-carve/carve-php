@@ -534,7 +534,7 @@ class MarkdownToCarve
         usort($spans, static fn (array $a, array $b): int => $b[0] <=> $a[0]);
         foreach ($spans as [$start, $end, $term]) {
             $expansion = $expansions[$term] ?? null;
-            if ($expansion === null || substr($carve, $start, $end - $start) !== '[' . $term . ']{abbr="' . $expansion . '"}') {
+            if ($expansion === null || substr($carve, $start, $end - $start) !== '[' . $term . ']{abbr=' . CarveRenderer::quoteImportedAttrValue($expansion) . '}') {
                 continue;
             }
             $carve = substr($carve, 0, $start) . $term . substr($carve, $end);
@@ -3387,7 +3387,7 @@ class MarkdownToCarve
 
             return $carve;
         }
-        if (!$this->importingFootnoteBody && $this->convertAbbreviations && str_contains($carve, '{abbr="')) {
+        if (!$this->importingFootnoteBody && $this->convertAbbreviations && str_contains($carve, '{abbr=')) {
             $carve = $this->foldDefinedAbbreviations($carve);
         }
         if (!$this->importingFootnoteBody && str_contains($carve, '@')) {
@@ -7003,6 +7003,15 @@ class MarkdownToCarve
                 break;
             }
             $candidate = $this->escapeDefinitionContinuation($candidate, (string)end($parts), (string)end($parts));
+            if (!$partialPointy && !$escapedPointy) {
+                $listIndent = 0;
+                if ($depth > 0) {
+                    $afterQuote = substr($prefix, (int)strrpos($prefix, '>') + 1);
+                    $listIndent = strlen($afterQuote) - min(1, strspn($afterQuote, " \t"));
+                }
+                $candidate = str_repeat(' ', $listIndent)
+                    . ($listIndent === 0 && $depth > 0 && strspn($text, " \t") > 0 ? $candidate : ltrim($candidate, " \t"));
+            }
             $parts[] = $this->escapeCarveOnlyMarker($candidate);
             $stripPointyIndent[] = !$partialPointy && ($depth === 0 || preg_match('/^[ \t]*>/', $lines[$at]) === 1);
             $end = $at;
@@ -7898,7 +7907,7 @@ class MarkdownToCarve
                     // The label stays live so the later inline passes still
                     // convert markup inside it; only the attribute block is
                     // protected, from the quote escaping further down.
-                    return '[' . $match[2] . ']' . $protect('{abbr="' . $value . '"}');
+                    return '[' . $match[2] . ']' . $protect('{abbr=' . CarveRenderer::quoteImportedAttrValue($value) . '}');
                 },
                 $line,
             ) ?? $line;
