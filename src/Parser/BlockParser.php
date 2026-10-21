@@ -1856,11 +1856,8 @@ class BlockParser
      * Recognize a block-attribute line (single- or multi-line) starting at
      * $start, WITHOUT applying it. Returns the joined attribute string and
      * sets $consumed to the number of lines the block spans, or returns null
-     * when the line is not a block-attribute line. Mirrors the recognition
-     * rules of tryParseBlockAttributes() exactly: `{...}` with the first
-     * content character in [.#a-zA-Z] (excludes braced inline markers like
-     * `{=x=}`); a multi-line block needs indented
-     * continuation lines and a closing `}`.
+     * when the line is not a block-attribute line. Uses the same scanner as
+     * tryParseBlockAttributes(), including validation of wrapped lines.
      *
      * @param array<string> $lines
      * @param int $start
@@ -6361,7 +6358,7 @@ class BlockParser
      * Whether a block-attribute line could start at `$at`, by its first byte.
      *
      * The offset-side head for
-     * {@see self::parseSingleLineBlockAttributePayload()}, pinned against it by
+     * {@see WrappedBlockAttributeScanner::singleLinePayload()}, pinned against it by
      * `OffsetHeadsAgreeWithTheirParsersTest` for the reason
      * {@see \MarkupCarve\Carve\Parser\Block\TableParser::isTableRowHead()} gives.
      */

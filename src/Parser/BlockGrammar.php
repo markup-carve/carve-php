@@ -143,7 +143,7 @@ final class BlockGrammar
      * Whether a block-attribute line could start at `$at`, by its first byte.
      *
      * The offset-side head for
-     * {@see BlockParser::parseSingleLineBlockAttributePayload()}, pinned against it by
+     * {@see WrappedBlockAttributeScanner::singleLinePayload()}, pinned against it by
      * `OffsetHeadsAgreeWithTheirParsersTest` for the reason
      * {@see \MarkupCarve\Carve\Parser\Block\TableParser::isTableRowHead()} gives.
      */
