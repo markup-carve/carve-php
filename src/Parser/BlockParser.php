@@ -15,18 +15,21 @@ use MarkupCarve\Carve\Node\Block\Caption;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Figure;
 use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\LineBlock;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Block\RawBlock;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Block\ThematicBreak;
 use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\Image;
 use MarkupCarve\Carve\Node\Inline\Math;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -58,27 +61,6 @@ class BlockParser
     use BlockListMethods;
     use BlockColonMethods;
 
-    /**
-     * No loosening blank was found.
-     *
-     * @var int
-     */
-    public const GAP_NONE = 0;
-
-    /**
-     * The blank loosens the list.
-     *
-     * @var int
-     */
-    public const GAP_LOOSENS = 1;
-
-    /**
-     * The blank precedes a caption candidate.
-     *
-     * @var int
-     */
-    public const GAP_CAPTION = 2;
-
     private BlockParserState $state;
 
     private ?ListBlockBuilder $listsImplementation = null;
@@ -96,8 +78,6 @@ class BlockParser
     private ?BlockReferenceResolver $referencesService = null;
 
     private ?BlockContinuationScanner $continuationsService = null;
-
-    private ?ListLoosenessScanner $listLoosenessService = null;
 
     private ?NestedLeadFenceScanner $nestedLeadFenceService = null;
 
@@ -576,7 +556,6 @@ class BlockParser
         $this->sourceService = null;
         $this->referencesService = null;
         $this->continuationsService = null;
-        $this->listLoosenessService = null;
         $this->nestedLeadFenceService = null;
         $this->inlineParser = $this->inlineParser->copyForBlockParser($this);
         $this->referenceDefinitionExtractor = $this->referenceDefinitionExtractor->copyForInlineParser($this->inlineParser);
@@ -2078,15 +2057,39 @@ class BlockParser
     ): void {
         $i = 0;
         $count = count($lines);
+        $childrenBeforeBlank = null;
+        $blankFollowerColumn = null;
+        $blankFollowerLine = null;
 
         while ($i < $count) {
+            if ($childrenBeforeBlank !== null && count($parent->getChildren()) > $childrenBeforeBlank) {
+                $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
+                $childrenBeforeBlank = null;
+                $blankFollowerColumn = null;
+                $blankFollowerLine = null;
+            }
             $line = $lines[$i];
 
             // Skip blank lines
             if (IndentationHelper::isBlankLine($line)) {
+                if ($parent instanceof ListItem && $childrenBeforeBlank === null && $parent->hasChildren()) {
+                    $childrenBeforeBlank = count($parent->getChildren());
+                }
                 $i++;
 
                 continue;
+            }
+            if ($childrenBeforeBlank !== null) {
+                $blankFollowerColumn = $this->authoredColumnOf($i, $line)
+                    ?? IndentationHelper::getLeadingColumns($line);
+                if ($blankFollowerColumn === 0) {
+                    $physicalLine = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? $line;
+                    if (str_starts_with(ltrim($physicalLine), '>')) {
+                        $reach = ContainerPrefix::composedReach($physicalLine);
+                        $blankFollowerColumn = $reach[count($reach) - 1]['to'];
+                    }
+                }
+                $blankFollowerLine = $line;
             }
 
             // Try to parse block attributes first
@@ -2174,6 +2177,12 @@ class BlockParser
             if ($fastPath) {
                 // Matchers may consume several lines; stamp the complete span.
                 $this->stampSourceLine($parent, $childrenBefore, $sourceLine, $i, $consumed);
+                if (
+                    $parent instanceof ListItem && $consumed > 1 && isset($lines[$i + $consumed])
+                    && IndentationHelper::isBlankLine($lines[$i + $consumed - 1]) && $parent->hasChildren()
+                ) {
+                    $childrenBeforeBlank = count($parent->getChildren());
+                }
                 $i += $consumed;
 
                 continue;
@@ -2230,11 +2239,100 @@ class BlockParser
                 $i,
                 $consumed,
             );
+            if (
+                $parent instanceof ListItem && $consumed > 1 && isset($lines[$i + $consumed])
+                && IndentationHelper::isBlankLine($lines[$i + $consumed - 1]) && $parent->hasChildren()
+            ) {
+                $childrenBeforeBlank = count($parent->getChildren());
+            }
             $i += $consumed;
             CycleCollection::checkpoint();
         }
+        if ($childrenBeforeBlank !== null) {
+            $this->recordParsedItemBlank($parent, $childrenBeforeBlank, $blankFollowerColumn, $blankFollowerLine);
+        }
         if ($topLevel) {
             $this->endContainerAttributeScope();
+        }
+    }
+
+    private function recordParsedItemBlank(
+        Node $parent,
+        int $childrenBeforeBlank,
+        ?int $followerColumn,
+        ?string $followerLine,
+    ): void {
+        if (!$parent instanceof ListItem) {
+            return;
+        }
+        $children = $parent->getChildren();
+        $next = $children[$childrenBeforeBlank] ?? null;
+        if ($next instanceof Paragraph && $followerColumn !== null) {
+            $nextFence = $this->state->session->foldedFenceColumn($next);
+            $itemContentColumn = $this->state->session->listItemContentColumn($parent);
+            if (
+                $nextFence !== null && $itemContentColumn !== null
+                && $nextFence > $itemContentColumn
+                && $nextFence === $followerColumn
+            ) {
+                return;
+            }
+        }
+        $previous = $children[$childrenBeforeBlank - 1] ?? null;
+        if ($previous instanceof Paragraph && $followerColumn !== null) {
+            $fenceColumn = $this->state->session->foldedFenceColumn($previous);
+            $itemContentColumn = $this->state->session->listItemContentColumn($parent);
+            $admittedBlockFence = $this->state->session->admittedBlockBelowFoldedFenceColumn($previous);
+            if (
+                $admittedBlockFence !== null && $followerColumn < $admittedBlockFence
+                && $next instanceof Paragraph && $followerLine !== null
+                && $this->lineOpensBlockForLooseness(ltrim($followerLine, " \t"))
+            ) {
+                $this->state->session->recordAdmittedBlockBelowFoldedFenceColumn($next, $admittedBlockFence);
+
+                return;
+            }
+            if (
+                $fenceColumn !== null && $next instanceof Paragraph
+                && $itemContentColumn !== null
+                && $followerColumn < $fenceColumn
+                && !$this->state->session->foldedCloserBelowBase($previous)
+                && ($this->state->session->parsedNestedListContentColumn($parent) === null
+                    || $followerColumn < $this->state->session->parsedNestedListContentColumn($parent))
+            ) {
+                if ($followerLine !== null && $this->lineOpensBlockForLooseness(ltrim($followerLine, " \t"))) {
+                    $this->state->session->recordAdmittedBlockBelowFoldedFenceColumn($next, $fenceColumn);
+                }
+
+                return;
+            }
+            if (
+                $fenceColumn !== null && ($followerColumn > $fenceColumn
+                || $followerColumn === $fenceColumn
+                    && $itemContentColumn !== null && $fenceColumn > $itemContentColumn)
+            ) {
+                return;
+            }
+        }
+        if ($next instanceof Paragraph && $followerColumn !== null) {
+            $nestedColumn = $this->state->session->parsedNestedListContentColumn($parent);
+            if (
+                $previous instanceof DefinitionList
+                && $nestedColumn !== null && $followerColumn >= $nestedColumn
+            ) {
+                return;
+            }
+            $divColumn = $previous instanceof Div ? $this->state->session->divOpenerColumn($previous) : null;
+            if ($divColumn !== null && $followerColumn < $divColumn) {
+                return;
+            }
+        }
+        for ($index = $childrenBeforeBlank, $count = count($children); $index < $count; $index++) {
+            if ($children[$index] instanceof Paragraph) {
+                $this->state->session->recordParsedBlankBeforeParagraph($parent);
+
+                return;
+            }
         }
     }
 
@@ -3794,6 +3892,11 @@ class BlockParser
         /** @var list<string> $contentParts */
         $contentParts = [$content];
         $hasUnclaimedColonFenceLine = $this->paragraphHasUnclaimedColonFenceLine($content);
+        $foldedFenceColumn = null;
+        if ($this->fencedBlockParser->isCodeFenceHead(explode("\n", $content, 2)[0])) {
+            $foldedFenceColumn = $this->authoredColumnOf($start, $line)
+                ?? IndentationHelper::getLeadingColumns($line);
+        }
         // With position tracking, record where each folded line's content sits:
         // [line index, column in that line, length].
         // Nested content arrives PRE-JOINED: a list item hands its body over as
@@ -3842,6 +3945,10 @@ class BlockParser
             // Strip leading whitespace from continuation lines (matching JS reference)
             $rawNextLine = self::stripLazyFrame($nextLine);
             $nextLine = ltrim($rawNextLine, " \t");
+            if ($foldedFenceColumn === null && $this->fencedBlockParser->isCodeFenceHead($nextLine)) {
+                $foldedFenceColumn = $this->authoredColumnOf($i, $rawNextLine)
+                    ?? IndentationHelper::getLeadingColumns($rawNextLine);
+            }
             if ($trackPositions) {
                 $sourceLine = $this->sourceLineFor($i);
                 $this->appendParagraphContentLines(
@@ -3917,6 +4024,43 @@ class BlockParser
             $start,
             sourceMap: $trackPositions ? $this->foldedLinesMap($contentLines) : null,
         );
+        if ($foldedFenceColumn !== null) {
+            $textBeforeCode = false;
+            $hasCode = false;
+            foreach ($paragraph->getChildren() as $inline) {
+                if ($inline instanceof Text) {
+                    $textBeforeCode = true;
+                } elseif ($inline instanceof Code) {
+                    $hasCode = true;
+                    if ($textBeforeCode && str_contains($inline->getContent(), "\n")) {
+                        break;
+                    }
+                }
+            }
+            $itemContentColumn = $parent instanceof ListItem
+                ? $this->state->session->listItemContentColumn($parent) : null;
+            if (
+                $hasCode || $textBeforeCode && $itemContentColumn !== null
+                && $foldedFenceColumn > $itemContentColumn
+            ) {
+                $this->state->session->recordFoldedFenceColumn($paragraph, $foldedFenceColumn);
+                $lastContentPart = end($contentParts);
+                $lastContentLine = $lastContentPart === false ? ''
+                    : substr($lastContentPart, (int)strrpos("\n" . $lastContentPart, "\n"));
+                $lastRawLine = self::stripLazyFrame($lines[$i - 1]);
+                $lastPhysicalIndex = $this->sourceLineFor($i - 1) + substr_count($lastRawLine, "\n");
+                $lastPhysicalLine = $this->state->source->sourceLines[$lastPhysicalIndex] ?? $lastRawLine;
+                $lastPhysicalTail = substr($lastPhysicalLine, (int)strrpos("\n" . $lastPhysicalLine, "\n"));
+                $lastReach = ContainerPrefix::composedReach($lastPhysicalTail);
+                $lastColumn = $lastReach[count($lastReach) - 1]['to'];
+                if (
+                    $this->fencedBlockParser->isCodeFenceHead($lastContentLine)
+                    && $lastColumn < $foldedFenceColumn
+                ) {
+                    $this->state->session->recordFoldedCloserBelowBase($paragraph);
+                }
+            }
+        }
         if ($trackPositions) {
             $placed = array_values(array_filter(
                 $paragraph->getChildren(),
@@ -5963,22 +6107,6 @@ class BlockParser
         );
     }
 
-    private function listLoosenessScanner(): ListLoosenessScanner
-    {
-        return $this->listLoosenessService ??= new ListLoosenessScanner(
-            fn (): FencedBlockParser => $this->fencedBlockParser,
-            fn (): ListParser => $this->listParser,
-            $this->continuationsMapper(),
-            $this->lineOpensBlockForLooseness(...),
-            $this->isFigureGroupOpener(...),
-            $this->isCaptionLine(...),
-            $this->markerContentColumn(...),
-            $this->isInvisibleOrAttributeLine(...),
-            $this->colonSpanEndForLooseness(...),
-            $this->commentSpanEndForLooseness(...),
-        );
-    }
-
     private function listsBuilder(): ListBlockBuilder
     {
         return $this->listsImplementation ??= new ListBlockBuilder(
@@ -6015,7 +6143,6 @@ class BlockParser
             markerFreeContentCallback: $this->markerFreeContent(...),
             parseBlocksCallback: $this->parseBlocks(...),
             startsNewBlockCallback: $this->startsNewBlock(...),
-            subContentHasLooseningBlankCallback: $this->subContentHasLooseningBlank(...),
             wrappedBlockAttributeLengthCallback: $this->wrappedBlockAttributeLength(...),
             isBlockAttributeLineCallback: $this->isBlockAttributeLine(...),
             parseItemBlocksCallback: static::class !== self::class ? $this->parseItemBlocks(...) : null,

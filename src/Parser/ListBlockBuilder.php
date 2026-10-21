@@ -71,7 +71,6 @@ final class ListBlockBuilder
      * @param \Closure(string): (string) $markerFreeContentCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Node, array<string>, int, array<int, int>|null, bool, bool): (void) $parseBlocksCallback
      * @param \Closure(string, array<string>|null, int|null): (bool) $startsNewBlockCallback
-     * @param \Closure(array<string>, bool): int $subContentHasLooseningBlankCallback
      * @param (\Closure(\MarkupCarve\Carve\Node\Node, array<string>, array<int, int>|null, array<int, true>|null, int|null): (void))|null $parseItemBlocksCallback
      * @param (\Closure(): bool)|null $canRepairParagraphLocallyCallback
      * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
@@ -111,7 +110,6 @@ final class ListBlockBuilder
         private Closure $markerFreeContentCallback,
         private Closure $parseBlocksCallback,
         private Closure $startsNewBlockCallback,
-        private Closure $subContentHasLooseningBlankCallback,
         private Closure $wrappedBlockAttributeLengthCallback,
         private Closure $isBlockAttributeLineCallback,
         private ?Closure $parseItemBlocksCallback = null,
@@ -414,7 +412,7 @@ final class ListBlockBuilder
                         $list->setTight(false);
                     }
 
-                    [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase] = $this->collectIndentedListContinuation(
+                    [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase, $blankBeforeNestedContinuation] = $this->collectIndentedListContinuation(
                         $lines,
                         $i,
                         $count,
@@ -425,6 +423,9 @@ final class ListBlockBuilder
                         $listInfo,
                         $unclosedFenceBase,
                     );
+                    if ($blankBeforeNestedContinuation) {
+                        $list->setTight(false);
+                    }
 
                     // Compact-list rule (carve#322): an internal blank line in
                     // the item's collected content loosens THIS list only when
@@ -435,16 +436,15 @@ final class ListBlockBuilder
                     // parse, so it must not propagate up (nested-item looseness
                     // does not propagate, corpus 142). Only the outer item, which
                     // owns the blank before its own attached block, goes loose.
-                    $gap = $this->subContentHasLooseningBlank($subLines, false);
-                    if ($gap === BlockParser::GAP_LOOSENS) {
-                        $list->setTight(false);
-                    }
                     // A blank before a newly retained paragraph makes the list loose.
                     if ($subLines !== []) {
                         $before = count($lastItem->getChildren());
                         $this->callParseItemBlocks($lastItem, $subLines, $subLineMap, $subEligible, null, $unclosedFenceBase);
+                        if ($this->state->session->itemHasParsedBlankBeforeParagraph($lastItem)) {
+                            $list->setTight(false);
+                        }
                         $children = $lastItem->getChildren();
-                        if ($gap === BlockParser::GAP_CAPTION || ($lastItemHadBlankAfter && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) === 1)) {
+                        if ($lastItemHadBlankAfter && preg_match('/^\^[ ]+\S/', ltrim($currentLine, " \t")) === 1) {
                             $captionHost = $children[count($children) - 1] ?? null;
                             if ($captionHost instanceof Paragraph) {
                                 $list->setTight(false);
@@ -695,6 +695,10 @@ final class ListBlockBuilder
             // Task list checkbox is considered part of content, not marker
             $markerWidth = $this->listMarkerWidth($trimmedLine, $itemInfo);
             $contentIndent = $baseIndent + $markerWidth;
+            $this->state->session->recordListItemContentColumn(
+                $listItem,
+                ($itemOpeningColumn ?? $baseIndent) + $markerWidth,
+            );
             // A plain word lead opens a paragraph and cannot open a nested block.
             if (
                 $this->advanceTrailingStateCallback === null
@@ -754,10 +758,6 @@ final class ListBlockBuilder
                 // `- x` / blank / `  b` went loose (carve-php#681). Content at or
                 // past the sub-list's own content column still belongs to the
                 // sub-list and does not propagate its looseness outwards.
-                $gap = $this->subContentHasLooseningBlank($itemLines, true);
-                if ($gap === BlockParser::GAP_LOOSENS) {
-                    $list->setTight(false);
-                }
                 $lastVisible = count($itemLines) - 1;
                 while (
                     $lastVisible >= 0
@@ -796,12 +796,8 @@ final class ListBlockBuilder
                 }
                 unset($collectedLine);
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
-                if ($gap === BlockParser::GAP_CAPTION) {
-                    $children = $listItem->getChildren();
-                    $captionHost = $children[count($children) - 1] ?? null;
-                    if ($captionHost instanceof Paragraph) {
-                        $list->setTight(false);
-                    }
+                if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
+                    $list->setTight(false);
                 }
                 $list->appendChild($listItem);
 
@@ -829,18 +825,10 @@ final class ListBlockBuilder
                     $itemLineMap,
                     $authoredBaseEligible,
                 );
-                $gap = $this->subContentHasLooseningBlank($itemLines, true);
-                if ($gap === BlockParser::GAP_LOOSENS) {
-                    $list->setTight(false);
-                }
                 $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 $this->callParseItemBlocks($listItem, $itemLines, $itemLineMap, $authoredBaseEligible);
-                if ($gap === BlockParser::GAP_CAPTION) {
-                    $children = $listItem->getChildren();
-                    $captionHost = $children[count($children) - 1] ?? null;
-                    if ($captionHost instanceof Paragraph) {
-                        $list->setTight(false);
-                    }
+                if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
+                    $list->setTight(false);
                 }
                 $list->appendChild($listItem);
 
@@ -869,26 +857,6 @@ final class ListBlockBuilder
                 $authoredBaseEligible,
                 $unclosedFenceBase,
             );
-
-            $hasFoldedFenceRun = false;
-            $hasJoinedCloser = false;
-            $hasLazyFrame = false;
-            foreach ($itemLines as $entry) {
-                $hasFoldedFenceRun = $hasFoldedFenceRun
-                    || ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim(BlockGrammar::stripLazyFrame($entry), " \t"), 0);
-                $hasJoinedCloser = $hasJoinedCloser || str_contains($entry, "\n");
-                $hasLazyFrame = $hasLazyFrame || str_starts_with($entry, BlockGrammar::LAZY_FRAME);
-            }
-            if (
-                $hasFoldedFenceRun
-                && ($hasJoinedCloser || (!$hasLazyFrame
-                    && in_array('', $itemLines, true)
-                    && isset($itemLines[1])
-                    && $this->fenceRunOpensNothing(ltrim($itemLines[1], " \t"), $itemLines, 1, 0)))
-                && $this->subContentHasLooseningBlank($itemLines, true) === BlockParser::GAP_LOOSENS
-            ) {
-                $list->setTight(false);
-            }
 
             if (
                 count($itemLines) > 1
@@ -946,6 +914,30 @@ final class ListBlockBuilder
                 $leadNestedColumn,
                 $unclosedFenceBase,
             );
+            if ($this->state->session->itemHasParsedBlankBeforeParagraph($listItem)) {
+                $list->setTight(false);
+            }
+            $blankAfterFoldedLine = false;
+            $foldedBeforeBlank = false;
+            $previousItemLine = null;
+            foreach ($itemLines as $itemLine) {
+                if ($itemLine === '') {
+                    $foldedBeforeBlank = $foldedBeforeBlank || ($previousItemLine !== null && str_contains($previousItemLine, "\n"));
+                } elseif ($foldedBeforeBlank) {
+                    $blankAfterFoldedLine = true;
+
+                    break;
+                } else {
+                    $previousItemLine = $itemLine;
+                }
+            }
+            if (
+                $list->isTight() && $blankAfterFoldedLine
+                && array_filter($itemLines, static fn (string $line): bool => str_contains($line, "\n")) !== []
+                && count(array_filter($listItem->getChildren(), static fn (Node $child): bool => $child instanceof Paragraph)) > 1
+            ) {
+                $list->setTight(false);
+            }
 
             $list->appendChild($listItem);
         }
@@ -993,7 +985,7 @@ final class ListBlockBuilder
      * @param array<string, array<string, list<string>|string>|bool|int|string> $listInfo
      * @param int|null $unclosedFenceBase
      *
-     * @return array{int, array<string>, array<int, int>, array<int, true>, bool, bool, bool, ?int}
+     * @return array{int, array<string>, array<int, int>, array<int, true>, bool, bool, bool, ?int, bool}
      */
     private function collectIndentedListContinuation(
         array $lines,
@@ -1017,6 +1009,7 @@ final class ListBlockBuilder
         // Track the maximum content indent we've seen (for detecting drop-back to marker level)
         $maxContentIndent = $currentIndent;
         $sawBlankLine = false;
+        $blankBeforeNestedContinuation = false;
         $brokeForParentContent = false;
         // Trailing-block state over the collected nested lines, so a
         // base-level lazy line folds only when the nested content
@@ -1208,6 +1201,11 @@ final class ListBlockBuilder
                 }
                 // Remove subIndent worth of indentation (handling tabs)
                 $stripped = IndentationHelper::stripLeadingColumns($subLine, $subIndent);
+                if ($sawBlankLine && trim($stripped) === '+') {
+                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
+                    $blankBeforeNestedContinuation = $blankBeforeNestedContinuation
+                        || ($decision['reason'] === null && ($decision['owner']['kind'] ?? null) === 'list');
+                }
                 // Fence lines keep their source column when a tab remains
                 // after stripping the host prefix. Code payload stays verbatim.
                 if (
@@ -1761,7 +1759,7 @@ final class ListBlockBuilder
             $subLineMap[] = -1;
         }
 
-        return [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase];
+        return [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase, $blankBeforeNestedContinuation];
     }
 
     /**
@@ -2651,11 +2649,6 @@ final class ListBlockBuilder
      * @param array<string> $subLines The item's dedented sub-content lines.
      * @param bool $sourceIsTheItemBody Whether these lines are the item's WHOLE
      */
-    private function subContentHasLooseningBlank(array $subLines, bool $sourceIsTheItemBody): int
-    {
-        return ($this->subContentHasLooseningBlankCallback)($subLines, $sourceIsTheItemBody);
-    }
-
     /**
      * @param \MarkupCarve\Carve\Node\Node $item
      * @param array<string> $lines

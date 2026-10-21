@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Parser;
 
 use MarkupCarve\Carve\Ast\SourceSpan;
+use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Parser\Block\ListParser;
 use WeakMap;
 
@@ -16,6 +18,90 @@ use WeakMap;
  */
 final class BlockParseSession
 {
+    /**
+     * Physical opener column of a folded fence inside a parsed paragraph.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, int>|null
+     */
+    private ?WeakMap $foldedFenceColumns = null;
+
+    /**
+     * Authored content column of each parsed list item.
+     *
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\ListItem, int>|null
+     */
+    private ?WeakMap $listItemContentColumns = null;
+
+    public function recordListItemContentColumn(ListItem $item, int $column): void
+    {
+        $this->listItemContentColumns ??= new WeakMap();
+        $this->listItemContentColumns[$item] = $column;
+    }
+
+    public function listItemContentColumn(ListItem $item): ?int
+    {
+        return $this->listItemContentColumns[$item] ?? null;
+    }
+
+    public function recordFoldedFenceColumn(Paragraph $paragraph, int $column): void
+    {
+        $this->foldedFenceColumns ??= new WeakMap();
+        $this->foldedFenceColumns[$paragraph] = $column;
+    }
+
+    public function foldedFenceColumn(Paragraph $paragraph): ?int
+    {
+        return $this->foldedFenceColumns[$paragraph] ?? null;
+    }
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, bool>|null
+     */
+    private ?WeakMap $foldedCloserBelowBase = null;
+
+    public function recordFoldedCloserBelowBase(Paragraph $paragraph): void
+    {
+        $this->foldedCloserBelowBase ??= new WeakMap();
+        $this->foldedCloserBelowBase[$paragraph] = true;
+    }
+
+    public function foldedCloserBelowBase(Paragraph $paragraph): bool
+    {
+        return $this->foldedCloserBelowBase[$paragraph] ?? false;
+    }
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Div, int>|null
+     */
+    private ?WeakMap $divOpenerColumns = null;
+
+    public function recordDivOpenerColumn(Div $div, int $column): void
+    {
+        $this->divOpenerColumns ??= new WeakMap();
+        $this->divOpenerColumns[$div] = $column;
+    }
+
+    public function divOpenerColumn(Div $div): ?int
+    {
+        return $this->divOpenerColumns[$div] ?? null;
+    }
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\Paragraph, int>|null
+     */
+    private ?WeakMap $admittedBlockBelowFoldedFenceColumns = null;
+
+    public function recordAdmittedBlockBelowFoldedFenceColumn(Paragraph $paragraph, int $column): void
+    {
+        $this->admittedBlockBelowFoldedFenceColumns ??= new WeakMap();
+        $this->admittedBlockBelowFoldedFenceColumns[$paragraph] = $column;
+    }
+
+    public function admittedBlockBelowFoldedFenceColumn(Paragraph $paragraph): ?int
+    {
+        return $this->admittedBlockBelowFoldedFenceColumns[$paragraph] ?? null;
+    }
+
     /**
      * Content column of a parsed nested list, keyed by its parent item.
      *
@@ -35,6 +121,22 @@ final class BlockParseSession
     }
 
     private ?ContinuationMarkerClassifier $continuationMarkers = null;
+
+    /**
+     * @var \WeakMap<\MarkupCarve\Carve\Node\Block\ListItem, bool>|null
+     */
+    private ?WeakMap $itemsWithParsedBlankBeforeParagraph = null;
+
+    public function recordParsedBlankBeforeParagraph(ListItem $item): void
+    {
+        $this->itemsWithParsedBlankBeforeParagraph ??= new WeakMap();
+        $this->itemsWithParsedBlankBeforeParagraph[$item] = true;
+    }
+
+    public function itemHasParsedBlankBeforeParagraph(ListItem $item): bool
+    {
+        return $this->itemsWithParsedBlankBeforeParagraph[$item] ?? false;
+    }
 
     /**
      * @return array{owner: array{kind: string, column: int, depth: int, content: int, first: bool}|null, reason: string|null, column: int, depth: int, stale: bool, open: bool}

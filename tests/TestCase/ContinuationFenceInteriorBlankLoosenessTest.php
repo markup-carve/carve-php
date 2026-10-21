@@ -8,12 +8,9 @@ use MarkupCarve\Carve\CarveConverter;
 use PHPUnit\Framework\TestCase;
 
 /**
- * A blank line INSIDE a fenced code block is verbatim content, not a
- * list-loosening separator. The compact-list looseness scan
- * (subContentHasLooseningBlank) walked the item's sub-content lines without
- * tracking fences, so an interior blank in a continuation fence wrongly
- * loosened the list. A blank AFTER the fence closes still loosens against a
- * following paragraph. Matches carve-rs / carve-js (carve#326 case C).
+ * A blank inside a fenced code block is payload, so it cannot separate two
+ * parsed item blocks. A blank after the closer does separate them and loosens
+ * the list. Matches carve-rs / carve-js (carve#326 case C).
  */
 class ContinuationFenceInteriorBlankLoosenessTest extends TestCase
 {

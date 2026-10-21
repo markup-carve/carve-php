@@ -59,6 +59,10 @@ trait BlockColonMethods
         }
 
         $div = new Div();
+        $this->state->session->recordDivOpenerColumn(
+            $div,
+            $this->authoredColumnOf($start, $line) ?? IndentationHelper::getLeadingColumns($line),
+        );
 
         // Keep the label source for group extensions and its inline nodes for
         // the fallback caption. Only a comment in the outer run cuts the source.
