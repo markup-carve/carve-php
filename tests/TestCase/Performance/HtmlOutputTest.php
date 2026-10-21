@@ -9,6 +9,25 @@ use PHPUnit\Framework\TestCase;
 
 final class HtmlOutputTest extends TestCase
 {
+    public function testValidatedTextWithoutNbspStillEscapesMarkup(): void
+    {
+        $chunks = [];
+        $buffered = new HtmlOutput();
+        $streamed = new HtmlOutput(static function (string $chunk) use (&$chunks): void {
+            $chunks[] = $chunk;
+        });
+        foreach ([$buffered, $streamed] as $output) {
+            $output->setNbspPossible(false);
+            $output->text('plain text');
+            $output->text(' & <tag> "quote"');
+        }
+
+        $expected = 'plain text &amp; &lt;tag&gt; "quote"';
+        $this->assertSame($expected, $buffered->finish());
+        $this->assertSame('', $streamed->finish());
+        $this->assertSame($expected, implode('', $chunks));
+    }
+
     public function testBufferedAndStreamedFragmentsHaveIdenticalEscaping(): void
     {
         $chunks = [];
