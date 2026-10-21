@@ -2970,6 +2970,10 @@ class BlockParser
                 ? max(0, $openerRemoved - $payloadRemoved)
                 : 0;
             $currentLine = $this->fencedBlockParser->removeIndent($currentLine, $indentLen + $extraIndent);
+            $unindented = ltrim($currentLine, " \t");
+            if (str_starts_with($unindented, BlockGrammar::LAZY_FRAME)) {
+                $currentLine = $unindented;
+            }
             $currentLine = self::stripLazyFrame($currentLine);
 
             $payload[] = $currentLine;

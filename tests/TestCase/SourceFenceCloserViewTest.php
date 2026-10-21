@@ -153,8 +153,9 @@ class SourceFenceCloserViewTest extends TestCase
                                 continue;
                             }
                             if (
-                                IndentationHelper::getLeadingColumns($line, $openerColumn + 1) === $openerColumn
-                                && $fenced->isCodeFenceCloser(IndentationHelper::stripLeadingColumns($line, $openerColumn), '`', 3)
+                                (IndentationHelper::getLeadingColumns($line) === $bodyColumn
+                                    || IndentationHelper::getLeadingColumns($line) === $openerColumn)
+                                && $fenced->isCodeFenceCloser(IndentationHelper::stripLeadingColumns($line, IndentationHelper::getLeadingColumns($line)), '`', 3)
                             ) {
                                 $expected = true;
 
