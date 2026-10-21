@@ -490,8 +490,17 @@ final class DefinitionListBuilder
                 $bodyAtColumnBlock = false;
                 $attachedDefinitionListOpen = false;
                 $bodyListContentColumns = [];
+                $noteBodyColumn = null;
                 while ($i < $count) {
                     $contLine = $lines[$i];
+                    $contColumn = IndentationHelper::getLeadingColumns($contLine);
+                    $noteReleased = $noteBodyColumn !== null && !IndentationHelper::isBlankLine($contLine)
+                        && $contColumn < $noteBodyColumn;
+                    if ($contColumn >= $continuationColumn && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($contLine, " \t")) === 1) {
+                        $noteBodyColumn = $contColumn + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+                    } elseif ($noteReleased) {
+                        $noteBodyColumn = null;
+                    }
                     if (
                         $attachedDefinitionListOpen
                         && preg_match('/^[ \t]*\[/', $contLine) === 1
@@ -1333,9 +1342,9 @@ final class DefinitionListBuilder
                         $bodyEndsWithAttribute = false;
                         $nestedLazyParagraph = true;
                     }
-                    $paragraphOpen = $nestedLeadFence->length > 0
+                    $paragraphOpen = !$noteReleased && ($nestedLeadFence->length > 0
                         ? ($nestedLeadFence->closed && $nestedLeadFence->trailing->openParagraph)
-                        : ($bodyState->openParagraph || $nestedLazyParagraph || $bodyTermOpen);
+                        : ($bodyState->openParagraph || $nestedLazyParagraph || $bodyTermOpen));
                     $lastBodySource = $body === [] ? -1 : ($bodyMap[array_key_last($body)] ?? -1);
                     $attributeColumn = IndentationHelper::getLeadingColumns(
                         $this->state->source->sourceLines[$lastBodySource] ?? '',

@@ -1944,7 +1944,7 @@ final class ListBlockBuilder
                     $lines,
                     $j,
                     $count,
-                    BlockGrammar::FOOTNOTE_BODY_COLUMN,
+                    $noteBodyColumn,
                     false,
                 );
                 if ($resumes === null) {
@@ -1954,7 +1954,7 @@ final class ListBlockBuilder
 
                 continue;
             }
-            if (IndentationHelper::getLeadingColumns($candidate, BlockGrammar::FOOTNOTE_BODY_COLUMN) < BlockGrammar::FOOTNOTE_BODY_COLUMN) {
+            if (IndentationHelper::getLeadingColumns($candidate, $noteBodyColumn) < $noteBodyColumn) {
                 break;
             }
             $end = $j;
@@ -2217,6 +2217,7 @@ final class ListBlockBuilder
         $skipUntil = -1;
         $probeHadCodeFence = false;
         $hasRetainedTab = null;
+        $noteBodyColumn = null;
         foreach ($lines as $index => $line) {
             if ($beforeLeadNote !== null && $index === $leadNoteTextEnd + 1) {
                 $probeNestedColumns = $beforeLeadNote;
@@ -2230,6 +2231,11 @@ final class ListBlockBuilder
                 continue;
             }
             $base = IndentationHelper::getLeadingColumns($line);
+            if (preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($line, " \t")) === 1) {
+                $noteBodyColumn = $base + BlockGrammar::FOOTNOTE_BODY_COLUMN;
+            } elseif ($noteBodyColumn !== null && $base < $noteBodyColumn) {
+                $noteBodyColumn = null;
+            }
             if (
                 !$probeAfterBlank
                 && $probeNestedColumns !== []
@@ -2273,12 +2279,9 @@ final class ListBlockBuilder
             }
             $local = ltrim($line, " \t");
             $marker = ($this->getListParser)()->parseListItemMarker($local);
-            $noteMarker = $marker !== null && $index <= $leadNoteTextEnd;
+            $noteMarker = $marker !== null && ($index <= $leadNoteTextEnd || $noteBodyColumn !== null);
             if ($noteMarker) {
                 $beforeLeadNote ??= $probeNestedColumns;
-            } elseif ($beforeLeadNote !== null && !$hasBlank && $index > $leadNoteTextEnd + 1) {
-                // Only the block right under the note's text is released.
-                return false;
             }
             if ($marker !== null) {
                 if ($includeSublists && $base > 0 && $probeNestedColumns === []) {
@@ -3258,6 +3261,12 @@ final class ListBlockBuilder
                 $end = $this->rebasedListOrQuoteEnd($lines, $i, $count, $base);
             } elseif (($this->getTableParser)()->isTableRow($opener)) {
                 $end = $this->rebasedTableEnd($lines, $i, $count, $base);
+            } elseif (
+                preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1
+                && $firstContentLine !== null
+                && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, ltrim($lines[$firstContentLine], " \t")) !== 1
+            ) {
+                $end = $this->footnoteDefinitionBodyExtent($lines, $i, $count);
             } elseif (
                 preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $opener) === 1
                 || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PATTERN, $opener) === 1

@@ -945,7 +945,7 @@ final class BlockContinuationScanner
                 $nestedNoteBodyColumn = null;
             }
             if (
-                $markerNoteItem && $trailingState->fence === null && $openCommentLength === null
+                $trailingState->fence === null && $openCommentLength === null
                 && $nextIndent >= $contentIndent
                 && preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $nextTrimmed) === 1
             ) {
@@ -1723,7 +1723,6 @@ final class BlockContinuationScanner
                     && !$wasInFence
                     && $trailingState->fence === null
                     && !$inlineAuthoredFence
-                    && ($this->getListParser)()->parseListItemMarker($nextTrimmed) === null
                     && !($this->getFencedBlockParser)()->isCodeFenceHead($nextTrimmed, 0)
                 ) {
                     $trailingState->openParagraph = false;
