@@ -381,8 +381,27 @@ class BlockParser
             if ($commentFence !== null) {
                 continue;
             }
-            if (!str_contains($line, '+')) {
+            $plus = strpos($line, '+');
+            if ($plus === false) {
                 continue;
+            }
+            // First-block + markers have an owner, but no separate-line decision.
+            $firstBlock = $this->state->session->firstBlockMarkerOwner($this->state->source, $this->listParser, $index);
+            if (($firstBlock['kind'] ?? null) === 'list' && $firstBlock['depth'] === 0) {
+                $follower = $this->state->source->sourceLines[$index + 1] ?? null;
+                if ($follower !== null && trim($follower) !== '') {
+                    $followerColumn = ContinuationMarkerClassifier::columnAt($follower, strspn($follower, " \t"));
+                    $sibling = ($followerColumn === 0 || $followerColumn === $firstBlock['column'])
+                        && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) !== null;
+                    if ($sibling || $followerColumn !== 0 && $followerColumn !== $firstBlock['column']) {
+                        $markers[] = [
+                            'line' => $index + 1,
+                            'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
+                            'host' => 'list item',
+                            'reason' => $sibling ? 'sibling' : ($followerColumn < $firstBlock['column'] ? 'left' : 'right'),
+                        ];
+                    }
+                }
             }
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index);
             if ($decision['column'] < 0 || $decision['reason'] === null) {
@@ -397,15 +416,6 @@ class BlockParser
             if (($decision['owner']['kind'] ?? null) === 'footnote' && in_array($decision['reason'], ['blank', 'document'], true)) {
                 continue;
             }
-            if ($decision['reason'] === 'right' && ($decision['owner']['kind'] ?? null) === 'list') {
-                $follower = $this->state->source->sourceLines[$index + 1] ?? '';
-                if (
-                    IndentationHelper::getLeadingColumns($follower, $decision['owner']['content'] + 1)
-                    <= $decision['owner']['content']
-                ) {
-                    continue;
-                }
-            }
             $previous = $this->state->source->sourceLines[$index - 1] ?? '';
             if ($this->leadBottomOpensFence($previous) && $decision['column'] > IndentationHelper::getLeadingColumns($previous)) {
                 continue;
@@ -419,10 +429,6 @@ class BlockParser
                 ) {
                     continue;
                 }
-            }
-            $plus = strpos($line, '+');
-            if ($plus === false) {
-                continue;
             }
             $host = match ($decision['owner']['kind'] ?? null) {
                 'list' => 'list item',

@@ -159,7 +159,15 @@
       "description": "A line that is not flush-left follows the plus.",
       "source": "- a\n+\n  x\n",
       "expected": {
-        "findings": []
+        "findings": [
+          {
+            "line": 2,
+            "column": 1,
+            "includes": [
+              "+"
+            ]
+          }
+        ]
       }
     },
     {
