@@ -3019,7 +3019,7 @@ class BlockParser
                 $headerContainer,
                 $title,
                 $this->state->session->lineOffset + $start,
-                sourceMap: $this->openerTitleMap($start, $title),
+                sourceMap: $this->openerTitleMap($this->sourceLineFor($start), $title),
             );
             $div->setHeaderNodes($headerContainer->getChildren());
         }
