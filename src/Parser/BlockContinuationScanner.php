@@ -3250,8 +3250,8 @@ final class BlockContinuationScanner
      * Does a description body's fence find its closer in the SOURCE?
      *
      * §10 I4 opens a fence after a paragraph only when a closer follows, and
-     * `CARVE-P0-014` does not stop that search at a line below the body's
-     * column - the line ends the body, but the closer under it still counts.
+     * `CARVE-P0-014` searches past below-column lines that do not end the
+     * body. A visible block opener outside the body ends the search.
      * The body collector's own tracker asks {@see self::hasFenceCloserInView()}
      * of the lines it has COLLECTED, which stop at the line being classified,
      * so it cannot see such a closer and left the fence unarmed
@@ -3355,7 +3355,7 @@ final class BlockContinuationScanner
             }
 
             $end = $positions[$low] ?? count($lines);
-            if ($openerColumns > $bodyColumn) {
+            if ($openerColumns >= $bodyColumn) {
                 $visiblePositions = $frame->descriptionVisibleBoundaryPositions;
                 $visibleBoundaries = $frame->descriptionVisibleBoundaryView;
                 assert($visibleBoundaries !== null);
