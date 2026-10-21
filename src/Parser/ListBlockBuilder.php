@@ -868,12 +868,19 @@ final class ListBlockBuilder
             );
 
             $hasFoldedFenceRun = false;
+            $hasJoinedCloser = false;
+            $hasLazyFrame = false;
             foreach ($itemLines as $entry) {
                 $hasFoldedFenceRun = $hasFoldedFenceRun
                     || ($this->getFencedBlockParser)()->isCodeFenceHead(ltrim(BlockGrammar::stripLazyFrame($entry), " \t"), 0);
+                $hasJoinedCloser = $hasJoinedCloser || str_contains($entry, "\n");
+                $hasLazyFrame = $hasLazyFrame || str_starts_with($entry, BlockGrammar::LAZY_FRAME);
             }
             if (
                 $hasFoldedFenceRun
+                && ($hasJoinedCloser || (isset($itemLines[1])
+                    && !$hasLazyFrame
+                    && $this->fenceRunOpensNothing(ltrim($itemLines[1], " \t"), $itemLines, 1, 0)))
                 && $this->subContentHasLooseningBlank($itemLines, true) === BlockParser::GAP_LOOSENS
             ) {
                 $list->setTight(false);
