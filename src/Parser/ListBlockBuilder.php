@@ -1139,14 +1139,24 @@ final class ListBlockBuilder
             // between (markup-carve/carve-php#2140).
             $continuesCollectedList = $subSawListMarker
                 && ($this->getListParser)()->parseListItemMarker(ltrim(IndentationHelper::stripLeadingColumns($subLine, $subIndent), " \t")) !== null;
+            $nestedFenceMarker = false;
+            if ($subMarkerFence !== null && $lineIndent === $subIndent) {
+                $markerDecision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
+                $nestedFenceMarker = $markerDecision['reason'] === null
+                    && ($markerDecision['owner']['kind'] ?? null) === 'list'
+                    && $markerDecision['owner']['column'] === $subIndent;
+            }
             // An open fence, div or block comment still owns the line
             // (carve-php#2507, carve-php#2519).
-            if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv() && $subOpenCommentLength === null) {
+            if ($lineIndent === $subIndent && $maxContentIndent > $subIndent && $sawBlankLine && !$continuesCollectedList && !$nestedFenceMarker && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv() && $subOpenCommentLength === null) {
                 // Set flags so parent loop handles this as continuation content
                 $lastItemHadBlankAfter = true;
                 $brokeForParentContent = true;
 
                 break;
+            }
+            if ($nestedFenceMarker) {
+                $subMarkerFence = null;
             }
             // ADVANCED AFTER THE BREAK TEST, so the closer line is
             // still answered against the span it ends.
