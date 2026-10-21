@@ -31,6 +31,26 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
                 ":: t\n: a\n   ```\n~~~\n   ```\n",
                 "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>~~~\n</code></pre>\n</dd>\n</dl>",
             ],
+            'indented attribute inside an open fence' => [
+                ":: t\n: a\n   ```\n {.a}\n   ```\n",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>{.a}\n</code></pre>\n</dd>\n</dl>",
+            ],
+            'indented competing fence inside an open fence' => [
+                ":: t\n: a\n   ```\n  ~~~\n   ```\n",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>~~~\n</code></pre>\n</dd>\n</dl>",
+            ],
+            'tilde fence with a backtick payload' => [
+                ":: t\n: a\n   ~~~\n  ```\n   ~~~\n",
+                "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>```\n</code></pre>\n</dd>\n</dl>",
+            ],
+            'competing fence in a list at depth two' => [
+                "- x\n  - y\n    :: t\n    : a\n       ```\n      ~~~\n       ```\n",
+                "<ul>\n<li>x\n<ul>\n<li>y\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>~~~\n</code></pre>\n</dd>\n</dl>\n</li>\n</ul>\n</li>\n</ul>",
+            ],
+            'indented attribute in a quoted fence' => [
+                "> :: t\n> : a\n>    ```\n>  {.a}\n>    ```\n",
+                "<blockquote>\n<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code>{.a}\n</code></pre>\n</dd>\n</dl>\n</blockquote>",
+            ],
             'payload past the opener keeps its extra column' => [
                 ":: t\n: a\n   ```\n    x\n   ```\n",
                 "<dl>\n<dt>t</dt>\n<dd>\n<p>a</p>\n<pre><code> x\n</code></pre>\n</dd>\n</dl>",
@@ -88,6 +108,14 @@ class ADescriptionFenceCountsClosersInsideItsBodyTest extends TestCase
                 "<ul>\n<li>x\n<ul>\n<li>y\n{$body}\n</li>\n</ul>\n</li>\n</ul>",
             ],
             'one-column control' => [":: t\n: a\n  ```\n  ```\n", $body],
+            'nested separator div holds a code fence' => [
+                "{loose}\n:: parent\n\n:  {loose}\n   :: %%\n   :  ::: x\n      ```\n      code\n      ```\n",
+                "<dl>\n<dt>parent</dt>\n<dd>\n<dl>\n<dt></dt>\n<dd>\n<div class=\"x\">\n<pre><code>code\n</code></pre>\n</div>\n</dd>\n</dl>\n</dd>\n</dl>",
+            ],
+            'nested separator div holds a tilde fence' => [
+                ":: p\n:  :: t\n   :  ::: x\n      ~~~\n      code\n      ~~~\n",
+                "<dl>\n<dt>p</dt>\n<dd>\n<dl>\n<dt>t</dt>\n<dd>\n<div class=\"x\">\n<pre><code>code\n</code></pre>\n</div>\n</dd>\n</dl>\n</dd>\n</dl>",
+            ],
         ];
     }
 

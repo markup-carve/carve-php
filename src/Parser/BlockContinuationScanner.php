@@ -2808,10 +2808,11 @@ final class BlockContinuationScanner
                         $subject = $lines[$j];
                         if (
                             ($this->lineOpensBlockForLooseness($subject, true, invisibleArms: false)
-                                || $this->isBlockAttributeLine(ltrim($subject, " \t"))
+                                || (IndentationHelper::getLeadingColumns($subject) === 0
+                                    && $this->isBlockAttributeLine(ltrim($subject, " \t")))
                                 || ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($subject, " \t")) !== null)
-                            && ($this->getFencedBlockParser)()->parseCodeFenceOpener($subject) === null
-                            && ($this->getFencedBlockParser)()->parseRawBlockOpener($subject) === null
+                            && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($subject, " \t")) === null
+                            && ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($subject, " \t")) === null
                         ) {
                             $slot = count($frame->descriptionVisibleBoundaryPositions);
                             $frame->descriptionVisibleBoundaryPositions[] = $j;
@@ -2912,11 +2913,11 @@ final class BlockContinuationScanner
             if (
                 $openerColumns > $bodyColumn && $column < $bodyColumn
                 && ($this->lineOpensBlockForLooseness($line, true, invisibleArms: false)
-                    || $this->isBlockAttributeLine(ltrim($line, " \t"))
+                    || ($column === 0 && $this->isBlockAttributeLine(ltrim($line, " \t")))
                     || ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($line, " \t")) !== null
                     )
-                && ($this->getFencedBlockParser)()->parseCodeFenceOpener($line) === null
-                && ($this->getFencedBlockParser)()->parseRawBlockOpener($line) === null
+                && ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($line, " \t")) === null
+                && ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($line, " \t")) === null
             ) {
                 return false;
             }

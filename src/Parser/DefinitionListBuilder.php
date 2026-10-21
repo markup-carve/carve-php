@@ -542,6 +542,7 @@ final class DefinitionListBuilder
                 $bodyDefinition = [];
                 /** @var array<int, array{index: int, opener: array{fence: string, length: int, char?: string}, columns: int, nested: bool, eligible: bool, paragraph: bool}> $bodyFenceSource Fence-shaped body entries, by body index. */
                 $bodyFenceSource = [];
+                $nestedDescriptionBodyColumn = null;
                 /** @var array<int, array{strip: int, column: int, char: string, length: int}> $bodyEligibleFenceSource */
                 $bodyEligibleFenceSource = [];
                 // Whether the fence the tracker has open interrupted a paragraph
@@ -1176,6 +1177,8 @@ final class DefinitionListBuilder
                                 'opener' => $paragraphFence,
                                 'columns' => $contColumn,
                                 'nested' => $bodyNestedState->nestedColumn > 0 || $bodyAtColumnBlock
+                                    || ($nestedDescriptionBodyColumn !== null
+                                        && $contColumn >= $continuationColumn + $nestedDescriptionBodyColumn)
                                     || ($this->getListParser)()->parseListItemMarker(($body[0] ?? '')) !== null,
                                 'eligible' => !$paragraphFenceHasNoCloser,
                                 'paragraph' => $lastBodyKey !== null && ($body[$lastBodyKey] ?? '') !== ''
@@ -1342,6 +1345,20 @@ final class DefinitionListBuilder
                             $nestedLazyParagraph = true;
                         }
                         $entryColumn = $entry === $trimmedCont ? 0 : max(0, $contColumn - $continuationColumn);
+                        if (
+                            $nestedDescriptionBodyColumn !== null && $entryColumn < $nestedDescriptionBodyColumn
+                            && ($this->startsInterruptingBlock($trimmedCont, $lines, $i)
+                                || IndentationHelper::isBlankLine($body[count($body) - 1] ?? ''))
+                        ) {
+                            $nestedDescriptionBodyColumn = null;
+                        }
+                        if (
+                            $bodyState->fence === null
+                            && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $entry, $nestedDefinitionMatch) === 1
+                        ) {
+                            $nestedDescriptionBodyColumn = $entryColumn + BlockGrammar::DEFINITION_MARKER_WIDTH
+                                + strlen($nestedDefinitionMatch[1]);
+                        }
                         $entryMarker = $marker;
                         $reachesOuterBody = false;
                         $opensBlock = false;
@@ -1613,11 +1630,6 @@ final class DefinitionListBuilder
                         && $bodyOpenerBase !== null && $bodyOpenerBase > 0
                         && $indent < $continuationColumn
                         && !IndentationHelper::isBlankLine($contLine)
-                        && (!$this->lineOpensBlockForLooseness($contLine, true, invisibleArms: false)
-                            || ($this->getFencedBlockParser)()->parseCodeFenceOpener($trimmedCont) !== null
-                            || ($this->getFencedBlockParser)()->parseRawBlockOpener($trimmedCont) !== null)
-                        && !$this->isBlockAttributeLine($trimmedCont)
-                        && ($this->getFencedBlockParser)()->parseDivFenceOpener(ltrim($contLine, " \t")) === null
                     ) {
                         $body[] = str_repeat(' ', $continuationColumn) . BlockGrammar::LAZY_FRAME . ltrim($contLine, " \t");
                         $bodyMap[] = $this->sourceLineFor($i);
@@ -1786,6 +1798,8 @@ final class DefinitionListBuilder
                                 $normalizedFence['length'],
                             )
                         ) {
+                            $body[$bodyIndex] = $subject;
+                            $entry = $subject;
                             $normalizedFence = null;
                         } elseif (
                             $entryColumn > 0
