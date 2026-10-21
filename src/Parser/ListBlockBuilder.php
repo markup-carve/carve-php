@@ -3875,6 +3875,10 @@ final class ListBlockBuilder
         $boundary = $this->state->frame->currentContentColumns[$sourceLine] ?? 0;
         $leading = strspn($source, " \t");
         if ($markerColumn === $leading) {
+            $parsedLeading = strspn($parsedLine, " \t");
+            if (strcspn($source, "\t", 0, $leading) === $leading && strcspn($parsedLine, "\t", 0, $parsedLeading) === $parsedLeading) {
+                return min($leading, max(0, $leading - $parsedLeading));
+            }
             $markerVisualColumn = IndentationHelper::getLeadingColumns($source);
             $contentColumn = $markerVisualColumn - IndentationHelper::getLeadingColumns($parsedLine);
             $column = 0;
