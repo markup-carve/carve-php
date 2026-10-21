@@ -17,6 +17,40 @@ use MarkupCarve\Carve\Util\StringUtil;
  */
 final class BlockContinuationScanner
 {
+    public static function advanceDefinitionBody(?int $openColumn, string $line): ?int
+    {
+        if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $line, $match) === 1) {
+            return BlockGrammar::DEFINITION_MARKER_WIDTH + strlen($match[1]);
+        }
+        if ($openColumn === null || preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $line) === 1) {
+            return null;
+        }
+        if (IndentationHelper::isBlankLine($line)) {
+            return $openColumn;
+        }
+
+        return IndentationHelper::getLeadingColumns($line, $openColumn) >= $openColumn ? $openColumn : null;
+    }
+
+    /**
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $count
+     * @param int $contentIndent
+     * @param int $openColumn
+     */
+    public static function definitionBodyContinues(array $lines, int $index, int $count, int $contentIndent, int $openColumn): bool
+    {
+        $after = $index + 1 < $count ? $lines[$index + 1] : null;
+        if ($after === null || IndentationHelper::isBlankLine($after)) {
+            return false;
+        }
+
+        $bodyColumn = $contentIndent + $openColumn;
+
+        return IndentationHelper::getLeadingColumns($after, $bodyColumn) >= $bodyColumn;
+    }
+
     /**
      * @param \MarkupCarve\Carve\Parser\BlockParserState $state
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser

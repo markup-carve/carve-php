@@ -4951,31 +4951,7 @@ class BlockParser
      */
     protected function advanceItemDefinitionBody(?int $openColumn, string $line): ?int
     {
-        // A NEW BODY REPLACES THE OPEN ONE. Its separator sets a fresh column,
-        // so an entry whose two bodies are written apart does not measure the
-        // second against the first.
-        if (preg_match(self::DEFINITION_BODY_PATTERN, $line, $m) === 1) {
-            return self::DEFINITION_MARKER_WIDTH + strlen($m[1]);
-        }
-
-        if ($openColumn === null) {
-            return null;
-        }
-
-        // A TERM ENDS THE BODY ABOVE IT. The definition list stays open, but
-        // the entry it opens has no body yet, so there is no body column for a
-        // following blank to sit inside.
-        if (preg_match(self::DEFINITION_TERM_LINE_PREFIX, $line) === 1) {
-            return null;
-        }
-
-        if (IndentationHelper::isBlankLine($line)) {
-            return $openColumn;
-        }
-
-        return IndentationHelper::getLeadingColumns($line, $openColumn) >= $openColumn
-            ? $openColumn
-            : null;
+        return BlockContinuationScanner::advanceDefinitionBody($openColumn, $line);
     }
 
     /**
@@ -5007,14 +4983,7 @@ class BlockParser
         int $contentIndent,
         int $openColumn,
     ): bool {
-        $after = $index + 1 < $count ? $lines[$index + 1] : null;
-        if ($after === null || IndentationHelper::isBlankLine($after)) {
-            return false;
-        }
-
-        $bodyColumn = $contentIndent + $openColumn;
-
-        return IndentationHelper::getLeadingColumns($after, $bodyColumn) >= $bodyColumn;
+        return BlockContinuationScanner::definitionBodyContinues($lines, $index, $count, $contentIndent, $openColumn);
     }
 
     /**
