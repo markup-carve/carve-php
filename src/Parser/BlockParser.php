@@ -4449,7 +4449,9 @@ class BlockParser
      * Keep the ordinary parser's AST shape for a run of plain top-level items
      * without paying the continuation collector for every item.
      *
+     * @param \MarkupCarve\Carve\Node\Node $parent
      * @param array<string> $lines
+     * @param int $start
      */
     private function tryParsePlainTightList(Node $parent, array $lines, int $start): ?int
     {
