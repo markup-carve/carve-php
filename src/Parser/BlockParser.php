@@ -4166,6 +4166,7 @@ class BlockParser
             || !str_starts_with($lines[$start], '- ')
             || $this->state->source->trackPositions || $this->state->source->trackSourceLines
             || $this->collectWarnings || $this->strictMode
+            || LayoutWork::$on
             || $this->state->session->pendingAttributes !== []
             || $this->inlineParser::class !== InlineParser::class
             || $this->listParser::class !== ListParser::class
@@ -4184,7 +4185,10 @@ class BlockParser
         $count = count($lines);
         while ($i < $count && str_starts_with($lines[$i], '- ')) {
             $first = substr($lines[$i], 2);
-            if ($first === '' || !ctype_alnum($first[0]) || $first !== rtrim($first, " \t")) {
+            if (
+                $first === '' || !ctype_alnum($first[0]) || $first !== rtrim($first, " \t")
+                || $this->listParser->parseListItemMarker($first) !== null
+            ) {
                 return null;
             }
             $pieces = [$first];
