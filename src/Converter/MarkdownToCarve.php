@@ -3242,55 +3242,7 @@ class MarkdownToCarve
             }
         }
 
-        if ($this->movedFootnotes !== [] || $this->movedDefinitions !== []) {
-            while ($result !== [] && trim((string)end($result)) === '') {
-                array_pop($result);
-            }
-            foreach ($this->movedFootnotes as $index => $footnote) {
-                $this->inlineRunSourceLine = $this->movedFootnoteSourceLines[$index] ?? null;
-                if ($result !== []) {
-                    $result[] = '';
-                }
-                if (
-                    isset($this->movedFootnoteBlockBodies[$index])
-                    && preg_match('/^(\[\^(?:[^\]\\\\]|\\\\.)+\]:)[ \t]*(.*)$/', $footnote[0], $head) === 1
-                ) {
-                    $body = [$head[2]];
-                    foreach (array_slice($footnote, 1) as $line) {
-                        $body[] = $line === '' ? '' : substr($line, 4);
-                    }
-                    $importer = clone $this;
-                    $importer->importingFootnoteBody = true;
-                    $converted = rtrim($importer->convert(implode("\n", $body)), "\n");
-                    $this->mergeFootnoteDiagnostics($importer, ($this->movedFootnoteSourceLines[$index] ?? 1) - 1);
-                    $body = explode("\n", $converted);
-                    $firstLine = array_shift($body);
-                    $result[] = $this->convertInlineFormatting($head[1]) . ' ' . ($firstLine === '' ? '{empty}' : $firstLine);
-                    $blankRun = 0;
-                    foreach ($body as $line) {
-                        $blankRun = $line === '' ? $blankRun + 1 : 0;
-                        if ($blankRun >= 3) {
-                            $hardListBlanks[count($result)] = true;
-                        }
-                        $result[] = $line === '' ? '' : '  ' . $line;
-                    }
-
-                    continue;
-                }
-                array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
-            }
-            foreach ($this->movedDefinitions as $definition) {
-                $this->inlineRunSourceLine = null;
-                if ($result !== []) {
-                    $result[] = '';
-                }
-                $result[] = str_starts_with($definition, '[') && str_ends_with($definition, ']:') && !str_contains($definition, "\n")
-                    ? $definition : $this->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
-            }
-            if (CarveRenderer::importedSourceEndsWithNewline($markdown)) {
-                $result[] = '';
-            }
-        }
+        $this->appendMovedFootnotesAndDefinitions($result, $hardListBlanks, $markdown);
 
         $folded = [];
         $foldedSourceBlanks = [];
@@ -3436,6 +3388,64 @@ class MarkdownToCarve
         return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($body === ''
             ? $prefix . "\n"
             : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body), $carrierOriginal);
+    }
+
+    /**
+     * @param array<int, string|null> &$result
+     * @param array<int, true> &$hardListBlanks
+     * @param string $markdown
+     */
+    private function appendMovedFootnotesAndDefinitions(array &$result, array &$hardListBlanks, string $markdown): void
+    {
+        if ($this->movedFootnotes !== [] || $this->movedDefinitions !== []) {
+            while ($result !== [] && trim((string)end($result)) === '') {
+                array_pop($result);
+            }
+            foreach ($this->movedFootnotes as $index => $footnote) {
+                $this->inlineRunSourceLine = $this->movedFootnoteSourceLines[$index] ?? null;
+                if ($result !== []) {
+                    $result[] = '';
+                }
+                if (
+                    isset($this->movedFootnoteBlockBodies[$index])
+                    && preg_match('/^(\[\^(?:[^\]\\\\]|\\\\.)+\]:)[ \t]*(.*)$/', $footnote[0], $head) === 1
+                ) {
+                    $body = [$head[2]];
+                    foreach (array_slice($footnote, 1) as $line) {
+                        $body[] = $line === '' ? '' : substr($line, 4);
+                    }
+                    $importer = clone $this;
+                    $importer->importingFootnoteBody = true;
+                    $converted = rtrim($importer->convert(implode("\n", $body)), "\n");
+                    $this->mergeFootnoteDiagnostics($importer, ($this->movedFootnoteSourceLines[$index] ?? 1) - 1);
+                    $body = explode("\n", $converted);
+                    $firstLine = array_shift($body);
+                    $result[] = $this->convertInlineFormatting($head[1]) . ' ' . ($firstLine === '' ? '{empty}' : $firstLine);
+                    $blankRun = 0;
+                    foreach ($body as $line) {
+                        $blankRun = $line === '' ? $blankRun + 1 : 0;
+                        if ($blankRun >= 3) {
+                            $hardListBlanks[count($result)] = true;
+                        }
+                        $result[] = $line === '' ? '' : '  ' . $line;
+                    }
+
+                    continue;
+                }
+                array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
+            }
+            foreach ($this->movedDefinitions as $definition) {
+                $this->inlineRunSourceLine = null;
+                if ($result !== []) {
+                    $result[] = '';
+                }
+                $result[] = str_starts_with($definition, '[') && str_ends_with($definition, ']:') && !str_contains($definition, "\n")
+                    ? $definition : $this->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
+            }
+            if (CarveRenderer::importedSourceEndsWithNewline($markdown)) {
+                $result[] = '';
+            }
+        }
     }
 
     private function canonicalImportLayout(string $carve, string $markdown): string
