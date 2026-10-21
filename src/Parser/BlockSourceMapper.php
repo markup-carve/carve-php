@@ -1360,13 +1360,6 @@ final class BlockSourceMapper
                 $opening += strspn($fence[0], " \t");
             }
         }
-        if ($node instanceof ListBlock) {
-            $sourceLine = $this->state->source->sourceLines[$startLine] ?? '';
-            $prefix = substr($sourceLine, 0, $opening - $start);
-            if (str_contains($prefix, '>')) {
-                $opening += strspn($sourceLine, " \t", $opening - $start);
-            }
-        }
         $node->setPos($this->state->source->positionIndex?->span(
             min($opening, $endOffset),
             $endOffset,
