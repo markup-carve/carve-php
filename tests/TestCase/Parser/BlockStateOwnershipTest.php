@@ -13,6 +13,7 @@ use MarkupCarve\Carve\Parser\InlineParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use ReflectionProperty;
 use RuntimeException;
 
 class BlockStateOwnershipTest extends TestCase
@@ -47,7 +48,13 @@ class BlockStateOwnershipTest extends TestCase
                 if ($this->failNested && !$topLevel) {
                     throw new RuntimeException('nested failure');
                 }
-                parent::parseBlocks($parent, $lines, $indent, $lineMap, $topLevel, $itemBody);
+                $state = (new ReflectionProperty(BlockParser::class, 'state'))->getValue($this);
+                $before = [$state->frame->currentLineMap, $state->frame->currentContentColumns];
+                try {
+                    parent::parseBlocks($parent, $lines, $indent, $lineMap, $topLevel, $itemBody);
+                } finally {
+                    TestCase::assertSame($before, [$state->frame->currentLineMap, $state->frame->currentContentColumns]);
+                }
             }
         };
         $source = "- first\n  - nested\n\nAfter\n";
