@@ -633,6 +633,19 @@ trait BlockListMethods
     }
 
     /**
+     * The source column of a marker line's innermost content (`- - ```` opens its fence at column 4).
+     */
+    protected function leadBottomColumn(string $content): int
+    {
+        $rest = $content;
+        while (($offset = $this->listParser->markerContentOffset($rest)) !== null) {
+            $rest = substr($rest, $offset);
+        }
+
+        return IndentationHelper::getLeadingColumns($content) + strlen(ltrim($content, " \t")) - strlen($rest);
+    }
+
+    /**
      * Does the marker lead's bottom block open a code, raw, or verse fence?
      *
      * Asked of the same text {@see self::leadBottomIsContinuationMarker()} asks

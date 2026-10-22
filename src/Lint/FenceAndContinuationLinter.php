@@ -116,6 +116,9 @@ final class FenceAndContinuationLinter
                 'left', 'right' => 'Align the next block with the +, or delete the +.',
                 default => 'Move the + to a container marker column, or write it as text.',
             };
+            $lead = $marker['reason'] === 'wrong-column'
+                ? 'This + attaches nothing: no open container has a marker at its column, so the marker is refused in the %2$s. %3$s %4$s'
+                : 'This + attaches nothing: %s follows it, so the marker is refused in the %s. %s %s';
             $warnings[] = $this->warning(
                 $rows,
                 $marker['line'],
@@ -123,7 +126,7 @@ final class FenceAndContinuationLinter
                 1,
                 'continuation-marker-refused',
                 sprintf(
-                    'This + attaches nothing: %s follows it, so the marker is refused in the %s. %s %s',
+                    $lead,
                     $following,
                     $marker['host'],
                     $this->refusedMarkerEffect($marker, $rows[$marker['line'] - 1][0] ?? ''),
