@@ -9,7 +9,7 @@ namespace MarkupCarve\Carve\Converter\Html;
  *
  * @internal
  *
- * @phpstan-import-type Attrs from \MarkupCarve\Carve\Converter\Html\AstBuildResult
+ * @phpstan-import-type Attrs from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class ImportedAttributes
 {

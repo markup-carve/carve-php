@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Converter\Html\AstBuildResult;
+use MarkupCarve\Carve\Converter\HtmlAstBuildResult;
 use MarkupCarve\Carve\Converter\Html\ImportSession;
 use MarkupCarve\Carve\Converter\HtmlAstBuilder;
 use MarkupCarve\Carve\Node\Block\Paragraph;
@@ -165,7 +165,7 @@ class HtmlAstBuildResultTest extends TestCase
      */
     private function export(array $nodes): array
     {
-        return (new AstBuildResult([
+        return (new HtmlAstBuildResult([
             'type' => 'document',
             'srcByteLength' => 0,
             'children' => [['type' => 'paragraph', 'children' => $nodes]],

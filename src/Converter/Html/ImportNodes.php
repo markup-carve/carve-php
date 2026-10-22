@@ -9,12 +9,12 @@ namespace MarkupCarve\Carve\Converter\Html;
  *
  * @internal
  *
- * @phpstan-import-type FigureTargetNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type FigureNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type ParagraphNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
+ * @phpstan-import-type FigureTargetNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type FigureNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type ParagraphNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class ImportNodes
 {

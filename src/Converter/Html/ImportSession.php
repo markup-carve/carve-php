@@ -12,7 +12,7 @@ use SplObjectStorage;
  *
  * @internal
  *
- * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
+ * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class ImportSession
 {

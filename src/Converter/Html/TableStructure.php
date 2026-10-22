@@ -11,8 +11,8 @@ use DOMElement;
  *
  * @internal
  *
- * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
+ * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class TableStructure
 {

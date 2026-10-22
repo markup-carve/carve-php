@@ -18,7 +18,6 @@ $legacyClasses = [
     'MarkupCarve\\Carve\\Converter\\DjotNoteStack' => 'MarkupCarve\\Carve\\Converter\\Djot\\NoteStack',
     'MarkupCarve\\Carve\\Converter\\DjotPlaceholderPrefix' => 'MarkupCarve\\Carve\\Converter\\Djot\\PlaceholderPrefix',
     'MarkupCarve\\Carve\\Converter\\DjotTightDefinitionDescriptions' => 'MarkupCarve\\Carve\\Converter\\Djot\\TightDefinitionDescriptions',
-    'MarkupCarve\\Carve\\Converter\\HtmlAstBuildResult' => 'MarkupCarve\\Carve\\Converter\\Html\\AstBuildResult',
     'MarkupCarve\\Carve\\Converter\\HtmlAttributePolicy' => 'MarkupCarve\\Carve\\Converter\\Html\\AttributePolicy',
     'MarkupCarve\\Carve\\Converter\\HtmlCarrierNames' => 'MarkupCarve\\Carve\\Converter\\Html\\CarrierNames',
     'MarkupCarve\\Carve\\Converter\\HtmlDomLoader' => 'MarkupCarve\\Carve\\Converter\\Html\\DomLoader',

@@ -2,9 +2,10 @@
 
 declare(strict_types=1);
 
-namespace MarkupCarve\Carve\Converter\Html;
+namespace MarkupCarve\Carve\Converter;
 
 use LogicException;
+use MarkupCarve\Carve\Converter\Html\ImportSession;
 
 // phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation -- These are PHPStan aliases, not class names.
 /**
@@ -26,7 +27,7 @@ use LogicException;
  * @phpstan-type TableRowNode array{type: 'table_row', cells: list<TableCellNode>, attrs?: Attrs}
  */
 // phpcs:enable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation
-final class AstBuildResult
+final class HtmlAstBuildResult
 {
     /**
      * @phpstan-param DocumentTree $tree

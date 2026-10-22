@@ -13,7 +13,6 @@ use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
-use MarkupCarve\Carve\Converter\Html\AstBuildResult;
 use MarkupCarve\Carve\Converter\Html\AttributePolicy;
 use MarkupCarve\Carve\Converter\Html\CarrierNames;
 use MarkupCarve\Carve\Converter\Html\DomLoader;
@@ -40,15 +39,15 @@ use Throwable;
  *
  * @internal
  *
- * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type CodeBlockNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type ContainerNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type FigureGroupNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type DocumentTree from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type Attrs from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type MathNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
- * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\Html\AstBuildResult
+ * @phpstan-import-type ImportedNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type CodeBlockNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type ContainerNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type FigureGroupNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type DocumentTree from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type Attrs from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type TableCellNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type MathNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
+ * @phpstan-import-type TableRowNode from \MarkupCarve\Carve\Converter\HtmlAstBuildResult
  */
 final class HtmlAstBuilder
 {
@@ -505,7 +504,7 @@ final class HtmlAstBuilder
         return $this->buildResult($html, $sourceByteLength)->tree;
     }
 
-    public function buildResult(string $html, ?int $sourceByteLength = null): AstBuildResult
+    public function buildResult(string $html, ?int $sourceByteLength = null): HtmlAstBuildResult
     {
         $this->session = new ImportSession();
         $document = DomLoader::fragment($html);
@@ -513,7 +512,7 @@ final class HtmlAstBuilder
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
-            return new AstBuildResult(['type' => 'document', 'srcByteLength' => $sourceByteLength ?? strlen($html), 'children' => []], $this->session, $this->sourceSafe);
+            return new HtmlAstBuildResult(['type' => 'document', 'srcByteLength' => $sourceByteLength ?? strlen($html), 'children' => []], $this->session, $this->sourceSafe);
         }
 
         $allEndnoteItems = [];
@@ -710,7 +709,7 @@ final class HtmlAstBuilder
 
         $tree['children'] = self::nodeList($tree['children']);
 
-        return new AstBuildResult($tree, $this->session, $this->sourceSafe, !$this->sourceSafe);
+        return new HtmlAstBuildResult($tree, $this->session, $this->sourceSafe, !$this->sourceSafe);
     }
 
     /**

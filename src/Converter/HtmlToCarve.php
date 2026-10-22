@@ -12,7 +12,6 @@ use DOMText;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Converter\Html\AstBuildResult;
 use MarkupCarve\Carve\Converter\Html\AttributePolicy;
 use MarkupCarve\Carve\Converter\Html\CarrierNames;
 use MarkupCarve\Carve\Converter\Html\DomLoader;
@@ -4985,7 +4984,7 @@ class HtmlToCarve
      */
     private array $sourcePartitionDiagnostics = [];
 
-    private ?AstBuildResult $inspectedAst = null;
+    private ?HtmlAstBuildResult $inspectedAst = null;
 
     private ?string $inspectedAstHtml = null;
 
