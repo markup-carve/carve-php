@@ -28,6 +28,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Markdown migration keeps a destination's brackets and non-ASCII characters as written, assesses standalone images correctly, and resolves case-only heading fragments with a fixup report (#3547, #3552, #3571, #3572, #3577, markup-carve/carve#3323, markup-carve/carve#3372, markup-carve/carve#3373, markup-carve/carve#3378).
 - BBCode migration reads quote attribution fields consistently and reports dropped fields as `bbcode-quote-field-dropped` (#3542, #3545, #3569, markup-carve/carve#3341, markup-carve/carve#3357).
 - `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, #3559, #3560).
+- Lint reports a first-block `+` in a footnote or description that nothing below can attach: the end of the input, a blank line, or an indented line (markup-carve/carve#3519).
 
 ### Improvements
 - Lint warns on a `:` or `::` below the column of the definition list it would continue with `description-separator-below-content-column` (#3714).

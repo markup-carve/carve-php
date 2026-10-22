@@ -395,18 +395,28 @@ class BlockParser
                     }
                 }
             }
-            // CARVE-P9-067: a note's or a description's first-block form pulls no column-0 list.
+            // CARVE-P9-067: a note's or a description's first-block form pulls no column-0 list and refuses a missing
+            // or indented follower; the parser already records a description's blank or end.
             if (in_array($firstBlock['kind'] ?? null, ['footnote', 'description'], true)) {
-                $follower = $this->state->source->sourceLines[$index + 1] ?? '';
-                if (
-                    ContinuationMarkerClassifier::columnAt($follower, strspn($follower, " \t")) === 0
-                    && $this->listParser->parseListItemMarker($follower) !== null
-                ) {
+                $follower = $this->state->source->sourceLines[$index + 1] ?? null;
+                if ($follower === '' && $index + 1 === array_key_last($this->state->source->sourceLines)) {
+                    $follower = null;
+                }
+                $followerColumn = ContinuationMarkerClassifier::columnAt($follower ?? '', strspn($follower ?? '', " \t"));
+                $reason = null;
+                if ($follower !== null && $followerColumn === 0 && $this->listParser->parseListItemMarker($follower) !== null) {
+                    $reason = 'list';
+                } elseif ($firstBlock['depth'] === 0 && ($follower === null || trim($follower) === '')) {
+                    $reason = $firstBlock['kind'] === 'footnote' ? ($follower === null ? 'document' : 'blank') : null;
+                } elseif ($firstBlock['depth'] === 0 && $followerColumn > $firstBlock['column']) {
+                    $reason = 'right';
+                }
+                if ($reason !== null) {
                     $markers[] = [
                         'line' => $index + 1,
                         'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
                         'host' => $firstBlock['kind'] === 'footnote' ? 'footnote body' : 'definition description',
-                        'reason' => 'list',
+                        'reason' => $reason,
                     ];
                 }
             }
