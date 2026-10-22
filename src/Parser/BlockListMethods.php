@@ -1331,6 +1331,10 @@ trait BlockListMethods
         if ($this->isBlockAttributeLine($line)) {
             return true;
         }
+        // The wrapped spelling `{.c` / `}` is the same attribute line (PART 0, "applies T once").
+        if ($lines !== null && $index !== null && $this->startsWrappedBlockAttributes($line, $lines, $index)) {
+            return true;
+        }
 
         return $this->isBlockElementStart($line, $lines, $index)
             || $this->startsNewBlock($line, $lines, $index);

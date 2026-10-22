@@ -82,7 +82,7 @@ final class BlockContinuationScanner
      * @param \Closure(string, int): bool $isCommentLineOrFenceCallback
      * @param \Closure(string): bool $isContinuationMarkerCallback
      * @param \Closure(string): bool $isDefinitionLineForEnclosingItemCallback
-     * @param \Closure(string): bool $isFoldableInvisibleLineCallback
+     * @param \Closure(string, array<string>|null=, int|null=): bool $isFoldableInvisibleLineCallback
      * @param \Closure(string): bool $isReferenceDefinitionLineCallback
      * @param \Closure(array<string>, int): int $lastCommentFenceIndexCallback
      * @param \Closure(string, bool, bool): bool $lineOpensBlockForLoosenessCallback
@@ -240,7 +240,7 @@ final class BlockContinuationScanner
                 && IndentationHelper::getLeadingColumns($nextLine, 1) === 0
                 && !$this->isBlockElementStart(ltrim($nextLine, " \t"), $lines, $i)
                 && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
-                && !$this->isFoldableInvisibleLine(ltrim($nextLine, " \t"))
+                && !$this->isFoldableInvisibleLine(ltrim($nextLine, " \t"), $lines, $i)
             ) {
                 $itemLines[] = ' ' . ltrim($nextLine, " \t");
                 $itemLineMap[] = $this->sourceLineFor($i);
@@ -4257,9 +4257,14 @@ final class BlockContinuationScanner
         return ($this->isDefinitionLineForEnclosingItemCallback)($line);
     }
 
-    private function isFoldableInvisibleLine(string $line): bool
+    /**
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
+     */
+    private function isFoldableInvisibleLine(string $line, ?array $lines = null, ?int $index = null): bool
     {
-        return ($this->isFoldableInvisibleLineCallback)($line);
+        return ($this->isFoldableInvisibleLineCallback)($line, $lines, $index);
     }
 
     private function isReferenceDefinitionLine(string $line): bool

@@ -4805,11 +4805,18 @@ class BlockParser
      * the nested parse one entry holding a newline - which no longer matched the
      * term pattern, so the definition list was never built
      * (markup-carve/carve-php#2632).
+     *
+     * @param string $line
+     * @param array<string>|null $lines
+     * @param int|null $index
      */
-    protected function isFoldableInvisibleLine(string $line): bool
+    protected function isFoldableInvisibleLine(string $line, ?array $lines = null, ?int $index = null): bool
     {
         if (preg_match('/^[ \t]*%%/', $line) === 1) {
             return false;
+        }
+        if ($lines !== null && $index !== null && $this->startsWrappedBlockAttributes(ltrim($line, " \t"), $lines, $index)) {
+            return true;
         }
 
         return $this->isInvisibleOrAttributeLine($line, false);
@@ -5496,6 +5503,9 @@ class BlockParser
         if ($this->isInvisibleOrAttributeLine($line)) {
             return true;
         }
+        if ($lines !== null && $index !== null && $this->startsWrappedBlockAttributes(ltrim($line, " \t"), $lines, $index)) {
+            return true;
+        }
 
         return $this->startsNewBlock($line, $lines, $index);
     }
@@ -5527,6 +5537,35 @@ class BlockParser
         // (carve-php#1877, markup-carve/carve#1903). Removing it is what lets
         // that case answer, and it had never been reached before.
         return $this->startsInterruptingBlock($line, $lines, $index);
+    }
+
+    /**
+     * Whether `$line` (the trimmed `$lines[$index]`) opens a block attribute that closes on a later line.
+     *
+     * @param string $line
+     * @param array<string> $lines
+     * @param int $index
+     */
+    protected function startsWrappedBlockAttributes(string $line, array $lines, int $index): bool
+    {
+        if (!str_starts_with($line, '{') || !isset($lines[$index + 1]) || WrappedBlockAttributeScanner::singleLinePayload($line) !== null) {
+            return false;
+        }
+        // Copy only the run the scanner can read: up to a closing line, a blank or an invalid fragment.
+        $run = [$line];
+        for ($next = $index + 1; isset($lines[$next]); $next++) {
+            $run[] = $lines[$next];
+            if (
+                preg_match('/\}[ \t]*$/', $lines[$next]) === 1 || IndentationHelper::isBlankLine($lines[$next])
+                || !$this->inlineParser->isValidAttrPayload(ltrim($lines[$next], " \t"))
+            ) {
+                break;
+            }
+        }
+        $match = WrappedBlockAttributeScanner::scan($run, 0, $this->inlineParser);
+
+        return $match !== null && $match['length'] > 1
+            && preg_match('/^[.#:a-zA-Z_]/', $match['payload']) === 1;
     }
 
     public function descriptionContinuationOpener(string $line): string
