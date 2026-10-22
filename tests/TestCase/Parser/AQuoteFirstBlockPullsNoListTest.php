@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Lint\DocumentLinter;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
@@ -35,6 +36,24 @@ final class AQuoteFirstBlockPullsNoListTest extends TestCase
         $expected = str_replace('<p>x', '<p>+', (new CarveConverter())->convert($letter));
 
         $this->assertSame($expected, (new CarveConverter())->convert($source));
+    }
+
+    #[DataProvider('provider')]
+    public function testLintReportsTheRefusedPlus(string $source): void
+    {
+        $lines = explode("\n", $source);
+        $line = 0;
+        foreach ($lines as $index => $text) {
+            if (str_ends_with($text, '> +')) {
+                $line = $index + 1;
+            }
+        }
+        $found = array_map(
+            static fn ($warning): string => $warning->rule . '@' . $warning->line . ':' . $warning->column,
+            (new DocumentLinter())->lint($source),
+        );
+
+        $this->assertSame(['continuation-marker-refused@' . $line . ':' . strlen($lines[$line - 1])], $found);
     }
 
     public function testTheListLineFoldsIntoTheQuotedPlus(): void

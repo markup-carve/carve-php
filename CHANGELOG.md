@@ -41,7 +41,6 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - A wrapped block attribute (`{.c` / `}`) below an item, quote or refused nested `+` paragraph closes it and reaches the next block, as the one-line `{.c}` does; it no longer folds as text or loses its class, also below an item whose last block is a nested list (#3737, #3741; markup-carve/carve#3421).
 - A `> +` below a quote opened on a description's first line (`: > > q`) or on an item's marker line inside a quote (`> - > > q`) attaches its follower like the top-level twin `> > q` / `> +` / `> > r`, instead of folding into one paragraph (#3743; markup-carve/carve#3528).
 - A first-block `> +` in a list item no longer pulls a list item at the quote's column (`- > +` / `  - b`): the first-block form takes only non-list blocks, so the `+` stays text, the list line folds into it, and lint reports the `+` (#3736; markup-carve/carve#3421).
-- A first-block `> +` in a list item no longer pulls a list item at the quote's column (`- > +` / `  - b`): the first-block form takes only non-list blocks, so the `+` stays text, the list line folds into it, and lint reports the `+` (#3736; markup-carve/carve#3421).
 - Lint says what a refused first-block `+` leaves behind (an empty item or description, an indented follower placed by the column rules, or text in a note or quote) and reports a refused first-block `> +` (#3721; markup-carve/carve#3524).
 
 ### Improvements
