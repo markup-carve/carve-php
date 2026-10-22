@@ -35,6 +35,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Lint reports a first-block `+` in a footnote or description that is refused because a column-0 list follows it, with the reason `a list` (#3715; markup-carve/carve#3482).
 - A blank line before a `+` that continues a sub-list opened on its parent's marker line (`- - item`) now loosens the outer list in the AST, as the indented spelling already did. HTML is unchanged (#3717).
 - `list-item-block-overindented` no longer fires on a block placed at the content column of a description inside a list item (#3722).
+- A `> +` on its own line in a list item or description, or a `- > +` on the marker line, attaches the block at its own column to that quote, at any item depth (markup-carve/carve#3421).
 - Lint says what a refused first-block `+` leaves behind (an empty item or description, an indented follower placed by the column rules, or text in a note or quote) and reports a refused first-block `> +` (#3721; markup-carve/carve#3524).
 
 ### Improvements

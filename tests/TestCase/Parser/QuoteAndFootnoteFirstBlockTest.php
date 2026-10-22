@@ -32,4 +32,56 @@ class QuoteAndFootnoteFirstBlockTest extends TestCase
     {
         self::assertStringContainsString($expected, (new CarveConverter())->convert($source));
     }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function itemQuoteCases(): iterable
+    {
+        yield 'item quote takes paragraph' => [
+            "- a\n  > +\n  q\n",
+            "<ul>\n  <li>a\n    <blockquote><p>q</p></blockquote>\n  </li>\n</ul>",
+        ];
+
+        yield 'nested item quote takes table' => [
+            "1. a\n   - b\n     > +\n     | c |\n",
+            "<ol>\n  <li>a\n    <ul>\n      <li>b\n        <blockquote>\n          <table>\n            <tbody>\n"
+            . "              <tr><td>c</td></tr>\n            </tbody>\n          </table>\n        </blockquote>\n"
+            . "      </li>\n    </ul>\n  </li>\n</ol>",
+        ];
+
+        yield 'nested item quote takes fence' => [
+            "- a\n  - b\n    > +\n    ```\n    x\n    ```\n",
+            "<ul>\n  <li>a\n    <ul>\n      <li>b\n        <blockquote>\n          <pre><code>x\n</code></pre>\n"
+            . "        </blockquote>\n      </li>\n    </ul>\n  </li>\n</ul>",
+        ];
+
+        yield 'item quote continued by a quoted line keeps plus' => [
+            "- a\n  > +\n  > q\n",
+            "<ul>\n  <li>a\n    <blockquote><p>+\nq</p></blockquote>\n  </li>\n</ul>",
+        ];
+
+        yield 'item quote leaves a column-zero table outside' => [
+            "- a\n\n  > +\n| t |\n",
+            "<ul>\n  <li>a\n    <blockquote><p>+</p></blockquote>\n  </li>\n</ul>\n<table>\n  <tbody>\n"
+            . "    <tr><td>t</td></tr>\n  </tbody>\n</table>",
+        ];
+
+        yield 'marker-line quote takes paragraph at its column' => [
+            "- > +\n  x\n",
+            "<ul>\n  <li>\n    <blockquote><p>x</p></blockquote>\n  </li>\n</ul>",
+        ];
+
+        yield 'marker-line quote takes table at its column' => [
+            "- > +\n  | c |\n",
+            "<ul>\n  <li>\n    <blockquote>\n      <table>\n        <tbody>\n          <tr><td>c</td></tr>\n"
+            . "        </tbody>\n      </table>\n    </blockquote>\n  </li>\n</ul>",
+        ];
+    }
+
+    #[DataProvider('itemQuoteCases')]
+    public function testItemQuoteFirstBlockForm(string $source, string $expected): void
+    {
+        self::assertSame($expected, trim((new CarveConverter())->convert($source)));
+    }
 }

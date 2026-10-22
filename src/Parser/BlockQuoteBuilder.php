@@ -579,7 +579,7 @@ final class BlockQuoteBuilder
         return $depth;
     }
 
-    private function firstBlockQuoteFollowerAtOrigin(int $start, int $follower): bool
+    private function firstBlockQuoteFollowerAtOrigin(int $start, int $follower, string $openingLine): bool
     {
         $opening = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
         $next = $this->state->source->sourceLines[$this->sourceLineFor($follower)] ?? '';
@@ -588,12 +588,13 @@ final class BlockQuoteBuilder
             return false;
         }
         $openingDepth = 0;
-        while (($rest = ContainerPrefix::quoteContent($opening)) !== null) {
-            $opening = $rest;
+        $openingBody = ltrim($opening, " \t");
+        while (($rest = ContainerPrefix::quoteContent($openingBody)) !== null) {
+            $openingBody = $rest;
             $openingDepth++;
         }
         $nextDepth = 0;
-        $nextBody = $next;
+        $nextBody = ltrim($next, " \t");
         while (($rest = ContainerPrefix::quoteContent($nextBody)) !== null) {
             $nextBody = $rest;
             $nextDepth++;
@@ -610,7 +611,13 @@ final class BlockQuoteBuilder
             return false;
         }
 
-        return $column === 0 || $column === IndentationHelper::getLeadingColumns($opening);
+        if ($column === 0 || $column === IndentationHelper::getLeadingColumns($opening)) {
+            return true;
+        }
+
+        // A `- > +` quote sits past its list marker, so a follower at its `>` column attaches too.
+        return ($this->getListParser)()->parseListItemMarker(ltrim($opening, " \t")) !== null
+            && $column === ContinuationMarkerClassifier::columnAt($opening, $this->quoteMarkerColumn($start, $openingLine));
     }
 
     /**
@@ -665,11 +672,11 @@ final class BlockQuoteBuilder
         }
         $nestedFirstBlock = ($openingOwner['kind'] ?? null) === 'quote' && $contentQuoteDepth > 0
             && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
-            && $this->firstBlockQuoteFollowerAtOrigin($start, $i);
+            && $this->firstBlockQuoteFollowerAtOrigin($start, $i, $lines[$start]);
         $firstBlock = ($openingOwner['kind'] ?? null) === 'quote' && $openingOwner['column'] === $contentColumn
             && $contentQuoteDepth === 0 && isset($lines[$i])
             && !IndentationHelper::isBlankLine($lines[$i])
-            && $this->firstBlockQuoteFollowerAtOrigin($start, $i);
+            && $this->firstBlockQuoteFollowerAtOrigin($start, $i, $lines[$start]);
         if ($firstBlock) {
             $opening = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
             $origin = IndentationHelper::getLeadingColumns($opening);

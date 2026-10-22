@@ -1109,7 +1109,11 @@ final class ListBlockBuilder
             $firstBlockOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $sourceLine - 1);
             // A marker-shaped payload line cannot attach a block outside the
             // open fence. Its closer is still read in this stream.
-            if ($firstBlockOwner !== null && $subTrailingState->fence === null && !$this->continuationMarkerHasIndentedFollower($i, $count, $lines)) {
+            // A `> +` on its own line takes its follower at the quote's column, so that line stays item content.
+            if (
+                $firstBlockOwner !== null && $subTrailingState->fence === null && !$this->continuationMarkerHasIndentedFollower($i, $count, $lines)
+                && ($firstBlockOwner['kind'] !== 'quote' || !str_starts_with(ltrim($lines[$i - 1] ?? '', " \t"), '>'))
+            ) {
                 [$end, $attached, $rawMap] = $this->collectListContinuationBlock($lines, $i, $count, $baseIndent);
                 foreach ($attached as $at => $attachedLine) {
                     $subLines[] = $attachedLine;
