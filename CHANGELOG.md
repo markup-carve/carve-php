@@ -35,6 +35,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `carve lint` checks included content when given an include root and reports near misses for consumed `table` and `loose` keys (#3557, #3561, markup-carve/carve#3339, markup-carve/carve#3340).
 
 ### Performance
+- Plain loose bullet lists at the document root now build directly as AST nodes, reducing parse and conversion time without changing output (#3710).
 - Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers, borrowed HTML and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698, #3701; ee152759).
 - Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
 
