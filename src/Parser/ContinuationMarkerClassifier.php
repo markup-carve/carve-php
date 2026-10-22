@@ -186,7 +186,7 @@ final class ContinuationMarkerClassifier
             if (
                 $depth > 0 && $depth >= $deepestQuote && $owner === null && !$listInQuote && self::isPlus($body)
                 && ($this->lists->parseListItemMarker(ltrim($nextBody, " \t")) === null
-                    || $this->lists->parseListItemMarker($nextLine) !== null)
+                    || $this->lists->parseListItemMarker(ltrim($nextLine, " \t")) !== null)
             ) {
                 $this->firstBlocks[$index] = ['kind' => 'quote', 'column' => $column, 'depth' => $depth, 'content' => $column, 'first' => true];
             }
