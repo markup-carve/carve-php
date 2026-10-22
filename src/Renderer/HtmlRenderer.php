@@ -1342,8 +1342,25 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 return false;
             }
             foreach ($item->getChildren()[0]->getChildren() as $inline) {
-                if ($inline::class !== Text::class || str_contains($inline->getContent(), "\n")) {
+                if ($inline::class === Text::class) {
+                    if (str_contains($inline->getContent(), "\n")) {
+                        return false;
+                    }
+
+                    continue;
+                }
+                if (
+                    $inline::class !== Strong::class
+                    || $this->hasListenersFor('render.strong')
+                    || $this->hasListenersFor('render.text')
+                    || $this->getRenderableAttributes($inline) !== []
+                ) {
                     return false;
+                }
+                foreach ($inline->getChildren() as $child) {
+                    if ($child::class !== Text::class || str_contains($child->getContent(), "\n")) {
+                        return false;
+                    }
                 }
             }
         }
