@@ -56,6 +56,8 @@ final class DescriptionSeparatorBelowContentColumnTest extends TestCase
             'quote' => ["> - a\n>   :: term\n>  : detail\n", 3, 4, ':', 4],
             'quoted blank' => ["> - a\n>   :: term\n>\n>  : detail\n", 4, 4, ':', 4],
             'term marker' => ["- a\n  :: term\n :: next\n", 3, 2, '::', 2],
+            'marker-line term' => ["- :: t\n:  head\n", 2, 1, ':', 2],
+            'quoted marker-line term' => ["> - :: t\n> :  d\n", 2, 3, ':', 4],
         ];
     }
 
