@@ -12,7 +12,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ## [0.1.14] - 2026-10-22
 
 ### Fixes
-- A quote-prefixed `+` needs one space after each `>`: `>+`, `>>+` and `>> +` read as text, and a `> +` attaches a following quote to the item, description, note or inner quote at its column (markup-carve/carve#3421).
+- A quote-prefixed `+` needs one space after each `>`: `>+`, `>>+` and `>> +` read as text, and a `> +` attaches a following quote to the item, description, note or inner quote at its column (#3725; markup-carve/carve#3421).
 - Borrowed HTML keeps Unicode letters and inline markup after inactive extensions register. Autolink fallbacks, link-label parentheses and brackets, angle destinations, bare URLs, paragraph links with pipes, and fixed smart symbols now keep their intended text (#3579, #3581, #3584, #3608, #3612, #3628, #3699).
 - Continuation markers and refused `+` lines follow their list or quote column, including relative column zero, open fences and blank followers. Lint reports refusals and the ordered-list and below-content-column traps at the authored column (#3592, #3594, #3596, #3602, #3613, #3624, #3659, #3675, #3678, #3680, #3691).
 - Nested marker-line fences keep the right blank payload and end at the right owner. Unterminated tilde runs, quoted tight-list fences and folded fence paragraphs now leave later list blocks and tightness in the correct state (#3582, #3595, #3622, #3626, #3665, #3668, #3671, #3692, #3695).
@@ -30,18 +30,21 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Markdown migration keeps a destination's brackets and non-ASCII characters as written, assesses standalone images correctly, and resolves case-only heading fragments with a fixup report (#3547, #3552, #3571, #3572, #3577, markup-carve/carve#3323, markup-carve/carve#3372, markup-carve/carve#3373, markup-carve/carve#3378).
 - BBCode migration reads quote attribution fields consistently and reports dropped fields as `bbcode-quote-field-dropped` (#3542, #3545, #3569, markup-carve/carve#3341, markup-carve/carve#3357).
 - `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, #3559, #3560).
-- Lint reports a first-block `+` in a footnote or description that nothing below can attach: the end of the input, a blank line, or an indented line (markup-carve/carve#3519).
+- Lint reports a first-block `+` in a footnote or description that nothing below can attach: the end of the input, a blank line, or an indented line (#3719; markup-carve/carve#3519).
+- Lint reports a first-block `+` in a footnote or description that is refused because a column-0 list follows it, with the reason `a list` (#3715; markup-carve/carve#3482).
+- A blank line before a `+` that continues a sub-list opened on its parent's marker line (`- - item`) now loosens the outer list in the AST, as the indented spelling already did. HTML is unchanged (#3717).
 - `list-item-block-overindented` no longer fires on a block placed at the content column of a description inside a list item (#3722).
 - Lint says what a refused first-block `+` leaves behind (an empty item or description, an indented follower placed by the column rules, or text in a note or quote) and reports a refused first-block `> +` (#3721; markup-carve/carve#3524).
 
 ### Improvements
-- Lint warns on a `:` or `::` below the column of the definition list it would continue with `description-separator-below-content-column` (#3714).
+- Lint warns on a `:` or `::` below the column of the definition list it would continue with `description-separator-below-content-column`, including a definition list opened on a list item's marker line (#3714, #3716).
 - `carve fmt --align-tables` aligns table columns by display width; the PHP formatter and converter expose the option (#3546).
 - Includes can insert a whole file or selected region as a code block (#3544).
-- `carve lint` checks included content when given an include root and reports near misses for consumed `table` and `loose` keys (#3557, #3561, markup-carve/carve#3339, markup-carve/carve#3340).
+- `carve lint` checks included content when given an include root and reports near misses for consumed `table` and `loose` keys. In PHP, `DocumentLinter` runs every default lint pass in one call and `IncludeLinter` adds include expansion (#3557, #3561, markup-carve/carve#3339, markup-carve/carve#3340).
 
 ### Performance
 - Plain loose bullet lists at the document root now build directly as AST nodes, reducing parse and conversion time without changing output (#3710).
+- Single-line top-level quotes parse with less work, and plain loose bullet lists render straight from their AST nodes, without changing output (#3723, #3726).
 - Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers, borrowed HTML and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3598, #3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698, #3701; ee152759).
 - Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
 
