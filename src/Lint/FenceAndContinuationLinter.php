@@ -122,11 +122,37 @@ final class FenceAndContinuationLinter
                 $marker['column'],
                 1,
                 'continuation-marker-refused',
-                sprintf('This + attaches nothing: %s follows it, so the marker is refused in the %s. %s', $following, $marker['host'], $remedy),
+                sprintf(
+                    'This + attaches nothing: %s follows it, so the marker is refused in the %s. %s %s',
+                    $following,
+                    $marker['host'],
+                    $this->refusedMarkerEffect($marker, $rows[$marker['line'] - 1][0] ?? ''),
+                    $remedy,
+                ),
             );
         }
 
         return $warnings;
+    }
+
+    /**
+     * PART 9 §17 L4: a refused first-block `+` adds no block to an item or a description, and stays text in a quote or a note.
+     *
+     * @param array{line: int, column: int, host: string, reason: string} $marker
+     * @param string $lineText
+     */
+    private function refusedMarkerEffect(array $marker, string $lineText): string
+    {
+        $lead = trim(str_replace('>', '', mb_substr($lineText, 0, $marker['column'] - 1, 'UTF-8')));
+        if ($lead === '' || !in_array($marker['host'], ['list item', 'definition description'], true)) {
+            return sprintf('It remains text in the %s.', $marker['host']);
+        }
+        $host = $marker['host'] === 'list item' ? 'item' : 'description';
+        if ($marker['reason'] === 'right') {
+            return sprintf('It adds no block to the %s, and the next line follows the ordinary column rules.', $host);
+        }
+
+        return sprintf('The %s stays empty.', $host);
     }
 
     /**

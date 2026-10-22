@@ -31,6 +31,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, #3559, #3560).
 - Lint reports a first-block `+` in a footnote or description that nothing below can attach: the end of the input, a blank line, or an indented line (markup-carve/carve#3519).
 - `list-item-block-overindented` no longer fires on a block placed at the content column of a description inside a list item (#3722).
+- Lint says what a refused first-block `+` leaves behind (an empty item or description, an indented follower placed by the column rules, or text in a note or quote) and reports a refused first-block `> +` (markup-carve/carve#3524).
 
 ### Improvements
 - Lint warns on a `:` or `::` below the column of the definition list it would continue with `description-separator-below-content-column` (#3714).
