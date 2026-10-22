@@ -6,7 +6,7 @@ namespace MarkupCarve\Carve\Test;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
-use MarkupCarve\Carve\Converter\MarkdownAssessment;
+use MarkupCarve\Carve\Converter\Markdown\Assessment;
 use PHPUnit\Framework\TestCase;
 
 class TaskListRulingTest extends TestCase
@@ -60,9 +60,9 @@ class TaskListRulingTest extends TestCase
     public function testMarkdownAssessmentAgreesWithTaskHtml(): void
     {
         $source = "- [ ] open\n- [x] done\n- plain\n";
-        $result = (new MarkdownAssessment())->assess($source, $source);
+        $result = (new Assessment())->assess($source, $source);
         $this->assertFalse($result['complete']);
         $tasks = "- [ ] open\n- [x] done\n";
-        $this->assertTrue((new MarkdownAssessment())->assess($tasks, $tasks)['complete']);
+        $this->assertTrue((new Assessment())->assess($tasks, $tasks)['complete']);
     }
 }

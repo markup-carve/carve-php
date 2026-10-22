@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Converter\DjotPlaceholderPrefix;
+use MarkupCarve\Carve\Converter\Djot\PlaceholderPrefix;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
 use PHPUnit\Framework\Attributes\DataProvider;
@@ -37,7 +37,7 @@ final class DjotPlaceholderPrefixesTest extends TestCase
     #[DataProvider('placeholders')]
     public function testUserPlaceholdersArePreserved(string $token, string $base, int $namespace): void
     {
-        self::assertSame($base . $namespace . "\0", DjotPlaceholderPrefix::choose($token, $base));
+        self::assertSame($base . $namespace . "\0", PlaceholderPrefix::choose($token, $base));
         $source = $token . " w{x}{.c} ![*alt*](u)\n\na {.o} b\n\n{.orphan}\n\n: ```\n  payload\n  ```\n\n{+unclosed\n";
         $converted = (new DjotToCarve())->convert($source);
         self::assertStringContainsString($token, $converted);

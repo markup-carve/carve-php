@@ -53,8 +53,8 @@ use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\BbcodeToCarve;
 use MarkupCarve\Carve\Converter\DjotToCarve;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
-use MarkupCarve\Carve\Converter\MarkdownDestinationEncoding;
-use MarkupCarve\Carve\Converter\MarkdownHeadingFragments;
+use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
+use MarkupCarve\Carve\Converter\Markdown\HeadingFragments;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
@@ -565,7 +565,7 @@ function inspectMigratedLink(string $destination, string $source, array $outputs
     if ($fragment !== '' && !isset($ids[$mapped])) {
         return $failure('asset fragment needs site check');
     }
-    $resolved = isset($ids[$mapped][$fragment]) ? $fragment : ($aliases[$mapped][MarkdownHeadingFragments::lowercaseKey($fragment)] ?? null);
+    $resolved = isset($ids[$mapped][$fragment]) ? $fragment : ($aliases[$mapped][HeadingFragments::lowercaseKey($fragment)] ?? null);
     if ($fragment !== '' && $resolved === null) {
         return $failure('fragment missing from target');
     }
@@ -573,7 +573,7 @@ function inspectMigratedLink(string $destination, string $source, array $outputs
         return $failure('encoded extension needs manual rewrite');
     }
     $newPath = $mapped !== $target && $path !== '' ? preg_replace('/\.(md|markdown)$/i', '.crv', $rawPath) : $rawPath;
-    $recased = $fragment === '' || $resolved === $fragment ? null : MarkdownDestinationEncoding::fragment($resolved);
+    $recased = $fragment === '' || $resolved === $fragment ? null : DestinationEncoding::fragment($resolved);
     $href = $newPath . $query . ($rawFragment === null ? '' : '#' . ($recased ?? $rawFragment));
     $result = ['href' => $href, 'check' => ['target' => $destination, 'status' => $href === $destination ? 'valid' : 'rewritten']];
     if ($recased !== null) {
@@ -782,7 +782,7 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets, arr
         if ($text === false) {
             throw new RuntimeException('cannot read converted output');
         }
-        $rawHeadingIds = MarkdownHeadingFragments::rawHtmlHeadingIds($codec->encode($htmlConverter->parse($text)));
+        $rawHeadingIds = HeadingFragments::rawHtmlHeadingIds($codec->encode($htmlConverter->parse($text)));
         $document = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
         try {
@@ -815,7 +815,7 @@ function checkMigratedLinks(string $temporary, array &$files, array $assets, arr
 
                 continue;
             }
-            $key = MarkdownHeadingFragments::lowercaseKey($id);
+            $key = HeadingFragments::lowercaseKey($id);
             $aliases[$file['output']][$key] = array_key_exists($key, $aliases[$file['output']]) && $aliases[$file['output']][$key] !== $id ? null : $id;
         }
     }

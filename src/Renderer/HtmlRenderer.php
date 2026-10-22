@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Renderer;
 
 use Closure;
-use MarkupCarve\Carve\Converter\HtmlCarrierNames;
+use MarkupCarve\Carve\Converter\Html\CarrierNames;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Extension\StaticRenderExtensionInterface;
@@ -3961,10 +3961,10 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     private static function isReservedExportAttribute(string $name): bool
     {
         $name = strtolower($name);
-        $canonical = HtmlCarrierNames::canonicalName($name);
+        $canonical = CarrierNames::canonicalName($name);
 
         return in_array($name, ['data-marker', 'data-char'], true)
-            || ($canonical !== 'data-carve-ext' && HtmlCarrierNames::isReserved($name));
+            || ($canonical !== 'data-carve-ext' && CarrierNames::isReserved($name));
     }
 
     /**

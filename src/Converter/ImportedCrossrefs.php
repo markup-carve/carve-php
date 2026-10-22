@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Converter;
 
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\Html\ImportNodes;
 
 /**
  * An unresolved cross-reference renders as its literal `</#id>` source, so an
@@ -62,7 +63,7 @@ final class ImportedCrossrefs
                 continue;
             }
             if ($offset > $cursor) {
-                $nodes[] = HtmlImportNodes::text(substr($value, $cursor, $offset - $cursor));
+                $nodes[] = ImportNodes::text(substr($value, $cursor, $offset - $cursor));
             }
             $nodes[] = ['type' => 'heading_ref', 'target' => $target];
             $cursor = $offset + strlen($run);
@@ -71,7 +72,7 @@ final class ImportedCrossrefs
             return null;
         }
         if ($cursor < strlen($value)) {
-            $nodes[] = HtmlImportNodes::text(substr($value, $cursor));
+            $nodes[] = ImportNodes::text(substr($value, $cursor));
         }
 
         return $nodes;

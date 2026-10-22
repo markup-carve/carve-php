@@ -225,7 +225,7 @@ class EscaperCorpusTest extends TestCase
     {
         $callers = [
             'HANDLED_PLAIN' => ['src/Converter/BbcodeToCarve.php'],
-            'HANDLED_MARKDOWN' => ['src/Converter/MarkdownInlineStage.php'],
+            'HANDLED_MARKDOWN' => ['src/Converter/Markdown/InlineStage.php'],
             'HANDLED_DJOT' => ['src/Converter/DjotToCarve.php'],
         ];
 

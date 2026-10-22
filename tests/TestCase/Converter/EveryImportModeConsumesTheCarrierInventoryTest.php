@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use MarkupCarve\Carve\Converter\HtmlCarrierNames;
+use MarkupCarve\Carve\Converter\Html\CarrierNames;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -84,7 +84,7 @@ class EveryImportModeConsumesTheCarrierInventoryTest extends TestCase
     {
         foreach (['safe', 'semantic', 'roundtrip'] as $mode) {
             $carve = (new HtmlToCarve(importMode: $mode))->convert($html);
-            foreach (array_merge(HtmlCarrierNames::reserved(), ['data-marker', 'data-char']) as $name) {
+            foreach (array_merge(CarrierNames::reserved(), ['data-marker', 'data-char']) as $name) {
                 $this->assertStringNotContainsString($name, $carve, "{$name} was written back in {$mode} mode");
             }
         }

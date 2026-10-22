@@ -1,0 +1,120 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Converter\Html;
+
+use LogicException;
+
+// phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation -- These are PHPStan aliases, not class names.
+/**
+ * The tree and decisions produced by one completed HTML import.
+ *
+ * @internal
+ *
+ * @phpstan-type ImportedNode array{type: string, ...<string, mixed>}
+ * @phpstan-type CodeBlockNode array{type: 'code_block', content: string, lang?: string, attrs?: Attrs}
+ * @phpstan-type ContainerNode array{type: 'div'|'admonition'|'directive', children: list<ImportedNode>, kind?: string, title?: list<ImportedNode>, attrs?: Attrs}
+ * @phpstan-type FigureGroupNode array{type: 'figure_group', children: list<ImportedNode>, caption?: list<ImportedNode>, attrs?: Attrs}
+ * @phpstan-type DocumentTree array{type: 'document', srcByteLength: int, children: list<ImportedNode>}
+ * @phpstan-type Attrs array{id?: string, classes?: list<string>, keyValues?: array<string, string>, order?: list<string>}
+ * @phpstan-type FigureTargetNode array{type: 'image'|'block_quote'|'code_block', ...<string, mixed>}
+ * @phpstan-type FigureNode array{type: 'figure', target: FigureTargetNode, caption: list<ImportedNode>, attrs?: Attrs}
+ * @phpstan-type ParagraphNode array{type: 'paragraph', children: list<ImportedNode>, attrs?: Attrs}
+ * @phpstan-type MathNode array{type: 'math', display: bool, content: string, attrs?: Attrs}
+ * @phpstan-type TableCellNode array{type: 'table_cell', header: bool, children: list<ImportedNode>, span?: 'rowspan'|'colspan', align?: string, valign?: string, attrs?: Attrs}
+ * @phpstan-type TableRowNode array{type: 'table_row', cells: list<TableCellNode>, attrs?: Attrs}
+ */
+// phpcs:enable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation
+final class AstBuildResult
+{
+    /**
+     * @phpstan-param DocumentTree $tree
+     *
+     * @param array $tree
+     * @param \MarkupCarve\Carve\Converter\Html\ImportSession $session
+     * @param bool $sourceSafe
+     * @param bool $retainCarrierEscapes
+     */
+    public function __construct(
+        public readonly array $tree,
+        public readonly ImportSession $session,
+        private readonly bool $sourceSafe,
+        private readonly bool $retainCarrierEscapes = false,
+    ) {
+    }
+
+    /**
+     * @throws \LogicException
+     *
+     * @return array<string, mixed>
+     */
+    public function publicTree(): array
+    {
+        if ($this->sourceSafe) {
+            throw new LogicException('A source-writer tree cannot be exported as the public AST.');
+        }
+        $tree = $this->tree;
+        foreach ($tree as $key => $value) {
+            $tree[$key] = self::asPublished($value, $this->retainCarrierEscapes);
+        }
+
+        return $tree;
+    }
+
+    /**
+     * One value of the encoded tree, with the writer's escapes undone.
+     *
+     * ON THE ENCODED TREE rather than the node model, and recursing over LISTS
+     * rather than over a roster of container keys: every container spells its
+     * children under its own name - `children`, `items`, `rows`, `cells` - and
+     * a roster is what would rot. A table cell and a span are reached by the
+     * same lines that reach a paragraph.
+     *
+     * @param mixed $value
+     * @param bool $retainCarrierEscapes
+     *
+     * @return mixed
+     */
+    private static function asPublished(mixed $value, bool $retainCarrierEscapes): mixed
+    {
+        if (!is_array($value)) {
+            return $value;
+        }
+        if (array_is_list($value)) {
+            $out = [];
+            $textNode = null;
+            $textParts = [];
+            foreach ($value as $entry) {
+                $entry = self::asPublished($entry, $retainCarrierEscapes);
+                if (!$retainCarrierEscapes && is_array($entry) && ($entry['type'] ?? null) === 'escaped_text') {
+                    $escaped = $entry['value'] ?? '';
+                    $entry = ['type' => 'text', 'value' => is_string($escaped) ? $escaped : ''];
+                }
+                if (is_array($entry) && ($entry['type'] ?? null) === 'text') {
+                    $textNode ??= $entry;
+                    $text = $entry['value'] ?? '';
+                    $textParts[] = is_string($text) ? $text : '';
+
+                    continue;
+                }
+                if ($textNode !== null) {
+                    $out[] = count($textParts) === 1 ? $textNode : ['type' => 'text', 'value' => implode('', $textParts)];
+                    $textNode = null;
+                    $textParts = [];
+                }
+                $out[] = $entry;
+            }
+            if ($textNode !== null) {
+                $out[] = count($textParts) === 1 ? $textNode : ['type' => 'text', 'value' => implode('', $textParts)];
+            }
+
+            return $out;
+        }
+        foreach ($value as $key => $inner) {
+            $value[$key] = self::asPublished($inner, $retainCarrierEscapes);
+        }
+
+        return $value;
+    }
+}

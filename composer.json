@@ -37,7 +37,10 @@
     "autoload": {
         "psr-4": {
             "MarkupCarve\\Carve\\": "src/"
-        }
+        },
+        "files": [
+            "src/Converter/Compat/LegacyAliases.php"
+        ]
     },
     "autoload-dev": {
         "psr-4": {

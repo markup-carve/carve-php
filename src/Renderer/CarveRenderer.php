@@ -7,7 +7,7 @@ namespace MarkupCarve\Carve\Renderer;
 use Closure;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
-use MarkupCarve\Carve\Converter\MarkdownDestinationEncoding;
+use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
 use MarkupCarve\Carve\Exception\RenderDepthExceededException;
 use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Extension\Frontmatter;
@@ -7026,7 +7026,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
      */
     protected function escapeDestinationEscapes(string $text): string
     {
-        return MarkdownDestinationEncoding::escapes($text);
+        return DestinationEncoding::escapes($text);
     }
 
     protected function escapeQuoted(string $text): string

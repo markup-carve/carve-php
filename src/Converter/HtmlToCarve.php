@@ -12,6 +12,13 @@ use DOMText;
 use InvalidArgumentException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\Html\AstBuildResult;
+use MarkupCarve\Carve\Converter\Html\AttributePolicy;
+use MarkupCarve\Carve\Converter\Html\CarrierNames;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
+use MarkupCarve\Carve\Converter\Html\ImportSession;
+use MarkupCarve\Carve\Converter\Html\MathTex;
+use MarkupCarve\Carve\Converter\Html\PrecedingLabels;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
@@ -438,7 +445,7 @@ class HtmlToCarve
      */
     private ?SplObjectStorage $consumedExtensionElements = null;
 
-    private function captureBuiltImport(HtmlImportSession $session): void
+    private function captureBuiltImport(ImportSession $session): void
     {
         $this->droppedFootnoteLabelCarriers = $session->droppedFootnoteLabelCarriers;
         $this->droppedReferenceCarriers = $session->droppedReferenceCarriers;
@@ -545,10 +552,10 @@ class HtmlToCarve
         $this->indexBackrefEntries = new SplObjectStorage();
         $this->precedingLabelNames = new SplObjectStorage();
         $this->figureOutcomes = new SplObjectStorage();
-        $isDocument = HtmlDomLoader::isDocument($html);
+        $isDocument = DomLoader::isDocument($html);
         $doc = $this->builtImportDocument;
         if ($doc === null) {
-            $doc = $isDocument ? HtmlDomLoader::load($html) : HtmlDomLoader::fragment($html, 'div');
+            $doc = $isDocument ? DomLoader::load($html) : DomLoader::fragment($html, 'div');
             $this->normalizeAdapterFootnotes($doc);
         }
 
@@ -559,7 +566,7 @@ class HtmlToCarve
 
         try {
             if ($isDocument) {
-                $document = HtmlDomLoader::load($html);
+                $document = DomLoader::load($html);
                 $this->inspectImportDocumentContainers($document->documentElement ?? $document, $diagnostics);
             }
             $this->inspectImportNodes($this->importTopLevelNodes($root, $isDocument), '', $diagnostics);
@@ -606,7 +613,7 @@ class HtmlToCarve
     {
         $top = [];
         foreach ($root->childNodes as $child) {
-            $tag = $child instanceof DOMElement ? strtolower(HtmlDomLoader::elementName($child)) : '';
+            $tag = $child instanceof DOMElement ? strtolower(DomLoader::elementName($child)) : '';
             if ($isDocument && ($tag === 'head' || $tag === 'body')) {
                 foreach ($child->childNodes as $inner) {
                     $top[] = $inner;
@@ -691,7 +698,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            if (in_array(strtolower(HtmlDomLoader::elementName($child)), $skipTags, true)) {
+            if (in_array(strtolower(DomLoader::elementName($child)), $skipTags, true)) {
                 continue;
             }
             $this->inspectImportNode($child, $this->importChildPath($parentPath, $child, $index), $diagnostics);
@@ -707,7 +714,7 @@ class HtmlToCarve
      */
     protected function importChildPath(string $parentPath, DOMElement $node, int $index): string
     {
-        return $parentPath . '/' . strtolower(HtmlDomLoader::elementName($node)) . '[' . $index . ']';
+        return $parentPath . '/' . strtolower(DomLoader::elementName($node)) . '[' . $index . ']';
     }
 
     /**
@@ -719,9 +726,9 @@ class HtmlToCarve
     {
         if ($node instanceof DOMElement && isset($this->consumedExtensionElements[$node])) {
             $consumesChildren = $this->consumedExtensionElements[$node];
-            $this->inspectImportAttributes($node, strtolower(HtmlDomLoader::elementName($node)), $path, $diagnostics);
+            $this->inspectImportAttributes($node, strtolower(DomLoader::elementName($node)), $path, $diagnostics);
             if (!$consumesChildren) {
-                $this->inspectImportChildren($node, strtolower(HtmlDomLoader::elementName($node)), $path, $diagnostics);
+                $this->inspectImportChildren($node, strtolower(DomLoader::elementName($node)), $path, $diagnostics);
             }
 
             return;
@@ -729,7 +736,7 @@ class HtmlToCarve
         if (!$node instanceof DOMElement) {
             return;
         }
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         if ($tag === 'table' && isset($this->droppedEmptyImportElements[$node])) {
             $this->addImportDiagnostic(
                 $diagnostics,
@@ -744,11 +751,11 @@ class HtmlToCarve
         $parent = $node->parentNode;
         if (
             $parent instanceof DOMElement
-            && in_array(strtolower(HtmlDomLoader::elementName($parent)), ['head', 'body'], true)
+            && in_array(strtolower(DomLoader::elementName($parent)), ['head', 'body'], true)
             && $this->keptRawImportElements !== null
             && isset($this->keptRawImportElements[$parent])
         ) {
-            $keptTag = strtolower(HtmlDomLoader::elementName($parent));
+            $keptTag = strtolower(DomLoader::elementName($parent));
             $this->inspectImportAttributeList($node, $tag, $path, $diagnostics, true, $keptTag);
             $this->inspectPreservedDescendants($node, $keptTag, $path, $diagnostics);
 
@@ -760,7 +767,7 @@ class HtmlToCarve
                 $this->addImportDiagnostic(
                     $diagnostics,
                     'attribute-dropped',
-                    'Dropped ' . HtmlDomLoader::attributeName($attribute) . ' with the unwrapped <' . $tag . '>: there is no element left to carry it',
+                    'Dropped ' . DomLoader::attributeName($attribute) . ' with the unwrapped <' . $tag . '>: there is no element left to carry it',
                     'info',
                     $path,
                 );
@@ -1016,7 +1023,7 @@ class HtmlToCarve
             $tag === 'p'
             && $directLoneImage instanceof DOMElement
             && $this->importParagraphIsWrittenAsABlock($node)
-            && !($node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'figure')
+            && !($node->parentNode instanceof DOMElement && strtolower(DomLoader::elementName($node->parentNode)) === 'figure')
         ) {
             $paragraphAttrs = $this->writtenImportAttributeNames($node);
             $lost = [
@@ -1220,7 +1227,7 @@ class HtmlToCarve
         if (
             $tag === 'figcaption'
             && $node->parentNode instanceof DOMElement
-            && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'figure'
+            && strtolower(DomLoader::elementName($node->parentNode)) === 'figure'
             && $this->directAstFigureOutcome($node->parentNode) === 'table-detach'
         ) {
             $this->addImportDiagnostic(
@@ -1271,7 +1278,7 @@ class HtmlToCarve
 
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             $childPath = $this->importChildPath($path, $child, $index + 1);
             if ($tag === 'rp') {
                 $this->reportRubyComponentAttributes($child, $childPath, $diagnostics);
@@ -1310,7 +1317,7 @@ class HtmlToCarve
                 $this->reportRubyComponentAttributes($child, $childPath, $diagnostics);
                 $this->addImportDiagnostic($diagnostics, 'element-unwrapped', 'Unwrapped obsolete <rtc> annotation level', 'warning', $childPath);
                 foreach ($child->childNodes as $componentIndex => $component) {
-                    if ($component instanceof DOMElement && strtolower(HtmlDomLoader::elementName($component)) === 'rt') {
+                    if ($component instanceof DOMElement && strtolower(DomLoader::elementName($component)) === 'rt') {
                         $componentPath = $this->importChildPath($childPath, $component, $componentIndex + 1);
                         $this->reportRubyComponentAttributes($component, $componentPath, $diagnostics);
                         $this->inspectImportNodes($component->childNodes, $componentPath, $diagnostics);
@@ -1349,7 +1356,7 @@ class HtmlToCarve
     protected function rubyHasNoDirectAnnotation(DOMElement $node): bool
     {
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($child)), ['rt', 'rtc'], true)) {
+            if ($child instanceof DOMElement && in_array(strtolower(DomLoader::elementName($child)), ['rt', 'rtc'], true)) {
                 return false;
             }
         }
@@ -1368,7 +1375,7 @@ class HtmlToCarve
             $this->addImportDiagnostic(
                 $diagnostics,
                 'attribute-dropped',
-                'Dropped attribute ' . HtmlDomLoader::attributeName($attribute) . ' on <' . strtolower(HtmlDomLoader::elementName($component)) . '>',
+                'Dropped attribute ' . DomLoader::attributeName($attribute) . ' on <' . strtolower(DomLoader::elementName($component)) . '>',
                 'info',
                 $path,
             );
@@ -1377,11 +1384,11 @@ class HtmlToCarve
 
     private function directAstCaptionFlattens(DOMElement $node): bool
     {
-        if (!$this->isFlattenedInACaption(strtolower(HtmlDomLoader::elementName($node)))) {
+        if (!$this->isFlattenedInACaption(strtolower(DomLoader::elementName($node)))) {
             return false;
         }
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-            $tag = strtolower(HtmlDomLoader::elementName($ancestor));
+            $tag = strtolower(DomLoader::elementName($ancestor));
             if ($tag === 'caption') {
                 return true;
             }
@@ -1389,7 +1396,7 @@ class HtmlToCarve
                 $figure = $ancestor->parentNode;
 
                 return $figure instanceof DOMElement
-                    && strtolower(HtmlDomLoader::elementName($figure)) === 'figure'
+                    && strtolower(DomLoader::elementName($figure)) === 'figure'
                     && in_array($this->directAstFigureOutcome($figure), ['survives', 'table-rebuild'], true);
             }
         }
@@ -1400,15 +1407,15 @@ class HtmlToCarve
     private function directAstCellFlattens(DOMElement $node): bool
     {
         if (
-            (!$this->isFlattenedInACaption(strtolower(HtmlDomLoader::elementName($node))) && strtolower(HtmlDomLoader::elementName($node)) !== 'tr')
+            (!$this->isFlattenedInACaption(strtolower(DomLoader::elementName($node))) && strtolower(DomLoader::elementName($node)) !== 'tr')
             || $this->directAstCaptionFlattens($node)
             || $this->directAstUnwraps($node)
-            || strtolower(HtmlDomLoader::elementName($node)) === 'figure'
+            || strtolower(DomLoader::elementName($node)) === 'figure'
         ) {
             return false;
         }
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-            if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['td', 'th'], true)) {
+            if (in_array(strtolower(DomLoader::elementName($ancestor)), ['td', 'th'], true)) {
                 return !$this->cellIsWrittenAsAListTableItem($ancestor);
             }
         }
@@ -1422,7 +1429,7 @@ class HtmlToCarve
      */
     private function directAstInlineFlattens(DOMElement $node): bool
     {
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         if (
             !in_array($tag, $this->blockElements, true)
             || $this->directAstCaptionFlattens($node)
@@ -1433,7 +1440,7 @@ class HtmlToCarve
             return false;
         }
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-            if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), self::INLINE_SLOT_ELEMENTS, true)) {
+            if (in_array(strtolower(DomLoader::elementName($ancestor)), self::INLINE_SLOT_ELEMENTS, true)) {
                 return true;
             }
         }
@@ -1462,12 +1469,12 @@ class HtmlToCarve
     private function enclosingImportCodeSpan(DOMElement $node): ?DOMElement
     {
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-            if (strtolower(HtmlDomLoader::elementName($ancestor)) !== 'code') {
+            if (strtolower(DomLoader::elementName($ancestor)) !== 'code') {
                 continue;
             }
             $parent = $ancestor->parentNode;
 
-            return $parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'pre'
+            return $parent instanceof DOMElement && strtolower(DomLoader::elementName($parent)) === 'pre'
                 ? null
                 : $ancestor;
         }
@@ -1487,7 +1494,7 @@ class HtmlToCarve
     private function codeSpanLosesBlockBoundary(DOMElement $node): bool
     {
         $parent = $node->parentNode;
-        if ($parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'pre') {
+        if ($parent instanceof DOMElement && strtolower(DomLoader::elementName($parent)) === 'pre') {
             return false;
         }
 
@@ -1497,12 +1504,12 @@ class HtmlToCarve
                 if ($child instanceof DOMText) {
                     $runs[array_key_last($runs)] .= $child->textContent;
                 } elseif ($child instanceof DOMElement) {
-                    if (in_array(strtolower(HtmlDomLoader::elementName($child)), self::ACTIVE_ELEMENTS, true)) {
+                    if (in_array(strtolower(DomLoader::elementName($child)), self::ACTIVE_ELEMENTS, true)) {
                         continue;
                     }
                     // A block bounds the run on BOTH sides, so text after it is
                     // a side of its own too.
-                    $block = in_array(strtolower(HtmlDomLoader::elementName($child)), $this->blockElements, true) || in_array(strtolower(HtmlDomLoader::elementName($child)), ['dt', 'dd', 'td', 'th', 'tr', 'caption', 'figcaption'], true);
+                    $block = in_array(strtolower(DomLoader::elementName($child)), $this->blockElements, true) || in_array(strtolower(DomLoader::elementName($child)), ['dt', 'dd', 'td', 'th', 'tr', 'caption', 'figcaption'], true);
                     if ($block) {
                         $runs[] = '';
                     }
@@ -1520,7 +1527,7 @@ class HtmlToCarve
 
     private function directAstUnwraps(DOMElement $node): bool
     {
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         if ($tag === 'span' && isset($this->unwrappedBareImportSpans[$node])) {
             return true;
         }
@@ -1549,7 +1556,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
                 continue;
             }
@@ -1582,7 +1589,7 @@ class HtmlToCarve
                 if (!$child instanceof DOMElement) {
                     continue;
                 }
-                $tag = strtolower(HtmlDomLoader::elementName($child));
+                $tag = strtolower(DomLoader::elementName($child));
                 if ($tag === 'img') {
                     if ($found !== null || HtmlAstBuilder::carriesNoDestination($child->getAttribute('src'))) {
                         return null;
@@ -1615,7 +1622,7 @@ class HtmlToCarve
 
     private function importKeepsElementRaw(DOMElement $node): bool
     {
-        if (strtolower(HtmlDomLoader::elementName($node)) === 'figure') {
+        if (strtolower(DomLoader::elementName($node)) === 'figure') {
             return $this->directAstFigureOutcome($node) === 'raw';
         }
         if ($this->importMode !== 'roundtrip') {
@@ -1638,7 +1645,7 @@ class HtmlToCarve
         if ($this->emittedHasRawHtml === false) {
             return false;
         }
-        $html = HtmlDomLoader::serialize($node);
+        $html = DomLoader::serialize($node);
         if ($html === '') {
             return false;
         }
@@ -1687,7 +1694,7 @@ class HtmlToCarve
             if ($child instanceof DOMText && trim($child->textContent) === '') {
                 continue;
             }
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'figcaption') {
                 if (trim($child->textContent) !== '' || $child->getElementsByTagName('*')->length > 0) {
                     $caption = $child;
                     $captionWrites = trim($child->textContent) !== '';
@@ -1704,7 +1711,7 @@ class HtmlToCarve
             return $keepsRaw ? 'raw' : 'unwrap';
         }
         $target = $body[0];
-        $tag = strtolower(HtmlDomLoader::elementName($target));
+        $tag = strtolower(DomLoader::elementName($target));
         if ($tag === 'p') {
             $meaningful = [];
             foreach ($target->childNodes as $child) {
@@ -1716,7 +1723,7 @@ class HtmlToCarve
             if (
                 count($meaningful) === 1
                 && $meaningful[0] instanceof DOMElement
-                && strtolower(HtmlDomLoader::elementName($meaningful[0])) === 'img'
+                && strtolower(DomLoader::elementName($meaningful[0])) === 'img'
                 && !HtmlAstBuilder::carriesNoDestination($meaningful[0]->getAttribute('src'))
             ) {
                 return 'survives';
@@ -1736,7 +1743,7 @@ class HtmlToCarve
             foreach ($target->childNodes as $child) {
                 if (
                     $child instanceof DOMElement
-                    && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption'
+                    && strtolower(DomLoader::elementName($child)) === 'figcaption'
                     && (trim($child->textContent) !== '' || $child->getElementsByTagName('*')->length > 0)
                 ) {
                     return 'unwrap';
@@ -1771,12 +1778,12 @@ class HtmlToCarve
     private function checkboxStandsInAnOrderedItem(DOMElement $input): bool
     {
         $item = $input->parentNode;
-        if ($item instanceof DOMElement && strtolower(HtmlDomLoader::elementName($item)) === 'label') {
+        if ($item instanceof DOMElement && strtolower(DomLoader::elementName($item)) === 'label') {
             $item = $item->parentNode;
         }
         $list = $item instanceof DOMElement ? $item->parentNode : null;
 
-        return $list instanceof DOMElement && strtolower(HtmlDomLoader::elementName($list)) === 'ol';
+        return $list instanceof DOMElement && strtolower(DomLoader::elementName($list)) === 'ol';
     }
 
     /**
@@ -1789,7 +1796,7 @@ class HtmlToCarve
     private function orderedTaskStateReachedTheBrackets(): bool
     {
         $item = $this->inspectedElement;
-        if (!$item instanceof DOMElement || strtolower(HtmlDomLoader::elementName($item)) !== 'li') {
+        if (!$item instanceof DOMElement || strtolower(DomLoader::elementName($item)) !== 'li') {
             return false;
         }
         $state = $item->getAttribute('data-task-state');
@@ -1798,7 +1805,7 @@ class HtmlToCarve
         }
         foreach ($item->getElementsByTagName('input') as $input) {
             $holder = $input->parentNode;
-            if ($holder instanceof DOMElement && strtolower(HtmlDomLoader::elementName($holder)) === 'label') {
+            if ($holder instanceof DOMElement && strtolower(DomLoader::elementName($holder)) === 'label') {
                 $holder = $holder->parentNode;
             }
             if ($holder !== $item || !$this->directAstConsumesCheckbox($input)) {
@@ -1820,10 +1827,10 @@ class HtmlToCarve
             return false;
         }
         $container = $input->parentNode;
-        if ($container instanceof DOMElement && strtolower(HtmlDomLoader::elementName($container)) === 'label') {
+        if ($container instanceof DOMElement && strtolower(DomLoader::elementName($container)) === 'label') {
             $container = $container->parentNode;
         }
-        if (!$container instanceof DOMElement || strtolower(HtmlDomLoader::elementName($container)) !== 'li') {
+        if (!$container instanceof DOMElement || strtolower(DomLoader::elementName($container)) !== 'li') {
             return false;
         }
         foreach ($container->childNodes as $child) {
@@ -1833,7 +1840,7 @@ class HtmlToCarve
             if ($child === $input) {
                 return true;
             }
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'label') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'label') {
                 foreach ($child->childNodes as $labelChild) {
                     if ($labelChild instanceof DOMText && trim($labelChild->textContent) === '') {
                         continue;
@@ -1857,7 +1864,7 @@ class HtmlToCarve
     private function directAstDroppedRowDropsCaption(DOMElement $row): bool
     {
         $table = $row->parentNode;
-        while ($table instanceof DOMElement && strtolower(HtmlDomLoader::elementName($table)) !== 'table') {
+        while ($table instanceof DOMElement && strtolower(DomLoader::elementName($table)) !== 'table') {
             $table = $table->parentNode;
         }
         if (!$table instanceof DOMElement) {
@@ -1934,7 +1941,7 @@ class HtmlToCarve
 
         $parent = $node->parentNode;
 
-        return !$parent instanceof DOMElement || strtolower(HtmlDomLoader::elementName($parent)) !== $container;
+        return !$parent instanceof DOMElement || strtolower(DomLoader::elementName($parent)) !== $container;
     }
 
     /**
@@ -1978,7 +1985,7 @@ class HtmlToCarve
     {
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement) {
-                if (!in_array(strtolower(HtmlDomLoader::elementName($child)), self::ACTIVE_ELEMENTS, true)) {
+                if (!in_array(strtolower(DomLoader::elementName($child)), self::ACTIVE_ELEMENTS, true)) {
                     return true;
                 }
 
@@ -2072,7 +2079,7 @@ class HtmlToCarve
         }
 
         if (isset($this->contradictoryLinkCarriers[$node])) {
-            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', (HtmlCarrierNames::peekPresence($node, 'data-carve-xref')
+            $this->addImportDiagnostic($diagnostics, 'attribute-dropped', (CarrierNames::peekPresence($node, 'data-carve-xref')
                 ? 'Dropped contradictory cross-reference carriers on <'
                 : 'Dropped contradictory autolink and reference carriers on <') . $tag . '>', 'warning', $path);
         }
@@ -2152,7 +2159,7 @@ class HtmlToCarve
     {
         foreach ($node->childNodes as $child) {
             if ($child instanceof DOMElement) {
-                if (!in_array(strtolower(HtmlDomLoader::elementName($child)), self::ACTIVE_ELEMENTS, true)) {
+                if (!in_array(strtolower(DomLoader::elementName($child)), self::ACTIVE_ELEMENTS, true)) {
                     $this->collectImportContentText($child, $text);
                 }
 
@@ -2176,7 +2183,7 @@ class HtmlToCarve
      */
     protected function importWouldRefuseAttribute(string $tag, string $name): bool
     {
-        if (HtmlCarrierNames::isReserved($name)) {
+        if (CarrierNames::isReserved($name)) {
             return true;
         }
         if (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
@@ -2244,7 +2251,7 @@ class HtmlToCarve
                 $subject = 'event-handler attribute ' . $name;
             } elseif ($sink) {
                 $subject = 'injection-sink attribute ' . $name;
-            } elseif (HtmlCarrierNames::isReserved($name)) {
+            } elseif (CarrierNames::isReserved($name)) {
                 $subject = 'round-trip marker attribute ' . $name;
             } elseif (in_array($tag, self::SEMANTIC_SPAN_ELEMENTS, true) && $name === $tag) {
                 $subject = $name;
@@ -2335,7 +2342,7 @@ class HtmlToCarve
      */
     protected function inspectPreservedDescendants(DOMElement $node, string $keptTag, string $path, array &$diagnostics): void
     {
-        if (in_array(strtolower(HtmlDomLoader::elementName($node)), self::TEXT_CONTENT_ELEMENTS, true)) {
+        if (in_array(strtolower(DomLoader::elementName($node)), self::TEXT_CONTENT_ELEMENTS, true)) {
             return;
         }
         $index = 0;
@@ -2344,11 +2351,11 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             $childPath = $this->importChildPath($path, $child, $index);
             $styleSlots = $this->mappedImportStyleSlots($child);
             foreach ($child->attributes as $attribute) {
-                $name = strtolower(HtmlDomLoader::attributeName($attribute));
+                $name = strtolower(DomLoader::attributeName($attribute));
                 if ($this->preservedAttributeIsNews($tag, $name, $attribute->value) || isset($styleSlots[$name])) {
                     $this->reportPreservedAttribute($tag, $name, $attribute->value, $childPath, $diagnostics, $keptTag, isset($styleSlots[$name]));
                 }
@@ -2368,21 +2375,21 @@ class HtmlToCarve
 
     private function isGeneratedExtensionAttribute(DOMElement $node, string $tag, string $name): bool
     {
-        if ($name === 'id' && preg_match('/^h[1-6]$/D', $tag) === 1 && HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id') === '0') {
+        if ($name === 'id' && preg_match('/^h[1-6]$/D', $tag) === 1 && CarrierNames::consumeAttribute($node, 'data-carve-explicit-id') === '0') {
             return true;
         }
         if (!isset($this->consumedExtensionElements[$node])) {
             return false;
         }
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated')) {
-            return $name === 'class' || in_array($name, explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-group-generated')), true);
+        if (CarrierNames::consumePresence($node, 'data-carve-group-generated')) {
+            return $name === 'class' || in_array($name, explode(' ', CarrierNames::consumeAttribute($node, 'data-carve-group-generated')), true);
         }
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated') && in_array($name, explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true)) {
+        if (CarrierNames::consumePresence($node, 'data-carve-fence-generated') && in_array($name, explode(' ', CarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true)) {
             return true;
         }
         $parent = $node->parentNode;
-        $generated = $tag === 'section' && (!$parent instanceof DOMElement || !in_array(HtmlCarrierNames::consumeAttribute($parent, 'data-carve-ext'), ['tabs', 'code-group'], true)) ? [] : ['class'];
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-language')) {
+        $generated = $tag === 'section' && (!$parent instanceof DOMElement || !in_array(CarrierNames::consumeAttribute($parent, 'data-carve-ext'), ['tabs', 'code-group'], true)) ? [] : ['class'];
+        if (CarrierNames::consumePresence($node, 'data-carve-fence-language')) {
             $generated = array_merge($generated, ['role', 'data-carve-fence-language', 'data-carve-fence-content', 'data-carve-label']);
             if ($node->getAttribute('aria-label') === (preg_split('/\s+/', trim($node->getAttribute('class')))[0] ?? '')) {
                 $generated[] = 'aria-label';
@@ -2391,13 +2398,13 @@ class HtmlToCarve
             $generated[] = 'data-callout';
         } elseif (in_array($tag, ['input', 'button', 'label'], true)) {
             $generated = array_merge($generated, ['id', 'type', 'name', 'checked', 'for', 'role', 'aria-selected', 'aria-controls', 'tabindex']);
-        } elseif (HtmlCarrierNames::consumePresence($node, 'data-carve-tab-title')) {
+        } elseif (CarrierNames::consumePresence($node, 'data-carve-tab-title')) {
             $generated = array_merge($generated, ['hidden', 'data-carve-tab-title']);
         } elseif ($tag === 'div') {
             $generated = array_merge($generated, ['role', 'aria-label', 'data-carve-ext', 'data-carve-label', 'data-carve-explicit-id']);
             if ($node->getAttribute('role') === 'tabpanel') {
                 $generated = array_merge($generated, ['id', 'aria-labelledby', 'hidden']);
-            } elseif (!HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id') && $node->parentNode instanceof DOMElement && isset($this->consumedExtensionElements[$node->parentNode])) {
+            } elseif (!CarrierNames::consumePresence($node, 'data-carve-explicit-id') && $node->parentNode instanceof DOMElement && isset($this->consumedExtensionElements[$node->parentNode])) {
                 $generated[] = 'id';
             }
         }
@@ -2438,22 +2445,22 @@ class HtmlToCarve
             $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped contradictory escaped and raw carriers on <' . $tag . '>', 'warning', $path);
         }
         foreach ($node->attributes as $attribute) {
-            $name = strtolower(HtmlDomLoader::attributeName($attribute));
-            $canonical = HtmlCarrierNames::canonicalName($name);
+            $name = strtolower(DomLoader::attributeName($attribute));
+            $canonical = CarrierNames::canonicalName($name);
             if (
-                !$preserved && $tag === 'a' && (HtmlCarrierNames::wasUsed($node, 'data-carve-xref') || HtmlCarrierNames::wasUsed($node, 'data-djot-xref'))
-                && !isset($this->contradictoryLinkCarriers[$node]) && HtmlCarrierNames::wasUsed($node, $name)
+                !$preserved && $tag === 'a' && (CarrierNames::wasUsed($node, 'data-carve-xref') || CarrierNames::wasUsed($node, 'data-djot-xref'))
+                && !isset($this->contradictoryLinkCarriers[$node]) && CarrierNames::wasUsed($node, $name)
             ) {
                 continue;
             }
-            if (!$preserved && $canonical === 'data-carve-ext' && HtmlCarrierNames::wasUsed($node, $name)) {
+            if (!$preserved && $canonical === 'data-carve-ext' && CarrierNames::wasUsed($node, $name)) {
                 continue;
             }
             if (in_array($canonical, $conflictingNames, true)) {
                 continue;
             }
-            if (!$preserved && HtmlCarrierNames::isReserved($name)) {
-                $value = HtmlCarrierNames::peekAttribute($node, $canonical);
+            if (!$preserved && CarrierNames::isReserved($name)) {
+                $value = CarrierNames::peekAttribute($node, $canonical);
                 $invalid = match ($canonical) {
                     'data-carve-label' => !HtmlAstBuilder::isValidCodeLabel($value),
                     'data-carve-raw' => !HtmlAstBuilder::isValidRawCarrierFormat($value),
@@ -2494,18 +2501,18 @@ class HtmlToCarve
             } elseif ($tag === 'ol' && $name === 'start' && filter_var($attribute->value, FILTER_VALIDATE_INT) === 1) {
                 // The native default preserves this value without an attribute.
                 continue;
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
+            } elseif (CarrierNames::canonicalName($name) === 'data-carve-footnote-label' && !HtmlAstBuilder::hasConflictingEndnoteCarriers($node) && !HtmlAstBuilder::isValidFootnoteCarrierLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid footnote carrier label on <' . $tag . '>', 'warning', $path);
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
+            } elseif (CarrierNames::canonicalName($name) === 'data-carve-label' && !HtmlAstBuilder::isValidCodeLabel($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid code block label on <' . $tag . '>', 'warning', $path);
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
+            } elseif (CarrierNames::canonicalName($name) === 'data-carve-col-widths' && !HtmlAstBuilder::isValidSeparatorWidthCarrier($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid table separator width carrier on <' . $tag . '>', 'warning', $path);
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
+            } elseif (CarrierNames::canonicalName($name) === 'data-carve-raw' && !HtmlAstBuilder::isValidRawCarrierFormat($attribute->value)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid raw format carrier on <' . $tag . '>', 'warning', $path);
-            } elseif (HtmlCarrierNames::canonicalName($name) === 'data-carve-id-slot' && !HtmlCarrierNames::wasUsed($node, $name)) {
+            } elseif (CarrierNames::canonicalName($name) === 'data-carve-id-slot' && !CarrierNames::wasUsed($node, $name)) {
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped invalid heading id slot carrier on <' . $tag . '>', 'info', $path);
-            } elseif (HtmlCarrierNames::isReserved($name)) {
-                if (!HtmlCarrierNames::wasUsed($node, $name)) {
+            } elseif (CarrierNames::isReserved($name)) {
+                if (!CarrierNames::wasUsed($node, $name)) {
                     $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped round-trip marker attribute ' . $name . ' on <' . $tag . '>', 'info', $path);
                 }
             } elseif ($this->importAttributeIsReadNotWritten($tag, $name)) {
@@ -2568,7 +2575,7 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, 'attribute-dropped', 'Dropped ' . $name . ' on <' . $tag . '>: its value spans a line break, which a Carve attribute value cannot', 'warning', $path);
             } elseif (in_array($name, $this->astImportSession?->retainedTableAttributes[$path] ?? [], true)) {
                 continue;
-            } elseif ($name === 'id' && isset($this->consumedExtensionElements[$node]) && (HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated') || HtmlCarrierNames::consumePresence($node, 'data-carve-fence-language'))) {
+            } elseif ($name === 'id' && isset($this->consumedExtensionElements[$node]) && (CarrierNames::consumePresence($node, 'data-carve-group-generated') || CarrierNames::consumePresence($node, 'data-carve-fence-language'))) {
                 // The builder retained this authored extension ID.
                 continue;
             } elseif (!$this->importAttributeSurvived($tag, $name, $attribute->value)) {
@@ -2605,7 +2612,7 @@ class HtmlToCarve
         if (!$root instanceof DOMElement) {
             return;
         }
-        $tag = strtolower(HtmlDomLoader::elementName($root));
+        $tag = strtolower(DomLoader::elementName($root));
         $path = '/' . $tag . '[1]';
         if (in_array($tag, ['head', 'body'], true) && $this->keepsDocumentContainerRaw($tag)) {
             $this->inspectImportAttributeList($root, $tag, $path, $diagnostics, true);
@@ -2623,7 +2630,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $childTag = strtolower(HtmlDomLoader::elementName($child));
+            $childTag = strtolower(DomLoader::elementName($child));
             if ($childTag !== 'head' && $childTag !== 'body') {
                 continue;
             }
@@ -2664,7 +2671,7 @@ class HtmlToCarve
         foreach ($root->childNodes as $child) {
             if (
                 $child instanceof DOMElement
-                && strtolower(HtmlDomLoader::elementName($child)) === $tag
+                && strtolower(DomLoader::elementName($child)) === $tag
                 && isset($this->keptRawImportElements[$child])
             ) {
                 return true;
@@ -2680,8 +2687,8 @@ class HtmlToCarve
             return isset($this->nativeImportCodeSpans[$node]);
         }
 
-        return strtolower(HtmlDomLoader::elementName($node)) === 'code'
-            && !($node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'pre');
+        return strtolower(DomLoader::elementName($node)) === 'code'
+            && !($node->parentNode instanceof DOMElement && strtolower(DomLoader::elementName($node->parentNode)) === 'pre');
     }
 
     /**
@@ -2712,12 +2719,12 @@ class HtmlToCarve
                 continue;
             }
             if (isset($this->consumedExtensionElements[$child]) && $this->consumedExtensionElements[$child]) {
-                $this->inspectImportAttributes($child, strtolower(HtmlDomLoader::elementName($child)), $this->importChildPath($path, $child, $index + 1), $diagnostics);
+                $this->inspectImportAttributes($child, strtolower(DomLoader::elementName($child)), $this->importChildPath($path, $child, $index + 1), $diagnostics);
 
                 continue;
             }
             $childPath = $this->importChildPath($path, $child, $index + 1);
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             if (in_array($tag, self::ACTIVE_ELEMENTS, true)) {
                 $this->addImportDiagnostic($diagnostics, 'element-dropped', 'Dropped active <' . $tag . '> element', 'warning', $childPath);
 
@@ -2731,7 +2738,7 @@ class HtmlToCarve
                 $this->addImportDiagnostic($diagnostics, $dropped ? 'element-dropped' : 'element-unwrapped', $message, $dropped ? 'warning' : 'info', $childPath);
             }
             foreach ($child->attributes as $attribute) {
-                $name = HtmlDomLoader::attributeName($attribute);
+                $name = DomLoader::attributeName($attribute);
                 if ($child === $languageWrapper && $lang !== null) {
                     if ($name === 'data-lang' && trim($attribute->value, " \t\r\n\f") === $lang) {
                         continue;
@@ -2854,7 +2861,7 @@ class HtmlToCarve
      */
     protected function inspectImportListChildren(DOMElement $node, string $path, array &$diagnostics): void
     {
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         $item = 0;
         $index = 0;
         foreach ($node->childNodes as $child) {
@@ -2862,7 +2869,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            if (strtolower(HtmlDomLoader::elementName($child)) === 'li') {
+            if (strtolower(DomLoader::elementName($child)) === 'li') {
                 $item++;
                 $this->inspectImportNode($child, $path . '/li[' . $item . ']', $diagnostics);
 
@@ -2947,7 +2954,7 @@ class HtmlToCarve
         string $path,
         array &$diagnostics,
     ): void {
-        $childTag = strtolower(HtmlDomLoader::elementName($child));
+        $childTag = strtolower(DomLoader::elementName($child));
         if (in_array($childTag, self::ACTIVE_ELEMENTS, true)) {
             return;
         }
@@ -2976,7 +2983,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             if ($tag === 'td' || $tag === 'th') {
                 $cell++;
                 $this->inspectImportNode($child, $path . '/' . $tag . '[' . $cell . ']', $diagnostics);
@@ -2996,13 +3003,13 @@ class HtmlToCarve
     {
         $parent = $node->parentNode;
 
-        return $parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'table';
+        return $parent instanceof DOMElement && strtolower(DomLoader::elementName($parent)) === 'table';
     }
 
     private function hasListItemChild(DOMElement $node): bool
     {
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'li') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'li') {
                 return true;
             }
         }
@@ -3095,7 +3102,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $childTag = strtolower(HtmlDomLoader::elementName($child));
+            $childTag = strtolower(DomLoader::elementName($child));
             if ($childTag === 'caption') {
                 $captions++;
 
@@ -3198,7 +3205,7 @@ class HtmlToCarve
     {
         $rows = 0;
         foreach ($section->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'tr') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'tr') {
                 $rows++;
             }
         }
@@ -3217,7 +3224,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             if ($tag === 'td') {
                 return false;
             }
@@ -3250,7 +3257,7 @@ class HtmlToCarve
     protected function tableCellSkipAttributes(DOMElement $cell): array
     {
         $skip = ['colspan', 'rowspan'];
-        if (strtolower(HtmlDomLoader::elementName($cell)) !== 'th' || !$cell->hasAttribute('scope')) {
+        if (strtolower(DomLoader::elementName($cell)) !== 'th' || !$cell->hasAttribute('scope')) {
             return $skip;
         }
 
@@ -3271,7 +3278,7 @@ class HtmlToCarve
     protected function defaultCellScope(DOMElement $cell): string
     {
         for ($node = $cell->parentNode; $node instanceof DOMElement; $node = $node->parentNode) {
-            $tag = strtolower(HtmlDomLoader::elementName($node));
+            $tag = strtolower(DomLoader::elementName($node));
             if ($tag === 'thead') {
                 return 'col';
             }
@@ -3292,7 +3299,7 @@ class HtmlToCarve
             return 'row';
         }
         foreach ($section->childNodes as $sibling) {
-            if (!$sibling instanceof DOMElement || strtolower(HtmlDomLoader::elementName($sibling)) !== 'tr') {
+            if (!$sibling instanceof DOMElement || strtolower(DomLoader::elementName($sibling)) !== 'tr') {
                 continue;
             }
 
@@ -3311,7 +3318,7 @@ class HtmlToCarve
      */
     protected function importAttributeIsReadNotWritten(string $tag, string $name): bool
     {
-        return HtmlCarrierNames::isReserved($name)
+        return CarrierNames::isReserved($name)
             || ($tag === 'math' && in_array($name, ['display', 'alttext', 'xmlns'], true));
     }
 
@@ -3545,7 +3552,7 @@ class HtmlToCarve
             return [];
         }
 
-        $doc = HtmlDomLoader::fragment($html, 'div');
+        $doc = DomLoader::fragment($html, 'div');
 
         $counts = [];
         $values = [];
@@ -3559,7 +3566,7 @@ class HtmlToCarve
             // the input side: only a value that repeats its name needs it.
             $content = null;
             foreach ($element->attributes as $attribute) {
-                $name = strtolower(HtmlDomLoader::attributeName($attribute));
+                $name = strtolower(DomLoader::attributeName($attribute));
                 $value = trim($attribute->value);
                 if ($name === 'style') {
                     foreach ($this->styleDeclarations($value) as [$property, $styleValue]) {
@@ -3570,7 +3577,7 @@ class HtmlToCarve
                         };
                         if ($slot !== null) {
                             $content ??= $this->importElementContentKey($element);
-                            $key = "\0css-slot\0" . $slot . "\0" . $styleValue . "\0" . strtolower(HtmlDomLoader::elementName($element)) . "\0" . $content;
+                            $key = "\0css-slot\0" . $slot . "\0" . $styleValue . "\0" . strtolower(DomLoader::elementName($element)) . "\0" . $content;
                             $counts[$key] = ($counts[$key] ?? 0) + 1;
                         }
                     }
@@ -3782,7 +3789,7 @@ class HtmlToCarve
      */
     protected function isStrippedImportAttribute(string $name): bool
     {
-        return HtmlAttributePolicy::isStripped($name, $this->skipAttributes);
+        return AttributePolicy::isStripped($name, $this->skipAttributes);
     }
 
     /**
@@ -3865,7 +3872,7 @@ class HtmlToCarve
         if (!in_array($this->importAdapter, self::FOOTNOTE_SHAPED_ADAPTERS, true)) {
             return $html;
         }
-        $document = HtmlDomLoader::fragment($html);
+        $document = DomLoader::fragment($html);
         $this->normalizeAdapterFootnotes($document);
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
         if (!$root instanceof DOMElement) {
@@ -3873,7 +3880,7 @@ class HtmlToCarve
         }
         $normalized = '';
         foreach ($root->childNodes as $child) {
-            $normalized .= HtmlDomLoader::serialize($child);
+            $normalized .= DomLoader::serialize($child);
         }
 
         return $normalized;
@@ -3982,7 +3989,7 @@ class HtmlToCarve
             $sibling = $node->$direction;
             while ($sibling !== null) {
                 if ($sibling instanceof DOMElement) {
-                    if (in_array(strtolower(HtmlDomLoader::elementName($sibling)), $this->blockElements, true)) {
+                    if (in_array(strtolower(DomLoader::elementName($sibling)), $this->blockElements, true)) {
                         break;
                     }
 
@@ -4123,7 +4130,7 @@ class HtmlToCarve
             && $parent instanceof DOMElement
             && $this->indexBackrefEntries !== null
             && $this->indexBackrefEntries->offsetExists($parent)
-            && strtolower(HtmlDomLoader::elementName($node)) === 'a'
+            && strtolower(DomLoader::elementName($node)) === 'a'
             && in_array('index-backref', $classes, true)
             && !in_array('tabs', $classes, true)
             && !in_array('code-group', $classes, true)
@@ -4158,7 +4165,7 @@ class HtmlToCarve
         }
 
         return HtmlAstBuilder::isDerivedRole($node, $value)
-            || (strtolower(HtmlDomLoader::elementName($node)) === 'section' && strtolower(trim($value)) === 'doc-endnotes');
+            || (strtolower(DomLoader::elementName($node)) === 'section' && strtolower(trim($value)) === 'doc-endnotes');
     }
 
     /**
@@ -4177,7 +4184,7 @@ class HtmlToCarve
      */
     protected function derivedElementNaming(DOMElement $node): array
     {
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         $classes = $this->getElementClassList($node);
         if ($this->structuralClassInProgress !== null) {
             $classes[] = $this->structuralClassInProgress;
@@ -4228,14 +4235,14 @@ class HtmlToCarve
             $parent = $node->parentNode;
             if ($this->precedingLabelNames !== null && $parent !== null) {
                 if (!$this->precedingLabelNames->offsetExists($parent)) {
-                    $this->precedingLabelNames[$parent] = new HtmlPrecedingLabels($parent);
+                    $this->precedingLabelNames[$parent] = new PrecedingLabels($parent);
                 }
                 $name = $this->precedingLabelNames[$parent]->get($node);
 
                 return ['aria-label' => $name !== null ? [$name] : []];
             }
             for ($prev = $node->previousSibling; $prev !== null; $prev = $prev->previousSibling) {
-                if ($prev instanceof DOMElement && strtolower(HtmlDomLoader::elementName($prev)) === 'label') {
+                if ($prev instanceof DOMElement && strtolower(DomLoader::elementName($prev)) === 'label') {
                     return ['aria-label' => [trim($prev->textContent)]];
                 }
             }
@@ -4250,7 +4257,7 @@ class HtmlToCarve
         // href, so the whole name is reconstructible from the element.
         if ($tag === 'a' && in_array('index-backref', $classes, true)) {
             $parent = $node->parentNode;
-            if (!$parent instanceof DOMElement || strtolower(HtmlDomLoader::elementName($parent)) !== 'li') {
+            if (!$parent instanceof DOMElement || strtolower(DomLoader::elementName($parent)) !== 'li') {
                 return self::DERIVES_NOTHING;
             }
             if ($this->indexBackrefEntries !== null && $this->indexBackrefEntries->offsetExists($parent)) {
@@ -4263,7 +4270,7 @@ class HtmlToCarve
                     if ($child instanceof DOMElement) {
                         $readingTerm = false;
                         if (
-                            strtolower(HtmlDomLoader::elementName($child)) === 'a'
+                            strtolower(DomLoader::elementName($child)) === 'a'
                             && in_array('index-backref', $this->getElementClassList($child), true)
                         ) {
                             $total++;
@@ -4293,7 +4300,7 @@ class HtmlToCarve
 
         if (
             ($tag === 'pre' || $tag === 'div')
-            && (!HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated') || in_array('aria-label', explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true))
+            && (!CarrierNames::consumePresence($node, 'data-carve-fence-generated') || in_array('aria-label', explode(' ', CarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true))
             && $classes !== []
             && strtolower($node->getAttribute('role')) === 'img'
         ) {
@@ -4315,7 +4322,7 @@ class HtmlToCarve
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            if (strtolower(HtmlDomLoader::elementName($child)) !== 'p' || !$this->hasClass($child, 'admonition-title')) {
+            if (strtolower(DomLoader::elementName($child)) !== 'p' || !$this->hasClass($child, 'admonition-title')) {
                 continue;
             }
             $id = $child->getAttribute('id');
@@ -4337,7 +4344,7 @@ class HtmlToCarve
     protected function isInsideTableCell(DOMElement $node): bool
     {
         for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (in_array(strtolower(HtmlDomLoader::elementName($parent)), ['td', 'th'], true)) {
+            if (in_array(strtolower(DomLoader::elementName($parent)), ['td', 'th'], true)) {
                 return true;
             }
         }
@@ -4422,7 +4429,7 @@ class HtmlToCarve
     protected function importParagraphIsWrittenAsABlock(DOMElement $node): bool
     {
         for ($current = $node->parentNode; $current instanceof DOMElement; $current = $current->parentNode) {
-            if (in_array(strtolower(HtmlDomLoader::elementName($current)), self::IMPORT_INLINE_ONLY_SLOTS, true)) {
+            if (in_array(strtolower(DomLoader::elementName($current)), self::IMPORT_INLINE_ONLY_SLOTS, true)) {
                 return false;
             }
         }
@@ -4490,7 +4497,7 @@ class HtmlToCarve
         }
         /** @var \DOMAttr $attr */
         foreach ($node->attributes as $attr) {
-            $name = HtmlDomLoader::attributeName($attr);
+            $name = DomLoader::attributeName($attr);
             if ($name === 'id' || $name === 'class') {
                 continue;
             }
@@ -4578,7 +4585,7 @@ class HtmlToCarve
     protected function emptyCodeSpanIsDropped(DOMElement $node): bool
     {
         $parent = $node->parentNode;
-        if ($parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'pre') {
+        if ($parent instanceof DOMElement && strtolower(DomLoader::elementName($parent)) === 'pre') {
             return false;
         }
 
@@ -4594,7 +4601,7 @@ class HtmlToCarve
         // list table writes each cell as its own block.
         for ($cell = $node->parentNode; $cell instanceof DOMElement; $cell = $cell->parentNode) {
             if (
-                in_array(strtolower(HtmlDomLoader::elementName($cell)), ['td', 'th'], true)
+                in_array(strtolower(DomLoader::elementName($cell)), ['td', 'th'], true)
                 && !$this->cellEndsItsWrittenRow($cell)
                 && !$this->cellIsWrittenAsAListTableItem($cell)
             ) {
@@ -4607,7 +4614,7 @@ class HtmlToCarve
             if (!$parent instanceof DOMElement) {
                 return true;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($parent));
+            $tag = strtolower(DomLoader::elementName($parent));
             if (
                 in_array($tag, static::EMPTY_CODE_OPEN_RUN_TAGS, true)
                 || ($tag === 'span' && $parent->attributes->length > 0)
@@ -4637,7 +4644,7 @@ class HtmlToCarve
     protected function cellEndsItsWrittenRow(DOMElement $cell): bool
     {
         $table = $cell->parentNode;
-        while ($table instanceof DOMElement && strtolower(HtmlDomLoader::elementName($table)) !== 'table') {
+        while ($table instanceof DOMElement && strtolower(DomLoader::elementName($table)) !== 'table') {
             $table = $table->parentNode;
         }
         if (!$table instanceof DOMElement) {
@@ -4651,7 +4658,7 @@ class HtmlToCarve
             $passedCell = false;
             $logicalCol = 0;
             foreach ($tr->childNodes as $candidate) {
-                if (!$candidate instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($candidate)), ['td', 'th'], true)) {
+                if (!$candidate instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($candidate)), ['td', 'th'], true)) {
                     continue;
                 }
                 if ($passedCell) {
@@ -4692,13 +4699,13 @@ class HtmlToCarve
     protected function hardBreakIsFlattened(DOMElement $node): bool
     {
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-            $tag = strtolower(HtmlDomLoader::elementName($ancestor));
+            $tag = strtolower(DomLoader::elementName($ancestor));
             if ($tag === 'pre') {
                 return false;
             }
             if ($tag === 'td' || $tag === 'th') {
                 $row = $ancestor->parentNode;
-                if ($row instanceof DOMElement && strtolower(HtmlDomLoader::elementName($row)) === 'tr' && $this->directAstDroppedTableRow($row)) {
+                if ($row instanceof DOMElement && strtolower(DomLoader::elementName($row)) === 'tr' && $this->directAstDroppedTableRow($row)) {
                     return false;
                 }
 
@@ -4715,7 +4722,7 @@ class HtmlToCarve
             return false;
         }
         for ($table = $cell->parentNode; $table instanceof DOMElement; $table = $table->parentNode) {
-            if (strtolower(HtmlDomLoader::elementName($table)) === 'table') {
+            if (strtolower(DomLoader::elementName($table)) === 'table') {
                 if ($this->listTableInspection === null) {
                     return $this->tableHasBlockContentCell($table);
                 }
@@ -4752,7 +4759,7 @@ class HtmlToCarve
 
     protected function formattingKind(DOMElement $node): ?string
     {
-        return match (strtolower(HtmlDomLoader::elementName($node))) {
+        return match (strtolower(DomLoader::elementName($node))) {
             'strong', 'b' => '*',
             'em', 'i' => '/',
             'u' => '_',
@@ -4823,7 +4830,7 @@ class HtmlToCarve
      */
     protected function resolveMathTex(DOMElement $node): array
     {
-        return HtmlMathTex::resolve($node, self::MATH_TEX_ENCODINGS);
+        return MathTex::resolve($node, self::MATH_TEX_ENCODINGS);
     }
 
     /**
@@ -4870,14 +4877,14 @@ class HtmlToCarve
     {
         foreach ($this->getDirectTableRows($table) as $row) {
             foreach ($row->childNodes as $cell) {
-                if (!$cell instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($cell)), ['td', 'th'], true)) {
+                if (!$cell instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($cell)), ['td', 'th'], true)) {
                     continue;
                 }
 
                 $paragraphs = 0;
 
                 foreach ($cell->getElementsByTagName('*') as $descendant) {
-                    $tag = strtolower(HtmlDomLoader::elementName($descendant));
+                    $tag = strtolower(DomLoader::elementName($descendant));
 
                     if (in_array($tag, ['ul', 'ol', 'pre', 'blockquote', 'table', 'dl'], true)) {
                         return true;
@@ -4905,7 +4912,7 @@ class HtmlToCarve
                 continue;
             }
 
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             if ($tag === 'tr') {
                 $rows[] = $child;
 
@@ -4917,7 +4924,7 @@ class HtmlToCarve
             }
 
             foreach ($child->childNodes as $row) {
-                if ($row instanceof DOMElement && strtolower(HtmlDomLoader::elementName($row)) === 'tr') {
+                if ($row instanceof DOMElement && strtolower(DomLoader::elementName($row)) === 'tr') {
                     $rows[] = $row;
                 }
             }
@@ -4961,7 +4968,7 @@ class HtmlToCarve
 
     private ?int $inspectedImportSourceBytes = null;
 
-    private ?HtmlImportSession $astImportSession = null;
+    private ?ImportSession $astImportSession = null;
 
     /**
      * @var \SplObjectStorage<\DOMElement, true>|null
@@ -4978,7 +4985,7 @@ class HtmlToCarve
      */
     private array $sourcePartitionDiagnostics = [];
 
-    private ?HtmlAstBuildResult $inspectedAst = null;
+    private ?AstBuildResult $inspectedAst = null;
 
     private ?string $inspectedAstHtml = null;
 
@@ -5119,7 +5126,7 @@ class HtmlToCarve
     private ?SplObjectStorage $indexBackrefEntries = null;
 
     /**
-     * @var \SplObjectStorage<\DOMNode, \MarkupCarve\Carve\Converter\HtmlPrecedingLabels>|null
+     * @var \SplObjectStorage<\DOMNode, \MarkupCarve\Carve\Converter\Html\PrecedingLabels>|null
      */
     private ?SplObjectStorage $precedingLabelNames = null;
 
@@ -5195,11 +5202,11 @@ class HtmlToCarve
     protected function enclosingDefinitionList(DOMElement $node): ?DOMElement
     {
         $parent = $node->parentNode;
-        if ($parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'div') {
+        if ($parent instanceof DOMElement && strtolower(DomLoader::elementName($parent)) === 'div') {
             $parent = $parent->parentNode;
         }
 
-        return $parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'dl' ? $parent : null;
+        return $parent instanceof DOMElement && strtolower(DomLoader::elementName($parent)) === 'dl' ? $parent : null;
     }
 
     /**
@@ -5238,7 +5245,7 @@ class HtmlToCarve
         $names = [];
         $keys = [];
         foreach ($node->attributes as $attribute) {
-            $name = strtolower(HtmlDomLoader::attributeName($attribute));
+            $name = strtolower(DomLoader::attributeName($attribute));
             if ($name === 'id' || $name === 'class') {
                 if ($name === 'id' || trim($attribute->value) !== '') {
                     $names[$name] = true;
@@ -5313,7 +5320,7 @@ class HtmlToCarve
         $tagName = strtolower($tagName);
 
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === $tagName) {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === $tagName) {
                 return $child;
             }
         }
@@ -5335,7 +5342,7 @@ class HtmlToCarve
         // Cells are handled by extractTableCellAlignment(), which maps alignment
         // onto the native separator markers. Adding a class as well would emit
         // the same information twice, in two different mechanisms.
-        if (HtmlDomLoader::elementName($node) === 'td' || HtmlDomLoader::elementName($node) === 'th') {
+        if (DomLoader::elementName($node) === 'td' || DomLoader::elementName($node) === 'th') {
             return null;
         }
 
@@ -5349,7 +5356,7 @@ class HtmlToCarve
 
     protected function isTableCell(DOMElement $node): bool
     {
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
 
         return $tag === 'td' || $tag === 'th';
     }
@@ -5601,7 +5608,7 @@ class HtmlToCarve
         }
 
         foreach ($elements as $element) {
-            if (strtolower(HtmlDomLoader::elementName($element)) !== 'a') {
+            if (strtolower(DomLoader::elementName($element)) !== 'a') {
                 continue;
             }
             $name = $element->getAttribute('name');
@@ -5627,7 +5634,7 @@ class HtmlToCarve
         $anchors = [];
         $used = [];
         foreach ($elements as $element) {
-            if (strtolower(HtmlDomLoader::elementName($element)) !== 'a') {
+            if (strtolower(DomLoader::elementName($element)) !== 'a') {
                 continue;
             }
             $href = $element->getAttribute('href');
@@ -5687,7 +5694,7 @@ class HtmlToCarve
     protected function resolveFootnoteDefinitionBlock(DOMElement $target, array $used): ?DOMElement
     {
         $block = $target;
-        while (!in_array(strtolower(HtmlDomLoader::elementName($block)), self::FOOTNOTE_DEFINITION_BLOCKS, true)) {
+        while (!in_array(strtolower(DomLoader::elementName($block)), self::FOOTNOTE_DEFINITION_BLOCKS, true)) {
             $parent = $block->parentNode;
             if (!$parent instanceof DOMElement) {
                 return null;
@@ -5698,7 +5705,7 @@ class HtmlToCarve
         $parent = $block->parentNode;
         if (
             $parent instanceof DOMElement
-            && in_array(strtolower(HtmlDomLoader::elementName($parent)), self::FOOTNOTE_WRAPPER_BLOCKS, true)
+            && in_array(strtolower(DomLoader::elementName($parent)), self::FOOTNOTE_WRAPPER_BLOCKS, true)
             && $parent->getAttribute('id') !== ''
             && $this->countFootnoteTargets($parent, $used) === 1
         ) {
@@ -5766,7 +5773,7 @@ class HtmlToCarve
             return true;
         }
 
-        if (strtolower(HtmlDomLoader::elementName($node)) !== 'a') {
+        if (strtolower(DomLoader::elementName($node)) !== 'a') {
             return false;
         }
 
@@ -5997,7 +6004,7 @@ class HtmlToCarve
         }
 
         foreach ($elements as $element) {
-            if (strtolower(HtmlDomLoader::elementName($element)) !== 'a') {
+            if (strtolower(DomLoader::elementName($element)) !== 'a') {
                 continue;
             }
             $href = $element->getAttribute('href');
@@ -6254,7 +6261,7 @@ class HtmlToCarve
                 while ($previous !== null) {
                     $next = $previous->previousSibling;
                     if (!$this->isFootnoteChromeText($previous)) {
-                        if (!$previous instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($previous)), ['hr', 'br'], true)) {
+                        if (!$previous instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($previous)), ['hr', 'br'], true)) {
                             return;
                         }
                         $previous->parentNode?->removeChild($previous);
@@ -6262,7 +6269,7 @@ class HtmlToCarve
                     $previous = $next;
                 }
                 $parent = $node->parentNode;
-                if (!$parent instanceof DOMElement || in_array(strtolower(HtmlDomLoader::elementName($parent)), ['body', 'html'], true)) {
+                if (!$parent instanceof DOMElement || in_array(strtolower(DomLoader::elementName($parent)), ['body', 'html'], true)) {
                     return;
                 }
                 $node = $parent;
@@ -6276,7 +6283,7 @@ class HtmlToCarve
                 $previous = $previous->previousSibling;
             }
 
-            if ($previous instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($previous)), ['hr', 'br'], true)) {
+            if ($previous instanceof DOMElement && in_array(strtolower(DomLoader::elementName($previous)), ['hr', 'br'], true)) {
                 $previous->parentNode?->removeChild($previous);
 
                 continue;
@@ -6287,7 +6294,7 @@ class HtmlToCarve
             }
 
             $parent = $node->parentNode;
-            if (!$parent instanceof DOMElement || in_array(strtolower(HtmlDomLoader::elementName($parent)), ['body', 'html'], true)) {
+            if (!$parent instanceof DOMElement || in_array(strtolower(DomLoader::elementName($parent)), ['body', 'html'], true)) {
                 return;
             }
             $node = $parent;
@@ -6363,7 +6370,7 @@ class HtmlToCarve
             }
             if (
                 $parent instanceof DOMElement
-                && in_array(strtolower(HtmlDomLoader::elementName($parent)), ['sup', 'span'], true)
+                && in_array(strtolower(DomLoader::elementName($parent)), ['sup', 'span'], true)
                 && trim($parent->textContent) === ''
                 && $parent->getElementsByTagName('*')->length === 0
             ) {
@@ -6381,7 +6388,7 @@ class HtmlToCarve
         }
         foreach (array_reverse($ordered) as $parent) {
             if (
-                in_array(strtolower(HtmlDomLoader::elementName($parent)), ['sup', 'span'], true)
+                in_array(strtolower(DomLoader::elementName($parent)), ['sup', 'span'], true)
                 && trim($parent->textContent) === ''
                 && $parent->getElementsByTagName('*')->length === 0
             ) {
@@ -6400,7 +6407,7 @@ class HtmlToCarve
     protected function footnoteReferenceSite(DOMElement $reference): DOMElement
     {
         $parent = $reference->parentNode;
-        if (!$parent instanceof DOMElement || strtolower(HtmlDomLoader::elementName($parent)) !== 'sup') {
+        if (!$parent instanceof DOMElement || strtolower(DomLoader::elementName($parent)) !== 'sup') {
             return $reference;
         }
 
@@ -6427,7 +6434,7 @@ class HtmlToCarve
             if ($owner !== null && $node === $owner->documentElement) {
                 return;
             }
-            if (in_array(strtolower(HtmlDomLoader::elementName($node)), ['body', 'html'], true)) {
+            if (in_array(strtolower(DomLoader::elementName($node)), ['body', 'html'], true)) {
                 return;
             }
             if ($this->footnotePruningCounts !== null) {
@@ -6436,7 +6443,7 @@ class HtmlToCarve
                     foreach ($node->childNodes as $child) {
                         if (
                             !$this->isFootnoteChromeText($child)
-                            && (!$child instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($child)), ['hr', 'br'], true))
+                            && (!$child instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($child)), ['hr', 'br'], true))
                         ) {
                             $count++;
                         }
@@ -6451,7 +6458,7 @@ class HtmlToCarve
                     if ($this->isFootnoteChromeText($child)) {
                         continue;
                     }
-                    if ($child instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($child)), ['hr', 'br'], true)) {
+                    if ($child instanceof DOMElement && in_array(strtolower(DomLoader::elementName($child)), ['hr', 'br'], true)) {
                         continue;
                     }
 
@@ -6463,7 +6470,7 @@ class HtmlToCarve
             if (
                 $this->footnotePruningCounts !== null && $parent instanceof DOMElement
                 && $this->footnotePruningCounts->offsetExists($parent)
-                && !in_array(strtolower(HtmlDomLoader::elementName($node)), ['hr', 'br'], true)
+                && !in_array(strtolower(DomLoader::elementName($node)), ['hr', 'br'], true)
             ) {
                 $this->footnotePruningCounts[$parent] = $this->footnotePruningCounts[$parent] - 1;
             }

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use DOMDocument;
-use MarkupCarve\Carve\Converter\HtmlDomLoader;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\Attributes\RequiresPhp;
@@ -19,9 +19,9 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     public static function instructionProvider(): array
     {
         return [
-            'double hyphen' => ['<p>x<?a--b>y</p>', HtmlDomLoader::usesHtml5() ? "x{% ?a--b %}y\n" : "xy\n"],
-            'trailing hyphen' => ['<p>x<?a->y</p>', HtmlDomLoader::usesHtml5() ? "x{% ?a- %}y\n" : "xy\n"],
-            'unclosed instruction' => ['<p>x<?foo', HtmlDomLoader::usesHtml5() ? "x{% ?foo %}\n" : "x{% ?foo</carve-import-root %}\n"],
+            'double hyphen' => ['<p>x<?a--b>y</p>', DomLoader::usesHtml5() ? "x{% ?a--b %}y\n" : "xy\n"],
+            'trailing hyphen' => ['<p>x<?a->y</p>', DomLoader::usesHtml5() ? "x{% ?a- %}y\n" : "xy\n"],
+            'unclosed instruction' => ['<p>x<?foo', DomLoader::usesHtml5() ? "x{% ?foo %}\n" : "x{% ?foo</carve-import-root %}\n"],
             'empty instruction' => ['<p>HTML<?></p>', "HTML{% ? %}\n"],
             'named instruction' => ['<p>x <?foo bar?> y</p>', "x {% ?foo bar? %} y\n"],
             'link in cell' => [
@@ -55,9 +55,9 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     #[DataProvider('opaqueProvider')]
     public function testOpaqueContextsKeepInstructionText(string $tag): void
     {
-        $document = HtmlDomLoader::load('<' . $tag . '>before <?x> after</' . $tag . '>');
+        $document = DomLoader::load('<' . $tag . '>before <?x> after</' . $tag . '>');
         $element = $document->getElementsByTagName($tag)->item(0);
-        if (!HtmlDomLoader::usesHtml5()) {
+        if (!DomLoader::usesHtml5()) {
             $legacy = new DOMDocument();
             $previous = libxml_use_internal_errors(true);
             try {
@@ -78,7 +78,7 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     #[RequiresPhp('>=8.4.0')]
     public function testNoscriptUsesTheScriptingDisabledTree(): void
     {
-        $document = HtmlDomLoader::fragment('<noscript>before <?x> after</noscript>');
+        $document = DomLoader::fragment('<noscript>before <?x> after</noscript>');
         $element = $document->getElementsByTagName('noscript')->item(0);
         $this->assertSame('before  after', $element?->textContent);
         $this->assertSame('?x', $element?->childNodes->item(1)?->nodeValue);
@@ -88,7 +88,7 @@ class AProcessingInstructionImportsAsACommentTest extends TestCase
     public function testScannerResumesAfterOpaqueContexts(): void
     {
         $html = '<div><script>"<?x>"</script><!-- <?x> --><p title="<?x>">x<?y></p></div>';
-        $document = HtmlDomLoader::load($html);
+        $document = DomLoader::load($html);
         $paragraph = $document->getElementsByTagName('p')->item(0);
         $this->assertSame('<?x>', $paragraph?->getAttribute('title'));
         $this->assertSame('?y', $paragraph?->lastChild?->nodeValue);

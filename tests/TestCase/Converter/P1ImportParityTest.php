@@ -6,7 +6,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\DjotToCarve;
-use MarkupCarve\Carve\Converter\MarkdownEmphasis;
+use MarkupCarve\Carve\Converter\Markdown\Emphasis;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -40,17 +40,17 @@ class P1ImportParityTest extends TestCase
 
     public function testDeepDelimiterRuns(): void
     {
-        $deep = MarkdownEmphasis::convert(str_repeat('*', 20000) . 'word' . str_repeat('*', 20000));
+        $deep = Emphasis::convert(str_repeat('*', 20000) . 'word' . str_repeat('*', 20000));
         $this->assertSame('word', trim(strip_tags((new CarveConverter())->convert($deep))));
         $this->assertLessThan(5000, strlen($deep));
-        $this->assertSame(str_repeat('a_ ', 10000), MarkdownEmphasis::convert(str_repeat('a_ ', 10000)));
+        $this->assertSame(str_repeat('a_ ', 10000), Emphasis::convert(str_repeat('a_ ', 10000)));
     }
 
     public function testDelimiterWalkSkipsRemovedRuns(): void
     {
         $n = 2000;
         $steps = 0;
-        MarkdownEmphasis::convert(str_repeat('*a ', $n) . str_repeat('_b ', $n) . str_repeat('a* ', $n), null, static function () use (&$steps): void {
+        Emphasis::convert(str_repeat('*a ', $n) . str_repeat('_b ', $n) . str_repeat('a* ', $n), null, static function () use (&$steps): void {
             $steps++;
         });
         $this->assertLessThan(20 * $n, $steps);

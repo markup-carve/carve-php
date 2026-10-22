@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use MarkupCarve\Carve\Converter\HtmlDomLoader;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
 use MarkupCarve\Carve\Converter\HtmlImportDiagnostic;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\TestCase;
@@ -215,7 +215,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
         $result = (new HtmlToCarve())->convertWithReport('<colgroup><p>kept</p></colgroup>');
 
         $this->assertSame("kept\n", $result->value);
-        $this->assertSame([HtmlDomLoader::usesHtml5() ? 'element-dropped' : 'element-unwrapped'], array_column($this->rows($result->diagnostics), 'code'));
+        $this->assertSame([DomLoader::usesHtml5() ? 'element-dropped' : 'element-unwrapped'], array_column($this->rows($result->diagnostics), 'code'));
     }
 
     /**
@@ -225,13 +225,13 @@ class ADroppedColgroupSaysSoTest extends TestCase
     {
         $rows = $this->rows($this->diagnostics('<table><col span="2"><col><tr><td>a</td><td>b</td></tr></table>'));
 
-        $this->assertSame((HtmlDomLoader::usesHtml5() ? ['/table[1]/colgroup[1]'] : []), $this->droppedPaths('<table><col span="2"><col><tr><td>a</td><td>b</td></tr></table>'));
+        $this->assertSame((DomLoader::usesHtml5() ? ['/table[1]/colgroup[1]'] : []), $this->droppedPaths('<table><col span="2"><col><tr><td>a</td><td>b</td></tr></table>'));
         $this->assertSame(
-            (HtmlDomLoader::usesHtml5() ? ['/table[1]/colgroup[1]'] : ['/table[1]/col[1]', '/table[1]/col[1]', '/table[1]/col[2]']),
+            (DomLoader::usesHtml5() ? ['/table[1]/colgroup[1]'] : ['/table[1]/col[1]', '/table[1]/col[1]', '/table[1]/col[2]']),
             array_column($rows, 'path'),
         );
         $this->assertSame(
-            (HtmlDomLoader::usesHtml5() ? ['element-dropped'] : ['element-dropped', 'attribute-dropped', 'element-dropped']),
+            (DomLoader::usesHtml5() ? ['element-dropped'] : ['element-dropped', 'attribute-dropped', 'element-dropped']),
             array_column($rows, 'code'),
         );
     }
@@ -249,7 +249,7 @@ class ADroppedColgroupSaysSoTest extends TestCase
 
         $this->assertSame(['element-dropped', 'element-dropped'], array_column($rows, 'code'));
         $this->assertSame(
-            ['/table[1]/colgroup[1]', HtmlDomLoader::usesHtml5() ? '/table[1]/colgroup[2]' : '/table[1]/col[2]'],
+            ['/table[1]/colgroup[1]', DomLoader::usesHtml5() ? '/table[1]/colgroup[2]' : '/table[1]/col[2]'],
             array_column($rows, 'path'),
         );
     }

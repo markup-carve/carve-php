@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use MarkupCarve\Carve\Converter\Djot\Emphasis;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
@@ -118,7 +119,7 @@ trait ReportsDjotLosses
                 $add($at, 'Multiline inline code uses raw HTML; plain-text export omits it.');
             });
         }
-        DjotEmphasis::convert($source, $mask, static fn (string $text): string => $text, [], static function (int $at) use ($add): void {
+        Emphasis::convert($source, $mask, static fn (string $text): string => $text, [], static function (int $at) use ($add): void {
             $add($at, 'Emphasis exceeding the native nesting budget is flattened; its text is preserved.');
         }, $this->djotTableCellBoundaries($source));
         $lines = explode("\n", $source);

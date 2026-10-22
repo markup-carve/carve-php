@@ -1,6 +1,6 @@
 # Developer documentation
 
-[CONTRIBUTING.md](../CONTRIBUTING.md) covers local setup, tests, coding
+[CONTRIBUTING.md](../.github/CONTRIBUTING.md) covers local setup, tests, coding
 standards, static analysis and changes that affect the specification.
 For application integration, see the [PHP guides](README.md).
 

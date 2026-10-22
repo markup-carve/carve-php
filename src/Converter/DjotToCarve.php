@@ -6,6 +6,14 @@ namespace MarkupCarve\Carve\Converter;
 
 use Closure;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\Djot\Emphasis;
+use MarkupCarve\Carve\Converter\Djot\HeadingTargets;
+use MarkupCarve\Carve\Converter\Djot\ImageChildTextRenderer;
+use MarkupCarve\Carve\Converter\Djot\MasksOpaque;
+use MarkupCarve\Carve\Converter\Djot\NormalizesStructure;
+use MarkupCarve\Carve\Converter\Djot\PlaceholderPrefix;
+use MarkupCarve\Carve\Converter\Djot\ReportsLosses;
+use MarkupCarve\Carve\Converter\Djot\TightDefinitionDescriptions;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
@@ -51,9 +59,9 @@ class DjotToCarve
     use EscapesCarveConstructs;
     use PreservesHeadingIds;
     use ReportsMigrationFidelity;
-    use NormalizesDjotStructure;
-    use ReportsDjotLosses;
-    use MasksDjotOpaque;
+    use NormalizesStructure;
+    use ReportsLosses;
+    use MasksOpaque;
 
     private bool $omitQuoteDelimiters = false;
 
@@ -355,7 +363,7 @@ class DjotToCarve
             && preg_match('/(?:^|\n)[ \t]*(?:>[ \t]*)*(?:(?:[-*+]|[0-9A-Za-z]+[.)])[ \t]+)?#{1,6}[ \t]/', $source) === 1
         ) {
             $baseline = $this->convertDocument($djot, $preserveHeadingIds, true);
-            $targets = DjotHeadingTargets::fromCarve($baseline);
+            $targets = HeadingTargets::fromCarve($baseline);
             $source = $this->normalizeDjotReferenceUses($source, aliasesOnly: true, headingTargets: $targets);
         }
 
@@ -415,14 +423,14 @@ class DjotToCarve
         $source = $this->carryDjotAttributesAcrossQuoteExits($this->carryDjotAttributesAcrossDivClosers($source));
         [$source, $inherited] = $this->escapeInvalidDjotAttributes($source);
         $source = $this->normalizeDjotFences($this->foldDjotReferences($this->definitionTermBlockBoundaries($this->normalizeDjotAttributeLines($source))));
-        $itemAttributePrefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTITEMATTR\x00");
+        $itemAttributePrefix = PlaceholderPrefix::choose($source, "\x00DJOTITEMATTR\x00");
         $itemAttributeValues = [];
         $holdItemAttributes = static function (string $attributes, bool $block = false) use (&$itemAttributeValues, $itemAttributePrefix): string {
             $itemAttributeValues[] = $attributes;
 
             return $itemAttributePrefix . ($block ? 'B' : '') . (count($itemAttributeValues) - 1) . "\x00";
         };
-        $emptyNote = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYNOTE\x00");
+        $emptyNote = PlaceholderPrefix::choose($source, "\x00DJOTEMPTYNOTE\x00");
         $source = $this->normalizeDjotReferenceUses($this->foldDjotReferences($this->normalizeDjotStructure($source, $strippedDefinitions['isBoundary'], $emptyNote, $holdItemAttributes)), inherited: $inherited);
         $source = $this->normalizeDjotFootnotes($source, $strippedDefinitions['isBoundary'], $inherited, $emptyNote);
         $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->escapeDjotNonTableRows($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source, $inherited))))));
@@ -528,13 +536,13 @@ class DjotToCarve
             $cursor = $at;
         }
         $source = implode('', $parts) . substr($source, $cursor);
-        $emptyTerm = DjotPlaceholderPrefix::choose($source, "\x00DJOTEMPTYTERM\x00");
+        $emptyTerm = PlaceholderPrefix::choose($source, "\x00DJOTEMPTYTERM\x00");
         $source = $this->convertDefinitionLists($source, $emptyTerm);
         $source = $this->convertDjotBlockMarkers($source);
         $djotBody = $source;
         $strongSpans = [];
-        $altPrefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTALT\x00");
-        $imageParagraph = DjotPlaceholderPrefix::choose($source, "\x00DJOTIMAGEPARAGRAPH\x00");
+        $altPrefix = PlaceholderPrefix::choose($source, "\x00DJOTALT\x00");
+        $imageParagraph = PlaceholderPrefix::choose($source, "\x00DJOTIMAGEPARAGRAPH\x00");
         $imageMask = $this->maskCodeAndDestinations($source);
         $imageLines = $this->djotImageLineOwners($source, $imageMask);
         $imageStarts = array_fill_keys(array_column($imageLines, 'start'), true);
@@ -580,7 +588,7 @@ class DjotToCarve
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
-        $carve = DjotEmphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
+        $carve = Emphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
 
         $carve = str_replace($emptyTerm, '%%', $carve);
         $carve = str_replace([$emptyNote, $imageParagraph], ['%%%%', '{%%}'], $carve);
@@ -595,7 +603,7 @@ class DjotToCarve
             $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
         }
 
-        $carve = DjotTightDefinitionDescriptions::normalize($this->genericDjotDivClasses($carve));
+        $carve = TightDefinitionDescriptions::normalize($this->genericDjotDivClasses($carve));
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
@@ -1059,7 +1067,7 @@ class DjotToCarve
             if (substr_count($quotes[0] ?? '', '>') !== $context['depth']) {
                 return false;
             }
-            if (trim(substr($raw, DjotEmphasis::structuralPrefixEnd($raw))) === '') {
+            if (trim(substr($raw, Emphasis::structuralPrefixEnd($raw))) === '') {
                 if ($lines === []) {
                     break;
                 }
@@ -1075,7 +1083,7 @@ class DjotToCarve
                             return false;
                         }
                         $column = strlen($leading[0]);
-                        if (strlen($prefix) <= $column && DjotEmphasis::structuralPrefixEnd($lines[array_key_last($lines)]['raw']) > $column) {
+                        if (strlen($prefix) <= $column && Emphasis::structuralPrefixEnd($lines[array_key_last($lines)]['raw']) > $column) {
                             return false;
                         }
 
@@ -1094,7 +1102,7 @@ class DjotToCarve
                 if ($cached['result']) {
                     return true;
                 }
-                $attrs = $this->readDjotWordAttributes($source, $from + DjotEmphasis::structuralPrefixEnd($raw), false, false, false);
+                $attrs = $this->readDjotWordAttributes($source, $from + Emphasis::structuralPrefixEnd($raw), false, false, false);
                 if ($attrs !== null && $attrs['end'] <= $start) {
                     while ($lines !== [] && $lines[array_key_last($lines)]['from'] < $attrs['end']) {
                         array_pop($lines);
@@ -1121,7 +1129,7 @@ class DjotToCarve
                     return false;
                 }
             }
-            $bodyAt = DjotEmphasis::structuralPrefixEnd($raw);
+            $bodyAt = Emphasis::structuralPrefixEnd($raw);
             $body = substr($raw, $bodyAt);
             if ($kind === 'fence') {
                 if (str_starts_with($body, $fence)) {
@@ -1393,7 +1401,7 @@ class DjotToCarve
                 $newline = strpos($source, "\n", $lineStart);
                 $lineEnd = $newline === false ? strlen($source) : $newline;
                 $line = substr($source, $lineStart, $lineEnd - $lineStart);
-                $table = ($line[DjotEmphasis::structuralPrefixEnd($line)] ?? '') === '|';
+                $table = ($line[Emphasis::structuralPrefixEnd($line)] ?? '') === '|';
             }
 
             return $this->readDjotWordAttributes($source, $start, true, $table);
@@ -1424,7 +1432,7 @@ class DjotToCarve
         if (!str_contains($source, '{')) {
             return $source;
         }
-        $paired = DjotEmphasis::pairedOpeners($source, $this->djotEmphasisMask($source), $this->djotTableCellBoundaries($source));
+        $paired = Emphasis::pairedOpeners($source, $this->djotEmphasisMask($source), $this->djotTableCellBoundaries($source));
         $readNative = $this->nativeAttributeReader($source);
         $masked = $this->maskFootnoteTokens($this->maskCodeAndDestinations($source), '/\[\^[^\]\n]*\]/', true);
         $literalBraces = [];
@@ -1531,7 +1539,7 @@ class DjotToCarve
                 }
             }
         }
-        $prefix = DjotPlaceholderPrefix::choose($source, "\0DJOTWORD");
+        $prefix = PlaceholderPrefix::choose($source, "\0DJOTWORD");
         $output = '';
         $cursor = 0;
         $lastClose = strrpos($source, '}');
@@ -2510,7 +2518,7 @@ class DjotToCarve
                 $nextDepth = null;
             }
         }
-        $prefix = DjotPlaceholderPrefix::choose($source, "\x00DJOTORPHAN\x00");
+        $prefix = PlaceholderPrefix::choose($source, "\x00DJOTORPHAN\x00");
         $out = [];
         $spaces = [];
         $blockAttributes = [];
@@ -3062,7 +3070,7 @@ class DjotToCarve
                         if ($source[$inner] === "\n") {
                             $nextEnd = strpos($source, "\n", $inner + 1);
                             $nextLine = substr($source, $inner + 1, ($nextEnd === false ? $length : $nextEnd) - $inner - 1);
-                            if (trim(substr($nextLine, DjotEmphasis::structuralPrefixEnd($nextLine))) === '') {
+                            if (trim(substr($nextLine, Emphasis::structuralPrefixEnd($nextLine))) === '') {
                                 break;
                             }
                         }
@@ -3834,7 +3842,7 @@ class DjotToCarve
         }
         $label = $this->djotImageLabelAttributes($label);
         [$protected, $scalars] = $this->protectImageAltScalars($label, $preserveSourceNuls);
-        $renderer = new DjotImageChildTextRenderer();
+        $renderer = new ImageChildTextRenderer();
         if (str_contains($label, "\n")) {
             $renderer->setSoftBreakMode(SoftBreakMode::Newline);
         }
@@ -4988,7 +4996,7 @@ class DjotToCarve
                         $altDefinitions[] = $pipeDefinitions[$alias];
                     }
                 }
-                $label = (new CarveConverter(smartTypography: false, renderer: new DjotImageChildTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convertImageQuoteText(($altDefinitions !== [] ? implode("\n", $altDefinitions) . "\n\n" : '') . 'DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND', true)));
+                $label = (new CarveConverter(smartTypography: false, renderer: new ImageChildTextRenderer()))->convert(str_replace("\0U\0", "\0", $this->convertImageQuoteText(($altDefinitions !== [] ? implode("\n", $altDefinitions) . "\n\n" : '') . 'DJOTALT ' . $this->removeInheritedAttributeMarkers($label, $inherited) . ' DJOTEND', true)));
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
                 $label = preg_replace_callback('/[!-\/:-@\[-`{-~]/', static fn (array $match): string => '\\' . $match[0], $label) ?? $label;
             }

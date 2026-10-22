@@ -9,8 +9,8 @@ use DOMNode;
 use DOMText;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
 use MarkupCarve\Carve\Converter\HtmlAstBuilder;
-use MarkupCarve\Carve\Converter\HtmlDomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use MarkupCarve\Carve\Node\Block\Div;
@@ -163,7 +163,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
                     $tree = (new HtmlToCarve(importMode: $mode))->convertToAstWithReport($html)->value;
                     $source = (new CarveRenderer())->render((new AstCodec())->decode($tree));
                     $rendered = (new CarveConverter())->convert($source);
-                    $images = array_values(array_filter(self::elements($rendered), static fn (DOMElement $element): bool => strtolower(HtmlDomLoader::elementName($element)) === 'img'));
+                    $images = array_values(array_filter(self::elements($rendered), static fn (DOMElement $element): bool => strtolower(DomLoader::elementName($element)) === 'img'));
                     self::assertCount(1, $images, $mode . ': ' . $source);
                     self::assertSame('/a.png', $images[0]->getAttribute('src'));
                     self::assertSame($alt, $images[0]->getAttribute('alt'));
@@ -233,7 +233,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
         self::assertSame('field-unspellable', $report['diagnostics'][0]['code']);
         self::assertSame('ref', $report['diagnostics'][0]['field']);
         self::assertStringContainsString('![alt](/a.png)', $source);
-        $images = array_values(array_filter(self::elements((new CarveConverter())->convert($source)), static fn (DOMElement $element): bool => strtolower(HtmlDomLoader::elementName($element)) === 'img'));
+        $images = array_values(array_filter(self::elements((new CarveConverter())->convert($source)), static fn (DOMElement $element): bool => strtolower(DomLoader::elementName($element)) === 'img'));
         self::assertCount(1, $images);
         self::assertSame('/a.png', $images[0]->getAttribute('src'));
     }
@@ -258,7 +258,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
             $writer = new CarveRenderer();
             $writer->beginConversionDiagnosticCollection();
             $source = $writer->render((new AstCodec())->decode($tree));
-            $renderedRoot = HtmlDomLoader::load((new CarveConverter())->convert($source));
+            $renderedRoot = DomLoader::load((new CarveConverter())->convert($source));
             self::assertSame('a' . $value . 'b', trim($renderedRoot->textContent, "\n"));
             $report = $writer->finishConversionDiagnosticCollection();
             self::assertSame('field-unspellable', $report['diagnostics'][0]['code']);
@@ -840,7 +840,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
      */
     private static function elements(string $html): array
     {
-        $root = HtmlDomLoader::load($html);
+        $root = DomLoader::load($html);
         $elements = [];
         $walk = static function (DOMNode $node) use (&$walk, &$elements): void {
             if ($node instanceof DOMElement) {
@@ -872,7 +872,7 @@ class SharedRoundtripExportAcceptanceTest extends TestCase
 
     private static function deprecatedHtml(string $html): string
     {
-        $root = HtmlDomLoader::load($html);
+        $root = DomLoader::load($html);
         $uris = [];
         $uriToken = 'CARVEDEPRECATEDURI';
         while (str_contains($html, $uriToken)) {

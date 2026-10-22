@@ -7,7 +7,7 @@ namespace MarkupCarve\Carve\Test\TestCase\Converter;
 use DOMDocument;
 use DOMElement;
 use DOMNode;
-use MarkupCarve\Carve\Converter\HtmlDomLoader;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -78,7 +78,7 @@ class ABareTableRowGainsTheImpliedRowGroupTest extends TestCase
     #[DataProvider('tables')]
     public function testTheParserTheRuntimePicksInsertsTheGroup(string $html, string $shape): void
     {
-        self::assertSame($shape, $this->tableShape(HtmlDomLoader::load($html)), $html);
+        self::assertSame($shape, $this->tableShape(DomLoader::load($html)), $html);
     }
 
     /**
@@ -98,7 +98,7 @@ class ABareTableRowGainsTheImpliedRowGroupTest extends TestCase
             libxml_clear_errors();
             libxml_use_internal_errors($previous);
         }
-        HtmlDomLoader::impliedTableBodies($document);
+        DomLoader::impliedTableBodies($document);
 
         self::assertSame($shape, $this->tableShape($document), $html);
     }
@@ -112,7 +112,7 @@ class ABareTableRowGainsTheImpliedRowGroupTest extends TestCase
         $html = '<table><thead><tr><th>h</th></tr></thead><tbody><tr><td>a</td></tr></tbody><tfoot><tr><td>f</td></tr></tfoot></table>';
         $expected = 'table(thead(tr(th)),tbody(tr(td)),tfoot(tr(td)))';
 
-        self::assertSame($expected, $this->tableShape(HtmlDomLoader::load($html)));
+        self::assertSame($expected, $this->tableShape(DomLoader::load($html)));
     }
 
     /**
@@ -161,7 +161,7 @@ class ABareTableRowGainsTheImpliedRowGroupTest extends TestCase
                 continue;
             }
             $inner = $this->shape($child);
-            $name = strtolower(HtmlDomLoader::elementName($child));
+            $name = strtolower(DomLoader::elementName($child));
             $parts[] = $inner === '' ? $name : $name . '(' . $inner . ')';
         }
 
