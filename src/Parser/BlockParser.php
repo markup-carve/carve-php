@@ -395,6 +395,21 @@ class BlockParser
                     }
                 }
             }
+            // CARVE-P9-067: a note's or a description's first-block form pulls no column-0 list.
+            if (in_array($firstBlock['kind'] ?? null, ['footnote', 'description'], true)) {
+                $follower = $this->state->source->sourceLines[$index + 1] ?? '';
+                if (
+                    ContinuationMarkerClassifier::columnAt($follower, strspn($follower, " \t")) === 0
+                    && $this->listParser->parseListItemMarker($follower) !== null
+                ) {
+                    $markers[] = [
+                        'line' => $index + 1,
+                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
+                        'host' => $firstBlock['kind'] === 'footnote' ? 'footnote body' : 'definition description',
+                        'reason' => 'list',
+                    ];
+                }
+            }
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index);
             if ($decision['column'] < 0 || $decision['reason'] === null) {
                 continue;
