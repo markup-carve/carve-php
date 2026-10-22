@@ -93,8 +93,8 @@ final class DescriptionSeparatorBelowContentColumnLinter
             if ($node instanceof DefinitionList) {
                 $term = $node->getChildren()[0] ?? null;
                 $termLine = $term instanceof DefinitionTerm ? $term->getPos()?->startLine : null;
-                $authored = $termLine === null ? null : $this->candidate($rows[$termLine - 1][0] ?? '');
-                if ($authored !== null && $authored['marker'] === '::') {
+                $authored = $termLine === null ? null : $this->termMarker($rows[$termLine - 1][0] ?? '');
+                if ($authored !== null) {
                     $line = $rows[$termLine - 1][0];
                     $lists[] = ['first' => $pos->startLine, 'last' => $pos->endLine, 'column' => $this->visual(substr($line, 0, $authored['index'])), 'depth' => $authored['depth']];
                 }
@@ -122,6 +122,30 @@ final class DescriptionSeparatorBelowContentColumnLinter
         }
 
         return ['index' => $index, 'marker' => $match[0], 'depth' => $depth];
+    }
+
+    /**
+     * The first term's `::`, which may follow list markers on an item's marker line.
+     *
+     * @return array{index: int, depth: int}|null
+     */
+    private function termMarker(string $line): ?array
+    {
+        $index = 0;
+        $depth = 0;
+        while (preg_match('/^[ \t]*>(?: |$)/', substr($line, $index), $match)) {
+            $index += strlen($match[0]);
+            ++$depth;
+        }
+        while (preg_match('/^[ \t]*(?:[-+*](?: +\[[ xX\-_>?]\])?|\([0-9A-Za-z]+\)|[0-9A-Za-z]+[.)]|\.)(?:\{[^{}\r\n]*\})?[ \t]+(?=\S)/', substr($line, $index), $match)) {
+            $index += strlen($match[0]);
+        }
+        $index += strspn($line, " \t", $index);
+        if (!preg_match('/^::(?=[ \t]|$)/', substr($line, $index))) {
+            return null;
+        }
+
+        return ['index' => $index, 'depth' => $depth];
     }
 
     private function quoteDepth(string $line): int
