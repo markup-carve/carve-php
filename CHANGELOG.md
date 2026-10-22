@@ -12,6 +12,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ## [0.1.14] - 2026-10-22
 
 ### Fixes
+- Lint no longer reports `continuation-marker-refused` for a stacked `- > +` whose block starts at the column of an opener on that line, which the parser already attaches (markup-carve/carve#3421).
 - A quote-prefixed `+` needs one space after each `>`: `>+`, `>>+` and `>> +` read as text, and a `> +` attaches a following quote to the item, description, note or inner quote at its column (#3725; markup-carve/carve#3421).
 - Borrowed HTML keeps Unicode letters and inline markup after inactive extensions register. Autolink fallbacks, link-label parentheses and brackets, angle destinations, bare URLs, paragraph links with pipes, and fixed smart symbols now keep their intended text (#3579, #3581, #3584, #3608, #3612, #3628, #3699).
 - Continuation markers and refused `+` lines follow their list or quote column, including relative column zero, open fences and blank followers. Lint reports refusals and the ordered-list and below-content-column traps at the authored column (#3592, #3594, #3596, #3602, #3613, #3624, #3659, #3675, #3678, #3680, #3691).

@@ -31,6 +31,12 @@ final class ContinuationMarkerOwnerGateTest extends TestCase
         yield 'task checkbox column paragraph' => ["- foo\n  - [ ] task\n    +\n    q\n", [[3, 5]]];
         yield 'footnote blank follower' => ["x[^a]\n\n[^a]: note\n+\n\npara\n", [[4, 1]]];
         yield 'quoted footnote blank follower' => ["> [^a]: n\n> +\n\npara\n", [[2, 3]]];
+        yield 'stacked quote follower at its line column' => ["- a\n  - > +\n  b\n", []];
+        yield 'stacked quote heading at its line column' => ["- a\n  - > +\n  # h\n", []];
+        yield 'stacked quote follower at an inner item column' => ["- - > +\n  b\n", []];
+        yield 'stacked ordered quote follower at its line column' => ["- a\n  1. > +\n  b\n", []];
+        yield 'stacked quote sibling at its line column' => ["- a\n  - > +\n  - c\n", [[2, 7]]];
+        yield 'stacked quote follower right of its quote' => ["- a\n  - > +\n      b\n", [[2, 7]]];
     }
 
     /**
