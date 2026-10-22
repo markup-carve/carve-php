@@ -1060,7 +1060,7 @@ class BlockParser
                 if ($position === null) {
                     $unpositioned[] = $node;
                 } elseif ($delta !== 0) {
-                    $this->adjustCodeBlankCount($node, $delta);
+                    $this->adjustCodeBlankCount($node, $delta, $document);
                 }
             }
             foreach (array_reverse($node->getChildren()) as $child) {
@@ -1068,7 +1068,7 @@ class BlockParser
             }
         }
         if ($explicitCloserTrim && count($codeBlocks) === 1) {
-            $this->adjustCodeBlankCount($codeBlocks[0], -1);
+            $this->adjustCodeBlankCount($codeBlocks[0], -1, $document);
         }
         if (count($changes) === 1 && $unpositioned !== []) {
             $opening = array_key_first($changes);
@@ -1078,19 +1078,83 @@ class BlockParser
             }
             $before = implode("\n", array_slice($lines, 0, $opening - 1));
             if (preg_match('/(?:^|\n)(?:> ?)*[ \t]*(?:(?:[-*] |\d+[.)] ))?(`{3,}|~{3,})/', $before) !== 1) {
-                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening]);
+                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening], $document);
             }
         }
     }
 
-    private function adjustCodeBlankCount(CodeBlock $code, int $delta): void
+    private function adjustCodeBlankCount(CodeBlock $code, int $delta, Node $document): void
     {
         if ($delta > 0) {
             $code->appendContent(str_repeat("\n", $delta));
         } else {
             $content = $code->getContent();
-            $code->setContent(str_ends_with($content, "\n") ? substr($content, 0, -1) : $content);
+            if (str_ends_with($content, "\n")) {
+                $code->setContent(substr($content, 0, -1));
+                $this->releaseTrailingBlankLine($code, $document);
+            }
         }
+    }
+
+    /**
+     * The blank dropped from the payload separates the container's next block,
+     * so the span and every ancestor ending with it give that line back
+     * (PART 12 §4, carve-php#3718).
+     */
+    private function releaseTrailingBlankLine(CodeBlock $code, Node $document): void
+    {
+        $pos = $code->getPos();
+        if ($pos === null || $pos->endColumn !== 1 || $pos->endLine - 2 <= $pos->startLine - 1) {
+            return;
+        }
+        $released = $this->state->source->sourceLines[$pos->endLine - 2] ?? null;
+        if ($released === null || !IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($released))) {
+            return;
+        }
+        $oldEnd = $pos->endOffset;
+        $newEnd = $oldEnd - mb_strlen($released, 'UTF-8') - 1;
+        $path = [];
+        if (!$this->pathTo($document, $code, $path)) {
+            return;
+        }
+        foreach ($path as $node) {
+            $span = $node->getPos();
+            if ($span === null || $span->endOffset !== $oldEnd) {
+                continue;
+            }
+            $node->setPos(new SourceSpan(
+                $span->startLine,
+                $span->endLine - 1,
+                $span->startColumn,
+                1,
+                $span->startOffset,
+                $newEnd,
+                $span->file,
+            ));
+        }
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     * @param \MarkupCarve\Carve\Node\Node $target
+     * @param array<\MarkupCarve\Carve\Node\Node> $path
+     *
+     * @return bool
+     */
+    private function pathTo(Node $node, Node $target, array &$path): bool
+    {
+        $path[] = $node;
+        if ($node === $target) {
+            return true;
+        }
+        foreach ($node->getChildren() as $child) {
+            if ($this->pathTo($child, $target, $path)) {
+                return true;
+            }
+        }
+        array_pop($path);
+
+        return false;
     }
 
     protected function promoteBlockImages(Node $node): void
