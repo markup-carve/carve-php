@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter\Djot;
 
 use Closure;
+use MarkupCarve\Carve\Converter\MigrationDiagnostic;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Inline\NonBreakingSpace;
