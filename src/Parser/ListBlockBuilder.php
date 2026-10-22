@@ -1572,6 +1572,7 @@ final class ListBlockBuilder
                 if (
                     $this->isBlockElementStart($trimmedLine, $lines, $i)
                     || $this->startsNewBlock($trimmedLine, $lines, $i)
+                    || ($this->isBlockAttributeLineCallback)($trimmedLine)
                     || ($this->startsWrappedBlockAttributesCallback)($trimmedLine, $lines, $i)
                 ) {
                     break;
