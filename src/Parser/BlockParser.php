@@ -420,6 +420,33 @@ class BlockParser
                     ];
                 }
             }
+            // CARVE-P9-067: a quote's first-block `> +` with no eligible block below stays text in the quote.
+            if (($firstBlock['kind'] ?? null) === 'quote') {
+                $follower = $this->state->source->sourceLines[$index + 1] ?? null;
+                if ($follower === '' && $index + 1 === array_key_last($this->state->source->sourceLines)) {
+                    $follower = null;
+                }
+                $followerColumn = ContinuationMarkerClassifier::columnAt($follower ?? '', strspn($follower ?? '', " \t"));
+                $quoteColumn = ContinuationMarkerClassifier::columnAt($line, (int)strpos($line, '>'));
+                $reason = null;
+                if ($follower === null || trim($follower) === '') {
+                    $reason = $follower === null ? 'document' : 'blank';
+                } elseif (ContainerPrefix::quoteContent(ltrim($follower, " \t")) !== null) {
+                    $reason = trim(str_replace('>', '', $follower)) === '' ? 'blank' : null;
+                } elseif ($followerColumn === 0 && $this->listParser->parseListItemMarker($follower) !== null) {
+                    $reason = 'list';
+                } elseif ($followerColumn !== 0 && $followerColumn !== $quoteColumn) {
+                    $reason = $followerColumn > $quoteColumn ? 'right' : 'left';
+                }
+                if ($reason !== null) {
+                    $markers[] = [
+                        'line' => $index + 1,
+                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
+                        'host' => 'block quote',
+                        'reason' => $reason,
+                    ];
+                }
+            }
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index);
             if ($decision['column'] < 0 || $decision['reason'] === null) {
                 continue;
