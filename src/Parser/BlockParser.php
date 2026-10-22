@@ -469,6 +469,26 @@ class BlockParser
                     ];
                 }
             }
+            // carve#3421 (2026-10-22): a quoted `+` below the quote's first line, followed by a list item at its column
+            // in the same quote, stays text; lint still reports it, as carve-js does.
+            $quoted = $this->quotedSourceLine($line);
+            if ($quoted !== null && $quoted['depth'] > 0 && trim($quoted['body']) === '+' && $firstBlock === null) {
+                $previous = $index > 0 ? $this->quotedSourceLine($this->state->source->sourceLines[$index - 1]) : null;
+                $follower = $this->quotedSourceLine($this->state->source->sourceLines[$index + 1] ?? '');
+                if (
+                    $previous !== null && $previous['depth'] === $quoted['depth']
+                    && $follower !== null && $follower['depth'] === $quoted['depth']
+                    && $follower['column'] === $quoted['column']
+                    && $this->listParser->parseListItemMarker(ltrim($follower['body'], " \t")) !== null
+                ) {
+                    $markers[] = [
+                        'line' => $index + 1,
+                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
+                        'host' => 'block quote',
+                        'reason' => 'sibling',
+                    ];
+                }
+            }
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, $this->listParser, $index);
             if ($decision['column'] < 0 || $decision['reason'] === null) {
                 continue;
@@ -499,6 +519,27 @@ class BlockParser
         }
 
         return $markers;
+    }
+
+    /**
+     * The quote depth of a source line, its body after the prefixes, and the body's first content column.
+     *
+     * @return array{depth: int, body: string, column: int}|null
+     */
+    private function quotedSourceLine(string $line): ?array
+    {
+        $offset = strspn($line, " \t");
+        $depth = 0;
+        while ($depth < 64 && ($width = ContainerPrefix::quoteMarkerWidth($line, $offset)) !== null) {
+            $offset += $width;
+            $depth++;
+            $offset += strspn($line, " \t", $offset);
+        }
+        if ($depth === 0) {
+            return null;
+        }
+
+        return ['depth' => $depth, 'body' => substr($line, $offset), 'column' => ContinuationMarkerClassifier::columnAt($line, $offset)];
     }
 
     private function firstBlockQuoteAtAncestorColumn(int $index): bool

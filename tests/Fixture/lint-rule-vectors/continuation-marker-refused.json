@@ -703,6 +703,58 @@
       "expected": {
         "findings": []
       }
+    },
+    {
+      "name": "stacked-quote-first-block-in-nested-item",
+      "description": "A stacked list and quote opener attaches a paragraph at that line's column.",
+      "source": "- a\n  - > +\n  b\n",
+      "expected": {
+        "findings": []
+      }
+    },
+    {
+      "name": "stacked-quote-first-block-heading-in-nested-item",
+      "description": "A stacked list and quote opener attaches a heading at that line's column.",
+      "source": "- a\n  - > +\n  # h\n",
+      "expected": {
+        "findings": []
+      }
+    },
+    {
+      "name": "nested-quote-sibling-list-item",
+      "description": "A quoted plus followed by a list item at its column in the same quote stays text and is reported (corpus 630-4, carve#3421).",
+      "source": "> > q\n> > +\n> > - s\n",
+      "expected": {
+        "findings": [
+          {
+            "line": 2,
+            "column": 5,
+            "includes": ["sibling", "remains text"]
+          }
+        ]
+      }
+    },
+    {
+      "name": "quote-sibling-list-item",
+      "description": "The same shape one quote level up.",
+      "source": "> q\n> +\n> - s\n",
+      "expected": {
+        "findings": [
+          {
+            "line": 2,
+            "column": 3,
+            "includes": ["sibling", "remains text"]
+          }
+        ]
+      }
+    },
+    {
+      "name": "document-plus-before-list-item",
+      "description": "Without a quote the plus folds into the paragraph and no container is open at its column.",
+      "source": "q\n+\n- s\n",
+      "expected": {
+        "findings": []
+      }
     }
   ]
 }
