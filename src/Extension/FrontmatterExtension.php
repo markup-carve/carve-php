@@ -186,6 +186,7 @@ class FrontmatterExtension implements ParsedDocumentExtensionInterface
 
                 return $i - $start;
             },
+            literalPrefix: '---',
         );
 
         // Register render event to control output

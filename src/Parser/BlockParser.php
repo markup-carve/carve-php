@@ -606,14 +606,14 @@ class BlockParser
     protected array $customBlockPatterns = [];
 
     /**
-     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null}>
+     * @var array<array{matcher: \Closure, priority: int, seq: int, pattern: string|null, prefix: string|null}>
      */
     protected array $blockMatchers = [];
 
     protected int $blockMatcherSeq = 0;
 
     /**
-     * @var array<\Closure>|null
+     * @var array<array{matcher: \Closure, prefix: string|null}>|null
      */
     protected ?array $sortedBlockMatchers = null;
 
@@ -721,8 +721,9 @@ class BlockParser
      *
      * @param string $pattern Regex for the first line
      * @param callable(array<string>, int, \MarkupCarve\Carve\Node\Node, self): ?int $callback
+     * @param string|null $literalPrefix A prefix required by the pattern, if known.
      */
-    public function addBlockPattern(string $pattern, callable $callback): void
+    public function addBlockPattern(string $pattern, callable $callback, ?string $literalPrefix = null): void
     {
         $this->removeBlockPattern($pattern);
         $this->customBlockPatterns[$pattern] = $callback;
@@ -749,6 +750,7 @@ class BlockParser
                 return is_int($consumed) ? $consumed : null;
             },
             pattern: $pattern,
+            prefix: $literalPrefix,
         );
     }
 
@@ -788,8 +790,9 @@ class BlockParser
      * @param \Closure(array<string>, int, \MarkupCarve\Carve\Parser\MatcherContext): (int|array{node: \MarkupCarve\Carve\Node\Node, linesConsumed: int}|null) $matcher
      * @param int $priority
      * @param string|null $pattern
+     * @param string|null $prefix
      */
-    protected function registerBlockMatcher(Closure $matcher, int $priority = 0, ?string $pattern = null): void
+    protected function registerBlockMatcher(Closure $matcher, int $priority = 0, ?string $pattern = null, ?string $prefix = null): void
     {
         if ($pattern === null) {
             $callback = $matcher;
@@ -804,12 +807,13 @@ class BlockParser
             'priority' => $priority,
             'seq' => $this->blockMatcherSeq++,
             'pattern' => $pattern,
+            'prefix' => $prefix,
         ];
         $this->sortedBlockMatchers = null;
     }
 
     /**
-     * @return array<\Closure>
+     * @return array<array{matcher: \Closure, prefix: string|null}>
      */
     protected function sortedBlockMatchers(): array
     {
@@ -823,7 +827,7 @@ class BlockParser
         });
 
         return $this->sortedBlockMatchers = array_map(
-            static fn (array $entry): Closure => $entry['matcher'],
+            static fn (array $entry): array => ['matcher' => $entry['matcher'], 'prefix' => $entry['prefix']],
             $entries,
         );
     }
@@ -2597,11 +2601,17 @@ class BlockParser
         }
 
         $previousParent = $this->currentMatcherParent;
-        $this->currentMatcherParent = $parent;
-        $ctx = new MatcherContext($this, $this->getInlineParser());
+        $ctx = null;
         try {
-            foreach ($this->sortedBlockMatchers() as $matcher) {
-                $result = $matcher($lines, $start, $ctx);
+            foreach ($this->sortedBlockMatchers() as $entry) {
+                if ($entry['prefix'] !== null && !str_starts_with($lines[$start], $entry['prefix'])) {
+                    continue;
+                }
+                if ($ctx === null) {
+                    $this->currentMatcherParent = $parent;
+                    $ctx = new MatcherContext($this, $this->getInlineParser());
+                }
+                $result = $entry['matcher']($lines, $start, $ctx);
                 if ($result === null) {
                     continue;
                 }
