@@ -317,6 +317,26 @@ class BlockParser
     }
 
     /**
+     * PART 9 §17 L3: a stacked `- > +` takes its block at the column of any opener on that line.
+     *
+     * @return list<int>
+     */
+    private function openerColumns(string $line, int $plus): array
+    {
+        $columns = [];
+        $previous = ' ';
+        for ($offset = 0; $offset < $plus; $offset++) {
+            $char = $line[$offset];
+            if ($char !== ' ' && $char !== "\t" && ($previous === ' ' || $previous === "\t")) {
+                $columns[] = ContinuationMarkerClassifier::columnAt($line, $offset);
+            }
+            $previous = $char;
+        }
+
+        return $columns;
+    }
+
+    /**
      * @return list<array{line: int, column: int, host: string, reason: string}>
      */
     public function getRefusedContinuationMarkers(): array
@@ -435,8 +455,10 @@ class BlockParser
                     $reason = trim(str_replace('>', '', $follower)) === '' ? 'blank' : null;
                 } elseif ($followerColumn === 0 && $this->listParser->parseListItemMarker($follower) !== null) {
                     $reason = 'list';
-                } elseif ($followerColumn !== 0 && $followerColumn !== $quoteColumn) {
+                } elseif ($followerColumn !== 0 && $followerColumn !== $quoteColumn && !in_array($followerColumn, $this->openerColumns($line, $plus), true)) {
                     $reason = $followerColumn > $quoteColumn ? 'right' : 'left';
+                } elseif ($followerColumn !== 0 && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) !== null) {
+                    $reason = 'sibling';
                 }
                 if ($reason !== null) {
                     $markers[] = [
