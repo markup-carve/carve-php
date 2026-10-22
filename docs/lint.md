@@ -10,33 +10,32 @@ offsets into the source you passed.
 passes parse and walk the **AST**; `FenceAndContinuationLinter` also reads parser
 events for fences and continuation markers. Each class answers a separate question.
 
-```php
-use MarkupCarve\Carve\Lint\DefinitionTermFoldLinter;
-use MarkupCarve\Carve\Lint\FigureGroupLinter;
-use MarkupCarve\Carve\Lint\MarkdownHabitLinter;
-use MarkupCarve\Carve\Lint\QuoteFenceLinter;
-use MarkupCarve\Carve\Lint\ReferenceLinter;
-use MarkupCarve\Carve\Lint\ReferencesPlacementLinter;
-use MarkupCarve\Carve\Lint\RetiredSpellingLinter;
-use MarkupCarve\Carve\Lint\SemanticAttributeLinter;
-use MarkupCarve\Carve\Lint\SourceLinter;
-use MarkupCarve\Carve\Lint\TableColumnLinter;
-use MarkupCarve\Carve\Lint\TemplateSourceLinter;
+`DocumentLinter` runs every pass that `carve lint` runs, sorted by position.
+Integrations should call it rather than list the passes by hand, so a pass added
+in a later release is picked up without a code change:
 
-$warnings = array_merge(
-    (new MarkdownHabitLinter())->lint($source),
-    (new SemanticAttributeLinter())->lint($source),
-    (new RetiredSpellingLinter())->lint($source),
-    (new SourceLinter())->lint($source),
-    (new TableColumnLinter())->lint($source),
-    (new TemplateSourceLinter())->lint($source),
-    (new FigureGroupLinter())->lint($source),
-    (new QuoteFenceLinter())->lint($source),
-    (new ReferenceLinter())->lint($source),
-    (new DefinitionTermFoldLinter())->lint($source),
-    (new ReferencesPlacementLinter())->lint($source, ['extensions' => ['citations']]),
+```php
+use MarkupCarve\Carve\Lint\DocumentLinter;
+use MarkupCarve\Carve\Lint\IncludeLinter;
+use MarkupCarve\Carve\Transform\FilesystemIncludeResolver;
+
+$warnings = (new DocumentLinter())->lint($source, [
+    'platforms' => ['github'],
+    'extensions' => ['citations'],
+]);
+
+// Also lint included files, as `carve lint --include-root DIR` does.
+$warnings = (new IncludeLinter())->lint(
+    $source,
+    [],
+    new FilesystemIncludeResolver('/path/to/root'),
+    '/path/to/root/doc.crv',
 );
 ```
+
+Each pass is also a class of its own (`MarkdownHabitLinter`, `ListColumnLinter`,
+`FenceAndContinuationLinter` and the others below) for a caller that wants only
+some of the rules.
 
 ```sh
 carve lint doc.crv
