@@ -1258,7 +1258,16 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [];
+    protected const AHEAD_OF_PIN = [
+        '630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-11' => [
+            'reason' => 'A quote marker requires a following space.',
+            'html' => "<p>&gt;&gt;+\nq</p>\n",
+        ],
+        '630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-12' => [
+            'reason' => 'A quote marker requires a following space.',
+            'html' => "<p>&gt;+\nq</p>\n",
+        ],
+    ];
 
     protected CarveConverter $converter;
 

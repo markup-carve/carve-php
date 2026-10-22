@@ -58,7 +58,7 @@ class ContainerPrefix
             return 2;
         }
 
-        return preg_match('/^(?:> ?)*\+[ \t]*$/D', substr($line, $at + 1)) === 1 ? 1 : null;
+        return null;
     }
 
     /**
