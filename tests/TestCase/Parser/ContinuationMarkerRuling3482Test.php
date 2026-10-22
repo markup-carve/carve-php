@@ -18,9 +18,9 @@ class ContinuationMarkerRuling3482Test extends TestCase
             "<ul>\n  <li>a\n    <pre><code></code></pre>\n    +\n  </li>\n</ul>\n<p>tail</p>",
         ];
 
-        yield 'marker immediately after quote prefix' => [
+        yield 'glued plus after quote prefix is text' => [
             "> - a\n>+\n> tail\n",
-            "<blockquote>\n  <ul>\n    <li>a\n      tail\n    </li>\n  </ul>\n</blockquote>",
+            "<blockquote>\n  <ul>\n    <li>a\n&gt;+\ntail</li>\n  </ul>\n</blockquote>",
         ];
 
         yield 'nested marker ends item fence and retains its blank payload' => [

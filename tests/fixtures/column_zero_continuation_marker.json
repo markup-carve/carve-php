@@ -17,7 +17,7 @@
   },
   {
     "source": ">+\npara",
-    "html": "<blockquote><p>para</p></blockquote>"
+    "html": "<p>&gt;+\npara</p>\n"
   },
   {
     "source": "> > +\npara",
@@ -25,7 +25,7 @@
   },
   {
     "source": ">> +\npara",
-    "html": "<blockquote>\n  <blockquote><p>para</p></blockquote>\n</blockquote>"
+    "html": "<p>&gt;&gt; +\npara</p>\n"
   },
   {
     "source": "> q\n> +\npara",
@@ -33,7 +33,7 @@
   },
   {
     "source": "> q\n>+\npara",
-    "html": "<blockquote><p>q\n+\npara</p></blockquote>"
+    "html": "<blockquote><p>q\n&gt;+\npara</p></blockquote>\n"
   },
   {
     "source": "> > q\n> > +\npara",

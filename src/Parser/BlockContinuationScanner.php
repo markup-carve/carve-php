@@ -263,7 +263,7 @@ final class BlockContinuationScanner
                     && ($this->getListParser)()->parseListItemMarker($lead) !== null
                     && count($itemLines) === 2
                     && $this->isContinuationMarker(ltrim($itemLines[1], " \t"))
-                    && preg_match('/^(?:> ?)*\+[ \t]*$/D', $this->state->source->sourceLines[$itemLineMap[1] ?? -1] ?? '') === 1
+                    && preg_match('/^(?:> )*\+[ \t]*$/D', $this->state->source->sourceLines[$itemLineMap[1] ?? -1] ?? '') === 1
                 ) {
                     $markerColumn = 0;
                     $lastMarkerColumn = 0;

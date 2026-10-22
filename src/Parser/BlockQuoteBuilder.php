@@ -237,8 +237,7 @@ final class BlockQuoteBuilder
         $count = count($lines);
         $nestedLineBlock = ['count' => 0, 'eligible' => null, 'divCount' => 0, 'literalColumn' => null];
         $openingSource = $this->state->source->sourceLines[$quoteSourceLine] ?? '';
-        preg_match('/^(?:> ?)+/', $openingSource, $openingPrefix);
-        $openingDepth = substr_count($openingPrefix[0] ?? '', '>');
+        $openingDepth = self::quoteDepth($openingSource);
         $openingOwner = $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $quoteSourceLine);
         $openingListPlus = ($openingOwner['kind'] ?? null) === 'list';
         while ($i < $count) {
@@ -249,7 +248,7 @@ final class BlockQuoteBuilder
 
             $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($i));
             if ($decision['column'] >= 0 && $decision['reason'] === null && $openingDepth > 1) {
-                $nextPhysical = $this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '';
+                $nextPhysical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '', " \t");
                 $nextDepth = 0;
                 while (($rest = ContainerPrefix::quoteContent($nextPhysical)) !== null) {
                     $nextPhysical = $rest;
@@ -257,16 +256,91 @@ final class BlockQuoteBuilder
                 }
                 if (
                     $decision['depth'] > 0 && $decision['depth'] < $openingDepth && $nextDepth >= $decision['depth']
-                    && ($this->getListParser)()->parseListItemMarker(ltrim($innerLines[0] ?? '', " \t")) === null
                 ) {
-                    if ($nextDepth === $decision['depth'] && trim($nextPhysical) !== '') {
-                        $innerLines[] = str_repeat('> ', $openingDepth - 1);
+                    if ($nextDepth >= $decision['depth'] && trim($nextPhysical) !== '') {
+                        $innerLines[] = str_repeat('> ', $decision['depth']);
                         $innerLineMap[] = -1;
-                        $continued = str_repeat('> ', $openingDepth - 1) . $nextPhysical;
+                        $follower = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i + 1)] ?? '', " \t");
+                        for ($level = 0; $level < $decision['depth']; $level++) {
+                            $follower = ContainerPrefix::quoteContent($follower) ?? $follower;
+                        }
+                        $continued = str_repeat('> ', $decision['depth']) . $follower;
                         $innerLines[] = $continued;
                         $innerLineMap[] = $this->sourceLineFor($i + 1);
                         $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i + 1, $codeCloserMemo);
                         $i += 2;
+                        $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextPhysical)
+                            ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextPhysical);
+                        $div = $fence === null ? ($this->getFencedBlockParser)()->parseDivFenceOpener($nextPhysical) : null;
+                        $activeFence = $fence ?? $div;
+                        if ($activeFence !== null) {
+                            $delimiter = $fence === null ? ':' : ((string)$fence['fence'])[0];
+                            $length = (int)$activeFence['length'];
+                            while ($i < $count) {
+                                $physical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t");
+                                $body = $physical;
+                                $physicalDepth = 0;
+                                while (($next = ContainerPrefix::quoteContent($body)) !== null) {
+                                    $body = $next;
+                                    $physicalDepth++;
+                                }
+                                $fenceBody = $body;
+                                if ($physicalDepth < $nextDepth) {
+                                    break;
+                                }
+                                $body = $physical;
+                                for ($level = 0; $level < $decision['depth']; $level++) {
+                                    $body = ContainerPrefix::quoteContent($body) ?? $body;
+                                }
+                                $continued = str_repeat('> ', $decision['depth']) . $body;
+                                $innerLines[] = $continued;
+                                $innerLineMap[] = $this->sourceLineFor($i);
+                                $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i, $codeCloserMemo);
+                                $i++;
+                                $closer = $div === null
+                                    ? ($this->getFencedBlockParser)()->isCodeFenceCloser($fenceBody, $delimiter, $length)
+                                    : ($this->getFencedBlockParser)()->isDivFenceCloser($fenceBody, $length);
+                                if ($physicalDepth === $nextDepth && $closer) {
+                                    break;
+                                }
+                            }
+                        }
+                        if ($nextDepth > $decision['depth']) {
+                            while ($i < $count) {
+                                $physical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t");
+                                $stages = ContainerPrefix::quoteStages($physical);
+                                if (count($stages) - 1 < $nextDepth) {
+                                    break;
+                                }
+                                $continued = str_repeat('> ', $decision['depth']) . $stages[$decision['depth']];
+                                $innerLines[] = $continued;
+                                $innerLineMap[] = $this->sourceLineFor($i);
+                                $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i, $codeCloserMemo);
+                                $i++;
+                            }
+                        } else {
+                            $table = ($this->getTableParser)()->isTableRow($nextPhysical);
+                            $list = ($this->getListParser)()->parseListItemMarker($nextPhysical) !== null;
+                            while (($table || $list) && $i < $count) {
+                                $physical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t");
+                                $stages = ContainerPrefix::quoteStages($physical);
+                                if (count($stages) - 1 !== $nextDepth) {
+                                    break;
+                                }
+                                $body = $stages[$decision['depth']];
+                                if (
+                                    $table && !($this->getTableParser)()->isTableRow($body)
+                                    || $list && ($this->getListParser)()->parseListItemMarker($body) === null
+                                ) {
+                                    break;
+                                }
+                                $continued = str_repeat('> ', $decision['depth']) . $body;
+                                $innerLines[] = $continued;
+                                $innerLineMap[] = $this->sourceLineFor($i);
+                                $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i, $codeCloserMemo);
+                                $i++;
+                            }
+                        }
                     } else {
                         $innerLines[] = '';
                         $innerLineMap[] = -1;
@@ -295,8 +369,7 @@ final class BlockQuoteBuilder
             $content = $this->blockQuoteLineContent($currentLine);
             if ($content === null && $openingListPlus && $openingDepth > 0) {
                 $currentSource = $this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '';
-                preg_match('/^(?:> ?)+/', $currentSource, $currentPrefix);
-                if (substr_count($currentPrefix[0] ?? '', '>') < $openingDepth) {
+                if (self::quoteDepth($currentSource) < $openingDepth) {
                     break;
                 }
             }
@@ -490,6 +563,20 @@ final class BlockQuoteBuilder
 
         return $decision['reason'] === null && $decision['owner'] !== null
             && $decision['owner']['kind'] === 'quote' && $decision['owner']['column'] === $column;
+    }
+
+    private static function quoteDepth(string $line): int
+    {
+        $line = ltrim($line, " \t");
+        $end = strlen($line);
+        $at = 0;
+        $depth = 0;
+        while (($width = ContainerPrefix::quoteMarkerWidth($line, $at, $end)) !== null) {
+            $at += $width;
+            $depth++;
+        }
+
+        return $depth;
     }
 
     private function firstBlockQuoteFollowerAtOrigin(int $start, int $follower): bool

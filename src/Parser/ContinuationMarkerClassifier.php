@@ -132,12 +132,16 @@ final class ContinuationMarkerClassifier
             $owner = null;
             $deepestQuote = 0;
             $deepestList = 0;
+            $listInQuote = false;
             foreach ($this->stack as $entry) {
                 if ($entry['kind'] === 'quote' && $entry['depth'] > $deepestQuote) {
                     $deepestQuote = $entry['depth'];
                 }
                 if ($entry['kind'] === 'list' && $entry['depth'] > $deepestList) {
                     $deepestList = $entry['depth'];
+                }
+                if ($entry['kind'] === 'list' && $entry['depth'] >= $depth) {
+                    $listInQuote = true;
                 }
             }
             for ($at = count($this->stack) - 1; $at >= 0; $at--) {
@@ -147,8 +151,9 @@ final class ContinuationMarkerClassifier
                 $entry = $this->stack[$at];
                 if (
                     $entry['column'] === $column && $entry['depth'] === $depth
+                    && ($entry['kind'] !== 'quote' || $depth === 0 || $deepestQuote > $depth)
                     && ($depth === 0 || $depth >= $deepestQuote || $entry['kind'] === 'list'
-                        || $entry['kind'] === 'quote' && $deepestList <= $depth)
+                        || $entry['kind'] === 'quote' && ($deepestList <= $depth || $deepestQuote > $depth))
                 ) {
                     $owner = $entry;
                     if ($entry['kind'] !== 'quote') {
@@ -176,7 +181,11 @@ final class ContinuationMarkerClassifier
                     }
                 }
             }
-            if ($depth > 0 && $depth >= $deepestQuote && $owner === null && self::isPlus($body)) {
+            $nextBody = $this->quoteBody($this->lines[$index + 1] ?? '')[0];
+            if (
+                $depth > 0 && $depth >= $deepestQuote && $owner === null && !$listInQuote && self::isPlus($body)
+                && $this->lists->parseListItemMarker(ltrim($nextBody, " \t")) === null
+            ) {
                 $this->firstBlocks[$index] = ['kind' => 'quote', 'column' => $column, 'depth' => $depth, 'content' => $column, 'first' => true];
             }
             $follower = $this->lines[$index + 1] ?? null;
@@ -186,13 +195,11 @@ final class ContinuationMarkerClassifier
             $followerColumn = PHP_INT_MAX;
             $followerBody = '';
             $followerDepth = 0;
-            $followerHasDeeperQuote = false;
             if ($follower !== null) {
                 if (LayoutWork::$on) {
                     LayoutWork::$markerFollowerProbes++;
                 }
                 [$followerBody, $followerDepth, $followerPrefix] = $this->quoteBodyAtDepth($follower, $depth);
-                $followerHasDeeperQuote = $this->quoteBody($follower)[1] > $depth;
                 if ($followerDepth === $depth) {
                     $followerColumn = self::columnAt($follower, $followerPrefix + strspn($followerBody, " \t"));
                 }
@@ -213,11 +220,11 @@ final class ContinuationMarkerClassifier
                     $reason = 'blank';
                 } elseif ($followerColumn < $column) {
                     $reason = 'left';
-                } elseif ($followerColumn > $column || $depth > 0 && $followerHasDeeperQuote && $column === self::columnAt($line, $prefix)) {
+                } elseif ($followerColumn > $column) {
                     $reason = 'right';
                 } elseif (
                     $this->lists->parseListItemMarker(ltrim($followerBody, " \t")) !== null
-                    && ($owner['kind'] === 'list' || $owner['kind'] === 'quote' && $column > 0
+                    && ($owner['kind'] === 'list' || $owner['kind'] === 'quote' && $depth === 0 && $column > 0
                         || $owner['kind'] === 'description' && $this->descriptionLazy || $quoteBeyondOwner)
                 ) {
                     $reason = 'sibling';
@@ -238,6 +245,19 @@ final class ContinuationMarkerClassifier
             $this->paragraphOpen = false;
             $this->descriptionLazy = false;
             $this->stack = array_values(array_filter($this->stack, static fn (array $entry): bool => $entry['depth'] <= $depth));
+            $quoteStart = $this->quoteStart($line);
+            $rest = substr($line, $quoteStart);
+            $quoteColumn = self::columnAt($line, $quoteStart);
+            for ($level = 1; $level <= min($depth, BlockGrammar::MAX_NESTING_DEPTH + 1); $level++) {
+                $next = ContainerPrefix::quoteContent($rest);
+                if ($next === null) {
+                    break;
+                }
+                $this->pushQuote($quoteColumn, $level - 1);
+                $quoteColumn = self::columnAt($rest, strlen($rest) - strlen($next), $quoteColumn);
+                $this->pushQuote($quoteColumn, $level);
+                $rest = $next;
+            }
 
             return;
         }
@@ -308,9 +328,10 @@ final class ContinuationMarkerClassifier
             }
             array_pop($this->stack);
         }
-        $rest = $line;
-        $quoteColumn = 0;
-        for ($level = 1; $level <= $depth; $level++) {
+        $quoteStart = $this->quoteStart($line);
+        $rest = substr($line, $quoteStart);
+        $quoteColumn = self::columnAt($line, $quoteStart);
+        for ($level = 1; $level <= min($depth, BlockGrammar::MAX_NESTING_DEPTH + 1); $level++) {
             $next = ContainerPrefix::quoteContent($rest);
             if ($next === null) {
                 break;
@@ -425,14 +446,15 @@ final class ContinuationMarkerClassifier
      */
     private function quoteBody(string $line): array
     {
-        $body = $line;
+        $at = $this->quoteStart($line);
+        $end = strlen($line);
         $depth = 0;
-        while (($next = ContainerPrefix::quoteContent($body)) !== null) {
-            $body = $next;
+        while (($width = ContainerPrefix::quoteMarkerWidth($line, $at, $end)) !== null) {
+            $at += $width;
             $depth++;
         }
 
-        return [$body, $depth, strlen($line) - strlen($body)];
+        return [substr($line, $at), $depth, $at];
     }
 
     /**
@@ -440,14 +462,31 @@ final class ContinuationMarkerClassifier
      */
     private function quoteBodyAtDepth(string $line, int $target): array
     {
-        $body = $line;
+        $at = $this->quoteStart($line);
+        $end = strlen($line);
         $depth = 0;
-        while ($depth < $target && ($next = ContainerPrefix::quoteContent($body)) !== null) {
-            $body = $next;
+        while ($depth < $target && ($width = ContainerPrefix::quoteMarkerWidth($line, $at, $end)) !== null) {
+            $at += $width;
             $depth++;
         }
 
-        return [$body, $depth, strlen($line) - strlen($body)];
+        return [substr($line, $at), $depth, $at];
+    }
+
+    private function quoteStart(string $line): int
+    {
+        $start = strspn($line, " \t");
+        if ($start === 0 || ($line[$start] ?? '') !== '>') {
+            return 0;
+        }
+        $column = self::columnAt($line, $start);
+        foreach ($this->stack as $entry) {
+            if ($entry['kind'] === 'list' && $entry['content'] === $column) {
+                return $start;
+            }
+        }
+
+        return 0;
     }
 
     private static function isPlus(string $line): bool
