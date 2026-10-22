@@ -37,7 +37,8 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - A blank line before a `+` that continues a sub-list opened on its parent's marker line (`- - item`) now loosens the outer list in the AST, as the indented spelling already did. HTML is unchanged (#3717).
 - `list-item-block-overindented` no longer fires on a block placed at the content column of a description inside a list item (#3722).
 - A `> +` on its own line in a list item or description, or a `- > +` on the marker line, attaches the block at its own column to that quote, at any item depth (markup-carve/carve#3421).
-- Lint reports a quoted `+` followed by a list item at its column in the same quote (`> > +` / `> > - s`) as `continuation-marker-refused`; the `+` stays text (markup-carve/carve#3421).
+- Lint reports a quoted `+` followed by a list item at its column in the same quote (`> > +` / `> > - s`) as `continuation-marker-refused`; the `+` stays text (#3733; markup-carve/carve#3421).
+- A wrapped block attribute (`{.c` / `}`) below an item, quote or refused nested `+` paragraph closes it and reaches the next block, as the one-line `{.c}` does; it no longer folds as text or loses its class (#3737; markup-carve/carve#3421).
 - Lint says what a refused first-block `+` leaves behind (an empty item or description, an indented follower placed by the column rules, or text in a note or quote) and reports a refused first-block `> +` (#3721; markup-carve/carve#3524).
 
 ### Improvements
