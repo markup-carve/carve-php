@@ -607,7 +607,8 @@ final class BlockQuoteBuilder
             return false;
         }
         $column = IndentationHelper::getLeadingColumns($next);
-        if ($column === 0 && ($this->getListParser)()->parseListItemMarker(ltrim($next, " \t")) !== null) {
+        // The first-block form pulls only non-list blocks, at any eligible column (CARVE-P9-067).
+        if (($this->getListParser)()->parseListItemMarker(ltrim($next, " \t")) !== null) {
             return false;
         }
 
