@@ -17,24 +17,30 @@ use PHPUnit\Framework\TestCase;
 class ADroppedFenceBlankLeavesTheSpanTest extends TestCase
 {
     /**
-     * @return array<string, array{string, int}>
+     * @return array<string, array{string, bool, int}>
      */
     public static function rows(): array
     {
         $slug = '626-an-indented-plus-below-a-nested-fence-stays-content-at-every-depth-';
 
         return [
-            '626-5' => [$slug . '5', 9],
-            '626-6' => [$slug . '6', 19],
-            '626-7' => [$slug . '7', 10],
+            '626-5' => [$slug . '5', false, 9],
+            '626-6' => [$slug . '6', false, 19],
+            '626-7' => [$slug . '7', false, 10],
+            '626-5 CRLF' => [$slug . '5', true, 11],
+            '626-6 CRLF' => [$slug . '6', true, 22],
+            '626-7 CRLF' => [$slug . '7', true, 12],
         ];
     }
 
     #[DataProvider('rows')]
-    public function testTheCodeBlockAndItsInnerListEndAfterThePayload(string $slug, int $expectedEnd): void
+    public function testTheCodeBlockAndItsInnerListEndAfterThePayload(string $slug, bool $crlf, int $expectedEnd): void
     {
         $source = file_get_contents(__DIR__ . '/../../spec/tests/corpus/' . $slug . '.crv');
         self::assertIsString($source);
+        if ($crlf) {
+            $source = str_replace("\n", "\r\n", $source);
+        }
         $converter = new CarveConverter(parser: new BlockParser(false, false, false, true));
         $root = (new AstCodec())->encode($converter->parse($source));
 

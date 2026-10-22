@@ -1107,12 +1107,27 @@ class BlockParser
         if ($pos === null || $pos->endColumn !== 1 || $pos->endLine - 2 <= $pos->startLine - 1) {
             return;
         }
-        $released = $this->state->source->sourceLines[$pos->endLine - 2] ?? null;
-        if ($released === null || !IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($released))) {
+        $lines = $this->state->source->sourceLines;
+        $covered = 0;
+        for ($line = $pos->endLine - 2; $line > $pos->startLine - 1; $line--) {
+            if (!IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$line] ?? 'x'))) {
+                break;
+            }
+            $covered++;
+        }
+        $payload = explode("\n", $code->getContent());
+        array_pop($payload);
+        $held = 0;
+        for ($i = count($payload) - 1; $i >= 0 && trim($payload[$i], " \t") === ''; $i--) {
+            $held++;
+        }
+        $releasedStart = $this->state->source->lineStartOffsets[$pos->endLine - 2] ?? null;
+        $index = $this->state->source->positionIndex;
+        if ($covered <= $held || $releasedStart === null || $index === null) {
             return;
         }
         $oldEnd = $pos->endOffset;
-        $newEnd = $oldEnd - mb_strlen($released, 'UTF-8') - 1;
+        $newEnd = $index->span($releasedStart, $releasedStart, 1, 1, $releasedStart, $releasedStart)->endOffset;
         $path = [];
         if (!$this->pathTo($document, $code, $path)) {
             return;
