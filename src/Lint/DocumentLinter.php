@@ -20,6 +20,7 @@ final class DocumentLinter
             (new ReferenceLinter())->lint($source, ['extensions' => $options['extensions'] ?? []]),
             (new SourceLinter())->lint($source),
             (new ListColumnLinter())->lint($source),
+            (new DescriptionSeparatorBelowContentColumnLinter())->lint($source),
             (new RetiredSpellingLinter())->lint($source),
             (new TableColumnLinter())->lint($source),
             (new DelimitedTableLinter())->lint($source),

@@ -81,6 +81,8 @@ markers start at different columns are two lists
 (`ordered-list-split-by-indent`); align the markers, or use `{start=N}` with
 the auto-numbered `.` marker.
 
+`DescriptionSeparatorBelowContentColumnLinter` reports a `:` or `::` below the column of the definition list above (`description-separator-below-content-column`) and names the column needed to continue that list.
+
 `ReferencesPlacementLinter` reports a `::: references` marker inside a
 container when citations are enabled. The marker renders as an ordinary div
 there; the generated list stays at document level. A top-level marker places
