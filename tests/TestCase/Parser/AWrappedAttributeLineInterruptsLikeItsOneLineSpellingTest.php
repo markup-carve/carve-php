@@ -35,6 +35,14 @@ final class AWrappedAttributeLineInterruptsLikeItsOneLineSpellingTest extends Te
         $this->assertSame((new CarveConverter())->convert($oneLine), (new CarveConverter())->convert($wrapped));
     }
 
+    public function testTheWrappedFormEndsAnItemHoldingANestedList(): void
+    {
+        $this->assertSame(
+            "<ul>\n  <li>a\n    <ul>\n      <li>b</li>\n    </ul>\n  </li>\n</ul>\n<p class=\"c\">para</p>",
+            trim((new CarveConverter())->convert("- a\n  - b\n{.c\n}\npara\n")),
+        );
+    }
+
     public function testTheClassReachesTheFenceAfterAnItem(): void
     {
         $this->assertSame(

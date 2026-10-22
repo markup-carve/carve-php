@@ -75,6 +75,7 @@ final class ListBlockBuilder
      * @param (\Closure(): bool)|null $canRepairParagraphLocallyCallback
      * @param \Closure(array<string>, int): ?int $wrappedBlockAttributeLengthCallback
      * @param \Closure(string): bool $isBlockAttributeLineCallback
+     * @param \Closure(string, array<string>, int): bool $startsWrappedBlockAttributesCallback
      */
     public function __construct(
         private BlockParserState $state,
@@ -112,6 +113,7 @@ final class ListBlockBuilder
         private Closure $startsNewBlockCallback,
         private Closure $wrappedBlockAttributeLengthCallback,
         private Closure $isBlockAttributeLineCallback,
+        private Closure $startsWrappedBlockAttributesCallback,
         private ?Closure $parseItemBlocksCallback = null,
         private ?Closure $canRepairParagraphLocallyCallback = null,
     ) {
@@ -1570,6 +1572,7 @@ final class ListBlockBuilder
                 if (
                     $this->isBlockElementStart($trimmedLine, $lines, $i)
                     || $this->startsNewBlock($trimmedLine, $lines, $i)
+                    || ($this->startsWrappedBlockAttributesCallback)($trimmedLine, $lines, $i)
                 ) {
                     break;
                 }
