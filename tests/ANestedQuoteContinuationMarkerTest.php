@@ -76,6 +76,14 @@ final class ANestedQuoteContinuationMarkerTest extends TestCase
         self::assertSame($expected, CarveConverter::create()->convert($source));
     }
 
+    public function testFirstBlockPlusDoesNotAttachListInsideListItem(): void
+    {
+        $source = "- x\n\n  > +\n  - a\n";
+        $expected = "<ul>\n  <li>x\n    <blockquote><p>+\n- a</p></blockquote>\n  </li>\n</ul>\n";
+
+        self::assertSame($expected, CarveConverter::create()->convert($source));
+    }
+
     public function testMarkerAfterBlankCannotReachIndentedQuotedList(): void
     {
         $source = "> - a\n\n>   - b\n>     - c\n> +\n> > z\n";

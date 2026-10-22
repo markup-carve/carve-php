@@ -181,10 +181,12 @@ final class ContinuationMarkerClassifier
                     }
                 }
             }
-            $nextBody = $this->quoteBody($this->lines[$index + 1] ?? '')[0];
+            $nextLine = $this->lines[$index + 1] ?? '';
+            $nextBody = $this->quoteBody($nextLine)[0];
             if (
                 $depth > 0 && $depth >= $deepestQuote && $owner === null && !$listInQuote && self::isPlus($body)
-                && $this->lists->parseListItemMarker(ltrim($nextBody, " \t")) === null
+                && ($this->lists->parseListItemMarker(ltrim($nextBody, " \t")) === null
+                    || $this->lists->parseListItemMarker($nextLine) !== null)
             ) {
                 $this->firstBlocks[$index] = ['kind' => 'quote', 'column' => $column, 'depth' => $depth, 'content' => $column, 'first' => true];
             }
