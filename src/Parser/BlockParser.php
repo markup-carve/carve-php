@@ -1046,6 +1046,7 @@ class BlockParser
         $unpositioned = [];
         $codeBlocks = [];
         $seen = [];
+        $parents = [];
         while ($stack !== []) {
             $node = array_pop($stack);
             $id = spl_object_id($node);
@@ -1060,15 +1061,16 @@ class BlockParser
                 if ($position === null) {
                     $unpositioned[] = $node;
                 } elseif ($delta !== 0) {
-                    $this->adjustCodeBlankCount($node, $delta, $document);
+                    $this->adjustCodeBlankCount($node, $delta, $parents);
                 }
             }
             foreach (array_reverse($node->getChildren()) as $child) {
+                $parents[spl_object_id($child)] ??= $node;
                 $stack[] = $child;
             }
         }
         if ($explicitCloserTrim && count($codeBlocks) === 1) {
-            $this->adjustCodeBlankCount($codeBlocks[0], -1, $document);
+            $this->adjustCodeBlankCount($codeBlocks[0], -1, $parents);
         }
         if (count($changes) === 1 && $unpositioned !== []) {
             $opening = array_key_first($changes);
@@ -1078,12 +1080,19 @@ class BlockParser
             }
             $before = implode("\n", array_slice($lines, 0, $opening - 1));
             if (preg_match('/(?:^|\n)(?:> ?)*[ \t]*(?:(?:[-*] |\d+[.)] ))?(`{3,}|~{3,})/', $before) !== 1) {
-                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening], $document);
+                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening], $parents);
             }
         }
     }
 
-    private function adjustCodeBlankCount(CodeBlock $code, int $delta, Node $document): void
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
+     * @param int $delta
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $parents
+     *
+     * @return void
+     */
+    private function adjustCodeBlankCount(CodeBlock $code, int $delta, array $parents): void
     {
         if ($delta > 0) {
             $code->appendContent(str_repeat("\n", $delta));
@@ -1091,7 +1100,7 @@ class BlockParser
             $content = $code->getContent();
             if (str_ends_with($content, "\n")) {
                 $code->setContent(substr($content, 0, -1));
-                $this->releaseTrailingBlankLine($code, $document);
+                $this->releaseTrailingBlankLine($code, $parents);
             }
         }
     }
@@ -1100,8 +1109,13 @@ class BlockParser
      * The blank dropped from the payload separates the container's next block,
      * so the span and every ancestor ending with it give that line back
      * (PART 12 §4, carve-php#3718).
+     *
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $parents
+     *
+     * @return void
      */
-    private function releaseTrailingBlankLine(CodeBlock $code, Node $document): void
+    private function releaseTrailingBlankLine(CodeBlock $code, array $parents): void
     {
         $pos = $code->getPos();
         if ($pos === null || $pos->endColumn !== 1 || $pos->endLine - 2 <= $pos->startLine - 1) {
@@ -1128,11 +1142,7 @@ class BlockParser
         }
         $oldEnd = $pos->endOffset;
         $newEnd = $index->span($releasedStart, $releasedStart, 1, 1, $releasedStart, $releasedStart)->endOffset;
-        $path = [];
-        if (!$this->pathTo($document, $code, $path)) {
-            return;
-        }
-        foreach ($path as $node) {
+        for ($node = $code; $node !== null; $node = $parents[spl_object_id($node)] ?? null) {
             $span = $node->getPos();
             if ($span === null || $span->endOffset !== $oldEnd) {
                 continue;
@@ -1147,29 +1157,6 @@ class BlockParser
                 $span->file,
             ));
         }
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Node\Node $node
-     * @param \MarkupCarve\Carve\Node\Node $target
-     * @param array<\MarkupCarve\Carve\Node\Node> $path
-     *
-     * @return bool
-     */
-    private function pathTo(Node $node, Node $target, array &$path): bool
-    {
-        $path[] = $node;
-        if ($node === $target) {
-            return true;
-        }
-        foreach ($node->getChildren() as $child) {
-            if ($this->pathTo($child, $target, $path)) {
-                return true;
-            }
-        }
-        array_pop($path);
-
-        return false;
     }
 
     protected function promoteBlockImages(Node $node): void
