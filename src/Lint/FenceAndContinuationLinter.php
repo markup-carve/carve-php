@@ -104,6 +104,7 @@ final class FenceAndContinuationLinter
                 'blank' => 'a blank line',
                 'document' => 'the end of the document',
                 'sibling' => 'a sibling list item',
+                'list' => 'a list',
                 'left' => 'a block left of its column',
                 'right' => 'a block right of its column',
                 default => 'no open container at its column',
@@ -111,7 +112,7 @@ final class FenceAndContinuationLinter
             $remedy = match ($marker['reason']) {
                 'blank' => 'Delete the blank line to attach the next block, or delete the +.',
                 'document' => 'Add a block after the +, or delete the +.',
-                'sibling' => 'Use a non-list block after the +, or delete the +.',
+                'sibling', 'list' => 'Use a non-list block after the +, or delete the +.',
                 'left', 'right' => 'Align the next block with the +, or delete the +.',
                 default => 'Move the + to a container marker column, or write it as text.',
             };
