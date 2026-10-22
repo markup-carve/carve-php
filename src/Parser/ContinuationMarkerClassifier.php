@@ -454,6 +454,7 @@ final class ContinuationMarkerClassifier
         while (($width = ContainerPrefix::quoteMarkerWidth($line, $at, $end)) !== null) {
             $at += $width;
             $depth++;
+            $at = $this->hostedQuoteStart($line, $at, $depth);
         }
 
         return [substr($line, $at), $depth, $at];
@@ -470,9 +471,34 @@ final class ContinuationMarkerClassifier
         while ($depth < $target && ($width = ContainerPrefix::quoteMarkerWidth($line, $at, $end)) !== null) {
             $at += $width;
             $depth++;
+            if ($depth < $target) {
+                $at = $this->hostedQuoteStart($line, $at, $depth);
+            }
         }
 
         return [substr($line, $at), $depth, $at];
+    }
+
+    /**
+     * Inside a quote, a `>` indented to an item's or a description's content column opens a quote in that host.
+     */
+    private function hostedQuoteStart(string $line, int $at, int $depth): int
+    {
+        $indent = strspn($line, " \t", $at);
+        if ($indent === 0 || ($line[$at + $indent] ?? '') !== '>') {
+            return $at;
+        }
+        $column = self::columnAt($line, $at + $indent);
+        foreach ($this->stack as $entry) {
+            if (
+                ($entry['kind'] === 'list' || $entry['kind'] === 'description')
+                && $entry['depth'] === $depth && $entry['content'] === $column
+            ) {
+                return $at + $indent;
+            }
+        }
+
+        return $at;
     }
 
     private function quoteStart(string $line): int
@@ -483,7 +509,7 @@ final class ContinuationMarkerClassifier
         }
         $column = self::columnAt($line, $start);
         foreach ($this->stack as $entry) {
-            if ($entry['kind'] === 'list' && $entry['content'] === $column) {
+            if (($entry['kind'] === 'list' || $entry['kind'] === 'description') && $entry['content'] === $column) {
                 return $start;
             }
         }
