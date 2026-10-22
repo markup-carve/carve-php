@@ -499,7 +499,10 @@ class BlockParser
                 && $decision['column'] === IndentationHelper::getLeadingColumns($previous) + 2;
             if ($decision['owner'] === null && !$taskCheckboxColumn) {
                 // A quoted `+` at a column no container claims (`> q` / `>   +`) stays paragraph text.
-                if ($decision['reason'] === 'wrong-column' && $decision['depth'] > 0 && $firstBlock === null) {
+                if (
+                    $decision['reason'] === 'wrong-column' && $decision['depth'] > 0 && $firstBlock === null
+                    && !$this->state->session->plusAtHostContentColumn($this->state->source, $this->listParser, $index)
+                ) {
                     $markers[] = [
                         'line' => $index + 1,
                         'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,

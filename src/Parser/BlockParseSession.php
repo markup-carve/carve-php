@@ -158,6 +158,13 @@ final class BlockParseSession
         return $this->continuationMarkers->firstBlockOwner($line);
     }
 
+    public function plusAtHostContentColumn(BlockSourceState $source, ListParser $lists, int $line): bool
+    {
+        $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
+
+        return $this->continuationMarkers->atHostContentColumn($line);
+    }
+
     public function innermostListColumnBefore(BlockSourceState $source, ListParser $lists, int $line): ?int
     {
         $this->continuationMarkers ??= new ContinuationMarkerClassifier($source->sourceLines, $lists);
