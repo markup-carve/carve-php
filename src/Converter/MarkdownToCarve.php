@@ -12,34 +12,23 @@ use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
-use MarkupCarve\Carve\Exception\SourceUnspellableException;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
-use MarkupCarve\Carve\Node\Block\CodeBlock;
-use MarkupCarve\Carve\Node\Block\Comment;
-use MarkupCarve\Carve\Node\Block\Figure;
-use MarkupCarve\Carve\Node\Block\FigureGroup;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Block\Paragraph;
-use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Abbreviation;
-use MarkupCarve\Carve\Node\Inline\Code;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\Link;
 use MarkupCarve\Carve\Node\Inline\Span;
 use MarkupCarve\Carve\Node\Inline\Text;
 use MarkupCarve\Carve\Node\Node;
-use MarkupCarve\Carve\Parser\Block\TableParser;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\LabelKey;
-use MarkupCarve\Carve\Parser\Utility\AttributeParser;
-use MarkupCarve\Carve\Parser\Utility\BracketScanner;
 use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 use MarkupCarve\Carve\Renderer\CarveRenderer;
-use MarkupCarve\Carve\Renderer\Utility\QuotedSlotEscaper;
 use MarkupCarve\Carve\Util\CarrierMarkers;
 use MarkupCarve\Carve\Util\StringUtil;
 use RuntimeException;
@@ -94,153 +83,12 @@ class MarkdownToCarve
     protected const EMPTY_DEFINITION_ITEM_SENTINEL = "\x00CARVE_EMPTY_DEFINITION_ITEM\x00";
 
     /**
-     * When true, rewrite paired-dollar Markdown-flavour math spans to Carve
-     * math syntax. Default false because plain CommonMark treats dollars as
-     * literal text.
-     */
-    protected bool $convertMath = false;
-
-    /**
-     * When true, rewrite `==x==` to a Carve highlight. Default false because
-     * CommonMark and GFM both treat it as literal text.
-     */
-    protected bool $convertHighlight = false;
-
-    /**
-     * When true, carry `^[body]` across as a Carve inline footnote (Pandoc's
-     * spelling). Default false: CommonMark and GFM read it as literal text,
-     * and left bare the note's text moved to the foot of the document
-     * (markup-carve/carve#1130).
-     */
-    protected bool $convertInlineFootnotes = false;
-
-    /**
-     * When true, carry `*[HTML]: HyperText` across as a Carve abbreviation
-     * definition (PHP Markdown Extra's spelling). On by default, because the
-     * Markdown target writes that line (CARVE-P11-033 T1); false keeps it
-     * literal text.
-     */
-    protected bool $convertAbbreviations = true;
-
-    /**
-     * Normalized labels whose first reference definition has an empty
-     * destination, mapped to that definition's decoded title.
-     *
-     * @var array<string, string>
-     */
-    /**
-     * @var array<string, array{title: string, hasTitle: bool}>
-     */
-    protected array $emptyDestinationLabels = [];
-
-    /**
-     * Every normalized reference definition label.
-     *
-     * @var array<string, true>
-     */
-    protected array $definedReferenceLabels = [];
-
-    /**
-     * @var array<string, string>
-     */
-    protected array $importedFootnoteLabels = [];
-
-    /**
-     * @var array<string>
-     */
-    protected array $markdownFootnoteLabels = [];
-
-    /**
-     * The source label of each normalized label's first definition with a
-     * destination.
-     *
-     * @var array<string, string>
-     */
-    protected array $referenceDefinitionLabels = [];
-
-    /**
-     * @var array<int, true>
-     */
-    protected array $hardReferenceSeparators = [];
-
-    /**
-     * @var array<string, string>
-     */
-    protected array $complexReferenceTargets = [];
-
-    /**
      * Source lines whose ordered task item Carve cannot spell, in order, for the
      * fidelity report. Reset by every `convert()`.
      *
      * @var array<int, int>
      */
     protected array $unspellableOrderedTasks = [];
-
-    protected bool $flattenedEmphasis = false;
-
-    /**
-     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
-     */
-    private array $tableDiagnostics = [];
-
-    private string $omittedTableComment = '';
-
-    private bool $droppedTableRows = false;
-
-    /**
-     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
-     */
-    private array $rawSpanWhitespaceDiagnostics = [];
-
-    /**
-     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
-     */
-    private array $boundaryDiagnostics = [];
-
-    /**
-     * @var array<string, list<array{offset: int, line: int}>>
-     */
-    private array $foldedHeadingSources = [];
-
-    /**
-     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
-     */
-    private array $leadingWhitespaceDiagnostics = [];
-
-    /**
-     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
-     */
-    private array $codeFallbackDiagnostics = [];
-
-    private bool $nativeCodeSlot = false;
-
-    // The caller writes every converted line as it stands, so a code value may add one.
-    private bool $breakableCodeSlot = false;
-
-    /**
-     * @var list<bool>
-     */
-    private array $pointyContinuationStrip = [];
-
-    /**
-     * The source line the inline run under conversion starts on, so a loss
-     * inside it names a line of the INPUT rather than an index into the folded
-     * array the importer writes from (markup-carve/carve#2792).
-     */
-    private ?int $inlineRunSourceLine = null;
-
-    /**
-     * Whether the line under conversion CONTINUES the paragraph the line before
-     * it opened, so a decode at its head is not at the head of a block.
-     */
-    private bool $inlineRunContinuesPrevious = false;
-
-    /**
-     * @var array<int, int>
-     */
-    private array $markdownSourceLines = [];
-
-    private int $markdownFrontmatterLines = 0;
 
     /**
      * Whether a leading `---` block was converted to Carve frontmatter, which
@@ -254,14 +102,6 @@ class MarkdownToCarve
      * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
      */
     private array $fragmentFixups = [];
-
-    /**
-     * CARVE-P2-031: each converted destination the conversion changed, mapped to
-     * the spelling the Markdown link wrote; null marks two spellings.
-     *
-     * @var array<string, string|null>
-     */
-    private array $authoredDestinations = [];
 
     /**
      * The last conversion rendered with its original fragments, so assessment sees only the conversion.
@@ -280,11 +120,6 @@ class MarkdownToCarve
     private bool $frontmatterOpenerTyped = false;
 
     /**
-     * @var array<int, true>
-     */
-    private array $markdownHtmlSourceLines = [];
-
-    /**
      * Whether a GFM table is under way at each source line asked about, so the
      * answer is built once per line. Reset by every `convert()`.
      *
@@ -292,57 +127,21 @@ class MarkdownToCarve
      */
     protected array $tableUnderWay = [];
 
-    /**
-     * Reference definitions taken out of the body, each on one line, for the
-     * end of the document where `carve fmt` writes them.
-     *
-     * @var array<string>
-     */
-    protected array $movedDefinitions = [];
+    private MarkdownCarrierContext $carrierContext;
 
-    /**
-     * @var array<string, true>
-     */
-    private array $authoredReferenceLabelKeys = [];
+    private MarkdownCarrierStage $carrierStage;
 
-    /**
-     * Footnote definitions taken out of the body. Paragraph continuations use
-     * two columns; block bodies retain their four-column Markdown prefix.
-     *
-     * @var array<array<string>>
-     */
-    protected array $movedFootnotes = [];
+    private MarkdownInlineContext $inlineContext;
 
-    private bool $importingFootnoteBody = false;
+    private MarkdownInlineStage $inlineStage;
 
-    /**
-     * @var array<int, true>
-     */
-    private array $movedFootnoteBlockBodies = [];
+    private MarkdownReferenceContext $referenceContext;
 
-    /**
-     * @var list<int>
-     */
-    private array $movedFootnoteSourceLines = [];
+    private MarkdownReferenceStage $referenceStage;
 
-    /**
-     * When true, carry `::: note` fences across as Carve containers (Pandoc /
-     * Quarto fenced divs). Default false: in CommonMark both fence lines are
-     * paragraph text, and left bare they disappeared from the render and
-     * wrapped everything between them.
-     */
-    protected bool $convertFencedDivs = false;
+    private MarkdownTableContext $tableContext;
 
-    /**
-     * When true, carry `[t]{.c}` spans and `{.cls}` lines across as Carve
-     * attributes (Pandoc / kramdown). Default false: CommonMark renders the
-     * braces as text, and left bare they attached live attributes.
-     */
-    protected bool $convertAttributes = false;
-
-    protected bool $convertRawHtml = false;
-
-    private CarveRenderer $importWriter;
+    private MarkdownTableStage $tableStage;
 
     public function __construct(
         bool $convertMath = false,
@@ -354,13 +153,72 @@ class MarkdownToCarve
         bool $convertRawHtml = false,
         private bool $rewriteHeadingFragments = true,
     ) {
-        $this->convertMath = $convertMath;
-        $this->convertHighlight = $convertHighlight;
-        $this->convertInlineFootnotes = $convertInlineFootnotes;
-        $this->convertAbbreviations = $convertAbbreviations;
-        $this->convertFencedDivs = $convertFencedDivs;
-        $this->convertAttributes = $convertAttributes;
-        $this->convertRawHtml = $convertRawHtml;
+        $this->inlineContext = new MarkdownInlineContext();
+        $this->referenceContext = new MarkdownReferenceContext();
+        $this->tableContext = new MarkdownTableContext();
+        $this->carrierContext = new MarkdownCarrierContext();
+        $this->initializeStages();
+        $this->inlineContext->convertMath = $convertMath;
+        $this->inlineContext->convertHighlight = $convertHighlight;
+        $this->inlineContext->convertInlineFootnotes = $convertInlineFootnotes;
+        $this->inlineContext->convertAbbreviations = $convertAbbreviations;
+        $this->inlineContext->convertFencedDivs = $convertFencedDivs;
+        $this->inlineContext->convertAttributes = $convertAttributes;
+        $this->inlineContext->convertRawHtml = $convertRawHtml;
+    }
+
+    public function __clone(): void
+    {
+        $this->inlineContext = clone $this->inlineContext;
+        $this->referenceContext = clone $this->referenceContext;
+        $this->tableContext = clone $this->tableContext;
+        $this->carrierContext = clone $this->carrierContext;
+        $this->initializeStages();
+    }
+
+    private function initializeStages(): void
+    {
+        $this->inlineStage = new MarkdownInlineStage(
+            $this->inlineContext,
+            Closure::fromCallable([$this, 'cmarkReadsTaskCheckbox']),
+            Closure::fromCallable([$this, 'escapeCarveOnlyMarker']),
+            Closure::fromCallable([$this, 'backtickRunLength']),
+            Closure::fromCallable([$this, 'escapeTableInlineText']),
+            Closure::fromCallable([$this, 'escapeTablePipes']),
+        );
+        $this->referenceStage = new MarkdownReferenceStage(
+            $this->referenceContext,
+            $this->inlineContext,
+            $this->inlineStage,
+            Closure::fromCallable([$this, 'escapeBlockOpener']),
+            Closure::fromCallable([$this, 'columnWidth']),
+            Closure::fromCallable([$this, 'htmlBlockInterrupts']),
+            Closure::fromCallable([$this, 'indentWidth']),
+            Closure::fromCallable([$this, 'expandLeadingTabs']),
+            Closure::fromCallable([$this, 'htmlBlockCloser']),
+            Closure::fromCallable([$this, 'itemContentColumn']),
+        );
+        $this->tableStage = new MarkdownTableStage(
+            $this->tableContext,
+            $this->inlineContext,
+            $this->inlineStage,
+            $this->referenceContext,
+            $this->referenceStage,
+            Closure::fromCallable([$this, 'columnWidth']),
+            Closure::fromCallable([$this, 'expandLeadingTabs']),
+            Closure::fromCallable([$this, 'htmlBlockInterrupts']),
+            Closure::fromCallable([$this, 'indentWidth']),
+            Closure::fromCallable([$this, 'isHeldOrderedMarker']),
+            Closure::fromCallable([$this, 'moveIndent']),
+            Closure::fromCallable([$this, 'normalizeBlockquoteMarkers']),
+            Closure::fromCallable([$this, 'quoteParagraphIsOpen']),
+            Closure::fromCallable([$this, 'quotedText']),
+            Closure::fromCallable([$this, 'respellQuotedLine']),
+            Closure::fromCallable([$this, 'stripColumns']),
+            Closure::fromCallable([$this, 'writeItemContent']),
+            Closure::fromCallable([$this, 'sourceLine']),
+        );
+        $this->carrierStage = new MarkdownCarrierStage($this->carrierContext);
     }
 
     /**
@@ -388,54 +246,11 @@ class MarkdownToCarve
     }
 
     /**
-     * The carrier payloads this conversion lifted out of the source, in the
-     * order their marker lines appeared.
-     *
-     * @var list<array{payload: string, depth: int, closer: bool, caption: bool, fence: bool, fenceTightAfter: bool, style: bool, styleTightAfter: bool, styleBlankBeforeOuter: bool, equation: string|null}>
-     */
-    protected array $carrierSlots = [];
-
-    /**
-     * @var array<string, string>
-     */
-    protected array $carrierLiteralText = [];
-
-    /**
-     * @var array<int, true>
-     */
-    protected array $carrierParagraphLines = [];
-
-    /**
-     * Whether the source carried a damaged marker set. The conversion then
-     * reads the file as ordinary Markdown, comments and all (PART 11 §10s).
-     */
-    protected bool $carrierDamaged = false;
-
-    protected bool $carrierFallbackMode = false;
-
-    /**
-     * Cross-reference ids that resolve in the converted document, null outside convert().
-     *
-     * @var array<string, true>|null
-     */
-    private ?array $resolvedCrossrefs = null;
-
-    /**
-     * @var list<\MarkupCarve\Carve\Converter\MigrationDiagnostic>
-     */
-    protected array $carrierDiagnostics = [];
-
-    /**
-     * The placeholder a lifted marker line stands in as, unique in the source.
-     */
-    protected string $carrierToken = '';
-
-    /**
      * Whether the source carried a damaged carrier marker set.
      */
     public function hadDamagedCarrierMarkers(): bool
     {
-        return $this->carrierDamaged;
+        return $this->carrierContext->carrierDamaged;
     }
 
     /**
@@ -456,42 +271,26 @@ class MarkdownToCarve
             return [];
         }
         $all = explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown));
-        $offset = $this->importingFootnoteBody ? 0 : count($this->splitFrontmatter($all));
-        $sourceLines = $this->markdownSourceLines;
-        $htmlSourceLines = $this->markdownHtmlSourceLines;
+        $offset = $this->referenceContext->importingFootnoteBody ? 0 : count($this->splitFrontmatter($all));
+        $sourceLines = $this->referenceContext->markdownSourceLines;
+        $htmlSourceLines = $this->referenceContext->markdownHtmlSourceLines;
         $found = [];
         $paragraphLines = [];
-        $this->extractReferenceDefinitions(array_slice($all, $offset), $found, $paragraphLines);
-        $this->carrierParagraphLines = [];
+        $this->referenceStage->extractReferenceDefinitions(array_slice($all, $offset), $found, $paragraphLines);
+        $this->carrierContext->carrierParagraphLines = [];
         foreach (array_keys($paragraphLines ?? []) as $at) {
-            $this->carrierParagraphLines[$at + $offset] = true;
+            $this->carrierContext->carrierParagraphLines[$at + $offset] = true;
         }
         // The pass is run for its block reading alone, so everything else it
         // touched goes back to what the conversion proper will reset anyway.
-        $this->markdownSourceLines = $sourceLines;
-        $this->markdownHtmlSourceLines = $htmlSourceLines;
+        $this->referenceContext->markdownSourceLines = $sourceLines;
+        $this->referenceContext->markdownHtmlSourceLines = $htmlSourceLines;
         $html = [];
         foreach (array_keys($found ?? []) as $at) {
             $html[$at + $offset] = true;
         }
 
         return $html;
-    }
-
-    /**
-     * The host prefix a marker line carries before the marker itself: a block
-     * quote's `>` runs, a list item's indentation and the item marker that
-     * opens it. The placeholder keeps it, so the marker stays in its host when
-     * the lifted source is read.
-     */
-    protected function carrierHostPrefix(string $line): string
-    {
-        $at = strpos($line, CarrierMarkers::HEAD);
-        if ($at === false) {
-            return '';
-        }
-
-        return substr($line, 0, $at);
     }
 
     /**
@@ -545,1260 +344,6 @@ class MarkdownToCarve
     }
 
     /**
-     * Join a marker whose payload spans lines into one entry (CARVE-P11-063).
-     * The entry keeps the raw lines, so an unlifted marker comes back
-     * verbatim; `spanned` holds the comment with each later line's host
-     * prefix removed. The scan for the closing `-->` only moves forward.
-     *
-     * @param array<int, string> $raw
-     * @param array<int, true> $htmlLines
-     *
-     * @return array{0: list<string>, 1: list<int>, 2: array<int, true>, 3: array<int, string>}
-     */
-    protected function joinSpannedCarrierMarkers(array $raw, array $htmlLines): array
-    {
-        $lines = [];
-        $lineNumbers = [];
-        $markerLines = [];
-        $spanned = [];
-        $paragraphLines = [];
-        $close = 0;
-        $count = count($raw);
-        for ($at = 0; $at < $count; $at++) {
-            $line = $raw[$at];
-            if (isset($this->carrierParagraphLines[$at])) {
-                $paragraphLines[count($lines)] = true;
-            }
-            if (isset($htmlLines[$at])) {
-                $host = $this->carrierHostPrefix($line);
-                $head = substr($line, strlen($host));
-                if (str_starts_with($head, CarrierMarkers::HEAD) && !str_contains($head, '-->')) {
-                    $close = max($close, $at + 1);
-                    while ($close < $count && !str_contains($raw[$close], '-->')) {
-                        $close++;
-                    }
-                    if ($close < $count) {
-                        $continuation = preg_replace('/[^>\t]/', ' ', preg_replace('/\[[ xX]\][ \t]+$/D', '', $host) ?? $host) ?? $host;
-                        $comment = $head;
-                        for ($next = $at + 1; $next <= $close; $next++) {
-                            $comment .= "\n" . $this->withoutCarrierHost($raw[$next], $continuation);
-                        }
-                        if (CarrierMarkers::marker($comment) !== null) {
-                            $markerLines[count($lines)] = true;
-                            $spanned[count($lines)] = $comment;
-                            $lines[] = implode("\n", array_slice($raw, $at, $close - $at + 1));
-                            $lineNumbers[] = $at + 1;
-                            $at = $close;
-
-                            continue;
-                        }
-                    }
-                }
-                $markerLines[count($lines)] = true;
-            }
-            $lines[] = $line;
-            $lineNumbers[] = $at + 1;
-        }
-        $this->carrierParagraphLines = $paragraphLines;
-
-        return [$lines, $lineNumbers, $markerLines, $spanned];
-    }
-
-    /**
-     * A bare div's opener and every closer are the same bytes, `:::`
-     * (CARVE-P11-063), so which one a payload is follows from the open
-     * containers: a bare fence of at most the innermost opener's width closes
-     * it, any other opens. An opener gets the trailing space an older export
-     * wrote, which the rest of the import still reads as an opener.
-     *
-     * @param array<int, string> $payloads
-     *
-     * @return array<int, string>
-     */
-    protected function classifyBareFencePayloads(array $payloads): array
-    {
-        $open = [];
-        foreach ($payloads as $at => $payload) {
-            $width = CarrierMarkers::fenceWidth($payload);
-            if ($width === 0) {
-                continue;
-            }
-            if (!CarrierMarkers::isCloser($payload)) {
-                $open[] = $width;
-
-                continue;
-            }
-            if ($open !== [] && $width <= $open[count($open) - 1]) {
-                array_pop($open);
-
-                continue;
-            }
-            $payloads[$at] = $payload . ' ';
-            $open[] = $width;
-        }
-
-        return $payloads;
-    }
-
-    /**
-     * A line with the recorded host prefix taken off, for the fallback lines
-     * travelling under an opener. A block quote writes its blank lines as a
-     * bare `>`, which the opener's own prefix does not cover.
-     */
-    protected function withoutCarrierHost(string $line, string $host): string
-    {
-        if ($host === '') {
-            return $line;
-        }
-        if (str_starts_with($line, $host)) {
-            return substr($line, strlen($host));
-        }
-
-        return ltrim($line, " \t>");
-    }
-
-    /**
-     * Lift every carrier marker line out of the source, leaving a placeholder.
-     *
-     * A set that does not balance is NEVER reconstructed: the source comes back
-     * untouched, the markers import as the raw HTML they are, and the caller
-     * reports one `carrier-markers-damaged` row.
-     *
-     * @param string $markdown
-     * @param array<int, true> $htmlLines Source lines read as HTML block content.
-     */
-    protected function prepareCarrierMarkers(string $markdown, array $htmlLines = []): string
-    {
-        $this->carrierSlots = [];
-        $this->carrierLiteralText = [];
-        $this->carrierDamaged = false;
-        $this->carrierDiagnostics = [];
-        $this->carrierToken = '';
-        if ($this->carrierFallbackMode || !str_contains($markdown, CarrierMarkers::HEAD)) {
-            return $markdown;
-        }
-
-        [$lines, $lineNumbers, $markerLines, $spanned] = $this->joinSpannedCarrierMarkers(
-            explode("\n", str_replace(["\r\n", "\r"], "\n", $markdown)),
-            $htmlLines,
-        );
-        $payloads = [];
-        $depths = [];
-        $hosts = [];
-        $seen = false;
-        // A MARKER IS A LINE THE BLOCK STRUCTURE READ AS HTML. A code
-        // construct's payload is verbatim content, so a marker-shaped line in
-        // one records no container and must be left where it is
-        // (markup-carve/carve-php#3038); the structure map answers that at
-        // every indent and behind every host prefix, which a fence scan over
-        // the raw lines could not (markup-carve/carve#2850).
-        foreach ($lines as $at => $line) {
-            if (!isset($markerLines[$at])) {
-                continue;
-            }
-            $host = $this->carrierHostPrefix($line);
-            $marker = CarrierMarkers::marker($spanned[$at] ?? substr($line, strlen($host)));
-            $payload = $marker['payload'] ?? null;
-            $depth = $marker['depth'] ?? 1;
-            if ($payload !== null && ($depth > 1 || ($payload !== '[' && !str_starts_with($payload, ']{') && !str_starts_with($payload, '</#')))) {
-                $payloads[$at] = $payload;
-                $depths[$at] = $depth;
-                $hosts[$at] = $host;
-                $seen = true;
-            }
-        }
-        if (!$seen) {
-            return $markdown;
-        }
-        $payloads = $this->classifyBareFencePayloads($payloads);
-        $pairs = [];
-        $stack = [];
-        $balanced = true;
-        foreach ($payloads as $at => $payload) {
-            $width = CarrierMarkers::fenceWidth($payload);
-            if ($width === 0) {
-                continue;
-            }
-            if (CarrierMarkers::isCloser($payload)) {
-                $opener = array_pop($stack);
-                if ($opener === null || CarrierMarkers::fenceWidth($payloads[$opener]) !== $width) {
-                    $balanced = false;
-                } else {
-                    $pairs[$opener] = $at;
-                }
-            } else {
-                if ($stack !== [] && $width <= CarrierMarkers::fenceWidth($payloads[end($stack)])) {
-                    $balanced = false;
-                }
-                $stack[] = $at;
-            }
-        }
-        $balanced = $balanced && $stack === [];
-        if ($balanced) {
-            $droppedCaptions = [];
-            foreach ($payloads as $at => $payload) {
-                if (isset($droppedCaptions[$at])) {
-                    continue;
-                }
-                $width = CarrierMarkers::fenceWidth($payload);
-                $opener = $width > 0 && !CarrierMarkers::isCloser($payload);
-                $closer = $pairs[$at] ?? null;
-                if ($opener && $closer !== null) {
-                    $children = (new CarveConverter())->parse($payload . "\n" . $payloads[$closer] . "\n")->getChildren();
-                    $valid = count($children) === 1 && !$children[0] instanceof Paragraph;
-                } elseif (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
-                    $valid = AttributeParser::isValidPayload(substr($payload, 1, -1));
-                } elseif (CarrierMarkers::isCodeFence($payload)) {
-                    $valid = $this->codeFenceCarrierInfo($payload) !== null;
-                } elseif ($this->carrierListStyle($payload) !== null) {
-                    $valid = preg_match('/(?:^|[ \t>])(?:[-+*]|[0-9]+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?$/D', $hosts[$at]) !== 1;
-                } else {
-                    $valid = $width > 0 || CarrierMarkers::isCaption($payload)
-                        || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
-                }
-                if ($depths[$at] > 1 && preg_match('/^::[ \t]/', $payload) !== 1 && $payload !== ':' && $payload !== '') {
-                    $valid = false;
-                }
-                if (!$valid) {
-                    unset($payloads[$at], $depths[$at]);
-                    if ($closer !== null) {
-                        unset($payloads[$closer]);
-                        // A composite figure's caption marker belongs to the pair it follows.
-                        $caption = $closer + 1;
-                        while (isset($lines[$caption]) && trim($this->withoutCarrierHost($lines[$caption], $hosts[$closer])) === '') {
-                            $caption++;
-                        }
-                        if (isset($payloads[$caption]) && CarrierMarkers::isCaption($payloads[$caption]) && $hosts[$caption] === $hosts[$closer]) {
-                            unset($payloads[$caption], $depths[$caption]);
-                            $droppedCaptions[$caption] = true;
-                        }
-                    }
-                    $this->carrierDiagnostics[] = new MigrationDiagnostic(
-                        'carrier-marker-dropped',
-                        ($opener ? 'Dropped carrier marker pair with an invalid opener: ' : 'Dropped carrier marker with an invalid payload: ')
-                            . substr($lines[$at], strlen($hosts[$at])),
-                        'warning',
-                        'degraded',
-                        'fallback',
-                        'line:' . $lineNumbers[$at],
-                    );
-                }
-            }
-        }
-        if (
-            !$balanced || !$this->carrierDepthsPair($payloads, $depths)
-            || !$this->carrierSetBalances($payloads, $lines, $hosts, $depths)
-        ) {
-            $this->carrierDamaged = true;
-            $this->carrierDiagnostics = [];
-
-            return $markdown;
-        }
-
-        $token = 'CARVECARRIER';
-        while (str_contains($markdown, $token)) {
-            $token .= 'X';
-        }
-        $this->carrierToken = $token;
-
-        $out = [];
-        $drop = 0;
-        $replaceParagraph = false;
-        $skipBlank = false;
-        $host = '';
-        $last = count($lines) - 1;
-        $open = [];
-        foreach ($lines as $at => $line) {
-            if (!isset($payloads[$at])) {
-                // Keep entity-spelled paragraph markers as text until their Carve host is restored.
-                if ($open !== [] && isset($this->carrierParagraphLines[$at])) {
-                    $line = preg_replace_callback(
-                        '/^([ \t>]*)(?:&#(43|45);)(?=[ \t])/',
-                        function (array $match) use ($token): string {
-                            $literal = $token . 'LITERAL' . count($this->carrierLiteralText) . 'Z';
-                            $this->carrierLiteralText[$literal] = chr((int)$match[2]);
-
-                            return $match[1] . $literal;
-                        },
-                        $line,
-                    ) ?? $line;
-                }
-                $body = $this->withoutCarrierHost($line, $host);
-                if ($drop > 0 && ($replaceParagraph || preg_match('/^\*\*.+\*\*$/D', $body) === 1) && $body !== '') {
-                    if (!$replaceParagraph) {
-                        $drop--;
-                    }
-                    $skipBlank = true;
-
-                    continue;
-                }
-                // The LAST element is the source's trailing newline, not a
-                // separator the dropped fallback brought with it: consuming it
-                // would leave the Carve output without its own final newline.
-                if ($skipBlank && $at !== $last && $body === '') {
-                    $skipBlank = false;
-                    $drop = 0;
-                    $replaceParagraph = false;
-
-                    continue;
-                }
-                $skipBlank = false;
-                if ($body === '') {
-                    $drop = 0;
-                    $replaceParagraph = false;
-                }
-                $out[] = $line;
-
-                continue;
-            }
-            $payload = $payloads[$at];
-            $host = $hosts[$at];
-            $width = CarrierMarkers::fenceWidth($payload);
-            // A bare fence opens a plain div unless it matches the active fence.
-            $closer = $payload === '';
-            if ($width > 0) {
-                $closer = CarrierMarkers::isCloser($payload) && $open !== [] && $open[count($open) - 1] === $width;
-                if ($closer) {
-                    array_pop($open);
-                } else {
-                    $open[] = $width;
-                }
-            }
-            $styleMarker = $this->carrierListStyle($payload) !== null;
-            $blankHost = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
-            // A style marker after the item's own paragraph still belongs to
-            // that item: step back over the blank line and the paragraph's
-            // continuation lines to the item's marker line.
-            $opener = $at - 1;
-            if ($styleMarker) {
-                while ($opener > 0 && trim($lines[$opener], " \t>") === '') {
-                    $opener--;
-                }
-                while (
-                    $opener > 0 && str_starts_with($lines[$opener], $host) && trim($lines[$opener - 1], " \t>") !== ''
-                    && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$opener]) !== 1
-                ) {
-                    $opener--;
-                }
-            }
-            $insideItem = $opener >= 0 && preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+(?=\S)/', $lines[$opener], $listStart) === 1
-                && strlen($host) >= strlen($listStart[0]);
-            $nextNumber = $styleMarker && preg_match('/^([0-9]+)[.)][ \t]+/', $this->withoutCarrierHost($lines[$at + 1] ?? '', $host), $number) === 1
-                ? (int)$number[1] : 1;
-            if (
-                $styleMarker && $at > 0 && trim($this->withoutCarrierHost($lines[$at - 1], $host)) !== ''
-                && !str_starts_with($payloads[$at - 1] ?? '', '{') && !$insideItem
-            ) {
-                $out[] = $blankHost;
-            }
-            $out[] = $host . $token . count($this->carrierSlots) . 'Z';
-            if ($styleMarker && (!$insideItem || $nextNumber !== 1)) {
-                $out[] = $blankHost;
-            }
-            $equation = null;
-            if (CarrierMarkers::isCaption($payload)) {
-                $before = $at - 1;
-                while ($before >= 0 && trim($lines[$before], " \t>") === '') {
-                    $before--;
-                }
-                $previous = $this->withoutCarrierHost($lines[$before] ?? '', $host);
-                if (preg_match('/^(?:(?:[-+*]|\d+[.)])[ \t]+)?(\$\$[^$]+\$\$)[ \t]*$/D', $previous, $math) === 1) {
-                    $equation = rtrim((new self(convertMath: true))->convert($math[1]), "\n");
-                }
-            }
-            $this->carrierSlots[] = [
-                'payload' => $payload,
-                'depth' => $depths[$at],
-                'closer' => $closer,
-                'caption' => CarrierMarkers::isCaption($payload),
-                'fence' => CarrierMarkers::isCodeFence($payload),
-                'fenceTightAfter' => CarrierMarkers::isCodeFence($payload) && $this->carrierFenceTightAfter($lines, $at, $host),
-                'style' => $styleMarker,
-                'styleTightAfter' => $styleMarker && $insideItem && $this->carrierStyleTightAfter($lines, $at, $host),
-                'styleBlankBeforeOuter' => $styleMarker && $this->carrierStyleBlankBeforeOuter($lines, $at, $host),
-                'equation' => $equation,
-            ];
-            // The writer emitted the opener's title and label, and a group
-            // caption, as bold lines of their own; the payload carries them
-            // now, so the fallback would be the same text twice. A CAPTION
-            // MARKER REPLACES ITS RENDERED PARAGRAPH rather than adding a
-            // second copy of it (PART 11 §10s).
-            $replaceParagraph = CarrierMarkers::isCaption($payload) || str_starts_with($payload, ':: ');
-            $drop = $replaceParagraph ? 1 : ($closer ? 0 : $this->carrierFallbackLines($payload));
-            if ($replaceParagraph || str_starts_with($payload, '{')) {
-                $out[] = preg_replace('/[^>\t]/', ' ', $host) ?? $host;
-            }
-        }
-
-        return implode("\n", $out);
-    }
-
-    /**
-     * How many bold fallback lines the Markdown target wrote for an opener's
-     * own metadata: one for a quoted title, one for a `[label]`.
-     */
-    protected function carrierFallbackLines(string $payload): int
-    {
-        if (CarrierMarkers::isCaption($payload)) {
-            return 1;
-        }
-        $width = CarrierMarkers::fenceWidth($payload);
-        if ($width === 0) {
-            return 0;
-        }
-        $rest = substr($payload, $width);
-        $lines = 0;
-        if (preg_match('/[ \t]?\[.*\]$/D', $rest, $label) === 1) {
-            $lines++;
-            $rest = substr($rest, 0, -strlen($label[0]));
-        }
-        if (preg_match('/[ \t]"[^"]*"$/D', $rest) === 1) {
-            $lines++;
-        }
-
-        return $lines;
-    }
-
-    /**
-     * @param list<string> $lines
-     * @param array<int, string> $payloads
-     * @param string $host
-     * @param int $start
-     */
-    protected function carrierParagraphFollows(array $lines, array $payloads, string $host, int $start): bool
-    {
-        $paragraph = [];
-        $count = count($lines);
-        for ($at = $start; $at < $count && !isset($payloads[$at]); $at++) {
-            $line = $this->withoutCarrierHost($lines[$at], $host);
-            if ($line === '') {
-                break;
-            }
-            $paragraph[] = $line;
-        }
-        $source = (new self())->convert(implode("\n", $paragraph));
-        $blocks = CarveConverter::create()->parse($source)->getChildren();
-
-        return count($blocks) === 1 && $blocks[0] instanceof Paragraph;
-    }
-
-    /**
-     * Definition markers pair at their stated depth.
-     *
-     * @param array<int, string> $payloads
-     * @param array<int, int> $depths
-     */
-    protected function carrierDepthsPair(array $payloads, array $depths): bool
-    {
-        $lists = [];
-        foreach ($payloads as $at => $payload) {
-            $depth = $depths[$at] ?? 1;
-            $term = preg_match('/^::[ \t]/', $payload) === 1;
-            if (!$term && $payload !== ':' && $payload !== '') {
-                if ($depth > 1) {
-                    return false;
-                }
-
-                continue;
-            }
-            $open = count($lists);
-            if ($term) {
-                if ($depth === $open) {
-                    $lists[$open - 1] = false;
-                } elseif ($depth === $open + 1 && ($depth === 1 || $lists[$open - 1])) {
-                    $lists[] = false;
-                } else {
-                    return false;
-                }
-            } elseif ($depth !== $open) {
-                return false;
-            } elseif ($payload === ':') {
-                $lists[$open - 1] = true;
-            } else {
-                array_pop($lists);
-            }
-        }
-
-        return $lists === [];
-    }
-
-    /**
-     * @param array<int, string> $payloads
-     * @param list<string> $lines
-     * @param array<int, string> $hosts
-     * @param array<int, int> $depths
-     */
-    protected function carrierSetBalances(array $payloads, array $lines, array $hosts, array $depths): bool
-    {
-        $open = [];
-        $definitions = [];
-        $previousAt = null;
-        $previousPayload = null;
-        foreach ($payloads as $at => $payload) {
-            $listDepth = $depths[$at] ?? 1;
-            $next = $this->withoutCarrierHost($lines[$at + 1] ?? '', $hosts[$at]);
-            $nestedTerm = $previousAt === $at - 1 && $previousPayload === ':';
-            $previousAt = $at;
-            $previousPayload = $payload;
-            if (str_starts_with($payload, '{')) {
-                $nextMarker = $payloads[$at + 1] ?? null;
-                $sameHost = $nextMarker !== null
-                    && (preg_replace('/[^>\t]/', ' ', $hosts[$at + 1]) ?? $hosts[$at + 1])
-                === (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]);
-                $lostBlock = $sameHost
-                    && !str_starts_with($nextMarker, ':: ') && !CarrierMarkers::isCodeFence($nextMarker) && $this->carrierListStyle($nextMarker) === null
-                    && (CarrierMarkers::fenceWidth($nextMarker) === 0 || CarrierMarkers::isCloser($nextMarker));
-                if (!str_ends_with($payload, '}') || !AttributeParser::isValidPayload(substr($payload, 1, -1)) || $next === '' || $lostBlock) {
-                    return false;
-                }
-
-                continue;
-            }
-            if (str_starts_with($payload, ':: ')) {
-                $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
-                $last = count($definitions) - 1;
-                if ($last < 0 || $definitions[$last]['key'] !== $key || $definitions[$last]['depth'] < $listDepth || $nestedTerm) {
-                    $definitions[] = ['key' => $key, 'depth' => $listDepth];
-                }
-                if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
-                    return false;
-                }
-
-                continue;
-            }
-            if ($payload === ':' || $payload === '') {
-                $key = (preg_replace('/[^>\t]/', ' ', $hosts[$at]) ?? $hosts[$at]) . ':' . count($open);
-                $last = count($definitions) - 1;
-                if ($last < 0 || $definitions[$last]['key'] !== $key || $definitions[$last]['depth'] !== $listDepth) {
-                    return false;
-                }
-                if ($payload === '') {
-                    array_pop($definitions);
-                } else {
-                    $definitions[$last]['defined'] = true;
-                }
-
-                continue;
-            }
-            if (CarrierMarkers::isCaption($payload)) {
-                if ($next === '' || isset($payloads[$at + 1]) || !$this->carrierParagraphFollows($lines, $payloads, $hosts[$at], $at + 1)) {
-                    return false;
-                }
-
-                continue;
-            }
-            if (CarrierMarkers::isCodeFence($payload)) {
-                if (
-                    $this->codeFenceCarrierInfo($payload) === null
-                    || preg_match('/^[ \t]{0,3}(?:`{3,}|~{3,})/', $next) !== 1
-                    || isset($payloads[$at + 1])
-                ) {
-                    return false;
-                }
-
-                continue;
-            }
-            if ($this->carrierListStyle($payload) !== null) {
-                if (
-                    preg_match('/^[0-9]+[.)][ \t]+\S/', $next) !== 1 || isset($payloads[$at + 1])
-                    || preg_match('/^\[\^[^]]+\]:[ \t]*$/D', trim($lines[$at - 1] ?? '')) === 1
-                ) {
-                    return false;
-                }
-
-                continue;
-            }
-            $width = CarrierMarkers::fenceWidth($payload);
-            if ($width === 0) {
-                return false;
-            }
-            if (CarrierMarkers::isCloser($payload) && $open !== [] && $width <= $open[count($open) - 1]) {
-                if (array_pop($open) !== $width) {
-                    return false;
-                }
-
-                continue;
-            }
-            if ($open !== [] && $width <= $open[count($open) - 1]) {
-                return false;
-            }
-            $open[] = $width;
-        }
-
-        return $open === [] && $definitions === [];
-    }
-
-    /**
-     * The canonical title and label following a code fence's language token.
-     */
-    protected function codeFenceCarrierInfo(string $payload): ?string
-    {
-        if (preg_match('/^(`{3,}|~{3,})(.*)$/D', $payload, $match) !== 1) {
-            return null;
-        }
-        $children = (new CarveConverter())->parse($payload . "\n" . $match[1] . "\n")->getChildren();
-        $block = $children[0] ?? null;
-        if (
-            count($children) !== 1 || !$block instanceof CodeBlock
-            || ($block->getHeader() === null && $block->getLabel() === null)
-        ) {
-            return null;
-        }
-        $info = $match[2];
-        if ($block->getLanguage() !== null) {
-            $info = preg_replace('/^[ \t]*\S+[ \t]*/', '', $info) ?? $info;
-        } else {
-            $info = ltrim($info, " \t");
-        }
-
-        return $info;
-    }
-
-    protected function carrierListStyle(string $payload, ?int $start = null): ?string
-    {
-        if (preg_match('/^([A-Za-z]+[.)])(?: ([A-Za-z]+[.)]))?$/D', $payload, $markers) !== 1) {
-            return null;
-        }
-        if (isset($markers[2])) {
-            $source = $markers[1] . " item\n" . $markers[2] . " item\n";
-        } else {
-            $first = substr($markers[1], 0, -1);
-            if ($start !== null && preg_match('/^[IVXLCDM]$/i', $first) === 1) {
-                $roman = ['i' => 1, 'v' => 5, 'x' => 10, 'l' => 50, 'c' => 100, 'd' => 500, 'm' => 1000][strtolower($first)];
-                if ($roman === $start) {
-                    return ctype_lower($first) ? 'i' : 'I';
-                }
-                if (ord(strtolower($first)) - 96 === $start) {
-                    return ctype_lower($first) ? 'a' : 'A';
-                }
-            }
-            $source = $markers[1] . " item\n";
-        }
-        $lists = (new CarveConverter())->parse($source)->getChildren();
-        $list = $lists[0] ?? null;
-
-        if (isset($markers[2]) && (count($lists) !== 1 || !$list instanceof ListBlock || count($list->getChildren()) !== 2)) {
-            return null;
-        }
-
-        return $list instanceof ListBlock && $list->getListType() === ListBlock::TYPE_ORDERED ? $list->getStyle() : null;
-    }
-
-    /**
-     * Whether the next block begins directly after the carried code fence.
-     *
-     * @param list<string> $lines
-     * @param int $markerAt
-     * @param string $host
-     */
-    protected function carrierFenceTightAfter(array $lines, int $markerAt, string $host): bool
-    {
-        // Quote-hosted fence bodies can lose their list indent on import.
-        if (str_contains($host, '>')) {
-            return false;
-        }
-        $opener = ltrim($this->withoutCarrierHost($lines[$markerAt + 1] ?? '', $host), " \t");
-        if (preg_match('/^(`{3,}|~{3,})/', $opener, $match) !== 1) {
-            return false;
-        }
-        $run = $match[1];
-        for ($at = $markerAt + 2, $count = count($lines); $at < $count; $at++) {
-            $line = trim($this->withoutCarrierHost($lines[$at], $host));
-            if (preg_match('/^(`{3,}|~{3,})$/D', $line, $close) === 1 && $close[1][0] === $run[0] && strlen($close[1]) >= strlen($run)) {
-                return isset($lines[$at + 1]) && trim($this->withoutCarrierHost($lines[$at + 1], $host)) !== '';
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * @param list<string> $lines
-     * @param int $markerAt
-     * @param string $host
-     */
-    protected function carrierStyleTightAfter(array $lines, int $markerAt, string $host): bool
-    {
-        for ($at = $markerAt + 1, $count = count($lines); $at < $count; $at++) {
-            $line = $lines[$at];
-            if (trim($line) === '') {
-                $next = $at + 1;
-                while ($next < $count && trim($lines[$next]) === '') {
-                    $next++;
-                }
-                if ($next === $count) {
-                    return true;
-                }
-                // A loose styled list keeps going after its blank line.
-                $body = str_starts_with($lines[$next], $host) ? substr($lines[$next], strlen($host)) : null;
-                if ($body === null || preg_match('/^[0-9]+[.)][ \t]+/', $body) !== 1) {
-                    return false;
-                }
-                $at = $next - 1;
-
-                continue;
-            }
-            if (str_starts_with($line, $host)) {
-                $body = substr($line, strlen($host));
-                if (preg_match('/^[0-9]+[.)][ \t]+/', $body) === 1 || preg_match('/^[ \t]+\S/', $body) === 1) {
-                    continue;
-                }
-            }
-
-            return true;
-        }
-
-        return true;
-    }
-
-    /**
-     * @param list<string> $lines
-     * @param string $host
-     * @param int $markerAt
-     */
-    protected function carrierStyleBlankBeforeOuter(array $lines, int $markerAt, string $host): bool
-    {
-        for ($at = $markerAt + 1, $count = count($lines); $at < $count; $at++) {
-            if (preg_match('/^[ \t>]*(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $lines[$at]) !== 1 || str_starts_with($lines[$at], $host)) {
-                continue;
-            }
-
-            return $at > 0 && trim($lines[$at - 1]) === '';
-        }
-
-        return false;
-    }
-
-    protected function attachedCaptionCount(Node $node): int
-    {
-        $count = $node instanceof Figure && $node->getCaption() !== null ? 1 : 0;
-        if ($node instanceof Table || $node instanceof FigureGroup) {
-            $count += $node->getCaption() === null ? 0 : 1;
-        }
-        foreach ($node->getChildren() as $child) {
-            $count += $this->attachedCaptionCount($child);
-        }
-
-        return $count;
-    }
-
-    /**
-     * Write every lifted payload back as the Carve line it is.
-     *
-     * The blank lines around it are the canonical writer's: a container's closer
-     * hugs its body, and two siblings are separated by one blank line.
-     */
-    protected function restoreCarrierMarkers(string $carve): string
-    {
-        if ($this->carrierSlots === []) {
-            return $carve;
-        }
-        $pattern = '/^' . preg_quote($this->carrierToken, '/') . '(\d+)Z$/D';
-        // Each line as its host prefix, its text, and which kind of marker, if
-        // any, produced it: 'open' for an opener or the attribute line
-        // travelling with it, 'close' for a bare closer, 'caption' for a
-        // composite figure's caption line.
-        /** @var list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items */
-        $items = [];
-        foreach (explode("\n", $carve) as $line) {
-            // THE PREFIX IS WHATEVER STANDS BEFORE THE TOKEN rather than a
-            // character class: a container opening a list item puts the marker
-            // behind that item's `-`, and leaving the token in the output would
-            // be corruption rather than a missed restore.
-            $at = strpos($line, $this->carrierToken);
-            if ($at === false || preg_match($pattern, rtrim(substr($line, $at)), $match) !== 1) {
-                $lead = strlen($line) - strlen(ltrim($line, " \t>"));
-                $items[] = ['lead' => substr($line, 0, $lead), 'text' => substr($line, $lead), 'kind' => null];
-
-                continue;
-            }
-            $slot = $this->carrierSlots[(int)$match[1]];
-            if ($slot['equation'] !== null) {
-                // Restore the equation alone, preserving attributes and the item opener.
-                $before = count($items) - 1;
-                while ($before >= 0 && $items[$before]['text'] === '' && $items[$before]['kind'] === null) {
-                    $before--;
-                }
-                if ($before >= 0 && $items[$before]['kind'] === null) {
-                    if (preg_match('/^(?:(?:[-+*]|\d+[.)])[ \t]+)?/', $items[$before]['text'], $prefix) === 1) {
-                        $items[$before]['text'] = $prefix[0] . $slot['equation'];
-                    }
-                }
-            }
-            $kind = $slot['style'] ? 'style' : ($slot['caption'] ? 'caption' : ($slot['closer'] ? 'close' : 'open'));
-            $items[] = ['lead' => substr($line, 0, $at), 'text' => $slot['payload'], 'kind' => $kind, 'fence' => $slot['fence'], 'fenceTightAfter' => $slot['fenceTightAfter'], 'styleTightAfter' => $slot['styleTightAfter'], 'styleBlankBeforeOuter' => $slot['styleBlankBeforeOuter'], 'depth' => $slot['depth']];
-        }
-        $items = $this->anchorCarrierClosers($items);
-        $definitions = [];
-        foreach ($items as $at => $item) {
-            $last = count($definitions) - 1;
-            if ($item['kind'] !== null && str_starts_with($item['text'], ':: ')) {
-                $depth = $item['depth'] ?? 1;
-                if ($last < 0 || $definitions[$last]->pending || $definitions[$last]->depth < $depth) {
-                    $original = preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead'];
-                    $base = $last < 0 ? $original : $definitions[$last]->base . '  ';
-                    if ($last >= 0 && $definitions[$last]->depth < $depth) {
-                        $host = substr($item['lead'], strlen($definitions[$last]->original));
-                        if (trim($host) !== '') {
-                            $base .= preg_replace_callback(
-                                '/(?:[-+*]|\d+[.)])[ \t]+$/D',
-                                static fn (array $match): string => str_repeat(' ', strlen($match[0])),
-                                $host,
-                            ) ?? $host;
-                        }
-                        $items[$at]['lead'] = $base;
-                        if ($definitions[$last]->pending && $definitions[$last]->marker !== null) {
-                            $items[$at]['lead'] = $definitions[$last]->base . ': ' . $host;
-                            $marker = $definitions[$last]->marker;
-                            $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
-                            $definitions[$last]->pending = false;
-                        }
-                    }
-                    if ($last >= 0 && $definitions[$last]->marker !== null && $definitions[$last]->depth === $depth) {
-                        $items[$at] = ['lead' => $definitions[$last]->base . ': ', 'text' => $item['text'], 'kind' => $item['kind']];
-                        $marker = $definitions[$last]->marker;
-                        $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
-                        $definitions[$last]->pending = false;
-                    }
-                    $definitions[] = new MarkdownCarrierDefinition($base, $original, $depth);
-                } else {
-                    $items[$at] = ['lead' => $definitions[$last]->base, 'text' => $item['text'], 'kind' => $item['kind']];
-                }
-
-                continue;
-            }
-            if ($last < 0) {
-                continue;
-            }
-            if ($item['kind'] !== null && $item['text'] === '') {
-                if ($definitions[$last]->pending && $definitions[$last]->marker !== null) {
-                    $marker = $definitions[$last]->marker;
-                    $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => ': {empty}', 'kind' => 'open'];
-                }
-                $items[$at] = ['lead' => $definitions[$last]->base, 'text' => '', 'kind' => 'close', 'depth' => $item['depth'] ?? 1];
-                array_pop($definitions);
-
-                continue;
-            }
-            if ($item['kind'] !== null && $item['text'] === ':') {
-                $definitions[$last]->pending = true;
-                $definitions[$last]->marker = $at;
-
-                continue;
-            }
-            if ($definitions[$last]->marker !== null && !($item['fence'] ?? false) && $item['kind'] !== 'style') {
-                $lead = $item['text'] === '' ? $definitions[$last]->base
-                    : $definitions[$last]->base . '  ' . substr($item['lead'], strlen($definitions[$last]->original));
-                $wasPending = $definitions[$last]->pending && $item['text'] !== '';
-                if ($wasPending) {
-                    $lead = $definitions[$last]->base . ': ' . substr($item['lead'], strlen($definitions[$last]->original));
-                    $marker = $definitions[$last]->marker;
-                    $items[$marker] = ['lead' => $items[$marker]['lead'], 'text' => '', 'kind' => null];
-                    $definitions[$last]->pending = false;
-                }
-                $items[$at] = [
-                    'lead' => $lead,
-                    'text' => $item['text'],
-                    'kind' => $wasPending ? 'definition' : $item['kind'],
-                    'depth' => $definitions[$last]->depth,
-                ];
-            }
-        }
-        $items = $this->restoreListStyleMarkers($items);
-        $spelled = [];
-        $emptyCloser = false;
-        $tightFenceCloser = null;
-        $dropFenceBlank = false;
-        $items = $this->separateCarrierLines($items);
-        for ($at = 0, $count = count($items); $at < $count; $at++) {
-            $item = $items[$at];
-            if ($dropFenceBlank) {
-                $dropFenceBlank = false;
-                if ($item['kind'] === null && $item['text'] === '') {
-                    continue;
-                }
-            }
-            if ($item['fence'] ?? false) {
-                $info = $this->codeFenceCarrierInfo($item['text']);
-                $below = $at + 1;
-                while (isset($items[$below]) && $items[$below]['kind'] === null && $items[$below]['text'] === '') {
-                    $below++;
-                }
-                if (
-                    $info !== null && isset($items[$below])
-                    && preg_match('/^(`{3,}|~{3,})(.*)$/D', $items[$below]['text'], $fence) === 1
-                ) {
-                    if (trim($item['lead']) !== '') {
-                        $items[$below]['lead'] = $item['lead'];
-                    }
-                    $language = trim($fence[2]);
-                    $items[$below]['text'] = $fence[1] . $language . ($language === '' ? '' : ' ') . $info;
-                    if ($item['fenceTightAfter'] ?? false) {
-                        $items[$below]['tightFenceOpener'] = $fence[1];
-                    }
-
-                    continue;
-                }
-            }
-            if ($item['tightFenceOpener'] ?? false) {
-                $tightFenceCloser = $item['tightFenceOpener'];
-            } elseif ($tightFenceCloser !== null && preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $item['text'], $close) === 1 && $close[1][0] === $tightFenceCloser[0] && strlen($close[1]) >= strlen($tightFenceCloser)) {
-                $tightFenceCloser = null;
-                $dropFenceBlank = true;
-            }
-            if ($emptyCloser && $item['text'] === '') {
-                continue;
-            }
-            if ($item['kind'] === 'close' && $item['text'] === '' && ($item['depth'] ?? 1) > 1) {
-                $next = $at + 1;
-                while (isset($items[$next]) && $items[$next]['text'] === '') {
-                    $next++;
-                }
-                if (isset($items[$next]) && $items[$next]['kind'] === 'definition' && ($items[$next]['depth'] ?? 1) < $item['depth']) {
-                    $emptyCloser = true;
-
-                    continue;
-                }
-            }
-            if ($item['kind'] === 'close' && $item['text'] === '' && str_contains($item['lead'], '>')) {
-                $next = $at + 1;
-                while (isset($items[$next]) && $items[$next]['text'] === '') {
-                    $next++;
-                }
-                // A quoted closer that ends the document leaves no blank quote line.
-                if (!isset($items[$next]) || (($item['depth'] ?? 1) > 1 && $items[$next]['kind'] === 'close')) {
-                    $emptyCloser = true;
-
-                    continue;
-                }
-            }
-            $emptyCloser = $item['kind'] === 'close' && $item['text'] === '' && trim($item['lead']) === '';
-            // The space classifyBareFencePayloads gave a bare opener is not
-            // source, and a payload spanning lines continues behind the
-            // lead's continuation (CARVE-P11-063).
-            $text = $item['kind'] === 'open' && preg_match('/^:{3,} $/D', $item['text']) === 1 ? rtrim($item['text']) : $item['text'];
-            if ($item['kind'] !== null && str_contains($text, "\n")) {
-                $text = str_replace("\n", "\n" . (preg_replace('/[^>\t]/', ' ', $item['lead']) ?? $item['lead']), $text);
-            }
-            $spelled[] = $text === '' && trim($item['lead']) === ''
-                ? '' : $item['lead'] . $text;
-        }
-
-        return rtrim(implode("\n", $spelled), " \t\n") . "\n";
-    }
-
-    /**
-     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items
-     *
-     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}>
-     */
-    protected function restoreListStyleMarkers(array $items): array
-    {
-        foreach ($items as $at => $item) {
-            if ($item['kind'] !== 'style') {
-                continue;
-            }
-            $below = $at + 1;
-            while (isset($items[$below]) && $items[$below]['kind'] === null && $items[$below]['text'] === '') {
-                $below++;
-            }
-            if (!isset($items[$below]) || preg_match('/^([0-9]+)([.)])([ \t]+.*)$/D', $items[$below]['text'], $first) !== 1) {
-                continue;
-            }
-            $start = (int)$first[1];
-            $style = $this->carrierListStyle($item['text'], $start);
-            if ($style === null) {
-                continue;
-            }
-            $lead = $items[$below]['lead'];
-            $counter = $start;
-            $delimiter = $first[2];
-            $lastStyled = null;
-            for ($cursor = $below, $last = array_key_last($items); $cursor <= $last; $cursor++) {
-                if (!isset($items[$cursor])) {
-                    continue;
-                }
-                $line = $items[$cursor];
-                if ($line['text'] === '') {
-                    continue;
-                }
-                if ($line['lead'] !== $lead) {
-                    if (strlen($line['lead']) > strlen($lead)) {
-                        continue;
-                    }
-
-                    break;
-                }
-                if (preg_match('/^([0-9]+)([.)])([ \t]+.*)$/D', $line['text'], $marker) !== 1 || (int)$marker[1] !== $counter || $marker[2] !== $delimiter) {
-                    break;
-                }
-                $line['text'] = $this->carrierStyledNumber($counter, $style) . $delimiter . $marker[3];
-                $items[$cursor] = $line;
-                $lastStyled = $cursor;
-                $counter++;
-            }
-            if (($item['styleTightAfter'] ?? false) && $lastStyled !== null) {
-                $onlyTrailingBlanks = true;
-                for ($look = $lastStyled + 1, $last = array_key_last($items); $look <= $last; $look++) {
-                    if (isset($items[$look]) && $items[$look]['text'] !== '') {
-                        $onlyTrailingBlanks = false;
-
-                        break;
-                    }
-                }
-                if ($onlyTrailingBlanks) {
-                    for ($look = $at - 1; $look >= 0; $look--) {
-                        if ($items[$look]['text'] === '{loose}') {
-                            unset($items[$look]);
-
-                            break;
-                        }
-                        if (preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$look]['text']) === 1) {
-                            if (isset($items[$look - 1]) && $items[$look - 1]['text'] === '{loose}') {
-                                unset($items[$look - 1]);
-                            }
-
-                            break;
-                        }
-                    }
-                }
-                for ($after = $lastStyled + 1, $last = array_key_last($items); $after <= $last; $after++) {
-                    if (!isset($items[$after])) {
-                        continue;
-                    }
-                    $following = $items[$after];
-                    if ($following['kind'] === null && $following['text'] === '') {
-                        $next = $after + 1;
-                        while (isset($items[$next]) && $items[$next]['text'] === '') {
-                            $next++;
-                        }
-                        if (isset($items[$next])) {
-                            if (strlen($items[$next]['lead']) > strlen($lead) || preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $items[$next]['text']) !== 1) {
-                                break;
-                            }
-                            if ($after > $lastStyled + 1 && strlen($items[$next]['lead']) === strlen($lead)) {
-                                break;
-                            }
-                            if (($item['styleBlankBeforeOuter'] ?? false) && strlen($items[$next]['lead']) < strlen($lead)) {
-                                break;
-                            }
-                        }
-                        unset($items[$after]);
-
-                        continue;
-                    }
-                    if ($following['kind'] !== null) {
-                        break;
-                    }
-                    if (strlen($following['lead']) < strlen($lead) && preg_match('/^(?:[-+*]|[0-9]+[.)])[ \t]+\S/', $following['text']) === 1) {
-                        break;
-                    }
-                }
-            }
-            for ($drop = $at; $drop < $below; $drop++) {
-                unset($items[$drop]);
-            }
-        }
-
-        return array_values($items);
-    }
-
-    protected function carrierStyledNumber(int $number, string $style): string
-    {
-        if ($style === 'a' || $style === 'A') {
-            $letter = chr((($number - 1) % 26) + 97);
-
-            return $style === 'A' ? strtoupper($letter) : $letter;
-        }
-        $values = [[1000, 'M'], [900, 'CM'], [500, 'D'], [400, 'CD'], [100, 'C'], [90, 'XC'], [50, 'L'], [40, 'XL'], [10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
-        $roman = '';
-        foreach ($values as [$value, $token]) {
-            while ($number >= $value) {
-                $roman .= $token;
-                $number -= $value;
-            }
-        }
-
-        return $style === 'i' ? strtolower($roman) : $roman;
-    }
-
-    /**
-     * Put every restored closer at its OPENER's column.
-     *
-     * Where a container opens a list item and its body begins with a list, the
-     * closer's placeholder is a lazy continuation of that inner item's
-     * paragraph, so the written Carve puts it at the inner content column and
-     * the container would close in the wrong host. The opener's own prefix is
-     * the answer, with any list marker in it blanked out, because a closer
-     * cannot repeat an item's marker.
-     *
-     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items
-     *
-     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}>
-     */
-    protected function anchorCarrierClosers(array $items): array
-    {
-        $open = [];
-        $closed = null;
-        foreach ($items as $at => $item) {
-            if ($item['kind'] === 'open' && CarrierMarkers::fenceWidth($item['text']) > 0) {
-                // A TASK BOX IS NOT PART OF THE COLUMN. It stands in the item's
-                // content, so the body of a container opening a task item sits
-                // at the item's own content column, not past the box.
-                $lead = preg_replace('/\[[ xX]\][ \t]+$/', '', $item['lead']) ?? $item['lead'];
-                $open[] = preg_replace('/[^>\t]/', ' ', $lead) ?? $lead;
-                $closed = null;
-
-                continue;
-            }
-            if ($item['kind'] === 'close' && CarrierMarkers::isCloser($item['text']) && $open !== []) {
-                $closed = array_pop($open);
-                $items[$at]['lead'] = $closed;
-
-                continue;
-            }
-            // A CAPTION HANGS ON THE CLOSING FENCE, so it stands at that
-            // closer's column. Its placeholder is a lazy continuation of the
-            // same inner item, and a caption at the wrong column attaches to
-            // nothing.
-            if ($item['kind'] === 'caption' && $closed !== null) {
-                $items[$at]['lead'] = $closed;
-            }
-        }
-
-        return $items;
-    }
-
-    /**
-     * Give every restored marker line the blank lines the canonical writer puts
-     * around it: a container's opener and closer hug its body, and what follows
-     * a closer is a block of its own.
-     *
-     * @param list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}> $items
-     *
-     * @return list<array{lead: string, text: string, kind: string|null, fence?: bool, fenceTightAfter?: bool, styleTightAfter?: bool, styleBlankBeforeOuter?: bool, tightFenceOpener?: string, depth?: int}>
-     */
-    protected function separateCarrierLines(array $items): array
-    {
-        $count = count($items);
-        $hugged = [];
-        // A line carrying nothing but its host prefix is blank: inside a block
-        // quote the canonical writer spells a blank line as a bare `>`.
-        $blank = static fn (array $item): bool => $item['kind'] === null && $item['text'] === '';
-        for ($at = 0; $at < $count; $at++) {
-            if (!$blank($items[$at])) {
-                continue;
-            }
-            $end = $at;
-            while ($end < $count && $blank($items[$end])) {
-                $end++;
-            }
-            $before = $at - 1;
-            while ($before >= 0 && $blank($items[$before])) {
-                $before--;
-            }
-            $above = $before >= 0 ? $items[$before]['kind'] : null;
-            $below = $end < $count ? $items[$end]['kind'] : null;
-            $marker = null;
-            if ($below === 'close' || $below === 'caption' || $below === 'definition') {
-                $marker = $items[$end];
-            } elseif ($above === 'open') {
-                $marker = $items[$before];
-            } elseif ($above === 'close' && ($below === 'close' || $below === 'caption')) {
-                $marker = $items[$end];
-            }
-            // The blank has to share the marker's HOST to be inside it: a `>`
-            // line next to a marker standing at column 0 belongs to a block
-            // quote of its own.
-            if ($marker !== null) {
-                for ($drop = $at; $drop < $end; $drop++) {
-                    $blankLead = rtrim($items[$drop]['lead']);
-                    $markerLead = rtrim(in_array($marker['kind'], ['open', 'definition'], true) ? (preg_replace('/[^>\t]/', ' ', $marker['lead']) ?? $marker['lead']) : $marker['lead']);
-                    if (($marker['depth'] ?? 1) > 1 && str_contains($blankLead, '>') && str_contains($markerLead, '>')) {
-                        $blankLead = preg_replace('/[ \t]+/', ' ', substr($blankLead, strcspn($blankLead, '>'))) ?? $blankLead;
-                        $markerLead = preg_replace('/[ \t]+/', ' ', substr($markerLead, strcspn($markerLead, '>'))) ?? $markerLead;
-                    }
-                    if ($blankLead !== $markerLead) {
-                        $marker = null;
-
-                        break;
-                    }
-                }
-            }
-            if ($marker !== null) {
-                for ($drop = $at; $drop < $end; $drop++) {
-                    $hugged[$drop] = true;
-                }
-            }
-            $at = $end - 1;
-        }
-
-        $out = [];
-        foreach ($items as $at => $item) {
-            if (isset($hugged[$at])) {
-                continue;
-            }
-            if (
-                $out !== []
-                && (end($out)['kind'] === 'close' || end($out)['kind'] === 'caption')
-                && $item['kind'] !== 'close'
-                && $item['kind'] !== 'caption'
-                && $item['kind'] !== 'definition'
-                && $item['text'] !== ''
-                // A closer and what follows take a blank line between them only
-                // where they are SIBLINGS. A list item opening after a closer
-                // is a block of the host above, and a blank there would turn a
-                // tight list loose.
-                && strlen($item['lead']) >= strlen(end($out)['lead'])
-            ) {
-                // The separator carries the closer's own host prefix, so a
-                // blank line inside a block quote is still a `>` line.
-                $out[] = ['lead' => rtrim(end($out)['lead']), 'text' => '', 'kind' => null];
-            }
-            $out[] = $item;
-        }
-
-        return $out;
-    }
-
-    protected function emptyFootnoteStyleMarker(string $markdown): bool
-    {
-        $lines = explode("\n", $markdown);
-        $fence = null;
-        foreach ($lines as $at => $line) {
-            $content = ltrim($line, " \t>");
-            if ($fence !== null) {
-                if (
-                    preg_match('/^(`{3,}|~{3,})[ \t]*$/D', $content, $close) === 1
-                    && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)
-                ) {
-                    $fence = null;
-                }
-
-                continue;
-            }
-            if (preg_match('/^(`{3,}|~{3,})/', $content, $open) === 1) {
-                $fence = $open[1];
-
-                continue;
-            }
-            if (preg_match('/^\[\^[^]]+\]:[ \t]*$/D', $content) !== 1) {
-                continue;
-            }
-            $marker = CarrierMarkers::marker(ltrim($lines[$at + 1] ?? ''));
-            $next = ltrim($lines[$at + 2] ?? '');
-            if (
-                $marker !== null && $this->carrierListStyle($marker['payload']) !== null
-                && preg_match('/^[0-9]+[.)][ \t]+\S/', $next) === 1
-            ) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    /**
      * Convert Markdown text to Carve text.
      *
      * @throws \LogicException
@@ -1806,33 +351,33 @@ class MarkdownToCarve
     public function convert(string $markdown): string
     {
         $whitespaceOnly = strspn($markdown, " \t\r\n") === strlen($markdown) ? $markdown : null;
-        $this->importWriter = new CarveRenderer();
+        $this->inlineContext->importWriter = new CarveRenderer();
         $workScope = MarkdownImportWork::$on ? MarkdownImportWork::enter() : null;
-        if ($this->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
-            $this->resolvedCrossrefs = [];
+        if ($this->inlineContext->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
+            $this->inlineContext->resolvedCrossrefs = [];
             try {
                 $first = $this->convert($markdown);
                 $resolved = ImportedCrossrefs::resolvedTargets($first);
                 if ($resolved === []) {
                     return $first;
                 }
-                $this->resolvedCrossrefs = $resolved;
+                $this->inlineContext->resolvedCrossrefs = $resolved;
 
                 return $this->convert($markdown);
             } finally {
-                $this->resolvedCrossrefs = null;
+                $this->inlineContext->resolvedCrossrefs = null;
             }
         }
         $markdown = StringUtil::toValidUtf8($markdown);
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
-        if (!$this->carrierFallbackMode && $this->emptyFootnoteStyleMarker($markdown)) {
-            $this->carrierFallbackMode = true;
+        if (!$this->carrierContext->carrierFallbackMode && $this->carrierStage->emptyFootnoteStyleMarker($markdown)) {
+            $this->carrierContext->carrierFallbackMode = true;
             try {
                 $fallback = $this->convert($markdown);
             } finally {
-                $this->carrierFallbackMode = false;
+                $this->carrierContext->carrierFallbackMode = false;
             }
-            $this->carrierDamaged = true;
+            $this->carrierContext->carrierDamaged = true;
 
             return $fallback;
         }
@@ -1844,33 +389,33 @@ class MarkdownToCarve
         // (markup-carve/carve#2850). Everything this probe dirties is reset
         // below, before the conversion proper reads any of it.
         $carrierOriginal = $markdown;
-        $markdown = $this->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
+        $markdown = $this->carrierStage->prepareCarrierMarkers($markdown, $this->markdownHtmlBlockLines($markdown));
         $inlineCarriers = new InlineCarrierReader();
-        if (!$this->carrierFallbackMode && !$this->carrierDamaged) {
+        if (!$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged) {
             $markdown = $inlineCarriers->prepare($markdown);
         }
         $this->unspellableOrderedTasks = [];
-        $this->flattenedEmphasis = false;
+        $this->inlineContext->flattenedEmphasis = false;
         $this->tableUnderWay = [];
-        $this->tableDiagnostics = [];
-        $this->droppedTableRows = false;
-        $this->omittedTableComment = 'CARVE_OMITTED_TABLE';
-        while (str_contains($markdown, $this->omittedTableComment)) {
-            $this->omittedTableComment .= '_';
+        $this->tableContext->tableDiagnostics = [];
+        $this->tableContext->droppedTableRows = false;
+        $this->tableContext->omittedTableComment = 'CARVE_OMITTED_TABLE';
+        while (str_contains($markdown, $this->tableContext->omittedTableComment)) {
+            $this->tableContext->omittedTableComment .= '_';
         }
-        $this->rawSpanWhitespaceDiagnostics = [];
-        $this->boundaryDiagnostics = [];
-        $this->foldedHeadingSources = [];
-        $this->leadingWhitespaceDiagnostics = [];
-        $this->codeFallbackDiagnostics = [];
-        $this->inlineRunSourceLine = null;
-        $this->inlineRunContinuesPrevious = false;
-        $this->markdownSourceLines = [];
-        $this->markdownHtmlSourceLines = [];
+        $this->inlineContext->rawSpanWhitespaceDiagnostics = [];
+        $this->referenceContext->boundaryDiagnostics = [];
+        $this->inlineContext->foldedHeadingSources = [];
+        $this->inlineContext->leadingWhitespaceDiagnostics = [];
+        $this->inlineContext->codeFallbackDiagnostics = [];
+        $this->inlineContext->inlineRunSourceLine = null;
+        $this->inlineContext->inlineRunContinuesPrevious = false;
+        $this->referenceContext->markdownSourceLines = [];
+        $this->referenceContext->markdownHtmlSourceLines = [];
         $this->frontmatterSynthesized = false;
         $this->frontmatterOpenerTyped = false;
         $this->fragmentFixups = [];
-        $this->authoredDestinations = [];
+        $this->inlineContext->authoredDestinations = [];
         $this->unfixedValue = null;
         if ($whitespaceOnly !== null) {
             return $whitespaceOnly;
@@ -1880,8 +425,8 @@ class MarkdownToCarve
         $plain = str_replace(["\r\n", "\r"], "\n", $markdown);
         $plainBody = rtrim($plain, "\n");
         if (
-            !MarkdownImportWork::$on && !$this->carrierFallbackMode && !$this->carrierDamaged
-            && $this->carrierSlots === []
+            !MarkdownImportWork::$on && !$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged
+            && $this->carrierContext->carrierSlots === []
             && $plainBody !== '' && $plainBody[0] !== ' ' && !str_contains($plainBody, '  ')
             && !str_contains($plainBody, 'CARVEINLINE')
             && preg_match('/\A[\p{L}\p{N} ]+\z/u', $plainBody) === 1
@@ -1895,31 +440,31 @@ class MarkdownToCarve
         // body is transformed. Run through the line loop it would be destroyed:
         // the opening `---` becomes a thematic break and the closing one a
         // setext underline, turning `description: y` into an `##` heading.
-        $frontmatter = $this->importingFootnoteBody ? [] : $this->splitFrontmatter($allLines);
-        $this->markdownFrontmatterLines = count($frontmatter);
+        $frontmatter = $this->referenceContext->importingFootnoteBody ? [] : $this->splitFrontmatter($allLines);
+        $this->referenceContext->markdownFrontmatterLines = count($frontmatter);
         $this->frontmatterSynthesized = $frontmatter !== [];
-        $lines = $this->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
-        if (!$this->importingFootnoteBody) {
-            $this->importedFootnoteLabels = [];
+        $lines = $this->referenceStage->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
+        if (!$this->referenceContext->importingFootnoteBody) {
+            $this->inlineContext->importedFootnoteLabels = [];
         }
         $reservedFootnotes = [];
         preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
         foreach ($candidates[1] as $label) {
-            if (preg_match('/^carve-import-footnote-(\d+)$/i', LabelKey::normalize($this->decodeLinkTitle($label)), $reserved) === 1) {
+            if (preg_match('/^carve-import-footnote-(\d+)$/i', LabelKey::normalize($this->inlineStage->decodeLinkTitle($label)), $reserved) === 1) {
                 $reservedFootnotes[(int)$reserved[1]] = true;
             }
         }
         $serial = 1;
-        foreach ($this->markdownFootnoteLabels as $label) {
-            if (!str_contains($label, '|') && $this->decodeLinkTitle($label) === $label) {
+        foreach ($this->inlineContext->markdownFootnoteLabels as $label) {
+            if (!str_contains($label, '|') && $this->inlineStage->decodeLinkTitle($label) === $label) {
                 continue;
             }
             $key = $label;
-            if (!isset($this->importedFootnoteLabels[$key])) {
+            if (!isset($this->inlineContext->importedFootnoteLabels[$key])) {
                 while (isset($reservedFootnotes[$serial])) {
                     $serial++;
                 }
-                $this->importedFootnoteLabels[$key] = 'carve-import-footnote-' . $serial++;
+                $this->inlineContext->importedFootnoteLabels[$key] = 'carve-import-footnote-' . $serial++;
             }
         }
         $result = [];
@@ -2011,8 +556,8 @@ class MarkdownToCarve
         $lineCount = count($lines);
         for ($i = 0; $i < $lineCount; $i++) {
             $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
-            $this->inlineRunSourceLine = $this->sourceLine($i);
-            $this->inlineRunContinuesPrevious = $i > 0
+            $this->inlineContext->inlineRunSourceLine = $this->sourceLine($i);
+            $this->inlineContext->inlineRunContinuesPrevious = $i > 0
                 && trim($lines[$i - 1]) !== ''
                 && $this->nextLineContinuesThisParagraph($lines[$i - 1], $lines[$i], false);
             if (!$inCodeBlock && $emptyMarkerColumn !== null && trim($lines[$i]) !== '') {
@@ -2167,7 +712,7 @@ class MarkdownToCarve
             if ($bareParagraphMarker) {
                 $text = rtrim(ltrim($line, " \t"), " \t");
                 $contentCol = (int)end($listCols);
-                $result[] = $this->convertInlineFormatting(str_repeat(' ', $contentCol) . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
+                $result[] = $this->inlineStage->convertInlineFormatting(str_repeat(' ', $contentCol) . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
                 $itemParagraph = true;
                 $prevLineType = 'list';
 
@@ -2179,10 +724,10 @@ class MarkdownToCarve
                 if ($lazyQuote !== null) {
                     $shiftCol = $lazyQuote['col'];
                     $shiftBy = $listMarkers->shiftAt($shiftCol);
-                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
+                    $result[] = $this->inlineStage->convertInlineFormatting(str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
                     $itemQuote = $lazyQuote;
                 } else {
-                    $result[] = $this->convertInlineFormatting(str_repeat(' ', $listCols === [] ? 0 : (int)end($listCols)) . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
+                    $result[] = $this->inlineStage->convertInlineFormatting(str_repeat(' ', $listCols === [] ? 0 : (int)end($listCols)) . $text, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
                     $itemParagraph = true;
                 }
                 $prevLineType = 'list';
@@ -2212,11 +757,11 @@ class MarkdownToCarve
                     $shiftBy = $listMarkers->shiftAt($shiftCol);
                     $lazyLine = str_repeat(' ', $lazyQuote['col']) . $lazyQuote['prefix'] . $text;
                     $lazyLine = $this->escapeDefinitionContinuation($lazyLine, $lines[$i - 1] ?? '', (string)end($result));
-                    $result[] = $this->convertInlineFormatting($lazyLine, !$this->nextLineContinuesThisParagraph($lazyLine, $lines[$i + 1] ?? '', false));
+                    $result[] = $this->inlineStage->convertInlineFormatting($lazyLine, !$this->nextLineContinuesThisParagraph($lazyLine, $lines[$i + 1] ?? '', false));
                     $itemQuote = $lazyQuote;
                 } else {
                     $lazyLine = $this->escapeDefinitionContinuation(str_repeat(' ', $lazyCol) . $text, $lines[$i - 1] ?? '', (string)end($result));
-                    $result[] = $this->convertInlineFormatting($lazyLine, !$this->nextLineContinuesThisParagraph($lazyLine, $lines[$i + 1] ?? '', false));
+                    $result[] = $this->inlineStage->convertInlineFormatting($lazyLine, !$this->nextLineContinuesThisParagraph($lazyLine, $lines[$i + 1] ?? '', false));
                     $itemParagraph = true;
                 }
                 $prevLineType = 'list';
@@ -2231,7 +776,7 @@ class MarkdownToCarve
             if (!$inCodeBlock && $prevLineType === 'text' && $listCols === [] && $trimmed !== '' && $lineIndent >= 4) {
                 // An ordered marker other than 1 interrupts no paragraph anyway.
                 $opener = preg_match('/^0*(?:[2-9]|1\d)\d*[.)]/', $trimmed) === 1 ? $trimmed : $this->escapeBlockOpener($trimmed);
-                $result[] = $this->convertInlineFormatting($opener, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
+                $result[] = $this->inlineStage->convertInlineFormatting($opener, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
 
                 continue;
             }
@@ -2373,12 +918,12 @@ class MarkdownToCarve
                     ) {
                         $joined = $text . "\n" . ltrim($next[1], " \t");
                         $open = strrpos($joined, '](');
-                        if ($open !== false && $this->markdownActivationTailEnd($joined, $open + 1) === strlen($joined) - 1) {
+                        if ($open !== false && $this->inlineStage->markdownActivationTailEnd($joined, $open + 1) === strlen($joined) - 1) {
                             $text = $joined;
                             $i++;
                         }
                     }
-                    $result[] = $this->convertInlineFormatting($text, !$this->nextLineContinuesThisParagraph($text, $lines[$i + 1] ?? '', false));
+                    $result[] = $this->inlineStage->convertInlineFormatting($text, !$this->nextLineContinuesThisParagraph($text, $lines[$i + 1] ?? '', false));
                     $quotePrev = null;
 
                     continue;
@@ -2393,13 +938,13 @@ class MarkdownToCarve
 
             // Inside an open raw-HTML block the line is literal content, not a
             // break, so nothing respells it there.
-            $inHtmlBlock = $this->convertRawHtml && ($htmlCloser !== null || $htmlBlockOpen);
+            $inHtmlBlock = $this->inlineContext->convertRawHtml && ($htmlCloser !== null || $htmlBlockOpen);
             // A break closes every open block, so the line after it opens one
             // of its own: 'blank', not 'text', or a bare `-` below the rule
             // would be read as a setext underline and stay text.
             $rule = $inHtmlBlock ? null : $this->thematicBreakLine($line, $contentCol);
             if ($rule !== null) {
-                $rulePrefix = $this->quotePrefixOf(ltrim($line));
+                $rulePrefix = $this->referenceStage->quotePrefixOf(ltrim($line));
                 $ruleKey = str_repeat('> ', substr_count($rulePrefix, '>'));
                 if (isset($quoteMarkers[$ruleKey])) {
                     $quoteMarkers[$ruleKey]->end($this->indentWidth(substr(ltrim($line), strlen($rulePrefix))));
@@ -2455,7 +1000,7 @@ class MarkdownToCarve
                 continue;
             }
 
-            if (!$this->convertRawHtml) {
+            if (!$this->inlineContext->convertRawHtml) {
                 $htmlBlock = $this->collectVerbatimHtmlBlock(
                     $lines,
                     $i,
@@ -2490,7 +1035,7 @@ class MarkdownToCarve
                 }
             }
 
-            if ($this->convertRawHtml) {
+            if ($this->inlineContext->convertRawHtml) {
                 $htmlBlock = $this->collectPairedHtmlBlock($lines, $i, $contentCol);
                 if ($htmlBlock !== null) {
                     if ($prevLineType !== 'blank' && $result !== []) {
@@ -2527,7 +1072,7 @@ class MarkdownToCarve
                     || ($isBlockquote && $prevLineType !== 'blank' && $prevLineType !== 'blockquote')
                     || ($isList && !in_array($prevLineType, ['list', 'blank', 'code_fence'], true))
                 );
-            $separator = $this->convertRawHtml
+            $separator = $this->inlineContext->convertRawHtml
                 ? $this->rawHtmlBlockSeparator(
                     $line,
                     $contentCol,
@@ -2547,7 +1092,7 @@ class MarkdownToCarve
             if ($isBlank) {
                 $tableWidth = 0;
                 $sourceBlanks[count($result)] = true;
-                if (isset($this->hardReferenceSeparators[$i])) {
+                if (isset($this->referenceContext->hardReferenceSeparators[$i])) {
                     $listMarkers->end(0);
                     $listCols = [];
                     $hardListBlanks[count($result)] = true;
@@ -2600,10 +1145,10 @@ class MarkdownToCarve
             // A body row of the table above, rebuilt so its padding is what the
             // formatter writes and its cells are fitted to the header, as GFM
             // reads them.
-            if ($tableWidth > 0 && $this->indentWidth($line) >= $tableCol && $this->continuesGfmTableBody($this->stripColumns($line, $tableCol))) {
-                $cells = $this->splitPipeCells($trimmed);
-                $this->recordTableRowDiagnostics($trimmed, $i, $tableWidth, $cells);
-                $row = $this->writeTableRow($cells, [], $tableWidth);
+            if ($tableWidth > 0 && $this->indentWidth($line) >= $tableCol && $this->tableStage->continuesGfmTableBody($this->stripColumns($line, $tableCol))) {
+                $cells = $this->tableStage->splitPipeCells($trimmed);
+                $this->tableStage->recordTableRowDiagnostics($trimmed, $i, $tableWidth, $cells);
+                $row = $this->tableStage->writeTableRow($cells, [], $tableWidth);
                 $result[] = str_repeat(' ', $tableCol) . $row;
 
                 continue;
@@ -2644,7 +1189,7 @@ class MarkdownToCarve
                 if (preg_match('/^((?:> )+)(.*)$/s', $quoted, $quote) === 1) {
                     $quotedParagraph = $lazyQuote !== null && $lazyQuote['col'] === $contentCol;
                     $heldOrdered = $quotedParagraph && preg_match('/^[ \t]*(?!0*1[.)])\d{1,9}[.)][ \t]+/', $quote[2]) === 1;
-                    $itemTable = $heldOrdered ? null : $this->collectQuotedItemBlock($lines, $i, $quote[1], $quote[2], $contentCol, $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
+                    $itemTable = $heldOrdered ? null : $this->tableStage->collectQuotedItemBlock($lines, $i, $quote[1], $quote[2], $contentCol, $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
                     if ($itemTable !== null) {
                         array_push($result, ...$itemTable['lines']);
                         $i = $itemTable['end'];
@@ -2654,7 +1199,7 @@ class MarkdownToCarve
 
                         continue;
                     }
-                    $table = $this->collectQuotedTable($lines, $i, $quote[1], $quote[2], $contentCol);
+                    $table = $this->tableStage->collectQuotedTable($lines, $i, $quote[1], $quote[2], $contentCol);
                     if ($table !== null) {
                         foreach ($table['lines'] as $row) {
                             $result[] = str_repeat(' ', $contentCol) . $row;
@@ -2711,21 +1256,21 @@ class MarkdownToCarve
                 && !$isHeading
                 && $delimiterOver >= 0
                 && $delimiterOver < 4
-                && $this->startsTableHeader($lines, $i)
+                && $this->tableStage->startsTableHeader($lines, $i)
             ) {
                 // A table interrupts the paragraph of the item holding it.
                 if ($prevLineType !== 'blank' && !($prevLineType === 'list' && $contentCol > 0) && $result !== []) {
                     $result[] = '';
                 }
-                $this->recordTableRowDiagnostics($trimmed, $i);
-                $header = $this->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
-                if ($this->keepHeaderRow($header, $i)) {
+                $this->tableStage->recordTableRowDiagnostics($trimmed, $i);
+                $header = $this->tableStage->gfmHeaderToCarve($trimmed, trim($lines[$i + 1]));
+                if ($this->tableStage->keepHeaderRow($header, $i)) {
                     $result[] = str_repeat(' ', $contentCol) . $header;
                 } else {
                     // Keep the block boundary until the writer separates adjacent lists.
-                    $result[] = str_repeat(' ', $contentCol) . '%% ' . $this->omittedTableComment;
+                    $result[] = str_repeat(' ', $contentCol) . '%% ' . $this->tableContext->omittedTableComment;
                 }
-                $tableWidth = count($this->splitPipeCells($trimmed));
+                $tableWidth = count($this->tableStage->splitPipeCells($trimmed));
                 $tableCol = $contentCol;
                 $i++; // skip the delimiter row
                 $prevLineType = 'text';
@@ -2734,7 +1279,7 @@ class MarkdownToCarve
             }
 
             if (!$inHtmlBlock && !$isList && !$isBlockquote && !$isHeading && $delimiterOver >= 0 && $delimiterOver < 4) {
-                $this->recordRejectedTableHeader($trimmed, trim($lines[$i + 1] ?? ''), $i);
+                $this->tableStage->recordRejectedTableHeader($trimmed, trim($lines[$i + 1] ?? ''), $i);
             }
 
             // An indented line after a list line is that item's own text, EXCEPT
@@ -2790,12 +1335,12 @@ class MarkdownToCarve
                 $inlineRun = strpbrk($line, '/=~[`<') !== false ? $this->collectInlineParagraph($lines, $i, $line, $contentCol) : null;
                 if ($inlineRun !== null) {
                     $i = $inlineRun['end'];
-                    $parts = explode("\n", $this->convertInlineFormatting($inlineRun['body']));
+                    $parts = explode("\n", $this->inlineStage->convertInlineFormatting($inlineRun['body']));
                     foreach ($parts as $at => $part) {
                         $result[] = ($at === 0 ? $inlineRun['first'] : $inlineRun['next']) . $part;
                     }
                 } else {
-                    $result[] = $this->convertInlineFormatting(
+                    $result[] = $this->inlineStage->convertInlineFormatting(
                         $this->escapeRowContinuation(
                             $this->escapeDefinitionContinuation($line, $lines[$i - 1] ?? '', (string)end($result)),
                             $lines,
@@ -2833,7 +1378,7 @@ class MarkdownToCarve
                     $texts[] = $this->setextLineText($lines[$at], $at + 1 === $setext);
                 }
                 $marker = ltrim($lines[$setext], " \t")[0] === '=' ? '#' : '##';
-                $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->convertInlineFormatting($this->foldedHeading($marker, $texts, $i));
+                $result[] = str_repeat(' ', min($contentCol, $holderCol)) . $this->inlineStage->convertInlineFormatting($this->foldedHeading($marker, $texts, $i));
                 $i = $setext;
                 if ($i + 1 < $lineCount && trim($lines[$i + 1]) !== '' && !$listMarkers->hasListAt($this->indentWidth($lines[$i + 1]))) {
                     $result[] = '';
@@ -2887,7 +1432,7 @@ class MarkdownToCarve
                 $body = $this->normalizeBlockquoteMarkers($this->expandLeadingTabs($body), $quoteMarkers);
                 $quoteFence = $this->collectQuotedFence($lines, $i, $body);
                 if ($quoteFence !== null) {
-                    $fencePrefix = $this->quotePrefixOf($body);
+                    $fencePrefix = $this->referenceStage->quotePrefixOf($body);
                     $fenceKey = str_repeat('> ', substr_count($fencePrefix, '>'));
                     if (isset($quoteMarkers[$fenceKey])) {
                         $quoteMarkers[$fenceKey]->end($this->indentWidth(substr($body, strlen($fencePrefix))));
@@ -2914,7 +1459,7 @@ class MarkdownToCarve
                 }
                 // An open paragraph holds the line unless a deeper quote opens
                 // here. Lazy lines keep one open, which `$quoteLazy` records.
-                $depth = substr_count($this->quotePrefixOf($body), '>');
+                $depth = substr_count($this->referenceStage->quotePrefixOf($body), '>');
                 $paragraphOpen = $prevLineType === 'blockquote' && (
                     $quotePrev !== null
                         ? $this->quoteParagraphIsOpen($quotePrev['text']) && $depth <= substr_count($quotePrev['prefix'], '>')
@@ -2975,7 +1520,7 @@ class MarkdownToCarve
                         $result[] = rtrim($quoted[1]);
                     }
                     if ($quotePrev !== null && strlen($quoted[1]) < strlen($quotePrev['prefix']) && $this->quoteParagraphIsOpen($quotePrev['text']) && $this->continuesParagraph($quotedText) && str_contains($quotedText, '|')) {
-                        $result[] = $quotePrev['prefix'] . $this->convertInlineFormatting($this->escapeBlockOpener($quotedText));
+                        $result[] = $quotePrev['prefix'] . $this->inlineStage->convertInlineFormatting($this->escapeBlockOpener($quotedText));
                         $prevLineType = 'blockquote';
 
                         continue;
@@ -2988,7 +1533,7 @@ class MarkdownToCarve
                         && preg_match('/^\|.*\|$/', trim($quotedText)) === 1
                     ) {
                         $escapedRow = $this->escapeBlockOpener(ltrim($quotedText));
-                        $result[] = $quoted[1] . str_repeat(' ', $quotedItemCol) . $this->convertInlineFormatting($escapedRow);
+                        $result[] = $quoted[1] . str_repeat(' ', $quotedItemCol) . $this->inlineStage->convertInlineFormatting($escapedRow);
                         $quotePrev = ['prefix' => $quoted[1], 'text' => $escapedRow];
                         $prevLineType = 'blockquote';
 
@@ -2999,7 +1544,7 @@ class MarkdownToCarve
                             && ($quotePrev === null || !$this->quoteParagraphIsOpen($quotePrev['text'])));
                     if ($listCols === []) {
                         $quotedTableCol = $atQuoteTop ? 0 : $quotedItemCol;
-                        $quotedTable = $this->collectQuotedTable(
+                        $quotedTable = $this->tableStage->collectQuotedTable(
                             $lines,
                             $i,
                             $quoted[1],
@@ -3030,7 +1575,7 @@ class MarkdownToCarve
                     if (str_contains($quotedText, "\t") && str_starts_with($line, $quoted[1]) && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]/', $quotedText) === 1) {
                         $quotedText = substr($this->spaceMarkerPadding(str_repeat(' ', strlen($quoted[1])) . $quotedText), strlen($quoted[1]));
                     }
-                    $itemTable = $this->collectQuotedItemBlock($lines, $i, $quoted[1], $quotedText, $contentCol, $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
+                    $itemTable = $this->tableStage->collectQuotedItemBlock($lines, $i, $quoted[1], $quotedText, $contentCol, $prevLineType === 'blockquote', $quoteMarkers, $quotePrev, $quoteLazy, $result);
                     if ($itemTable !== null) {
                         array_push($result, ...$itemTable['lines']);
                         $i = $itemTable['end'];
@@ -3128,15 +1673,15 @@ class MarkdownToCarve
             if ($inlineRun !== null) {
                 $body = $inlineRun['body'];
                 $i = $inlineRun['end'];
-                $previousBreakable = $this->breakableCodeSlot;
-                $previousPointyStrip = $this->pointyContinuationStrip;
-                $this->pointyContinuationStrip = $inlineRun['stripPointyIndent'];
-                $this->breakableCodeSlot = $listCols === [] && preg_match('/^[ \t]*>/', $line) !== 1;
+                $previousBreakable = $this->inlineContext->breakableCodeSlot;
+                $previousPointyStrip = $this->inlineContext->pointyContinuationStrip;
+                $this->inlineContext->pointyContinuationStrip = $inlineRun['stripPointyIndent'];
+                $this->inlineContext->breakableCodeSlot = $listCols === [] && preg_match('/^[ \t]*>/', $line) !== 1;
                 try {
-                    $parts = explode("\n", $this->convertInlineFormatting($body));
+                    $parts = explode("\n", $this->inlineStage->convertInlineFormatting($body));
                 } finally {
-                    $this->breakableCodeSlot = $previousBreakable;
-                    $this->pointyContinuationStrip = $previousPointyStrip;
+                    $this->inlineContext->breakableCodeSlot = $previousBreakable;
+                    $this->inlineContext->pointyContinuationStrip = $previousPointyStrip;
                 }
                 foreach ($parts as $at => &$part) {
                     $part = ($at === 0 ? $inlineRun['first'] : $inlineRun['next']) . $part;
@@ -3144,18 +1689,18 @@ class MarkdownToCarve
                 unset($part);
                 $converted = implode("\n", $parts);
             } else {
-                $previousCodeSlot = $this->nativeCodeSlot;
-                $previousBreakable = $this->breakableCodeSlot;
-                $this->nativeCodeSlot = !$isHeading && !$isList && $listCols === [] && preg_match('/^[ \t]*>/', $body) !== 1;
-                $this->breakableCodeSlot = $this->nativeCodeSlot;
+                $previousCodeSlot = $this->inlineContext->nativeCodeSlot;
+                $previousBreakable = $this->inlineContext->breakableCodeSlot;
+                $this->inlineContext->nativeCodeSlot = !$isHeading && !$isList && $listCols === [] && preg_match('/^[ \t]*>/', $body) !== 1;
+                $this->inlineContext->breakableCodeSlot = $this->inlineContext->nativeCodeSlot;
                 try {
-                    $converted = $this->convertInlineFormatting($body, $isHeading || !$this->nextLineContinuesThisParagraph($body, $lines[$i + 1] ?? '', $isList));
+                    $converted = $this->inlineStage->convertInlineFormatting($body, $isHeading || !$this->nextLineContinuesThisParagraph($body, $lines[$i + 1] ?? '', $isList));
                 } finally {
-                    $this->nativeCodeSlot = $previousCodeSlot;
-                    $this->breakableCodeSlot = $previousBreakable;
+                    $this->inlineContext->nativeCodeSlot = $previousCodeSlot;
+                    $this->inlineContext->breakableCodeSlot = $previousBreakable;
                 }
                 // A title wrapped from a dropped definition keeps the quote's marker.
-                $bodyQuote = $this->quotePrefixOf($body);
+                $bodyQuote = $this->referenceStage->quotePrefixOf($body);
                 if ($bodyQuote !== '' && !$isList && !str_contains($body, "\n") && str_contains($converted, "\n")) {
                     $converted = str_replace("\n", "\n" . rtrim(ltrim($bodyQuote, ' ')) . ' ', $converted);
                 }
@@ -3172,7 +1717,7 @@ class MarkdownToCarve
             // the same reason - a break has nothing to break there.
             // A quote line holding only spaces is a blank line of the quote.
             if (trim(ltrim($body, '> ')) === '') {
-                $converted = rtrim($this->quotePrefixOf($body));
+                $converted = rtrim($this->referenceStage->quotePrefixOf($body));
             } elseif (
                 !$isHeading
                 && preg_match('/ {2,}$/', $body)
@@ -3281,7 +1826,7 @@ class MarkdownToCarve
             $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
             $carve = $this->separateLooseItems($carve, $writtenBlanks);
             $carve = $this->applyHeadingIdPreservation($carve, $markdown);
-            if (!$this->importingFootnoteBody) {
+            if (!$this->referenceContext->importingFootnoteBody) {
                 $carve = CarveRenderer::trimImportedDocumentEdges($carve, CarveRenderer::importedSourceEndsWithNewline($markdown));
             }
 
@@ -3301,7 +1846,7 @@ class MarkdownToCarve
         // - so the import takes the same answer, through the writer's own
         // parser test, marker and formatter, rather than a leading blank that
         // moved line 0 off `---` and lost the round trip (carve-php#2977).
-        if (!$this->importingFootnoteBody && $frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
+        if (!$this->referenceContext->importingFootnoteBody && $frontmatter === [] && CarveRenderer::textOpensFrontmatter($carve)) {
             foreach ($breakLines as $at) {
                 $line = (string)($result[$at] ?? '');
                 if (str_ends_with($line, '---')) {
@@ -3314,16 +1859,16 @@ class MarkdownToCarve
             }
         }
 
-        if ($this->droppedTableRows) {
-            $carve = $this->writeWithoutOmittedTableComments($carve);
+        if ($this->tableContext->droppedTableRows) {
+            $carve = $this->tableStage->writeWithoutOmittedTableComments($carve);
         }
 
-        $captionMarkers = count(array_filter($this->carrierSlots, static fn (array $slot): bool => $slot['caption']));
-        $beforeCaptions = $captionMarkers === 0 ? 0 : $this->attachedCaptionCount(CarveConverter::create()->parse($carve));
-        $carve = strtr($this->restoreCarrierMarkers($carve), $this->carrierLiteralText);
+        $captionMarkers = count(array_filter($this->carrierContext->carrierSlots, static fn (array $slot): bool => $slot['caption']));
+        $beforeCaptions = $captionMarkers === 0 ? 0 : $this->carrierStage->attachedCaptionCount(CarveConverter::create()->parse($carve));
+        $carve = strtr($this->carrierStage->restoreCarrierMarkers($carve), $this->carrierContext->carrierLiteralText);
         $carve = $inlineCarriers->restore($carve);
         foreach ($inlineCarriers->dropped as $marker) {
-            $this->carrierDiagnostics[] = new MigrationDiagnostic(
+            $this->carrierContext->carrierDiagnostics[] = new MigrationDiagnostic(
                 'carrier-markers-damaged',
                 'Dropped carrier marker with an invalid payload: ' . $marker,
                 'warning',
@@ -3332,31 +1877,31 @@ class MarkdownToCarve
             );
         }
         if ($inlineCarriers->damaged) {
-            $this->carrierFallbackMode = true;
+            $this->carrierContext->carrierFallbackMode = true;
             try {
                 $carve = $this->convert($carrierOriginal);
             } finally {
-                $this->carrierFallbackMode = false;
+                $this->carrierContext->carrierFallbackMode = false;
             }
-            $this->carrierDamaged = true;
+            $this->carrierContext->carrierDamaged = true;
 
             return $carve;
         }
-        if ($captionMarkers > 0 && $this->attachedCaptionCount(CarveConverter::create()->parse($carve)) !== $beforeCaptions + $captionMarkers) {
-            $this->carrierFallbackMode = true;
+        if ($captionMarkers > 0 && $this->carrierStage->attachedCaptionCount(CarveConverter::create()->parse($carve)) !== $beforeCaptions + $captionMarkers) {
+            $this->carrierContext->carrierFallbackMode = true;
             try {
                 $carve = $this->convert($carrierOriginal);
             } finally {
-                $this->carrierFallbackMode = false;
+                $this->carrierContext->carrierFallbackMode = false;
             }
-            $this->carrierDamaged = true;
+            $this->carrierContext->carrierDamaged = true;
 
             return $carve;
         }
-        if (!$this->importingFootnoteBody && $this->convertAbbreviations && str_contains($carve, '{abbr=')) {
+        if (!$this->referenceContext->importingFootnoteBody && $this->inlineContext->convertAbbreviations && str_contains($carve, '{abbr=')) {
             $carve = $this->foldDefinedAbbreviations($carve);
         }
-        if (!$this->importingFootnoteBody && str_contains($carve, '@')) {
+        if (!$this->referenceContext->importingFootnoteBody && str_contains($carve, '@')) {
             $converter = CarveConverter::carve();
             $document = $converter->parse($frontmatter === [] ? $carve : "\n" . $carve);
             if (MarkdownEmailText::link($document)) {
@@ -3370,7 +1915,7 @@ class MarkdownToCarve
                         throw new LogicException('Render loss requires a message.');
                     }
                     $fidelity = in_array($loss['code'] ?? null, ['ruby-flattened', 'editorial-comment-flattened'], true) ? 'degraded' : 'dropped';
-                    $this->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', $message, 'warning', $fidelity, 'exact', 'document');
+                    $this->referenceContext->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', $message, 'warning', $fidelity, 'exact', 'document');
                 }
             }
         }
@@ -3397,17 +1942,17 @@ class MarkdownToCarve
      */
     private function appendMovedFootnotesAndDefinitions(array &$result, array &$hardListBlanks, string $markdown): void
     {
-        if ($this->movedFootnotes !== [] || $this->movedDefinitions !== []) {
+        if ($this->referenceContext->movedFootnotes !== [] || $this->referenceContext->movedDefinitions !== []) {
             while ($result !== [] && trim((string)end($result)) === '') {
                 array_pop($result);
             }
-            foreach ($this->movedFootnotes as $index => $footnote) {
-                $this->inlineRunSourceLine = $this->movedFootnoteSourceLines[$index] ?? null;
+            foreach ($this->referenceContext->movedFootnotes as $index => $footnote) {
+                $this->inlineContext->inlineRunSourceLine = $this->referenceContext->movedFootnoteSourceLines[$index] ?? null;
                 if ($result !== []) {
                     $result[] = '';
                 }
                 if (
-                    isset($this->movedFootnoteBlockBodies[$index])
+                    isset($this->referenceContext->movedFootnoteBlockBodies[$index])
                     && preg_match('/^(\[\^(?:[^\]\\\\]|\\\\.)+\]:)[ \t]*(.*)$/', $footnote[0], $head) === 1
                 ) {
                     $body = [$head[2]];
@@ -3415,12 +1960,12 @@ class MarkdownToCarve
                         $body[] = $line === '' ? '' : substr($line, 4);
                     }
                     $importer = clone $this;
-                    $importer->importingFootnoteBody = true;
+                    $importer->referenceContext->importingFootnoteBody = true;
                     $converted = rtrim($importer->convert(implode("\n", $body)), "\n");
-                    $this->mergeFootnoteDiagnostics($importer, ($this->movedFootnoteSourceLines[$index] ?? 1) - 1);
+                    $this->mergeFootnoteDiagnostics($importer, ($this->referenceContext->movedFootnoteSourceLines[$index] ?? 1) - 1);
                     $body = explode("\n", $converted);
                     $firstLine = array_shift($body);
-                    $result[] = $this->convertInlineFormatting($head[1]) . ' ' . ($firstLine === '' ? '{empty}' : $firstLine);
+                    $result[] = $this->inlineStage->convertInlineFormatting($head[1]) . ' ' . ($firstLine === '' ? '{empty}' : $firstLine);
                     $blankRun = 0;
                     foreach ($body as $line) {
                         $blankRun = $line === '' ? $blankRun + 1 : 0;
@@ -3432,15 +1977,15 @@ class MarkdownToCarve
 
                     continue;
                 }
-                array_push($result, ...explode("\n", $this->convertInlineFormatting(implode("\n", $footnote))));
+                array_push($result, ...explode("\n", $this->inlineStage->convertInlineFormatting(implode("\n", $footnote))));
             }
-            foreach ($this->movedDefinitions as $definition) {
-                $this->inlineRunSourceLine = null;
+            foreach ($this->referenceContext->movedDefinitions as $definition) {
+                $this->inlineContext->inlineRunSourceLine = null;
                 if ($result !== []) {
                     $result[] = '';
                 }
                 $result[] = str_starts_with($definition, '[') && str_ends_with($definition, ']:') && !str_contains($definition, "\n")
-                    ? $definition : $this->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
+                    ? $definition : $this->inlineStage->convertInlineFormatting($definition, unwrapEmptyDestinations: false);
             }
             if (CarveRenderer::importedSourceEndsWithNewline($markdown)) {
                 $result[] = '';
@@ -3451,7 +1996,7 @@ class MarkdownToCarve
     private function canonicalImportLayout(string $carve, string $markdown): string
     {
         // Footnote fragments are formatted with their owning document.
-        if ($this->importingFootnoteBody) {
+        if ($this->referenceContext->importingFootnoteBody) {
             return $carve;
         }
         // Preserve the carrier's final-newline state even when no container
@@ -3461,7 +2006,7 @@ class MarkdownToCarve
         }
         // Carrier markers spell authored Carve structures that Markdown
         // cannot express. Preserve their restored list boundaries.
-        if ($this->carrierSlots !== []) {
+        if ($this->carrierContext->carrierSlots !== []) {
             return $carve;
         }
         $layoutBefore = MarkdownImportWork::$on ? MarkdownImportWork::layoutTotal() : 0;
@@ -3645,8 +2190,7 @@ class MarkdownToCarve
 
     private function recordAuthoredDestination(string $encoded, string $authored): void
     {
-        $known = array_key_exists($encoded, $this->authoredDestinations) ? $this->authoredDestinations[$encoded] : $authored;
-        $this->authoredDestinations[$encoded] = $known === $authored ? $authored : null;
+        $this->inlineStage->recordAuthoredDestination($encoded, $authored);
     }
 
     /**
@@ -3657,7 +2201,7 @@ class MarkdownToCarve
     public function authoredDestinations(): array
     {
         $changed = [];
-        foreach ($this->authoredDestinations as $encoded => $authored) {
+        foreach ($this->inlineContext->authoredDestinations as $encoded => $authored) {
             if ($authored !== null && $authored !== (string)$encoded) {
                 $changed[(string)$encoded] = $authored;
             }
@@ -3680,27 +2224,41 @@ class MarkdownToCarve
 
     private function mergeFootnoteDiagnostics(self $importer, int $offset): void
     {
-        $this->flattenedEmphasis = $this->flattenedEmphasis || $importer->flattenedEmphasis;
-        $this->carrierDamaged = $this->carrierDamaged || $importer->carrierDamaged;
-        foreach ($importer->authoredDestinations as $encoded => $authored) {
+        $this->inlineContext->flattenedEmphasis = $this->inlineContext->flattenedEmphasis || $importer->inlineContext->flattenedEmphasis;
+        $this->carrierContext->carrierDamaged = $this->carrierContext->carrierDamaged || $importer->carrierContext->carrierDamaged;
+        foreach ($importer->inlineContext->authoredDestinations as $encoded => $authored) {
             if ($authored === null) {
-                $this->authoredDestinations[$encoded] = null;
+                $this->inlineContext->authoredDestinations[$encoded] = null;
 
                 continue;
             }
             $this->recordAuthoredDestination($encoded, $authored);
         }
-        foreach (['tableDiagnostics', 'rawSpanWhitespaceDiagnostics', 'boundaryDiagnostics', 'leadingWhitespaceDiagnostics', 'codeFallbackDiagnostics'] as $property) {
-            foreach ($importer->{$property} as $diagnostic) {
-                $path = $diagnostic->path;
-                if ($path !== null && preg_match('/^line:(\d+)$/', $path, $line) === 1) {
-                    $path = 'line:' . ((int)$line[1] + $offset);
-                }
-                $this->{$property}[] = new MigrationDiagnostic($diagnostic->code, $diagnostic->message, $diagnostic->severity, $diagnostic->fidelity, $diagnostic->confidence, $path);
-            }
-        }
+        $this->mergeShiftedDiagnostics($this->tableContext->tableDiagnostics, $importer->tableContext->tableDiagnostics, $offset);
+        $this->mergeShiftedDiagnostics($this->inlineContext->rawSpanWhitespaceDiagnostics, $importer->inlineContext->rawSpanWhitespaceDiagnostics, $offset);
+        $this->mergeShiftedDiagnostics($this->referenceContext->boundaryDiagnostics, $importer->referenceContext->boundaryDiagnostics, $offset);
+        $this->mergeShiftedDiagnostics($this->inlineContext->leadingWhitespaceDiagnostics, $importer->inlineContext->leadingWhitespaceDiagnostics, $offset);
+        $this->mergeShiftedDiagnostics($this->inlineContext->codeFallbackDiagnostics, $importer->inlineContext->codeFallbackDiagnostics, $offset);
         foreach ($importer->unspellableOrderedTasks as $line) {
-            $this->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', self::ORDERED_TASK_ITEM_UNSPELLABLE, 'warning', 'dropped', 'exact', 'line:' . ($importer->sourceLine($line) + $offset));
+            $this->referenceContext->boundaryDiagnostics[] = new MigrationDiagnostic('structure-unspellable', self::ORDERED_TASK_ITEM_UNSPELLABLE, 'warning', 'dropped', 'exact', 'line:' . ($importer->sourceLine($line) + $offset));
+        }
+    }
+
+    /**
+     * Merge nested-import diagnostics at their outer source positions.
+     *
+     * @param list<\MarkupCarve\Carve\Converter\MigrationDiagnostic> $target
+     * @param list<\MarkupCarve\Carve\Converter\MigrationDiagnostic> $incoming
+     * @param int $offset
+     */
+    private function mergeShiftedDiagnostics(array &$target, array $incoming, int $offset): void
+    {
+        foreach ($incoming as $diagnostic) {
+            $path = $diagnostic->path;
+            if ($path !== null && preg_match('/^line:(\d+)$/', $path, $line) === 1) {
+                $path = 'line:' . ((int)$line[1] + $offset);
+            }
+            $target[] = new MigrationDiagnostic($diagnostic->code, $diagnostic->message, $diagnostic->severity, $diagnostic->fidelity, $diagnostic->confidence, $path);
         }
     }
 
@@ -3718,11 +2276,11 @@ class MarkdownToCarve
     {
         $markdown = StringUtil::toValidUtf8($markdown);
         $result = $this->assessedFidelityReport($markdown);
-        if (!$this->carrierDamaged) {
-            return $this->carrierDiagnostics === [] ? $result : new MigrationResult(
+        if (!$this->carrierContext->carrierDamaged) {
+            return $this->carrierContext->carrierDiagnostics === [] ? $result : new MigrationResult(
                 $result->value,
                 $result->sourceFormat,
-                [...$result->diagnostics, ...$this->carrierDiagnostics],
+                [...$result->diagnostics, ...$this->carrierContext->carrierDiagnostics],
                 $result->mode,
                 $result->adapter,
             );
@@ -3760,9 +2318,9 @@ class MarkdownToCarve
 
     private function assessedFidelityReportFor(string $markdown, string $value): MigrationResult
     {
-        $supportedDialect = !$this->convertMath && !$this->convertHighlight && !$this->convertInlineFootnotes
-            && !($this->convertAbbreviations && preg_match('/^[ \t]*\*\[/m', $markdown) === 1) && !$this->convertFencedDivs && !$this->convertAttributes && !$this->convertRawHtml;
-        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->flattenedEmphasis || $this->boundaryDiagnostics !== [], $supportedDialect);
+        $supportedDialect = !$this->inlineContext->convertMath && !$this->inlineContext->convertHighlight && !$this->inlineContext->convertInlineFootnotes
+            && !($this->inlineContext->convertAbbreviations && preg_match('/^[ \t]*\*\[/m', $markdown) === 1) && !$this->inlineContext->convertFencedDivs && !$this->inlineContext->convertAttributes && !$this->inlineContext->convertRawHtml;
+        $result = $this->assessedMigrationResult($markdown, $value, 'markdown', $this->unspellableOrderedTasks !== [] || $this->inlineContext->flattenedEmphasis || $this->referenceContext->boundaryDiagnostics !== [], $supportedDialect);
         if (($result->diagnostics[0]->code ?? null) === 'literal-text-verified') {
             $row = $result->diagnostics[0];
 
@@ -3770,22 +2328,22 @@ class MarkdownToCarve
         }
         if ($supportedDialect && ($result->diagnostics[0]->code ?? null) !== 'literal-text-verified') {
             $assessment = (new MarkdownAssessment())->assess($markdown, $value);
-            $losses = count($this->unspellableOrderedTasks) + ($this->flattenedEmphasis ? 1 : 0) + count($this->tableDiagnostics);
+            $losses = count($this->unspellableOrderedTasks) + ($this->inlineContext->flattenedEmphasis ? 1 : 0) + count($this->tableContext->tableDiagnostics);
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
             // about, so the fast path must not replace a report that carries it.
-            if ($assessment['complete'] && !$this->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && $this->leadingWhitespaceDiagnostics === [] && $this->codeFallbackDiagnostics === [] && $losses <= $assessedLosses) {
+            if ($assessment['complete'] && !$this->inlineContext->flattenedEmphasis && !$this->frontmatterSynthesized && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && $losses <= $assessedLosses) {
                 return new MigrationResult($value, 'markdown', $assessment['diagnostics']);
             }
         }
-        if ($this->unspellableOrderedTasks === [] && !$this->flattenedEmphasis && $this->tableDiagnostics === [] && $this->rawSpanWhitespaceDiagnostics === [] && $this->boundaryDiagnostics === [] && $this->leadingWhitespaceDiagnostics === [] && $this->codeFallbackDiagnostics === [] && !$this->frontmatterSynthesized) {
+        if ($this->unspellableOrderedTasks === [] && !$this->inlineContext->flattenedEmphasis && $this->tableContext->tableDiagnostics === [] && $this->inlineContext->rawSpanWhitespaceDiagnostics === [] && $this->referenceContext->boundaryDiagnostics === [] && $this->inlineContext->leadingWhitespaceDiagnostics === [] && $this->inlineContext->codeFallbackDiagnostics === [] && !$this->frontmatterSynthesized) {
             return $result;
         }
         // `structure-unspellable` is the code the import side already uses for a
         // shape Carve has no spelling for, and its fidelity and confidence are
         // properties of that code rather than of this producer.
-        $diagnostics = array_merge($result->diagnostics, $this->tableDiagnostics, $this->rawSpanWhitespaceDiagnostics, $this->boundaryDiagnostics, $this->leadingWhitespaceDiagnostics, $this->codeFallbackDiagnostics);
-        if ($this->flattenedEmphasis) {
+        $diagnostics = array_merge($result->diagnostics, $this->tableContext->tableDiagnostics, $this->inlineContext->rawSpanWhitespaceDiagnostics, $this->referenceContext->boundaryDiagnostics, $this->inlineContext->leadingWhitespaceDiagnostics, $this->inlineContext->codeFallbackDiagnostics);
+        if ($this->inlineContext->flattenedEmphasis) {
             $diagnostics[] = new MigrationDiagnostic(
                 'structure-unspellable',
                 'Flattened emphasis exceeding the native nesting budget; its text is preserved',
@@ -4176,7 +2734,7 @@ class MarkdownToCarve
             // paragraph text, so a later block opener can still interrupt it.
             if (
                 $paragraphOpen
-                || ($this->htmlTagAt(rtrim($first, " \t"), 0)['end'] ?? -1) !== strlen(rtrim($first, " \t"))
+                || ($this->inlineStage->htmlTagAt(rtrim($first, " \t"), 0)['end'] ?? -1) !== strlen(rtrim($first, " \t"))
             ) {
                 return null;
             }
@@ -4510,7 +3068,7 @@ class MarkdownToCarve
             }
         }
         $list = $markers[$prefix] ??= new MarkdownListMarkers();
-        if ($blank && isset($this->hardReferenceSeparators[$index])) {
+        if ($blank && isset($this->referenceContext->hardReferenceSeparators[$index])) {
             $list->end(0);
         }
         $written = $text;
@@ -4684,7 +3242,7 @@ class MarkdownToCarve
         if (preg_match(self::THEMATIC_BREAK, $trimmed) === 1 || preg_match('/^(?:=+|-+)$/', $underline) === 1) {
             return false;
         }
-        if ($this->startsTableHeader($lines, $index) || preg_match('/^\|.*\|$/', $trimmed) === 1 || $this->htmlBlockInterrupts($trimmed)) {
+        if ($this->tableStage->startsTableHeader($lines, $index) || preg_match('/^\|.*\|$/', $trimmed) === 1 || $this->htmlBlockInterrupts($trimmed)) {
             return false;
         }
 
@@ -4815,7 +3373,7 @@ class MarkdownToCarve
             return false;
         }
 
-        return !$this->startsTableHeader($lines, $index);
+        return !$this->tableStage->startsTableHeader($lines, $index);
     }
 
     /**
@@ -4861,7 +3419,7 @@ class MarkdownToCarve
         }
         $folded = $this->foldQuotedSetext($virtual, 0, $quote[1], $quote[2], $sourceOffset + $index);
 
-        return $folded === null ? null : [$quote[1] . $this->convertInlineFormatting($folded[0]), $index + $folded[1]];
+        return $folded === null ? null : [$quote[1] . $this->inlineStage->convertInlineFormatting($folded[0]), $index + $folded[1]];
     }
 
     /**
@@ -4986,7 +3544,7 @@ class MarkdownToCarve
             if (
                 trim($rest) === ''
                 || $indent < $contentCol
-                || ($aboveOver < 4 && $over < 4 && $this->startsTableHeader([$above, $rest], 0))
+                || ($aboveOver < 4 && $over < 4 && $this->tableStage->startsTableHeader([$above, $rest], 0))
             ) {
                 return null;
             }
@@ -5111,7 +3669,7 @@ class MarkdownToCarve
             $prev = null;
             $lazy = null;
             $separator = [];
-            $itemTable = $this->collectQuotedItemBlock($lines, $index, $quote[1], $quote[2], $contentCol, false, $markers, $prev, $lazy, $separator);
+            $itemTable = $this->tableStage->collectQuotedItemBlock($lines, $index, $quote[1], $quote[2], $contentCol, false, $markers, $prev, $lazy, $separator);
             if ($itemTable !== null) {
                 foreach ($itemTable['lines'] as $at => $row) {
                     if ($at === 0) {
@@ -5121,7 +3679,7 @@ class MarkdownToCarve
 
                 return ['lines' => $itemTable['lines'], 'end' => $itemTable['end'], 'table' => 0, 'closes' => true];
             }
-            $table = $this->collectQuotedTable($lines, $index, $quote[1], $quote[2], $contentCol);
+            $table = $this->tableStage->collectQuotedTable($lines, $index, $quote[1], $quote[2], $contentCol);
             if ($table !== null) {
                 foreach ($table['lines'] as $at => $row) {
                     $table['lines'][$at] = ($at === 0 ? $lead : str_repeat(' ', $contentCol)) . $row;
@@ -5135,7 +3693,7 @@ class MarkdownToCarve
                 $delimiter = trim($inner);
                 if ($this->indentWidth($inner) < 4 && str_contains($delimiter, '|') && preg_match('/^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/', $delimiter) === 1) {
                     return [
-                        'lines' => [$lead . $quote[1] . $this->convertInlineFormatting($this->escapeBlockOpener($quote[2]))],
+                        'lines' => [$lead . $quote[1] . $this->inlineStage->convertInlineFormatting($this->escapeBlockOpener($quote[2]))],
                         'end' => $index,
                         'table' => 0,
                         'closes' => false,
@@ -5148,22 +3706,22 @@ class MarkdownToCarve
         $nextIndent = $next === null ? 0 : $this->indentWidth($next);
         if ($next !== null && $nextIndent >= $contentCol && $nextIndent - $contentCol < 4) {
             $held = [$text, $this->stripColumns($next, $contentCol)];
-            if ($this->startsTableHeader($held, 0)) {
-                $this->recordTableRowDiagnostics(trim($text), $index);
+            if ($this->tableStage->startsTableHeader($held, 0)) {
+                $this->tableStage->recordTableRowDiagnostics(trim($text), $index);
 
-                $width = count($this->splitPipeCells(trim($text)));
-                $header = $this->gfmHeaderToCarve(trim($text), trim($held[1]));
+                $width = count($this->tableStage->splitPipeCells(trim($text)));
+                $header = $this->tableStage->gfmHeaderToCarve(trim($text), trim($held[1]));
                 $end = $index + 1;
-                if (!$this->keepHeaderRow($header, $index)) {
+                if (!$this->tableStage->keepHeaderRow($header, $index)) {
                     $header = '%%';
                     $at = $index + 2;
                     $body = isset($lines[$at]) && $this->indentWidth($lines[$at]) >= $contentCol
                         ? $this->stripColumns($lines[$at], $contentCol)
                         : null;
-                    if ($body !== null && $this->continuesGfmTableBody($body)) {
-                        $cells = $this->splitPipeCells($body);
-                        $this->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
-                        $header = $this->writeTableRow($cells, [], $width);
+                    if ($body !== null && $this->tableStage->continuesGfmTableBody($body)) {
+                        $cells = $this->tableStage->splitPipeCells($body);
+                        $this->tableStage->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
+                        $header = $this->tableStage->writeTableRow($cells, [], $width);
                         $end = $at;
                     }
                 }
@@ -5175,7 +3733,7 @@ class MarkdownToCarve
                     'closes' => true,
                 ];
             }
-            $this->recordRejectedTableHeader(trim($text), trim($held[1]), $index);
+            $this->tableStage->recordRejectedTableHeader(trim($text), trim($held[1]), $index);
         }
 
         // A setext heading inside a quote the item holds, on the item's own line.
@@ -5205,13 +3763,13 @@ class MarkdownToCarve
             if ($indent - $contentCol <= 3 && preg_match('/^(?:=+|-+)$/', $held) === 1) {
                 $heading = $this->foldedHeading($held[0] === '=' ? '#' : '##', $texts, $index);
 
-                return ['lines' => [$lead . $this->convertInlineFormatting($heading)], 'end' => $at, 'table' => 0, 'closes' => false];
+                return ['lines' => [$lead . $this->inlineStage->convertInlineFormatting($heading)], 'end' => $at, 'table' => 0, 'closes' => false];
             }
             $slice = [$held, $lines[$at + 1] ?? ''];
             if ($indent - $contentCol < 4 && !$this->continuesParagraph($held)) {
                 return null;
             }
-            if ($indent - $contentCol < 4 && $this->startsTableHeader($slice, 0)) {
+            if ($indent - $contentCol < 4 && $this->tableStage->startsTableHeader($slice, 0)) {
                 return null;
             }
             $texts[] = $held;
@@ -5230,13 +3788,13 @@ class MarkdownToCarve
      */
     protected function fenceLanguage(string $info, ?int $sourceLine = null): string
     {
-        $decoded = $this->decodeLinkTitle($info);
+        $decoded = $this->inlineStage->decodeLinkTitle($info);
         $word = preg_split('/[ \t]/', trim($decoded, " \t"), 2)[0] ?? '';
 
         if ($word === '' || preg_match('~^[A-Za-z0-9_+#/.-]+$~', $word) === 1) {
             return $word;
         }
-        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
+        $this->referenceContext->boundaryDiagnostics[] = new MigrationDiagnostic(
             'structure-unspellable',
             'Dropped code-block language ' . json_encode($word, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE | JSON_THROW_ON_ERROR) . '; Carve cannot spell this language token.',
             'warning',
@@ -5648,12 +4206,12 @@ class MarkdownToCarve
             $body[] = $content;
             $output[] = $content === '' ? rtrim($prefix) : $prefix . $content;
         }
-        $canonical = $this->canonicalFence($body);
+        $canonical = $this->inlineStage->canonicalFence($body);
         $output[0] = $prefix . $canonical . $info;
         $output[] = $prefix . $canonical;
 
         $next = $lines[$end + 1] ?? null;
-        $nextDepth = $next === null ? 0 : substr_count($this->quotePrefixOf($this->normalizeBlockquoteMarkers(ltrim($next, ' '))), '>');
+        $nextDepth = $next === null ? 0 : substr_count($this->referenceStage->quotePrefixOf($this->normalizeBlockquoteMarkers(ltrim($next, ' '))), '>');
 
         return ['lines' => $output, 'end' => $end, 'prefix' => $prefix, 'depth' => $depth, 'leavesQuote' => $next !== null && $nextDepth < $depth];
     }
@@ -5806,7 +4364,7 @@ class MarkdownToCarve
         }
         // A shallower quote line after it is back in an outer quote, which a
         // blank at that depth tells Carve.
-        $after = $start + $code['end'] < count($lines) ? $this->quotePrefixOf($this->normalizeBlockquoteMarkers(ltrim($lines[$start + $code['end']], ' '))) : '';
+        $after = $start + $code['end'] < count($lines) ? $this->referenceStage->quotePrefixOf($this->normalizeBlockquoteMarkers(ltrim($lines[$start + $code['end']], ' '))) : '';
         if ($after !== '' && substr_count($after, '>') < substr_count($prefix, '>') && end($written) !== rtrim($prefix)) {
             $written[] = rtrim($after);
         }
@@ -5900,8 +4458,8 @@ class MarkdownToCarve
         if ($this->cmarkReadsTaskCheckbox($line, strlen($at[1]))) {
             return $line;
         }
-        $label = $this->normalizeReferenceLabel($at['state']);
-        if ($label !== '' && isset($this->referenceDefinitionLabels[$label])) {
+        $label = $this->inlineStage->normalizeReferenceLabel($at['state']);
+        if ($label !== '' && isset($this->inlineContext->referenceDefinitionLabels[$label])) {
             return $line;
         }
 
@@ -6133,585 +4691,24 @@ class MarkdownToCarve
         return false;
     }
 
-    /**
-     * A GFM delimiter row: `|`-delimited cells, each a run of dashes with
-     * optional leading/trailing alignment colons, and nothing else.
-     */
-    protected function isGfmDelimiterRow(string $line): bool
-    {
-        if (!preg_match('/^\|.*\|$/', $line)) {
-            return false;
-        }
-        $cells = $this->splitPipeCells($line);
-        if ($cells === []) {
-            return false;
-        }
-        foreach ($cells as $cell) {
-            if (!preg_match('/^:?-+:?$/', trim($cell))) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Whether a converted GFM header row is kept. An all-blank header with no
-     * alignment is the scaffolding the Markdown writer adds to a headerless
-     * table (PART 11 CARVE-P11-056), so it is omitted and reported. Body rows
-     * are always kept: a row of empty cells is a row (PART 9 CARVE-P9-082).
-     */
-    private function keepHeaderRow(string $row, int $index): bool
-    {
-        if (!(new TableParser())->isScaffoldHeaderRow($row)) {
-            return true;
-        }
-        $this->droppedTableRows = true;
-        $this->tableDiagnostics[] = new MigrationDiagnostic(
-            'structure-unspellable',
-            'Dropped an empty header row of ' . (substr_count(rtrim($row), '|') - 1) . ' cells; a headerless GFM table has no Carve header',
-            'warning',
-            'dropped',
-            'exact',
-            'line:' . $this->sourceLine($index),
-        );
-
-        return false;
-    }
-
-    /**
-     * Convert a GFM header row + its delimiter row to the Carve `|=` header
-     * form, carrying the column alignment from the delimiter colons into the
-     * `|=<` / `|=>` / `|=~` markers.
-     */
-    protected function gfmHeaderToCarve(string $headerLine, string $delimiterLine): string
-    {
-        $headers = $this->splitPipeCells($headerLine);
-        $prefixes = [];
-        foreach ($this->splitPipeCells($delimiterLine) as $delimiter) {
-            $d = trim($delimiter);
-            $left = str_starts_with($d, ':');
-            $right = str_ends_with($d, ':');
-            $prefixes[] = match (true) {
-                $left && $right => '=~',
-                $right => '=>',
-                $left => '=<',
-                default => '=',
-            };
-        }
-
-        return $this->writeTableRow($headers, $prefixes, count($headers));
-    }
-
-    /**
-     * One table row in the spelling `carve fmt` writes: each cell padded by
-     * one space, a lone `<` or `^` escaped so it stays text rather than a span
-     * marker, and `$width` cells, since GFM drops a body row's cells past the
-     * header's count and pads a short row where a Carve row keeps what it spells.
-     *
-     * @param array<int, string> $cells
-     * @param array<int, string> $prefixes
-     * @param int $width
-     */
-    protected function writeTableRow(array $cells, array $prefixes, int $width): string
-    {
-        $row = '';
-        for ($c = 0; $c < $width; $c++) {
-            $sourceCell = trim($cells[$c] ?? '');
-            $cell = str_replace('\\|', '|', $sourceCell);
-            $cell = $this->rewriteTablePipeAutolinks($cell);
-            $pinned = [];
-            if (preg_match_all('~<(https?://[A-Za-z0-9:/._\~?#&=%@+,;\\\\|-]*\\\\\\\\\|[A-Za-z0-9:/._\~?#&=%@+,;\\\\|-]*)>~', $sourceCell, $backslashed) > 0) {
-                foreach ($backslashed[1] as $body) {
-                    // GFM drops one backslash before each pipe; Carve spells the rest as written.
-                    $read = str_replace('\\|', '|', $body);
-                    $token = "\x00Q" . count($pinned) . "\x00";
-                    $label = str_replace(['\\', '|'], ['\\\\', '\\|'], $read);
-                    $pinned[$token] = '[' . $label . '](' . MarkdownDestinationEncoding::destination($read, true) . ')';
-                    $cell = str_replace('<' . $read . '>', $token, $cell);
-                }
-            }
-            $cell = $this->convertInlineFormatting($cell, table: true);
-            $cell = strtr($cell, $pinned);
-            if (str_contains($sourceCell, '\\|') && preg_match_all('~<https?://[^<>\s]+>~', $sourceCell, $autolinks) > 0) {
-                foreach ($autolinks[0] as $autolink) {
-                    $body = substr($autolink, 1, -1);
-                    if (!str_contains($body, '\\|')) {
-                        continue;
-                    }
-                    $plainBody = str_replace(['\\\\|', '\\|'], '|', $body);
-                    $before = '](' . MarkdownDestinationEncoding::destination($plainBody, true) . ')';
-                    if (str_contains($body, '\\\\|')) {
-                        $after = '](' . MarkdownDestinationEncoding::destination(str_replace('\\\\|', '\\|', $body), true) . ')';
-                        $cell = str_replace($before, $after, $cell);
-                        $escapedBackslash = '!' . chr(96) . '\\' . chr(96) . '{% %}';
-                        $label = str_replace('\\\\|', $escapedBackslash . '\\|', $body);
-                        $cell = str_replace('[' . $label . '](', '[' . str_replace('\\\\|', str_repeat('\\', 3) . '|', $body) . '](', $cell);
-                    }
-                }
-            }
-            foreach (MarkdownBareLinks::rawUrls($sourceCell) as $candidate) {
-                $body = substr($sourceCell, $candidate['start'], $candidate['end'] - $candidate['start']);
-                if (!str_contains($body, '\\|') || ($sourceCell[$candidate['start'] - 1] ?? '') === '<' || substr($sourceCell, max(0, $candidate['start'] - 2), 2) === '](') {
-                    continue;
-                }
-                $url = str_replace('\\|', '|', $body);
-                $label = str_replace('|', '\\|', str_replace('\\', '\\\\', $url));
-                $written = '[' . $label . '](' . MarkdownDestinationEncoding::destination($candidate['prefix'] . $url, true) . ')';
-                if (preg_match('~\[[^]]*\]\((?:[^()]|\([^()]*\))*\)~', $cell, $link) === 1) {
-                    $cell = str_replace($link[0], $written, $cell);
-                }
-            }
-            if ($cell === '<' || $cell === '^') {
-                $cell = '\\' . $cell;
-            }
-            $row .= '|' . ($prefixes[$c] ?? '') . ' ' . ($cell === '' ? '' : $cell . ' ');
-        }
-
-        return $row . '|';
-    }
-
     private function escapeTablePipes(string $text): string
     {
-        return preg_replace_callback('/(\\\\*)\||\\\\+/', static function (array $match): string {
-            if (!isset($match[1])) {
-                return $match[0];
-            }
-
-            return $match[1] . (strlen($match[1]) % 2 === 0 ? '\\|' : '|');
-        }, $text) ?? $text;
+        return $this->tableStage->escapeTablePipes($text);
     }
 
     private function escapeTableInlineText(string $cell, bool $minimalBackticks = true): string
     {
-        if (strpbrk($cell, '\\`|') !== false) {
-            $spans = [];
-            $cell = $this->protectCodeSpans($cell, static function (string $span) use (&$spans): string {
-                $key = "\x00T" . count($spans) . "\x00";
-                $spans[$key] = $span;
-
-                return $key;
-            });
-            $cell = preg_replace_callback('/\\\\([\\\\`])/', static fn (array $match): string => $match[1] === '`' ? ($minimalBackticks ? $match[0] : '!`` ` ``{% %}') : '!`\\`{% %}', $cell) ?? $cell;
-            $cell = $this->escapeTablePipes($cell);
-            $cell = strtr($cell, $spans);
-            if ($minimalBackticks && str_contains($cell, '](') && !str_contains($cell, '{%')) {
-                $cell = preg_replace_callback('~\]\(([^)\n]+)\)~', static fn (array $match): string => '](' . str_replace('\\`', '`', $match[1]) . ')', $cell) ?? $cell;
-            }
-        }
-
-        return $cell;
-    }
-
-    private function rewriteTablePipeAutolinks(string $cell): string
-    {
-        if (!str_contains($cell, '|') || !str_contains($cell, 'http')) {
-            return $cell;
-        }
-        $spans = [];
-        $cell = $this->protectCodeSpans($cell, static function (string $span) use (&$spans): string {
-            $key = "\x00U" . count($spans) . "\x00";
-            $spans[$key] = $span;
-
-            return $key;
-        });
-        $out = '';
-        $length = strlen($cell);
-        $destinationDepth = 0;
-        $bracketEnds = [];
-        for ($at = 0; $at < $length;) {
-            if ($cell[$at] === '[') {
-                if (!array_key_exists($at, $bracketEnds)) {
-                    $bracketEnds += BracketScanner::balancedBracketEnds($cell, $at);
-                }
-                $end = $bracketEnds[$at];
-                if ($end !== null) {
-                    $out .= substr($cell, $at, $end + 1 - $at);
-                    $at = $end + 1;
-
-                    continue;
-                }
-                $out .= substr($cell, $at);
-
-                break;
-            }
-            if ($destinationDepth > 0 || ($cell[$at] === '(' && $at > 0 && $cell[$at - 1] === ']')) {
-                if ($cell[$at] === '(') {
-                    $destinationDepth++;
-                } elseif ($cell[$at] === ')') {
-                    $destinationDepth--;
-                }
-                $out .= $cell[$at++];
-
-                continue;
-            }
-            if ($cell[$at] === '<') {
-                $end = null;
-                if (substr($cell, $at, 4) === '<!--') {
-                    $close = strpos($cell, '-->', $at + 4);
-                    $end = $close === false ? null : $close + 3;
-                } elseif (preg_match('/\G<[^<>\s]+>/', $cell, $angle, 0, $at) === 1) {
-                    $end = $at + strlen($angle[0]);
-                } else {
-                    $end = $this->htmlTagAt($cell, $at)['end'] ?? null;
-                }
-                if ($end !== null) {
-                    $out .= substr($cell, $at, $end - $at);
-                    $at = $end;
-
-                    continue;
-                }
-            }
-            if ($cell[$at] !== 'h' || ($at > 0 && preg_match('/[a-z0-9]/i', $cell[$at - 1]) === 1) || preg_match('~\Ghttps?://[^\s<>`\x00]+~', $cell, $match, 0, $at) !== 1) {
-                $out .= $cell[$at++];
-
-                continue;
-            }
-            $body = $match[0];
-            if (preg_match('/&(?:#[xX][0-9a-fA-F]+|#[0-9]+|[A-Za-z][A-Za-z0-9]*);$/', $body, $entity) === 1) {
-                $body = substr($body, 0, -strlen($entity[0]));
-            }
-            $body = rtrim($body, "?!.,:;*_~\"'");
-            $excess = substr_count($body, ')') - substr_count($body, '(');
-            while ($excess > 0 && str_ends_with($body, ')')) {
-                $body = substr($body, 0, -1);
-                $excess--;
-            }
-            if (!str_contains($body, '|') || preg_match('~^https?://[^[:punct:]\s]~u', $body) !== 1) {
-                $out .= $match[0];
-            } else {
-                $label = preg_replace('/([!-\/:-@\[-`{-~])/', '\\\\$1', $body) ?? $body;
-                $url = MarkdownDestinationEncoding::destination($body, true);
-                $out .= '[' . $label . '](' . $url . ')' . substr($match[0], strlen($body));
-            }
-            $at += strlen($match[0]);
-        }
-
-        return strtr($out, $spans);
+        return $this->tableStage->escapeTableInlineText($cell, $minimalBackticks);
     }
 
     /**
-     * A GFM table header: a line holding a pipe whose next line is a delimiter
-     * row with as many cells.
-     *
-     * @param array<int, string> $lines
-     * @param int $index
-     */
-    protected function startsTableHeader(array $lines, int $index): bool
-    {
-        $trimmed = trim($lines[$index]);
-        $next = trim($lines[$index + 1] ?? '');
-        if (!str_contains($trimmed, '|') || !str_contains($next, '-')) {
-            return false;
-        }
-        // A delimiter row needs a pipe of its own. Without one, `---` under a
-        // one-cell header counted as a row of one cell, so a lone pipe line
-        // became a table and the setext underline below it lost its heading -
-        // cmark-gfm takes the underline (carve-php#2349).
-        if (!str_contains($next, '|') || preg_match('/^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/', $next) !== 1) {
-            return false;
-        }
-
-        return count($this->splitPipeCells($trimmed)) === count($this->splitPipeCells($next));
-    }
-
-    /**
-     * Does a GFM table under way keep this line as a body row? GFM ends the
-     * table at a blank line or a block construct, not at a line that merely
-     * stops looking like a row: a plain line is a one-cell row.
-     */
-    protected function continuesGfmTableBody(string $line): bool
-    {
-        $trimmed = trim($line);
-        if ($trimmed === '' || $this->indentWidth($line) >= 4) {
-            return false;
-        }
-        if (preg_match('/^(#{1,6}([ \t]|$)|>|`{3,}|~{3,}|(?:[-*+]|\d+[.)])([ \t]|$))/', $trimmed) === 1) {
-            return false;
-        }
-
-        return preg_match(self::THEMATIC_BREAK, $trimmed) !== 1 && !$this->htmlBlockInterrupts($trimmed);
-    }
-
-    /**
-     * @param array<int, string> $lines
-     * @param bool $inRun
-     * @param int $contentCol
-     * @param string $text
-     * @param string $prefix
-     * @param int $index
-     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
-     * @param array{prefix: string, text: string, itemQuote?: string}|null $prev
-     * @param string|null $lazy
-     * @param array<int, string|null> $result
-     *
-     * @return array{lines: list<string>, end: int}|null
-     */
-    private function collectQuotedItemBlock(
-        array $lines,
-        int $index,
-        string $prefix,
-        string $text,
-        int $contentCol,
-        bool $inRun,
-        array &$markers,
-        ?array &$prev,
-        ?string &$lazy,
-        array &$result,
-    ): ?array {
-        $list = $markers[$prefix] ?? new MarkdownListMarkers();
-        $paragraph = $inRun && $prev !== null && $prev['prefix'] === $prefix && $this->quoteParagraphIsOpen($prev['text']);
-        if (
-            $paragraph && ($this->isHeldOrderedMarker($text, $list)
-            || (!$list->hasListAt($this->indentWidth($text)) && preg_match('/^[ \t]*(?!0*1[.)])\d+[.)]/', $text) === 1)
-            || $this->indentWidth($text) - ($list->openItemContentColumn() ?? 0) >= 4)
-        ) {
-            return null;
-        }
-        $quotedLead = false;
-        $sourceCol = null;
-        if (
-            preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]{1,4})(>.*)$/s', $text, $quotedItem) === 1
-            && preg_match('/^(?:> )+(?: {0,3}(?:`{3,}|~{3,})| {4})/', $this->normalizeBlockquoteMarkers($quotedItem[2])) === 1
-        ) {
-            $quotedLead = true;
-            $sourceCol = $this->columnWidth($quotedItem[1]);
-        }
-        if ($sourceCol === null && preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)])) {5,}(\S.*)$/s', $text, $codeItem) === 1) {
-            $sourceCol = $this->columnWidth($codeItem[1]) + 1;
-        }
-        if ($sourceCol !== null) {
-            $virtual = [$text];
-            for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
-                if ($this->indentWidth($lines[$at]) < $contentCol) {
-                    break;
-                }
-                $body = $this->quotedText($this->stripColumns($lines[$at], $contentCol), $prefix);
-                if ($body === null || (trim($body) !== '' && $this->indentWidth($body) < $sourceCol + ($quotedLead ? 0 : 4))) {
-                    break;
-                }
-                $virtual[] = $body;
-            }
-            $written = $this->respellQuotedLine($lines, $index, $prefix, $text, $inRun, $markers, $prev, $lazy, $result);
-            $block = $this->writeItemContent($virtual, 0, substr($written, strlen($prefix)), $sourceCol);
-            if ($block !== null) {
-                $writtenCol = $markers[$prefix]->openItemContentColumn() ?? $sourceCol;
-                foreach ($block['lines'] as $at => $line) {
-                    if ($at > 0) {
-                        $block['lines'][$at] = $this->moveIndent($line, $sourceCol, $writtenCol);
-                    }
-                }
-                $prev = null;
-                $lazy = null;
-
-                return ['lines' => array_map(static fn (string $line): string => str_repeat(' ', $contentCol) . $prefix . $line, array_values($block['lines'])), 'end' => $index + $block['end']];
-            }
-        }
-        if (preg_match('/^([ \t]*(?:[-*+]|\d{1,9}[.)]) {1,4})(\|.*)$/s', $text, $item) !== 1) {
-            return null;
-        }
-        $sourceCol = $this->columnWidth($item[1]);
-        $table = $this->collectQuotedTable($lines, $index, $prefix, $item[2], $contentCol, $sourceCol);
-        if ($table === null) {
-            return null;
-        }
-        $written = $this->respellQuotedLine($lines, $index, $prefix, $text, $inRun, $markers, $prev, $lazy, $result);
-        $writtenCol = $markers[$prefix]->openItemContentColumn() ?? $sourceCol;
-        if ($table['lines'] === [$prefix . '%% ' . $this->omittedTableComment]) {
-            $table['lines'] = [$prefix . '%%'];
-        }
-        foreach ($table['lines'] as $at => $row) {
-            $lead = $at === 0 ? substr($written, 0, -strlen($item[2])) : $prefix . str_repeat(' ', $writtenCol);
-            $table['lines'][$at] = str_repeat(' ', $contentCol) . $lead . substr($row, strlen($prefix));
-        }
-        $prev = null;
-        $lazy = null;
-
-        return $table;
-    }
-
-    /**
-     * @param array<int, string> $lines
-     * @param string $header
-     * @param int $contentCol
-     * @param int $quoteContentCol
-     * @param string $prefix
-     * @param int $index
-     *
-     * @return array{lines: list<string>, end: int}|null
-     */
-    private function collectQuotedTable(array $lines, int $index, string $prefix, string $header, int $contentCol = 0, int $quoteContentCol = 0): ?array
-    {
-        $inside = function (string $line) use ($prefix, $contentCol, $quoteContentCol): ?string {
-            if ($this->indentWidth($line) < $contentCol) {
-                return null;
-            }
-            $line = $this->stripColumns($line, $contentCol);
-            $line = $this->normalizeBlockquoteMarkers(ltrim($this->expandLeadingTabs($line), ' '));
-            $own = $this->quotePrefixOf(ltrim($line, ' '));
-
-            if ($own !== $prefix) {
-                return null;
-            }
-            $body = substr(ltrim($line, ' '), strlen($own));
-
-            return $this->indentWidth($body) >= $quoteContentCol ? $this->stripColumns($body, $quoteContentCol) : null;
-        };
-        $delimiter = $inside($lines[$index + 1] ?? '');
-        if (!$this->continuesGfmTableBody($header) || $delimiter === null || $this->indentWidth($header) >= 4 || $this->indentWidth($delimiter) >= 4) {
-            return null;
-        }
-        $held = [$header, $delimiter];
-        if (!$this->startsTableHeader($held, 0)) {
-            $this->recordRejectedTableHeader(trim($header), trim($delimiter), $index);
-
-            return null;
-        }
-        $this->recordTableRowDiagnostics(trim($header), $index);
-        $width = count($this->splitPipeCells($header));
-        $previousLine = $this->inlineRunSourceLine;
-        $this->inlineRunSourceLine = $this->sourceLine($index);
-        $headerRow = $this->gfmHeaderToCarve(trim($header), trim($delimiter));
-        $this->inlineRunSourceLine = $previousLine;
-        $written = $this->keepHeaderRow($headerRow, $index) ? [$prefix . $headerRow] : [];
-        $end = $index + 1;
-        $count = count($lines);
-        for ($at = $index + 2; $at < $count; $at++) {
-            $body = $inside($lines[$at]);
-            if ($body === null || !$this->continuesGfmTableBody($body)) {
-                break;
-            }
-            $cells = $this->splitPipeCells($body);
-            $this->recordTableRowDiagnostics(trim($body), $at, $width, $cells);
-            $previousLine = $this->inlineRunSourceLine;
-            $this->inlineRunSourceLine = $this->sourceLine($at);
-            $bodyRow = $this->writeTableRow($cells, [], $width);
-            $this->inlineRunSourceLine = $previousLine;
-            $written[] = $prefix . $bodyRow;
-            $end = $at;
-        }
-
-        if ($written === []) {
-            $written = [$prefix . '%% ' . $this->omittedTableComment];
-        }
-
-        return ['lines' => $written, 'end' => $end];
-    }
-
-    private function writeWithoutOmittedTableComments(string $source): string
-    {
-        $document = CarveConverter::carve()->parse($source);
-        $remove = function (Node $node) use (&$remove): void {
-            foreach ($node->getChildren() as $child) {
-                if ($child instanceof Comment && trim($child->getContent()) === $this->omittedTableComment) {
-                    $node->removeChild($child);
-                } else {
-                    $remove($child);
-                }
-            }
-        };
-        $remove($document);
-
-        return (new CarveRenderer())->render($document);
-    }
-
-    private function tableDiagnostic(string $code, string $message, int $index, string $fidelity = 'preserved'): void
-    {
-        $this->tableDiagnostics[] = new MigrationDiagnostic($code, $message, 'warning', $fidelity, 'exact', 'line:' . $this->sourceLine($index));
-    }
-
-    /**
-     * The 1-based line of the SOURCE the importer was given that the given
-     * index of the body line array came from.
-     *
-     * A diagnostic's `path` names a source line, never an offset into the
-     * frontmatter-split, reference-definition-stripped array the importer
-     * builds for itself (markup-carve/carve#2792).
+     * Return the line number in the original Markdown source.
      *
      * @param int $index Index into the stripped body line array.
      */
     private function sourceLine(int $index): int
     {
-        return ($this->markdownSourceLines[$index] ?? $index) + $this->markdownFrontmatterLines + 1;
-    }
-
-    /**
-     * @param string $row
-     * @param int $index
-     * @param int|null $width
-     * @param array<int, string>|null $cells
-     * @param bool $table
-     */
-    private function recordTableRowDiagnostics(string $row, int $index, ?int $width = null, ?array $cells = null, bool $table = true): void
-    {
-        if (isset($this->markdownHtmlSourceLines[$this->markdownSourceLines[$index] ?? $index])) {
-            return;
-        }
-
-        if (str_contains($row, '`') && str_contains($row, '|')) {
-            $hasPipe = false;
-            $this->protectCodeSpans($row, static function (string $span) use (&$hasPipe): string {
-                if (str_starts_with($span, '`') && preg_match('/(?<!\\\\)\|/', $span) === 1) {
-                    $hasPipe = true;
-                }
-
-                return $span;
-            });
-            if ($hasPipe) {
-                $this->tableDiagnostic(
-                    'markdown-table-code-pipe',
-                    'An unescaped pipe inside a code span splits table cells in GFM; escape it as \\| to keep the code span in one cell',
-                    $index,
-                );
-            }
-        }
-        if ($width !== null) {
-            foreach (array_slice($cells ?? $this->splitPipeCells($row), $width) as $extra) {
-                if (trim($extra) !== '') {
-                    $this->tableDiagnostic('markdown-table-extra-cells', 'GFM ignores body cells beyond the header width; their content was omitted', $index, 'dropped');
-
-                    break;
-                }
-            }
-        }
-    }
-
-    private function recordRejectedTableHeader(string $header, string $delimiter, int $index): void
-    {
-        if (isset($this->markdownHtmlSourceLines[$this->markdownSourceLines[$index] ?? $index])) {
-            return;
-        }
-
-        if (!str_contains($header, '|') || !str_contains($delimiter, '|') || preg_match('/^\|?\s*:?-+:?\s*(?:\|\s*:?-+:?\s*)*\|?$/', $delimiter) !== 1) {
-            return;
-        }
-        $headers = count($this->splitPipeCells($header));
-        $delimiters = count($this->splitPipeCells($delimiter));
-        if ($headers === $delimiters) {
-            return;
-        }
-        $this->recordTableRowDiagnostics($header, $index, table: false);
-        $this->tableDiagnostic(
-            'markdown-table-header-mismatch',
-            'The header has ' . $headers . ' cells but the delimiter row has ' . $delimiters . '; GFM reads these lines as paragraph text',
-            $index,
-        );
-    }
-
-    /**
-     * Split a `|`-delimited table row into trimmed cell sources (outer pipes
-     * removed; escaped `\|` is not a delimiter).
-     *
-     * @return array<int, string>
-     */
-    protected function splitPipeCells(string $line): array
-    {
-        $line = trim($line);
-        $line = preg_replace('/^\|/', '', $line) ?? $line;
-        $line = preg_replace('/(?<!\\\\)\|$/', '', $line) ?? $line;
-        $parts = preg_split('/(?<!\\\\)\|/', $line);
-
-        return $parts === false ? [] : $parts;
+        return ($this->referenceContext->markdownSourceLines[$index] ?? $index) + $this->referenceContext->markdownFrontmatterLines + 1;
     }
 
     /**
@@ -6765,7 +4762,7 @@ class MarkdownToCarve
             $length = strlen($dedented);
             for ($i = 0; $i < $length; $i++) {
                 if ($dedented[$i] === '`') {
-                    $longestRun = max($longestRun, $this->backtickRunLength($dedented, $i));
+                    $longestRun = max($longestRun, $this->inlineStage->backtickRunLength($dedented, $i));
                 }
             }
         }
@@ -6895,8 +4892,8 @@ class MarkdownToCarve
         $held = trim($row[4]);
         $above = $this->stripContainerMarkers($written);
         if (
-            $this->startsTableHeader([$held, $this->stripContainerMarkers($lines[$index + 1] ?? '')], 0)
-            || $this->startsTableHeader([$above, $held], 0)
+            $this->tableStage->startsTableHeader([$held, $this->stripContainerMarkers($lines[$index + 1] ?? '')], 0)
+            || $this->tableStage->startsTableHeader([$above, $held], 0)
             || $this->gfmTableIsUnderWay($lines, $index)
         ) {
             return $line;
@@ -6952,7 +4949,7 @@ class MarkdownToCarve
             // run shorter than two needs no length test of its own.
             $this->tableUnderWay[$line] = $this->rowRunReaches($lines, $line)
                 && (($this->tableUnderWay[$line - 1] ?? false)
-                    || ($this->rowRunReaches($lines, $line - 1) && $this->startsTableHeader([
+                    || ($this->rowRunReaches($lines, $line - 1) && $this->tableStage->startsTableHeader([
                         trim($this->stripContainerMarkers($lines[$line - 2])),
                         trim($this->stripContainerMarkers($lines[$line - 1])),
                     ], 0)));
@@ -7019,7 +5016,7 @@ class MarkdownToCarve
         // A defined label is a reference link in that text, not a name to
         // escape, and the full form is the only one Carve has.
         if (preg_match('/^([ \t]*(?:>[ \t]?)*[ \t]*)\[((?:[^\]\\\\\n]|\\\\.)+)\]:/', $line, $at) === 1) {
-            $label = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($at[2]))] ?? null;
+            $label = $this->inlineContext->referenceDefinitionLabels[$this->inlineStage->normalizeReferenceLabel($this->inlineStage->decodeLinkTitle($at[2]))] ?? null;
             if ($label !== null) {
                 $tail = $label === $at[2] && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 ? '[]' : '[' . $label . ']';
 
@@ -7055,7 +5052,7 @@ class MarkdownToCarve
             $candidate = $this->stripColumns($candidate, $columns);
             if ($depth > 0) {
                 $quoted = $this->normalizeBlockquoteMarkers($this->expandLeadingTabs($candidate));
-                $quotePrefix = $this->quotePrefixOf($quoted);
+                $quotePrefix = $this->referenceStage->quotePrefixOf($quoted);
                 if (substr_count($quotePrefix, '>') !== $depth) {
                     return null;
                 }
@@ -7127,4307 +5124,9 @@ class MarkdownToCarve
             $segments[] = ['offset' => $offset, 'line' => $this->sourceLine($start + $index)];
             $offset += strlen($text) + 1;
         }
-        $this->foldedHeadingSources[$heading] = $segments;
+        $this->inlineContext->foldedHeadingSources[$heading] = $segments;
 
         return $heading;
-    }
-
-    protected function convertInlineFormatting(string $line, bool $terminal = true, bool $table = false, bool $unwrapEmptyDestinations = true): string
-    {
-        if (MarkdownImportWork::$on) {
-            MarkdownImportWork::$inlineLines++;
-            MarkdownImportWork::$inlineBytes += strlen($line);
-        }
-        $sourceInput = $line;
-        $foldedSourceLines = [];
-        foreach ($this->foldedHeadingSources as $heading => $segments) {
-            if (str_ends_with($line, $heading)) {
-                $lead = strlen($line) - strlen($heading);
-                $foldedSourceLines = array_map(static fn (array $segment): array => ['offset' => $segment['offset'] + $lead, 'line' => $segment['line']], $segments);
-                unset($this->foldedHeadingSources[$heading]);
-
-                break;
-            }
-        }
-        // Past any container markers: a decode at the head of the CONTENT is at
-        // the head of a block just as one at column 0 is.
-        $contentPrefix = preg_match('/^[ \t]*(?:>[ \t]?|[-*+][ \t]+|(?:[0-9]{1,9}|[A-Za-z])[.)][ \t]+)*/', $line, $prefixMatch) === 1
-            ? $prefixMatch[0]
-            : '';
-        // A heading's marker separator is a run of spaces and none of it is
-        // content, so the head of a heading's CONTENT sits past the marker too
-        // (markup-carve/carve-rs#2449).
-        // Not in a table cell: a `#` run there is literal text, and the space
-        // after it is content Carve holds.
-        $headingHead = !$table
-            && preg_match('/^#{1,6}[ \t]/', substr($line, strlen($contentPrefix)), $headingMatch) === 1;
-        if ($headingHead) {
-            $contentPrefix .= $headingMatch[0];
-        }
-        $bareContentStart = !str_contains(" \t", substr($line, strlen($contentPrefix), 1) ?: 'x');
-        $line = $this->escapeCarveOnlyMarker($line);
-        $protected = [];
-        $protectedSources = [];
-        $codeFallbacks = [];
-        $liveCodeFallbacks = [];
-        $protect = function (string $span, ?string $source = null) use (&$protected, &$protectedSources): string {
-            $protected[] = $span;
-            $protectedSources[] = $source ?? $span;
-
-            return "\x00P" . (count($protected) - 1) . "\x00";
-        };
-        if (str_contains($line, '](') && strpbrk($line, '`<') !== false) {
-            preg_match_all('/`+/', $line, $tickRuns, PREG_OFFSET_CAPTURE);
-            $nextTick = [];
-            $codeEnds = [];
-            for ($run = count($tickRuns[0]) - 1; $run >= 0; $run--) {
-                [$ticks, $tickAt] = $tickRuns[0][$run];
-                $width = strlen($ticks);
-                if (isset($nextTick[$width])) {
-                    $codeEnds[$tickAt] = $nextTick[$width] + $width;
-                }
-                $nextTick[$width] = $tickAt;
-            }
-            $opens = [];
-            $glyphs = [];
-            for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-                if ($line[$at] === '`' && isset($codeEnds[$at])) {
-                    $at = $codeEnds[$at] - 1;
-
-                    continue;
-                }
-                if ($line[$at] === '\\') {
-                    $at++;
-
-                    continue;
-                }
-                if ($line[$at] === '[') {
-                    $opens[] = $at;
-
-                    continue;
-                }
-                if ($line[$at] !== ']' || $opens === []) {
-                    continue;
-                }
-                array_pop($opens);
-                $end = $this->markdownActivationTailEnd($line, $at + 1);
-                if ($end === null) {
-                    continue;
-                }
-                $pointy = preg_match('/\G\([ \t\n]*</', $line, offset: $at + 1) === 1;
-                if ($pointy) {
-                    $at = $end;
-
-                    continue;
-                }
-                for ($pos = $at + 2; $pos < $end; $pos++) {
-                    if ($line[$pos] === '`' || $line[$pos] === '<' && preg_match('/\G<\/?[A-Za-z]/', $line, offset: $pos) !== 1) {
-                        $glyphs[$pos] = true;
-                    }
-                }
-                $at = $end;
-            }
-            if ($glyphs !== []) {
-                $native = '';
-                for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-                    $native .= isset($glyphs[$at]) ? $protect($line[$at], $line[$at]) : $line[$at];
-                }
-                $line = $native;
-            }
-        }
-        if (str_contains($line, '\\<')) {
-            $line = preg_replace_callback('/\]\([ \t]*<((?:[^>\n]|\\\\\n)*\\\\<[^>\n]*)>/s', static function (array $match) use ($protect): string {
-                return str_replace('\\<', $protect('\\<', '\\<'), $match[0]);
-            }, $line) ?? $line;
-        }
-
-        $definitionPrefix = '[ \t]*(?:>[ \t]*)*' . self::DEFINITION_MARKER;
-        $rawDefinition = preg_match('/^' . $definitionPrefix . '\[((?!\^)(?:[^\]\\\\]|\\\\.)+)\]:/', $sourceInput, $definition) === 1;
-        $guardBareLinkPrefix = function (string $before) use ($protect): string {
-            if ($before === '') {
-                return $before;
-            }
-            $last = $before[strlen($before) - 1];
-            if ($last === ']') {
-                $depth = 1;
-                $matchedLabel = false;
-                for ($open = strlen($before) - 2; $open >= 0; $open--) {
-                    if ($before[$open] !== '[' && $before[$open] !== ']') {
-                        continue;
-                    }
-                    $slashes = 0;
-                    for ($escape = $open - 1; $escape >= 0 && $before[$escape] === '\\'; $escape--) {
-                        $slashes++;
-                    }
-                    if ($slashes % 2 !== 0) {
-                        continue;
-                    }
-                    $depth += $before[$open] === '[' ? -1 : 1;
-                    if ($depth === 0) {
-                        $matchedLabel = true;
-                        $label = substr($before, $open + 1, strlen($before) - $open - 2);
-                        $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($label));
-                        $canonical = $this->referenceDefinitionLabels[$key] ?? null;
-                        if (
-                            ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($label))
-                            || isset($this->emptyDestinationLabels[$key])
-                        ) {
-                            return $before;
-                        }
-
-                        break;
-                    }
-                }
-                if (!$matchedLabel) {
-                    return $before;
-                }
-            }
-            if (!in_array($last, ['!', '^', ']', '\\'], true)) {
-                return $before;
-            }
-            $at = strlen($before) - ($last === '\\' ? 1 : 2);
-            while ($at >= 0 && $before[$at] === '\\') {
-                $at--;
-            }
-            $source = substr($before, $at + 1);
-            $slashes = strlen($source) - ($last === '\\' ? 0 : 1);
-            $written = $last === '\\'
-                ? str_repeat('\\', 2 * intdiv($slashes + 1, 2))
-                : str_repeat('\\', 2 * intdiv($slashes, 2)) . '\\' . $last;
-
-            return substr($before, 0, $at + 1) . $protect($written, $source);
-        };
-        $definitionBody = $rawDefinition
-            ? (preg_replace('/^' . $definitionPrefix . '(?=\[)/', '', $sourceInput) ?? $sourceInput)
-            : '';
-        $isReferenceDefinition = $rawDefinition
-            && MarkdownReferenceDefinition::read($definitionBody, 0) !== null
-            && isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]))]);
-        if (!$isReferenceDefinition && (str_contains($sourceInput, ':') || str_contains($sourceInput, 'www.'))) {
-            $cursor = 0;
-            $captured = '';
-            $rawOpaqueEnds = [];
-            $rawUrls = MarkdownBareLinks::rawUrls($sourceInput, function (int $at) use ($sourceInput, &$rawOpaqueEnds): ?int {
-                $end = $this->opaqueHtmlEnd($sourceInput, $at, $rawOpaqueEnds) ?? ($this->htmlTagAt($sourceInput, $at)['end'] ?? null);
-                if ($end !== null) {
-                    return $end;
-                }
-                if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $sourceInput, $angle, 0, $at) === 1) {
-                    return $at + strlen($angle[0]);
-                }
-
-                return null;
-            }, fn (int $at): ?int => $this->markdownActivationTailEnd($sourceInput, $at));
-            foreach ($rawUrls as $candidate) {
-                $body = substr($sourceInput, $candidate['start'], $candidate['end'] - $candidate['start']);
-                $href = $candidate['prefix'] . $body;
-                $document = new Document();
-                $paragraph = new Paragraph();
-                $link = new Link($href);
-                foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
-                    if ($piece !== '') {
-                        $link->appendChild(new Text($piece));
-                    }
-                }
-                $paragraph->appendChild($link);
-                $document->appendChild($paragraph);
-                $written = rtrim((new CarveRenderer())->render($document), "\n");
-                if (preg_match('/\[[^]]+\]\([^)]*$/', $body) === 1) {
-                    $destinationAt = strrpos($written, '](');
-                    if ($destinationAt !== false) {
-                        $label = substr($written, 0, $destinationAt);
-                        $unclosedAt = strrpos($label, ']\\(');
-                        $bareAt = strrpos($label, '](');
-                        if ($unclosedAt !== false && ($bareAt === false || $bareAt < $unclosedAt)) {
-                            $written = substr_replace($label, '](', $unclosedAt, 3) . substr($written, $destinationAt);
-                        }
-                    }
-                }
-                if ($table) {
-                    $written = $this->escapeTablePipes($written);
-                }
-                $captured .= $guardBareLinkPrefix(substr($sourceInput, $cursor, $candidate['start'] - $cursor)) . $protect($written, $body);
-                $cursor = $candidate['end'];
-            }
-            $line = $this->escapeCarveOnlyMarker($captured . substr($sourceInput, $cursor));
-        }
-
-        $preserveReferenceAutolinks = static function (string $value) use ($protect, $table): string {
-            return preg_replace_callback('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', static function (array $match) use ($protect, $table): string {
-                $body = substr($match[0], 1, -1);
-                $prefix = preg_match('/^[A-Za-z][A-Za-z0-9+.-]{1,31}:/', $body) === 1 ? '' : 'mailto:';
-                $url = $prefix . ($table ? MarkdownDestinationEncoding::destination($body, true) : $body);
-                $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
-                    . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
-
-                return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
-            }, $value) ?? $value;
-        };
-
-        $writeLiteralReference = function (string $value) use (&$protected, $preserveReferenceAutolinks): string {
-            return implode('', array_map(function (string $part) use (&$protected, $preserveReferenceAutolinks): string {
-                if (str_starts_with($part, '<') && str_ends_with($part, '>')) {
-                    return $preserveReferenceAutolinks($part);
-                }
-                if (preg_match('/^\x00P(\d+)\x00$/', $part, $token) === 1 && preg_match('/^!?`/', $protected[(int)$token[1]] ?? '') === 1) {
-                    return $part;
-                }
-
-                return preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $this->decodeLinkTitle($part, $protected)) ?? $part;
-            }, preg_split('/(\x00P\d+\x00|<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>)/', $value, flags: PREG_SPLIT_DELIM_CAPTURE) ?: []));
-        };
-
-        $codeTokens = [];
-        $protectCode = function (string $value, ?string $source = null) use ($protect, &$codeTokens): string {
-            $token = $protect($value, $source);
-            $codeTokens[$token] = $source ?? $value;
-
-            return $token;
-        };
-        $codeWriter = null;
-        $writeCodeSpan = function (string $span, int $offset = 0, ?string $raw = null) use ($protectCode, &$codeWriter): string {
-            $fence = strspn($span, '`');
-            if ($fence === 0) {
-                return $protectCode($span, $raw);
-            }
-            $value = preg_replace('/\n[ \t]*/', ' ', substr($span, $fence, -$fence)) ?? '';
-            if (str_starts_with($value, ' ') && str_ends_with($value, ' ') && trim($value, ' ') !== '') {
-                $value = substr($value, 1, -1);
-            }
-
-            $codeWriter ??= $this->importWriter;
-
-            return $protectCode($codeWriter->spellImportedCodeSpan($value), $span);
-        };
-        $line = $this->protectCodeSpans($line, $writeCodeSpan);
-        $line = preg_replace_callback('/(?<!\\\\)\[(?!\^)([^\[\]\n]+)\](?=\[\^([^\[\]\n]+)\])/', function (array $match) use ($protect): string {
-            $first = $this->normalizeReferenceLabel($match[1]);
-
-            return in_array($match[2], $this->markdownFootnoteLabels, true) && !isset($this->definedReferenceLabels[$first])
-                ? $protect('\\[', '[') . $match[1] . ']' : $match[0];
-        }, $line) ?? $line;
-
-        $validateCodeScalar = function (string $paren) use ($protected, $table): ?string {
-            $inner = trim(substr($paren, 1, -1), " \t\n");
-            if (str_starts_with($inner, '<')) {
-                preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
-                $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
-                if ($end === false) {
-                    return null;
-                }
-                $url = substr($inner, 1, $end - 1);
-                if (preg_match('/(?<!\\\\)[\r\n]/', $url) === 1) {
-                    return null;
-                }
-                $rest = substr($inner, $end + 1);
-            } elseif (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
-                $url = $matches[1];
-                $rest = $matches[2];
-            } else {
-                $url = $inner;
-                $rest = '';
-            }
-
-            if (trim($rest) !== '') {
-                if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
-                    return null;
-                }
-                $decoded = $this->decodeLinkTitle(substr($title[1], 1, -1), $protected);
-                $rest = ' ' . $this->importWriter->spellImportedTitle($decoded, $table);
-            }
-
-            return '(' . $this->writeMarkdownDestination($url, $protected, table: $table) . $rest . ')';
-        };
-
-        $destinationClosers = static function (string $subject): array {
-            $opens = [];
-            $closers = [];
-            for ($at = 0, $length = strlen($subject); $at < $length; $at++) {
-                if ($subject[$at] === '\\') {
-                    $at++;
-                } elseif ($subject[$at] === '[') {
-                    $opens[] = $at;
-                } elseif ($subject[$at] === ']' && $opens !== []) {
-                    array_pop($opens);
-                    $closers[$at] = true;
-                }
-            }
-
-            return $closers;
-        };
-        $codeScalarTags = [];
-        $protectCodeTags = function (string $value) use ($protect, &$codeScalarTags): string {
-            $written = '';
-            $opaqueEnds = [];
-            for ($at = 0, $length = strlen($value); $at < $length;) {
-                $end = $value[$at] === '<' ? $this->opaqueHtmlEnd($value, $at, $opaqueEnds) : null;
-                if ($end === null && $value[$at] === '<') {
-                    $end = $this->htmlTagAt($value, $at)['end'] ?? null;
-                }
-                if (
-                    $end === null && $value[$at] === '&'
-                    && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $value, $entity, 0, $at) === 1
-                    && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false
-                ) {
-                    $end = $at + strlen($entity[0]);
-                }
-                if ($end === null) {
-                    $written .= $value[$at++];
-
-                    continue;
-                }
-                $span = substr($value, $at, $end - $at);
-                $token = $protect($span);
-                $codeScalarTags[$token] = $span;
-                $written .= $token;
-                $at = $end;
-            }
-
-            return $written;
-        };
-        $scalarSubject = $line;
-        $scalarDestinationClosers = $destinationClosers($line);
-        $scalarOpaqueRanges = [];
-        $scalarOpaqueEnds = [];
-        for ($at = 0, $length = strlen($line); $at < $length;) {
-            $end = $line[$at] === '<'
-                ? $this->opaqueHtmlEnd($line, $at, $scalarOpaqueEnds) ?? ($this->htmlTagAt($line, $at)['end'] ?? null)
-                : null;
-            if ($end === null) {
-                $at++;
-            } else {
-                $scalarOpaqueRanges[] = [$at, $end];
-                $at = $end;
-            }
-        }
-        $scalarOpaqueCursor = 0;
-        $line = preg_replace_callback(
-            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\((?:[^()\n]|\n(?![ \t]*\n)|\([^()\n]*\))*\))/',
-            static function (array $match) use ($validateCodeScalar, $protectCodeTags, $protect, $scalarSubject, $scalarOpaqueRanges, $scalarDestinationClosers, &$scalarOpaqueCursor): string {
-                $start = $match[0][1];
-                while (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][1] <= $start) {
-                    $scalarOpaqueCursor++;
-                }
-                if (isset($scalarOpaqueRanges[$scalarOpaqueCursor]) && $scalarOpaqueRanges[$scalarOpaqueCursor][0] <= $start) {
-                    return $match[0][0];
-                }
-                $match = array_map(static fn (array $capture): string => $capture[0], $match);
-                if (!isset($scalarDestinationClosers[$start + strlen($match[1]) - 1])) {
-                    return $match[0];
-                }
-                $slashes = 0;
-                for ($at = $start - 1; $at >= 0 && $scalarSubject[$at] === '\\'; $at--) {
-                    $slashes++;
-                }
-                $closingSlashes = 0;
-                for ($at = strlen($match[1]) - 2; $at >= 0 && $match[1][$at] === '\\'; $at--) {
-                    $closingSlashes++;
-                }
-                if (($match[1][0] === '[' && $slashes % 2 !== 0) || $closingSlashes % 2 !== 0) {
-                    return $match[0];
-                }
-                if ($validateCodeScalar($match[2]) === null) {
-                    return preg_match('/<\/?code\b/i', $match[2]) === 1
-                        ? $match[1] . $protect('\\(', '(') . substr($match[2], 1) : $match[0];
-                }
-                if (!str_starts_with($match[1], '!') && preg_match_all('/\[[^\[\]\n]*\](\([^()\n]*\))/', $match[1], $nestedDestinations) !== false) {
-                    foreach ($nestedDestinations[1] as $destination) {
-                        if ($validateCodeScalar($destination) !== null) {
-                            return $match[0];
-                        }
-                    }
-                }
-                $label = str_starts_with($match[1], '!') && $slashes % 2 === 0 ? $protectCodeTags($match[1]) : $match[1];
-
-                return $label . $protectCodeTags($match[2]);
-            },
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-        $line = preg_replace_callback(
-            '/^(' . $definitionPrefix . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
-            function (array $match) use ($protectCodeTags, $protected, $isReferenceDefinition): string {
-                return $isReferenceDefinition && isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])
-                    ? $match[1] . $protectCodeTags($match[2]) : $match[0];
-            },
-            $line,
-        ) ?? $line;
-        $codeSourceCursor = 0;
-        $codeSourceOffset = 0;
-        $codeSourceLines = 0;
-        $codeSourceMatchesInput = null;
-        $htmlCodeLineAt = function (int $offset) use (&$line, &$protectedSources, $sourceInput, $foldedSourceLines, &$codeSourceCursor, &$codeSourceOffset, &$codeSourceLines, &$codeSourceMatchesInput): ?int {
-            $codeSourceMatchesInput ??= $foldedSourceLines === [] || $this->referenceSourceText($line, $protectedSources) === $sourceInput;
-            while ($codeSourceCursor < $offset) {
-                if ($line[$codeSourceCursor] === "\x00" && preg_match('/\G\x00P\d+\x00/', $line, $token, 0, $codeSourceCursor) === 1) {
-                    $source = $this->referenceSourceText($token[0], $protectedSources);
-                    $codeSourceOffset += strlen($source);
-                    $codeSourceLines += substr_count($source, "\n");
-                    $codeSourceCursor += strlen($token[0]);
-                } else {
-                    $codeSourceLines += (int)($line[$codeSourceCursor] === "\n");
-                    $codeSourceOffset++;
-                    $codeSourceCursor++;
-                }
-            }
-            if (!$codeSourceMatchesInput) {
-                return null;
-            }
-            if ($foldedSourceLines === []) {
-                return $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + $codeSourceLines;
-            }
-            $low = 0;
-            $high = count($foldedSourceLines);
-            while ($low < $high) {
-                $mid = ($low + $high) >> 1;
-                if ($foldedSourceLines[$mid]['offset'] <= $codeSourceOffset) {
-                    $low = $mid + 1;
-                } else {
-                    $high = $mid;
-                }
-            }
-
-            return $foldedSourceLines[$low - 1]['line'] ?? null;
-        };
-        $standaloneCodeSource = trim($line);
-        $unchangedHtmlCode = null;
-        $activeCodeLinkOpeners = null;
-        $nextCodeLinkOpener = 0;
-        $writeHtmlCode = function (array $match, int $offset) use ($protect, $standaloneCodeSource, $terminal, $table, &$line, &$protected, &$unchangedHtmlCode, &$codeFallbacks, $htmlCodeLineAt, &$activeCodeLinkOpeners, &$nextCodeLinkOpener, &$protectedSources): ?string {
-            $parts = [''];
-            for ($at = 0, $length = strlen($match[1]); $at < $length;) {
-                if ($match[1][$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $match[1][$at + 1] ?? '') === 1) {
-                    $parts[count($parts) - 1] .= substr($match[1], $at, 2);
-                    $at += 2;
-                } elseif (substr_compare($match[1], '<!---->', $at, 7) === 0) {
-                    $parts[] = '';
-                    $at += 7;
-                } else {
-                    $parts[count($parts) - 1] .= $match[1][$at++];
-                }
-            }
-            $slashes = 0;
-            for ($at = strlen($match[1]) - 1; $at >= 0 && $match[1][$at] === '\\'; $at--) {
-                $slashes++;
-            }
-            if ($slashes % 2 !== 0) {
-                return null;
-            }
-            if (str_contains($match[1], "\0")) {
-                return null;
-            }
-            if (strpbrk($match[1], '[]') !== false) {
-                if ($activeCodeLinkOpeners === null) {
-                    $activeCodeLinkOpeners = [];
-                    $opaqueEnds = [];
-                    $activeCodeLinkOpeners = $this->markdownLinkScopes(
-                        $line,
-                        $protectedSources,
-                        true,
-                        function (int $start) use ($line, &$opaqueEnds): ?int {
-                            return $this->opaqueHtmlEnd($line, $start, $opaqueEnds) ?? ($this->htmlTagAt($line, $start)['end'] ?? null);
-                        },
-                    )['active'];
-                    sort($activeCodeLinkOpeners);
-                }
-                while (isset($activeCodeLinkOpeners[$nextCodeLinkOpener]) && $activeCodeLinkOpeners[$nextCodeLinkOpener] < $offset + 6) {
-                    $nextCodeLinkOpener++;
-                }
-                if (($activeCodeLinkOpeners[$nextCodeLinkOpener] ?? PHP_INT_MAX) < $offset + strlen($match[0]) - 7) {
-                    return null;
-                }
-            }
-            if (strpbrk($match[1], '\\`*_~[]') !== false) {
-                if (strpbrk($match[1], '*_~') !== false) {
-                    $unchangedHtmlCode ??= $this->htmlCodeUnchangedByEmphasis($line, $protected);
-                    if (!isset($unchangedHtmlCode[$offset])) {
-                        return null;
-                    }
-                }
-                $probe = (new CarveConverter())->parse('x ' . (clone $this)->convertInlineFormatting(implode('', $parts)) . "\n");
-                $paragraphs = $probe->getChildren();
-                if (count($paragraphs) !== 1 || !($paragraphs[0] instanceof Paragraph)) {
-                    return null;
-                }
-                $plain = function (array $children) use (&$plain): bool {
-                    foreach ($children as $child) {
-                        if (in_array($child->getType(), ['text', 'escaped_text', 'smart_punctuation', 'non_breaking_space', 'soft_break'], true)) {
-                            continue;
-                        }
-                        $label = $child instanceof Link ? $child->getReferenceLabel() : null;
-                        if ($label === null || $child->getDestination() !== null && $child->getDestination() !== '' || isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($label)]) || !$plain($child->getChildren())) {
-                            return false;
-                        }
-                    }
-
-                    return true;
-                };
-                if (!$plain($paragraphs[0]->getChildren())) {
-                    return null;
-                }
-            }
-            $decodedParts = array_map(function (string $part): string {
-                $decoded = preg_replace_callback(
-                    '/\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
-                    fn (array $piece): string => $piece[1] ?? $this->decodeHtmlReferenceText($piece[0]),
-                    $part,
-                ) ?? $part;
-
-                return str_replace(["\r\n", "\r"], "\n", $decoded);
-            }, $parts);
-            foreach ($decodedParts as $part) {
-                if (str_contains($part, '@') && MarkdownBareLinks::ranges($part, null, 'email') !== []) {
-                    return null;
-                }
-            }
-            $value = implode('', $decodedParts);
-            if ($this->nativeCodeSlot && $terminal && !$table && $standaloneCodeSource === $match[0]) {
-                $document = new Document();
-                $paragraph = new Paragraph();
-                $paragraph->appendChild(new Code($value));
-                $document->appendChild($paragraph);
-                try {
-                    $source = (new CarveRenderer())->render($document);
-                    $read = (new CarveConverter())->parse($source)->getChildren();
-                    $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
-                    if (count($read) === 1 && count($children) === 1 && $children[0] instanceof Code && $children[0]->getContent() === str_replace(["\r\n", "\r"], "\n", $value)) {
-                        return $protect(rtrim($source, "\n"), $match[0]);
-                    }
-                } catch (SourceUnspellableException) {
-                }
-            }
-            $before = substr($line, 0, $offset);
-            // An empty code run is spellable only as an unclosed run ending its paragraph.
-            if (
-                $value === ''
-                && $terminal
-                && !$table
-                && preg_match('/(?:^|[\p{L}\p{N} \t\n.,;:?)\'"-])$/u', $before) === 1
-                && preg_match('/^[ \t]*$/', substr($line, $offset + strlen($match[0]))) === 1
-            ) {
-                return $protect('``', $match[0]);
-            }
-            // A line break in the value continues the paragraph when the caller keeps added lines.
-            if (
-                $this->breakableCodeSlot
-                && str_contains($value, "\n")
-                && !str_contains($value, "\r")
-                && !$table
-                && preg_match('/^[ \t]*#{1,6}(?:[ \t]|$)/', $line) !== 1
-                && preg_match('/[!$\\\\`\x00{}\]]$/', $before) !== 1
-            ) {
-                $document = new Document();
-                $paragraph = new Paragraph();
-                $paragraph->appendChild(new Code($value));
-                $document->appendChild($paragraph);
-                try {
-                    $written = rtrim((new CarveRenderer())->render($document), "\n");
-                    $read = (new CarveConverter())->parse('x ' . $written . " y\n")->getChildren();
-                    $children = ($read[0] ?? null) instanceof Paragraph ? $read[0]->getChildren() : [];
-                    if (count($read) === 1 && count($children) === 3 && $children[1] instanceof Code && $children[1]->getContent() === $value) {
-                        return $protect($written, $match[0]);
-                    }
-                } catch (SourceUnspellableException) {
-                }
-            }
-            if ($value === '' || str_contains($value, "\n") || str_contains($value, "\r")) {
-                $htmlCodeSourceLine = $htmlCodeLineAt($offset);
-                $diagnostic = new MigrationDiagnostic(
-                    'raw-code-fallback',
-                    'Preserved an HTML code payload as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
-                    'warning',
-                    'degraded',
-                    'exact',
-                    $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
-                );
-
-                $html = preg_replace_callback('/[ !-\/:-@\[-`{-~\t\n]/', static function (array $character): string {
-                    if ($character[0] === "\n") {
-                        return '<!---->&#10;<!---->';
-                    }
-                    $entity = '&#' . ord($character[0]) . ';';
-
-                    return $character[0] === '@' ? $entity . '<!---->' : $entity;
-                }, str_replace(["\r\n", "\r"], "\n", $value)) ?? $value;
-
-                $token = $protect($this->verbatimHtmlInline('<code>' . $html . '</code>'), $match[0]);
-                $codeFallbacks[$token] = $diagnostic;
-
-                return $token;
-            }
-            $document = new Document();
-            $paragraph = new Paragraph();
-            $paragraph->appendChild(new Code($value));
-            $document->appendChild($paragraph);
-
-            return $protect(rtrim((new CarveRenderer())->render($document), "\n"), $match[0]);
-        };
-        $line = preg_replace_callback(
-            '/\]\(([ \t]*)</',
-            function (array $match) use ($line, $protect): string {
-                $offset = $match[0][1];
-                if (preg_match('/\G\]\([ \t]*<((?:[^<>\n\\\\]|\\\\[\s\S])*)>(?=(?:[ \t]*(?:\n[ \t]*)?\)|[ \t\n]+["\'\(]))/', $line, offset: $offset) === 1) {
-                    return $match[0][0];
-                }
-
-                return ']' . $protect('\\(') . $match[1][0] . '<';
-            },
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-        $line = preg_replace_callback(
-            '/(\]\([ \t]*|^ {0,3}\[(?:[^\]\n\\\\]|\\\\.)+\]:[ \t]*)<((?:[^<>\n\\\\]|\\\\[\s\S])+)>/',
-            fn (array $match): string => $match[1] . $this->bareDestination($match[2]),
-            $line,
-        ) ?? $line;
-
-        // A backslash is literal inside an autolink, including before its
-        // closing bracket. Leave that bracket available to the autolink pass.
-        $escaped = '';
-        $htmlCodeDepth = 0;
-        $opaqueEnds = [];
-        for ($i = 0, $length = strlen($line); $i < $length;) {
-            if ($htmlCodeDepth > 0 && $line[$i] === '&' && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $entity, 0, $i) === 1 && strpbrk($this->decodeHtmlReferenceText($entity[0]), "\r\n") !== false) {
-                $start = $i;
-                $i += strlen($entity[0]);
-                if (
-                    $this->decodeHtmlReferenceText($entity[0]) === "\r"
-                    && preg_match('/\G&(?:#[xX][0-9a-fA-F]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $line, $following, 0, $i) === 1
-                    && $this->decodeHtmlReferenceText($following[0]) === "\n"
-                ) {
-                    $i += strlen($following[0]);
-                } elseif ($this->decodeHtmlReferenceText($entity[0]) === "\r" && ($line[$i] ?? '') === "\n") {
-                    $i++;
-                    $i += strspn($line, " \t", $i);
-                }
-                $escaped .= $protect($this->verbatimHtmlInline('<!---->&#10;<!---->'), substr($line, $start, $i - $start));
-
-                continue;
-            }
-            $opaqueEnd = $line[$i] === '<' ? $this->opaqueHtmlEnd($line, $i, $opaqueEnds) : null;
-            if ($opaqueEnd !== null) {
-                $escaped .= substr($line, $i, $opaqueEnd - $i);
-                $i = $opaqueEnd;
-
-                continue;
-            }
-            if ($line[$i] === '<' && preg_match('/\G<code>((?:[^<\n]|<!---->)*)<\/code>/i', $line, $code, 0, $i) === 1) {
-                $written = $writeHtmlCode($code, $i);
-                if ($written !== null) {
-                    $escaped .= $written;
-                    $i += strlen($code[0]);
-
-                    continue;
-                }
-            }
-            $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
-            if ($tag !== null) {
-                $sourceTag = substr($line, $i, $tag['end'] - $i);
-                if ($tag['name'] === 'code') {
-                    $htmlCodeDepth = max(0, $htmlCodeDepth + ($tag['closing'] ? -1 : 1));
-                    if (!$tag['closing']) {
-                        $htmlCodeSourceLine = $htmlCodeLineAt($i);
-                        $diagnostic = new MigrationDiagnostic(
-                            'raw-code-fallback',
-                            'Preserved HTML code markup as raw HTML; targets and profiles that escape or omit raw HTML change its code structure and content',
-                            'warning',
-                            'degraded',
-                            'exact',
-                            $htmlCodeSourceLine === null ? null : 'line:' . $htmlCodeSourceLine,
-                        );
-                    }
-                    $token = $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
-                    if (!$tag['closing']) {
-                        $codeFallbacks[$token] = $diagnostic;
-                    }
-                    $escaped .= $token;
-                } elseif ($htmlCodeDepth > 0 && $tag['name'] === 'br') {
-                    $escaped .= $protect($this->verbatimHtmlInline($sourceTag), $sourceTag);
-                } else {
-                    $escaped .= $sourceTag;
-                }
-                $i = $tag['end'];
-            } elseif ($line[$i] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $line[$i + 1] ?? '') === 1) {
-                $pair = substr($line, $i, 2);
-                $escaped .= $pair === '\\>' ? $protect('\\') . '>' : $protect($pair);
-                $i += 2;
-            } else {
-                $escaped .= $line[$i] === '\\' && (($line[$i + 1] ?? '') === ' ' || ($terminal && $i + 1 === $length)) ? $protect('\\\\', $line[$i]) : $line[$i];
-                $i++;
-            }
-        }
-        $line = $escaped;
-        if (
-            !$isReferenceDefinition && str_contains($line, '/')
-            && (preg_match('/<(?:em|i)\\b/i', $line) === 1
-                || ($this->hasOddMarkdownDelimiterRun($line) && substr_count(MarkdownEmphasis::convert($line, protectedSpans: $protected), '/') > substr_count($line, '/')))
-        ) {
-            $authored = $line;
-            $guarded = '';
-            $opaqueEnds = [];
-            $bracketDepth = 0;
-            for ($at = 0, $length = strlen($authored); $at < $length;) {
-                if ($authored[$at] === "\0" && preg_match('/\\G\\x00P\\d+\\x00/', $authored, $token, 0, $at) === 1) {
-                    $guarded .= $token[0];
-                    $at += strlen($token[0]);
-
-                    continue;
-                }
-                if ($this->convertMath && $authored[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $authored, $math, 0, $at) === 1) {
-                    $guarded .= $math[0];
-                    $at += strlen($math[0]);
-
-                    continue;
-                }
-                if ($authored[$at] === '\\') {
-                    $guarded .= substr($authored, $at, 2);
-                    $at += 2;
-
-                    continue;
-                }
-                if ($authored[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $authored, $autolink, 0, $at) === 1) {
-                    $guarded .= $autolink[0];
-                    $at += strlen($autolink[0]);
-
-                    continue;
-                }
-                $end = $authored[$at] === '<' ? $this->opaqueHtmlEnd($authored, $at, $opaqueEnds) ?? ($this->htmlTagAt($authored, $at)['end'] ?? null) : null;
-                if ($end !== null) {
-                    $guarded .= substr($authored, $at, $end - $at);
-                    $at = $end;
-
-                    continue;
-                }
-                if ($authored[$at] === '[') {
-                    $bracketDepth++;
-                } elseif ($authored[$at] === ']' && $bracketDepth > 0) {
-                    $bracketDepth--;
-                    $end = $this->markdownActivationTailEnd($authored, $at + 1);
-                    if ($end !== null) {
-                        $guarded .= substr($authored, $at, $end - $at + 1);
-                        $at = $end + 1;
-
-                        continue;
-                    }
-                }
-                $guarded .= $authored[$at] === '/' ? $protect('\\/', '/') : $authored[$at];
-                $at++;
-            }
-            $line = $guarded;
-        }
-        // PART 11 §8c writes two constructs with no Markdown delimiter spelling
-        // as an ATTRIBUTE-BEARING inline tag: an abbreviation as
-        // `<abbr title="...">` and an editorial comment as
-        // `<span class="critic-comment">`. `$htmlRules` below excludes
-        // attribute-bearing tags because migrating one would drop its
-        // attributes - the Carve construct carries them here, so nothing drops
-        // and the exclusion does not apply (carve#2838). The match is on the
-        // shape §8c emits and refuses anything wider, falling back to the raw
-        // span the rest of this method would otherwise write.
-        $hasProtectedEscapeBefore = static function (string $subject, int $offset) use (&$protected): bool {
-            $before = substr($subject, max(0, $offset - 32), min(32, $offset));
-
-            return preg_match('/\x00P(\d+)\x00$/', $before, $token) === 1
-                && ($protected[(int)$token[1]] ?? '') === '\\';
-        };
-        if (!$this->convertRawHtml) {
-            $line = preg_replace_callback(
-                '/<span[ \t]+class[ \t]*=[ \t]*"critic-comment"[ \t]*>([^<]*)<\/span[ \t]*>/i',
-                function (array $match) use ($protect, $protectedSources): string {
-                    // CARVE-P3-016 keeps comment content literal.
-                    $rawHtml = false;
-                    $value = preg_replace_callback(
-                        '~\x00P(\d+)\x00|\\\\([!-/:-@\[-\x60{-\x7e])|&(?:#[0-9]{1,8}|#[xX][0-9a-fA-F]{1,8}|[A-Za-z][A-Za-z0-9]{0,31});~',
-                        function (array $part) use ($protectedSources, &$rawHtml): string {
-                            if (($part[1] ?? '') !== '') {
-                                $source = $this->referenceSourceText($part[0], $protectedSources);
-                                if (preg_match('~^\\\\[!-/:-@\[-\x60{-\x7e]$~', $source) === 1) {
-                                    return substr($source, 1);
-                                }
-                                $rawHtml = $rawHtml || str_contains($source, '<');
-
-                                return $source;
-                            }
-
-                            return ($part[2] ?? '') !== '' ? $part[2] : html_entity_decode($part[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                        },
-                        $match[1],
-                    ) ?? $match[1];
-
-                    return $rawHtml || preg_match('/[{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}', $match[0]);
-                },
-                $line,
-            ) ?? $line;
-            // §8c spells a deletion `<del class="critic-delete">`, so it no
-            // longer collides with the bare `<del>` a `strike` falls back to
-            // (carve#2845). The substitution shape is read FIRST: its two
-            // elements are one construct, and the deletion rule alone would
-            // leave a strike beside an unrelated insertion.
-            $delete = '<del[ \t]+class[ \t]*=[ \t]*"critic-delete"[ \t]*>([^<]*)<\/del[ \t]*>';
-            $line = preg_replace_callback(
-                '/' . $delete . '<ins[ \t]*>([^<]*)<\/ins[ \t]*>/i',
-                function (array $match) use ($protect): string {
-                    if ($this->breaksOutOfACriticBody($match[1]) || $this->breaksOutOfACriticBody($match[2])) {
-                        return $match[0];
-                    }
-
-                    return $protect('{~') . $match[1] . $protect('~>') . $match[2] . $protect('~}');
-                },
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/' . $delete . '/i',
-                function (array $match) use ($protect): string {
-                    if ($this->breaksOutOfACriticBody($match[1])) {
-                        return $match[0];
-                    }
-
-                    return $protect('{-') . $match[1] . $protect('-}');
-                },
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/<abbr[ \t]+title[ \t]*=[ \t]*"([^"]*)"[ \t]*>([^<]*)<\/abbr[ \t]*>/i',
-                function (array $match) use ($protect): string {
-                    $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    if (preg_match('/["\\\\\n{}]/', $value) === 1 || preg_match('/[\[\]\\\n]/', $match[2]) === 1) {
-                        return $match[0];
-                    }
-
-                    // The label stays live so the later inline passes still
-                    // convert markup inside it; only the attribute block is
-                    // protected, from the quote escaping further down.
-                    return '[' . $match[2] . ']' . $protect('{abbr=' . CarveRenderer::quoteImportedAttrValue($value) . '}');
-                },
-                $line,
-            ) ?? $line;
-        }
-        // Native inline tags with an exact Carve spelling. They are converted by
-        // `$htmlRules` later in this method in BOTH modes, so neither the
-        // HtmlToCarve import path nor the verbatim raw-HTML path may swallow
-        // them first - carve-js converts `<b>`/`<em>`/`<sup>`/... to Carve even
-        // when other raw HTML passes through verbatim.
-        $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i|u';
-        if ($this->convertRawHtml) {
-            $htmlBodyIndex = 0;
-            preg_match_all('/CarveHtmlBody(\d+)/', $this->decodeHtmlReferenceText($line), $htmlBodyMatches);
-            $htmlBodyReserved = array_fill_keys(array_map(static fn (string $index): string => 'CarveHtmlBody' . $index, $htmlBodyMatches[1]), true);
-            $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => str_starts_with($span, '<!--')
-                ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
-            $line = preg_replace_callback(
-                '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+(?:"[^"]*"|\'[^\']*\'|[^<>"\'])*?)?>[\s\S]*?<\/\1[ \t]*>/i',
-                function (array $match) use ($protect, &$protectedSources, &$htmlBodyIndex, $htmlBodyReserved): string {
-                    if (preg_match('/^<(?:address|article|aside|blockquote|details|dialog|div|dl|fieldset|figure|footer|form|h[1-6]|header|main|nav|ol|p|pre|script|section|style|table|template|ul|noscript)\b/i', $match[0]) === 1) {
-                        $html = $this->referenceSourceText($match[0], $protectedSources);
-
-                        return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
-                    }
-                    while (isset($htmlBodyReserved['CarveHtmlBody' . $htmlBodyIndex])) {
-                        $htmlBodyIndex++;
-                    }
-                    $marker = 'CarveHtmlBody' . $htmlBodyIndex++;
-                    $opening = $this->htmlTagAt($match[0], 0);
-                    $closing = strripos($match[0], '</');
-                    if ($opening === null || $closing === false) {
-                        return $match[0];
-                    }
-                    $body = substr($match[0], $opening['end'], $closing - $opening['end']);
-                    $depth = 0;
-                    $unbalanced = false;
-                    for ($at = 0, $length = strlen($body); $at < $length; $at++) {
-                        if ($body[$at] === '\\') {
-                            $at++;
-                        } elseif ($body[$at] === '[') {
-                            $depth++;
-                        } elseif ($body[$at] === ']' && --$depth < 0) {
-                            $unbalanced = true;
-
-                            break;
-                        }
-                    }
-                    if ($unbalanced || $depth !== 0) {
-                        $html = $this->referenceSourceText($match[0], $protectedSources);
-
-                        return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
-                    }
-                    $template = substr($match[0], 0, $opening['end']) . $marker . substr($match[0], $closing);
-                    $converted = rtrim((new HtmlToCarve())->convert($template), "\n");
-
-                    $parts = explode($marker, $converted, 2);
-                    if (count($parts) !== 2) {
-                        return $match[0];
-                    }
-
-                    return $protect($parts[0], substr($match[0], 0, $opening['end'])) . $body . $protect($parts[1], substr($match[0], $closing));
-                },
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/<br(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
-                fn (array $match): string => $protect((new HtmlToCarve())->convert($match[0])),
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/<(?:area|base|col|embed|hr|img|input|link|meta|param|source|track|wbr)(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
-                fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
-                $line,
-            ) ?? $line;
-        } else {
-            $rawInline = function (array $match) use ($protect, &$protected): string {
-                $head = substr($match[0], 0, strcspn($match[0], '>'));
-                preg_match_all('/\x00P(\d+)\x00/', $head, $tokens);
-                foreach ($tokens[1] as $index) {
-                    if (str_starts_with($protected[(int)$index] ?? '', '`')) {
-                        return $match[0];
-                    }
-                }
-
-                return $protect($this->verbatimHtmlInline($match[0]), $match[0]);
-            };
-            $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => $rawInline([$span]));
-            $written = '';
-            for ($i = 0, $length = strlen($line); $i < $length;) {
-                $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
-                if ($tag === null) {
-                    $written .= $line[$i++];
-
-                    continue;
-                }
-                $end = $tag['end'];
-                if (preg_match('~^</?(?:' . $nativeInline . ')>$~i', substr($line, $i, $end - $i)) === 1) {
-                    $written .= substr($line, $i, $end - $i);
-                } else {
-                    $written .= $rawInline([substr($line, $i, $end - $i)]);
-                }
-                $i = $end;
-            }
-            $line = $written;
-        }
-
-        $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect): string {
-            $label = $this->referenceSourceText($match[1], $protected);
-
-            return isset($this->importedFootnoteLabels[$label]) ? '[^' . $protect($label) . ']' : $match[0];
-        }, $line) ?? $line;
-        $line = preg_replace_callback(
-            '/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
-            function (array $match) use ($protect): string {
-                $decoded = $this->decodeHtmlReferenceText($match[0]);
-                if ($decoded === $match[0]) {
-                    return $match[0];
-                }
-                if ($decoded === "\r" || $decoded === "\n") {
-                    $decoded = ' ';
-                }
-
-                return $protect($this->escapeDecodedCharacterReference($decoded), $match[0]);
-            },
-            $line,
-        ) ?? $line;
-        $line = $this->dropDecodedLeadingWhitespace($line, $protected, $bareContentStart, $contentPrefix, $protect, $headingHead);
-        $line = $this->escapeMarkerRunADecodedSeparatorPromotes($line, $protected, $contentPrefix, $headingHead, $table);
-
-        $closers = [];
-        $line = $this->protectClosersOfLinksHoldingALink($line, $protected, $protect, $closers);
-
-        // CommonMark links an empty destination; Carve reads `[t]()` as literal
-        // text, so a link is written as its text and an image as its alt text
-        // (markup-carve/carve#2069).
-        $label = '(?<label>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)';
-        $boundarySubject = null;
-        $boundaryLines = [];
-        $imageRanges = [];
-        $autolinkRanges = [];
-        $unwrap = function (array $match, string $title, string $subject, bool $hasTitle = false) use ($protected, $protectedSources, $protect, $sourceInput, $foldedSourceLines, $unwrapEmptyDestinations, &$boundarySubject, &$boundaryLines, &$imageRanges, &$autolinkRanges): string {
-            if (!$unwrapEmptyDestinations) {
-                return $match[0][0];
-            }
-            if ($boundarySubject !== $subject) {
-                $boundarySubject = $subject;
-                $boundaryLines = [];
-                $events = [];
-                preg_match_all('/\n|\x00P(\d+)\x00/', $subject, $events, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
-                $count = 0;
-                $delta = 0;
-                foreach ($events as $event) {
-                    $source = $this->referenceSourceText($event[0][0], $protectedSources);
-                    $count += substr_count($source, "\n");
-                    $delta += strlen($source) - strlen($event[0][0]);
-                    $boundaryLines[] = [$event[0][1] + strlen($event[0][0]) - 1, $count, $delta];
-                }
-                $autolinkRanges = [];
-                $autolinks = [];
-                preg_match_all('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $subject, $autolinks, PREG_OFFSET_CAPTURE);
-                foreach ($autolinks[0] as [$text, $offset]) {
-                    $autolinkRanges[] = [$offset, $offset + strlen($text)];
-                }
-                $imageRanges = [];
-                $images = [];
-                preg_match_all('/!\[(?<description>(?:[^\[\]\n]|(?<nested>\[(?:[^\[\]\n]|(?&nested))*\]))*)\](?:(?<destination>\((?:[^()\n]|\([^()\n]*\))*\))|\[(?<reference>[^\[\]\n]*)\])?/', $subject, $images, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
-                foreach ($images as $image) {
-                    $reference = isset($image['reference']) && $image['reference'][1] >= 0 && $image['reference'][0] !== '' ? $image['reference'][0] : $image['description'][0];
-                    $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
-                    if (isset($image['destination']) && $image['destination'][1] >= 0 || isset($this->definedReferenceLabels[$key])) {
-                        $imageRanges[] = [$image[0][1], $image['description'][1] + strlen($image['description'][0])];
-                    }
-                }
-            }
-            foreach ($autolinkRanges as [$start, $end]) {
-                if ($match[0][1] > $start && $match[0][1] < $end) {
-                    return $match[0][0];
-                }
-            }
-            $low = 0;
-            $high = count($boundaryLines);
-            while ($low < $high) {
-                $mid = ($low + $high) >> 1;
-                if ($boundaryLines[$mid][0] < $match[0][1]) {
-                    $low = $mid + 1;
-                } else {
-                    $high = $mid;
-                }
-            }
-            $sourceLine = $this->inlineRunSourceLine === null ? null : $this->inlineRunSourceLine + ($boundaryLines[$low - 1][1] ?? 0);
-            $sourceOffset = $match[0][1] + ($boundaryLines[$low - 1][2] ?? 0);
-            if ($foldedSourceLines !== []) {
-                $sourceMatch = $this->referenceSourceText($match[0][0], $protectedSources);
-                $originalOffset = strpos($sourceInput, $sourceMatch);
-                $restoredSubject = $this->referenceSourceText($subject, $protectedSources);
-                if ($originalOffset !== false && substr_count($sourceInput, $sourceMatch) === 1 && substr_count($restoredSubject, $sourceMatch) === 1) {
-                    $sourceOffset = $originalOffset;
-                } elseif ($restoredSubject !== $sourceInput) {
-                    // Earlier rewrites can make a repeated or changed label ambiguous.
-                    // Keep the loss report without claiming an exact source line.
-                    $sourceOffset = null;
-                    $sourceLine = null;
-                }
-                if ($sourceOffset !== null) {
-                    foreach ($foldedSourceLines as $segment) {
-                        if ($segment['offset'] > $sourceOffset) {
-                            break;
-                        }
-                        $sourceLine = $segment['line'];
-                    }
-                }
-            }
-            $insideImage = false;
-            foreach ($imageRanges as [$start, $end]) {
-                if ($match[0][1] > $start && $match[0][1] < $end) {
-                    $insideImage = true;
-
-                    break;
-                }
-            }
-
-            return $this->unwrapEmptyDestination(
-                $match['label'][0],
-                $match[0][0][0] === '!',
-                $title,
-                substr($subject, 0, $match[0][1]),
-                $protected,
-                $protect,
-                $hasTitle,
-            );
-        };
-        if ($this->emptyDestinationLabels !== []) {
-            $unwrapReference = function (array $match, string $reference, string $subject) use ($protected, $unwrap): string {
-                $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
-                if (!isset($this->emptyDestinationLabels[$key])) {
-                    return $match[0][0];
-                }
-
-                $definition = $this->emptyDestinationLabels[$key];
-
-                return $unwrap($match, $definition['title'], $subject, $definition['hasTitle']);
-            };
-            $subject = $line;
-            $line = preg_replace_callback(
-                '/!?\[' . $label . '\](?:\[\]|\[(?<reference>[^[\]\n]+)\])/',
-                fn (array $match): string => $unwrapReference($match, isset($match['reference']) && $match['reference'][1] >= 0 ? $match['reference'][0] : $match['label'][0], $subject),
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-            $subject = $line;
-            $line = preg_replace_callback(
-                '/!?\[(?<label>[^[\]\n]+)\](?![[(:])/',
-                fn (array $match): string => $unwrapReference($match, $match['label'][0], $subject),
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-        $subject = $line;
-        $line = preg_replace_callback(
-            '/!?\[' . $label . '\]\([ \t]*(?:<>(?:[ \t]+(?<title>"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?\)/',
-            fn (array $match): string => $unwrap(
-                $match,
-                isset($match['title']) && $match['title'][1] >= 0 ? $this->decodeLinkTitle(substr($match['title'][0], 1, -1), $protected) : '',
-                $subject,
-                isset($match['title']) && $match['title'][1] >= 0,
-            ),
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-
-        $imageLabel = function (string $label) use (&$protected, &$protectedSources): string {
-            $alt = $this->plainAltText(substr($label, 2, -1), $protected, $protectedSources);
-
-            return '![' . (BracketScanner::rawRunCloses($alt) && AttributeParser::processEscapes($alt) === $alt
-                ? $alt : str_replace(['\\', '[', ']', '`'], ['\\\\', '\\[', '\\]', '\\`'], $alt)) . ']';
-        };
-
-        $encodeDest = function (string $paren, bool $reference = false) use ($protected, &$protectedSources, $table): ?string {
-            $sourceParen = $this->referenceSourceText($paren, $protectedSources);
-            if (
-                $reference ? MarkdownReferenceDefinition::read('[x]: ' . substr($sourceParen, 1, -1), 0) === null
-                    : $this->markdownActivationTailEnd($sourceParen, 0) !== strlen($sourceParen) - 1
-            ) {
-                return null;
-            }
-            $paren = $sourceParen;
-            $inner = trim(substr($paren, 1, -1), " \t\n");
-            if (str_starts_with($inner, '<')) {
-                preg_match('/^<((?:[^>\\\\]|\\\\.)*)>/s', $inner, $pointy);
-                $end = isset($pointy[0]) ? strlen($pointy[0]) - 1 : false;
-                if ($end === false) {
-                    return null;
-                }
-                $url = substr($inner, 1, $end - 1);
-                $pointyLine = 0;
-                $url = preg_replace_callback('/\\\\\n[ \t]*/', function (array $match) use (&$pointyLine): string {
-                    $pointyLine++;
-
-                    return "\\\n" . (($this->pointyContinuationStrip[$pointyLine] ?? false) ? '' : substr($match[0], 2));
-                }, $url) ?? $url;
-                if (preg_match('/(?<!\\\\)[\r\n]/', $url) === 1) {
-                    return null;
-                }
-                $rest = substr($inner, $end + 1);
-            } elseif (preg_match('/^((?:\x00P\d+\x00|[^\x00-\x20\x7f])+)([\s\S]*)$/', $inner, $matches)) {
-                $url = $matches[1];
-                $rest = $matches[2];
-            } else {
-                $url = $inner;
-                $rest = '';
-            }
-
-            if (trim($rest) !== '') {
-                if (preg_match('/^[ \t\n]+("(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\'|\((?:[^()\\\\]|\\\\.)*\))[ \t\n]*$/s', $rest, $title) !== 1) {
-                    return null;
-                }
-                $decoded = $this->decodeMarkdownScalar($this->referenceSourceText(substr($title[1], 1, -1), $protected));
-                $rest = ' ' . $this->importWriter->spellImportedTitle($decoded, $table);
-            }
-
-            return '(' . $this->writeMarkdownDestination($url, originalSource: true, table: $table) . $rest . ')';
-        };
-
-        $protectDestination = function (string $alt, string $paren, ?string $source = null, bool $reference = false) use ($encodeDest, $protect): string {
-            $encoded = $encodeDest($paren, $reference);
-
-            $originalLabel = $source === null ? $alt : substr($source, 0, -strlen($paren));
-
-            return $encoded === null ? $originalLabel . $protect('\\(', '(') . substr($paren, 1) : $protect($alt . $encoded, $source ?? $alt . $paren);
-        };
-
-        // A bare destination can stop at whitespace even with open parentheses.
-        // The regular expression below cannot pair that shape without also
-        // accepting invalid destinations, so read its closing offset directly.
-        if (str_contains($line, '](')) {
-            $source = $line;
-            $opens = [];
-            $pieces = [];
-            $copied = 0;
-            for ($at = 0, $length = strlen($source); $at < $length; $at++) {
-                if ($source[$at] === "\0" && preg_match('/\G\x00P\d+\x00/', $source, $token, 0, $at) === 1) {
-                    $at += strlen($token[0]) - 1;
-
-                    continue;
-                }
-                if ($source[$at] === '\\') {
-                    $at++;
-
-                    continue;
-                }
-                if ($source[$at] === '[') {
-                    $opens[] = $at;
-
-                    continue;
-                }
-                if ($source[$at] !== ']' || $opens === []) {
-                    continue;
-                }
-                $open = array_pop($opens);
-                if (($source[$at + 1] ?? '') !== '(') {
-                    continue;
-                }
-                $end = $this->markdownActivationTailEnd($source, $at + 1);
-                if ($end === null || $open < $copied) {
-                    continue;
-                }
-                $paren = substr($source, $at + 1, $end - $at);
-                $image = $open > 0 && $source[$open - 1] === '!';
-                if (!$image && strpbrk($paren, " \t\n") === false) {
-                    continue;
-                }
-                $label = substr($source, $open, $at - $open + 1);
-                $start = $image ? $open - 1 : $at + 1;
-                if ($start < $copied) {
-                    continue;
-                }
-                $pieces[] = substr($source, $copied, $start - $copied);
-                $pieces[] = $image
-                    ? $protectDestination($imageLabel('!' . $label), $paren, '!' . $label . $paren)
-                    : $protectDestination('', $paren);
-                $copied = $end + 1;
-                $at = $end;
-            }
-            if ($pieces !== []) {
-                $line = implode('', $pieces) . substr($source, $copied);
-            }
-        }
-
-        $line = preg_replace_callback(
-            '/(!?\[(?:[^\[\]\n]|\n(?![ \t]*\n)|\[(?:[^\[\]\n]|\n(?![ \t]*\n))*\])*\])(\([ \t\n]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
-            fn (array $match): string => str_starts_with($match[1], '!')
-                ? $protectDestination($imageLabel($match[1]), $match[2], $match[1] . $match[2])
-                : $match[1] . $protectDestination('', $match[2]),
-            $line,
-        ) ?? $line;
-
-        $activeDestinationClosers = $destinationClosers($line);
-        $line = preg_replace_callback(
-            '/(?<=\])(\([ \t\n]*(?:[^()\s]|\([^()\n]*\))+[ \t\n]+(?:"(?:[^"\n]|\n(?![ \t]*\n))*"|\'(?:[^\'\n]|\n(?![ \t]*\n))*\'|\((?:[^()\n]|\n(?![ \t]*\n))*\))[ \t\n]*\))/',
-            static fn (array $match): string => isset($activeDestinationClosers[$match[1][1] - 1])
-                ? $protectDestination('', $match[1][0]) : $match[0][0],
-            $line,
-            -1,
-            $destinationCount,
-            PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-
-        $destination = '\((?:[ \t]*\n(?![ \t]*\n))?(?:[^()\n]|\([^()\n]*\)|\n(?=[ \t]*\)))*\)';
-        $line = preg_replace_callback(
-            '/(!\[(?:[^[\]]|\[[^\]]*\])*\])(' . $destination . ')/',
-            fn (array $match): string => $protectDestination($imageLabel($match[1]), $match[2], $match[1] . $match[2]),
-            $line,
-        ) ?? $line;
-        $activeDestinationClosers = $destinationClosers($line);
-        $line = preg_replace_callback(
-            '/(?<=\])(' . $destination . ')/',
-            static fn (array $match): string => isset($activeDestinationClosers[$match[1][1] - 1])
-                ? $protectDestination('', $match[1][0]) : $match[0][0],
-            $line,
-            -1,
-            $destinationCount,
-            PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-
-        $line = preg_replace_callback(
-            '/\[\^([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
-            static fn (array $match): string => str_starts_with($protected[(int)$match[2]] ?? '', '(')
-                ? '[' . $protect('\\^', '^') . $match[1] . ']' : $match[0],
-            $line,
-        ) ?? $line;
-
-        $chainSubject = $line;
-        $chainCursor = 0;
-        $line = preg_replace_callback(
-            '/(?<![\\\\\]])\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]\[([^[\]\n^]+)\]/u',
-            function (array $match) use ($chainSubject, &$chainCursor, $protect, $protected, $protectedSources, $protectDestination): string {
-                $offset = $match[0][1];
-                while ($chainCursor < $offset) {
-                    if ($chainSubject[$chainCursor] === '<') {
-                        $tag = $this->htmlTagAt($chainSubject, $chainCursor);
-                        if ($tag !== null) {
-                            $chainCursor = $tag['end'];
-
-                            continue;
-                        }
-                        if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $chainSubject, $auto, 0, $chainCursor) === 1) {
-                            $chainCursor += strlen($auto[0]);
-
-                            continue;
-                        }
-                    }
-                    $chainCursor++;
-                }
-                if ($chainCursor > $offset) {
-                    return $match[0][0];
-                }
-                if (
-                    preg_match('/\G\x00P(\d+)\x00/', $chainSubject, $tail, 0, $offset + strlen($match[0][0])) === 1
-                    && str_starts_with($protected[(int)$tail[1]] ?? '', '(')
-                ) {
-                    return $match[0][0];
-                }
-                [$first, $second, $third] = [$match[1][0], $match[2][0], $match[3][0]];
-                $middleTarget = $this->complexReferenceTarget($second, $protectedSources);
-                $lastTarget = $this->complexReferenceTarget($third, $protectedSources);
-                $middle = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($second)] ?? null;
-                $last = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($third)] ?? null;
-                $middleTail = $middleTarget !== null ? $protectDestination('', '(' . $middleTarget . ')', reference: true) : ($middle !== null ? $protect('[' . $middle . ']') : null);
-                $lastTail = $lastTarget !== null ? $protectDestination('', '(' . $lastTarget . ')', reference: true) : ($last !== null ? $protect('[' . $last . ']') : null);
-                if ($middleTail !== null) {
-                    if (($chainSubject[$offset - 1] ?? '') === '!' || ($chainSubject[$offset + strlen($match[0][0])] ?? '') === '[') {
-                        return $match[0][0];
-                    }
-
-                    return '[' . $first . ']' . $middleTail . '[' . $third . ']' . ($lastTail ?? '');
-                }
-                if ($lastTail !== null) {
-                    return $protect('\\[' . $first . ']') . '[' . $second . ']' . $lastTail;
-                }
-
-                return $match[0][0];
-            },
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-        $line = preg_replace_callback(
-            '/!\[((?:[^\[\]]|\[[^\]]*\])*)\](?:\[([^\]\n]*)\])?/',
-            function (array $match) use ($protected, $protectedSources, $protect, $protectDestination, $imageLabel, $table): string {
-                $label = ($match[2] ?? '') !== '' ? $match[2] : $match[1];
-                $target = $this->complexReferenceTarget($label, $protectedSources);
-                if ($target !== null) {
-                    return $protectDestination($imageLabel('![' . $match[1] . ']'), '(' . $target . ')', reference: true);
-                }
-                $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null;
-                if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
-                    $canonical = null;
-                }
-                if ($canonical === null) {
-                    return $table && str_contains($match[0], '|') ? $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0])) : $match[0];
-                }
-                if (strpbrk($canonical, '[]') !== false) {
-                    return $match[0];
-                }
-
-                return $protect($imageLabel('![' . $match[1] . ']') . '[' . ($canonical === $match[1] && preg_match('/^[\p{L}\p{N} .-]*$/u', $canonical) === 1 ? '' : $canonical) . ']');
-            },
-            $line,
-        ) ?? $line;
-        $line = preg_replace_callback('/\[\^(?=[^[\]\n]*\[(?!\^))/', fn (): string => $protect('\\[') . '^', $line) ?? $line;
-
-        $footnoteSource = $line;
-        $footnoteCursor = 0;
-        $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect, $table, $footnoteSource, &$footnoteCursor): string {
-            $offset = $match[0][1];
-            while ($footnoteCursor < $offset) {
-                if ($footnoteSource[$footnoteCursor] === '<') {
-                    $tag = $this->htmlTagAt($footnoteSource, $footnoteCursor);
-                    if ($tag !== null) {
-                        $footnoteCursor = $tag['end'];
-
-                        continue;
-                    }
-                    if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[^<>\s@]+@[^<>\s]+)>/', $footnoteSource, $auto, 0, $footnoteCursor) === 1) {
-                        $footnoteCursor += strlen($auto[0]);
-
-                        continue;
-                    }
-                }
-                $footnoteCursor++;
-            }
-            if ($footnoteCursor > $offset) {
-                return $match[0][0];
-            }
-            $label = $this->referenceSourceText($match[1][0], $protected);
-            $renamed = $this->importedFootnoteLabels[$label] ?? null;
-
-            return $renamed === null
-                ? ($table && str_contains($label, '|') ? $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0])) : $match[0][0])
-                : '[^' . $renamed . ']';
-        }, $line, flags: PREG_OFFSET_CAPTURE) ?? $line;
-
-        if ($table) {
-            $line = preg_replace_callback('/(?<!\\\\)\[([^[\]\n^]+)\]\[([^[\]\n]+)\]/', function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
-                if (!str_contains($match[1], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
-                    return $match[0];
-                }
-                $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
-                if ($canonical !== null && (!str_contains($canonical, '|') || $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2]))) {
-                    return $match[0];
-                }
-
-                return $protect($writeLiteralReference($match[0]));
-            }, $line) ?? $line;
-            $line = preg_replace_callback(
-                '/(?<!\\\\)(!?)\[([^[\]\n^][^[\]\n]*)\]\[\]/',
-                function (array $match) use ($protected, $protectedSources, $protect, $writeLiteralReference): string {
-                    if (!str_contains($match[2], '|') || $this->complexReferenceTarget($match[2], $protectedSources) !== null) {
-                        return $match[0];
-                    }
-                    $canonical = $this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[2], $protected))] ?? null;
-                    if ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($match[2])) {
-                        return $match[0];
-                    }
-
-                    return $protect($writeLiteralReference($match[0]));
-                },
-                $line,
-            ) ?? $line;
-        }
-        $literalReferenceOpeners = [];
-        if (str_contains($line, '][') && preg_match('/\]\[[^\[\]\n]+\]\x00P\d+\x00/', $line) === 1) {
-            $inlineChainMath = [];
-            if ($this->convertMath && str_contains($line, '$')) {
-                preg_match_all('/\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d)/', $line, $mathRanges, PREG_OFFSET_CAPTURE);
-                foreach ($mathRanges[0] as [$body, $start]) {
-                    $inlineChainMath[] = [$start, $start + strlen($body)];
-                }
-            }
-            $resolvedReferenceTailOpeners = [];
-            $referenceScopes = $this->markdownLinkScopes($line, $protected, scopeOnly: true)['active'];
-            for ($at = 1, $count = count($referenceScopes); $at < $count; $at += 2) {
-                $tailAt = $referenceScopes[$at] + 1;
-                if (($line[$tailAt] ?? '') === '[') {
-                    $resolvedReferenceTailOpeners[$tailAt] = true;
-                }
-            }
-            $inlineChainUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
-            $inlineChainMathAt = 0;
-            $inlineChainUrlAt = 0;
-            $line = preg_replace_callback(
-                '/(?<!\\\\)\[((?!\^)[^\[\]\n]+)\]\[([^\[\]\n]+)\](?=\x00P(\d+)\x00)/',
-                function (array $match) use ($inlineChainUrls, $inlineChainMath, &$inlineChainMathAt, &$inlineChainUrlAt, $resolvedReferenceTailOpeners, $protected, $protectedSources, $protect, &$literalReferenceOpeners): string {
-                    $offset = $match[0][1];
-                    if (isset($resolvedReferenceTailOpeners[$offset])) {
-                        return $match[0][0];
-                    }
-                    while (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][1] <= $offset) {
-                        $inlineChainMathAt++;
-                    }
-                    if (isset($inlineChainMath[$inlineChainMathAt]) && $inlineChainMath[$inlineChainMathAt][0] <= $offset) {
-                        return $match[0][0];
-                    }
-                    while (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['end'] <= $offset) {
-                        $inlineChainUrlAt++;
-                    }
-                    if (isset($inlineChainUrls[$inlineChainUrlAt]) && $inlineChainUrls[$inlineChainUrlAt]['start'] <= $offset) {
-                        return $match[0][0];
-                    }
-                    $tail = $protected[(int)$match[3][0]] ?? '';
-                    $label = $match[2][0];
-                    $defined = isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
-                        || $this->complexReferenceTarget($label, $protectedSources) !== null;
-                    if (!str_starts_with($tail, '(') || $defined) {
-                        return $match[0][0];
-                    }
-
-                    $opener = $protect('\\[', '[');
-                    $literalReferenceOpeners[$opener] = true;
-
-                    return $opener . $match[1][0] . $protect('\\]', ']') . '[' . $label . ']';
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-        $linkClosers = [];
-        $openLabels = [];
-        for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-            if ($this->convertMath && $line[$at] === '$' && preg_match('/\G(?:\$\$[^$]+\$\$|\$(?:[^$\s][^$]*[^$\s]|\S)\$(?!\d))/', $line, $math, 0, $at) === 1) {
-                $at += strlen($math[0]) - 1;
-
-                continue;
-            }
-            if (($line[$at] === '<' || ($line[$at] === 'h' && $openLabels === [])) && preg_match('~\G(?:<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*>|https?://[^\s<>`\x00]+)~', $line, $url, 0, $at) === 1) {
-                $at += strlen($url[0]) - 1;
-
-                continue;
-            }
-            if ($line[$at] === '[') {
-                $openLabels[] = $at;
-            } elseif ($line[$at] === ']' && $openLabels !== []) {
-                $open = array_pop($openLabels);
-                if (($line[$open + 1] ?? '') !== '^') {
-                    $linkClosers[$at] = $open;
-                }
-            }
-        }
-        $referenceClosers = [];
-        $subject = $line;
-        $line = preg_replace_callback(
-            '/(?<=\])\[([^\]]*)\]/',
-            function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $linkClosers, &$referenceClosers, &$literalReferenceOpeners, $table, $writeLiteralReference): string {
-                $reference = $match[1][0];
-                if (str_starts_with($reference, '^')) {
-                    return $protect($match[0][0]);
-                }
-                $offset = $match[0][1];
-                if (!isset($linkClosers[$offset - 1]) || isset($referenceClosers[$offset - 1])) {
-                    return $match[0][0];
-                }
-                $referenceClosers[$offset + strlen($match[0][0]) - 1] = true;
-                $labelStart = $reference === '' ? strrpos(substr($subject, 0, max(0, $offset - 1)), '[') : false;
-                $preceding = $labelStart === false ? '' : substr($subject, $labelStart + 1, $offset - $labelStart - 2);
-                $label = $reference !== '' ? $reference : (strpbrk($preceding, "]\n") === false ? $preceding : null);
-                $target = $label !== null ? $this->complexReferenceTarget($label, $protectedSources) : null;
-                if ($target !== null) {
-                    return $protectDestination('', '(' . $target . ')', reference: true);
-                }
-                $canonical = $label !== null && ($reference === '' || strpbrk($label, "\\&\0") === false)
-                    ? ($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))] ?? null)
-                    : null;
-                if ($table && $canonical !== null && str_contains($canonical, '|') && $this->normalizeReferenceLabel($label) !== $this->normalizeReferenceLabel($canonical)) {
-                    $canonical = null;
-                }
-                $firstStart = $linkClosers[$offset - 1];
-                $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
-                $literal = $this->decodeLinkTitle($reference, $protected);
-                $raw = $reference;
-                $protectedCount = count($protected);
-                for ($pass = 0; $pass < $protectedCount; $pass++) {
-                    $restored = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]] ?? $part[0], $raw) ?? $raw;
-                    if ($restored === $raw) {
-                        break;
-                    }
-                    $raw = $restored;
-                }
-                if (
-                    $canonical === null && preg_match('/\\\\[!*]/', $raw) === 1 && $literal !== $reference
-                    && $this->normalizeReferenceLabel($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)] ?? '') !== $this->normalizeReferenceLabel($raw)
-                ) {
-                    $firstStart = $linkClosers[$offset - 1];
-                    $firstLabel = substr($subject, $firstStart + 1, $offset - $firstStart - 2);
-                    if (!isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($firstLabel, $protected))])) {
-                        return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
-                    }
-                }
-                if ($canonical === null && str_contains($raw, '|')) {
-                    return $protect('\\[' . $writeLiteralReference($reference) . '\\]');
-                }
-                $definedReference = isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($literal)])
-                    || isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->referenceSourceText($reference, $protectedSources))]);
-                $end = $offset + strlen($match[0][0]);
-                $inlineTail = preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1
-                    && str_starts_with($protected[(int)$next[1]] ?? '', '(');
-                if ($canonical === null && !$definedReference && !$inlineTail && preg_match('/[\x00*_`\\\\<&~"\'=^]/', $firstLabel . $reference) === 1) {
-                    $opener = $protect('\\[', '[');
-                    $literalReferenceOpeners[$opener] = true;
-
-                    return $opener . $reference . $protect('\\]', ']');
-                }
-                $collapsed = $reference === '' && $label === $canonical && preg_match('/^[\p{L}\p{N} .-]*$/u', $label ?? '') === 1
-                    && preg_match('/(?:\.{3,}|--)/', $label ?? '') !== 1;
-
-                return $protect($canonical === null || strpbrk($canonical, '[]') !== false || $collapsed ? $match[0][0] : '[' . $canonical . ']');
-            },
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-        $line = preg_replace_callback(
-            '/<([A-Za-z][A-Za-z0-9+.-]*):[^<>\s]*>/',
-            function (array $match) use ($protect, $protected, $table): string {
-                // CommonMark requires 2–32 scheme characters. Keep a Carve-only
-                // autolink literal while the surrounding Markdown still parses.
-                if (strlen($match[1]) < 2 || strlen($match[1]) > 32) {
-                    return $protect('\\<') . substr($match[0], 1);
-                }
-                $body = substr($match[0], 1, -1);
-                do {
-                    $previous = $body;
-                    $body = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $part): string => $protected[(int)$part[1]], $body) ?? $body;
-                } while ($body !== $previous);
-                if (!str_contains($body, '\\') && strpbrk($body, '`|{}^"') === false) {
-                    return $protect($match[0]);
-                }
-                $url = $table ? MarkdownDestinationEncoding::destination($body, true) : $body;
-                $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
-                    . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
-
-                return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
-            },
-            $line,
-        ) ?? $line;
-        $line = preg_replace_callback('/<[^>\s@]+@[^>\s]+>/', function (array $match) use ($protect, $table): string {
-            if (str_contains($match[0], "\0") || str_contains($match[0], '\\')) {
-                return $match[0];
-            }
-            if ((!$table || !str_contains($match[0], '|')) && !str_contains($match[0], '`') && !str_contains($match[0], '/')) {
-                return $protect($match[0]);
-            }
-            $body = substr($match[0], 1, -1);
-            $url = 'mailto:' . ($table ? MarkdownDestinationEncoding::destination($body, true) : $body);
-            $html = '<a href="' . htmlspecialchars($url, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '">'
-                . htmlspecialchars($body, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>';
-
-            return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"));
-        }, $line) ?? $line;
-        // A definition kept where it stands is a definition, not link text -
-        // on a nested item's marker line too, which is where fmt writes it.
-        $line = preg_replace_callback(
-            '/^(' . $definitionPrefix . ')(\[([^^\]][^\]]*)\]:\s*\S.*)$/',
-            function (array $match) use ($protect, $protected, $protectedSources, $encodeDest, $isReferenceDefinition): string {
-                if (!$isReferenceDefinition || !isset($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($match[3], $protected))])) {
-                    return $match[0];
-                }
-                $source = $this->referenceSourceText($match[2], $protectedSources);
-                if (preg_match('/^(\[(?:[^\]\\\\]|\\\\.)*\]:[ \t]*)(.*)$/s', $source, $parts) !== 1) {
-                    return $match[1] . $protect($match[2]);
-                }
-                $target = $encodeDest('(' . $parts[2] . ')', reference: true);
-
-                return $target === null ? $match[1] . $protect($match[2]) : $match[1] . $protect($parts[1] . substr($target, 1, -1), $source);
-            },
-            $line,
-        ) ?? $line;
-
-        // Carve has no shortcut reference, so a defined `[r]` is written in the
-        // full form, collapsed only where Carve's exact label match still holds.
-        if ($this->referenceDefinitionLabels !== [] || $this->complexReferenceTargets !== []) {
-            $referenceUrls = $this->plainMarkdownUrlRanges($line, $protected, $protectedSources);
-            $referenceUrlAt = 0;
-            $subject = $line;
-            // A literal closer written by protectClosersOfLinksHoldingALink() is text, not a reference tail.
-            $line = preg_replace_callback(
-                '/(!?)\[([^[\]\n^][^[\]\n]*)\]/',
-                function (array $match) use ($subject, $protected, $protectedSources, $protect, $protectDestination, $closers, $literalReferenceOpeners, $table, $isReferenceDefinition, &$referenceUrls, &$referenceUrlAt): string {
-                    $offset = $match[0][1];
-                    while (isset($referenceUrls[$referenceUrlAt]) && $referenceUrls[$referenceUrlAt]['end'] <= $offset) {
-                        $referenceUrlAt++;
-                    }
-                    $url = $referenceUrls[$referenceUrlAt] ?? null;
-                    if ($url !== null && $offset >= $url['start'] && $offset < $url['end']) {
-                        return $match[0][0];
-                    }
-                    $label = $match[2][0];
-                    $end = $match[0][1] + strlen($match[0][0]);
-                    if (preg_match('/\G\x00P(\d+)\x00/', $subject, $next, 0, $end) === 1 && !isset($closers[(int)$next[1]])) {
-                        $tail = $protectedSources[(int)$next[1]] ?? '';
-                        if (isset($literalReferenceOpeners[$next[0]]) || str_starts_with($tail, '(') && ($protected[(int)$next[1]] ?? '') !== '\\(' || str_starts_with($tail, '{title=') || preg_match('/^\[[^\]]*\]$/', $tail) === 1) {
-                            return $match[0][0];
-                        }
-                    }
-                    if ($isReferenceDefinition && ($subject[$end] ?? '') === ':' && preg_match('/^[ \t>]*' . self::DEFINITION_MARKER . '$/', substr($subject, 0, $match[0][1])) === 1) {
-                        return $match[0][0];
-                    }
-                    // A task checkbox, whose label the reader never resolves.
-                    if ($this->cmarkReadsTaskCheckbox($subject, $match[0][1])) {
-                        return $match[0][0];
-                    }
-                    $target = $this->complexReferenceTarget($label, $protectedSources);
-                    $rawLabel = $this->referenceSourceText($label, $protectedSources);
-                    $definition = preg_match('/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/', $rawLabel) === 1
-                        && !isset($this->authoredReferenceLabelKeys[$this->normalizeReferenceLabel($rawLabel)])
-                        ? null
-                        : ($this->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protectedSources))] ?? null);
-                    if ($url !== null && $offset < $url['start'] && ($target !== null || $definition !== null)) {
-                        for ($at = $referenceUrlAt; isset($referenceUrls[$at]) && $referenceUrls[$at]['start'] < $end; $at++) {
-                            $referenceUrls[$at]['end'] = min($referenceUrls[$at]['end'], $end);
-                        }
-                    }
-                    if ($target !== null) {
-                        return $match[1][0] . '[' . $label . ']' . $protectDestination('', '(' . $target . ')', reference: true);
-                    }
-                    if ($table && str_contains($label, '|') && ($definition === null || $this->normalizeReferenceLabel($definition) !== $this->normalizeReferenceLabel($label))) {
-                        return $protect(str_replace(['[', ']'], ['\\[', '\\]'], $match[0][0]));
-                    }
-                    if ($definition === null) {
-                        return $match[0][0];
-                    }
-
-                    return $match[1][0] . '[' . $label . ']'
-                        . ($definition === $label && preg_match('/^[\p{L}\p{N} .-]*$/u', $label) === 1 && preg_match('/(?:\.{3,}|--)/', $label) !== 1 ? '[]' : $protect('[' . $definition . ']'));
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-
-        if (str_contains($line, ':') || str_contains($line, 'www.')) {
-            $labelRanges = MarkdownEmphasis::linkLabelRanges($line, $protected);
-            $labelAt = $urlCursor = 0;
-            $protectedUrls = '';
-            $reparseCode = false;
-            foreach (
-                MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): string|array|null {
-                    $index = (int)substr($token, 2, -1);
-
-                    return $this->markdownUrlTokenSource($index, $protected, $protectedSources);
-                }, 'url') as $candidate
-            ) {
-                $offset = $candidate['start'];
-                while (isset($labelRanges[$labelAt]) && $labelRanges[$labelAt]['end'] <= $offset) {
-                    $labelAt++;
-                }
-                $label = $labelRanges[$labelAt] ?? null;
-                if ($label !== null && $offset >= $label['start'] && $offset < $label['end']) {
-                    continue;
-                }
-                $body = $candidate['body'] ?? substr($line, $offset, $candidate['end'] - $offset);
-                $href = $candidate['prefix'] . $body;
-                $document = new Document();
-                $paragraph = new Paragraph();
-                $link = new Link($href);
-                foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
-                    if ($piece !== '') {
-                        $link->appendChild(new Text($piece));
-                    }
-                }
-                $paragraph->appendChild($link);
-                $document->appendChild($paragraph);
-                $written = rtrim((new CarveRenderer())->render($document), "\n");
-                if ($table) {
-                    $written = $this->escapeTablePipes($written);
-                }
-                preg_match_all('/\x00P\d+\x00/', substr($line, $offset, $candidate['end'] - $offset), $consumedTokens);
-                foreach ($consumedTokens[0] as $token) {
-                    if (isset($codeTokens[$token])) {
-                        $reparseCode = true;
-                    }
-                }
-                $protectedUrls .= $guardBareLinkPrefix(substr($line, $urlCursor, $offset - $urlCursor)) . $protect($written) . ($candidate['tail'] ?? '');
-                $urlCursor = $candidate['end'];
-            }
-            $line = $protectedUrls . substr($line, $urlCursor);
-            if ($reparseCode) {
-                $line = preg_replace_callback('/\x00P\d+\x00/', static fn (array $token): string => $codeTokens[$token[0]] ?? $token[0], $line) ?? $line;
-                $line = $this->protectCodeSpans($line, $writeCodeSpan);
-            }
-        }
-
-        if ($this->convertMath) {
-            $line = preg_replace_callback('/\$\$([^$]+)\$\$/', fn (array $match): string => $protect('$$`' . $match[1] . '`'), $line) ?? $line;
-            $line = preg_replace_callback('/\$([^$\s][^$]*[^$\s]|\S)\$(?!\d)/', function (array $match) use ($protect): string {
-                return preg_match('/^[\d.,]+$/', $match[1])
-                    ? $match[0]
-                    : $protect('$`' . $match[1] . '`');
-            }, $line) ?? $line;
-        }
-
-        if (!$this->convertAttributes) {
-            $line = $this->escapeAttributeBlockOpener($line);
-        }
-
-        $line = preg_replace('/ {2,}\n/', "\\\n", $line) ?? $line;
-
-        $nativeInlineTags = [];
-        $line = preg_replace_callback('/<\/?(?:' . $nativeInline . ')>/i', static function (array $match) use ($protect, &$nativeInlineTags): string {
-            $token = $protect($match[0]);
-            $nativeInlineTags[$token] = $match[0];
-
-            return $token;
-        }, $line) ?? $line;
-
-        $resolved = $this->resolvedCrossrefs ?? [];
-        $line = preg_replace_callback(ImportedCrossrefs::RUN, static fn (array $match): string => isset($resolved[$match[1]]) ? $match[0] : $protect($match[0]), $line) ?? $line;
-        $line = $this->escapePlainCarveInlineSyntax($line, self::HANDLED_MARKDOWN);
-        $line = $this->restoreNumericReferenceHashes($line);
-        $line = str_replace('&#', '&\\#', $line);
-
-        $line = $this->escapeLinkLabelSlashes($line, $protected);
-        $line = MarkdownEmphasis::convert($line, function (): void {
-            $this->flattenedEmphasis = true;
-        }, null, $protected, strikethrough: true);
-
-        $line = strtr($line, $nativeInlineTags);
-
-        // ==highlight== -> =highlight=. Carve highlight is a single `=`; a
-        // doubled `==x==` is literal text in Carve, so a Markdown highlight
-        // left unchanged would silently mis-render. Off by default: `==x==` is
-        // literal in CommonMark and GFM alike, so converting it unconditionally
-        // invented a highlight the source never had.
-        $replaceNativeInline = static function (string $pattern, string $replacement, string $subject) use ($protect): string {
-            [$open, $close] = explode('$1', $replacement);
-
-            return preg_replace_callback($pattern, static fn (array $match): string => $protect($open) . $match[1] . $protect($close), $subject) ?? $subject;
-        };
-        if ($this->convertHighlight) {
-            $line = $replaceNativeInline('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line);
-        }
-
-        // Highlight/super/subscript use the forced brace forms: an HTML tag can
-        // sit intraword (e.g. H<sub>2</sub>O), where a bare ,2, / ^2^ / =2= is
-        // literal in Carve; the {,x,} / {^x^} / {=x=} forms render anywhere.
-        // Highlight is the one of these with a bare Carve form (`=x=`, like
-        // emphasis). In verbatim mode carve-js emits it bare, bracing only when a
-        // word character sits directly against either delimiter - where a bare
-        // `=` would be literal (`a=x=b`). The opt-in HtmlToCarve mode keeps the
-        // always-braced form. The others below have no bare form and are always
-        // braced (sup/sub/ins) or always bare (del/s).
-        if (!$this->convertRawHtml) {
-            $line = preg_replace_callback(
-                '/(?:<mark>[^<]+<\/mark>){2,}/i',
-                static fn (array $run): string => preg_replace_callback(
-                    '/<mark>([^<]+)<\/mark>/i',
-                    static fn (array $mark): string => $protect('{=') . $mark[1] . $protect('=}'),
-                    $run[0],
-                ) ?? $run[0],
-                $line,
-            ) ?? $line;
-            $line = $replaceNativeInline('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line);
-            $prefixSubject = $line;
-            $prefixCursor = 0;
-            $prefixTagEnd = 0;
-            $line = preg_replace_callback(
-                '/([!<>=])<mark>([^<]+)<\/mark>/i',
-                function (array $match) use ($protect, $prefixSubject, $hasProtectedEscapeBefore, &$prefixCursor, &$prefixTagEnd): string {
-                    $offset = $match[0][1];
-                    while ($prefixCursor <= $offset) {
-                        $tag = $prefixSubject[$prefixCursor] === '<' ? $this->htmlTagAt($prefixSubject, $prefixCursor) : null;
-                        if ($tag !== null) {
-                            $prefixTagEnd = $tag['end'];
-                            $prefixCursor = $prefixTagEnd;
-                        } else {
-                            $prefixCursor++;
-                        }
-                    }
-                    if ($prefixTagEnd > $offset) {
-                        return $match[0][0];
-                    }
-
-                    if ($hasProtectedEscapeBefore($prefixSubject, $offset)) {
-                        return $match[1][0] . $protect('{=') . $match[2][0] . $protect('=}');
-                    }
-
-                    return $protect('\\' . $match[1][0] . '{=') . $match[2][0] . $protect('=}');
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line);
-            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>/i', '=$1=', $line);
-            // §8c writes `underline` as `<u>`, which this table did not read back
-            // at all (carve#2838). The bare `_x_` form is preferred, braced where
-            // a bare underline would be literal: against a word character, or
-            // around a whitespace-padded body.
-            $line = $replaceNativeInline('/(?<=[A-Za-z0-9])<u>([^<]+)<\/u>/i', '{_$1_}', $line);
-            $line = $replaceNativeInline('/<u>([^<]+)<\/u>(?=[A-Za-z0-9])/i', '{_$1_}', $line);
-            $line = $replaceNativeInline('/<u>(\s[^<]*|[^<]*\s)<\/u>/i', '{_$1_}', $line);
-            $line = $replaceNativeInline('/<u>([^<]+)<\/u>/i', '_$1_', $line);
-        }
-        $htmlRules = [
-            '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
-            '/<u>([^<]+)<\/u>/i' => '{_$1_}',
-            '/<ins>([^<]+)<\/ins>/i' => '{+$1+}',
-            '/<del>([^<]+)<\/del>/i' => '~$1~',
-            '/<s>([^<]+)<\/s>/i' => '~$1~',
-            '/<sup>([^<]+)<\/sup>/i' => '{^$1^}',
-            '/<sub>([^<]+)<\/sub>/i' => '{,$1,}',
-        ];
-        foreach ($htmlRules as $pattern => $replacement) {
-            $line = $replaceNativeInline($pattern, $replacement, $line);
-        }
-        foreach (['strong|b', 'em|i'] as $tagPattern) {
-            $htmlSource = $line;
-            $line = preg_replace_callback(
-                '/<(' . $tagPattern . ')>([^<]+)<\/\1>/i',
-                static function (array $match) use ($htmlSource, $protected): string {
-                    $marker = in_array(strtolower($match[1][0]), ['em', 'i'], true) ? '/' : '*';
-                    $body = $match[2][0];
-                    $offset = $match[0][1];
-                    $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
-                    if ($before === "\x00") {
-                        $start = $offset - 2;
-                        while ($start >= 0 && $htmlSource[$start] !== "\x00") {
-                            $start--;
-                        }
-                        if ($start >= 0 && preg_match('/^\x00P(\d+)\x00$/', substr($htmlSource, $start, $offset - $start), $token)) {
-                            $index = (int)$token[1];
-                            $value = $protected[$index] ?? '';
-                            while (preg_match('/\x00P(\d+)\x00$/', $value, $nested) === 1 && (int)$nested[1] < $index) {
-                                $index = (int)$nested[1];
-                                $value = $protected[$index] ?? '';
-                            }
-                            $before = $value !== '' ? substr($value, -1) : $before;
-                        }
-                    }
-                    $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
-                    $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
-                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1 || ($marker === '/' && $before === '/');
-                    $written = $marker . $body . $marker;
-
-                    return $forced ? '{' . $written . '}' : $written;
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-
-        // A bare native tag still standing is unpaired - the paired ones
-        // converted above. carve-js keeps an unpaired `<b>` or `</b>` as an
-        // inline raw span rather than letting it fall through to literal
-        // text that renders escaped.
-        $line = preg_replace_callback(
-            '/<\/?(?:' . $nativeInline . ')>/i',
-            fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]), $match[0]),
-            $line,
-        ) ?? $line;
-
-        $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
-        $line = $this->escapeTypographicDashes($line);
-        $line = preg_replace_callback('/(?<!\\\\)\.{3,}/', static fn (array $run): string => str_replace('.', '\\.', $run[0]), $line) ?? $line;
-        $symbolSubject = $line;
-        $line = preg_replace_callback(
-            '/(?<!\\\\)(?:<-->|<->|-->|<--|<=>|==>|<==|\(tm\)|->|<-|<=|>=|!=|\+-|\(c\)|\(r\))/',
-            static fn (array $symbol): string => $hasProtectedEscapeBefore($symbolSubject, $symbol[0][1])
-                ? $symbol[0][0][0] . (preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', substr($symbol[0][0], 1)) ?? substr($symbol[0][0], 1))
-                : preg_replace('/[!-\/:-@\[-`{-~]/', '\\\\$0', $symbol[0][0]) ?? $symbol[0][0],
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
-        if (!$this->convertAttributes) {
-            $line = $this->escapeAttributeListsThatAttach($line);
-        }
-
-        if ($this->convertAttributes) {
-            $wholeLine = trim($line);
-            $subject = $line;
-            $line = preg_replace_callback(
-                '/(?<!\\\\)\{((?:[^{}"\'\\\\]|\\\\.|"(?:[^"\\\\]|\\\\.)*"|\'(?:[^\'\\\\]|\\\\.)*\')*)\}/',
-                static function (array $match) use ($wholeLine, $subject, $protect): string {
-                    $offset = $match[0][1];
-                    $before = $offset > 0 ? $subject[$offset - 1] : '';
-                    $attached = preg_match('/[\x00\]\\/*_~=,^}]/', $before) === 1;
-
-                    return ($wholeLine === $match[0][0] || $attached) && AttributeParser::isValidPayload($match[1][0])
-                        ? $protect($match[0][0]) : $match[0][0];
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-        $line = preg_replace_callback('/["\']|\x00P(\d+)\x00/', static function (array $match) use ($protected): string {
-            $text = isset($match[1]) ? $protected[(int)$match[1]] : $match[0];
-
-            return in_array($text, ['"', "'"], true) ? '\\' . $text : $match[0];
-        }, $line) ?? $line;
-
-        if ($table) {
-            $line = $this->escapeTableInlineText($line);
-        }
-        if (str_contains($line, '\\')) {
-            $line = $this->importWriter->spellImportedLiteralBackslashes($line);
-        }
-
-        // Restore stashes and protected spans until stable: a protected or
-        // stashed span may itself contain placeholders (e.g. a reference
-        // definition that wrapped an already-protected URL), so one pass is
-        // not enough.
-        do {
-            $previous = $line;
-            $line = preg_replace_callback('/(\x00P(\d+)\x00)(?=\x00P(\d+)\x00)/', static function (array $match) use ($protected): string {
-                $left = $protected[(int)$match[2]] ?? '';
-                $right = $protected[(int)$match[3]] ?? '';
-                $slashes = 0;
-                for ($at = strlen($left) - 2; $at >= 0 && $left[$at] === '\\'; $at--) {
-                    $slashes++;
-                }
-
-                return str_ends_with($left, '`') && str_starts_with($right, '`') && (str_starts_with($left, '`') || $slashes % 2 === 0)
-                    ? $match[0] . '{%  %}' : $match[0];
-            }, $line) ?? $line;
-            $line = preg_replace_callback('/\x00P(\d+)\x00/', function (array $match) use ($protected, $table, &$codeFallbacks, &$liveCodeFallbacks): string {
-                if (isset($codeFallbacks[$match[0]])) {
-                    $liveCodeFallbacks[$match[0]] = true;
-                }
-                $span = $protected[(int)$match[1]];
-                if (!$table) {
-                    return $span;
-                }
-                if (str_starts_with($span, '![') || str_starts_with($span, '(')) {
-                    return $this->escapeTablePipes($span);
-                }
-
-                return $this->escapeTableInlineText($span, !str_contains($span, '[') || (!str_contains($span, '|') && !str_contains($span, '{%')));
-            }, $line) ?? $line;
-        } while ($line !== $previous);
-
-        foreach ($codeFallbacks as $token => $diagnostic) {
-            if (isset($liveCodeFallbacks[$token])) {
-                $this->codeFallbackDiagnostics[] = $diagnostic;
-            }
-        }
-
-        $line = preg_replace_callback(
-            '/%00P(\d+)%00/',
-            fn (array $match): string => isset($protected[(int)$match[1]])
-                ? $this->decodeLinkTitle($protected[(int)$match[1]], $protected) : $match[0],
-            $line,
-        ) ?? $line;
-
-        if (str_contains($line, ']\\(') && str_contains($sourceInput, '](<')) {
-            $line = preg_replace('~\]\\\\\((`<[^`]*\n[^`]*>`\{=html\}\))~', ']($1', $line) ?? $line;
-        }
-        if (str_contains($line, '\\]') && preg_match('/([*_])[^]\n]*\[[^]\n]*\1[^]\n]*\]/', $sourceInput) === 1) {
-            $line = preg_replace_callback(
-                '~(/[^/\n]* )\[([^]\n]*?/[^]\n]*)\\\\\]~',
-                static fn (array $match): string => $match[1] . '\\[' . $match[2] . ']',
-                $line,
-            ) ?? $line;
-        }
-
-        return str_replace("\x00FNEMPTY\x00", '{empty}', $line);
-    }
-
-    /**
-     * CommonMark lets no link hold a link: once one closes, every `[` opened
-     * before it stays literal. Each such bracket's closer, with an inline
-     * destination after it, is written as the Carve writer writes that text.
-     *
-     * @param string $line
-     * @param array<string> $protected
-     * @param \Closure(string): string $protect
-     * @param array<int, true> $closers Receives the protected index of each closer written.
-     */
-    protected function protectClosersOfLinksHoldingALink(string $line, array $protected, Closure $protect, array &$closers): string
-    {
-        if (!str_contains($line, '](') && !str_contains($line, '][')) {
-            return $line;
-        }
-        $literal = $this->markdownLinkScopes($line, $protected)['literal'];
-        if ($literal === []) {
-            return $line;
-        }
-        $written = $this->writtenTexts(array_map(static fn (string $tail): string => ']' . $tail, $literal), $protected);
-        $out = '';
-        $from = 0;
-        foreach ($literal as $offset => $tail) {
-            $bytes = $written[']' . $tail];
-            $consumed = 1 + strlen($tail);
-            // A tail that holds inline markup or a reference is still Markdown to convert.
-            if (str_starts_with($tail, '[') || preg_match('/[*_`<&!\\[\x00]/', $tail) === 1) {
-                $bytes = '\\]';
-                $consumed = 1;
-            }
-            $placeholder = $protect($bytes);
-            $closers[(int)substr($placeholder, 2, -1)] = true;
-            $out .= substr($line, $from, $offset - $from) . $placeholder;
-            $from = $offset + $consumed;
-        }
-
-        return $out . substr($line, $from);
-    }
-
-    /**
-     * @param string $line
-     * @param array<int, string> $protected
-     * @param bool $scopeOnly
-     * @param \Closure(int): ?int|null $opaqueEnd
-     *
-     * @return array{active: list<int>, literal: array<int, string>}
-     */
-    private function markdownLinkScopes(string $line, array $protected, bool $scopeOnly = false, ?Closure $opaqueEnd = null): array
-    {
-        $reference = '/\G\[([^[\]\n]*)\]/';
-        $defined = fn (string $label): bool => isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($label, $protected))])
-            || $scopeOnly && $this->complexReferenceTarget($label, $protected) !== null;
-
-        $active = [];
-        /** @var array<array{start: int, image: bool}> $openers */
-        $openers = [];
-        // Every non-image opener pushed before this offset is inactive.
-        $deactivatedBefore = -1;
-        /** @var array<int, string> $literal closer offset => the tail after it */
-        $literal = [];
-        $length = strlen($line);
-        $escapedPosition = -1;
-        for ($i = 0; $i < $length; $i++) {
-            $char = $line[$i];
-            if ($scopeOnly && $char === '\\') {
-                $escapedPosition = $i + 1;
-                $i++;
-
-                continue;
-            }
-            if ($char === '<' && preg_match('/\\G<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\\s]*>/', $line, $autolink, 0, $i) === 1) {
-                // Brackets inside an autolink are text; the enclosing link stays active.
-                $i += strlen($autolink[0]) - 1;
-
-                continue;
-            }
-            if ($char === '<' && $opaqueEnd !== null) {
-                $end = $opaqueEnd($i);
-                if ($end !== null) {
-                    $i = $end - 1;
-
-                    continue;
-                }
-            }
-            if ($char === '[') {
-                $image = $i > 0 && $line[$i - 1] === '!' && (!$scopeOnly || $escapedPosition !== $i - 1);
-                $openers[] = ['start' => $i, 'image' => $image];
-
-                continue;
-            }
-            if ($char !== ']' || $openers === []) {
-                continue;
-            }
-            $opener = array_pop($openers);
-            $inlineEnd = $this->markdownActivationTailEnd($line, $i + 1);
-            $inline = $inlineEnd === null ? null : substr($line, $i + 1, $inlineEnd - $i);
-            if ($inline !== null) {
-                $authored = $this->referenceSourceText($inline, $protected);
-                if ($this->markdownActivationTailEnd($authored, 0) !== strlen($authored) - 1) {
-                    $inline = null;
-                }
-            }
-            $full = $inline === null && preg_match($reference, $line, $ref, 0, $i + 1) === 1 ? $ref : null;
-            if (!$opener['image'] && $opener['start'] < $deactivatedBefore) {
-                if ($inline !== null || $full !== null) {
-                    $literal[$i] = $inline ?? $full[0];
-                }
-
-                continue;
-            }
-            $label = substr($line, $opener['start'] + 1, $i - $opener['start'] - 1);
-            $end = null;
-            if ($inline !== null) {
-                $end = $i + strlen($inline);
-            } elseif ($full !== null) {
-                if ($defined($full[1] === '' ? $label : $full[1])) {
-                    $end = $i + strlen($full[0]);
-                }
-            } elseif ($defined($label)) {
-                $end = $i;
-            }
-            if ($end === null) {
-                continue;
-            }
-            $active[] = $opener['start'];
-            if ($scopeOnly) {
-                $active[] = $i;
-            }
-            if (!$opener['image']) {
-                $deactivatedBefore = $i;
-            }
-            $i = $end;
-        }
-
-        return ['active' => $active, 'literal' => $literal];
-    }
-
-    /**
-     * The bytes the Carve writer writes for each text when it follows a link
-     * inside an open bracket. Each is rendered as its own document: the writer
-     * reads document-wide context, so a shared one changes the bytes.
-     *
-     * @param array<string> $texts
-     * @param array<string> $protected
-     *
-     * @return array<string, string>
-     */
-    protected function writtenTexts(array $texts, array $protected): array
-    {
-        $codec = new AstCodec();
-        $renderer = new CarveRenderer();
-        $written = [];
-        foreach (array_unique($texts) as $text) {
-            $decoded = preg_replace_callback('/\x00P(\d+)\x00/', fn (array $match): string => $this->decodeLinkTitle($protected[(int)$match[1]], $protected), $text) ?? $text;
-            $document = $codec->decode([
-                'type' => 'document',
-                'srcByteLength' => 0,
-                'children' => [
-                    [
-                        'type' => 'paragraph',
-                        'children' => [
-                            ['type' => 'text', 'value' => '['],
-                            ['type' => 'link', 'href' => 'x', 'children' => [['type' => 'text', 'value' => 'x']]],
-                            ['type' => 'text', 'value' => $decoded],
-                        ],
-                    ],
-                ],
-            ]);
-            $written[$text] = substr(rtrim($renderer->render($document), "\n"), strlen('[[x](x)'));
-        }
-
-        return $written;
-    }
-
-    private function markdownActivationTailEnd(string $source, int $open): ?int
-    {
-        if (($source[$open] ?? '') !== '(') {
-            return null;
-        }
-        $at = $open + 1;
-        $length = strlen($source);
-        $skipSpace = static function () use ($source, &$at, $length): bool {
-            $begin = $at;
-            while ($at < $length && str_contains(" \t\n", $source[$at])) {
-                $at++;
-            }
-
-            return $at > $begin;
-        };
-        $skipSpace();
-        if (($source[$at] ?? '') === '<') {
-            for ($at++; $at < $length && $source[$at] !== '>'; $at++) {
-                if ($source[$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $source[$at + 1] ?? '') === 1) {
-                    $at++;
-                } elseif ($source[$at] === '\\' && ($source[$at + 1] ?? '') === "\n") {
-                    $at++;
-                } elseif ($source[$at] === '<' || $source[$at] === "\n") {
-                    return null;
-                }
-            }
-            if (($source[$at] ?? '') !== '>') {
-                return null;
-            }
-            $at++;
-        } else {
-            $depth = 0;
-            for (; $at < $length; $at++) {
-                if ($source[$at] === "\0" && preg_match('/\\G\\x00P\\d+\\x00/', $source, $token, 0, $at) === 1) {
-                    $at += strlen($token[0]) - 1;
-
-                    continue;
-                }
-                if ($source[$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $source[$at + 1] ?? '') === 1) {
-                    $at++;
-
-                    continue;
-                }
-                if ($source[$at] === '(') {
-                    if (++$depth > 32) {
-                        return null;
-                    }
-                } elseif ($source[$at] === ')') {
-                    if ($depth === 0) {
-                        break;
-                    }
-                    $depth--;
-                } elseif (ord($source[$at]) <= 32 || ord($source[$at]) === 127) {
-                    break;
-                }
-            }
-            if ($depth > 0 && $at >= $length) {
-                return null;
-            }
-        }
-        $spaced = $skipSpace();
-        if (($source[$at] ?? '') === ')') {
-            return $at;
-        }
-        if (!$spaced || !in_array($source[$at] ?? '', ['"', "'", '('], true)) {
-            return null;
-        }
-        $close = $source[$at] === '(' ? ')' : $source[$at];
-        $at++;
-        for (; $at < $length && $source[$at] !== $close; $at++) {
-            if ($source[$at] === '\\') {
-                $at++;
-            } elseif ($close === ')' && $source[$at] === '(') {
-                return null;
-            } elseif ($source[$at] === "\n" && preg_match('/\\G[ \\t]*\\n/', $source, $blank, 0, $at + 1) === 1) {
-                return null;
-            }
-        }
-        if ($at >= $length) {
-            return null;
-        }
-        $at++;
-        $skipSpace();
-
-        return ($source[$at] ?? '') === ')' ? $at : null;
-    }
-
-    /**
-     * Take reference definitions out of the body: one with an empty destination
-     * is dropped, recording each label whose FIRST definition is one (CommonMark:
-     * the first one wins), and every other one is kept for the end of the
-     * document.
-     *
-     * @param array<string> $lines
-     * @param array<int, true>|null $blockHtml Filled, when given, with the index
-     *   of every line this pass reads as HTML BLOCK content - a carrier marker
-     *   standing behind a task box included, since `[ ] ` is inline content and
-     *   no HTML block can begin after it (markup-carve/carve#2850).
-     * @param array<int, true>|null $paragraphLines Paragraph continuation lines.
-     *
-     * @return array<string>
-     */
-    protected function extractReferenceDefinitions(array $lines, ?array &$blockHtml = null, ?array &$paragraphLines = null): array
-    {
-        if (!$this->importingFootnoteBody) {
-            $this->markdownFootnoteLabels = [];
-            $this->emptyDestinationLabels = [];
-            $this->complexReferenceTargets = [];
-        }
-        $this->hardReferenceSeparators = [];
-        $authoredDefinitions = [];
-        $invalidDefinitionPrefixes = [];
-        $referenceChunk = null;
-        $this->movedDefinitions = [];
-        $this->movedFootnotes = [];
-        $this->movedFootnoteBlockBodies = [];
-        $this->movedFootnoteSourceLines = [];
-        $title = '("(?:[^"\\\\\n]|\\\\.)*"|\'(?:[^\'\\\\\n]|\\\\.)*\'|\((?:[^()\\\\\n]|\\\\.)*\))';
-        $quote = '/^((?: {0,3}>[ \t]?)*)/';
-        $defined = $this->importingFootnoteBody ? $this->definedReferenceLabels : [];
-        $labels = $this->importingFootnoteBody ? $this->referenceDefinitionLabels : [];
-        $kept = [];
-        $bareReferenceHeads = [];
-        $fence = null;
-        $htmlCloser = null;
-        $blockDepth = 0;
-        $blockList = 0;
-        $diagnosticHtml = null;
-        $canStart = true;
-        $depth = 0;
-        $listIndent = 0;
-        // The content column every container prefix on the line put the body at.
-        $blockIndent = 0;
-        $count = count($lines);
-        $outdent = 0;
-        $referenceListColumns = [];
-        $referenceQuoteDepth = 0;
-        $referenceDefinitionEnd = null;
-        $referenceDefinitionAbove = [];
-        $referenceEmptyColumns = [];
-        $referenceClosedEmptyLists = [];
-        $trackReferenceLists = false;
-        foreach ($lines as $candidate) {
-            if (str_contains($candidate, ']:')) {
-                $trackReferenceLists = true;
-
-                break;
-            }
-        }
-        for ($i = 0; $i < $count; $i++) {
-            // A definition that closed an item's fence closed the item too, so
-            // what the item held below it stands at the top level now.
-            if ($outdent > 0 && trim($lines[$i]) !== '') {
-                $referenceChunk = null;
-                if (strspn($lines[$i], ' ') < $outdent) {
-                    $outdent = 0;
-                } else {
-                    $lines[$i] = substr($lines[$i], $outdent);
-                }
-            }
-            $line = $lines[$i];
-            $prefix = preg_match($quote, $line, $parts) === 1 ? $parts[1] : '';
-            $content = substr($line, strlen($prefix));
-            $quotePrefix = $prefix;
-            $lineDepth = substr_count($prefix, '>');
-            if ($diagnosticHtml !== null) {
-                if (
-                    trim($content) === '' || $lineDepth < $diagnosticHtml['depth']
-                    || ($diagnosticHtml['list'] > 0 && $lineDepth === 0 && strspn($line, ' ') < $diagnosticHtml['list'])
-                ) {
-                    $diagnosticHtml = null;
-                } else {
-                    $this->markdownHtmlSourceLines[$i] = true;
-                    if ($blockHtml !== null) {
-                        $blockHtml[$i] = true;
-                    }
-                }
-            }
-            $opensItem = false;
-            $fenceCloser = null;
-            // Leaving the container ends a fence or HTML block opened in it.
-            if (
-                ($fence !== null || $htmlCloser !== null)
-                && ($lineDepth < $blockDepth || ($blockList > 0 && $quotePrefix === '' && trim($line) !== '' && strspn($line, ' ') < $blockList))
-            ) {
-                // The line that ends the item ends the fence with it. Where the
-                // line then moves out of the body, the fence is left with
-                // nothing to close it, so its closer is written here.
-                if ($fence !== null && $blockList > 0 && $quotePrefix === '') {
-                    $fenceCloser = str_repeat(' ', $blockList) . $fence;
-                }
-                $fence = null;
-                $htmlCloser = null;
-                $canStart = true;
-            }
-            if ($htmlCloser !== null) {
-                $this->markdownHtmlSourceLines[$i] = true;
-                if ($blockHtml !== null) {
-                    $blockHtml[$i] = true;
-                }
-                if (preg_match($htmlCloser, $line) === 1) {
-                    $htmlCloser = null;
-                    $canStart = true;
-                }
-                $this->markdownSourceLines[count($kept)] = $i;
-                $kept[] = $line;
-
-                continue;
-            }
-            if ($fence === null && preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $content) !== 1 && preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?=\S)/', $content, $marker) === 1) {
-                $prefix .= $marker[0];
-                $content = substr($content, strlen($marker[0]));
-                $listIndent = strlen($prefix);
-                $opensItem = true;
-            } elseif ($listIndent > 0 && trim($content) !== '') {
-                if (strspn($line, ' ') >= $listIndent) {
-                    $content = substr($line, $listIndent);
-                } else {
-                    $listIndent = 0;
-                }
-            }
-            // CONTAINER PREFIXES NEST, and the BLOCK decisions below need the
-            // innermost content. An item's indentation or marker came off the
-            // line without the quote regex running again, so a block quote
-            // inside that item still has its `>` run on the content and a fence
-            // or an HTML block opening there would be read as the block's own
-            // text. Only the fence and HTML-block readings take the nested run
-            // off; everything else keeps the content it has today, so a
-            // definition inside such a quote is handled exactly as before
-            // (markup-carve/carve#2850).
-            // Every container prefix the line carries comes off, not just the
-            // first: `- - ::: note` opens TWO items on one line, and a quote
-            // inside an item carries both prefixes.
-            //
-            // A LIST MARKER INSIDE AN OPEN FENCE IS VERBATIM CONTENT, so only
-            // the quote prefix keeps coming off there - stripping a marker
-            // would let a `- ```` line inside the fence read as its closer.
-            $blockContent = $fence !== null && strspn($line, ' ') >= $blockIndent
-                ? substr($line, $blockIndent)
-                : $content;
-            while ($listIndent > 0) {
-                if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
-                    $blockContent = substr($blockContent, strlen($nested[1]));
-
-                    continue;
-                }
-                if ($fence !== null) {
-                    break;
-                }
-                // `- - -` is a thematic break, not two nested items.
-                if (
-                    preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $blockContent) === 1
-                    || preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?=\S)/', $blockContent, $inner) !== 1
-                ) {
-                    break;
-                }
-                $blockContent = substr($blockContent, strlen($inner[0]));
-            }
-            // The content column EVERY prefix on the line put the body at,
-            // which is what a continuation line of this item is read against.
-            // `$listIndent` only counts the first marker, so a body six columns
-            // in under `- - - ` would otherwise read as code.
-            if ($opensItem) {
-                $blockIndent = strlen($line) - strlen($blockContent);
-            } elseif ($listIndent === 0) {
-                $blockIndent = 0;
-            }
-            if (!$opensItem && $blockIndent > $listIndent && strspn($line, ' ') >= $blockIndent) {
-                $blockContent = substr($line, $blockIndent);
-                if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
-                    $blockContent = substr($blockContent, strlen($nested[1]));
-                }
-            }
-            if ($fence !== null) {
-                if (preg_match('/^ {0,3}(`{3,}|~{3,})[ \t]*$/', $blockContent, $close) === 1 && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)) {
-                    $fence = null;
-                    $canStart = true;
-                }
-                $this->markdownSourceLines[count($kept)] = $i;
-                $kept[] = $line;
-                $depth = $lineDepth;
-
-                continue;
-            }
-            if ($trackReferenceLists && $lineDepth > 0) {
-                preg_match_all('/ {0,3}>[ \t]?/', $quotePrefix, $referenceQuotes);
-                $physicalColumn = 0;
-                $semanticColumn = 0;
-                foreach ($referenceQuotes[0] as $parentDepth => $referenceQuote) {
-                    $markerColumn = $physicalColumn + strspn($referenceQuote, ' ');
-                    $parentColumns = $referenceListColumns[$parentDepth] ?? [];
-                    while ($parentColumns !== [] && end($parentColumns) > $markerColumn - $semanticColumn) {
-                        array_pop($parentColumns);
-                    }
-                    $referenceListColumns[$parentDepth] = $parentColumns;
-                    if ($parentColumns === []) {
-                        unset($referenceDefinitionAbove[$parentDepth], $referenceEmptyColumns[$parentDepth], $referenceClosedEmptyLists[$parentDepth]);
-                    }
-                    $physicalColumn = $physicalColumn - $physicalColumn % 4
-                        + $this->columnWidth(str_repeat(' ', $physicalColumn % 4) . $referenceQuote);
-                    $semanticColumn = str_ends_with($referenceQuote, "\t") ? $markerColumn + 2 : $physicalColumn;
-                }
-            }
-            $referenceBody = substr($line, strlen($quotePrefix));
-            $referenceNestedListAbove = false;
-            $referenceContinuesDefinition = $trackReferenceLists && $referenceDefinitionEnd === $i - 1
-                && trim($referenceBody) !== '' && !$this->opensMarkdownBlock($referenceBody);
-            $referenceListAbove = ($referenceListColumns[$lineDepth] ?? []) !== [] || isset($referenceClosedEmptyLists[$lineDepth])
-                || ($referenceDefinitionAbove[$lineDepth] ?? false);
-            if (trim($referenceBody) !== '' && preg_match('/^[ \t]*\[.*\]:/', $referenceBody) !== 1) {
-                unset($referenceDefinitionAbove[$lineDepth]);
-            }
-            $referenceLazyQuote = $trackReferenceLists && $lineDepth < $referenceQuoteDepth && !$canStart
-                && trim($referenceBody) !== '' && !$this->opensMarkdownBlock($referenceBody);
-            if ($trackReferenceLists && !$referenceLazyQuote) {
-                foreach (array_keys($referenceListColumns) as $quoteDepth) {
-                    if ($quoteDepth > $lineDepth) {
-                        unset($referenceListColumns[$quoteDepth], $referenceDefinitionAbove[$quoteDepth], $referenceEmptyColumns[$quoteDepth], $referenceClosedEmptyLists[$quoteDepth]);
-                    }
-                }
-                $physicalQuoteColumn = $this->columnWidth($quotePrefix);
-                $quoteRemainder = str_ends_with($quotePrefix, "\t")
-                    ? $physicalQuoteColumn - $this->columnWidth(substr($quotePrefix, 0, -1)) - 1 : 0;
-                $quoteColumn = $physicalQuoteColumn - $quoteRemainder;
-                $referencePadding = substr($referenceBody, 0, strspn($referenceBody, " \t"));
-                $referenceIndent = $this->columnWidth(str_repeat(' ', $physicalQuoteColumn % 4) . $referencePadding)
-                    - $physicalQuoteColumn % 4 + $quoteRemainder;
-                $columns = $referenceListColumns[$lineDepth] ?? [];
-                if (trim($referenceBody) === '' && isset($referenceEmptyColumns[$lineDepth])) {
-                    if (count($columns) === $referenceEmptyColumns[$lineDepth]) {
-                        array_pop($columns);
-                        $referenceClosedEmptyLists[$lineDepth] = true;
-                    }
-                    unset($referenceEmptyColumns[$lineDepth]);
-                } elseif (trim($referenceBody) !== '') {
-                    unset($referenceClosedEmptyLists[$lineDepth], $referenceEmptyColumns[$lineDepth]);
-                }
-                if (trim($referenceBody) !== '' && !$referenceContinuesDefinition && ($canStart || $opensItem || $lineDepth !== $referenceQuoteDepth || $this->opensMarkdownBlock($referenceBody))) {
-                    while ($columns !== [] && end($columns) > $referenceIndent) {
-                        array_pop($columns);
-                    }
-                }
-                $markerAt = 0;
-                $referenceColumn = $physicalQuoteColumn;
-                $referenceLength = strlen($referenceBody);
-                $referenceThematic = preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $referenceBody) ?? $referenceBody) === 1;
-                while (!$referenceThematic && preg_match('/\G([ \t]*)(?:[-*+]|[0-9]{1,9}[.)])([ \t]+|$)/', $referenceBody, $referenceHead, offset: $markerAt) === 1) {
-                    $tabOffset = $referenceColumn % 4;
-                    $columnBase = $referenceColumn - $tabOffset;
-                    $paddingPrefix = str_repeat(' ', $tabOffset);
-                    $markerIndent = $columnBase + $this->columnWidth($paddingPrefix . $referenceHead[1]) - $quoteColumn;
-                    while ($columns !== [] && end($columns) > $markerIndent) {
-                        array_pop($columns);
-                    }
-                    if ($markerIndent - ($columns === [] ? 0 : (int)end($columns)) > 3) {
-                        break;
-                    }
-                    $referencePrefix = $paddingPrefix . $referenceHead[0];
-                    $markerAt += strlen($referenceHead[0]);
-                    if ($markerAt >= $referenceLength) {
-                        $referencePrefix = rtrim($referencePrefix, " \t") . ' ';
-                    }
-                    $columns[] = $columnBase + $this->itemContentColumn($referencePrefix) - $quoteColumn;
-                    $referenceColumn = $columnBase + $this->columnWidth($paddingPrefix . $referenceHead[0]);
-                    if ($markerAt >= $referenceLength) {
-                        $referenceEmptyColumns[$lineDepth] = count($columns);
-
-                        break;
-                    }
-                }
-                $referenceNestedListAbove = count($referenceListColumns[$lineDepth] ?? []) > count($columns) && $columns !== [];
-                $referenceListColumns[$lineDepth] = $columns;
-                $referenceQuoteDepth = $lineDepth;
-            }
-            if (preg_match('/^ {0,3}(`{3,}|~{3,})/', $blockContent, $open) === 1) {
-                $fence = $open[1];
-                $blockDepth = $lineDepth;
-                $blockList = $listIndent;
-                $this->markdownSourceLines[count($kept)] = $i;
-                $kept[] = $line;
-                $depth = $lineDepth;
-
-                continue;
-            }
-            if (
-                $blockHtml !== null && $opensItem && strspn($blockContent, ' ') <= 3
-                && preg_match('/^\[[ xX]\][ \t]+<!--/', ltrim($blockContent, ' ')) === 1
-            ) {
-                $blockHtml[$i] = true;
-            }
-            if ($this->htmlBlockInterrupts(ltrim($blockContent, ' ')) && strspn($blockContent, ' ') <= 3) {
-                $this->markdownHtmlSourceLines[$i] = true;
-                if ($blockHtml !== null) {
-                    $blockHtml[$i] = true;
-                }
-                $diagnosticHtml = ['depth' => $lineDepth, 'list' => $listIndent];
-            }
-            $closer = $this->htmlBlockCloser(ltrim($blockContent, ' '));
-            if ($closer !== null && strspn($blockContent, ' ') <= 3) {
-                $this->markdownHtmlSourceLines[$i] = true;
-                if ($blockHtml !== null) {
-                    $blockHtml[$i] = true;
-                }
-                if (preg_match($closer, substr(ltrim($blockContent, ' '), 2)) !== 1) {
-                    $htmlCloser = $closer;
-                    $blockDepth = $lineDepth;
-                    $blockList = $listIndent;
-                }
-                $this->markdownSourceLines[count($kept)] = $i;
-                $kept[] = $line;
-                $depth = $lineDepth;
-                $canStart = true;
-
-                continue;
-            }
-            if (preg_match('/^ {0,3}\[\^((?:[^[\]\\\\]|\\\\.)+)\]:/', $content, $footnoteHead) === 1) {
-                $this->markdownFootnoteLabels[] = $footnoteHead[1];
-            }
-            $footnoteStart = $i;
-            if (
-                $prefix === ''
-                && $listIndent === 0
-                && preg_match('/^ {0,3}\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $content) === 1
-                && $this->collectFootnoteDefinition($lines, $i)
-            ) {
-                if ($fenceCloser !== null) {
-                    $this->markdownSourceLines[count($kept)] = $footnoteStart;
-                    $kept[] = $fenceCloser;
-                    $outdent = strspn($fenceCloser, ' ');
-                }
-                $footnoteIndent = strspn($line, ' ');
-                while (($referenceListColumns[$lineDepth] ?? []) !== [] && end($referenceListColumns[$lineDepth]) > $footnoteIndent) {
-                    array_pop($referenceListColumns[$lineDepth]);
-                }
-                $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
-                if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)) {
-                    for ($blank = 0; $blank < 2; $blank++) {
-                        $this->hardReferenceSeparators[count($kept)] = true;
-                        $this->markdownSourceLines[count($kept)] = $i;
-                        $kept[] = $quotePrefix;
-                    }
-                }
-                $depth = 0;
-
-                continue;
-            }
-            if ($canStart && !$opensItem && $lineDepth === 0 && $listIndent === 0 && preg_match('/^ {0,3}\[(?!\^)/', $content) === 1) {
-                if ($referenceChunk === null || $i > $referenceChunk['through']) {
-                    $chunk = [$content];
-                    $offsets = [$i => 0];
-                    $size = strlen($content) + 1;
-                    for ($next = $i + 1; $next < $count && trim($lines[$next]) !== ''; $next++) {
-                        $candidate = $lines[$next];
-                        if (
-                            preg_match('/^ {0,3}(?:>|#{1,6}(?:[ \t]|$)|(?:[-*+]|0{0,8}1[.)])[ \t]+\S|=+[ \t]*$|`{3,}|~{3,})/', $candidate) === 1
-                            || preg_match(self::THEMATIC_BREAK, $candidate) === 1
-                            || ($this->indentWidth($candidate) < 4 && $this->htmlBlockInterrupts(ltrim($candidate, " \t")))
-                        ) {
-                            break;
-                        }
-                        $offsets[$next] = $size;
-                        $size += strlen($candidate) + 1;
-                        $chunk[] = $candidate;
-                    }
-                    $referenceChunk = ['through' => $next - 1, 'text' => implode("\n", $chunk), 'offsets' => $offsets];
-                }
-                $parsed = MarkdownReferenceDefinition::read($referenceChunk['text'], $referenceChunk['offsets'][$i]);
-                if ($parsed !== null && str_starts_with($parsed['target'], '<>') && str_contains($parsed['target'], "\n")) {
-                    if (str_contains($parsed['label'], "\n")) {
-                        $rawKey = $this->normalizeReferenceLabel($parsed['label']);
-                        $this->emptyDestinationLabels[$rawKey] = ['title' => '', 'hasTitle' => false];
-                        $authoredDefinitions[$rawKey] = true;
-                        $defined[$rawKey] = true;
-                        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                            'structure-unspellable',
-                            'An empty reference definition with a multiline label cannot be retained.',
-                            'warning',
-                            'dropped',
-                            'exact',
-                            'line:' . ($i + 1),
-                        );
-                        $i += $parsed['lines'] - 1;
-                        $referenceChunk = null;
-                        $canStart = true;
-
-                        continue;
-                    }
-                    if (preg_match('/^<>\s+("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\((?:\\\\.|[^()\\\\])*\))\s*\z/', $parsed['target'], $titled) === 1) {
-                        // A Carve definition has no title slot, so uses become titled inline links.
-                        $rawKey = $this->normalizeReferenceLabel($parsed['label']);
-                        if (!isset($defined[$rawKey])) {
-                            $this->emptyDestinationLabels[$rawKey] = ['title' => $this->decodeLinkTitle(substr($titled[1], 1, -1)), 'hasTitle' => true];
-                            $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                                'structure-unspellable',
-                                'Dropped a titled empty reference definition; uses become inline links.',
-                                'warning',
-                                'dropped',
-                                'exact',
-                                'line:' . ($i + 1),
-                            );
-                        }
-                        $authoredDefinitions[$rawKey] = true;
-                        $defined[$rawKey] = true;
-                        $i += $parsed['lines'] - 1;
-                        $this->dropDefinitionLine($lines, $i, '', $kept);
-                        $referenceChunk = null;
-                        $canStart = true;
-
-                        continue;
-                    }
-                    $line = $content = '[' . $parsed['label'] . ']: <>';
-                    $lines[$i] = $line;
-                    for ($part = 1; $part < $parsed['lines']; $part++) {
-                        $lines[$i + $part] = '';
-                    }
-                    $referenceChunk = null;
-                    $parsed = ['label' => $parsed['label'], 'target' => '<>', 'lines' => 1, 'complex' => false];
-                }
-                if ($parsed !== null && $parsed['complex'] && !str_starts_with($parsed['target'], '<>')) {
-                    $rawKey = $this->normalizeReferenceLabel($parsed['label']);
-                    if (!isset($authoredDefinitions[$rawKey])) {
-                        $this->complexReferenceTargets[$rawKey] = $parsed['target'];
-                        $authoredDefinitions[$rawKey] = true;
-                        $defined[$rawKey] = true;
-                    }
-                    $i += $parsed['lines'] - 1;
-                    $referenceDefinitionEnd = $i;
-                    $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
-                    if ($fenceCloser !== null) {
-                        $this->markdownSourceLines[count($kept)] = $i;
-                        $kept[] = $fenceCloser;
-                        $outdent = strspn($fenceCloser, ' ');
-                    }
-                    if ($this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)) {
-                        for ($blank = 0; $blank < 2; $blank++) {
-                            $this->hardReferenceSeparators[count($kept)] = true;
-                            $this->markdownSourceLines[count($kept)] = $i;
-                            $kept[] = $quotePrefix;
-                        }
-                    }
-                    $depth = 0;
-                    $canStart = true;
-
-                    continue;
-                }
-                if (
-                    $parsed === null
-                    && (preg_match('/^ {0,3}\[(?:[^[\]\\\\\n]|\\\\.)+\]:[ \t]*</', $content) === 1
-                    || preg_match('/^ {0,3}\[(?:[^\]\\\\\n]|\\\\.)*\[(?:[^\]\\\\\n]|\\\\.)*\]:/', $content) === 1)
-                ) {
-                    preg_match('/^ {0,3}\[((?:[^\[\]\\\\]|\\\\.)+)\]:/', $content, $invalidLabel);
-                    $invalidDefinitionPrefixes[count($kept)] = isset($invalidLabel[1]) ? $this->normalizeReferenceLabel($invalidLabel[1]) : null;
-                    $this->markdownSourceLines[count($kept)] = $i;
-                    $kept[] = $line;
-                    $canStart = false;
-                    unset($referenceDefinitionAbove[$lineDepth]);
-
-                    continue;
-                }
-            }
-            if (
-                $lineDepth > 0 && $listIndent === 0 && ($canStart || $lineDepth > $depth)
-                && preg_match('/^ {0,3}\[(?!\^)(?:[^[\]\\\\\n]|\\\\.)+\]:/', $content) === 1
-            ) {
-                $quoted = $this->readQuotedWrappedDefinition($lines, $i, $lineDepth);
-                if ($quoted !== null) {
-                    // A Carve definition has no title slot, so uses become titled inline links.
-                    $rawKey = $this->normalizeReferenceLabel($quoted['label']);
-                    if ($quoted['target'] !== null) {
-                        if (!isset($authoredDefinitions[$rawKey])) {
-                            $this->complexReferenceTargets[$rawKey] = $quoted['target'];
-                        }
-                    } elseif (!isset($defined[$rawKey])) {
-                        $this->emptyDestinationLabels[$rawKey] = ['title' => $quoted['title'], 'hasTitle' => true];
-                        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                            'structure-unspellable',
-                            'Dropped a titled empty reference definition; uses become inline links.',
-                            'warning',
-                            'dropped',
-                            'exact',
-                            'line:' . ($i + 1),
-                        );
-                    }
-                    $authoredDefinitions[$rawKey] = true;
-                    $defined[$rawKey] = true;
-                    $depth = $lineDepth;
-                    $i += $quoted['lines'] - 1;
-                    $referenceDefinitionEnd = $i;
-                    $canStart = !$this->dropDefinitionLine($lines, $i, $quotePrefix, $kept);
-
-                    continue;
-                }
-            }
-            // A deeper quote opens a block; a shallower line is lazy continuation.
-            if (
-                ($canStart || $opensItem || $lineDepth > $depth)
-                && preg_match('/^ {0,3}\[((?:[^[\]\\\\]|\\\\.)+)\]:(.*)$/', $content, $definition) === 1
-                && preg_match('/^[ \t]*(?:(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*)?$/', $definition[2]) === 1
-            ) {
-                $depth = $lineDepth;
-                $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]));
-                $continued = [];
-                if (
-                    trim($definition[2]) === ''
-                    && $i + 1 < $count
-                    && str_starts_with($lines[$i + 1], $quotePrefix)
-                    && !$this->opensMarkdownBlock(substr($lines[$i + 1], strlen($quotePrefix)))
-                    && preg_match('/^[ \t]*(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)(?:[ \t]+' . $title . ')?[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix))) === 1
-                ) {
-                    $continued[] = $lines[++$i];
-                    $definition[2] = substr($continued[0], strlen($quotePrefix));
-                }
-                if (preg_match('/^[ \t]*<>(?:[ \t]+' . $title . ')?[ \t]*$/', $definition[2], $empty) !== 1) {
-                    $target = trim($definition[2]);
-                    // One with no destination is no definition at all, but paragraph text.
-                    if (
-                        $target === ''
-                        || (!str_starts_with($definition[1], '^') && MarkdownReferenceDefinition::read('[' . $definition[1] . ']: ' . $target, 0) === null)
-                    ) {
-                        $continuedCount = count($continued);
-                        for ($at = 0; $at <= $continuedCount; $at++) {
-                            $this->markdownSourceLines[count($kept) + $at] = $i - $continuedCount + $at;
-                        }
-                        if ($target === '') {
-                            $marker = strpos($line, '[' . $definition[1] . ']:');
-                            if ($marker !== false) {
-                                $bareReferenceHeads[count($kept)] = [$key, $this->normalizeReferenceLabel($definition[1]), $marker, strlen($definition[1])];
-                            }
-                        }
-                        array_push($kept, $line, ...$continued);
-                        $canStart = false;
-                        unset($referenceDefinitionAbove[$lineDepth]);
-
-                        continue;
-                    }
-                    $canStart = true;
-                    $rawKey = $this->normalizeReferenceLabel($definition[1]);
-                    $repeated = isset($labels[$key]) || isset($authoredDefinitions[$rawKey]);
-                    $authoredDefinitions[$rawKey] = true;
-                    if (!$repeated) {
-                        $labels[$key] = $definition[1];
-                    }
-                    $defined[$key] = true;
-                    if (str_starts_with($definition[1], '^')) {
-                        $this->markdownFootnoteLabels[] = substr($definition[1], 1);
-                    }
-                    if (
-                        !str_starts_with($definition[1], '^')
-                        && preg_match('/[ \t]' . $title . '$/', $target) !== 1
-                        && $i + 1 < $count
-                        && str_starts_with($lines[$i + 1], $quotePrefix)
-                        && preg_match('/^[ \t]*' . $title . '[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix)), $next) === 1
-                    ) {
-                        $target .= ' ' . $next[1];
-                        $continued[] = $lines[++$i];
-                    }
-                    if (!$repeated && !str_starts_with($definition[1], '^') && strpbrk($definition[1], '|<&') !== false) {
-                        $this->complexReferenceTargets[$rawKey] = $target;
-                    }
-                    $referenceDefinitionEnd = $i;
-                    $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
-                    $marker = substr($prefix, strlen($quotePrefix));
-                    // A footnote is not a reference definition, so it stays put. So
-                    // does one on a nested item's marker line, where fmt writes it,
-                    // and one that alone keeps two lists apart.
-                    if (
-                        str_starts_with($definition[1], '^')
-                        || ($opensItem && strspn($marker, ' ') >= 2)
-                        || (!$opensItem && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove))
-                        || (!$opensItem && $referenceNestedListAbove && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, null, $referenceListAbove))
-                    ) {
-                        if (!str_starts_with($definition[1], '^')) {
-                            $this->markdownSourceLines[count($kept)] = $i - count($continued);
-                            $head = strpos($line, '[' . $definition[1] . ']:');
-                            $kept[] = $continued === [] || $head === false
-                                ? $line : substr($line, 0, $head) . '[' . $definition[1] . ']: ' . $target;
-
-                            continue;
-                        }
-                        $continuedCount = count($continued);
-                        for ($at = 0; $at <= $continuedCount; $at++) {
-                            $this->markdownSourceLines[count($kept) + $at] = $i - $continuedCount + $at;
-                        }
-                        array_push($kept, $line, ...$continued);
-
-                        continue;
-                    }
-                    // The first definition of a label wins, so a later one says nothing.
-                    if (!$repeated && (strpbrk($definition[1], '|<&') !== false)) {
-                        $this->complexReferenceTargets[$rawKey] = $target;
-                    }
-                    if (!$repeated) {
-                        $this->movedDefinitions[] = '[' . $definition[1] . ']: ' . $target;
-                    }
-                    if ($fenceCloser !== null) {
-                        $kept[] = $fenceCloser;
-                        $outdent = strspn($fenceCloser, ' ');
-                    }
-                    if ($opensItem) {
-                        $this->emptyDefinitionItem($lines, $i, $prefix, $quotePrefix, $kept);
-
-                        continue;
-                    }
-                    if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
-                        $canStart = false;
-                    }
-
-                    continue;
-                }
-                $raw = $empty[1] ?? '';
-                if (
-                    $raw === ''
-                    && $i + 1 < $count
-                    && str_starts_with($lines[$i + 1], $quotePrefix)
-                    && preg_match('/^[ \t]*' . $title . '[ \t]*$/', substr($lines[$i + 1], strlen($quotePrefix)), $next) === 1
-                ) {
-                    $raw = $next[1];
-                    $i++;
-                }
-                if (!isset($defined[$key])) {
-                    $canonicalLabel = str_contains($definition[1], '\\')
-                        ? $definition[1] : $this->decodeLinkTitle($definition[1]);
-                    $labels[$key] = $canonicalLabel;
-                    if ($raw === '') {
-                        if (str_starts_with($canonicalLabel, '^') || str_starts_with($canonicalLabel, '@') || str_contains($canonicalLabel, '\\')) {
-                            $this->emptyDestinationLabels[$key] = ['title' => '', 'hasTitle' => false];
-                            $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                                'structure-unspellable',
-                                'An empty reference definition with this label cannot be retained.',
-                                'warning',
-                                'dropped',
-                                'exact',
-                                'line:' . ($i + 1),
-                            );
-                        } else {
-                            $this->movedDefinitions[] = '[' . $canonicalLabel . ']:';
-                        }
-                    } else {
-                        $this->emptyDestinationLabels[$key] = ['title' => $this->decodeLinkTitle(substr($raw, 1, -1)), 'hasTitle' => true];
-                        $this->boundaryDiagnostics[] = new MigrationDiagnostic(
-                            'structure-unspellable',
-                            'Dropped a titled empty reference definition; uses become inline links.',
-                            'warning',
-                            'dropped',
-                            'exact',
-                            'line:' . ($i + 1),
-                        );
-                    }
-                }
-                $defined[$key] = true;
-                $referenceDefinitionEnd = $i;
-                $referenceDefinitionAbove[$lineDepth] = $referenceListAbove;
-                $canStart = true;
-                if ($fenceCloser !== null) {
-                    $this->markdownSourceLines[count($kept)] = $i;
-                    $kept[] = $fenceCloser;
-                    if (!$opensItem) {
-                        $outdent = strspn($fenceCloser, ' ');
-                    }
-                }
-                $definitionColumn = strpos($line, '[' . $definition[1] . ']:');
-                if (
-                    !$opensItem && $definitionColumn !== false
-                    && trim(substr($line, strlen($quotePrefix), $definitionColumn - strlen($quotePrefix))) === ''
-                    && $this->partsTwoLists($lines, $i, $kept, $quotePrefix, $referenceListColumns[$lineDepth] ?? [], $referenceListAbove)
-                ) {
-                    for ($blank = 0; $blank < 2; $blank++) {
-                        $this->hardReferenceSeparators[count($kept)] = true;
-                        $this->markdownSourceLines[count($kept)] = $i;
-                        $kept[] = $quotePrefix;
-                    }
-
-                    continue;
-                }
-                if ($opensItem) {
-                    $this->emptyDefinitionItem($lines, $i, $prefix, $quotePrefix, $kept);
-
-                    continue;
-                }
-                if ($this->dropDefinitionLine($lines, $i, $quotePrefix, $kept)) {
-                    $canStart = false;
-                }
-
-                continue;
-            }
-            if ($paragraphLines !== null && !$canStart && !$opensItem && preg_match('/^[ \t]*&#(?:43|45);(?=[ \t])/', $blockContent) === 1) {
-                $paragraphLines[$i] = true;
-            }
-            $this->markdownSourceLines[count($kept)] = $i;
-            $kept[] = $line;
-            if (trim($content) !== '') {
-                unset($referenceDefinitionAbove[$lineDepth]);
-            }
-            if ($canStart || $lineDepth >= $depth || trim($content) === '') {
-                $depth = $lineDepth;
-            }
-            $canStart = trim($content) === ''
-                || preg_match('/^ {0,3}(?:#{1,6}(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$|=+[ \t]*$)/', $content) === 1;
-        }
-
-        foreach ($invalidDefinitionPrefixes as $index => $label) {
-            if ($label === null || !isset($defined[$label])) {
-                $kept[$index] = preg_replace('/^( *)\[/', '$1\\\\[', $kept[$index]) ?? $kept[$index];
-            } else {
-                $kept[$index] = preg_replace('/^( {0,3}\[(?:[^\[\]\\\\]|\\\\.)+\])(?=:)/', '$1[]', $kept[$index]) ?? $kept[$index];
-            }
-        }
-
-        foreach ($bareReferenceHeads as $index => [$label, $rawLabel, $marker, $labelLength]) {
-            if (isset($authoredDefinitions[$rawLabel])) {
-                $kept[$index] = substr_replace($kept[$index], '[]', $marker + $labelLength + 2, 0);
-            } else {
-                $kept[$index] = substr_replace($kept[$index], '\\', $marker, 0);
-            }
-        }
-
-        $this->definedReferenceLabels = $defined;
-        $this->referenceDefinitionLabels = $labels;
-        $this->authoredReferenceLabelKeys = $authoredDefinitions;
-
-        return $kept;
-    }
-
-    /**
-     * Take a footnote definition out of the body for the end of the document,
-     * reporting whether it was taken. `carve fmt` writes footnotes there, ahead
-     * of the reference definitions.
-     *
-     * Paragraph continuations use Carve's two-column prefix. A body with later
-     * blocks retains its Markdown prefix until block conversion removes it.
-     *
-     * @param array<string> $lines
-     * @param int $index Advanced past the block taken.
-     */
-    protected function collectFootnoteDefinition(array $lines, int &$index): bool
-    {
-        $count = count($lines);
-        $end = $index;
-        preg_match('/^ {0,3}\[\^(?:[^\]\\\\]|\\\\.)+\]:[ \t]*(.*)$/', $lines[$index], $opening);
-        $paragraphOpen = isset($opening[1]) && trim($opening[1]) !== '' && !$this->opensMarkdownBlock($opening[1]);
-        for ($at = $index + 1; $at < $count; $at++) {
-            $line = $this->expandLeadingTabs($lines[$at], 8);
-            if (
-                !$paragraphOpen
-                || trim($line) === ''
-                || strspn($line, ' ') >= 8
-                || $this->opensMarkdownBlock(ltrim($line, ' '))
-                || preg_match('/^ *\[\^(?:[^[\]\\\\]|\\\\.)+\]:/', $line) === 1
-            ) {
-                break;
-            }
-            $end = $at;
-        }
-        // Content past a blank line belongs to the footnote too, and this move
-        // would leave it behind.
-        for ($at = $end + 1; $at < $count; $at++) {
-            if (trim($lines[$at]) !== '') {
-                if (strspn($this->expandLeadingTabs($lines[$at], 4), ' ') >= 4) {
-                    $block = [ltrim($lines[$index], ' ')];
-                    for ($next = $index + 1; $next < $count; $next++) {
-                        $line = $this->expandLeadingTabs($lines[$next], 4);
-                        if ($next > $end && trim($line) !== '' && strspn($line, ' ') < 4) {
-                            break;
-                        }
-                        $block[] = trim($line) === '' ? '' : ($next <= $end ? '    ' . ltrim($line, ' ') : $line);
-                    }
-                    while (end($block) === '') {
-                        array_pop($block);
-                    }
-                    $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
-                    $this->movedFootnoteBlockBodies[count($this->movedFootnotes)] = true;
-                    $this->movedFootnotes[] = $block;
-                    $index = $next - 1;
-
-                    return true;
-                }
-
-                break;
-            }
-        }
-        preg_match('/^ {0,3}\[\^((?:[^\]\\\\]|\\\\.)+)\]:/', $lines[$index], $definition);
-        if (isset($definition[1])) {
-            $this->markdownFootnoteLabels[] = $definition[1];
-        }
-        $block = [ltrim($lines[$index], ' ')];
-        if (preg_match('/^ {0,3}\[\^(?:[^\]\\\\]|\\\\.)+\]:[ \t]*$/', $block[0]) === 1 && $end === $index) {
-            $block[0] .= " \x00FNEMPTY\x00";
-        }
-        for ($at = $index + 1; $at <= $end; $at++) {
-            // Reference definitions cannot interrupt the Markdown paragraph, but can in Carve.
-            $block[] = '  ' . $this->escapeBlockOpener(ltrim($this->expandLeadingTabs($lines[$at], 8), ' '));
-        }
-        $this->movedFootnoteSourceLines[] = $index + $this->markdownFrontmatterLines + 1;
-        $this->movedFootnotes[] = $block;
-        $index = $end;
-
-        return true;
-    }
-
-    /**
-     * The item whose marker line held the definition ending at `$index`: its
-     * next line takes the marker and is read again, or it is written empty,
-     * `- %%`, set apart from a following block that would otherwise attach to it.
-     *
-     * @param array<string> $lines
-     * @param int $index
-     * @param string $prefix
-     * @param string $quotePrefix
-     * @param array<string> $kept
-     */
-    protected function emptyDefinitionItem(array &$lines, int $index, string $prefix, string $quotePrefix, array &$kept): void
-    {
-        $marker = substr($prefix, strlen($quotePrefix));
-        $next = $lines[$index + 1] ?? null;
-        $held = $next !== null && str_starts_with($next, $quotePrefix) ? substr($next, strlen($quotePrefix)) : null;
-        // A lazy line: the paragraph holding the definition is still open.
-        $lazy = $next !== null && $held === null && !str_starts_with(ltrim($next, ' '), '>') ? $next : $held;
-        if (
-            $lazy !== null
-            && trim($lazy) !== ''
-            && (
-                ($held !== null && strspn($held, ' ') >= strlen($marker))
-                || !$this->opensMarkdownBlock($lazy)
-            )
-        ) {
-            $lines[$index + 1] = $prefix . ($held !== null && strspn($held, ' ') >= strlen($marker) ? substr($held, strlen($marker)) : ltrim($lazy, ' '));
-
-            return;
-        }
-        $kept[] = rtrim($prefix) . ' ' . self::EMPTY_DEFINITION_ITEM_SENTINEL;
-        if (
-            $held !== null
-            && trim($held) !== ''
-            && preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)/', $held) !== 1
-        ) {
-            $kept[] = rtrim($quotePrefix);
-        }
-    }
-
-    /**
-     * Whether the definition ending at `$index` is all that stands between a
-     * list above it and an item below it in the same container.
-     *
-     * @param array<string> $lines
-     * @param int $index
-     * @param array<string> $kept
-     * @param string $quotePrefix
-     * @param array<int, int>|null $listOwners Content columns of the items holding the definition.
-     * @param bool $listAbove Whether a list precedes the definition.
-     */
-    protected function partsTwoLists(array $lines, int $index, array $kept, string $quotePrefix, ?array $listOwners = null, bool $listAbove = false): bool
-    {
-        if ($listOwners !== null && $listOwners !== []) {
-            return false;
-        }
-        $depth = substr_count($quotePrefix, '>');
-        $item = '/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)/';
-        $below = null;
-        for ($at = $index + 1, $count = count($lines); $at < $count; $at++) {
-            $prefix = $this->quotePrefixOf($lines[$at]);
-            if (substr_count($prefix, '>') !== $depth) {
-                return false;
-            }
-            $text = (string)substr($lines[$at], strlen($prefix));
-            if (trim($text) !== '') {
-                $below = $text;
-
-                break;
-            }
-        }
-        if ($below === null || preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $below) ?? $below) === 1 || preg_match($item, $below) !== 1) {
-            return false;
-        }
-        if ($listAbove) {
-            return true;
-        }
-        if ($listOwners !== null) {
-            return false;
-        }
-        for ($at = count($kept) - 1; $at >= 0; $at--) {
-            $prefix = $this->quotePrefixOf($kept[$at]);
-            if (substr_count($prefix, '>') !== $depth) {
-                return false;
-            }
-            $text = (string)substr($kept[$at], strlen($prefix));
-            if (trim($text) !== '') {
-                return preg_match(self::THEMATIC_BREAK, preg_replace('/^ {0,3}/', '', $text) ?? $text) !== 1
-                    && (preg_match($item, $text) === 1 || preg_match('/^[ \t]+\S/', $text) === 1);
-            }
-        }
-
-        return false;
-    }
-
-    /**
-     * Whether a Markdown line opens a block, so it cannot continue a paragraph.
-     */
-    protected function opensMarkdownBlock(string $line): bool
-    {
-        return preg_match('/^ {0,3}(?:>|#{1,6}(?:[ \t]|$)|`{3,}|~{3,}|(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)|([-*_])(?:[ \t]*\1){2,}[ \t]*$)/', $line) === 1
-            || $this->htmlBlockInterrupts(ltrim($line, ' '));
-    }
-
-    /**
-     * Read a reference definition at `$start` inside a block quote whose title
-     * wraps. Continuation lines carry the quote marker or are lazy. `target` is
-     * null for an empty destination.
-     *
-     * @param array<string> $lines
-     * @param int $start
-     * @param int $depth
-     *
-     * @return array{label: string, title: string, target: string|null, lines: int}|null
-     */
-    protected function readQuotedWrappedDefinition(array $lines, int $start, int $depth): ?array
-    {
-        $chunk = [];
-        $count = count($lines);
-        $destination = false;
-        $closer = null;
-        // Collect only while a title is open, so a run of definitions stays linear.
-        for ($at = $start; $at < $count; $at++) {
-            $prefix = $this->quotePrefixOf($lines[$at]);
-            $lineDepth = substr_count($prefix, '>');
-            $body = substr($lines[$at], strlen($prefix));
-            if ($at > $start && ($lineDepth > $depth || trim($body) === '' || $this->opensMarkdownBlock($body))) {
-                break;
-            }
-            $chunk[] = $body;
-            $rest = preg_replace('/\\\\./', '', $at === $start ? (string)preg_replace('/^ {0,3}\[(?:[^[\]\\\\\n]|\\\\.)+\]:/', '', $body) : $body) ?? '';
-            if (!$destination) {
-                $rest = ltrim($rest);
-                if ($rest === '') {
-                    continue;
-                }
-                $destination = true;
-                $end = $rest[0] === '<'
-                    ? (preg_match('/^<(?:[^<>\n\\\\]|\\\\.)*>/', $rest, $angle) === 1 ? strlen($angle[0]) - 1 : false)
-                    : strcspn($rest, " \t");
-                if ($end === false) {
-                    return null;
-                }
-                $rest = substr($rest, $rest[0] === '<' ? $end + 1 : $end);
-            }
-            if ($closer === null) {
-                $rest = ltrim($rest);
-                if ($rest === '') {
-                    continue;
-                }
-                $closer = ['"' => '"', "'" => "'", '(' => '()'][$rest[0]] ?? null;
-                if ($closer === null) {
-                    return null;
-                }
-                $rest = substr($rest, 1);
-            }
-            if (strpbrk($rest, $closer) !== false) {
-                break;
-            }
-        }
-        if ($closer === null) {
-            return null;
-        }
-        $parsed = MarkdownReferenceDefinition::read(implode("\n", $chunk));
-        if (
-            $parsed === null
-            || str_contains($parsed['label'], "\n")
-            || preg_match('/^(?:<(?:[^<>\n\\\\]|\\\\.)*>|[^<\s]\S*)\s+("(?:\\\\.|[^"\\\\])*"|\'(?:\\\\.|[^\'\\\\])*\'|\((?:\\\\.|[^()\\\\])*\))\s*\z/', $parsed['target'], $titled) !== 1
-            || !str_contains($titled[1], "\n")
-        ) {
-            return null;
-        }
-
-        return [
-            'label' => $parsed['label'],
-            'title' => $this->decodeLinkTitle(substr($titled[1], 1, -1)),
-            'target' => str_starts_with($parsed['target'], '<>') ? null : $parsed['target'],
-            'lines' => $parsed['lines'],
-        ];
-    }
-
-    /**
-     * Drop the definition ending at `$index`. A blank after it goes too where
-     * nothing of its container comes before it or a blank does. A quote left
-     * with nothing else keeps an empty line, so it still renders.
-     *
-     * A lazy line after it continues the paragraph it sat in, so it moves into
-     * the quote, which the return value reports; and a definition that parted
-     * two quotes leaves a blank line, so they stay two.
-     *
-     * @param array<string> $lines
-     * @param int $index
-     * @param string $quotePrefix
-     * @param array<string> $kept
-     */
-    protected function dropDefinitionLine(array $lines, int &$index, string $quotePrefix, array &$kept): bool
-    {
-        $marker = rtrim($quotePrefix);
-        $after = $lines[$index + 1] ?? null;
-        if (
-            $marker !== ''
-            && $after !== null
-            && trim($after) !== ''
-            && !str_starts_with(ltrim($after, ' '), '>')
-            && !$this->opensMarkdownBlock($after)
-            && preg_match('/^ {0,3}\[(?:[^[\]\\\\]|\\\\.)+\]:/', $after) !== 1
-        ) {
-            $kept[] = $quotePrefix . ltrim($after, ' ');
-            $index++;
-
-            return true;
-        }
-        $before = end($kept);
-        $inner = is_string($before) ? substr($before, strlen($this->quotePrefixOf($before))) : '';
-        if (
-            is_string($before)
-            && (
-                substr_count($this->quotePrefixOf($before), '>') > substr_count($marker, '>')
-                || (trim($inner) !== '' && preg_match('/^(?:[ \t]+\S| {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t])/', $inner) === 1 && strspn(substr($lines[$index], strlen($quotePrefix)), ' ') === 0)
-            )
-        ) {
-            $kept[] = $marker;
-
-            return false;
-        }
-        $holds = fn (string|false|null $line): bool => is_string($line)
-            && $marker !== ''
-            && str_starts_with(ltrim($line, ' '), $marker)
-            && trim(substr(ltrim($line, ' '), strlen($marker))) !== '';
-        $next = $lines[$index + 1] ?? null;
-        $last = end($kept);
-        $opened = is_string($last) && $marker !== '' && rtrim(ltrim($last, ' ')) === $marker;
-        if ($marker !== '' && !$holds($last) && !$holds($next) && !$opened) {
-            $kept[] = $quotePrefix;
-        }
-        if ($next === null || !str_starts_with($next, $marker) || trim(substr($next, strlen($marker))) !== '') {
-            return false;
-        }
-        if ($last === false || !str_starts_with($last, $marker) || trim(substr($last, strlen($marker))) === '') {
-            $index++;
-        }
-
-        return false;
-    }
-
-    /**
-     * The quote markers a Markdown line opens with.
-     */
-    protected function quotePrefixOf(string $line): string
-    {
-        return preg_match('/^((?: {0,3}>[ \t]?)*)/', $line, $match) === 1 ? $match[1] : '';
-    }
-
-    /**
-     * The Carve a link or image with no destination leaves behind: a link's
-     * text, or an image's plain alt text written as the HTML importer writes
-     * `<img src="">`, in a span when a title survives.
-     *
-     * @param string $label
-     * @param bool $image
-     * @param string $title Decoded title, or empty.
-     * @param string $before The line up to the link.
-     * @param array<string> $protected
-     * @param \Closure(string): string $protect
-     * @param bool $hasTitle
-     */
-    protected function unwrapEmptyDestination(
-        string $label,
-        bool $image,
-        string $title,
-        string $before,
-        array $protected,
-        Closure $protect,
-        bool $hasTitle = false,
-    ): string {
-        // Bare at the start of a line or container, the text would open a block.
-        $lineStart = preg_match('/^[ \t]*(?:(?:>|[-*+]|(?:[0-9]{1,9}|[A-Za-z])[.)])[ \t]+|>)*$/', $before) === 1;
-        if ($image) {
-            $html = '<p><img src="" alt="' . htmlspecialchars($this->plainAltText($label, $protected), ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"'
-                . (!$hasTitle ? '' : ' title="' . htmlspecialchars($title, ENT_QUOTES | ENT_HTML5, 'UTF-8') . '"') . '></p>';
-            $text = trim((new HtmlToCarve())->convert($html), "\n");
-
-            return $protect($lineStart ? $this->escapeLineInitialBlockSyntax($text) : $text);
-        }
-        $slot = $hasTitle ? '( "' . QuotedSlotEscaper::escape($title, '"') . '")' : '()';
-
-        return '[' . $label . ']' . $protect($slot);
-    }
-
-    /**
-     * @param int $index
-     * @param array<string> $protected
-     * @param array<string> $sources
-     *
-     * @return array{source: string, opaque: bool}|string|null
-     */
-    private function markdownUrlTokenSource(int $index, array $protected, array $sources): array|string|null
-    {
-        $span = $protected[$index] ?? '';
-        $source = $sources[$index] ?? $span;
-        if (preg_match('/^\\\\[\x21-\x2f\x3a-\x40\x5b-\x60\x7b-\x7e]$/', $span) === 1 || $span === '\\' || preg_match('/^&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});$/', $source) === 1) {
-            return $source;
-        }
-        if (preg_match('/^!?`/', $span) === 1 || str_starts_with($span, '(') || str_starts_with($span, '![') || str_starts_with($span, '[')) {
-            return ['source' => $source, 'opaque' => true];
-        }
-
-        return null;
-    }
-
-    /**
-     * @param string $line
-     * @param array<string> $protected
-     * @param array<string> $protectedSources
-     *
-     * @return list<array{start: int, end: int}>
-     */
-    private function plainMarkdownUrlRanges(string $line, array $protected, array $protectedSources): array
-    {
-        return MarkdownBareLinks::ranges($line, function (string $token) use ($protected, $protectedSources): string|array|null {
-            $index = (int)substr($token, 2, -1);
-
-            return $this->markdownUrlTokenSource($index, $protected, $protectedSources);
-        }, 'url');
-    }
-
-    private function hasOddMarkdownDelimiterRun(string $source): bool
-    {
-        // Even runs are consumed in pairs as strong delimiters. A new emphasis
-        // slash requires an odd run; escaped or unmatched runs may over-admit.
-        $length = strlen($source);
-        for ($offset = 0; $offset < $length;) {
-            $offset += strcspn($source, '*_', $offset);
-            if ($offset === $length) {
-                break;
-            }
-            $width = strspn($source, $source[$offset], $offset);
-            if ($width % 2 !== 0) {
-                return true;
-            }
-            $offset += $width;
-        }
-
-        return false;
-    }
-
-    /**
-     * @param string $source
-     * @param array<string> $protected
-     */
-    private function escapeLinkLabelSlashes(string $source, array $protected): string
-    {
-        if (!str_contains($source, '[')) {
-            return $source;
-        }
-
-        $ranges = MarkdownEmphasis::linkLabelRanges($source, $protected);
-        $outermost = [];
-        $previousEnd = 0;
-        foreach ($ranges as $range) {
-            if ($range['start'] < $previousEnd) {
-                continue;
-            }
-            $outermost[] = $range;
-            $previousEnd = $range['end'];
-        }
-        $ranges = array_values(array_filter($outermost, static function (array $range) use ($source, $protected): bool {
-            $label = substr($source, $range['start'], $range['end'] - $range['start']);
-            if (!str_contains($label, '/')) {
-                return false;
-            }
-            $converted = MarkdownEmphasis::convert($label, protectedSpans: $protected);
-
-            return substr_count($converted, '/') > substr_count($label, '/') || preg_match('/<(?:em|i)>/i', $label) === 1;
-        }));
-        if ($ranges === []) {
-            return $source;
-        }
-        $rangeAt = 0;
-        $out = '';
-        $opaqueEnds = [];
-        for ($at = 0, $length = strlen($source); $at < $length; $at++) {
-            if ($source[$at] === '\\' && $at + 1 < $length) {
-                $out .= substr($source, $at, 2);
-                $at++;
-
-                continue;
-            }
-            if ($source[$at] === "\0") {
-                $end = strpos($source, "\0", $at + 1);
-                if ($end !== false) {
-                    $out .= substr($source, $at, $end - $at + 1);
-                    $at = $end;
-
-                    continue;
-                }
-            }
-            $tagEnd = $source[$at] === '<'
-                ? $this->opaqueHtmlEnd($source, $at, $opaqueEnds) ?? ($this->htmlTagAt($source, $at)['end'] ?? null)
-                : null;
-            if ($tagEnd !== null) {
-                $out .= substr($source, $at, $tagEnd - $at);
-                $at = $tagEnd - 1;
-
-                continue;
-            }
-            while (isset($ranges[$rangeAt]) && $ranges[$rangeAt]['end'] <= $at) {
-                $rangeAt++;
-            }
-            $range = $ranges[$rangeAt] ?? null;
-            if ($source[$at] === '/' && $range !== null && $at >= $range['start'] && $at < $range['end']) {
-                $out .= '\\';
-            }
-            $out .= $source[$at];
-        }
-
-        return $out;
-    }
-
-    /**
-     * CommonMark's alt text: the description's content with its markup removed.
-     *
-     * @param string $label
-     * @param array<string> $protected
-     * @param array<string>|null $sources
-     */
-    protected function plainAltText(string $label, array $protected, ?array $sources = null): string
-    {
-        $sources ??= $protected;
-        do {
-            $previous = $label;
-            $label = preg_replace_callback('/\x00P(\d+)\x00/', static function (array $match) use ($protected): string {
-                $span = $protected[(int)$match[1]] ?? $match[0];
-
-                return str_starts_with($span, '(') || str_starts_with($span, '![') || str_starts_with($span, '[') ? $span : $match[0];
-            }, $label) ?? $label;
-            $nested = '';
-            $nestedCursor = 0;
-            $nestedAt = 0;
-            while (preg_match('/!?\[(?<text>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)\](?=\()/', $label, $link, PREG_OFFSET_CAPTURE, $nestedAt) === 1) {
-                $start = $link[0][1];
-                $open = $start + strlen($link[0][0]);
-                $end = $this->markdownActivationTailEnd($label, $open);
-                $destination = $end === null ? '' : substr($label, $open, $end - $open + 1);
-                $original = str_contains($destination, "\0") ? $this->referenceSourceText($destination, $sources) : $destination;
-                if ($end === null || $this->markdownActivationTailEnd($original, 0) !== strlen($original) - 1) {
-                    $nestedAt = $start + 1;
-
-                    continue;
-                }
-                $nested .= substr($label, $nestedCursor, $start - $nestedCursor) . $link['text'][0];
-                $nestedCursor = $nestedAt = $end + 1;
-            }
-            $label = $nested . substr($label, $nestedCursor);
-            $written = '';
-            $cursor = 0;
-            $offset = 0;
-            while (preg_match('/!?\[(?<text>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)\]/', $label, $match, PREG_OFFSET_CAPTURE, $offset) === 1) {
-                $start = $match[0][1];
-                $end = $start + strlen($match[0][0]);
-                $text = $match['text'][0];
-                $written .= substr($label, $cursor, $start - $cursor);
-                $tail = [];
-                $hasTail = preg_match('/\G\[([^[\]\n]*)\]/', $label, $tail, 0, $end) === 1;
-                $reference = $hasTail && $tail[1] !== '' ? $tail[1] : $text;
-                if ($hasTail && isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected))])) {
-                    $written .= $text;
-                    $end += strlen($tail[0]);
-                } else {
-                    $next = $label[$end] ?? '';
-                    $written .= !$hasTail && $next !== '(' && $next !== ':' && isset($this->definedReferenceLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($text, $protected))]) ? $text : $match[0][0];
-                }
-                $cursor = $offset = $end;
-            }
-            $label = $written . substr($label, $cursor);
-        } while ($label !== $previous);
-
-        $label = preg_replace_callback(
-            '/\x00P(\d+)\x00(?=>)/',
-            static fn (array $match): string => ($protected[(int)$match[1]] ?? '') === '\\' ? '' : $match[0],
-            $label,
-        ) ?? $label;
-
-        $label = MarkdownEmphasis::convert($label, protectedSpans: $protected, plainText: true);
-
-        return preg_replace_callback(
-            '/\x00P(\d+)\x00/',
-            function (array $match) use ($protected): string {
-                $span = $protected[(int)$match[1]];
-                if (preg_match('/^(`+)(.*)\1$/s', $span, $code) === 1) {
-                    return preg_match('/^ (.*\S.*) $/s', $code[2], $padded) === 1 ? $padded[1] : $code[2];
-                }
-
-                return $this->decodeLinkTitle($span, $protected);
-            },
-            $label,
-        ) ?? $label;
-    }
-
-    protected function bareDestination(string $pointy): string
-    {
-        $pointyLine = 0;
-        $pointy = preg_replace_callback('/\\\\\n[ \t]*/', function (array $match) use (&$pointyLine): string {
-            $pointyLine++;
-
-            return "\\\n" . (($this->pointyContinuationStrip[$pointyLine] ?? false) ? '' : substr($match[0], 2));
-        }, $pointy) ?? $pointy;
-        $url = preg_replace_callback('/\\\\([!-\/:-@\[-`{-~])/', static fn (array $match): string => $match[1] === '&' ? $match[0] : $match[1], $pointy) ?? $pointy;
-
-        return str_replace('\\%0A', '\\\\%0A', MarkdownDestinationEncoding::destination($url));
-    }
-
-    private function decodeMarkdownScalar(string $text): string
-    {
-        return preg_replace_callback(
-            '/\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
-            fn (array $match): string => $match[1] ?? $this->decodeHtmlReferenceText($match[0]),
-            $text,
-            flags: PREG_UNMATCHED_AS_NULL,
-        ) ?? $text;
-    }
-
-    /**
-     * @param string $url
-     * @param array<string> $protected
-     * @param bool $originalSource
-     * @param bool $table
-     */
-    protected function writeMarkdownDestination(string $url, array $protected = [], bool $originalSource = false, bool $table = false): string
-    {
-        $decoded = $originalSource
-            ? $this->decodeMarkdownScalar($this->referenceSourceText($url, $protected))
-            : $this->decodeLinkTitle($url, $protected);
-
-        $encoded = MarkdownDestinationEncoding::destination($decoded, $table);
-        $this->recordAuthoredDestination($encoded, $this->referenceSourceText($url, $protected));
-
-        return $encoded;
-    }
-
-    /**
-     * @param string $label
-     * @param array<string> $protected
-     */
-    protected function complexReferenceTarget(string $label, array $protected): ?string
-    {
-        return $this->complexReferenceTargets[$this->normalizeReferenceLabel($this->referenceSourceText($label, $protected))] ?? null;
-    }
-
-    /**
-     * @param string $label
-     * @param array<string> $protected
-     *
-     * @return string
-     */
-    protected function referenceSourceText(string $label, array $protected): string
-    {
-        $protectedCount = count($protected);
-        for ($pass = 0; $pass < $protectedCount; $pass++) {
-            $restored = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protected[(int)$match[1]] ?? $match[0], $label) ?? $label;
-            if ($restored === $label) {
-                break;
-            }
-            $label = $restored;
-        }
-
-        return $label;
-    }
-
-    protected function normalizeReferenceLabel(string $label): string
-    {
-        return mb_convert_case(preg_replace('/\s+/u', ' ', trim($label)) ?? $label, MB_CASE_FOLD, 'UTF-8');
-    }
-
-    /**
-     * A title's text: backslash escapes and character references decoded,
-     * protected spans decoded one at a time so their output is not read again.
-     *
-     * @param string $title
-     * @param array<string> $protected
-     */
-    protected function decodeLinkTitle(string $title, array $protected = []): string
-    {
-        return preg_replace_callback(
-            '/\x00P(\d+)\x00|\\\\([!-\/:-@\[-`{-~])|&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
-            fn (array $match): string => match (true) {
-                $match[1] !== null => $this->decodeLinkTitle($protected[(int)$match[1]], $protected),
-                $match[2] !== null => $match[2],
-                default => html_entity_decode($match[0], ENT_QUOTES | ENT_HTML5, 'UTF-8'),
-            },
-            $title,
-            flags: PREG_UNMATCHED_AS_NULL,
-        ) ?? $title;
-    }
-
-    private function decodeHtmlReferenceText(string $text): string
-    {
-        return preg_replace_callback(
-            '/&(?:#[xX][0-9A-Fa-f]{1,6}|#[0-9]{1,7}|[A-Za-z][A-Za-z0-9]{1,31});/',
-            static function (array $match): string {
-                if (preg_match('/^&#([xX]?)([0-9a-fA-F]+);$/', $match[0], $numeric) !== 1) {
-                    return html_entity_decode($match[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                }
-                $point = intval($numeric[2], $numeric[1] === '' ? 10 : 16);
-
-                return $point === 0 || $point > 0x10ffff || ($point >= 0xd800 && $point <= 0xdfff)
-                    ? "\u{FFFD}"
-                    : mb_chr($point, 'UTF-8');
-            },
-            $text,
-        ) ?? $text;
-    }
-
-    protected function verbatimHtmlInline(string $html): string
-    {
-        $this->reportRawSpanTrailingWhitespace($html);
-        $delimiterLength = 1;
-        if (preg_match_all('/`+/', $html, $runs) > 0) {
-            foreach ($runs[0] as $run) {
-                $delimiterLength = max($delimiterLength, strlen($run) + 1);
-            }
-        }
-        $delimiter = str_repeat('`', $delimiterLength);
-
-        return $delimiter . $html . $delimiter . '{=html}';
-    }
-
-    /**
-     * Report every whitespace run a raw span would leave at the end of a
-     * content line.
-     *
-     * CARVE-P2-025 drops such a run from every content line and a verbatim run
-     * crossing a line break is no exception, so the bytes are written and never
-     * read back (markup-carve/carve#2804). Whitespace anywhere else in the span
-     * survives and is not reported.
-     */
-    private function reportRawSpanTrailingWhitespace(string $html): void
-    {
-        if (preg_match_all('/[ \t\v\f]+\n/', $html, $matches, PREG_OFFSET_CAPTURE) < 1) {
-            return;
-        }
-        foreach ($matches[0] as $match) {
-            $line = $this->inlineRunSourceLine === null
-                ? null
-                : $this->inlineRunSourceLine + substr_count(substr($html, 0, (int)$match[1]), "\n");
-            $this->rawSpanWhitespaceDiagnostics[] = new MigrationDiagnostic(
-                'raw-span-whitespace-trimmed',
-                self::RAW_SPAN_WHITESPACE_TRIMMED,
-                'warning',
-                'degraded',
-                'exact',
-                $line === null ? null : 'line:' . $line,
-            );
-        }
-    }
-
-    /**
-     * Escape a marker run that only a DECODED separator turns into a heading.
-     *
-     * CommonMark decides the block before any reference is decoded, and an ATX
-     * heading needs a literal space or tab after its marker run, so
-     * `#&#32;nosep` is a PARAGRAPH whose text begins with `#`. Written bare the
-     * line reads back as a level-1 heading: it gains an id and enters the
-     * outline, and nothing marks the change. Escaping the run keeps the block
-     * the source had, which is what carve-rs writes
-     * (markup-carve/carve-php#3058).
-     *
-     * Only a SPACE opens a Carve heading, so a decoded tab is left bare, as is
-     * a run of seven. `$headingHead` is the control: there the SOURCE supplies
-     * the separator, the line IS a heading, and carve-php#3057 rules it. In a
-     * table cell a `#` run is literal text, so nothing is owed there.
-     *
-     * @param string $line
-     * @param array<int, string> $protected
-     * @param string $contentPrefix
-     * @param bool $headingHead
-     * @param bool $table
-     *
-     * @return string
-     */
-    private function escapeMarkerRunADecodedSeparatorPromotes(
-        string $line,
-        array $protected,
-        string $contentPrefix,
-        bool $headingHead,
-        bool $table,
-    ): string {
-        if ($table || $headingHead || !str_starts_with($line, $contentPrefix)) {
-            return $line;
-        }
-
-        $content = substr($line, strlen($contentPrefix));
-        if (preg_match('/^(#{1,6})\x00P(\d+)\x00/', $content, $match) !== 1) {
-            return $line;
-        }
-        if (($protected[(int)$match[2]] ?? '') !== ' ') {
-            return $line;
-        }
-
-        $rest = substr($content, strlen($match[0]));
-        // The decode WAS the whole content. A marker run alone on its line is
-        // already a paragraph in Carve, so the separator goes and the run stays
-        // bare: `#&#32;` writes `#`.
-        if (preg_match('/^[ \t]*$/', $rest) === 1) {
-            return $contentPrefix . $match[1];
-        }
-
-        return $contentPrefix . str_replace('#', '\\#', $match[1]) . substr($content, strlen($match[1]));
-    }
-
-    /**
-     * Drop whitespace a decoded character reference put at the start of a line,
-     * and report it.
-     *
-     * To every block rule that runs after the decode that whitespace is
-     * indentation, and Carve spells none at a paragraph's start, so it reaches
-     * the document either way as nothing: written, it is read back as nothing.
-     * Dropped rather than substituted - see
-     * `self::LEADING_WHITESPACE_UNSPELLABLE`.
-     *
-     * A marker the drop uncovers at column 0 is escaped, so the line stays the
-     * paragraph it was: `&#32;- item` is text, not a list. A reference
-     * definition needs its own escape, since it reaches no output at all rather
-     * than merely becoming a different block.
-     *
-     * @param string $line
-     * @param array<int, string> $protected
-     * @param bool $bareContentStart
-     * @param string $contentPrefix
-     * @param \Closure $protect
-     * @param bool $headingHead
-     */
-    private function dropDecodedLeadingWhitespace(
-        string $line,
-        array &$protected,
-        bool $bareContentStart,
-        string $contentPrefix,
-        Closure $protect,
-        bool $headingHead = false,
-    ): string {
-        if (!$bareContentStart || $this->inlineRunContinuesPrevious || !str_starts_with($line, $contentPrefix)) {
-            return $line;
-        }
-
-        $content = substr($line, strlen($contentPrefix));
-        if ($headingHead) {
-            $headingContent = rtrim($content, " \t");
-            $decodedContent = preg_replace_callback('/\x00P(\d+)\x00/', static fn (array $match): string => $protected[(int)$match[1]] ?? $match[0], $headingContent) ?? $headingContent;
-            if ($decodedContent !== '' && preg_match('/^[ \t]+$/', $decodedContent) === 1) {
-                $this->leadingWhitespaceDiagnostics[] = new MigrationDiagnostic(
-                    'raw-preserved',
-                    self::HEADING_WHITESPACE_RAW_PRESERVED,
-                    'warning',
-                    'degraded',
-                    'exact',
-                    $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
-                );
-
-                return $contentPrefix . $protect($this->verbatimHtmlInline($decodedContent), $headingContent);
-            }
-        }
-        $dropped = false;
-        while (preg_match('/^\x00P(\d+)\x00/', $content, $match) === 1) {
-            $index = (int)$match[1];
-            if (preg_match($headingHead ? '/^ +$/' : '/^[ \t]+$/', $protected[$index] ?? '') !== 1) {
-                break;
-            }
-            $protected[$index] = '';
-            $content = substr($content, strlen($match[0]));
-            $dropped = true;
-        }
-        if (!$dropped) {
-            return $line;
-        }
-
-        $this->leadingWhitespaceDiagnostics[] = new MigrationDiagnostic(
-            'structure-unspellable',
-            $headingHead ? self::HEADING_LEADING_WHITESPACE_UNSPELLABLE : self::LEADING_WHITESPACE_UNSPELLABLE,
-            'warning',
-            'dropped',
-            'exact',
-            $this->inlineRunSourceLine === null ? null : 'line:' . $this->inlineRunSourceLine,
-        );
-
-        // Past a heading marker there is no block to open, so what the drop
-        // uncovers needs no escape: `# &#32;- x` is the heading `# - x`.
-        if ($headingHead) {
-            return $contentPrefix . $content;
-        }
-
-        // The uncovered opener can itself be a DECODED character, a protected
-        // span by now, so that escape goes inside the span: without it
-        // `&#32;&gt; quote` left a `>` at column 0 and opened a quote. A span
-        // the decode escaper already froze needs nothing.
-        if (preg_match('/^\x00P(\d+)\x00/', $content, $head) === 1) {
-            $index = (int)$head[1];
-            $span = $protected[$index] ?? '';
-            if (!str_starts_with($span, '\\') && str_starts_with($this->escapeLineInitialBlockSyntax($span . substr($content, strlen($head[0]))), '\\')) {
-                $protected[$index] = '\\' . $span;
-            }
-
-            return $contentPrefix . $content;
-        }
-
-        $content = $this->escapeLineInitialBlockSyntax($content);
-
-        return $contentPrefix . (preg_replace('/^\*?(?=\[[^\]\n]*\]:)/', '\\\\$0', $content) ?? $content);
-    }
-
-    /**
-     * Make decoded HTML-reference text inert in Carve source.
-     *
-     * A reference is text even when it decodes to punctuation that could open
-     * Carve markup. Escaping those ASCII punctuation characters before the
-     * protected span is restored keeps `&ast;x&ast;` as literal `*x*` while
-     * leaving ordinary Unicode references such as `&copy;` untouched.
-     */
-    protected function escapeDecodedCharacterReference(string $text): string
-    {
-        return preg_replace('/([\\\\`*_{}\[\]()#+.!~\/=^,:@\$%|\-<>])/', '\\\\$1', $text) ?? $text;
-    }
-
-    /**
-     * Escape the Carve constructs that CommonMark and GFM read as ORDINARY
-     * TEXT (markup-carve/carve#1130; the carve-js#1060 rule set).
-     *
-     * @param string $line
-     * @param array<string> $protected The protected spans, so a sigil can be checked against the code span it precedes.
-     */
-    protected function escapeCarveConstructsSpelledLikeText(string $line, array $protected): string
-    {
-        // `$`x`` / `$$`x`` (math) and `!`x`` (literal). The code span is a
-        // placeholder by now, so the sigil is matched against the placeholder
-        // and the stored span is checked to BE a code span rather than some
-        // other protected construct. EVERY dollar of the run is escaped, not
-        // just the first: in `\$$`x`` the second dollar still opens math.
-        $line = preg_replace_callback('/(?<!\\\\)(\$+|!)\x00P(\d+)\x00/', function (array $match) use ($protected): string {
-            if (!str_starts_with($protected[(int)$match[2]] ?? '', '`')) {
-                return $match[0];
-            }
-            $escaped = '';
-            foreach (str_split($match[1]) as $char) {
-                $escaped .= '\\' . $char;
-            }
-
-            return $escaped . substr($match[0], strlen($match[1]));
-        }, $line) ?? $line;
-
-        // `:name[…]` calls an extension. The opener needs no left boundary -
-        // Carve reads `foo:term[x]` as an extension call the same as
-        // ` :term[x]` - so the rule takes none either. `at 10:30[x]` is
-        // untouched because the name must start with a letter.
-        $line = preg_replace_callback('/(?<!\\\\):(?=[A-Za-z][A-Za-z0-9-]*\[)/', static fn (): string => '\\:', $line) ?? $line;
-
-        if (!$this->convertInlineFootnotes) {
-            // `^[body]` is an inline footnote: the text moves to the foot of
-            // the document. A footnote REFERENCE is untouched - the caret in
-            // `a[^1]` is followed by the label, not by a bracket.
-            $line = preg_replace_callback('/(?<!\\\\)\^(?=\[)/', static fn (): string => '\\^', $line) ?? $line;
-        }
-
-        if (!$this->convertAbbreviations) {
-            // `*[HTML]: HyperText` defines an abbreviation: the definition
-            // line disappears from the render and every later `HTML` becomes
-            // an `<abbr>`. Carve wants the space after the colon, so `*[A]:x`
-            // is already literal.
-            $line = preg_replace_callback('/^(?=\*\[[^\]\n]+\]:[ \t])/m', static fn (): string => '\\', $line) ?? $line;
-        }
-
-        if (!$this->convertFencedDivs) {
-            // `::: name` opens a div and `:::` closes it: both fence lines
-            // disappear from the render and everything between them is
-            // wrapped. Carve wants a space or a line end after the colons, so
-            // `:::note` is already literal.
-            $line = preg_replace_callback('/^(?=:{3,}([ \t]|$))/m', static fn (): string => '\\', $line) ?? $line;
-        }
-
-        return $line;
-    }
-
-    /**
-     * Escape every hyphen of a `--` or `---` run, which Carve's smart typography
-     * renders as an en or em dash and Markdown keeps as typed. A line that is
-     * only a thematic break, alone or under its containers' markers, is
-     * structure rather than text and keeps its hyphens.
-     */
-    protected function escapeTypographicDashes(string $line): string
-    {
-        if (!str_contains($line, '--')) {
-            return $line;
-        }
-        $rest = preg_replace('/^[ \t]*(?:>[ \t]?)*/', '', $line) ?? $line;
-        while (true) {
-            if (preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $rest) === 1) {
-                return $line;
-            }
-            if (preg_match('/^[ \t]*(?:(?:[-*+]|\d+[.)]) +|>[ \t]?)/', $rest, $marker) !== 1) {
-                break;
-            }
-            $rest = substr($rest, strlen($marker[0]));
-        }
-
-        return preg_replace_callback('/(?<!\\\\)-{2,}/', static fn (array $run): string => str_replace('-', '\\-', $run[0]), $line) ?? $line;
-    }
-
-    protected function escapeAttributeListsThatAttach(string $line): string
-    {
-        $escapeUnlessDelimiterPair = function (array $match): string {
-            $interior = $match[1];
-            if (preg_match('/^([\^,=+\-~\/#*_])[^\n]*\1$/', $interior) === 1 || (preg_match('/^[\/*_^,~=]/', $interior) === 1 && str_contains($interior, '{'))) {
-                return $match[0];
-            }
-            // A TAG opener at the head of the payload needs escaping too: the
-            // general tag rule skips a `#` behind an unescaped `{`, and
-            // escaping the brace here takes that premise away, so `{#id}`
-            // came out as `\{` plus a live `#id` tag. Only the head position
-            // is affected; `{.a #b}` is escaped by the general rule already.
-            $interior = preg_replace('/^#(?=[A-Za-z0-9-])/', '\\\\#', $interior) ?? $interior;
-
-            return '\\{' . $interior . '}';
-        };
-
-        $line = preg_replace_callback('/(?<=\x00|[\]\/*_~=,^}])\{([^}\n]*)\}/', $escapeUnlessDelimiterPair, $line) ?? $line;
-
-        return preg_replace_callback('/^\{([^}\n]*)\}(?=[ \t]*$)/m', $escapeUnlessDelimiterPair, $line) ?? $line;
-    }
-
-    /**
-     * A body that would close or re-open the braced critic construct it is
-     * about to be written into, so the tag stays a raw span instead.
-     */
-    protected function breaksOutOfACriticBody(string $body): bool
-    {
-        return preg_match('/[{}\\\\\n]|~>/', $body) === 1;
-    }
-
-    /**
-     * @param string $source
-     * @param int $start
-     * @param array<string, int|false> $ends
-     */
-    private function opaqueHtmlEnd(string $source, int $start, array &$ends): ?int
-    {
-        if (substr_compare($source, '<!-->', $start, 5) === 0) {
-            return $start + 5;
-        }
-        if (substr_compare($source, '<!--->', $start, 6) === 0) {
-            return $start + 6;
-        }
-        $kind = null;
-        $terminator = '';
-        $minimum = $start;
-        if (substr_compare($source, '<!--', $start, 4) === 0) {
-            [$kind, $terminator, $minimum] = ['comment', '-->', $start + 4];
-        } elseif (substr_compare($source, '<?', $start, 2) === 0) {
-            [$kind, $terminator, $minimum] = ['processing', '?>', $start + 2];
-        } elseif (substr_compare($source, '<![CDATA[', $start, 9) === 0) {
-            [$kind, $terminator, $minimum] = ['cdata', ']]>', $start + 9];
-        } elseif (substr_compare($source, '<!', $start, 2) === 0 && preg_match('/[A-Za-z]/', $source[$start + 2] ?? '') === 1) {
-            [$kind, $terminator, $minimum] = ['declaration', '>', $start + 3];
-        }
-        if ($kind === null) {
-            return null;
-        }
-        if (!array_key_exists($kind, $ends) || ($ends[$kind] !== false && $ends[$kind] < $minimum)) {
-            $ends[$kind] = strpos($source, $terminator, $minimum);
-        }
-
-        return $ends[$kind] === false ? null : $ends[$kind] + strlen($terminator);
-    }
-
-    /**
-     * @param string $source
-     * @param array<string> $protected
-     *
-     * @return array<int, true>
-     */
-    private function htmlCodeUnchangedByEmphasis(string $source, array $protected): array
-    {
-        $restorations = [];
-        $masked = '';
-        $ends = [];
-        for ($at = 0, $length = strlen($source); $at < $length;) {
-            if ($source[$at] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $source[$at + 1] ?? '') === 1) {
-                $token = "\x00P" . count($protected) . "\x00";
-                $protected[] = $restorations[$token] = substr($source, $at, 2);
-                $masked .= $token;
-                $at += 2;
-
-                continue;
-            }
-            $end = $source[$at] === '<'
-                ? $this->opaqueHtmlEnd($source, $at, $ends) ?? ($this->htmlTagAt($source, $at)['end'] ?? null)
-                : null;
-            if ($end === null && $source[$at] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*)>/', $source, $autolink, 0, $at) === 1) {
-                $end = $at + strlen($autolink[0]);
-            }
-            if ($end === null) {
-                $masked .= $source[$at++];
-
-                continue;
-            }
-            $token = "\x00P" . count($protected) . "\x00";
-            $protected[] = $restorations[$token] = substr($source, $at, $end - $at);
-            $masked .= $token;
-            $at = $end;
-        }
-        $converted = strtr(MarkdownEmphasis::convert($masked, protectedSpans: $protected, plainText: true, strikethrough: true), $restorations);
-        preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $source, $before, PREG_OFFSET_CAPTURE);
-        preg_match_all('/<code>((?:[^<\n]|<!---->)*)<\/code>/i', $converted, $after);
-        $unchanged = [];
-        foreach ($before[0] as $index => [$code, $offset]) {
-            if (($after[0][$index] ?? null) === $code) {
-                $unchanged[$offset] = true;
-            }
-        }
-
-        return $unchanged;
-    }
-
-    /**
-     * @param string $source
-     * @param callable(string): string $map
-     */
-    private function mapOpaqueHtmlFragments(string $source, callable $map): string
-    {
-        $out = '';
-        $copied = 0;
-        $ends = [];
-        for ($at = 0, $length = strlen($source); $at < $length;) {
-            if ($source[$at] !== '<') {
-                $at++;
-
-                continue;
-            }
-            $end = $this->opaqueHtmlEnd($source, $at, $ends);
-            if ($end !== null) {
-                $out .= substr($source, $copied, $at - $copied) . $map(substr($source, $at, $end - $at));
-                $copied = $at = $end;
-            } else {
-                $at = $this->htmlTagAt($source, $at)['end'] ?? $at + 1;
-            }
-        }
-
-        return $out . substr($source, $copied);
-    }
-
-    /**
-     * @return array{end: int, name: string, closing: bool, attrs: bool}|null
-     */
-    protected function htmlTagAt(string $source, int $start): ?array
-    {
-        if (preg_match('/\G<(\/?)([A-Za-z][A-Za-z0-9-]*)/', $source, $head, 0, $start) !== 1) {
-            return null;
-        }
-        $i = $start + strlen($head[0]);
-        $length = strlen($source);
-        $closing = $head[1] === '/';
-        $attrs = false;
-        while ($i < $length) {
-            $beforeSpace = $i;
-            $i += strspn($source, " \t\n\r\f", $i);
-            if (($source[$i] ?? '') === '>' || (!$closing && substr($source, $i, 2) === '/>')) {
-                return ['end' => $i + ($source[$i] === '/' ? 2 : 1), 'name' => strtolower($head[2]), 'closing' => $closing, 'attrs' => $attrs];
-            }
-            if ($closing || $i === $beforeSpace || preg_match('/\G[A-Za-z_:][A-Za-z0-9_.:-]*/', $source, $attribute, 0, $i) !== 1) {
-                return null;
-            }
-            $attrs = true;
-            $i += strlen($attribute[0]);
-            $afterName = $i;
-            $i += strspn($source, " \t\n\r\f", $i);
-            if (($source[$i] ?? '') !== '=') {
-                $i = $afterName;
-
-                continue;
-            }
-            $i++;
-            $i += strspn($source, " \t\n\r\f", $i);
-            if (($source[$i] ?? '') === '"' || ($source[$i] ?? '') === "'") {
-                $end = strpos($source, $source[$i], $i + 1);
-                if ($end === false || str_contains(substr($source, $i, $end - $i), "\0")) {
-                    return null;
-                }
-                $i = $end + 1;
-            } else {
-                $width = strcspn($source, " \t\n\r\f\"'=<>`\0", $i);
-                if ($width === 0) {
-                    return null;
-                }
-                $i += $width;
-            }
-        }
-
-        return null;
-    }
-
-    /**
-     * Protect inline code spans, including multi-backtick spans.
-     *
-     * @param string $line
-     * @param callable $replace
-     */
-    protected function protectCodeSpans(string $line, callable $replace): string
-    {
-        if (!str_contains($line, '`')) {
-            return $line;
-        }
-
-        $out = '';
-        $i = 0;
-        $opaqueEnds = [];
-        $length = strlen($line);
-        $nextRuns = [];
-        $lastRuns = [];
-        preg_match_all('/`+/', $line, $runs, PREG_OFFSET_CAPTURE);
-        for ($at = count($runs[0]) - 1; $at >= 0; $at--) {
-            [$run, $offset] = $runs[0][$at];
-            $size = strlen($run);
-            $nextRuns[$offset] = $lastRuns[$size] ?? -1;
-            if ($size > 1 && $offset > 0 && $line[$offset - 1] === '\\') {
-                $nextRuns[$offset + 1] = $lastRuns[$size - 1] ?? -1;
-            }
-            $lastRuns[$size] = $offset;
-        }
-        while ($i < $length) {
-            if ($line[$i] === '\\' && preg_match('/[!-\/:-@\[-`{-~]/', $line[$i + 1] ?? '') === 1) {
-                $out .= substr($line, $i, 2);
-                $i += 2;
-
-                continue;
-            }
-            if ($line[$i] === '<') {
-                $opaque = $this->opaqueHtmlEnd($line, $i, $opaqueEnds);
-                if ($opaque !== null) {
-                    $out .= substr($line, $i, $opaque - $i);
-                    $i = $opaque;
-
-                    continue;
-                }
-            }
-            if ($line[$i] === '<' && preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $line, $autolink, 0, $i) === 1) {
-                $out .= $autolink[0];
-                $i += strlen($autolink[0]);
-
-                continue;
-            }
-            $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
-            if ($tag !== null) {
-                $out .= substr($line, $i, $tag['end'] - $i);
-                $i = $tag['end'];
-
-                continue;
-            }
-            if ($line[$i] !== '`') {
-                $out .= $line[$i];
-                $i++;
-
-                continue;
-            }
-
-            $runLength = $this->backtickRunLength($line, $i);
-            $closed = $nextRuns[$i] ?? -1;
-
-            if ($closed === -1) {
-                $out .= $replace(str_repeat('\\`', $runLength), $i, str_repeat('`', $runLength));
-                $i += $runLength;
-
-                continue;
-            }
-
-            $out .= $replace(substr($line, $i, $closed - $i + $runLength));
-            $i = $closed + $runLength;
-        }
-
-        return $out;
-    }
-
-    /**
-     * The fence `carve fmt` writes around a code body: backticks, one longer
-     * than the longest backtick run in the body, three at least.
-     *
-     * @param array<int, string> $body
-     */
-    protected function canonicalFence(array $body): string
-    {
-        $longest = 0;
-        foreach ($body as $line) {
-            if (preg_match_all('/`+/', $line, $runs) > 0) {
-                $longest = max($longest, ...array_map('strlen', $runs[0]));
-            }
-        }
-
-        return str_repeat('`', max(3, $longest + 1));
     }
 
     /**
@@ -11447,22 +5146,21 @@ class MarkdownToCarve
         foreach (array_slice($result, $openerAt + 1) as $line) {
             $body[] = $this->stripColumns((string)$line, $column);
         }
-        $fence = $this->canonicalFence($body);
+        $fence = $this->inlineStage->canonicalFence($body);
         $opener = (string)$result[$openerAt];
         $result[$openerAt] = substr($opener, 0, strlen($opener) - $run - strlen($info)) . $fence . $info;
 
         return str_repeat(' ', $column) . $fence;
     }
 
+    protected function protectCodeSpans(string $line, callable $replace): string
+    {
+        return $this->inlineStage->protectCodeSpans($line, $replace);
+    }
+
     protected function backtickRunLength(string $line, int $index): int
     {
-        $length = strlen($line);
-        $runLength = 0;
-        while ($index + $runLength < $length && $line[$index + $runLength] === '`') {
-            $runLength++;
-        }
-
-        return $runLength;
+        return $this->inlineStage->backtickRunLength($line, $index);
     }
 
     /**
