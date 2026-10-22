@@ -30,6 +30,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, #3559, #3560).
 
 ### Improvements
+- Lint warns on a `:` or `::` below the column of the definition list it would continue with `description-separator-below-content-column` (#3714).
 - `carve fmt --align-tables` aligns table columns by display width; the PHP formatter and converter expose the option (#3546).
 - Includes can insert a whole file or selected region as a code block (#3544).
 - `carve lint` checks included content when given an include root and reports near misses for consumed `table` and `loose` keys (#3557, #3561, markup-carve/carve#3339, markup-carve/carve#3340).
