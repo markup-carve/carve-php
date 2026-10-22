@@ -3356,6 +3356,30 @@ class BlockParser
      */
     protected function tryParseBlockQuote(Node $parent, array $lines, int $start): ?int
     {
+        $line = $lines[$start];
+        $lead = $line[2] ?? '';
+        if (
+            str_starts_with($line, '> ')
+            && ($lead >= 'A' && $lead <= 'Z' || $lead >= 'a' && $lead <= 'z')
+            && static::class === self::class
+            && $parent::class === Document::class
+            && !$this->collectWarnings
+            && !$this->strictMode
+            && !$this->state->source->trackPositions
+            && !$this->state->source->trackSourceLines
+            && $this->state->session->pendingAttributes === []
+            && $this->state->session->pendingAttributeOrder === []
+            && $this->state->session->pendingAttributeSpan === null
+            && IndentationHelper::isBlankLine($lines[$start + 1] ?? '')
+        ) {
+            $quote = new BlockQuote();
+            $this->parseBlocks($quote, [substr($line, 2)], 0, [$this->sourceLineFor($start)]);
+            $this->endContainerAttributeScope();
+            $parent->appendChild($quote);
+
+            return 1;
+        }
+
         return $this->quotesBuilder()->tryParseBlockQuote($parent, $lines, $start);
     }
 
