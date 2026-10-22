@@ -240,6 +240,7 @@ final class BlockContinuationScanner
                 && IndentationHelper::getLeadingColumns($nextLine, 1) === 0
                 && !$this->isBlockElementStart(ltrim($nextLine, " \t"), $lines, $i)
                 && !$this->startsNewBlock(ltrim($nextLine, " \t"), $lines, $i)
+                && !$this->isFoldableInvisibleLine(ltrim($nextLine, " \t"))
             ) {
                 $itemLines[] = ' ' . ltrim($nextLine, " \t");
                 $itemLineMap[] = $this->sourceLineFor($i);
