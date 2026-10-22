@@ -6,6 +6,7 @@ namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
+use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\Table;
 use MarkupCarve\Carve\Node\Inline\Text;
@@ -79,6 +80,7 @@ class SourceLinter
         $blockRuns = [];
         $starts = [];
         $items = [];
+        $descriptions = [];
         $fences = [];
         $textSpans = [];
         $pending = [[$document, 0]];
@@ -191,6 +193,13 @@ class SourceLinter
                         if (!str_starts_with(ltrim($text), '{')) {
                             break;
                         }
+                    }
+                }
+                if ($node instanceof DefinitionDescription && isset($rows[$pos->startLine - 1])) {
+                    $text = $rows[$pos->startLine - 1][0];
+                    $at = strlen(mb_substr($text, 0, $pos->startColumn - 1, 'UTF-8'));
+                    if (preg_match('/^:[ \t]+/', substr($text, $at), $match)) {
+                        $descriptions[] = ['first' => $pos->startLine, 'last' => $pos->endLine, 'content' => self::visual(substr($text, 0, $at + strlen($match[0])))];
                     }
                 }
                 if ($node instanceof ListItem && isset($rows[$pos->startLine - 1])) {
@@ -335,6 +344,15 @@ class SourceLinter
                 }
             }
             $candidate = $containing ?? $adjacent;
+            // A description inside the item is the innermost container, so its content column places the block.
+            foreach ($descriptions as $description) {
+                if (
+                    $candidate !== null && $description['first'] >= $candidate['first'] && $description['first'] < $ln
+                    && $ln <= $description['last'] && $description['content'] > $candidate['content'] && $column >= $description['content']
+                ) {
+                    continue 2;
+                }
+            }
             $rule = null;
             if ($candidate !== null) {
                 if ($column > $candidate['content'] && !$continuingRun) {
