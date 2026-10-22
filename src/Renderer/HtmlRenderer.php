@@ -1198,6 +1198,12 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 if ($node instanceof ListBlock && $this->isPlainTightList($node)) {
                     return $this->renderPlainTightList($node);
                 }
+                if ($node instanceof ListBlock && !$node->isTight()) {
+                    $plainLoose = $this->tryRenderPlainLooseList($node);
+                    if ($plainLoose !== null) {
+                        return $plainLoose;
+                    }
+                }
                 if ($node instanceof BlockQuote) {
                     $children = $node->getChildren();
                     if (
@@ -1355,6 +1361,56 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
             }
         } finally {
             $this->renderDepth -= 2;
+        }
+
+        return $html . "</ul>\n";
+    }
+
+    private function tryRenderPlainLooseList(ListBlock $node): ?string
+    {
+        if (
+            $node->isTight() || $node->getListType() !== ListBlock::TYPE_BULLET
+            || $node->getMarker() !== '-' || $this->roundTripMode
+            || $this->renderMode === RenderMode::STATIC
+            || $this->renderDepth >= self::MAX_RENDER_DEPTH - 2
+            || $this->getRenderableAttributes($node) !== []
+            || $this->hasListenersFor('render.list_item')
+            || $this->hasListenersFor('render.paragraph')
+            || $this->hasListenersFor('render.text')
+        ) {
+            return null;
+        }
+
+        $items = $node->getChildren();
+        if ($items === []) {
+            return null;
+        }
+        $html = "<ul>\n";
+        foreach ($items as $item) {
+            if (
+                $item::class !== ListItem::class || $item->isTask()
+                || $item->getAuthoredTaskState() !== null
+                || $this->getRenderableAttributes($item) !== []
+            ) {
+                return null;
+            }
+            $blocks = $item->getChildren();
+            if (count($blocks) !== 1 || $blocks[0]::class !== Paragraph::class) {
+                return null;
+            }
+            $paragraph = $blocks[0];
+            if ($paragraph->isBlockImage() || $this->getRenderableAttributes($paragraph) !== []) {
+                return null;
+            }
+            $inlines = $paragraph->getChildren();
+            if (count($inlines) !== 1 || $inlines[0]::class !== Text::class) {
+                return null;
+            }
+            $content = $inlines[0]->getContent();
+            if (str_contains($content, "\n")) {
+                return null;
+            }
+            $html .= '  <li><p>' . $this->escape($content) . "</p></li>\n";
         }
 
         return $html . "</ul>\n";
