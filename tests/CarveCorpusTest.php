@@ -50,6 +50,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-first-block-marker-does-not-pull-a-column-zero-list-into-a-note-or-description',
         'a-lazy-colon-shaped-line-in-a-quote-paragraph-keeps-no-indentation',
         'a-fence-run-that-dedents-out-of-a-child-keeps-the-outer-item-tight',
         'a-folded-fence-run-leaves-a-later-paragraph-loose',
