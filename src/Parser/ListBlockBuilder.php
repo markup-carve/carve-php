@@ -786,6 +786,19 @@ final class ListBlockBuilder
                         $list->setTight(false);
                     }
                 }
+                // A blank before a `+` that continues the marker-line sub-list
+                // loosens this list, as on the indented-continuation path.
+                foreach ($itemLines as $k => $collectedLine) {
+                    if ($k === 0 || trim($collectedLine) !== '+' || !IndentationHelper::isBlankLine($itemLines[$k - 1])) {
+                        continue;
+                    }
+                    $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $itemLineMap[$k] ?? -1);
+                    if ($decision['reason'] === null && ($decision['owner']['kind'] ?? null) === 'list' && $decision['owner']['column'] > $baseIndent) {
+                        $list->setTight(false);
+
+                        break;
+                    }
+                }
                 $listItem->setPos($itemOpeningColumn === null ? null : $this->spanForLineMap($itemLineMap, $itemOpeningColumn));
                 foreach ($itemLines as &$collectedLine) {
                     if (
