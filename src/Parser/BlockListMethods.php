@@ -100,10 +100,14 @@ trait BlockListMethods
             return $plain;
         }
 
+        // A single * or ` may start inline content in a plain item. Marker
+        // lines and multi-backtick fences still use the general collector.
         if (
             ($lines[$start][0] ?? '') === '-'
             && ($lines[$start][1] ?? '') === ' '
-            && ctype_alnum($lines[$start][2] ?? '')
+            && (ctype_alnum($lines[$start][2] ?? '')
+                || (($lines[$start][2] ?? '') === '*' && ctype_alnum($lines[$start][3] ?? ''))
+                || (($lines[$start][2] ?? '') === '`' && ($lines[$start][3] ?? '') !== '`'))
         ) {
             $wrapped = $this->tryParseWrappedTightList($parent, $lines, $start);
             if ($wrapped !== null) {
@@ -256,7 +260,9 @@ trait BlockListMethods
         while ($i < $count && str_starts_with($lines[$i], '- ')) {
             $first = substr($lines[$i], 2);
             if (
-                $first === '' || !ctype_alnum($first[0]) || $first !== rtrim($first, " \t")
+                $first === '' || (!ctype_alnum($first[0]) && ($first[0] !== '*' || !ctype_alnum($first[1] ?? ''))
+                    && ($first[0] !== '`' || ($first[1] ?? '') === '`'))
+                || $first !== rtrim($first, " \t")
                 || $this->listParser->parseListItemMarker($first) !== null
             ) {
                 return null;
@@ -274,6 +280,7 @@ trait BlockListMethods
                 $text = substr($line, 2);
                 if (
                     !ctype_alnum($text[0] ?? '') && ($text[0] ?? '') !== '['
+                        && (($text[0] ?? '') !== '`' || ($text[1] ?? '') === '`')
                     || preg_match('/^\[[^]]+\]:/', $text) === 1
                     || $this->listParser->parseListItemMarker($text) !== null
                 ) {

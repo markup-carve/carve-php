@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Parser;
 
+use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Node\Block\ListBlock;
+use MarkupCarve\Carve\Parser\BlockParser;
 use PHPUnit\Framework\TestCase;
 
 class WrappedTightListFastPathTest extends TestCase
@@ -35,5 +37,22 @@ class WrappedTightListFastPathTest extends TestCase
             "<ul>\n  <li>alpha\n    <ol>\n      <li>nested</li>\n    </ol>\n  </li>\n  <li>gamma</li>\n</ul>\n",
             (new CarveConverter())->convert($source),
         );
+    }
+
+    public function testInlineLedItemsKeepTheGeneralParsersAst(): void
+    {
+        $sources = [
+            "- *Parse* reads a document.\n- *Render* writes HTML.\n",
+            "- `code` starts an item.\n  `next` continues it.\n- Second item.\n\nTail.\n",
+            "- First item.\n  Continues here.\n- `code` in the next item.\n  More text.\n",
+            "- ```\n  fenced content\n  ```\n- Next item.\n",
+        ];
+        $codec = new AstCodec();
+        foreach ($sources as $source) {
+            $optimized = (new CarveConverter())->parse($source);
+            $general = (new CarveConverter(parser: new class extends BlockParser {
+            }))->parse($source);
+            self::assertSame($codec->encodeJson($general), $codec->encodeJson($optimized), $source);
+        }
     }
 }
