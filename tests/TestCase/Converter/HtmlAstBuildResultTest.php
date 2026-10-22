@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\Ast\AstCodec;
-use MarkupCarve\Carve\Converter\HtmlAstBuildResult;
 use MarkupCarve\Carve\Converter\Html\ImportSession;
 use MarkupCarve\Carve\Converter\HtmlAstBuilder;
+use MarkupCarve\Carve\Converter\HtmlAstBuildResult;
 use MarkupCarve\Carve\Node\Block\Paragraph;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\Text;
