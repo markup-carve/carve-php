@@ -13,6 +13,9 @@ repository - this suite intentionally benchmarks only this library.
 # Run the main benchmark
 php tests/benchmark/benchmark.php
 
+# Compare converter and parser workloads; arguments are rounds, repetitions, and optional workload
+php tests/benchmark/converter-workloads.php 7 5
+
 # Full suite (benchmark + memory profile + stress tests)
 ./tests/benchmark/run-all.sh
 

@@ -108,7 +108,6 @@ use Throwable;
  */
 class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterface, ConversionDiagnosticCollector, RenderTargetInterface
 {
-    use LegacyCarveWriterProperties;
     use RenderLossCollectorTrait;
     use ConversionDiagnosticCollectorTrait;
 
@@ -135,10 +134,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         $this->plannerImplementation = null;
         if (isset($this->writerState)) {
             $this->writerState = new CarveWriterState();
-            $this->bindLegacyWriterState();
-            if ($this->writerState->occurrenceLog !== null) {
-                $this->writerState->occurrenceLog = clone $this->writerState->occurrenceLog;
-            }
         }
     }
 
@@ -7344,7 +7339,6 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
     {
         if (!isset($this->writerState)) {
             $this->writerState = new CarveWriterState();
-            $this->bindLegacyWriterState();
         }
     }
 

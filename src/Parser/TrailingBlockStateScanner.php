@@ -645,7 +645,7 @@ final class TrailingBlockStateScanner
         // `tail` ends an item that never held a paragraph at all (corpus 326-5).
         // Answering `false` got the second and broke the first; answering
         // `true` does the reverse. Only "unchanged" gets both, and it is the
-        // reason INITIAL_TRAILING_BLOCK_STATE now starts CLOSED - an item whose
+        // reason a new TrailingBlockState starts closed - an item whose
         // first line is a comment has to inherit "nothing open" from somewhere.
         if ($this->isCommentLineOrFence($line, $at)) {
             // AT THE CONTENT COLUMN IT IS A BLOCK, and an invisible block ends

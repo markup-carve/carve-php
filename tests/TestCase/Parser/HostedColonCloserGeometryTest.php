@@ -53,42 +53,34 @@ class HostedColonCloserGeometryTest extends TestCase
     #[DataProvider('hostedCases')]
     public function testLiteralPayloadAndCloserColumnKeepTheirOwners(string $source, int $depth, string $kind, string $run): void
     {
-        $legacy = new class extends BlockParser {
-            protected function advanceTrailingBlockState(array $state, string $line, bool $atContentColumn = false): array
-            {
-                return parent::advanceTrailingBlockState($state, $line, $atContentColumn);
-            }
-        };
-        foreach ([new BlockParser(), $legacy] as $parser) {
-            $doc = $parser->parse($source);
-            $children = $doc->getChildren();
-            self::assertCount($kind === 'verse' ? 2 : 1, $children, $source);
-            $host = $children[0];
-            for ($i = 0; $i < $depth; $i++) {
-                self::assertSame('block_quote', $host->getType(), $source);
-                $host = $host->getChildren()[0];
-            }
-            self::assertSame('list', $host->getType(), $source);
-            self::assertCount(1, $host->getChildren(), $source);
-            $item = $host->getChildren()[0];
-            $blocks = $item->getChildren();
-            if ($kind === 'literal') {
-                self::assertCount(2, $blocks, $source);
-                self::assertSame('line_block', $blocks[0]->getType(), $source);
-                self::assertSame('paragraph', $blocks[1]->getType(), $source);
-                self::assertStringContainsString('- tail', self::text($blocks[1]), $source);
-            } elseif ($kind === 'box') {
-                self::assertCount(1, $blocks, $source);
-                self::assertSame('div', $blocks[0]->getType(), $source);
-                self::assertSame('paragraph', $blocks[0]->getChildren()[0]->getType(), $source);
-                self::assertStringContainsString($run, self::text($blocks[0]), $source);
-                self::assertStringContainsString('- tail', self::text($blocks[0]), $source);
-            } else {
-                self::assertCount(1, $blocks, $source);
-                self::assertSame('line_block', $blocks[0]->getType(), $source);
-                self::assertSame('list', $children[1]->getType(), $source);
-                self::assertStringContainsString('&nbsp;&nbsp;' . $run, (new CarveConverter())->render($doc), $source);
-            }
+        $doc = (new BlockParser())->parse($source);
+        $children = $doc->getChildren();
+        self::assertCount($kind === 'verse' ? 2 : 1, $children, $source);
+        $host = $children[0];
+        for ($i = 0; $i < $depth; $i++) {
+            self::assertSame('block_quote', $host->getType(), $source);
+            $host = $host->getChildren()[0];
+        }
+        self::assertSame('list', $host->getType(), $source);
+        self::assertCount(1, $host->getChildren(), $source);
+        $item = $host->getChildren()[0];
+        $blocks = $item->getChildren();
+        if ($kind === 'literal') {
+            self::assertCount(2, $blocks, $source);
+            self::assertSame('line_block', $blocks[0]->getType(), $source);
+            self::assertSame('paragraph', $blocks[1]->getType(), $source);
+            self::assertStringContainsString('- tail', self::text($blocks[1]), $source);
+        } elseif ($kind === 'box') {
+            self::assertCount(1, $blocks, $source);
+            self::assertSame('div', $blocks[0]->getType(), $source);
+            self::assertSame('paragraph', $blocks[0]->getChildren()[0]->getType(), $source);
+            self::assertStringContainsString($run, self::text($blocks[0]), $source);
+            self::assertStringContainsString('- tail', self::text($blocks[0]), $source);
+        } else {
+            self::assertCount(1, $blocks, $source);
+            self::assertSame('line_block', $blocks[0]->getType(), $source);
+            self::assertSame('list', $children[1]->getType(), $source);
+            self::assertStringContainsString('&nbsp;&nbsp;' . $run, (new CarveConverter())->render($doc), $source);
         }
     }
 

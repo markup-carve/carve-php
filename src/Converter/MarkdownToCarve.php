@@ -368,32 +368,12 @@ class MarkdownToCarve
         $this->inlineContext->importWriter = new CarveRenderer();
         $workScope = ImportWork::$on ? ImportWork::enter() : null;
         if ($this->inlineContext->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
-            $this->inlineContext->resolvedCrossrefs = [];
-            try {
-                $first = $this->convert($markdown);
-                $resolved = ImportedCrossrefs::resolvedTargets($first);
-                if ($resolved === []) {
-                    return $first;
-                }
-                $this->inlineContext->resolvedCrossrefs = $resolved;
-
-                return $this->convert($markdown);
-            } finally {
-                $this->inlineContext->resolvedCrossrefs = null;
-            }
+            return $this->convertWithResolvedCrossrefs($markdown);
         }
         $markdown = StringUtil::toValidUtf8($markdown);
         $markdown = str_replace("\x00", "\u{FFFD}", $markdown);
         if (!$this->carrierContext->carrierFallbackMode && $this->carrierStage->emptyFootnoteStyleMarker($markdown)) {
-            $this->carrierContext->carrierFallbackMode = true;
-            try {
-                $fallback = $this->convert($markdown);
-            } finally {
-                $this->carrierContext->carrierFallbackMode = false;
-            }
-            $this->carrierContext->carrierDamaged = true;
-
-            return $fallback;
+            return $this->convertWithCarrierFallback($markdown);
         }
         // PART 11 §10s: WHICH MARKER-SHAPED LINES ARE MARKERS comes from the
         // block structure this importer derives, not from a flat scan of the
@@ -408,29 +388,7 @@ class MarkdownToCarve
         if (!$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged) {
             $markdown = $inlineCarriers->prepare($markdown);
         }
-        $this->unspellableOrderedTasks = [];
-        $this->inlineContext->flattenedEmphasis = false;
-        $this->tableUnderWay = [];
-        $this->tableContext->tableDiagnostics = [];
-        $this->tableContext->droppedTableRows = false;
-        $this->tableContext->omittedTableComment = 'CARVE_OMITTED_TABLE';
-        while (str_contains($markdown, $this->tableContext->omittedTableComment)) {
-            $this->tableContext->omittedTableComment .= '_';
-        }
-        $this->inlineContext->rawSpanWhitespaceDiagnostics = [];
-        $this->referenceContext->boundaryDiagnostics = [];
-        $this->inlineContext->foldedHeadingSources = [];
-        $this->inlineContext->leadingWhitespaceDiagnostics = [];
-        $this->inlineContext->codeFallbackDiagnostics = [];
-        $this->inlineContext->inlineRunSourceLine = null;
-        $this->inlineContext->inlineRunContinuesPrevious = false;
-        $this->referenceContext->markdownSourceLines = [];
-        $this->referenceContext->markdownHtmlSourceLines = [];
-        $this->frontmatterSynthesized = false;
-        $this->frontmatterOpenerTyped = false;
-        $this->fragmentFixups = [];
-        $this->inlineContext->authoredDestinations = [];
-        $this->unfixedValue = null;
+        $this->resetConversionState($markdown);
         if ($whitespaceOnly !== null) {
             return $whitespaceOnly;
         }
@@ -1891,26 +1849,10 @@ class MarkdownToCarve
             );
         }
         if ($inlineCarriers->damaged) {
-            $this->carrierContext->carrierFallbackMode = true;
-            try {
-                $carve = $this->convert($carrierOriginal);
-            } finally {
-                $this->carrierContext->carrierFallbackMode = false;
-            }
-            $this->carrierContext->carrierDamaged = true;
-
-            return $carve;
+            return $this->convertWithCarrierFallback($carrierOriginal);
         }
         if ($captionMarkers > 0 && $this->carrierStage->attachedCaptionCount(CarveConverter::create()->parse($carve)) !== $beforeCaptions + $captionMarkers) {
-            $this->carrierContext->carrierFallbackMode = true;
-            try {
-                $carve = $this->convert($carrierOriginal);
-            } finally {
-                $this->carrierContext->carrierFallbackMode = false;
-            }
-            $this->carrierContext->carrierDamaged = true;
-
-            return $carve;
+            return $this->convertWithCarrierFallback($carrierOriginal);
         }
         if (!$this->referenceContext->importingFootnoteBody && $this->inlineContext->convertAbbreviations && str_contains($carve, '{abbr=')) {
             $carve = $this->foldDefinedAbbreviations($carve);
@@ -1947,6 +1889,72 @@ class MarkdownToCarve
         return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($body === ''
             ? $prefix . "\n"
             : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body), $carrierOriginal);
+    }
+
+    /**
+     * Resolve authored heading targets using the first conversion pass.
+     */
+    private function convertWithResolvedCrossrefs(string $markdown): string
+    {
+        $this->inlineContext->resolvedCrossrefs = [];
+        try {
+            $first = $this->convert($markdown);
+            $resolved = ImportedCrossrefs::resolvedTargets($first);
+            if ($resolved === []) {
+                return $first;
+            }
+            $this->inlineContext->resolvedCrossrefs = $resolved;
+
+            return $this->convert($markdown);
+        } finally {
+            $this->inlineContext->resolvedCrossrefs = null;
+        }
+    }
+
+    /**
+     * Retry without carrier markers when their source spelling is damaged.
+     */
+    private function convertWithCarrierFallback(string $markdown): string
+    {
+        $this->carrierContext->carrierFallbackMode = true;
+        try {
+            $fallback = $this->convert($markdown);
+        } finally {
+            $this->carrierContext->carrierFallbackMode = false;
+        }
+        $this->carrierContext->carrierDamaged = true;
+
+        return $fallback;
+    }
+
+    /**
+     * Reset state written by the carrier probe and any earlier conversion.
+     */
+    private function resetConversionState(string $markdown): void
+    {
+        $this->unspellableOrderedTasks = [];
+        $this->inlineContext->flattenedEmphasis = false;
+        $this->tableUnderWay = [];
+        $this->tableContext->tableDiagnostics = [];
+        $this->tableContext->droppedTableRows = false;
+        $this->tableContext->omittedTableComment = 'CARVE_OMITTED_TABLE';
+        while (str_contains($markdown, $this->tableContext->omittedTableComment)) {
+            $this->tableContext->omittedTableComment .= '_';
+        }
+        $this->inlineContext->rawSpanWhitespaceDiagnostics = [];
+        $this->referenceContext->boundaryDiagnostics = [];
+        $this->inlineContext->foldedHeadingSources = [];
+        $this->inlineContext->leadingWhitespaceDiagnostics = [];
+        $this->inlineContext->codeFallbackDiagnostics = [];
+        $this->inlineContext->inlineRunSourceLine = null;
+        $this->inlineContext->inlineRunContinuesPrevious = false;
+        $this->referenceContext->markdownSourceLines = [];
+        $this->referenceContext->markdownHtmlSourceLines = [];
+        $this->frontmatterSynthesized = false;
+        $this->frontmatterOpenerTyped = false;
+        $this->fragmentFixups = [];
+        $this->inlineContext->authoredDestinations = [];
+        $this->unfixedValue = null;
     }
 
     /**

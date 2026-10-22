@@ -85,7 +85,6 @@ final class InlineStage
         $protected = [];
         $protectedSources = [];
         $codeFallbacks = [];
-        $liveCodeFallbacks = [];
         $protect = function (string $span, ?string $source = null) use (&$protected, &$protectedSources): string {
             $protected[] = $span;
             $protectedSources[] = $source ?? $span;
@@ -2017,6 +2016,21 @@ final class InlineStage
             $line = $this->context->importWriter->spellImportedLiteralBackslashes($line);
         }
 
+        return $this->restoreProtectedInlineOutput($line, $sourceInput, $protected, $codeFallbacks, $table);
+    }
+
+    /**
+     * Restore protected spans after all inline rewrites have finished.
+     *
+     * @param string $line
+     * @param string $sourceInput
+     * @param array<string> $protected
+     * @param array<string, \MarkupCarve\Carve\Converter\MigrationDiagnostic> $codeFallbacks
+     * @param bool $table
+     */
+    private function restoreProtectedInlineOutput(string $line, string $sourceInput, array $protected, array $codeFallbacks, bool $table): string
+    {
+        $liveCodeFallbacks = [];
         // Restore stashes and protected spans until stable: a protected or
         // stashed span may itself contain placeholders (e.g. a reference
         // definition that wrapped an already-protected URL), so one pass is

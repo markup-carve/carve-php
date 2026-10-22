@@ -190,30 +190,4 @@ class SourceFenceCloserViewTest extends TestCase
         $this->assertFalse($scanner->descriptionBodyCloserAhead($lines, 0, $opener, 2, 2));
         $this->assertGreaterThan(0, $custom->calls);
     }
-
-    public function testDescriptionTrackerKeepsTheLegacyLookaheadHook(): void
-    {
-        $source = ":: t\n:  text\n     ```php\n     code\n     ```\nx\n";
-        $legacy = new class extends BlockParser {
-            public int $calls = 0;
-
-            protected function advanceTrailingBlockStateWithFenceLookahead(
-                array $state,
-                string $line,
-                array $lines,
-                int $index,
-                bool $atContentColumn = false,
-                int $stripColumns = 0,
-                bool $closerKnownAhead = false,
-            ): array {
-                $this->calls++;
-
-                return parent::advanceTrailingBlockStateWithFenceLookahead($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
-            }
-        };
-        $expected = (new BlockParser())->parse($source);
-        $actual = $legacy->parse($source);
-        $this->assertEquals($expected, $actual);
-        $this->assertGreaterThan(0, $legacy->calls);
-    }
 }

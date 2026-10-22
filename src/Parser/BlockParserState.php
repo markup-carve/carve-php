@@ -32,8 +32,7 @@ final class BlockParserState
     }
 
     /**
-     * Legacy parser properties bind state fields by reference. Recreating each
-     * object detaches those bindings; native cloning would share their slots.
+     * Copy fields into fresh state objects so a clone cannot share reference slots.
      *
      * @template T of \MarkupCarve\Carve\Parser\BlockParseSession|\MarkupCarve\Carve\Parser\BlockParseFrame|\MarkupCarve\Carve\Parser\BlockSourceState
      *

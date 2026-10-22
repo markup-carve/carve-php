@@ -253,7 +253,7 @@ class ListParser
     /**
      * Where the INNERMOST marker's content begins on a line of nested markers.
      *
-     * The question `BlockParser::advanceTrailingBlockState()` asks of every
+     * The question `TrailingBlockStateScanner::advanceTrailingStateCore()` asks of every
      * marker line: `- - - x` has its content at the `x`. Walked as offsets, so
      * a line of N markers copies nothing rather than N times.
      *
@@ -426,7 +426,7 @@ class ListParser
      * The answer `parseListItemMarker()` gives, minus the copy. Every pattern
      * there ends by CAPTURING the rest of the line, so asking the same question
      * N times down a line of N markers copies the tail N times. The walk in
-     * `BlockParser::advanceTrailingBlockState()` needs only the marker end.
+     * `TrailingBlockStateScanner::advanceTrailingStateCore()` needs only the marker end.
      *
      * The tail is asserted with a zero-width LOOKAHEAD written from the same
      * heads, and the only substring this returns is bounded by the MARKER

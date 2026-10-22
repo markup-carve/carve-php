@@ -98,14 +98,9 @@ class AClosedDescendantDivLeavesNoClaimTest extends TestCase
         $this->assertStringEndsWith("</ul>\n", $html);
     }
 
-    public function testALegacyTrailingHookKeepsTheDescendantClaimState(): void
+    public function testTheDescendantClaimStateSurvivesAClosedDiv(): void
     {
-        $parser = new class extends BlockParser {
-            protected function advanceTrailingBlockState(array $state, string $line, bool $atContentColumn = false): array
-            {
-                return parent::advanceTrailingBlockState($state, $line, $atContentColumn);
-            }
-        };
+        $parser = new BlockParser();
         $html = (new HtmlRenderer())->render($parser->parse("- a\n  - ::: box\n    body\n - next\n    :::\ntail\n"));
         $this->assertStringContainsString("<p>body\n- next</p>", $html);
         $this->assertStringEndsWith("</ul>\n<p>tail</p>\n", $html);

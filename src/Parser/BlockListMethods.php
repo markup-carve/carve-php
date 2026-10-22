@@ -32,9 +32,7 @@ trait BlockListMethods
             return null;
         }
 
-        [$next, $attached, $lineMap] = $this->usesLegacyTrailingHook('collectListContinuationBlock')
-            ? $this->collectListContinuationBlock($lines, $i + 1, $count, $baseIndent)
-            : $this->collectListContinuationAtColumn($lines, $i + 1, $count, $baseIndent, $contentIndent);
+        [$next, $attached, $lineMap] = $this->collectListContinuationAtColumn($lines, $i + 1, $count, $baseIndent, $contentIndent);
         if ($attached !== []) {
             $this->parseItemBlocks($lastItem, $attached, $lineMap);
         }
@@ -674,70 +672,12 @@ trait BlockListMethods
     }
 
     /**
-     * A marker-lead item's nested lead fence and its closer, as
-     * `[nested content column, closer index in $itemLines]`.
-     *
-     * The dedent gate distinguishes a finished nested fence from a paragraph
-     * still open below its closer (markup-carve/carve#2895).
-     *
-     * Null where the lead has no nested marker, where its innermost content is
-     * not a code fence or raw block, or where no closer stands at the nested
-     * content column.
-     *
-     * @param array<string> $itemLines The item's collected lines, lead first.
-     *
-     * @return array{0: int, 1: int}|null
-     */
-    protected function nestedLeadFenceClosure(array $itemLines): ?array
-    {
-        return $this->nestedLeadFenceScanner()->nestedLeadFenceClosure($itemLines);
-    }
-
-    /**
      * @param \MarkupCarve\Carve\Parser\NestedLeadFenceState $state
      * @param array<string> $itemLines
      */
     protected function advanceNestedLeadFenceState(NestedLeadFenceState $state, array $itemLines): void
     {
         $this->nestedLeadFenceScanner()->advanceNestedLeadFenceState($state, $itemLines);
-    }
-
-    /**
-     * Does a marker-lead item's lead end in a code fence or raw block that has
-     * SEEN ITS CLOSER at the nested item's own content column?
-     *
-     * The fold arm of markup-carve/carve#2734. A lead with no nested marker
-     * answers no: the block is then the item's own, and the spec gives a
-     * flush-left line below it to the document.
-     *
-     * @param array<string> $itemLines The item's collected lines, lead first.
-     */
-    protected function nestedLeadEndsInAClosedFence(array $itemLines): bool
-    {
-        return $this->nestedLeadFenceScanner()->nestedLeadEndsInAClosedFence($itemLines);
-    }
-
-    /**
-     * Is a paragraph still open in the nested lead, below a fence that has seen
-     * its closer?
-     *
-     * PART 9 §10 lazy continuation, which carve#2734 leaves alone because it
-     * already governs this member of the family. The closed fence above the
-     * paragraph is what hid it: the trailing-block tracker reads this stream one
-     * container out, so it takes the nested closer for a second opener and every
-     * line below it for fence content (markup-carve/carve-php#2903).
-     *
-     * Answered by running the tracker over the lead's OWN lines below the
-     * closer, dedented by the nested content column, rather than by
-     * re-deciding what an open paragraph is. A blank line closes the paragraph
-     * there as it does anywhere, which is why a blank before the flush-left
-     * line needs no case of its own.
-     *
-     * @param array<string> $itemLines The item's collected lines, lead first.
-     */
-    protected function nestedLeadParagraphOpenBelowAClosedFence(array $itemLines): bool
-    {
-        return $this->nestedLeadFenceScanner()->nestedLeadParagraphOpenBelowAClosedFence($itemLines);
     }
 
     /**
@@ -904,7 +844,7 @@ trait BlockListMethods
      * AN OPENER WITH NO CLOSER AHEAD OPENS NOTHING and must not latch this
      * tracker: §28 gives it no block, and latching it would run the item to end
      * of input. That is the whole reason this lives beside
-     * `advanceTrailingBlockState()` instead of inside it - the shared tracker
+     * `advanceTrailingStateCore()` instead of inside it - the shared tracker
      * sees one line and cannot ask the question. `lastCommentFenceIndex()`
      * answers it from a width -> last-index map built once per line set, so a
      * document full of unclosable openers with DISTINCT widths costs one pass
@@ -1180,7 +1120,6 @@ trait BlockListMethods
                     && IndentationHelper::getLeadingColumns($line, $contentIndent) < $contentIndent
                     && $trailingState->fence === null
                     && $this->isReferenceDefinitionLine($trimmed)
-                    && !$this->usesLegacyTrailingHook('attachedBlockHasEnded')
                 ) {
                     return true;
                 }

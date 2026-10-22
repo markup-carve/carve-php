@@ -68,8 +68,6 @@ final class BlockContinuationScanner
      * @param \Closure(string, int, string, array<string>, int): string $advanceAttachedKindCallback
      * @param \Closure(int|null, string, array<string>, int): ?int $advanceItemCommentFenceCallback
      * @param \Closure(int|null, string): ?int $advanceItemDefinitionBodyCallback
-     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateCallback
-     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
      * @param \Closure(string, array<string>, int): ?int $commentFenceSpanEndCallback
      * @param \Closure(int): bool $continuationFollowerIsEligibleCallback
      * @param \Closure(int, int, array<string>): bool $continuationMarkerHasIndentedFollowerCallback
@@ -94,15 +92,11 @@ final class BlockContinuationScanner
      * @param \MarkupCarve\Carve\Parser\BlockSourceMapper $source
      * @param \Closure(string): string $spanningConstructCallback
      * @param \Closure(string, array<string>|null, int|null): bool $startsNewBlockCallback
-     * @param (\Closure(string, string, array<string>, int, \MarkupCarve\Carve\Parser\TrailingBlockState): bool)|null $trailingBlockHasEndedCallback
      * @param \Closure(string, array<string>, int, int, int): ?int $wrappedItemAttributeLengthCallback
      * @param \Closure(\MarkupCarve\Carve\Parser\NestedLeadFenceState, array<string>): void $advanceNestedLeadFenceStateCallback
      * @param \Closure(string): bool $leadBottomIsContinuationMarkerCallback
      * @param \Closure(string): bool $leadBottomOpensFenceCallback
-     * @param \Closure(array<string>): bool $nestedLeadEndsInAClosedFenceCallback
-     * @param \Closure(array<string>): bool $nestedLeadParagraphOpenBelowAClosedFenceCallback
      * @param \Closure(string): string $keptCommentDelimiterCallback
-     * @param \Closure(string): bool $usesLegacyTrailingHookCallback
      * @param \Closure(): \MarkupCarve\Carve\Parser\BlockQuoteBuilder $getBlockQuoteBuilder
      */
     public function __construct(
@@ -113,8 +107,6 @@ final class BlockContinuationScanner
         private Closure $advanceAttachedKindCallback,
         private Closure $advanceItemCommentFenceCallback,
         private Closure $advanceItemDefinitionBodyCallback,
-        private ?Closure $advanceTrailingStateCallback,
-        private ?Closure $advanceTrailingStateWithFenceLookaheadCallback,
         private Closure $commentFenceSpanEndCallback,
         private Closure $continuationFollowerIsEligibleCallback,
         private Closure $continuationMarkerHasIndentedFollowerCallback,
@@ -139,15 +131,11 @@ final class BlockContinuationScanner
         private BlockSourceMapper $source,
         private Closure $spanningConstructCallback,
         private Closure $startsNewBlockCallback,
-        private ?Closure $trailingBlockHasEndedCallback,
         private Closure $wrappedItemAttributeLengthCallback,
         private Closure $advanceNestedLeadFenceStateCallback,
         private Closure $leadBottomIsContinuationMarkerCallback,
         private Closure $leadBottomOpensFenceCallback,
-        private Closure $nestedLeadEndsInAClosedFenceCallback,
-        private Closure $nestedLeadParagraphOpenBelowAClosedFenceCallback,
         private Closure $keptCommentDelimiterCallback,
-        private Closure $usesLegacyTrailingHookCallback,
         private Closure $getBlockQuoteBuilder,
     ) {
     }
@@ -198,9 +186,6 @@ final class BlockContinuationScanner
         $sourceLead = $this->state->source->sourceLines[$itemLineMap[0] ?? -1] ?? '';
         $sourceLead = ltrim(ContainerPrefix::stripQuoteMarkers(ltrim($sourceLead, " \t")), " \t");
         $nestedFence->releaseAtListAncestor = ($this->getListParser)()->parseListItemMarker($sourceLead) !== null;
-        $legacyNestedFence = ($this->usesLegacyTrailingHookCallback)('nestedLeadFenceClosure')
-            || ($this->usesLegacyTrailingHookCallback)('nestedLeadEndsInAClosedFence')
-            || ($this->usesLegacyTrailingHookCallback)('nestedLeadParagraphOpenBelowAClosedFence');
         $openCommentLength = null;
         $openCommentColumn = 0;
         while ($i < $count) {
@@ -362,9 +347,7 @@ final class BlockContinuationScanner
                 // has nothing to continue: both end the item.
                 // The deepest frame decides continuation after a closed fence
                 // in either host (markup-carve/carve#2895).
-                if (!$legacyNestedFence) {
-                    ($this->advanceNestedLeadFenceStateCallback)($nestedFence, $itemLines);
-                }
+                ($this->advanceNestedLeadFenceStateCallback)($nestedFence, $itemLines);
                 $lastLine = $itemLines[count($itemLines) - 1] ?? '';
                 $priorLine = $itemLines[count($itemLines) - 2] ?? '';
                 $nestedOpener = ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($lastLine, " \t"));
@@ -386,15 +369,11 @@ final class BlockContinuationScanner
                 $closedNestedFence = $nextIndent === 0
                     && $lastItemLine !== null
                     && !IndentationHelper::isBlankLine($itemLines[$lastItemLine])
-                    && ($legacyNestedFence
-                        ? ($this->nestedLeadEndsInAClosedFenceCallback)($itemLines)
-                        : $nestedFence->closed && $nestedFence->onlyBlankBelow);
+                    && $nestedFence->closed && $nestedFence->onlyBlankBelow;
                 // A paragraph below the closer still takes a lazy line in the
                 // inner item (markup-carve/carve-php#2903).
                 $nestedLeadParagraphOpen = $nextIndent === 0
-                    && ($legacyNestedFence
-                        ? ($this->nestedLeadParagraphOpenBelowAClosedFenceCallback)($itemLines)
-                        : $nestedFence->closed && $nestedFence->trailing->openParagraph);
+                    && $nestedFence->closed && $nestedFence->trailing->openParagraph;
                 $literalQuoteLazy = $isBlockQuoteLazyLine && $trailingState->hasLiteralDiv();
                 if (
                     (!$literalQuoteLazy && (!$trailingState->openParagraph || $closedNestedFence || ($nestedFence->length > 0 && !$nestedFence->closed))
@@ -2236,7 +2215,6 @@ final class BlockContinuationScanner
                 // paragraph instead. carve-php#2660 asked this one container in;
                 // the single-item path asks it here.
                 $floorLookaheadOpener = $minimumFenceBase && $wasOpenParagraph && !$wasAfterComment && !$wasInFence && $authoredCodeColumn === null
-                    && $this->advanceTrailingStateWithFenceLookaheadCallback === null
                     ? ($this->getFencedBlockParser)()->parseRawBlockOpener(ltrim($contentLine, " \t"))
                         ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener(ltrim($contentLine, " \t"))
                     : null;
@@ -3834,7 +3812,7 @@ final class BlockContinuationScanner
      *   as `rtrim()` did.
      * @param int $trimmedEnd Where `rtrim($line, " \t")` ends, for the quote rule.
      * @param int $lastInteriorNewline {@see BlockGrammar::lastInteriorNewline()}.
-     * @param bool $atContentColumn {@see BlockParser::advanceTrailingBlockState()}.
+     * @param bool $atContentColumn {@see TrailingBlockStateScanner::advanceTrailingStateCore()}.
      *
      * @return \MarkupCarve\Carve\Parser\TrailingBlockState
      */
@@ -3902,10 +3880,6 @@ final class BlockContinuationScanner
 
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
     {
-        if ($this->advanceTrailingStateCallback !== null) {
-            return ($this->advanceTrailingStateCallback)($state, $line, $atContentColumn);
-        }
-
         return $this->advanceTrailingStateCore($state, $line, $atContentColumn);
     }
 
@@ -3927,10 +3901,6 @@ final class BlockContinuationScanner
         int $stripColumns = 0,
         bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        if ($this->advanceTrailingStateWithFenceLookaheadCallback !== null) {
-            return ($this->advanceTrailingStateWithFenceLookaheadCallback)($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
-        }
-
         return $this->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
     }
 
@@ -4374,10 +4344,6 @@ final class BlockContinuationScanner
      */
     private function trailingBlockHasEnded(string $kind, string $line, array $lines, int $index, TrailingBlockState $trailingState): bool
     {
-        if ($this->trailingBlockHasEndedCallback !== null) {
-            return ($this->trailingBlockHasEndedCallback)($kind, $line, $lines, $index, $trailingState);
-        }
-
         return $this->trailingBlockHasEndedCore($kind, $line, $lines, $index, $trailingState);
     }
 

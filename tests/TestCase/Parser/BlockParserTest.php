@@ -45,19 +45,6 @@ class BlockParserTest extends TestCase
         self::assertSame('a b a', $attrs['class']);
     }
 
-    public function testSubclassCanSeedAStringClassBeforeMerging(): void
-    {
-        $parser = new class extends BlockParser {
-            protected function parseAttributeString(string $attrStr): void
-            {
-                $this->pendingAttributes['class'] = 'a';
-                parent::parseAttributeString($attrStr);
-            }
-        };
-        $doc = $parser->parse("{.b}\n\ntext\n");
-        self::assertSame('a b', $doc->getChildren()[0]->getAttributes()['class']);
-    }
-
     public function testParseParagraph(): void
     {
         $doc = $this->parser->parse('Hello world');

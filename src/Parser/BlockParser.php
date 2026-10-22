@@ -55,7 +55,6 @@ use WeakMap;
  */
 class BlockParser
 {
-    use LegacyBlockParserProperties;
     use BlockReferenceMethods;
     use BlockBoundaryMethods;
     use BlockListMethods;
@@ -114,15 +113,6 @@ class BlockParser
      * @var string
      */
     protected const ATTACHED_SPANNING = BlockGrammar::ATTACHED_SPANNING;
-
-    /**
-     * Initial state for list-item lazy continuation. No paragraph is open
-     * until a content line starts one; a comment alone must not admit a lazy
-     * continuation (corpus 326-5). See advanceTrailingBlockState().
-     *
-     * @var array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool}
-     */
-    protected const INITIAL_TRAILING_BLOCK_STATE = ['openParagraph' => false, 'inFence' => false, 'fenceChar' => '', 'fenceLength' => 0, 'fenceColumn' => 0, 'fenceHostColumn' => 0, 'inDiv' => false, 'divFenceLength' => 0, 'divColumn' => 0, 'absorbingFence' => false, 'divDepth' => 0, 'isLead' => true, 'inTable' => false, 'afterInvisible' => false, 'afterComment' => false, 'inFootnoteBody' => false, 'quotedTable' => false, 'quoteParagraph' => false, 'nestedColumn' => 0, 'nestedIsQuote' => false];
 
     /**
      * Marks a line an enclosing container folded in BELOW its content column
@@ -688,9 +678,6 @@ class BlockParser
         $this->inlineParser = $this->inlineParser->copyForBlockParser($this);
         $this->referenceDefinitionExtractor = $this->referenceDefinitionExtractor->copyForInlineParser($this->inlineParser);
         $this->sortedBlockMatchers = null;
-        $this->bindLegacySession();
-        $this->bindLegacyFrame();
-        $this->bindLegacySource();
     }
 
     public function __construct(
@@ -700,7 +687,6 @@ class BlockParser
         bool $trackPositions = false,
     ) {
         $this->state = new BlockParserState();
-        $this->bindLegacySource();
         $this->bindNewSession();
         $this->bindBlockFrame(new BlockParseFrame());
         $this->collectWarnings = $collectWarnings;
@@ -717,7 +703,6 @@ class BlockParser
     private function bindBlockFrame(BlockParseFrame $frame): void
     {
         $this->state->frame = $frame;
-        $this->bindLegacyFrame();
     }
 
     public function enablePositionTracking(): self
@@ -1815,7 +1800,6 @@ class BlockParser
     private function bindNewSession(): void
     {
         $this->state->session = new BlockParseSession();
-        $this->bindLegacySession();
     }
 
     /**
@@ -3869,7 +3853,7 @@ class BlockParser
             } elseif (
                 // A COMMENT INSIDE A SPAN THE BODY ALREADY HOLDS IS NOT "A
                 // COMMENT BELOW THE COLUMN" (markup-carve/carve#2488).
-                // {@see self::linesLeaveACommentSpanOpen()}
+                // {@see self::collectedLinesLeaveACommentSpanOpen()}
                 $this->isCommentLineOrFence(ltrim($nextLine, " \t"))
                 && $this->collectedLinesLeaveACommentSpanOpen($bodyLines, $commentSpan)
             ) {
@@ -4583,41 +4567,11 @@ class BlockParser
     }
 
     /**
-     * Do these collected lines leave a comment span OPEN?
-     *
-     * Section 28 pairs a span's delimiters and indentation is part of neither
-     * (markup-carve/carve#2471), so a closer written BELOW a container's content
-     * column still belongs to the span the container already holds. Ending the
-     * container there split the span, the container's own parse then read an
-     * opener with no closer, section 28 made that one `%%` line comment, and the
-     * PAYLOAD reached the page while both delimiters did not
-     * (markup-carve/carve#2488, carve-php#2650).
-     *
-     * A code fence's payload is opaque, so a `%%%` written inside one opens
-     * nothing. BOTH DIRECTIONS LEAK: an invented opaque body hides a real
-     * opener, and a missed one invents a span that claims a real delimiter as
-     * its closer - hence the block-start flag rather than a stripped line
-     * everywhere (markup-carve/carve#2505). A list marker never interrupts
-     * (section 10 I2), so its line is walked off only where a block may begin;
-     * mid-paragraph the same characters are text.
-     *
-     * @param array<string> $lines Lines as the collector holds them.
-     */
-    protected function linesLeaveACommentSpanOpen(array $lines): bool
-    {
-        return $this->scanCollectedCommentSpan($lines, new CollectedCommentSpan());
-    }
-
-    /**
      * @param array<string> $lines
      * @param \MarkupCarve\Carve\Parser\CollectedCommentSpan $scan
      */
     private function collectedLinesLeaveACommentSpanOpen(array $lines, CollectedCommentSpan $scan): bool
     {
-        if ($this->usesLegacyTrailingHook('linesLeaveACommentSpanOpen')) {
-            return $this->linesLeaveACommentSpanOpen($lines);
-        }
-
         return $this->scanCollectedCommentSpan($lines, $scan);
     }
 
@@ -6036,29 +5990,6 @@ class BlockParser
     }
 
     /**
-     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
-     * @param string $line
-     * @param array<string> $lines
-     * @param int $index
-     * @param bool $atContentColumn
-     * @param int $stripColumns
-     * @param bool $closerKnownAhead
-     *
-     * @return \MarkupCarve\Carve\Parser\TrailingBlockState
-     */
-    private function advanceTrailingStateWithFenceLookaheadCore(
-        TrailingBlockState $state,
-        string $line,
-        array $lines,
-        int $index,
-        bool $atContentColumn = false,
-        int $stripColumns = 0,
-        bool $closerKnownAhead = false,
-    ): TrailingBlockState {
-        return $this->continuationsMapper()->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
-    }
-
-    /**
      * The text PART 12 §4 offsets are measured against: the source as given.
      *
      * Every site that turns an offset back into characters has to use the same
@@ -6120,85 +6051,9 @@ class BlockParser
         return strpbrk($text, '\\`*_[{^~<$:!"\'-.\n/,=') === false;
     }
 
-    /**
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool} $state
-     * @param bool $atContentColumn
-     * @param string $line
-     *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool}
-     */
-    protected function advanceTrailingBlockState(array $state, string $line, bool $atContentColumn = false): array
-    {
-        return $this->advanceTrailingStateCore(TrailingBlockState::fromArray($state), $line, $atContentColumn)->toArray();
-    }
-
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
     {
-        if ($this->usesLegacyTrailingHook('advanceTrailingBlockState')) {
-            return TrailingBlockState::fromArray($this->advanceTrailingBlockState($state->toArray(), $line, $atContentColumn));
-        }
-
         return $this->advanceTrailingStateCore($state, $line, $atContentColumn);
-    }
-
-    /**
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool} $state
-     * @param string $line
-     * @param array<string> $lines
-     * @param bool $closerKnownAhead
-     * @param int $stripColumns
-     * @param bool $atContentColumn
-     * @param int $index
-     *
-     * @return array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool}
-     */
-    protected function advanceTrailingBlockStateWithFenceLookahead(
-        array $state,
-        string $line,
-        array $lines,
-        int $index,
-        bool $atContentColumn = false,
-        int $stripColumns = 0,
-        bool $closerKnownAhead = false,
-    ): array {
-        return $this->advanceTrailingStateWithFenceLookaheadCore(TrailingBlockState::fromArray($state), $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead)->toArray();
-    }
-
-    /**
-     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $state
-     * @param string $line
-     * @param array<string> $lines
-     * @param bool $closerKnownAhead
-     * @param int $stripColumns
-     * @param bool $atContentColumn
-     * @param int $index
-     */
-    private function advanceTrailingStateWithFenceLookahead(
-        TrailingBlockState $state,
-        string $line,
-        array $lines,
-        int $index,
-        bool $atContentColumn = false,
-        int $stripColumns = 0,
-        bool $closerKnownAhead = false,
-    ): TrailingBlockState {
-        if ($this->usesLegacyTrailingHook('advanceTrailingBlockStateWithFenceLookahead')) {
-            return TrailingBlockState::fromArray($this->advanceTrailingBlockStateWithFenceLookahead($state->toArray(), $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead));
-        }
-
-        return $this->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
-    }
-
-    /**
-     * @param string $kind
-     * @param string $line
-     * @param array<string> $lines
-     * @param int $index
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool} $trailingState
-     */
-    protected function attachedBlockHasEnded(string $kind, string $line, array $lines, int $index, array $trailingState): bool
-    {
-        return $this->trailingBlockHasEndedCore($kind, $line, $lines, $index, TrailingBlockState::fromArray($trailingState));
     }
 
     /**
@@ -6210,83 +6065,7 @@ class BlockParser
      */
     private function trailingBlockHasEnded(string $kind, string $line, array $lines, int $index, TrailingBlockState $trailingState): bool
     {
-        if ($this->usesLegacyTrailingHook('attachedBlockHasEnded')) {
-            return $this->attachedBlockHasEnded($kind, $line, $lines, $index, $trailingState->toArray());
-        }
-
         return $this->trailingBlockHasEndedCore($kind, $line, $lines, $index, $trailingState);
-    }
-
-    /**
-     * Collect continuation lines for a normal list item.
-     *
-     * @param array<string> $lines All lines being parsed.
-     * @param int $i Index of the first line after the marker line.
-     * @param int $count Total line count.
-     * @param int $baseIndent The list's base column.
-     * @param int $contentIndent The item's content column.
-     * @param array<string> $itemLines Collected item lines, appended in place.
-     * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param \MarkupCarve\Carve\Parser\TrailingBlockState $trailingState
-     * @param bool $leadIsBareContinuationMarker
-     * @param array<int, true> $authoredBaseEligible
-     * @param int|null $unclosedFenceBase
-     *
-     * @return array{0: int, 1: \MarkupCarve\Carve\Parser\TrailingBlockState}
-     */
-    private function collectPlainContinuation(
-        array $lines,
-        int $i,
-        int $count,
-        int $baseIndent,
-        int $contentIndent,
-        array &$itemLines,
-        array &$itemLineMap,
-        TrailingBlockState $trailingState,
-        bool $leadIsBareContinuationMarker = false,
-        array &$authoredBaseEligible = [],
-        ?int &$unclosedFenceBase = null,
-    ): array {
-        if ($this->usesLegacyTrailingHook('collectPlainListItemContinuation')) {
-            [$next, $state] = $this->collectPlainListItemContinuation($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState->toArray(), $leadIsBareContinuationMarker, $authoredBaseEligible);
-
-            return [$next, TrailingBlockState::fromArray($state)];
-        }
-
-        return $this->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible, $unclosedFenceBase);
-    }
-
-    /**
-     * Collect continuation lines for a normal list item.
-     *
-     * @param array<string> $lines All lines being parsed.
-     * @param int $i Index of the first line after the marker line.
-     * @param int $count Total line count.
-     * @param int $baseIndent The list's base column.
-     * @param int $contentIndent The item's content column.
-     * @param array<string> $itemLines Collected item lines, appended in place.
-     * @param array<int, int> $itemLineMap Source-line map, appended in place.
-     * @param array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool} $trailingState
-     * @param bool $leadIsBareContinuationMarker
-     * @param array<int, true> $authoredBaseEligible
-     *
-     * @return array{0: int, 1: array{openParagraph: bool, inFence: bool, fenceChar: string, fenceLength: int, fenceColumn: int, fenceHostColumn: int, inDiv: bool, divFenceLength: int, divColumn: int, absorbingFence: bool, divDepth: int, isLead: bool, inTable: bool, afterInvisible: bool, afterComment: bool, inFootnoteBody: bool, quotedTable: bool, quoteParagraph: bool, nestedColumn: int, nestedIsQuote: bool}}
-     */
-    protected function collectPlainListItemContinuation(
-        array $lines,
-        int $i,
-        int $count,
-        int $baseIndent,
-        int $contentIndent,
-        array &$itemLines,
-        array &$itemLineMap,
-        array $trailingState,
-        bool $leadIsBareContinuationMarker = false,
-        array &$authoredBaseEligible = [],
-    ): array {
-        [$next, $state] = $this->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, TrailingBlockState::fromArray($trailingState), $leadIsBareContinuationMarker, $authoredBaseEligible);
-
-        return [$next, $state->toArray()];
     }
 
     private function sourceMapper(): BlockSourceMapper
@@ -6321,8 +6100,6 @@ class BlockParser
             $this->advanceAttachedKind(...),
             $this->advanceItemCommentFence(...),
             $this->advanceItemDefinitionBody(...),
-            $this->usesLegacyTrailingHook('advanceTrailingBlockState') ? $this->advanceTrailingState(...) : null,
-            $this->usesLegacyTrailingHook('advanceTrailingBlockStateWithFenceLookahead') ? $this->advanceTrailingStateWithFenceLookahead(...) : null,
             $this->commentFenceSpanEnd(...),
             $this->continuationFollowerIsEligible(...),
             $this->continuationMarkerHasIndentedFollower(...),
@@ -6347,15 +6124,11 @@ class BlockParser
             $this->sourceMapper(),
             $this->spanningConstruct(...),
             $this->startsNewBlock(...),
-            $this->usesLegacyTrailingHook('attachedBlockHasEnded') ? $this->trailingBlockHasEnded(...) : null,
             $this->wrappedItemAttributeLength(...),
             $this->advanceNestedLeadFenceState(...),
             $this->leadBottomIsContinuationMarker(...),
             $this->leadBottomOpensFence(...),
-            $this->nestedLeadEndsInAClosedFence(...),
-            $this->nestedLeadParagraphOpenBelowAClosedFence(...),
             $this->keptCommentDelimiter(...),
-            $this->usesLegacyTrailingHook(...),
             fn (): BlockQuoteBuilder => $this->quotesBuilder(),
         );
     }
@@ -6367,7 +6140,6 @@ class BlockParser
             fn (): FencedBlockParser => $this->fencedBlockParser,
             $this->listMarkerWidthFor(...),
             $this->advanceTrailingState(...),
-            $this->nestedLeadFenceClosure(...),
         );
     }
 
@@ -6381,14 +6153,11 @@ class BlockParser
             getListParser: fn (): ListParser => $this->listParser,
             getTableParser: fn (): TableParser => $this->tableParser,
             advanceItemCommentFenceCallback: $this->advanceItemCommentFence(...),
-            advanceTrailingStateCallback: $this->usesLegacyTrailingHook('advanceTrailingBlockState') ? $this->advanceTrailingState(...) : null,
-            advanceTrailingStateWithFenceLookaheadCallback: $this->usesLegacyTrailingHook('advanceTrailingBlockStateWithFenceLookahead') ? $this->advanceTrailingStateWithFenceLookahead(...) : null,
             attachListContinuationCallback: $this->attachListContinuation(...),
             blockQuoteExtentThroughDefinitionCallback: $this->blockQuoteExtentThroughDefinition(...),
             blockQuoteLineContentCallback: $this->blockQuoteLineContent(...),
             collectListContinuationBlockCallback: $this->collectListContinuationBlock(...),
             collectMarkerLeadItemCallback: $this->collectMarkerLeadItem(...),
-            collectPlainContinuationCallback: $this->usesLegacyTrailingHook('collectPlainListItemContinuation') ? $this->collectPlainContinuation(...) : null,
             consumeLooseKeyCallback: $this->consumeLooseKey(...),
             containerExtentBeforeADefinitionCallback: $this->containerExtentBeforeADefinition(...),
             contentRendersNothingCallback: $this->contentRendersNothing(...),
@@ -6424,7 +6193,6 @@ class BlockParser
             getFencedBlockParser: fn (): FencedBlockParser => $this->fencedBlockParser,
             getInlineParser: fn (): InlineParser => $this->inlineParser,
             getListParser: fn (): ListParser => $this->listParser,
-            advanceTrailingStateWithFenceLookaheadCallback: $this->usesLegacyTrailingHook('advanceTrailingBlockStateWithFenceLookahead') ? $this->advanceTrailingStateWithFenceLookahead(...) : null,
             applyPendingAttributesCallback: $this->applyPendingAttributes(...),
             consumeLooseKeyCallback: $this->consumeLooseKey(...),
             continuationFollowerIsEligibleCallback: $this->continuationFollowerIsEligible(...),
@@ -6491,7 +6259,6 @@ class BlockParser
             getFencedBlockParser: fn (): FencedBlockParser => $this->fencedBlockParser,
             getListParser: fn (): ListParser => $this->listParser,
             getTableParser: fn (): TableParser => $this->tableParser,
-            advanceTrailingStateCallback: $this->usesLegacyTrailingHook('advanceTrailingBlockState') ? $this->advanceTrailingState(...) : null,
             endContainerAttributeScopeCallback: $this->endContainerAttributeScope(...),
             endsBlockQuoteCallback: $this->endsBlockQuote(...),
             hasClosingCommentFenceAheadInBlockQuoteCallback: $this->hasClosingCommentFenceAheadInBlockQuote(...),
