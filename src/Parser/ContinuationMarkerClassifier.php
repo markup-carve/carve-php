@@ -33,6 +33,13 @@ final class ContinuationMarkerClassifier
     private array $listColumnsBefore = [];
 
     /**
+     * Plus lines at an open list's, description's or note's content column.
+     *
+     * @var array<int, true>
+     */
+    private array $atHostContentColumn = [];
+
+    /**
      * @var array<int, int|null>
      */
     private array $footnoteColumnBefore = [];
@@ -82,6 +89,13 @@ final class ContinuationMarkerClassifier
         $this->decision($index);
 
         return $this->firstBlocks[$index] ?? null;
+    }
+
+    public function atHostContentColumn(int $index): bool
+    {
+        $this->decision($index);
+
+        return isset($this->atHostContentColumn[$index]);
     }
 
     public function innermostListColumnBefore(int $index): ?int
@@ -235,6 +249,11 @@ final class ContinuationMarkerClassifier
             $stale = $owner !== null && isset($this->closedOwners[$owner['kind'] . ':' . $owner['depth'] . ':' . $owner['column']]);
             $open = $this->stack !== [];
             $this->decisions[$index] = compact('owner', 'reason', 'column', 'depth', 'stale', 'open');
+            foreach ($this->stack as $entry) {
+                if ($entry['kind'] !== 'quote' && $entry['content'] === $column) {
+                    $this->atHostContentColumn[$index] = true;
+                }
+            }
             if ($owner !== null && $reason === null) {
                 $this->carriedOwner = $owner;
             }

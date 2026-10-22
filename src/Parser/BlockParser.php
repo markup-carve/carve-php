@@ -498,9 +498,22 @@ class BlockParser
             $taskCheckboxColumn = ($previousItem['type'] ?? null) === 'task'
                 && $decision['column'] === IndentationHelper::getLeadingColumns($previous) + 2;
             if ($decision['owner'] === null && !$taskCheckboxColumn) {
+                // A quoted `+` at a column no container claims (`> q` / `>   +`) stays paragraph text.
+                if (
+                    $decision['reason'] === 'wrong-column' && $decision['depth'] > 0 && $firstBlock === null
+                    && !$this->state->session->plusAtHostContentColumn($this->state->source, $this->listParser, $index)
+                ) {
+                    $markers[] = [
+                        'line' => $index + 1,
+                        'column' => mb_strlen(substr($line, 0, $plus), 'UTF-8') + 1,
+                        'host' => 'block quote',
+                        'reason' => 'wrong-column',
+                    ];
+                }
+
                 continue;
             }
-            if ($this->leadBottomOpensFence($previous) && $decision['column'] > IndentationHelper::getLeadingColumns($previous)) {
+            if ($this->leadBottomOpensFence($previous) && $decision['column'] >= $this->leadBottomColumn($previous)) {
                 continue;
             }
             $host = match ($decision['owner']['kind'] ?? null) {

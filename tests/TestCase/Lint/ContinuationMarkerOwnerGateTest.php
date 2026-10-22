@@ -21,9 +21,9 @@ final class ContinuationMarkerOwnerGateTest extends TestCase
         yield 'between list and quote' => ["- x\n  > q\n +\n", []];
         yield 'past quote column' => ["- x\n  > q\n   +\n", []];
         yield 'past closed quote' => ["> q\n +\n- m\n", []];
-        yield 'past quoted paragraph' => ["> q\n>   +\n> para\n", []];
+        yield 'past quoted paragraph' => ["> q\n>   +\n> para\n", [[2, 5]]];
         yield 'missing quote prefix' => ["> - a\n  +\n", []];
-        yield 'missing inner quote prefix' => ["> > - a\n>   +\n>   - b\n", []];
+        yield 'missing inner quote prefix' => ["> > - a\n>   +\n>   - b\n", [[2, 5]]];
         yield 'quote lazy literal plus at end' => ["- x\n  > q\n  +\n", [[3, 3]]];
         yield 'nested list content column' => ["- a\n  - b\n    +\n    c\n", []];
         yield 'stacked first block quote at ancestor column' => ["- a\n  - - +\n  > b\n", []];
