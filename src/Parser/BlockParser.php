@@ -1046,6 +1046,7 @@ class BlockParser
         $unpositioned = [];
         $codeBlocks = [];
         $seen = [];
+        $parents = [];
         while ($stack !== []) {
             $node = array_pop($stack);
             $id = spl_object_id($node);
@@ -1060,15 +1061,16 @@ class BlockParser
                 if ($position === null) {
                     $unpositioned[] = $node;
                 } elseif ($delta !== 0) {
-                    $this->adjustCodeBlankCount($node, $delta);
+                    $this->adjustCodeBlankCount($node, $delta, $parents);
                 }
             }
             foreach (array_reverse($node->getChildren()) as $child) {
+                $parents[spl_object_id($child)] ??= $node;
                 $stack[] = $child;
             }
         }
         if ($explicitCloserTrim && count($codeBlocks) === 1) {
-            $this->adjustCodeBlankCount($codeBlocks[0], -1);
+            $this->adjustCodeBlankCount($codeBlocks[0], -1, $parents);
         }
         if (count($changes) === 1 && $unpositioned !== []) {
             $opening = array_key_first($changes);
@@ -1078,18 +1080,82 @@ class BlockParser
             }
             $before = implode("\n", array_slice($lines, 0, $opening - 1));
             if (preg_match('/(?:^|\n)(?:> ?)*[ \t]*(?:(?:[-*] |\d+[.)] ))?(`{3,}|~{3,})/', $before) !== 1) {
-                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening]);
+                $this->adjustCodeBlankCount($unpositioned[0], $changes[$opening], $parents);
             }
         }
     }
 
-    private function adjustCodeBlankCount(CodeBlock $code, int $delta): void
+    /**
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
+     * @param int $delta
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $parents
+     *
+     * @return void
+     */
+    private function adjustCodeBlankCount(CodeBlock $code, int $delta, array $parents): void
     {
         if ($delta > 0) {
             $code->appendContent(str_repeat("\n", $delta));
         } else {
             $content = $code->getContent();
-            $code->setContent(str_ends_with($content, "\n") ? substr($content, 0, -1) : $content);
+            if (str_ends_with($content, "\n")) {
+                $code->setContent(substr($content, 0, -1));
+                $this->releaseTrailingBlankLine($code, $parents);
+            }
+        }
+    }
+
+    /**
+     * The blank dropped from the payload separates the container's next block,
+     * so the span and every ancestor ending with it give that line back
+     * (PART 12 §4, carve-php#3718).
+     *
+     * @param \MarkupCarve\Carve\Node\Block\CodeBlock $code
+     * @param array<int, \MarkupCarve\Carve\Node\Node> $parents
+     *
+     * @return void
+     */
+    private function releaseTrailingBlankLine(CodeBlock $code, array $parents): void
+    {
+        $pos = $code->getPos();
+        if ($pos === null || $pos->endColumn !== 1 || $pos->endLine - 2 <= $pos->startLine - 1) {
+            return;
+        }
+        $lines = $this->state->source->sourceLines;
+        $covered = 0;
+        for ($line = $pos->endLine - 2; $line > $pos->startLine - 1; $line--) {
+            if (!IndentationHelper::isBlankLine(ContainerPrefix::stripQuoteMarkers($lines[$line] ?? 'x'))) {
+                break;
+            }
+            $covered++;
+        }
+        $payload = explode("\n", $code->getContent());
+        array_pop($payload);
+        $held = 0;
+        for ($i = count($payload) - 1; $i >= 0 && trim($payload[$i], " \t") === ''; $i--) {
+            $held++;
+        }
+        $releasedStart = $this->state->source->lineStartOffsets[$pos->endLine - 2] ?? null;
+        $index = $this->state->source->positionIndex;
+        if ($covered <= $held || $releasedStart === null || $index === null) {
+            return;
+        }
+        $oldEnd = $pos->endOffset;
+        $newEnd = $index->span($releasedStart, $releasedStart, 1, 1, $releasedStart, $releasedStart)->endOffset;
+        for ($node = $code; $node !== null; $node = $parents[spl_object_id($node)] ?? null) {
+            $span = $node->getPos();
+            if ($span === null || $span->endOffset !== $oldEnd) {
+                continue;
+            }
+            $node->setPos(new SourceSpan(
+                $span->startLine,
+                $span->endLine - 1,
+                $span->startColumn,
+                1,
+                $span->startOffset,
+                $newEnd,
+                $span->file,
+            ));
         }
     }
 
