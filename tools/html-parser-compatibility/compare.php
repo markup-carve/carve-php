@@ -9,7 +9,7 @@ use Dom\HTMLDocument;
 use Dom\Node;
 use DOMDocument;
 use DOMNode;
-use MarkupCarve\Carve\Converter\HtmlDomLoader;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
 use Masterminds\HTML5;
 use MensBeam\HTML\Parser;
 use RuntimeException;
@@ -48,7 +48,7 @@ function tree(DOMNode|Node $node, bool &$templateContentUnavailable): array|stri
 }
 
 $backends = [
-    'carve' => static fn (string $html): DOMDocument => HtmlDomLoader::load($html),
+    'carve' => static fn (string $html): DOMDocument => DomLoader::load($html),
     'legacy' => static function (string $html): DOMDocument {
         $document = new DOMDocument();
         $previous = libxml_use_internal_errors(true);

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use MarkupCarve\Carve\Converter\HtmlCarrierNames;
+use MarkupCarve\Carve\Converter\Html\CarrierNames;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -89,7 +89,7 @@ class ADeprecatedCarrierSpellingStillImportsTest extends TestCase
 
     public function testAnUnlistedLegacyNameStaysAnAuthoredAttribute(): void
     {
-        $this->assertFalse(HtmlCarrierNames::isReserved('data-carve-stored-source'));
+        $this->assertFalse(CarrierNames::isReserved('data-carve-stored-source'));
         $carve = (new HtmlToCarve(importMode: 'roundtrip'))->convert('<p data-djot-stored-source="x">t</p>');
         $this->assertStringContainsString('data-djot-stored-source=x', $carve);
     }

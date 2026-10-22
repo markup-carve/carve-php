@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Converter\Djot;
+
+final class ListContext
+{
+    public bool $loose = false;
+
+    public bool $continuation = false;
+
+    public function __construct(
+        public readonly int $column,
+        public readonly int $content,
+        public readonly int $target,
+        public string $kind,
+        public string $bullet,
+        public int $start,
+        public readonly int $depth = 0,
+        public readonly ?int $sourcePrefix = null,
+        public readonly ?int $sourceContent = null,
+    ) {
+    }
+}

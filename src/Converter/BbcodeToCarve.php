@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Converter;
 use Closure;
 use InvalidArgumentException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\Bbcode\Mark;
 use MarkupCarve\Carve\Node\Inline\Emphasis;
 use MarkupCarve\Carve\Node\Inline\EscapedText;
 use MarkupCarve\Carve\Node\Inline\HardBreak;
@@ -477,11 +478,11 @@ class BbcodeToCarve
      * innermost open one stays literal text, and so does an open tag never
      * closed (marked, and unwound by flattenSameKind()).
      *
-     * @return array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark>
+     * @return array<int, string|\MarkupCarve\Carve\Converter\Bbcode\Mark>
      */
     protected function parseMarks(string $text): array
     {
-        $root = new BbcodeMark('', '');
+        $root = new Mark('', '');
         $stack = [$root];
         $from = 0;
         preg_match_all('/\[(\/?)(b|i|u|s)\]/i', $text, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
@@ -492,7 +493,7 @@ class BbcodeToCarve
             $top->children[] = substr($text, $from, $offset - $from);
             $from = $offset + strlen($whole);
             if ($match[1][0] === '') {
-                $node = new BbcodeMark($kind, $whole);
+                $node = new Mark($kind, $whole);
                 $top->children[] = $node;
                 $stack[] = $node;
             } elseif ($top->kind === $kind) {
@@ -517,14 +518,14 @@ class BbcodeToCarve
      * nesting depth is the author's; with four kinds the tree left behind is at
      * most four deep, which keeps writeMarks() recursion bounded.
      *
-     * @param array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark> $pieces
+     * @param array<int, string|\MarkupCarve\Carve\Converter\Bbcode\Mark> $pieces
      *
-     * @return array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark>
+     * @return array<int, string|\MarkupCarve\Carve\Converter\Bbcode\Mark>
      */
     protected function flattenSameKind(array $pieces): array
     {
-        $root = new BbcodeMark('', '');
-        /** @var array<int, array{src: array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark>, i: int, out: \MarkupCarve\Carve\Converter\BbcodeMark, open: array<string, true>}> $frames */
+        $root = new Mark('', '');
+        /** @var array<int, array{src: array<int, string|\MarkupCarve\Carve\Converter\Bbcode\Mark>, i: int, out: \MarkupCarve\Carve\Converter\Bbcode\Mark, open: array<string, true>}> $frames */
         $frames = [['src' => $pieces, 'i' => 0, 'out' => $root, 'open' => []]];
         while ($frames !== []) {
             $last = count($frames) - 1;
@@ -544,7 +545,7 @@ class BbcodeToCarve
             } elseif (isset($frame['open'][$piece->kind])) {
                 $frames[] = ['src' => $piece->children, 'i' => 0, 'out' => $frame['out'], 'open' => $frame['open']];
             } else {
-                $node = new BbcodeMark($piece->kind, $piece->open);
+                $node = new Mark($piece->kind, $piece->open);
                 $frame['out']->children[] = $node;
                 $frames[] = ['src' => $piece->children, 'i' => 0, 'out' => $node, 'open' => $frame['open'] + [$piece->kind => true]];
             }
@@ -557,7 +558,7 @@ class BbcodeToCarve
      * For each piece, the first character written after it, or '' when nothing
      * is. One pass from the right, so a run of empty tags costs nothing per tag.
      *
-     * @param array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark> $pieces
+     * @param array<int, string|\MarkupCarve\Carve\Converter\Bbcode\Mark> $pieces
      *
      * @return array<int, string>
      */
@@ -587,7 +588,7 @@ class BbcodeToCarve
      * read back, or that the writer would brace, takes the braced form, as does
      * a `/` around content that would read back as bold-italic.
      *
-     * @param array<int, string|\MarkupCarve\Carve\Converter\BbcodeMark> $pieces
+     * @param array<int, string|\MarkupCarve\Carve\Converter\Bbcode\Mark> $pieces
      * @param string $outerNext
      * @param string $prev
      *

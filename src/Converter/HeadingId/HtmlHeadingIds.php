@@ -6,7 +6,7 @@ namespace MarkupCarve\Carve\Converter\HeadingId;
 
 use DOMElement;
 use DOMXPath;
-use MarkupCarve\Carve\Converter\HtmlDomLoader;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
 use function trim;
 
 /**
@@ -36,7 +36,7 @@ final class HtmlHeadingIds
             return [];
         }
 
-        $dom = HtmlDomLoader::fragment($html, 'div');
+        $dom = DomLoader::fragment($html, 'div');
 
         $ids = [];
         $xpath = new DOMXPath($dom);
@@ -51,7 +51,7 @@ final class HtmlHeadingIds
                 }
                 $id = $node->getAttribute('id');
                 $parent = $node->parentNode;
-                if ($id === '' && $parent instanceof DOMElement && HtmlDomLoader::elementName($parent) === 'section') {
+                if ($id === '' && $parent instanceof DOMElement && DomLoader::elementName($parent) === 'section') {
                     $id = $parent->getAttribute('id');
                 }
                 $ids[] = $id;

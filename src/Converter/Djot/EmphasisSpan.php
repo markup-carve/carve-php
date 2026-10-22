@@ -1,0 +1,31 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Converter\Djot;
+
+final class EmphasisSpan
+{
+    /**
+     * @var list<self>
+     */
+    public array $children = [];
+
+    /**
+     * @var array<string, true>
+     */
+    public array $kinds;
+
+    public int $hostDepth = 0;
+
+    public function __construct(
+        public readonly int $start,
+        public readonly int $openEnd,
+        public readonly int $close,
+        public readonly int $end,
+        public readonly string $kind,
+        public readonly bool $forced,
+    ) {
+        $this->kinds = [$kind => true];
+    }
+}

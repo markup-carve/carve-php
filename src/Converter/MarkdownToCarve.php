@@ -12,6 +12,20 @@ use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Converter\Markdown\Assessment;
+use MarkupCarve\Carve\Converter\Markdown\CarrierContext;
+use MarkupCarve\Carve\Converter\Markdown\CarrierStage;
+use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
+use MarkupCarve\Carve\Converter\Markdown\EmailText;
+use MarkupCarve\Carve\Converter\Markdown\HeadingFragments;
+use MarkupCarve\Carve\Converter\Markdown\ImportWork;
+use MarkupCarve\Carve\Converter\Markdown\InlineContext;
+use MarkupCarve\Carve\Converter\Markdown\InlineStage;
+use MarkupCarve\Carve\Converter\Markdown\ListMarkers;
+use MarkupCarve\Carve\Converter\Markdown\ReferenceContext;
+use MarkupCarve\Carve\Converter\Markdown\ReferenceStage;
+use MarkupCarve\Carve\Converter\Markdown\TableContext;
+use MarkupCarve\Carve\Converter\Markdown\TableStage;
 use MarkupCarve\Carve\Node\Block\AbbreviationDefinition;
 use MarkupCarve\Carve\Node\Block\BlockQuote;
 use MarkupCarve\Carve\Node\Block\Heading;
@@ -127,21 +141,21 @@ class MarkdownToCarve
      */
     protected array $tableUnderWay = [];
 
-    private MarkdownCarrierContext $carrierContext;
+    private CarrierContext $carrierContext;
 
-    private MarkdownCarrierStage $carrierStage;
+    private CarrierStage $carrierStage;
 
-    private MarkdownInlineContext $inlineContext;
+    private InlineContext $inlineContext;
 
-    private MarkdownInlineStage $inlineStage;
+    private InlineStage $inlineStage;
 
-    private MarkdownReferenceContext $referenceContext;
+    private ReferenceContext $referenceContext;
 
-    private MarkdownReferenceStage $referenceStage;
+    private ReferenceStage $referenceStage;
 
-    private MarkdownTableContext $tableContext;
+    private TableContext $tableContext;
 
-    private MarkdownTableStage $tableStage;
+    private TableStage $tableStage;
 
     public function __construct(
         bool $convertMath = false,
@@ -153,10 +167,10 @@ class MarkdownToCarve
         bool $convertRawHtml = false,
         private bool $rewriteHeadingFragments = true,
     ) {
-        $this->inlineContext = new MarkdownInlineContext();
-        $this->referenceContext = new MarkdownReferenceContext();
-        $this->tableContext = new MarkdownTableContext();
-        $this->carrierContext = new MarkdownCarrierContext();
+        $this->inlineContext = new InlineContext();
+        $this->referenceContext = new ReferenceContext();
+        $this->tableContext = new TableContext();
+        $this->carrierContext = new CarrierContext();
         $this->initializeStages();
         $this->inlineContext->convertMath = $convertMath;
         $this->inlineContext->convertHighlight = $convertHighlight;
@@ -178,7 +192,7 @@ class MarkdownToCarve
 
     private function initializeStages(): void
     {
-        $this->inlineStage = new MarkdownInlineStage(
+        $this->inlineStage = new InlineStage(
             $this->inlineContext,
             Closure::fromCallable([$this, 'cmarkReadsTaskCheckbox']),
             Closure::fromCallable([$this, 'escapeCarveOnlyMarker']),
@@ -186,7 +200,7 @@ class MarkdownToCarve
             Closure::fromCallable([$this, 'escapeTableInlineText']),
             Closure::fromCallable([$this, 'escapeTablePipes']),
         );
-        $this->referenceStage = new MarkdownReferenceStage(
+        $this->referenceStage = new ReferenceStage(
             $this->referenceContext,
             $this->inlineContext,
             $this->inlineStage,
@@ -198,7 +212,7 @@ class MarkdownToCarve
             Closure::fromCallable([$this, 'htmlBlockCloser']),
             Closure::fromCallable([$this, 'itemContentColumn']),
         );
-        $this->tableStage = new MarkdownTableStage(
+        $this->tableStage = new TableStage(
             $this->tableContext,
             $this->inlineContext,
             $this->inlineStage,
@@ -218,7 +232,7 @@ class MarkdownToCarve
             Closure::fromCallable([$this, 'writeItemContent']),
             Closure::fromCallable([$this, 'sourceLine']),
         );
-        $this->carrierStage = new MarkdownCarrierStage($this->carrierContext);
+        $this->carrierStage = new CarrierStage($this->carrierContext);
     }
 
     /**
@@ -352,7 +366,7 @@ class MarkdownToCarve
     {
         $whitespaceOnly = strspn($markdown, " \t\r\n") === strlen($markdown) ? $markdown : null;
         $this->inlineContext->importWriter = new CarveRenderer();
-        $workScope = MarkdownImportWork::$on ? MarkdownImportWork::enter() : null;
+        $workScope = ImportWork::$on ? ImportWork::enter() : null;
         if ($this->inlineContext->resolvedCrossrefs === null && str_contains($markdown, '</#')) {
             $this->inlineContext->resolvedCrossrefs = [];
             try {
@@ -425,7 +439,7 @@ class MarkdownToCarve
         $plain = str_replace(["\r\n", "\r"], "\n", $markdown);
         $plainBody = rtrim($plain, "\n");
         if (
-            !MarkdownImportWork::$on && !$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged
+            !ImportWork::$on && !$this->carrierContext->carrierFallbackMode && !$this->carrierContext->carrierDamaged
             && $this->carrierContext->carrierSlots === []
             && $plainBody !== '' && $plainBody[0] !== ' ' && !str_contains($plainBody, '  ')
             && !str_contains($plainBody, 'CARVEINLINE')
@@ -499,7 +513,7 @@ class MarkdownToCarve
         // with it: those written in one iteration at or past `$shiftCol` by
         // `$shiftBy` columns, applied once the iteration is done. Branches that
         // place their lines themselves set `$shiftBy` to 0.
-        $listMarkers = new MarkdownListMarkers();
+        $listMarkers = new ListMarkers();
         $shiftFrom = 0;
         $shiftCol = 0;
         $shiftBy = 0;
@@ -679,7 +693,7 @@ class MarkdownToCarve
                     // And the items the line nests (`- - a`), the innermost perhaps
                     // holding indented code, one column past its marker.
                     $nestedEnd = strlen($lm[0]);
-                    foreach (MarkdownListMarkers::nestedItemsOnLine($line, strlen($lm[0])) as $inner) {
+                    foreach (ListMarkers::nestedItemsOnLine($line, strlen($lm[0])) as $inner) {
                         $listCols[] = $inner['content'];
                         $nestedEnd = $inner['end'];
                     }
@@ -1904,7 +1918,7 @@ class MarkdownToCarve
         if (!$this->referenceContext->importingFootnoteBody && str_contains($carve, '@')) {
             $converter = CarveConverter::carve();
             $document = $converter->parse($frontmatter === [] ? $carve : "\n" . $carve);
-            if (MarkdownEmailText::link($document)) {
+            if (EmailText::link($document)) {
                 $this->minimizeTableEmailCellEscapes($document);
                 $trailingNewline = str_ends_with($carve, "\n");
                 $rendered = $converter->renderWithReport($document, maxRenderLosses: PHP_INT_MAX);
@@ -2009,10 +2023,10 @@ class MarkdownToCarve
         if ($this->carrierContext->carrierSlots !== []) {
             return $carve;
         }
-        $layoutBefore = MarkdownImportWork::$on ? MarkdownImportWork::layoutTotal() : 0;
+        $layoutBefore = ImportWork::$on ? ImportWork::layoutTotal() : 0;
         $layoutWasOn = LayoutWork::$on;
         try {
-            if (MarkdownImportWork::$on) {
+            if (ImportWork::$on) {
                 LayoutWork::$on = true;
             }
             $converter = CarveConverter::carve();
@@ -2035,8 +2049,8 @@ class MarkdownToCarve
         } catch (Throwable) {
             return $carve;
         } finally {
-            if (MarkdownImportWork::$on) {
-                MarkdownImportWork::$layoutWork += MarkdownImportWork::layoutTotal() - $layoutBefore;
+            if (ImportWork::$on) {
+                ImportWork::$layoutWork += ImportWork::layoutTotal() - $layoutBefore;
                 LayoutWork::$on = $layoutWasOn;
             }
         }
@@ -2097,7 +2111,7 @@ class MarkdownToCarve
         $converter = CarveConverter::carve();
         $codec = new AstCodec();
         $document = $codec->encode($converter->parse($source));
-        $rawHeadingIds = MarkdownHeadingFragments::rawHtmlHeadingIds($document);
+        $rawHeadingIds = HeadingFragments::rawHtmlHeadingIds($document);
         $html = CarveConverter::create()->convert($source);
         $dom = new DOMDocument();
         $previous = libxml_use_internal_errors(true);
@@ -2127,7 +2141,7 @@ class MarkdownToCarve
 
                 continue;
             }
-            $key = MarkdownHeadingFragments::lowercaseKey($id);
+            $key = HeadingFragments::lowercaseKey($id);
             $aliases[$key] = array_key_exists($key, $aliases) && $aliases[$key] !== $id ? null : $id;
         }
         foreach ($xpath->query('//a[@name]') ?: [] as $anchor) {
@@ -2141,10 +2155,10 @@ class MarkdownToCarve
             if (($node['type'] ?? null) === 'link' && !isset($node['ref']) && isset($node['href']) && is_string($node['href']) && str_starts_with($node['href'], '#')) {
                 $fragment = rawurldecode(substr($node['href'], 1));
                 if (preg_match('//u', $fragment) === 1 && $fragment !== '' && !isset($exact[$fragment])) {
-                    $match = $aliases[MarkdownHeadingFragments::lowercaseKey($fragment)] ?? null;
+                    $match = $aliases[HeadingFragments::lowercaseKey($fragment)] ?? null;
                     if ($match !== null) {
                         $rewritten[] = [$path, $node['href']];
-                        $node['href'] = '#' . MarkdownDestinationEncoding::fragment($match);
+                        $node['href'] = '#' . DestinationEncoding::fragment($match);
                     }
                 }
             }
@@ -2327,7 +2341,7 @@ class MarkdownToCarve
             return new MigrationResult($value, 'markdown', [new MigrationDiagnostic($row->code, $row->message, $row->severity, $row->fidelity, $row->confidence, 'line:1')]);
         }
         if ($supportedDialect && ($result->diagnostics[0]->code ?? null) !== 'literal-text-verified') {
-            $assessment = (new MarkdownAssessment())->assess($markdown, $value);
+            $assessment = (new Assessment())->assess($markdown, $value);
             $losses = count($this->unspellableOrderedTasks) + ($this->inlineContext->flattenedEmphasis ? 1 : 0) + count($this->tableContext->tableDiagnostics);
             $assessedLosses = count(array_filter($assessment['diagnostics'], static fn (MigrationDiagnostic $diagnostic): bool => $diagnostic->fidelity === 'dropped'));
             // `frontmatter-synthesized` is a report the assessment knows nothing
@@ -2704,7 +2718,7 @@ class MarkdownToCarve
      * @param int $start
      * @param int $contentCol
      * @param bool $paragraphOpen
-     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $quoteMarkers
+     * @param array<string, \MarkupCarve\Carve\Converter\Markdown\ListMarkers> $quoteMarkers
      *
      * @return array{lines: array<int, string>, end: int}|null
      */
@@ -2907,9 +2921,9 @@ class MarkdownToCarve
             for ($at = $from, $count = count($result); $at < $count; $at++) {
                 $moved = [];
                 foreach (explode("\n", (string)$result[$at]) as $text) {
-                    if (MarkdownImportWork::$on) {
-                        MarkdownImportWork::$shiftLines++;
-                        MarkdownImportWork::$shiftBytes += strlen($text);
+                    if (ImportWork::$on) {
+                        ImportWork::$shiftLines++;
+                        ImportWork::$shiftBytes += strlen($text);
                     }
                     $moved[] = $this->moveIndent($text, $col, $col + $by);
                 }
@@ -2976,16 +2990,16 @@ class MarkdownToCarve
      * around it. `$separate` reports that it starts a list apart from the one
      * above it at its level.
      *
-     * @param \MarkupCarve\Carve\Converter\MarkdownListMarkers $markers
+     * @param \MarkupCarve\Carve\Converter\Markdown\ListMarkers $markers
      * @param array<int, string> $lines
      * @param int $index
      * @param string $line
      * @param bool $separate
      */
-    protected function writeListMarker(MarkdownListMarkers $markers, array $lines, int $index, string $line, bool &$separate = false): string
+    protected function writeListMarker(ListMarkers $markers, array $lines, int $index, string $line, bool &$separate = false): string
     {
         $markerCol = $this->indentWidth($line);
-        $contentCol = MarkdownListMarkers::sourceContentColumn($line);
+        $contentCol = ListMarkers::sourceContentColumn($line);
         $incidentalContinuation = false;
         for ($at = $index + 1, $end = min(count($lines), $index + 4); $at < $end; $at++) {
             if (trim($lines[$at]) === '') {
@@ -3004,7 +3018,7 @@ class MarkdownToCarve
 
     /**
      * One line of a top-level quote, with the list markers and block spacing
-     * `carve fmt` writes: list markers through one MarkdownListMarkers per
+     * `carve fmt` writes: list markers through one ListMarkers per
      * quote prefix, and an empty quote line wherever fmt separates two blocks
      * the source wrote adjacent, two lists or a nested quote under the
      * paragraph above it.
@@ -3014,7 +3028,7 @@ class MarkdownToCarve
      * @param string $prefix
      * @param string $text
      * @param bool $inRun
-     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
+     * @param array<string, \MarkupCarve\Carve\Converter\Markdown\ListMarkers> $markers
      * @param array{prefix: string, text: string, itemQuote?: string}|null $prev
      * @param string|null $lazy
      * @param array<int, string|null> $result
@@ -3067,7 +3081,7 @@ class MarkdownToCarve
                 $list->end(0);
             }
         }
-        $list = $markers[$prefix] ??= new MarkdownListMarkers();
+        $list = $markers[$prefix] ??= new ListMarkers();
         if ($blank && isset($this->referenceContext->hardReferenceSeparators[$index])) {
             $list->end(0);
         }
@@ -3197,7 +3211,7 @@ class MarkdownToCarve
      * Whether an ordered marker other than 1 sits under the open paragraph of
      * the item holding it: CommonMark reads it as text, Carve as a nested list.
      */
-    protected function isHeldOrderedMarker(string $text, MarkdownListMarkers $list): bool
+    protected function isHeldOrderedMarker(string $text, ListMarkers $list): bool
     {
         $col = $this->indentWidth($text);
 
@@ -3304,8 +3318,8 @@ class MarkdownToCarve
     protected function setextParagraphEnd(array $lines, int $start, int $contentCol): ?int
     {
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
-            if (MarkdownImportWork::$on) {
-                MarkdownImportWork::$setextVisits++;
+            if (ImportWork::$on) {
+                ImportWork::$setextVisits++;
             }
             $line = $lines[$at];
             $indent = $this->indentWidth($line);
@@ -3414,8 +3428,8 @@ class MarkdownToCarve
             }
             $virtual[] = $this->stripColumns($lines[$at], $contentCol);
         }
-        if (MarkdownImportWork::$on) {
-            MarkdownImportWork::$quoteArraySlots += count($virtual);
+        if (ImportWork::$on) {
+            ImportWork::$quoteArraySlots += count($virtual);
         }
         $folded = $this->foldQuotedSetext($virtual, 0, $quote[1], $quote[2], $sourceOffset + $index);
 
@@ -3439,16 +3453,16 @@ class MarkdownToCarve
     {
         $inside = [];
         for ($at = $start, $count = count($lines); $at < $count; $at++) {
-            if (MarkdownImportWork::$on) {
-                MarkdownImportWork::$quoteVisits++;
+            if (ImportWork::$on) {
+                ImportWork::$quoteVisits++;
             }
             $body = $this->normalizeBlockquoteMarkers(ltrim($lines[$at], ' '));
             $held = str_starts_with($body, $prefix) ? substr($body, strlen($prefix)) : $lines[$at];
             if ($at > $start && (trim($held) === '' || $this->indentWidth($held) < $contentCol)) {
                 break;
             }
-            if (MarkdownImportWork::$on) {
-                MarkdownImportWork::$quoteArraySlots++;
+            if (ImportWork::$on) {
+                ImportWork::$quoteArraySlots++;
             }
             $inside[] = $held;
         }
@@ -3614,7 +3628,7 @@ class MarkdownToCarve
         if (preg_match('/^[ \t]*(?:[-*+]|\d+[.)])(?=[ \t])/', $line, $own) !== 1) {
             return null;
         }
-        $nested = MarkdownListMarkers::nestedItemsOnLine($line, strlen($own[0]) + 1);
+        $nested = ListMarkers::nestedItemsOnLine($line, strlen($own[0]) + 1);
         $end = $nested === [] ? null : $nested[count($nested) - 1]['end'];
         if ($end === null) {
             $afterMarker = substr($line, strlen($own[0]));
@@ -3957,22 +3971,22 @@ class MarkdownToCarve
         if (!str_contains($source, "\r") && preg_match('/(?:^|\n)[ \t]*+(?![A-Za-z]++(?:[ \t]|\n|$))[^ \t\r\n]/', $source) === 0) {
             return $source;
         }
-        if (MarkdownImportWork::$on) {
-            MarkdownImportWork::$assemblyLines += substr_count($source, "\n") + 1;
-            MarkdownImportWork::$assemblyBytes += strlen($source);
+        if (ImportWork::$on) {
+            ImportWork::$assemblyLines += substr_count($source, "\n") + 1;
+            ImportWork::$assemblyBytes += strlen($source);
         }
-        $layoutBefore = MarkdownImportWork::$on ? MarkdownImportWork::layoutTotal() : 0;
+        $layoutBefore = ImportWork::$on ? ImportWork::layoutTotal() : 0;
         $layoutWasOn = LayoutWork::$on;
         try {
-            if (MarkdownImportWork::$on) {
+            if (ImportWork::$on) {
                 LayoutWork::$on = true;
             }
             $document = CarveConverter::carve()->parse($source);
         } catch (Throwable) {
             return $source;
         } finally {
-            if (MarkdownImportWork::$on) {
-                MarkdownImportWork::$layoutWork += MarkdownImportWork::layoutTotal() - $layoutBefore;
+            if (ImportWork::$on) {
+                ImportWork::$layoutWork += ImportWork::layoutTotal() - $layoutBefore;
                 LayoutWork::$on = $layoutWasOn;
             }
         }
@@ -4322,7 +4336,7 @@ class MarkdownToCarve
      *
      * @param array<int, string> $lines
      * @param int $start
-     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers> $markers
+     * @param array<string, \MarkupCarve\Carve\Converter\Markdown\ListMarkers> $markers
      *
      * @return array{lines: array<int, string>, end: int, prefix: string}|null
      */
@@ -4578,7 +4592,7 @@ class MarkdownToCarve
 
     /**
      * @param string $line
-     * @param array<string, \MarkupCarve\Carve\Converter\MarkdownListMarkers>|null $markers
+     * @param array<string, \MarkupCarve\Carve\Converter\Markdown\ListMarkers>|null $markers
      */
     protected function normalizeBlockquoteMarkers(string $line, ?array $markers = null): string
     {
@@ -5066,8 +5080,8 @@ class MarkdownToCarve
         $end = $index;
         $count = count($lines);
         for ($at = $index + 1; $at < $count; $at++) {
-            if (MarkdownImportWork::$on) {
-                MarkdownImportWork::$paragraphVisits++;
+            if (ImportWork::$on) {
+                ImportWork::$paragraphVisits++;
             }
             $candidate = $inside($lines[$at]);
             $escapedPointy = preg_match('/\]\(<[^>\n]*\\\\$/', (string)end($parts)) === 1;

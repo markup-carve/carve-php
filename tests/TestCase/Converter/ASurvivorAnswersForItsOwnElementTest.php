@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
 use MarkupCarve\Carve\CarveConverter;
-use MarkupCarve\Carve\Converter\HtmlDomLoader;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
 use MarkupCarve\Carve\Converter\HtmlToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -169,7 +169,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
         return [
             'block children get lines of their own' => [
                 '<blockquote disabled><p>a</p><p>b</p></blockquote>',
-                (HtmlDomLoader::usesHtml5() ? '<blockquote disabled="">' : '<blockquote disabled="disabled">'),
+                (DomLoader::usesHtml5() ? '<blockquote disabled="">' : '<blockquote disabled="disabled">'),
             ],
             // `<address>` used to stand here. It no longer survives at all:
             // a sectioning or unmapped container is unwrapped rather than
@@ -180,7 +180,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
             // it is the one this row can ask the question of.
             'a container is written through a colon fence' => [
                 '<aside class="admonition note" disabled><p>a</p></aside>',
-                (HtmlDomLoader::usesHtml5() ? 'disabled=""' : 'disabled="disabled"'),
+                (DomLoader::usesHtml5() ? 'disabled=""' : 'disabled="disabled"'),
             ],
         ];
     }
@@ -197,7 +197,7 @@ class ASurvivorAnswersForItsOwnElementTest extends TestCase
     {
         $html = '<blockquote disabled><script>bad</script><p>good</p></blockquote>';
 
-        $this->assertStringContainsString((HtmlDomLoader::usesHtml5() ? 'disabled=""' : 'disabled="disabled"'), (new CarveConverter())->convert(
+        $this->assertStringContainsString((DomLoader::usesHtml5() ? 'disabled=""' : 'disabled="disabled"'), (new CarveConverter())->convert(
             (new HtmlToCarve())->convertWithReport($html)->value,
         ));
         $this->assertSame(

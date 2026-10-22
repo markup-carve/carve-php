@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use LogicException;
+use MarkupCarve\Carve\Converter\Html\ImportSession;
 
 // phpcs:disable SlevomatCodingStandard.Namespaces.FullyQualifiedClassNameInAnnotation -- These are PHPStan aliases, not class names.
 /**
@@ -32,13 +33,13 @@ final class HtmlAstBuildResult
      * @phpstan-param DocumentTree $tree
      *
      * @param array $tree
-     * @param \MarkupCarve\Carve\Converter\HtmlImportSession $session
+     * @param \MarkupCarve\Carve\Converter\Html\ImportSession $session
      * @param bool $sourceSafe
      * @param bool $retainCarrierEscapes
      */
     public function __construct(
         public readonly array $tree,
-        public readonly HtmlImportSession $session,
+        public readonly ImportSession $session,
         private readonly bool $sourceSafe,
         private readonly bool $retainCarrierEscapes = false,
     ) {

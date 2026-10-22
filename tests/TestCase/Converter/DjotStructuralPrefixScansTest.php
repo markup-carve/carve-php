@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use MarkupCarve\Carve\Converter\DjotEmphasis;
+use MarkupCarve\Carve\Converter\Djot\Emphasis;
 use PHPUnit\Framework\TestCase;
 use ReflectionClass;
 use ReflectionMethod;
@@ -13,7 +13,7 @@ class DjotStructuralPrefixScansTest extends TestCase
 {
     public function testPrefixGrammarAtEveryAsterisk(): void
     {
-        $reader = new ReflectionMethod(DjotEmphasis::class, 'structuralPrefixEnd');
+        $reader = new ReflectionMethod(Emphasis::class, 'structuralPrefixEnd');
         $chunks = ['* ', '+ ', '- ', '12. ', "3)\t", '[x] ', "[ ]\t", '>', '> ', ' ', "\t", '\\*', '*a*', '1.', '[X]', '[*]', 'é', 'x'];
         $pattern = '/^(?:[ \t]*>)*[ \t]*(?:(?:[-*+]|[0-9]+[.)])[ \t]+(?:\[[ xX-]\][ \t]+)?)*[ \t]*$/D';
         $seed = 7;
@@ -37,24 +37,24 @@ class DjotStructuralPrefixScansTest extends TestCase
         foreach ([1000, 4000, 16000] as $count) {
             $markers = str_repeat('* ', $count);
             $source = $markers . '_a_';
-            self::assertSame($markers . '/a/', DjotEmphasis::convert($source, $source, static fn (string $plain): string => $plain));
+            self::assertSame($markers . '/a/', Emphasis::convert($source, $source, static fn (string $plain): string => $plain));
         }
     }
 
     public function testQuotedNonThematicLinesAvoidBacktrackingAndJitErrors(): void
     {
-        $pattern = (new ReflectionClass(DjotEmphasis::class))->getConstant('THEMATIC_STAR_LINE');
+        $pattern = (new ReflectionClass(Emphasis::class))->getConstant('THEMATIC_STAR_LINE');
         self::assertIsString($pattern);
         foreach ([16, 1000, 16000] as $count) {
             $source = str_repeat('>  ', $count) . 'x * * *';
             self::assertSame(0, preg_match($pattern, $source));
             self::assertSame(PREG_NO_ERROR, preg_last_error());
-            self::assertSame(str_repeat('>  ', $count) . 'x \\* \\* \\*', DjotEmphasis::convert($source, $source, static fn (string $plain): string => $plain));
+            self::assertSame(str_repeat('>  ', $count) . 'x \\* \\* \\*', Emphasis::convert($source, $source, static fn (string $plain): string => $plain));
             self::assertSame(PREG_NO_ERROR, preg_last_error());
             $source = str_repeat('>  ', $count) . str_repeat('* ', $count);
             self::assertSame(1, preg_match($pattern, $source));
             self::assertSame(PREG_NO_ERROR, preg_last_error());
-            self::assertSame($source, DjotEmphasis::convert($source, $source, static fn (string $plain): string => $plain));
+            self::assertSame($source, Emphasis::convert($source, $source, static fn (string $plain): string => $plain));
             self::assertSame(PREG_NO_ERROR, preg_last_error());
         }
     }
@@ -62,6 +62,6 @@ class DjotStructuralPrefixScansTest extends TestCase
     public function testLineFactsResetAfterAThematicBreak(): void
     {
         $source = "***\n* _a_\n> * _b_";
-        self::assertSame("***\n* /a/\n> * /b/", DjotEmphasis::convert($source, $source, static fn (string $plain): string => $plain));
+        self::assertSame("***\n* /a/\n> * /b/", Emphasis::convert($source, $source, static fn (string $plain): string => $plain));
     }
 }

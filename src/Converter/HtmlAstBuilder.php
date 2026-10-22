@@ -13,6 +13,13 @@ use LogicException;
 use MarkupCarve\Carve\Ast\AstCodec;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\CodePayload;
+use MarkupCarve\Carve\Converter\Html\AttributePolicy;
+use MarkupCarve\Carve\Converter\Html\CarrierNames;
+use MarkupCarve\Carve\Converter\Html\DomLoader;
+use MarkupCarve\Carve\Converter\Html\ImportNodes;
+use MarkupCarve\Carve\Converter\Html\ImportSession;
+use MarkupCarve\Carve\Converter\Html\MathTex;
+use MarkupCarve\Carve\Converter\Html\TableStructure;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Parser\InlineParser;
@@ -44,7 +51,7 @@ use Throwable;
  */
 final class HtmlAstBuilder
 {
-    private HtmlImportSession $session;
+    private ImportSession $session;
 
     /**
      * @return \SplObjectStorage<\DOMElement, null>
@@ -89,7 +96,7 @@ final class HtmlAstBuilder
     private function importPath(DOMElement $node): string
     {
         $parts = [];
-        for ($current = $node; $current instanceof DOMElement && !in_array(strtolower(HtmlDomLoader::elementName($current)), ['carve-import-root', 'html', 'body'], true); $current = $current->parentNode) {
+        for ($current = $node; $current instanceof DOMElement && !in_array(strtolower(DomLoader::elementName($current)), ['carve-import-root', 'html', 'body'], true); $current = $current->parentNode) {
             if (!isset($this->session->pathSiblingIndices[$current])) {
                 $index = 1;
                 foreach ($current->parentNode->childNodes ?? [] as $sibling) {
@@ -97,7 +104,7 @@ final class HtmlAstBuilder
                 }
             }
             $index = $this->session->pathSiblingIndices[$current] ?? 1;
-            array_unshift($parts, strtolower(HtmlDomLoader::elementName($current)) . '[' . $index . ']');
+            array_unshift($parts, strtolower(DomLoader::elementName($current)) . '[' . $index . ']');
         }
 
         return '/' . implode('/', $parts);
@@ -301,7 +308,7 @@ final class HtmlAstBuilder
         private readonly array $alignmentClasses = [],
         private readonly array $labels = [],
     ) {
-        $this->session = new HtmlImportSession();
+        $this->session = new ImportSession();
     }
 
     /**
@@ -499,8 +506,8 @@ final class HtmlAstBuilder
 
     public function buildResult(string $html, ?int $sourceByteLength = null): HtmlAstBuildResult
     {
-        $this->session = new HtmlImportSession();
-        $document = HtmlDomLoader::fragment($html);
+        $this->session = new ImportSession();
+        $document = DomLoader::fragment($html);
         $this->session->builtDocument = $document;
 
         $root = $document->getElementsByTagName('carve-import-root')->item(0);
@@ -514,7 +521,7 @@ final class HtmlAstBuilder
                 continue;
             }
             for ($ancestor = $section->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre', 'template'], true)) {
+                if (in_array(strtolower(DomLoader::elementName($ancestor)), ['code', 'pre', 'template'], true)) {
                     continue 2;
                 }
             }
@@ -529,7 +536,7 @@ final class HtmlAstBuilder
         $supReferences = [];
         foreach ($root->getElementsByTagName('sup') as $reference) {
             for ($ancestor = $reference->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre', 'template'], true)) {
+                if (in_array(strtolower(DomLoader::elementName($ancestor)), ['code', 'pre', 'template'], true)) {
                     continue 2;
                 }
             }
@@ -558,12 +565,12 @@ final class HtmlAstBuilder
         foreach ($root->getElementsByTagName('a') as $anchor) {
             if (
                 strtolower($anchor->getAttribute('role')) !== 'doc-noteref'
-                && !self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($anchor, 'data-carve-footnote-label'))
+                && !self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($anchor, 'data-carve-footnote-label'))
             ) {
                 continue;
             }
             for ($ancestor = $anchor->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-                if (in_array(strtolower(HtmlDomLoader::elementName($ancestor)), ['code', 'pre'], true)) {
+                if (in_array(strtolower(DomLoader::elementName($ancestor)), ['code', 'pre'], true)) {
                     continue 2;
                 }
             }
@@ -575,7 +582,7 @@ final class HtmlAstBuilder
         }
         $reservedLabels = [];
         foreach ($allEndnoteItems as $item) {
-            $label = HtmlCarrierNames::consumeAttribute($item, 'data-carve-footnote-label');
+            $label = CarrierNames::consumeAttribute($item, 'data-carve-footnote-label');
             if (!self::isValidFootnoteCarrierLabel($label) || self::hasConflictingEndnoteCarriers($item)) {
                 continue;
             }
@@ -590,7 +597,7 @@ final class HtmlAstBuilder
         }
         $itemsByLabel = [];
         foreach ($allEndnoteItems as $item) {
-            if (HtmlCarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+            if (CarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
                 continue;
             }
             $label = $this->session->endnoteItemLabels[$item] ?? $this->footnoteLabel($item->getAttribute('id'));
@@ -610,7 +617,7 @@ final class HtmlAstBuilder
             }
         }
         foreach ($footnoteAnchors as $anchor) {
-            $label = HtmlCarrierNames::consumeAttribute($anchor, 'data-carve-footnote-label');
+            $label = CarrierNames::consumeAttribute($anchor, 'data-carve-footnote-label');
             if (!self::isValidFootnoteCarrierLabel($label)) {
                 continue;
             }
@@ -623,7 +630,7 @@ final class HtmlAstBuilder
         }
         $nextLabel = 1;
         foreach ($allEndnoteItems as $item) {
-            if (HtmlCarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+            if (CarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
                 continue;
             }
             $id = $item->getAttribute('id');
@@ -651,7 +658,7 @@ final class HtmlAstBuilder
             }
         }
         foreach ($root->getElementsByTagName('template') as $template) {
-            if (!HtmlCarrierNames::consumePresence($template, 'data-carve-abbreviations')) {
+            if (!CarrierNames::consumePresence($template, 'data-carve-abbreviations')) {
                 continue;
             }
             if (preg_match_all('/^\*\[([^\]\n]+)\]: +(.+)$/m', $template->textContent, $matches, PREG_SET_ORDER) === false) {
@@ -796,7 +803,7 @@ final class HtmlAstBuilder
                 if (count($children) === 1 && $children[0]['type'] === 'image') {
                     $blocks[] = $children[0];
                 } else {
-                    $blocks[] = HtmlImportNodes::paragraph($children);
+                    $blocks[] = ImportNodes::paragraph($children);
                 }
             }
         };
@@ -821,7 +828,7 @@ final class HtmlAstBuilder
                         if (
                             $sibling instanceof DOMElement
                             && !$this->isBlock($sibling)
-                            && (trim($sibling->textContent) === '' || in_array(strtolower(HtmlDomLoader::elementName($sibling)), ['script', 'style', 'template', 'noscript'], true))
+                            && (trim($sibling->textContent) === '' || in_array(strtolower(DomLoader::elementName($sibling)), ['script', 'style', 'template', 'noscript'], true))
                             && $this->inline($sibling) === []
                         ) {
                             continue;
@@ -897,7 +904,7 @@ final class HtmlAstBuilder
         if (!$node instanceof DOMElement) {
             return false;
         }
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         if ($tag === 'summary' && $this->session->summaryTitles->offsetExists($node) && $this->session->summaryTitles[$node] === null) {
             return true;
         }
@@ -925,7 +932,7 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             if ($tag === 'p') {
                 return true;
             }
@@ -955,7 +962,7 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($child));
+            $tag = strtolower(DomLoader::elementName($child));
             if (isset(self::BLOCK_TAGS[$tag])) {
                 return true;
             }
@@ -975,7 +982,7 @@ final class HtmlAstBuilder
         if (!$node instanceof DOMElement) {
             return [];
         }
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
@@ -988,16 +995,16 @@ final class HtmlAstBuilder
         if (in_array($tag, ['th', 'td', 'dt', 'dd'], true)) {
             $children = $this->blockInlines($node);
 
-            return $children === [] ? [] : [HtmlImportNodes::paragraph($children)];
+            return $children === [] ? [] : [ImportNodes::paragraph($children)];
         }
         $extension = $this->extensionBlock($node);
         if ($extension !== null) {
-            HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext');
-            if ($extension['type'] === 'code_block' && HtmlCarrierNames::consumePresence($node, 'data-carve-fence-language')) {
+            CarrierNames::consumeAttribute($node, 'data-carve-ext');
+            if ($extension['type'] === 'code_block' && CarrierNames::consumePresence($node, 'data-carve-fence-language')) {
                 $this->session->consumedExtensionElements[$node] = true;
                 $parent = $node->parentNode;
                 if (
-                    $parent instanceof DOMElement && strtolower(HtmlDomLoader::elementName($parent)) === 'figure'
+                    $parent instanceof DOMElement && strtolower(DomLoader::elementName($parent)) === 'figure'
                     && $parent->getAttribute('class') !== '' && $this->extensionElements($parent) === [$node]
                 ) {
                     $this->session->consumedExtensionElements[$parent] = false;
@@ -1017,7 +1024,7 @@ final class HtmlAstBuilder
 
                 return [];
             }
-            $paragraph = HtmlImportNodes::paragraph($children);
+            $paragraph = ImportNodes::paragraph($children);
             if ($attrs !== []) {
                 $paragraph['attrs'] = $attrs;
             }
@@ -1045,7 +1052,7 @@ final class HtmlAstBuilder
             }
             $headingAttrs = $this->attrsInElementOrder($node, $skip);
             if ($node->hasAttribute('id')) {
-                HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id');
+                CarrierNames::consumePresence($node, 'data-carve-explicit-id');
             }
             if ($headingAttrs !== []) {
                 $heading['attrs'] = $headingAttrs;
@@ -1072,14 +1079,14 @@ final class HtmlAstBuilder
             if ($this->session->inInlineProjection && strtolower($node->getAttribute('role')) !== 'img') {
                 $hasCode = false;
                 foreach ($node->childNodes as $child) {
-                    if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'code') {
+                    if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'code') {
                         $hasCode = true;
 
                         break;
                     }
                 }
                 if (!$hasCode) {
-                    return [HtmlImportNodes::paragraph($this->inlines($this->children($node)))];
+                    return [ImportNodes::paragraph($this->inlines($this->children($node)))];
                 }
             }
 
@@ -1110,7 +1117,7 @@ final class HtmlAstBuilder
             && in_array($tag, ['address', 'fieldset', 'form', 'hgroup'], true)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = HtmlDomLoader::serialize($node);
+            $html = DomLoader::serialize($node);
 
             $this->keepRaw($node);
 
@@ -1154,7 +1161,7 @@ final class HtmlAstBuilder
             && !$this->isSupportedBlockTag($tag)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = HtmlDomLoader::serialize($node);
+            $html = DomLoader::serialize($node);
 
             $this->keepRaw($node);
 
@@ -1192,14 +1199,14 @@ final class HtmlAstBuilder
     {
         $blocks = $this->blocks($this->children($node));
         if ($node->hasAttribute('id')) {
-            HtmlCarrierNames::consumeAttribute($node, 'data-carve-explicit-id');
+            CarrierNames::consumeAttribute($node, 'data-carve-explicit-id');
         }
         // Only the id is the renderer's: it moves a heading's id onto the section
         // it opens (CARVE-P9-019). Anything else on a section has no carrier.
         $heading = $this->firstElementChild($node);
         if (
             $heading === null
-            || preg_match('/^h[1-6]$/iD', HtmlDomLoader::elementName($heading)) !== 1
+            || preg_match('/^h[1-6]$/iD', DomLoader::elementName($heading)) !== 1
             || !$node->hasAttribute('id')
             || $heading->hasAttribute('id')
         ) {
@@ -1207,7 +1214,7 @@ final class HtmlAstBuilder
         }
         if (
             !self::hasConflictingIdCarriers($node)
-            && (HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id') || HtmlCarrierNames::consumePresence($node, 'data-carve-generated-id'))
+            && (CarrierNames::consumePresence($node, 'data-carve-explicit-id') || CarrierNames::consumePresence($node, 'data-carve-generated-id'))
         ) {
             $this->session->consumedExtensionElements[$node] = false;
         }
@@ -1216,11 +1223,11 @@ final class HtmlAstBuilder
                 $headingAttrs = self::attrsValue($block['attrs'] ?? null);
                 $headingAttrs['id'] = $node->getAttribute('id');
                 $order = array_values(array_diff($headingAttrs['order'] ?? [], ['#id']));
-                $explicit = HtmlCarrierNames::consumePresence($node, 'data-carve-explicit-id') && !self::hasConflictingIdCarriers($node);
-                $idSlot = HtmlCarrierNames::peekAttribute($node, 'data-carve-id-slot');
+                $explicit = CarrierNames::consumePresence($node, 'data-carve-explicit-id') && !self::hasConflictingIdCarriers($node);
+                $idSlot = CarrierNames::peekAttribute($node, 'data-carve-id-slot');
                 $validSlot = $explicit && ctype_digit($idSlot) && (float)$idSlot <= count($order);
                 if ($validSlot) {
-                    HtmlCarrierNames::consumeAttribute($node, 'data-carve-id-slot');
+                    CarrierNames::consumeAttribute($node, 'data-carve-id-slot');
                 }
                 $position = $validSlot ? (int)$idSlot : 0;
                 array_splice($order, $position, 0, ['#id']);
@@ -1229,7 +1236,7 @@ final class HtmlAstBuilder
                 } else {
                     unset($headingAttrs['order']);
                 }
-                if (!self::hasConflictingIdCarriers($node) && HtmlCarrierNames::consumePresence($node, 'data-carve-generated-id')) {
+                if (!self::hasConflictingIdCarriers($node) && CarrierNames::consumePresence($node, 'data-carve-generated-id')) {
                     unset($headingAttrs['id']);
                 }
                 $block['attrs'] = $headingAttrs;
@@ -1454,23 +1461,23 @@ final class HtmlAstBuilder
 
     public static function hasConflictingIdCarriers(DOMElement $node): bool
     {
-        return HtmlCarrierNames::peekPresence($node, 'data-carve-explicit-id')
-            && HtmlCarrierNames::peekPresence($node, 'data-carve-generated-id');
+        return CarrierNames::peekPresence($node, 'data-carve-explicit-id')
+            && CarrierNames::peekPresence($node, 'data-carve-generated-id');
     }
 
     public static function hasConflictingTextCarriers(DOMElement $node): bool
     {
-        return HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+        return CarrierNames::peekPresence($node, 'data-carve-escaped')
             && count(preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: []) === 1
-            && HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
-            && self::isValidRawCarrierFormat(HtmlCarrierNames::peekAttribute($node, 'data-carve-raw'));
+            && CarrierNames::peekPresence($node, 'data-carve-raw')
+            && self::isValidRawCarrierFormat(CarrierNames::peekAttribute($node, 'data-carve-raw'));
     }
 
     private function headingIdWasGenerated(DOMElement $node): bool
     {
         return $node->hasAttribute('id')
             && !self::hasConflictingIdCarriers($node)
-            && HtmlCarrierNames::consumePresence($node, 'data-carve-generated-id');
+            && CarrierNames::consumePresence($node, 'data-carve-generated-id');
     }
 
     /**
@@ -1491,7 +1498,7 @@ final class HtmlAstBuilder
         }
         $title = [];
         foreach ($domChildren as $index => $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'summary') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'summary') {
                 $candidate = $this->captionInlines($child);
                 if ($this->summaryCanBeTitle($child, $candidate)) {
                     $title = $candidate;
@@ -1537,7 +1544,7 @@ final class HtmlAstBuilder
         $document = (new AstCodec())->decodeImporterTree([
             'type' => 'document',
             'srcByteLength' => 0,
-            'children' => [HtmlImportNodes::paragraph($inlines)],
+            'children' => [ImportNodes::paragraph($inlines)],
         ]);
         $source = trim((new CarveRenderer())->render($document));
         unset($document);
@@ -1592,7 +1599,7 @@ final class HtmlAstBuilder
         $document = (new AstCodec())->decodeImporterTree([
             'type' => 'document',
             'srcByteLength' => 0,
-            'children' => [HtmlImportNodes::paragraph($this->blockInlines($paragraph))],
+            'children' => [ImportNodes::paragraph($this->blockInlines($paragraph))],
         ]);
         $source = trim((new CarveRenderer())->render($document));
         unset($document);
@@ -1638,18 +1645,18 @@ final class HtmlAstBuilder
     {
         $parent = $node->parentNode;
 
-        return !$parent instanceof DOMElement || strtolower(HtmlDomLoader::elementName($parent)) !== 'figure';
+        return !$parent instanceof DOMElement || strtolower(DomLoader::elementName($parent)) !== 'figure';
     }
 
     public static function aRowRefusesTheRegion(DOMElement $node): bool
     {
         for ($ancestor = $node->parentNode; $ancestor instanceof DOMElement; $ancestor = $ancestor->parentNode) {
-            $tag = strtolower(HtmlDomLoader::elementName($ancestor));
+            $tag = strtolower(DomLoader::elementName($ancestor));
             if ($tag === 'caption' || $tag === 'figcaption') {
                 return false;
             }
             if ($tag === 'td' || $tag === 'th') {
-                $html = HtmlDomLoader::serialize($node);
+                $html = DomLoader::serialize($node);
 
                 return str_contains(rtrim($html, "\n"), "\n");
             }
@@ -1661,7 +1668,7 @@ final class HtmlAstBuilder
     private function isInsideTableCell(DOMElement $node): bool
     {
         for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (in_array(strtolower(HtmlDomLoader::elementName($parent)), ['td', 'th'], true)) {
+            if (in_array(strtolower(DomLoader::elementName($parent)), ['td', 'th'], true)) {
                 return true;
             }
         }
@@ -1742,7 +1749,7 @@ final class HtmlAstBuilder
 
     private function codeLanguageWrapper(DOMElement $parent, DOMElement $child): bool
     {
-        if (strtolower(HtmlDomLoader::elementName($parent)) !== 'div') {
+        if (strtolower(DomLoader::elementName($parent)) !== 'div') {
             return false;
         }
         if (!$this->session->codeLanguageWrappers->offsetExists($parent)) {
@@ -1785,12 +1792,12 @@ final class HtmlAstBuilder
     private function calloutCodeText(DOMNode $node): string
     {
         if (
-            $node instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node)) === 'b'
+            $node instanceof DOMElement && strtolower(DomLoader::elementName($node)) === 'b'
             && $node->getAttribute('class') === 'callout'
             && preg_match('/^[0-9]+$/D', $node->getAttribute('data-callout')) === 1
             && $node->textContent === $node->getAttribute('data-callout')
             && $node->childNodes->length === 1 && $node->firstChild instanceof DOMText
-            && $node->parentNode instanceof DOMElement && strtolower(HtmlDomLoader::elementName($node->parentNode)) === 'code'
+            && $node->parentNode instanceof DOMElement && strtolower(DomLoader::elementName($node->parentNode)) === 'code'
             && ($node->nextSibling === null || ($node->nextSibling instanceof DOMText && str_starts_with($node->nextSibling->textContent, "\n")))
         ) {
             $this->session->consumedExtensionElements[$node] = true;
@@ -1800,7 +1807,7 @@ final class HtmlAstBuilder
         if ($node instanceof DOMText) {
             return $node->textContent;
         }
-        if ($node instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($node)), ['script', 'style', 'template', 'noscript'], true)) {
+        if ($node instanceof DOMElement && in_array(strtolower(DomLoader::elementName($node)), ['script', 'style', 'template', 'noscript'], true)) {
             return '';
         }
         $text = '';
@@ -1821,8 +1828,8 @@ final class HtmlAstBuilder
         if ($node->getAttribute('aria-label') === $base) {
             $skip[] = 'aria-label';
         }
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated')) {
-            $skip = array_values(array_intersect(explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), ['role', 'aria-label']));
+        if (CarrierNames::consumePresence($node, 'data-carve-fence-generated')) {
+            $skip = array_values(array_intersect(explode(' ', CarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), ['role', 'aria-label']));
         }
         $attrs = $this->attrs($node, $skip);
         $classes = $attrs['classes'] ?? [];
@@ -1845,17 +1852,17 @@ final class HtmlAstBuilder
      */
     private function extensionBlock(DOMElement $node): ?array
     {
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         $classes = $this->codeLanguageClasses($node);
-        if (HtmlCarrierNames::peekAttribute($node, 'data-carve-ext') === 'code-block') {
-            $content = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
+        if (CarrierNames::peekAttribute($node, 'data-carve-ext') === 'code-block') {
+            $content = CarrierNames::consumeAttribute($node, 'data-carve-fence-content');
             if (
-                !HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content') || preg_match('//u', $content) !== 1
+                !CarrierNames::consumePresence($node, 'data-carve-fence-content') || preg_match('//u', $content) !== 1
                 || preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', $content) !== 0
             ) {
                 return null;
             }
-            HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext');
+            CarrierNames::consumeAttribute($node, 'data-carve-ext');
             $block = ['type' => 'code_block', 'content' => $content];
             $attrs = $this->attrs($node, []);
             if ($attrs !== []) {
@@ -1864,30 +1871,30 @@ final class HtmlAstBuilder
             foreach ($node->getElementsByTagName('*') as $generated) {
                 $this->session->consumedExtensionElements[$generated] = true;
             }
-            $language = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language');
+            $language = CarrierNames::consumeAttribute($node, 'data-carve-fence-language');
             if ($this->validCodeLanguage($language)) {
                 $block['lang'] = $language;
             }
-            if (HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
-                $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
+            if (CarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(CarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+                $block['label'] = CarrierNames::consumeAttribute($node, 'data-carve-label');
             }
 
             return $block;
         }
         if (
             $this->hasFencedExtensionBody($node)
-            && HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content')
-            && $this->validCodeLanguage(HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'))
-            && preg_match('//u', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 1
-            && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 0
+            && CarrierNames::consumePresence($node, 'data-carve-fence-content')
+            && $this->validCodeLanguage(CarrierNames::consumeAttribute($node, 'data-carve-fence-language'))
+            && preg_match('//u', CarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 1
+            && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', CarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 0
         ) {
-            $block = ['type' => 'code_block', 'lang' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'), 'content' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')];
+            $block = ['type' => 'code_block', 'lang' => CarrierNames::consumeAttribute($node, 'data-carve-fence-language'), 'content' => CarrierNames::consumeAttribute($node, 'data-carve-fence-content')];
             $attrs = $this->fencedExtensionAttrs($node);
             if ($attrs !== []) {
                 $block['attrs'] = $attrs;
             }
-            if (HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
-                $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
+            if (CarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(CarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+                $block['label'] = CarrierNames::consumeAttribute($node, 'data-carve-label');
             }
             foreach ($node->getElementsByTagName('*') as $generated) {
                 $this->session->consumedExtensionElements[$generated] = true;
@@ -1897,7 +1904,7 @@ final class HtmlAstBuilder
         }
         if ($tag === 'figure') {
             $elements = $this->extensionElements($node);
-            if ($elements !== null && count($elements) === 1 && HtmlCarrierNames::consumePresence($elements[0], 'data-carve-fence-language')) {
+            if ($elements !== null && count($elements) === 1 && CarrierNames::consumePresence($elements[0], 'data-carve-fence-language')) {
                 $block = $this->extensionBlock($elements[0]);
                 if (($block['type'] ?? null) === 'code_block') {
                     $this->session->consumedExtensionElements[$node] = false;
@@ -1908,17 +1915,17 @@ final class HtmlAstBuilder
             }
         }
 
-        if ($tag === 'pre' && $this->validCodeLanguage(HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'))) {
+        if ($tag === 'pre' && $this->validCodeLanguage(CarrierNames::consumeAttribute($node, 'data-carve-fence-language'))) {
             $elements = $this->extensionElements($node);
             if (
                 $elements !== null && count($elements) === 1
-                && strtolower(HtmlDomLoader::elementName($elements[0])) === 'code'
+                && strtolower(DomLoader::elementName($elements[0])) === 'code'
                 && self::every(iterator_to_array($elements[0]->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText)
             ) {
                 $block = $this->codeBlock($node);
-                $block['lang'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language');
-                if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content')) {
-                    $block['content'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
+                $block['lang'] = CarrierNames::consumeAttribute($node, 'data-carve-fence-language');
+                if (CarrierNames::consumePresence($node, 'data-carve-fence-content')) {
+                    $block['content'] = CarrierNames::consumeAttribute($node, 'data-carve-fence-content');
                 }
                 $attrs = $this->fencedExtensionAttrs($node);
                 unset($block['attrs']);
@@ -1931,26 +1938,26 @@ final class HtmlAstBuilder
         }
         if (
             in_array($tag, ['pre', 'div'], true)
-            && $this->validCodeLanguage(HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'))
+            && $this->validCodeLanguage(CarrierNames::consumeAttribute($node, 'data-carve-fence-language'))
         ) {
             $elements = $this->extensionElements($node);
             $textOnly = self::every(iterator_to_array($node->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
             $json = $elements !== null && count($elements) === 1
-                && strtolower(HtmlDomLoader::elementName($elements[0])) === 'script'
+                && strtolower(DomLoader::elementName($elements[0])) === 'script'
                 && $elements[0]->getAttribute('type') === 'application/json'
                 && self::every(iterator_to_array($elements[0]->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText);
             if ($textOnly || $json) {
                 $content = $json ? $elements[0]->textContent : $node->textContent;
-                $block = ['type' => 'code_block', 'lang' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-language'), 'content' => CodePayload::contentFromCodeText($content)];
+                $block = ['type' => 'code_block', 'lang' => CarrierNames::consumeAttribute($node, 'data-carve-fence-language'), 'content' => CodePayload::contentFromCodeText($content)];
                 if (
-                    HtmlCarrierNames::consumePresence($node, 'data-carve-fence-content')
-                    && preg_match('//u', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 1
-                    && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 0
+                    CarrierNames::consumePresence($node, 'data-carve-fence-content')
+                    && preg_match('//u', CarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 1
+                    && preg_match('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', CarrierNames::consumeAttribute($node, 'data-carve-fence-content')) === 0
                 ) {
-                    $block['content'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-content');
+                    $block['content'] = CarrierNames::consumeAttribute($node, 'data-carve-fence-content');
                 }
-                if (HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
-                    $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
+                if (CarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(CarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+                    $block['label'] = CarrierNames::consumeAttribute($node, 'data-carve-label');
                 }
                 $attrs = $this->fencedExtensionAttrs($node);
                 if ($attrs !== []) {
@@ -1960,7 +1967,7 @@ final class HtmlAstBuilder
                 return $block;
             }
         }
-        $carrier = $tag === 'div' ? HtmlCarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, ['tabs', 'code-group'], true)) : '';
+        $carrier = $tag === 'div' ? CarrierNames::consumeAttribute($node, 'data-carve-ext', static fn (string $value): bool => in_array($value, ['tabs', 'code-group'], true)) : '';
         $marked = in_array($carrier, ['tabs', 'code-group'], true);
         $tabs = $marked ? $carrier === 'tabs' : in_array('tabs', $classes, true);
         $kind = $tabs ? 'tabs' : 'code-group';
@@ -1970,7 +1977,7 @@ final class HtmlAstBuilder
         if (
             !$marked && (
                 !in_array($kind, $classes, true)
-                || (!HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated') && !in_array($node->getAttribute('role'), ['group', 'tablist'], true))
+                || (!CarrierNames::consumePresence($node, 'data-carve-group-generated') && !in_array($node->getAttribute('role'), ['group', 'tablist'], true))
                 || $node->getAttribute('aria-label') === ''
             )
         ) {
@@ -1980,12 +1987,12 @@ final class HtmlAstBuilder
         if ($elements === null || $elements === []) {
             return null;
         }
-        $static = $marked && strtolower(HtmlDomLoader::elementName($elements[0])) === 'section';
-        $aria = $marked ? strtolower(HtmlDomLoader::elementName($elements[0])) === 'button' : $node->getAttribute('role') === 'tablist';
+        $static = $marked && strtolower(DomLoader::elementName($elements[0])) === 'section';
+        $aria = $marked ? strtolower(DomLoader::elementName($elements[0])) === 'button' : $node->getAttribute('role') === 'tablist';
         $controls = [];
         $index = 0;
         $name = null;
-        while (isset($elements[$index]) && strtolower(HtmlDomLoader::elementName($elements[$index])) === ($aria ? 'button' : 'input')) {
+        while (isset($elements[$index]) && strtolower(DomLoader::elementName($elements[$index])) === ($aria ? 'button' : 'input')) {
             $control = $elements[$index++];
             $id = $control->getAttribute('id');
             if ($id === '' || isset($controls[$id])) {
@@ -2004,7 +2011,7 @@ final class HtmlAstBuilder
                 $name ??= $control->getAttribute('name');
                 if (
                     (!$marked && $control->getAttribute('class') !== $kind . '-radio') || (!$marked && ($control->getAttribute('type') !== 'radio' || $name === '' || $control->getAttribute('name') !== $name))
-                    || $label === null || strtolower(HtmlDomLoader::elementName($label)) !== 'label' || (!$marked && $label->getAttribute('class') !== $kind . '-label') || ((!$marked || $label->hasAttribute('for')) && $label->getAttribute('for') !== $id)
+                    || $label === null || strtolower(DomLoader::elementName($label)) !== 'label' || (!$marked && $label->getAttribute('class') !== $kind . '-label') || ((!$marked || $label->hasAttribute('for')) && $label->getAttribute('for') !== $id)
                 ) {
                     return null;
                 }
@@ -2014,7 +2021,7 @@ final class HtmlAstBuilder
         if ($static) {
             foreach ($elements as $position => $panel) {
                 $children = $this->extensionElements($panel);
-                if (strtolower(HtmlDomLoader::elementName($panel)) !== 'section' || $children === null || $children === [] || strtolower(HtmlDomLoader::elementName($children[0])) !== 'h3') {
+                if (strtolower(DomLoader::elementName($panel)) !== 'section' || $children === null || $children === [] || strtolower(DomLoader::elementName($children[0])) !== 'h3') {
                     return null;
                 }
                 $controls[(string)$position] = ['control' => $panel, 'label' => $children[0]];
@@ -2025,7 +2032,7 @@ final class HtmlAstBuilder
         }
         $selectedCount = 0;
         foreach ($controls as $entry) {
-            $selectedCount += (int)($static ? HtmlCarrierNames::consumePresence($entry['control'], 'data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked')));
+            $selectedCount += (int)($static ? CarrierNames::consumePresence($entry['control'], 'data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked')));
         }
         if ($selectedCount !== 1) {
             return null;
@@ -2033,9 +2040,9 @@ final class HtmlAstBuilder
         foreach ($controls as $id => $entry) {
             $panel = $elements[$index++];
             if (
-                strtolower(HtmlDomLoader::elementName($panel)) !== ($static ? 'section' : 'div') || (!$marked && !$this->hasClass($panel, $kind . '-panel'))
-                || (!$marked && (!HtmlCarrierNames::consumePresence($panel, 'data-carve-group-generated') || in_array('role', explode(' ', HtmlCarrierNames::consumeAttribute($panel, 'data-carve-group-generated')), true)) && $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group'))
-                || (!$marked && ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : (!HtmlCarrierNames::consumePresence($panel, 'data-carve-group-generated') && $panel->getAttribute('aria-label') !== $entry['label']->textContent)))
+                strtolower(DomLoader::elementName($panel)) !== ($static ? 'section' : 'div') || (!$marked && !$this->hasClass($panel, $kind . '-panel'))
+                || (!$marked && (!CarrierNames::consumePresence($panel, 'data-carve-group-generated') || in_array('role', explode(' ', CarrierNames::consumeAttribute($panel, 'data-carve-group-generated')), true)) && $panel->getAttribute('role') !== ($aria ? 'tabpanel' : 'group'))
+                || (!$marked && ($aria ? ($panel->getAttribute('aria-labelledby') !== $id || $panel->getAttribute('id') !== $entry['control']->getAttribute('aria-controls')) : (!CarrierNames::consumePresence($panel, 'data-carve-group-generated') && $panel->getAttribute('aria-label') !== $entry['label']->textContent)))
             ) {
                 return null;
             }
@@ -2045,10 +2052,10 @@ final class HtmlAstBuilder
             if ($tabs) {
                 $titleHeading = false;
                 foreach ($panel->childNodes as $child) {
-                    if (!$child instanceof DOMElement || !HtmlCarrierNames::consumePresence($child, 'data-carve-tab-title')) {
+                    if (!$child instanceof DOMElement || !CarrierNames::consumePresence($child, 'data-carve-tab-title')) {
                         continue;
                     }
-                    if ($titleHeading || !$child->hasAttribute('hidden') || preg_match('/^h[1-6]$/D', strtolower(HtmlDomLoader::elementName($child))) !== 1 || HtmlCarrierNames::consumePresence($panel, 'data-carve-label')) {
+                    if ($titleHeading || !$child->hasAttribute('hidden') || preg_match('/^h[1-6]$/D', strtolower(DomLoader::elementName($child))) !== 1 || CarrierNames::consumePresence($panel, 'data-carve-label')) {
                         return null;
                     }
                     $titleHeading = true;
@@ -2066,16 +2073,16 @@ final class HtmlAstBuilder
                     if (!$child instanceof DOMElement) {
                         continue;
                     }
-                    if (HtmlCarrierNames::consumePresence($child, 'data-carve-tab-title')) {
-                        if (HtmlCarrierNames::consumeAttribute($child, 'data-carve-tab-title') !== 'authored-hidden') {
+                    if (CarrierNames::consumePresence($child, 'data-carve-tab-title')) {
+                        if (CarrierNames::consumeAttribute($child, 'data-carve-tab-title') !== 'authored-hidden') {
                             $child->removeAttribute('hidden');
                         }
-                        if (HtmlCarrierNames::consumePresence($child, 'data-carve-generated-id') || !HtmlCarrierNames::consumePresence($child, 'data-carve-explicit-id')) {
+                        if (CarrierNames::consumePresence($child, 'data-carve-generated-id') || !CarrierNames::consumePresence($child, 'data-carve-explicit-id')) {
                             $child->removeAttribute('id');
                         }
                     }
-                    if ($titleNode === null && strtolower(HtmlDomLoader::elementName($child)) === 'p' && $this->hasClass($child, 'admonition-title')) {
-                        HtmlCarrierNames::consumePresence($child, 'data-carve-generated-id');
+                    if ($titleNode === null && strtolower(DomLoader::elementName($child)) === 'p' && $this->hasClass($child, 'admonition-title')) {
+                        CarrierNames::consumePresence($child, 'data-carve-generated-id');
                         $title = $this->blockInlines($child);
                         $this->stripOpenerTitleQuotes($title);
                         $titleNode = $child;
@@ -2086,8 +2093,8 @@ final class HtmlAstBuilder
                 if ($title !== []) {
                     $block['title'] = $title;
                 }
-                $attrs = $this->attrs($panel, HtmlCarrierNames::consumePresence($panel, 'data-carve-group-generated') ? explode(' ', HtmlCarrierNames::consumeAttribute($panel, 'data-carve-group-generated')) : array_merge(['role', 'aria-label', 'aria-labelledby'], $aria ? ['hidden'] : []));
-                if (!HtmlCarrierNames::consumePresence($panel, 'data-carve-explicit-id')) {
+                $attrs = $this->attrs($panel, CarrierNames::consumePresence($panel, 'data-carve-group-generated') ? explode(' ', CarrierNames::consumeAttribute($panel, 'data-carve-group-generated')) : array_merge(['role', 'aria-label', 'aria-labelledby'], $aria ? ['hidden'] : []));
+                if (!CarrierNames::consumePresence($panel, 'data-carve-explicit-id')) {
                     unset($attrs['id']);
                     $attrs['order'] = array_values(array_filter($attrs['order'] ?? [], static fn (string $slot): bool => $slot !== '#id'));
                 }
@@ -2099,15 +2106,15 @@ final class HtmlAstBuilder
                 if ($attrs !== []) {
                     $block['attrs'] = $attrs;
                 }
-                if (HtmlCarrierNames::consumePresence($panel, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($panel, 'data-carve-label'))) {
-                    $block['label'] = HtmlCarrierNames::consumeAttribute($panel, 'data-carve-label');
+                if (CarrierNames::consumePresence($panel, 'data-carve-label') && self::isValidCodeLabel(CarrierNames::consumeAttribute($panel, 'data-carve-label'))) {
+                    $block['label'] = CarrierNames::consumeAttribute($panel, 'data-carve-label');
                 }
             } else {
                 $children = $this->extensionElements($panel);
                 if ($static && $children !== null) {
                     array_shift($children);
                 }
-                if ($children === null || count($children) !== 1 || (strtolower(HtmlDomLoader::elementName($children[0])) !== 'pre' && HtmlCarrierNames::consumeAttribute($children[0], 'data-carve-ext') !== 'code-block' && !HtmlCarrierNames::consumePresence($children[0], 'data-carve-fence-language') && strtolower(HtmlDomLoader::elementName($children[0])) !== 'figure')) {
+                if ($children === null || count($children) !== 1 || (strtolower(DomLoader::elementName($children[0])) !== 'pre' && CarrierNames::consumeAttribute($children[0], 'data-carve-ext') !== 'code-block' && !CarrierNames::consumePresence($children[0], 'data-carve-fence-language') && strtolower(DomLoader::elementName($children[0])) !== 'figure')) {
                     return null;
                 }
                 $fence = $this->extensionBlock($children[0]);
@@ -2116,13 +2123,13 @@ final class HtmlAstBuilder
                     $this->session->consumedExtensionElements[$children[0]] = true;
                 } else {
                     $code = $this->extensionElements($children[0]);
-                    if ($code === null || count($code) !== 1 || strtolower(HtmlDomLoader::elementName($code[0])) !== 'code') {
+                    if ($code === null || count($code) !== 1 || strtolower(DomLoader::elementName($code[0])) !== 'code') {
                         return null;
                     }
                     $block = $this->codeBlock($children[0]);
                 }
             }
-            $selected = $static ? HtmlCarrierNames::consumePresence($entry['control'], 'data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked'));
+            $selected = $static ? CarrierNames::consumePresence($entry['control'], 'data-carve-selected') : ($aria ? $entry['control']->getAttribute('aria-selected') === 'true' : $entry['control']->hasAttribute('checked'));
             if ($selected && $blocks !== []) {
                 $block['attrs']['keyValues']['selected'] = '';
                 $block['attrs']['order'][] = 'selected';
@@ -2130,7 +2137,7 @@ final class HtmlAstBuilder
             $blocks[] = $block;
         }
         $group = ['type' => 'admonition', 'kind' => $kind, 'children' => $blocks];
-        $attrs = $this->attrs($node, HtmlCarrierNames::consumePresence($node, 'data-carve-group-generated') ? explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-group-generated')) : ['role', 'aria-label']);
+        $attrs = $this->attrs($node, CarrierNames::consumePresence($node, 'data-carve-group-generated') ? explode(' ', CarrierNames::consumeAttribute($node, 'data-carve-group-generated')) : ['role', 'aria-label']);
         $classes = array_values(array_filter($attrs['classes'] ?? [], static fn (string $class): bool => $class !== ($marked ? ($classes[0] ?? '') : $kind)));
         if ($classes === []) {
             unset($attrs['classes']);
@@ -2153,7 +2160,7 @@ final class HtmlAstBuilder
         foreach (array_slice($elements, count($elements) - count($controls)) as $panel) {
             $this->session->consumedExtensionElements[$panel] = false;
             foreach ($panel->childNodes as $child) {
-                if ($child instanceof DOMElement && HtmlCarrierNames::consumePresence($child, 'data-carve-tab-title')) {
+                if ($child instanceof DOMElement && CarrierNames::consumePresence($child, 'data-carve-tab-title')) {
                     $this->session->consumedExtensionElements[$child] = false;
                 }
             }
@@ -2164,7 +2171,7 @@ final class HtmlAstBuilder
 
     private function hasFencedExtensionBody(DOMElement $node): bool
     {
-        if (!in_array(strtolower(HtmlDomLoader::elementName($node)), ['pre', 'div'], true)) {
+        if (!in_array(strtolower(DomLoader::elementName($node)), ['pre', 'div'], true)) {
             return false;
         }
         if (self::every(iterator_to_array($node->childNodes), static fn (DOMNode $child): bool => $child instanceof DOMText)) {
@@ -2173,7 +2180,7 @@ final class HtmlAstBuilder
         $elements = $this->extensionElements($node);
 
         return $elements !== null && count($elements) === 1
-            && in_array(strtolower(HtmlDomLoader::elementName($elements[0])), ['code', 'script', 'svg', 'img'], true);
+            && in_array(strtolower(DomLoader::elementName($elements[0])), ['code', 'script', 'svg', 'img'], true);
     }
 
     public static function isValidCodeLabel(string $value): bool
@@ -2188,7 +2195,7 @@ final class HtmlAstBuilder
     {
         $code = null;
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'code') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'code') {
                 $code = $child;
 
                 break;
@@ -2196,7 +2203,7 @@ final class HtmlAstBuilder
         }
         $source = $code ?? $node;
         $content = $this->calloutCodeText($node);
-        if (!HtmlDomLoader::usesHtml5() && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
+        if (!DomLoader::usesHtml5() && $node->firstChild instanceof DOMText && str_starts_with($node->firstChild->data, "\n")) {
             $content = substr($content, 1);
         }
         // The newline before `</code>` TERMINATES the last payload line rather
@@ -2205,8 +2212,8 @@ final class HtmlAstBuilder
         // every all-blank payload, this engine's own output included
         // (carve-php#2726).
         $block = ['type' => 'code_block', 'content' => CodePayload::contentFromCodeText($content)];
-        if ($code !== null && HtmlCarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-label'))) {
-            $block['label'] = HtmlCarrierNames::consumeAttribute($node, 'data-carve-label');
+        if ($code !== null && CarrierNames::consumePresence($node, 'data-carve-label') && self::isValidCodeLabel(CarrierNames::consumeAttribute($node, 'data-carve-label'))) {
+            $block['label'] = CarrierNames::consumeAttribute($node, 'data-carve-label');
         }
         $class = $source->getAttribute('class');
         $language = $this->codeLanguage($node, $code);
@@ -2247,7 +2254,7 @@ final class HtmlAstBuilder
     {
         $items = [];
         foreach ($node->childNodes as $child) {
-            if (!$child instanceof DOMElement || strtolower(HtmlDomLoader::elementName($child)) !== 'li') {
+            if (!$child instanceof DOMElement || strtolower(DomLoader::elementName($child)) !== 'li') {
                 continue;
             }
             $task = $this->taskCheckbox($child);
@@ -2273,7 +2280,7 @@ final class HtmlAstBuilder
                     . ']';
             }
             $itemChildren = $this->blocks($this->children($child));
-            $item = HtmlImportNodes::listItem($itemChildren);
+            $item = ImportNodes::listItem($itemChildren);
             $skipItemAttrs = $consumesTaskState ? ['data-task-state'] : [];
             if ($task !== null && strtolower($child->getAttribute('data-type')) === 'taskitem') {
                 $skipItemAttrs[] = 'data-type';
@@ -2299,7 +2306,7 @@ final class HtmlAstBuilder
         // HTML never had (carve-php#2642).
         $tight = true;
         foreach ($node->childNodes as $itemElement) {
-            if (!$itemElement instanceof DOMElement || strtolower(HtmlDomLoader::elementName($itemElement)) !== 'li') {
+            if (!$itemElement instanceof DOMElement || strtolower(DomLoader::elementName($itemElement)) !== 'li') {
                 continue;
             }
             if ($this->holdsAParagraph($itemElement)) {
@@ -2308,7 +2315,7 @@ final class HtmlAstBuilder
                 break;
             }
         }
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-tight')) {
+        if (CarrierNames::consumePresence($node, 'data-carve-tight')) {
             $tight = true;
         }
         $list = ['type' => 'list', 'ordered' => $ordered, 'tight' => $tight, 'items' => $items];
@@ -2370,7 +2377,7 @@ final class HtmlAstBuilder
             if ($child instanceof DOMText && trim($child->textContent) === '') {
                 continue;
             }
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'li') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'li') {
                 continue;
             }
             $strays[] = $child;
@@ -2393,7 +2400,7 @@ final class HtmlAstBuilder
         $unreferenced = [];
         foreach ($this->directEndnoteItems($section) as $item) {
             $id = $item->getAttribute('id');
-            if (HtmlCarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
+            if (CarrierNames::consumePresence($item, 'data-carve-inline-footnote') && !self::hasConflictingEndnoteCarriers($item)) {
                 $found = true;
 
                 continue;
@@ -2455,11 +2462,11 @@ final class HtmlAstBuilder
     {
         $items = [];
         foreach ($section->childNodes as $child) {
-            if (!$child instanceof DOMElement || strtolower(HtmlDomLoader::elementName($child)) !== 'ol') {
+            if (!$child instanceof DOMElement || strtolower(DomLoader::elementName($child)) !== 'ol') {
                 continue;
             }
             foreach ($child->childNodes as $item) {
-                if ($item instanceof DOMElement && strtolower(HtmlDomLoader::elementName($item)) === 'li') {
+                if ($item instanceof DOMElement && strtolower(DomLoader::elementName($item)) === 'li') {
                     $items[] = $item;
                 }
             }
@@ -2478,12 +2485,12 @@ final class HtmlAstBuilder
         $list = $node->parentNode;
         $section = $list?->parentNode;
 
-        return strtolower(HtmlDomLoader::elementName($node)) === 'li'
-            && $list instanceof DOMElement && strtolower(HtmlDomLoader::elementName($list)) === 'ol'
-            && $section instanceof DOMElement && strtolower(HtmlDomLoader::elementName($section)) === 'section'
+        return strtolower(DomLoader::elementName($node)) === 'li'
+            && $list instanceof DOMElement && strtolower(DomLoader::elementName($list)) === 'ol'
+            && $section instanceof DOMElement && strtolower(DomLoader::elementName($section)) === 'section'
             && strtolower($section->getAttribute('role')) === 'doc-endnotes'
-            && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'))
-            && HtmlCarrierNames::consumePresence($node, 'data-carve-inline-footnote');
+            && self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($node, 'data-carve-footnote-label'))
+            && CarrierNames::consumePresence($node, 'data-carve-inline-footnote');
     }
 
     private function hasFollowingContent(DOMElement $node): bool
@@ -2500,7 +2507,7 @@ final class HtmlAstBuilder
                 if (!$sibling instanceof DOMElement) {
                     continue;
                 }
-                $tag = strtolower(HtmlDomLoader::elementName($sibling));
+                $tag = strtolower(DomLoader::elementName($sibling));
                 if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
                     continue;
                 }
@@ -2548,7 +2555,7 @@ final class HtmlAstBuilder
         $before = [];
         $items = [];
         foreach (self::definitionListEntries($node) as $candidate) {
-            if ($items === [] && strtolower(HtmlDomLoader::elementName($candidate)) === 'dd') {
+            if ($items === [] && strtolower(DomLoader::elementName($candidate)) === 'dd') {
                 array_push($before, ...$this->blocks($this->children($candidate)));
 
                 continue;
@@ -2586,9 +2593,9 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement) {
                 continue;
             }
-            $candidates = strtolower(HtmlDomLoader::elementName($child)) === 'div' ? iterator_to_array($child->childNodes) : [$child];
+            $candidates = strtolower(DomLoader::elementName($child)) === 'div' ? iterator_to_array($child->childNodes) : [$child];
             foreach ($candidates as $candidate) {
-                if ($candidate instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($candidate)), ['dt', 'dd'], true)) {
+                if ($candidate instanceof DOMElement && in_array(strtolower(DomLoader::elementName($candidate)), ['dt', 'dd'], true)) {
                     $entries[] = $candidate;
                 }
             }
@@ -2606,7 +2613,7 @@ final class HtmlAstBuilder
     {
         $leading = [];
         foreach (self::definitionListEntries($node) as $entry) {
-            if (strtolower(HtmlDomLoader::elementName($entry)) === 'dt') {
+            if (strtolower(DomLoader::elementName($entry)) === 'dt') {
                 break;
             }
             $leading[] = $entry;
@@ -2621,7 +2628,7 @@ final class HtmlAstBuilder
      */
     private function appendDefinitionItem(array &$items, DOMElement $child): void
     {
-        $tag = strtolower(HtmlDomLoader::elementName($child));
+        $tag = strtolower(DomLoader::elementName($child));
         if ($tag === 'dt') {
             $term = ['type' => 'definition_term', 'children' => $this->blockInlines($child)];
             $this->attachAttrs($term, $child);
@@ -2638,7 +2645,7 @@ final class HtmlAstBuilder
      */
     private function table(DOMElement $node): ?array
     {
-        $separatorWidths = self::separatorWidths(HtmlCarrierNames::consumeAttribute($node, 'data-carve-col-widths'));
+        $separatorWidths = self::separatorWidths(CarrierNames::consumeAttribute($node, 'data-carve-col-widths'));
         $rows = [];
         $listForm = $this->listTableForBlockCells && $this->tableHasBlockCell($node);
         /** @var list<list<list<ImportedNode>|null>> $cellBlockGrid */
@@ -2655,9 +2662,9 @@ final class HtmlAstBuilder
         $sawBodyRow = false;
         /** @var array<int, int> $rowspans */
         $rowspans = [];
-        $sourceRows = HtmlTableStructure::directTableRows($node);
+        $sourceRows = TableStructure::directTableRows($node);
         foreach ($sourceRows as $rowElement) {
-            $sectionTag = $rowElement->parentNode instanceof DOMElement ? strtolower(HtmlDomLoader::elementName($rowElement->parentNode)) : '';
+            $sectionTag = $rowElement->parentNode instanceof DOMElement ? strtolower(DomLoader::elementName($rowElement->parentNode)) : '';
             $cells = [];
             $cellBlocks = [];
             $ownAlignment = [];
@@ -2669,14 +2676,14 @@ final class HtmlAstBuilder
                 if (!$cellElement instanceof DOMElement) {
                     continue;
                 }
-                $tag = strtolower(HtmlDomLoader::elementName($cellElement));
+                $tag = strtolower(DomLoader::elementName($cellElement));
                 if ($tag !== 'td' && $tag !== 'th') {
                     continue;
                 }
                 $isHeader = $tag === 'th';
                 $rowIsAllHeader = $rowIsAllHeader && $isHeader;
                 while (($activeRowspans[$column] ?? 0) > 0) {
-                    $cells[] = HtmlTableStructure::spanCell('rowspan');
+                    $cells[] = TableStructure::spanCell('rowspan');
                     $cellBlocks[] = null;
                     $ownAlignment[] = null;
                     if ($activeRowspans[$column] > 1) {
@@ -2709,7 +2716,7 @@ final class HtmlAstBuilder
                     $this->session->tableCellAllowsEmptyCode = $previousCellContext;
                     $this->session->inInlineProjection = $previousProjection;
                 }
-                $cell = HtmlImportNodes::tableCell($children, $tag === 'th');
+                $cell = ImportNodes::tableCell($children, $tag === 'th');
                 $horizontal = $this->styleEnum($cellElement, 'text-align', ['left', 'right', 'center']);
                 $vertical = $this->styleEnum($cellElement, 'vertical-align', ['top', 'middle', 'bottom']);
                 if ($horizontal !== null) {
@@ -2743,7 +2750,7 @@ final class HtmlAstBuilder
                         $rowspans[$column + $offset] = $rowspan - 1;
                     }
                     if ($offset > 0) {
-                        $cells[] = HtmlTableStructure::spanCell('colspan');
+                        $cells[] = TableStructure::spanCell('colspan');
                         $cellBlocks[] = null;
                         $ownAlignment[] = null;
                     }
@@ -2751,7 +2758,7 @@ final class HtmlAstBuilder
                 $column += $colspan;
             }
             while (($activeRowspans[$column] ?? 0) > 0) {
-                $cells[] = HtmlTableStructure::spanCell('rowspan');
+                $cells[] = TableStructure::spanCell('rowspan');
                 $cellBlocks[] = null;
                 $ownAlignment[] = null;
                 if ($activeRowspans[$column] > 1) {
@@ -2760,7 +2767,7 @@ final class HtmlAstBuilder
                 ++$column;
             }
             if ($cells !== []) {
-                $row = HtmlImportNodes::tableRow($cells);
+                $row = ImportNodes::tableRow($cells);
                 if (!$listForm) {
                     $this->attachAttrs($row, $rowElement);
                 }
@@ -2837,7 +2844,7 @@ final class HtmlAstBuilder
             if (!$section instanceof DOMElement) {
                 continue;
             }
-            $tag = strtolower(HtmlDomLoader::elementName($section));
+            $tag = strtolower(DomLoader::elementName($section));
             if ($tag === 'tr') {
                 if (!$rowIndices->offsetExists($section)) {
                     continue;
@@ -2856,7 +2863,7 @@ final class HtmlAstBuilder
         }
         foreach ($plans as $plan) {
             $section = $plan['section'];
-            $tag = $section !== null ? strtolower(HtmlDomLoader::elementName($section)) : 'tbody';
+            $tag = $section !== null ? strtolower(DomLoader::elementName($section)) : 'tbody';
             $rank = ['thead' => 0, 'tbody' => 1, 'tfoot' => 2][$tag];
             $indices = $plan['indices'];
             $count = count($indices);
@@ -2926,7 +2933,7 @@ final class HtmlAstBuilder
             $tablePath = $this->importPath($node);
             $this->session->retainedTablePartitions[$tablePath] = true;
             foreach ($node->childNodes as $sectionIndex => $section) {
-                if (!$section instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true)) {
+                if (!$section instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($section)), ['thead', 'tbody', 'tfoot'], true)) {
                     continue;
                 }
                 $attrs = $this->attrs($section, []);
@@ -2937,13 +2944,13 @@ final class HtmlAstBuilder
                 if (isset($attrs['classes'])) {
                     $names[] = 'class';
                 }
-                $sectionPath = $tablePath . '/' . strtolower(HtmlDomLoader::elementName($section)) . '[' . ($sectionIndex + 1) . ']';
+                $sectionPath = $tablePath . '/' . strtolower(DomLoader::elementName($section)) . '[' . ($sectionIndex + 1) . ']';
                 $this->session->retainedTableAttributes[$sectionPath] = $names;
             }
         }
 
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'caption') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'caption') {
                 $caption = $this->captionInlines($child);
                 if ($caption !== []) {
                     $table['caption'] = $caption;
@@ -2957,14 +2964,14 @@ final class HtmlAstBuilder
         // the public AST carries them as well as the writer's tree.
         if (
             $headerRows > 0
-            && HtmlCarrierNames::consumePresence($node, 'data-carve-col-widths')
+            && CarrierNames::consumePresence($node, 'data-carve-col-widths')
         ) {
             $widths = $separatorWidths;
             if ($widths !== []) {
                 $table['separatorWidths'] = $widths;
             }
         }
-        if ($this->sourceSafe && $headerRows > 0 && HtmlTableStructure::importedTableNeedsDelimiter($rows)) {
+        if ($this->sourceSafe && $headerRows > 0 && TableStructure::importedTableNeedsDelimiter($rows)) {
             $this->addHint($table, "\0carve-delimiter-row");
         }
 
@@ -3028,11 +3035,11 @@ final class HtmlAstBuilder
 
     private function tableHasBlockCell(DOMElement $table): bool
     {
-        foreach (HtmlTableStructure::directTableRows($table) as $row) {
+        foreach (TableStructure::directTableRows($table) as $row) {
             foreach ($row->childNodes as $cell) {
                 if (
                     $cell instanceof DOMElement
-                    && in_array(strtolower(HtmlDomLoader::elementName($cell)), ['td', 'th'], true)
+                    && in_array(strtolower(DomLoader::elementName($cell)), ['td', 'th'], true)
                     && self::cellHoldsBlocks($cell)
                 ) {
                     return true;
@@ -3116,7 +3123,7 @@ final class HtmlAstBuilder
                         'children' => [
                             [
                                 'type' => 'paragraph',
-                                'children' => [HtmlImportNodes::text($span === 'rowspan' ? '^' : '<')],
+                                'children' => [ImportNodes::text($span === 'rowspan' ? '^' : '<')],
                             ],
                         ],
                     ];
@@ -3157,7 +3164,7 @@ final class HtmlAstBuilder
                     $attrs['keyValues'] = $keyValues;
                     $attrs['order'] = $order;
                 }
-                $item = HtmlImportNodes::listItem($children);
+                $item = ImportNodes::listItem($children);
                 if ($attrs !== []) {
                     $item['attrs'] = $attrs;
                 }
@@ -3185,7 +3192,7 @@ final class HtmlAstBuilder
             'children' => [['type' => 'list', 'ordered' => false, 'tight' => true, 'items' => $items]],
         ];
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'caption') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'caption') {
                 $title = $this->captionInlines($child);
                 if ($title !== []) {
                     $admonition['title'] = $title;
@@ -3213,7 +3220,7 @@ final class HtmlAstBuilder
         for ($sibling = $cell->nextSibling; $sibling !== null; $sibling = $sibling->nextSibling) {
             if (
                 $sibling instanceof DOMElement
-                && in_array(strtolower(HtmlDomLoader::elementName($sibling)), ['td', 'th'], true)
+                && in_array(strtolower(DomLoader::elementName($sibling)), ['td', 'th'], true)
             ) {
                 return true;
             }
@@ -3226,7 +3233,7 @@ final class HtmlAstBuilder
     {
         $paragraphs = 0;
         foreach ($cell->getElementsByTagName('*') as $descendant) {
-            $tag = strtolower(HtmlDomLoader::elementName($descendant));
+            $tag = strtolower(DomLoader::elementName($descendant));
             if (in_array($tag, ['ul', 'ol', 'pre', 'blockquote', 'table', 'dl'], true)) {
                 return true;
             }
@@ -3240,14 +3247,14 @@ final class HtmlAstBuilder
 
     private function tableCellElementAt(DOMElement $table, int $rowIndex, int $column): ?DOMElement
     {
-        $rows = HtmlTableStructure::directTableRows($table);
+        $rows = TableStructure::directTableRows($table);
         $row = $rows[$rowIndex] ?? null;
         if (!$row instanceof DOMElement) {
             return null;
         }
         $cells = [];
         foreach ($row->childNodes as $cell) {
-            if ($cell instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($cell)), ['td', 'th'], true)) {
+            if ($cell instanceof DOMElement && in_array(strtolower(DomLoader::elementName($cell)), ['td', 'th'], true)) {
                 $cells[] = $cell;
             }
         }
@@ -3307,7 +3314,7 @@ final class HtmlAstBuilder
         $captionDeclared = false;
         $bodyNodes = [];
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'figcaption') {
                 $captionDeclared = trim($child->textContent) !== '' || $child->getElementsByTagName('*')->length > 0;
                 $caption = $this->captionInlines($child);
 
@@ -3352,7 +3359,7 @@ final class HtmlAstBuilder
             if (!$keepsRaw) {
                 return [
                     $target,
-                    HtmlImportNodes::paragraph($caption),
+                    ImportNodes::paragraph($caption),
                 ];
             }
         }
@@ -3365,7 +3372,7 @@ final class HtmlAstBuilder
         ) {
             $target = self::nodeList($target['children'] ?? null)[0];
         }
-        if (count($bodyNodes) === 1 && $bodyNodes[0] instanceof DOMElement && strtolower(HtmlDomLoader::elementName($bodyNodes[0])) === 'picture') {
+        if (count($bodyNodes) === 1 && $bodyNodes[0] instanceof DOMElement && strtolower(DomLoader::elementName($bodyNodes[0])) === 'picture') {
             foreach ($bodyNodes[0]->getElementsByTagName('img') as $imageElement) {
                 $images = $this->inline($imageElement);
                 if (($images[0]['type'] ?? null) === 'image') {
@@ -3388,7 +3395,7 @@ final class HtmlAstBuilder
             if ($shared) {
                 unset($target['attrs']);
             }
-            $figure = HtmlImportNodes::figure($target, $caption);
+            $figure = ImportNodes::figure($target, $caption);
             $this->attachAttrs($figure, $node);
             $this->removeStructuralClass($figure, 'carve-figure-panel');
             if ($shared) {
@@ -3405,7 +3412,7 @@ final class HtmlAstBuilder
         }
 
         if ($keepsRaw && $caption !== [] && !self::aRowRefusesTheRegion($node)) {
-            $html = HtmlDomLoader::serialize($node);
+            $html = DomLoader::serialize($node);
             $this->keepRaw($node);
 
             return [
@@ -3426,7 +3433,7 @@ final class HtmlAstBuilder
             $segment = [];
         };
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'figcaption') {
                 $flush();
                 $previousProjection = $this->session->inInlineProjection;
                 $this->session->inInlineProjection = true;
@@ -3455,7 +3462,7 @@ final class HtmlAstBuilder
         $body = [];
         $caption = [];
         foreach ($node->childNodes as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'figcaption') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'figcaption') {
                 $caption = $this->captionInlines($child);
 
                 continue;
@@ -3552,19 +3559,19 @@ final class HtmlAstBuilder
             }
             if (
                 $child instanceof DOMElement
-                && strtolower(HtmlDomLoader::elementName($child)) === 'input'
+                && strtolower(DomLoader::elementName($child)) === 'input'
                 && strtolower($child->getAttribute('type')) === 'checkbox'
             ) {
                 return $child;
             }
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'label') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'label') {
                 foreach ($child->childNodes as $labelChild) {
                     if ($labelChild instanceof DOMText && trim($labelChild->textContent) === '') {
                         continue;
                     }
                     if (
                         $labelChild instanceof DOMElement
-                        && strtolower(HtmlDomLoader::elementName($labelChild)) === 'input'
+                        && strtolower(DomLoader::elementName($labelChild)) === 'input'
                         && strtolower($labelChild->getAttribute('type')) === 'checkbox'
                     ) {
                         return $labelChild;
@@ -3591,7 +3598,7 @@ final class HtmlAstBuilder
         foreach ($domChildren as $child) {
             if (
                 $child instanceof DOMElement
-                && strtolower(HtmlDomLoader::elementName($child)) === 'p'
+                && strtolower(DomLoader::elementName($child)) === 'p'
                 && $this->hasClass($child, 'admonition-title')
             ) {
                 $title = $this->blockInlines($child);
@@ -3607,8 +3614,8 @@ final class HtmlAstBuilder
             && (
                 trim($titleNode->textContent) === $this->derivedAriaLabel($node)
                 || (
-                    HtmlCarrierNames::consumePresence($node, 'data-carve-admonition-type')
-                    && trim($titleNode->textContent) === ucfirst(HtmlCarrierNames::consumeAttribute($node, 'data-carve-admonition-type'))
+                    CarrierNames::consumePresence($node, 'data-carve-admonition-type')
+                    && trim($titleNode->textContent) === ucfirst(CarrierNames::consumeAttribute($node, 'data-carve-admonition-type'))
                 )
             )
         ) {
@@ -3628,7 +3635,7 @@ final class HtmlAstBuilder
                 !$bareTransport
                 &&
                 $child instanceof DOMElement
-                && strtolower(HtmlDomLoader::elementName($child)) === 'p'
+                && strtolower(DomLoader::elementName($child)) === 'p'
                 && (preg_split('/\s+/', trim($child->getAttribute('class'))) ?: []) === ['div-label']
                 && $child->attributes->length === 1
             ) {
@@ -3662,12 +3669,12 @@ final class HtmlAstBuilder
         }
         $attrs = $this->attrs($node, $skipAttrs);
         $classes = $attrs['classes'] ?? [];
-        $structuralKind = trim(HtmlCarrierNames::consumeAttribute($node, 'data-carve-admonition-type'));
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $structuralKind = trim(CarrierNames::consumeAttribute($node, 'data-carve-admonition-type'));
+        $tag = strtolower(DomLoader::elementName($node));
         // PART 10 §13a presence carriers: a line block is read from its carrier,
         // never from `class="line-block"` alone, which the admonition renders too.
-        $carriedLineBlock = $tag === 'div' && HtmlCarrierNames::consumePresence($node, 'data-carve-line-block');
-        $carriedDiv = $tag === 'div' && !$carriedLineBlock && HtmlCarrierNames::consumePresence($node, 'data-carve-div');
+        $carriedLineBlock = $tag === 'div' && CarrierNames::consumePresence($node, 'data-carve-line-block');
+        $carriedDiv = $tag === 'div' && !$carriedLineBlock && CarrierNames::consumePresence($node, 'data-carve-div');
         $kindIndex = $tag === 'aside' && ($classes[0] ?? null) === 'admonition' && isset($classes[1]) ? 1 : 0;
         $lineBlockIndex = $carriedLineBlock ? array_search('line-block', $classes, true) : false;
         if ($lineBlockIndex !== false) {
@@ -3782,7 +3789,7 @@ final class HtmlAstBuilder
     private function carriedSubstitution(DOMElement $node): ?array
     {
         foreach ($node->attributes as $attribute) {
-            if (HtmlCarrierNames::canonicalName(HtmlDomLoader::attributeName($attribute)) !== 'data-carve-substitution') {
+            if (CarrierNames::canonicalName(DomLoader::attributeName($attribute)) !== 'data-carve-substitution') {
                 return null;
             }
         }
@@ -3791,7 +3798,7 @@ final class HtmlAstBuilder
             if (!$child instanceof DOMElement || $child->attributes->length !== 0) {
                 return null;
             }
-            $halves[] = strtolower(HtmlDomLoader::elementName($child));
+            $halves[] = strtolower(DomLoader::elementName($child));
         }
         if ($halves !== ['del', 'ins']) {
             return null;
@@ -3800,7 +3807,7 @@ final class HtmlAstBuilder
         if (count($children) !== 2 || $children[0]['type'] !== 'delete' || $children[1]['type'] !== 'insert') {
             return null;
         }
-        HtmlCarrierNames::consumePresence($node, 'data-carve-substitution');
+        CarrierNames::consumePresence($node, 'data-carve-substitution');
 
         return ['type' => 'substitution', 'old' => $children[0]['children'] ?? [], 'new' => $children[1]['children'] ?? []];
     }
@@ -3814,7 +3821,7 @@ final class HtmlAstBuilder
             return false;
         }
         foreach ($node->attributes as $attribute) {
-            $name = strtolower(HtmlDomLoader::attributeName($attribute));
+            $name = strtolower(DomLoader::attributeName($attribute));
             if ($name !== 'class' && $name !== 'style' && !str_starts_with($name, 'on')) {
                 return false;
             }
@@ -3825,10 +3832,10 @@ final class HtmlAstBuilder
 
     public static function isDerivedRole(DOMElement $node, string $value): bool
     {
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-fence-generated')) {
-            return in_array('role', explode(' ', HtmlCarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true);
+        if (CarrierNames::consumePresence($node, 'data-carve-fence-generated')) {
+            return in_array('role', explode(' ', CarrierNames::consumeAttribute($node, 'data-carve-fence-generated')), true);
         }
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         $role = strtolower(trim($value));
         $classes = preg_split('/\s+/', trim($node->getAttribute('class')), -1, PREG_SPLIT_NO_EMPTY) ?: [];
         if (
@@ -3848,7 +3855,7 @@ final class HtmlAstBuilder
         if (array_intersect($classes, ['tabs-panel', 'code-group-panel']) !== []) {
             return in_array($role, ['group', 'tabpanel'], true);
         }
-        $kind = trim(HtmlCarrierNames::consumeAttribute($node, 'data-carve-admonition-type'));
+        $kind = trim(CarrierNames::consumeAttribute($node, 'data-carve-admonition-type'));
         if ($kind === '' && ($classes[0] ?? null) === 'admonition') {
             $kind = $classes[1] ?? '';
         }
@@ -3866,7 +3873,7 @@ final class HtmlAstBuilder
             'warning' => 'Warning',
             'caution' => 'Caution',
         ];
-        if (strtolower(HtmlDomLoader::elementName($node)) === 'aside' && in_array('admonition', $classes, true)) {
+        if (strtolower(DomLoader::elementName($node)) === 'aside' && in_array('admonition', $classes, true)) {
             foreach ($classes as $class) {
                 $key = 'admonition' . ucfirst($class);
                 if (isset($this->labels[$key])) {
@@ -3918,7 +3925,7 @@ final class HtmlAstBuilder
                     && !$this->captionBoundaryHasSpace(self::importedNode($out[array_key_last($out)]), false)
                     && !$this->captionBoundaryHasSpace($current[0], true)
                 ) {
-                    $out[] = HtmlImportNodes::text(' ');
+                    $out[] = ImportNodes::text(' ');
                 }
                 foreach ($current as $inline) {
                     $out[] = $inline;
@@ -4155,7 +4162,7 @@ final class HtmlAstBuilder
                 && self::edgeIsContent($out, true)
                 && self::edgeIsContent($parts, false)
             ) {
-                $out[] = HtmlImportNodes::text(' ');
+                $out[] = ImportNodes::text(' ');
             }
             $afterBlock = $isBlock;
             foreach ($parts as $inline) {
@@ -4307,13 +4314,13 @@ final class HtmlAstBuilder
             }
             $previous = $out === [] ? null : $out[array_key_last($out)];
             if (($owed || $lead) && !$deepEndsBlank($previous) && !($owed && !$lead && $deepStartsBlank($node))) {
-                $out[] = HtmlImportNodes::text(' ');
+                $out[] = ImportNodes::text(' ');
             }
             $out[] = $node;
             $owed = $trail;
         }
         if ($owed) {
-            $out[] = HtmlImportNodes::text(' ');
+            $out[] = ImportNodes::text(' ');
         }
 
         return $out;
@@ -4333,7 +4340,7 @@ final class HtmlAstBuilder
                 return [];
             }
 
-            return ImportedCrossrefs::splitText($value, $this->resolvedCrossrefs) ?? [HtmlImportNodes::text($value)];
+            return ImportedCrossrefs::splitText($value, $this->resolvedCrossrefs) ?? [ImportNodes::text($value)];
         }
         if ($node instanceof DOMComment) {
             if (
@@ -4359,7 +4366,7 @@ final class HtmlAstBuilder
             return $this->inlines($this->children($node));
         }
 
-        $tag = strtolower(HtmlDomLoader::elementName($node));
+        $tag = strtolower(DomLoader::elementName($node));
         if ($tag === 'sup' && isset($this->session->supFootnoteTargets[$node])) {
             return $this->inlineSupFootnote($node);
         }
@@ -4367,21 +4374,21 @@ final class HtmlAstBuilder
         if (in_array($tag, ['script', 'style', 'template', 'noscript'], true)) {
             return [];
         }
-        if ($tag === 'span' && HtmlCarrierNames::peekPresence($node, 'data-carve-caption-number')) {
+        if ($tag === 'span' && CarrierNames::peekPresence($node, 'data-carve-caption-number')) {
             $bare = true;
             foreach ($node->attributes as $attribute) {
-                $bare = $bare && HtmlCarrierNames::canonicalName($attribute->name) === 'data-carve-caption-number';
+                $bare = $bare && CarrierNames::canonicalName($attribute->name) === 'data-carve-caption-number';
             }
             foreach ($node->childNodes as $child) {
                 $bare = $bare && $child instanceof DOMText;
             }
             if ($bare) {
-                HtmlCarrierNames::consumePresence($node, 'data-carve-caption-number');
+                CarrierNames::consumePresence($node, 'data-carve-caption-number');
 
                 return [['type' => 'caption_number']];
             }
         }
-        if ($tag === 'span' && HtmlCarrierNames::peekPresence($node, 'data-carve-substitution')) {
+        if ($tag === 'span' && CarrierNames::peekPresence($node, 'data-carve-substitution')) {
             $substitution = $this->carriedSubstitution($node);
             if ($substitution !== null) {
                 return [$substitution];
@@ -4390,7 +4397,7 @@ final class HtmlAstBuilder
         if ($tag === 'img' && self::isDroppedFormulaImage($node)) {
             return [];
         }
-        if (!self::hasConflictingTextCarriers($node) && HtmlCarrierNames::consumePresence($node, 'data-carve-escaped', static fn (string $value): bool => count(preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: []) === 1)) {
+        if (!self::hasConflictingTextCarriers($node) && CarrierNames::consumePresence($node, 'data-carve-escaped', static fn (string $value): bool => count(preg_split('//u', $node->textContent, -1, PREG_SPLIT_NO_EMPTY) ?: []) === 1)) {
             // ONE ESCAPE PER ELEMENT (PART 10 section 13a). Splitting a longer
             // value into one escaped_text per character wrote `\a\b\c`, which
             // is not Carve, so a span carrying more than one character is
@@ -4400,7 +4407,7 @@ final class HtmlAstBuilder
                 return [['type' => 'escaped_text', 'value' => $characters[0]]];
             }
         }
-        $rawFormat = self::hasConflictingTextCarriers($node) ? '' : HtmlCarrierNames::consumeAttribute($node, 'data-carve-raw', fn (string $value): bool => self::isValidRawCarrierFormat($value) && ($this->importMode === 'roundtrip' || strcasecmp($value, 'html') !== 0));
+        $rawFormat = self::hasConflictingTextCarriers($node) ? '' : CarrierNames::consumeAttribute($node, 'data-carve-raw', fn (string $value): bool => self::isValidRawCarrierFormat($value) && ($this->importMode === 'roundtrip' || strcasecmp($value, 'html') !== 0));
         // Only HTML payloads require roundtrip mode; other formats are inert in HTML output.
         if (
             self::isValidRawCarrierFormat($rawFormat)
@@ -4414,7 +4421,7 @@ final class HtmlAstBuilder
             }
             if ($holdsElements) {
                 foreach ($node->childNodes as $child) {
-                    $content .= HtmlDomLoader::serialize($child);
+                    $content .= DomLoader::serialize($child);
                 }
             } else {
                 $content = $node->textContent;
@@ -4465,7 +4472,7 @@ final class HtmlAstBuilder
         if ($tag === 'ruby') {
             $hasAnnotation = false;
             foreach ($node->childNodes as $component) {
-                if ($component instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($component)), ['rt', 'rtc'], true)) {
+                if ($component instanceof DOMElement && in_array(strtolower(DomLoader::elementName($component)), ['rt', 'rtc'], true)) {
                     $hasAnnotation = true;
 
                     break;
@@ -4481,7 +4488,7 @@ final class HtmlAstBuilder
             && !$this->isSupportedInlineTag($tag)
             && !self::aRowRefusesTheRegion($node)
         ) {
-            $html = HtmlDomLoader::serialize($node);
+            $html = DomLoader::serialize($node);
             $this->keepRaw($node);
 
             return [
@@ -4529,9 +4536,9 @@ final class HtmlAstBuilder
                 --$this->session->quoteDepth;
             }
             $children = [
-                HtmlImportNodes::text($opening),
+                ImportNodes::text($opening),
                 ...$quoted,
-                HtmlImportNodes::text($closing),
+                ImportNodes::text($closing),
             ];
 
             if ($node->hasAttribute('cite')) {
@@ -4553,7 +4560,7 @@ final class HtmlAstBuilder
             $abbr = trim($node->textContent);
             $expansion = $node->getAttribute('title');
             if ($abbr !== '' && ($this->session->abbreviationDefinitions[$abbr] ?? null) === $expansion) {
-                return [HtmlImportNodes::text($abbr)];
+                return [ImportNodes::text($abbr)];
             }
         }
 
@@ -4645,20 +4652,20 @@ final class HtmlAstBuilder
             if (
                 $tag === 'span' && $attrs === [] && $node->attributes->length > 0
                 && !self::hasConflictingTextCarriers($node)
-                && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
-                && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+                && !CarrierNames::peekPresence($node, 'data-carve-raw')
+                && !CarrierNames::peekPresence($node, 'data-carve-escaped')
                 && $this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)
             ) {
                 $this->keepRaw($node);
 
-                return [['type' => 'raw_inline', 'content' => rtrim(HtmlDomLoader::serialize($node), "\n"), 'format' => 'html']];
+                return [['type' => 'raw_inline', 'content' => rtrim(DomLoader::serialize($node), "\n"), 'format' => 'html']];
             }
             if ($tag === 'span' && $attrs === []) {
                 if (
                     $span['children'] !== [] && $node->attributes->length > 0
                     && !self::hasConflictingTextCarriers($node)
-                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-raw')
-                    && !HtmlCarrierNames::peekPresence($node, 'data-carve-escaped')
+                    && !CarrierNames::peekPresence($node, 'data-carve-raw')
+                    && !CarrierNames::peekPresence($node, 'data-carve-escaped')
                 ) {
                     $this->session->unwrappedBareSpans[$node] = null;
                 }
@@ -4675,7 +4682,7 @@ final class HtmlAstBuilder
         if ($tag === 'input' && strtolower($node->getAttribute('type')) === 'checkbox') {
             $bracket = $this->session->orderedTaskBrackets[spl_object_id($node)] ?? null;
 
-            return $bracket === null ? [] : [HtmlImportNodes::text($bracket)];
+            return $bracket === null ? [] : [ImportNodes::text($bracket)];
         }
 
         if ($this->isBlock($node)) {
@@ -4714,7 +4721,7 @@ final class HtmlAstBuilder
                     }
                     $rest = substr(self::stringValue($inline['value'] ?? null), strlen($match[0]));
                     if ($rest !== '') {
-                        $out[] = HtmlImportNodes::text($rest);
+                        $out[] = ImportNodes::text($rest);
                         $leading = false;
                     }
 
@@ -4742,9 +4749,9 @@ final class HtmlAstBuilder
             if ($this->importMode !== 'roundtrip') {
                 $text = self::linearMathText($node);
 
-                return $text === null ? [] : [HtmlImportNodes::text($text)];
+                return $text === null ? [] : [ImportNodes::text($text)];
             }
-            $html = HtmlDomLoader::serialize($node);
+            $html = DomLoader::serialize($node);
             $this->keepRaw($node);
 
             return [
@@ -4778,7 +4785,7 @@ final class HtmlAstBuilder
                 return [
                     [
                         'type' => 'span',
-                        'children' => [HtmlImportNodes::text($alt)],
+                        'children' => [ImportNodes::text($alt)],
                         'attrs' => [
                             'keyValues' => ['title' => $node->getAttribute('title')],
                             'order' => ['title'],
@@ -4787,14 +4794,14 @@ final class HtmlAstBuilder
                 ];
             }
 
-            return $alt === '' ? [] : [HtmlImportNodes::text($alt)];
+            return $alt === '' ? [] : [ImportNodes::text($alt)];
         }
         if (
             $this->importMode === 'roundtrip'
             && (str_contains($node->getAttribute('alt'), '[') || str_contains($node->getAttribute('alt'), '\\'))
         ) {
             $html = $this->sanitizedElementHtml($node);
-            $serialized = HtmlDomLoader::serialize($node);
+            $serialized = DomLoader::serialize($node);
             if ($html === rtrim($serialized, "\n")) {
                 $this->keepRaw($node);
             }
@@ -4815,9 +4822,9 @@ final class HtmlAstBuilder
         if ($node->hasAttribute('title')) {
             $image['title'] = $node->getAttribute('title');
         }
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref')) {
+        if (CarrierNames::consumePresence($node, 'data-carve-ref')) {
             $alt = $node->getAttribute('alt');
-            $ref = HtmlCarrierNames::consumeAttribute($node, 'data-carve-ref');
+            $ref = CarrierNames::consumeAttribute($node, 'data-carve-ref');
             if ($ref === '') {
                 $ref = trim($alt);
             }
@@ -4832,7 +4839,7 @@ final class HtmlAstBuilder
                 }
             }
         }
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref') && !isset($image['ref'])) {
+        if (CarrierNames::consumePresence($node, 'data-carve-ref') && !isset($image['ref'])) {
             $this->session->droppedReferenceCarriers[$node] = null;
         }
         $this->attachAttrs($image, $node, ['src', 'alt', 'title', 'data-carve-ref']);
@@ -4902,8 +4909,8 @@ final class HtmlAstBuilder
     {
         $fragment = substr($this->session->supFootnoteTargets[$node], 1);
         $endnote = $this->session->endnoteItems[$fragment] ?? null;
-        HtmlCarrierNames::consumeAttribute($node, 'id');
-        $label = HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label');
+        CarrierNames::consumeAttribute($node, 'id');
+        $label = CarrierNames::consumeAttribute($node, 'data-carve-footnote-label');
         if (self::isValidFootnoteCarrierLabel($label)) {
             $reference = ['type' => 'footnote_ref', 'label' => $label];
             $this->attachAttrs($reference, $node, ['id']);
@@ -4911,7 +4918,7 @@ final class HtmlAstBuilder
             return [$reference];
         }
         if (
-            $endnote !== null && HtmlCarrierNames::consumePresence($endnote, 'data-carve-inline-footnote')
+            $endnote !== null && CarrierNames::consumePresence($endnote, 'data-carve-inline-footnote')
             && !isset($this->session->activeInlineFootnotes[$fragment])
         ) {
             $this->session->activeInlineFootnotes[$fragment] = true;
@@ -4945,11 +4952,11 @@ final class HtmlAstBuilder
     private function inlineLink(DOMElement $node): array
     {
         $href = $node->getAttribute('href');
-        if (HtmlCarrierNames::peekPresence($node, 'data-carve-xref') && preg_match('/^#[^> \n\r]+$/D', $href) === 1) {
-            HtmlCarrierNames::consumePresence($node, 'data-carve-xref');
-            $contradiction = self::isReferenceCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-ref'))
-                || HtmlCarrierNames::consumePresence($node, 'data-carve-autolink')
-                || self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));
+        if (CarrierNames::peekPresence($node, 'data-carve-xref') && preg_match('/^#[^> \n\r]+$/D', $href) === 1) {
+            CarrierNames::consumePresence($node, 'data-carve-xref');
+            $contradiction = self::isReferenceCarrierLabel(CarrierNames::consumeAttribute($node, 'data-carve-ref'))
+                || CarrierNames::consumePresence($node, 'data-carve-autolink')
+                || self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));
             if ($contradiction) {
                 $this->session->contradictoryLinkCarriers[$node] = null;
                 $link = ['type' => 'link', 'href' => $href, 'children' => $this->inlines($this->children($node))];
@@ -4965,14 +4972,14 @@ final class HtmlAstBuilder
             if ($attrs !== []) {
                 $reference['attrs'] = $attrs;
             }
-            HtmlCarrierNames::consumeAttribute($node, 'href');
+            CarrierNames::consumeAttribute($node, 'href');
             foreach ($node->attributes as $attribute) {
-                $name = strtolower(HtmlDomLoader::attributeName($attribute));
+                $name = strtolower(DomLoader::attributeName($attribute));
                 if (
                     ($name === 'id' && isset($attrs['id'])) || ($name === 'class' && isset($attrs['classes']))
                     || array_key_exists($name, $attrs['keyValues'] ?? [])
                 ) {
-                    HtmlCarrierNames::consumeAttribute($node, $name);
+                    CarrierNames::consumeAttribute($node, $name);
                 }
             }
 
@@ -4980,7 +4987,7 @@ final class HtmlAstBuilder
         }
         $fragment = str_starts_with($href, '#') ? substr($href, 1) : '';
         $markedReference = strtolower($node->getAttribute('role')) === 'doc-noteref'
-            || self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));
+            || self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($node, 'data-carve-footnote-label'));
         $endnote = $markedReference ? ($this->session->endnoteItems[$fragment] ?? null) : null;
         if ($endnote !== null && (self::hasConflictingEndnoteCarriers($endnote) || isset($this->session->droppedFootnoteLabelCarriers[$endnote]))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment] ?? $this->footnoteLabel($fragment)]];
@@ -4989,7 +4996,7 @@ final class HtmlAstBuilder
         if ($this->importMode === 'roundtrip' && !self::holdsADeniedDestination($node)) {
             foreach ($node->getElementsByTagName('img') as $image) {
                 if (preg_match('/[\\[\\]\\\\]/', $image->getAttribute('alt')) === 1) {
-                    $html = HtmlDomLoader::serialize($node);
+                    $html = DomLoader::serialize($node);
                     $this->keepRaw($node);
 
                     return [
@@ -5005,8 +5012,8 @@ final class HtmlAstBuilder
         if (!$node->hasAttribute('href') || ($node->getAttribute('href') !== '' && self::carriesNoDestination($node->getAttribute('href')))) {
             $skip = ['href'];
             foreach ($node->attributes as $attribute) {
-                if (HtmlCarrierNames::isReserved(HtmlDomLoader::attributeName($attribute)) || HtmlCarrierNames::isStoredSourceMarker(HtmlDomLoader::attributeName($attribute))) {
-                    $skip[] = strtolower(HtmlDomLoader::attributeName($attribute));
+                if (CarrierNames::isReserved(DomLoader::attributeName($attribute)) || CarrierNames::isStoredSourceMarker(DomLoader::attributeName($attribute))) {
+                    $skip[] = strtolower(DomLoader::attributeName($attribute));
                 }
             }
             $attrs = $this->attrs($node, $skip);
@@ -5020,9 +5027,9 @@ final class HtmlAstBuilder
             return $children;
         }
         $children = $this->bracketedChildren($node);
-        if ($href !== '' && HtmlCarrierNames::consumePresence($node, 'data-carve-inline-footnote-html')) {
-            $content = $this->inlineHtml(HtmlCarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-html'));
-            $class = HtmlCarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-class');
+        if ($href !== '' && CarrierNames::consumePresence($node, 'data-carve-inline-footnote-html')) {
+            $content = $this->inlineHtml(CarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-html'));
+            $class = CarrierNames::consumeAttribute($node, 'data-carve-inline-footnote-class');
 
             return [
                 [
@@ -5036,18 +5043,18 @@ final class HtmlAstBuilder
             ];
         }
         if (
-            $href !== '' && HtmlCarrierNames::consumePresence($node, 'data-carve-footnote-label')
-            && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'))
+            $href !== '' && CarrierNames::consumePresence($node, 'data-carve-footnote-label')
+            && self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($node, 'data-carve-footnote-label'))
         ) {
             return [
                 [
                     'type' => 'footnote_ref',
-                    'label' => HtmlCarrierNames::consumeAttribute($node, 'data-carve-footnote-label'),
+                    'label' => CarrierNames::consumeAttribute($node, 'data-carve-footnote-label'),
                 ],
             ];
         }
         if (
-            $endnote !== null && HtmlCarrierNames::consumePresence($endnote, 'data-carve-inline-footnote')
+            $endnote !== null && CarrierNames::consumePresence($endnote, 'data-carve-inline-footnote')
             && !isset($this->session->activeInlineFootnotes[$fragment])
         ) {
             $this->session->activeInlineFootnotes[$fragment] = true;
@@ -5068,7 +5075,7 @@ final class HtmlAstBuilder
             return [['type' => 'inline_footnote', 'inline' => $inline]];
         }
 
-        if ($endnote !== null && self::isValidFootnoteCarrierLabel(HtmlCarrierNames::consumeAttribute($endnote, 'data-carve-footnote-label'))) {
+        if ($endnote !== null && self::isValidFootnoteCarrierLabel(CarrierNames::consumeAttribute($endnote, 'data-carve-footnote-label'))) {
             return [['type' => 'footnote_ref', 'label' => $this->session->endnoteLabels[$fragment]]];
         }
         if ($href !== '' && strtolower($node->getAttribute('role')) === 'doc-noteref') {
@@ -5085,25 +5092,25 @@ final class HtmlAstBuilder
         }
         $labelText = '';
         $ref = '';
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref')) {
+        if (CarrierNames::consumePresence($node, 'data-carve-ref')) {
             $labelText = $this->plainInlineText(self::nodeList($children));
-            $ref = HtmlCarrierNames::consumeAttribute($node, 'data-carve-ref');
+            $ref = CarrierNames::consumeAttribute($node, 'data-carve-ref');
             if ($ref === '') {
                 $ref = trim($labelText);
             }
         }
         // An invalid label is not a carrier and contradicts nothing (PART 10 section 13d).
-        $contradictory = HtmlCarrierNames::consumePresence($node, 'data-carve-autolink') && HtmlCarrierNames::consumePresence($node, 'data-carve-ref')
+        $contradictory = CarrierNames::consumePresence($node, 'data-carve-autolink') && CarrierNames::consumePresence($node, 'data-carve-ref')
             && self::isReferenceCarrierLabel($ref);
         if ($contradictory) {
             $this->session->contradictoryLinkCarriers[$node] = null;
-        } elseif ($href !== '' && HtmlCarrierNames::consumePresence($node, 'data-carve-autolink')) {
+        } elseif ($href !== '' && CarrierNames::consumePresence($node, 'data-carve-autolink')) {
             $autolink = [
                 'type' => 'autolink',
                 'href' => $node->getAttribute('href'),
                 'text' => trim($node->textContent),
             ];
-            if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref')) {
+            if (CarrierNames::consumePresence($node, 'data-carve-ref')) {
                 $this->session->droppedReferenceCarriers[$node] = null;
             }
             $this->attachAttrs($autolink, $node, ['href', 'data-carve-autolink', 'data-carve-ref']);
@@ -5112,7 +5119,7 @@ final class HtmlAstBuilder
         }
         /** @var ImportedNode $link */
         $link = ['type' => 'link', 'href' => $node->getAttribute('href'), 'children' => $children];
-        if (HtmlCarrierNames::consumePresence($node, 'data-carve-ref') && !$contradictory) {
+        if (CarrierNames::consumePresence($node, 'data-carve-ref') && !$contradictory) {
             if (
                 $ref !== '' && !str_contains($labelText, ']') && !str_contains($ref, ']')
                 && $this->claimReference($node, $ref, $node->getAttribute('href'), $node->hasAttribute('title') ? $node->getAttribute('title') : null)
@@ -5150,15 +5157,15 @@ final class HtmlAstBuilder
         $input = [];
         $rtc = [];
         foreach ($this->children($element) as $child) {
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rb') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'rb') {
                 $input[] = ['rb' => $child];
-            } elseif ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rtc') {
+            } elseif ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'rtc') {
                 $content = [];
                 foreach ($this->children($child) as $component) {
-                    if ($component instanceof DOMElement && strtolower(HtmlDomLoader::elementName($component)) === 'rp') {
+                    if ($component instanceof DOMElement && strtolower(DomLoader::elementName($component)) === 'rp') {
                         continue;
                     }
-                    if ($component instanceof DOMElement && strtolower(HtmlDomLoader::elementName($component)) === 'rt') {
+                    if ($component instanceof DOMElement && strtolower(DomLoader::elementName($component)) === 'rt') {
                         array_push($content, ...$this->inlines($this->children($component)));
                     } else {
                         array_push($content, ...$this->inline($component));
@@ -5186,10 +5193,10 @@ final class HtmlAstBuilder
             if ($child instanceof DOMComment) {
                 continue;
             }
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rp') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'rp') {
                 continue;
             }
-            if ($child instanceof DOMElement && strtolower(HtmlDomLoader::elementName($child)) === 'rt') {
+            if ($child instanceof DOMElement && strtolower(DomLoader::elementName($child)) === 'rt') {
                 $annotation = $this->inlines($this->children($child));
                 if ($base === [] && isset($explicitBases[$explicitBaseIndex])) {
                     $base = $explicitBases[$explicitBaseIndex++];
@@ -5197,9 +5204,9 @@ final class HtmlAstBuilder
                 }
                 if ($associated || $base === []) {
                     self::flushRubyRun($run, $output);
-                    $output[] = HtmlImportNodes::text('(');
+                    $output[] = ImportNodes::text('(');
                     array_push($output, ...$annotation);
-                    $output[] = HtmlImportNodes::text(')');
+                    $output[] = ImportNodes::text(')');
                 } else {
                     $run[] = ['base' => $base, 'annotation' => $annotation];
                     $base = [];
@@ -5214,7 +5221,7 @@ final class HtmlAstBuilder
                     $next++;
                 }
                 $whitespaceEnd = $next;
-                if (!isset($input[$next]) || ($input[$next] instanceof DOMElement && in_array(strtolower(HtmlDomLoader::elementName($input[$next])), ['rt', 'rp'], true))) {
+                if (!isset($input[$next]) || ($input[$next] instanceof DOMElement && in_array(strtolower(DomLoader::elementName($input[$next])), ['rt', 'rp'], true))) {
                     continue;
                 }
             }
@@ -5232,9 +5239,9 @@ final class HtmlAstBuilder
         }
         self::flushRubyRun($run, $output);
         foreach ($rtc as $content) {
-            $output[] = HtmlImportNodes::text('(');
+            $output[] = ImportNodes::text('(');
             array_push($output, ...$content);
-            $output[] = HtmlImportNodes::text(')');
+            $output[] = ImportNodes::text(')');
         }
 
         if ($output === []) {
@@ -5276,10 +5283,10 @@ final class HtmlAstBuilder
         }
         $remove = [];
         foreach ($clone->attributes as $attribute) {
-            $name = strtolower(HtmlDomLoader::attributeName($attribute));
+            $name = strtolower(DomLoader::attributeName($attribute));
             if (
-                HtmlCarrierNames::isReserved($name)
-                || HtmlCarrierNames::isStoredSourceMarker($name)
+                CarrierNames::isReserved($name)
+                || CarrierNames::isStoredSourceMarker($name)
                 || str_starts_with($name, 'on')
             ) {
                 $remove[] = $attribute->nodeName;
@@ -5288,7 +5295,7 @@ final class HtmlAstBuilder
         foreach ($remove as $name) {
             $clone->removeAttribute($name);
         }
-        $html = HtmlDomLoader::serialize($clone);
+        $html = DomLoader::serialize($clone);
 
         return rtrim($html, "\n");
     }
@@ -5301,7 +5308,7 @@ final class HtmlAstBuilder
             $current = array_pop($pending);
             if ($current instanceof DOMText) {
                 $value .= $current->textContent;
-            } elseif (!$current instanceof DOMElement || !in_array(strtolower(HtmlDomLoader::elementName($current)), ['script', 'style', 'template', 'noscript'], true)) {
+            } elseif (!$current instanceof DOMElement || !in_array(strtolower(DomLoader::elementName($current)), ['script', 'style', 'template', 'noscript'], true)) {
                 foreach (array_reverse(iterator_to_array($current->childNodes)) as $child) {
                     $pending[] = $child;
                 }
@@ -5324,7 +5331,7 @@ final class HtmlAstBuilder
 
     private function mathTex(DOMElement $node): ?string
     {
-        $content = HtmlMathTex::resolve($node)['content'];
+        $content = MathTex::resolve($node)['content'];
 
         return $content === '' ? null : $content;
     }
@@ -5336,7 +5343,7 @@ final class HtmlAstBuilder
      */
     public static function hiddenFormulaImageAlt(DOMElement $math): string
     {
-        return HtmlMathTex::hiddenFormulaImageAlt($math);
+        return MathTex::hiddenFormulaImageAlt($math);
     }
 
     /**
@@ -5345,7 +5352,7 @@ final class HtmlAstBuilder
      */
     public static function isDroppedFormulaImage(DOMElement $image): bool
     {
-        return HtmlMathTex::isDroppedFormulaImage($image);
+        return MathTex::isDroppedFormulaImage($image);
     }
 
     /**
@@ -5353,7 +5360,7 @@ final class HtmlAstBuilder
      */
     public static function mathTexContent(DOMElement $math): string
     {
-        return HtmlMathTex::resolve($math)['content'];
+        return MathTex::resolve($math)['content'];
     }
 
     /**
@@ -5374,7 +5381,7 @@ final class HtmlAstBuilder
                 if (!$node instanceof DOMElement) {
                     return false;
                 }
-                $tag = strtolower(HtmlDomLoader::elementName($node));
+                $tag = strtolower(DomLoader::elementName($node));
                 if ($tag === 'semantics') {
                     $first = null;
                     foreach ($node->childNodes as $child) {
@@ -5448,7 +5455,7 @@ final class HtmlAstBuilder
             return false;
         }
         for ($parent = $comment->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (preg_match('/^h[1-6]$/', strtolower(HtmlDomLoader::elementName($parent))) === 1) {
+            if (preg_match('/^h[1-6]$/', strtolower(DomLoader::elementName($parent))) === 1) {
                 return true;
             }
         }
@@ -5459,7 +5466,7 @@ final class HtmlAstBuilder
     public static function enclosingCell(DOMNode $node): ?DOMElement
     {
         for ($parent = $node->parentNode; $parent instanceof DOMElement; $parent = $parent->parentNode) {
-            if (in_array(strtolower(HtmlDomLoader::elementName($parent)), ['td', 'th'], true)) {
+            if (in_array(strtolower(DomLoader::elementName($parent)), ['td', 'th'], true)) {
                 return $parent;
             }
         }
@@ -5477,7 +5484,7 @@ final class HtmlAstBuilder
     public static function tableHoldsABlockCell(DOMElement $cell, ?SplObjectStorage $tableBlockCells = null): bool
     {
         for ($table = $cell->parentNode; $table instanceof DOMElement; $table = $table->parentNode) {
-            if (strtolower(HtmlDomLoader::elementName($table)) !== 'table') {
+            if (strtolower(DomLoader::elementName($table)) !== 'table') {
                 continue;
             }
             if ($tableBlockCells !== null && isset($tableBlockCells[$table])) {
@@ -5485,7 +5492,7 @@ final class HtmlAstBuilder
             }
             $holdsBlocks = false;
             foreach ($table->getElementsByTagName('*') as $candidate) {
-                if (in_array(strtolower(HtmlDomLoader::elementName($candidate)), ['td', 'th'], true) && self::cellHoldsBlocks($candidate)) {
+                if (in_array(strtolower(DomLoader::elementName($candidate)), ['td', 'th'], true) && self::cellHoldsBlocks($candidate)) {
                     $holdsBlocks = true;
 
                     break;
@@ -5512,7 +5519,7 @@ final class HtmlAstBuilder
      */
     private function inlineHtml(string $html): array
     {
-        $document = HtmlDomLoader::fragment($html, 'carve-inline-root');
+        $document = DomLoader::fragment($html, 'carve-inline-root');
         $root = $document->getElementsByTagName('carve-inline-root')->item(0);
 
         if (!$root instanceof DOMElement) {
@@ -5573,10 +5580,10 @@ final class HtmlAstBuilder
             $order = [];
             $seen = [];
             foreach ($node->attributes as $attribute) {
-                $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
+                $slot = match (strtolower(DomLoader::attributeName($attribute))) {
                     'id' => '#id',
                     'class' => '.class',
-                    default => strtolower(HtmlDomLoader::attributeName($attribute)),
+                    default => strtolower(DomLoader::attributeName($attribute)),
                 };
                 if (isset($available[$slot]) && !isset($seen[$slot])) {
                     $order[] = $slot;
@@ -5627,7 +5634,7 @@ final class HtmlAstBuilder
         if (!$parent instanceof DOMElement) {
             return true;
         }
-        $tag = strtolower(HtmlDomLoader::elementName($parent));
+        $tag = strtolower(DomLoader::elementName($parent));
         if (in_array($tag, ['em', 'i', 'strong', 'b', 'u', 's', 'strike', 'mark', 'ins', 'del', 'sup', 'sub'], true)) {
             return true;
         }
@@ -5655,7 +5662,7 @@ final class HtmlAstBuilder
         foreach ($blocks as $block) {
             $children = $this->projectToInlines($block);
             if ($out !== [] && $children !== []) {
-                $out[] = HtmlImportNodes::text(' ');
+                $out[] = ImportNodes::text(' ');
             }
             foreach ($children as $child) {
                 $out[] = $child;
@@ -5781,7 +5788,7 @@ final class HtmlAstBuilder
             foreach (self::nodeList($node['items'] ?? null) as $item) {
                 $projected = $this->projectToInlines($item);
                 if ($out !== [] && $projected !== []) {
-                    $out[] = HtmlImportNodes::text(' ');
+                    $out[] = ImportNodes::text(' ');
                 }
                 array_push($out, ...$projected);
             }
@@ -5800,7 +5807,7 @@ final class HtmlAstBuilder
                 foreach (self::nodeList($row['cells'] ?? null) as $cell) {
                     $projected = $this->projectToInlines($cell);
                     if ($out !== [] && $projected !== []) {
-                        $out[] = HtmlImportNodes::text(' ');
+                        $out[] = ImportNodes::text(' ');
                     }
                     array_push($out, ...$projected);
                 }
@@ -5813,7 +5820,7 @@ final class HtmlAstBuilder
         if (is_array($node['target'] ?? null)) {
             $out = $this->projectToInlines(self::importedNode($node['target']));
             if ($out !== [] && self::nodeList($node['caption'] ?? null) !== []) {
-                $out[] = HtmlImportNodes::text(' ');
+                $out[] = ImportNodes::text(' ');
             }
         }
         // `title` leads, because it is a node's first visible text: an
@@ -5830,7 +5837,7 @@ final class HtmlAstBuilder
                     && !$this->inlineEndsWithSpace(self::importedNode($out[count($out) - 1]))
                     && !$this->inlineStartsWithSpace($projected[0])
                 ) {
-                    $out[] = HtmlImportNodes::text(' ');
+                    $out[] = ImportNodes::text(' ');
                 }
                 foreach ($projected as $inline) {
                     $out[] = $inline;
@@ -5878,10 +5885,10 @@ final class HtmlAstBuilder
         $order = [];
         $seen = [];
         foreach ($node->attributes as $attribute) {
-            $slot = match (strtolower(HtmlDomLoader::attributeName($attribute))) {
+            $slot = match (strtolower(DomLoader::attributeName($attribute))) {
                 'id' => '#id',
                 'class' => '.class',
-                default => strtolower(HtmlDomLoader::attributeName($attribute)),
+                default => strtolower(DomLoader::attributeName($attribute)),
             };
             if (isset($available[$slot])) {
                 $order[] = $slot;
@@ -5907,7 +5914,7 @@ final class HtmlAstBuilder
      */
     private function attrs(DOMElement $node, array $skip): array
     {
-        $result = HtmlAttributePolicy::read(
+        $result = AttributePolicy::read(
             $node,
             $skip,
             $this->importMode,
@@ -6064,7 +6071,7 @@ final class HtmlAstBuilder
      */
     public static function holdsADeniedDestination(DOMElement $element): bool
     {
-        $tag = strtolower(HtmlDomLoader::elementName($element));
+        $tag = strtolower(DomLoader::elementName($element));
         if (($tag === 'a' && self::hasDeniedScheme($element->getAttribute('href'))) || ($tag === 'img' && self::hasDeniedScheme($element->getAttribute('src')))) {
             return true;
         }

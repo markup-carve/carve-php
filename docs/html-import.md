@@ -178,7 +178,7 @@ it and reports `carrier-attribute-dropped`.
 
 The reserved set is an enumeration, not a prefix. A `data-carve-` or
 `data-djot-` name the enumeration does not list is an ordinary authored
-attribute and is imported as one. `MarkupCarve\Carve\Converter\HtmlCarrierNames`
+attribute and is imported as one. `MarkupCarve\Carve\Converter\Html\CarrierNames`
 holds the list, including the carriers consumed by the bundled PHP extensions.
 
 Every import mode consumes the names in the table. A value outside its carrier's

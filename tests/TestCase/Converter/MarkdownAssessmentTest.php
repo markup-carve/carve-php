@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
-use MarkupCarve\Carve\Converter\MarkdownAssessment;
+use MarkupCarve\Carve\Converter\Markdown\Assessment;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\TestCase;
 
@@ -68,7 +68,7 @@ final class MarkdownAssessmentTest extends TestCase
     {
         $result = (new MarkdownToCarve(convertHighlight: true))->convertWithFidelityReport('hello');
         self::assertSame('fidelity-unverified', $result->diagnostics[0]->code);
-        $assessor = new MarkdownAssessment();
+        $assessor = new Assessment();
         self::assertFalse($assessor->assess(str_repeat('a! ', 330000), 'wrong')['complete']);
         self::assertFalse($assessor->assess('x ' . str_repeat('<!--', 240000), 'wrong')['complete']);
         self::assertFalse($assessor->assess(str_repeat('**' . str_repeat('é', 100) . "**\n\n", 5000), 'wrong')['complete']);
@@ -80,8 +80,8 @@ final class MarkdownAssessmentTest extends TestCase
             $rows = (new MarkdownToCarve())->convertWithFidelityReport($source)->diagnostics;
             self::assertContains('fidelity-unverified', array_column($rows, 'code'));
         }
-        self::assertFalse((new MarkdownAssessment())->assess('**strong**', 'wrong')['complete']);
-        self::assertFalse((new MarkdownAssessment())->assess('a  b', 'a b')['complete']);
+        self::assertFalse((new Assessment())->assess('**strong**', 'wrong')['complete']);
+        self::assertFalse((new Assessment())->assess('a  b', 'a b')['complete']);
     }
 
     public function testGfmProtocolLinksAreVerifiedExactly(): void

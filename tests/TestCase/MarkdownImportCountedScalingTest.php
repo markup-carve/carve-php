@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase;
 
-use MarkupCarve\Carve\Converter\MarkdownImportWork;
+use MarkupCarve\Carve\Converter\Markdown\ImportWork;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
@@ -46,13 +46,13 @@ class MarkdownImportCountedScalingTest extends TestCase
 
     private static function countWork(string $source): array
     {
-        MarkdownImportWork::$on = true;
+        ImportWork::$on = true;
         try {
             $output = (new MarkdownToCarve())->convert($source);
 
-            return [MarkdownImportWork::counts(), strlen($output)];
+            return [ImportWork::counts(), strlen($output)];
         } finally {
-            MarkdownImportWork::$on = false;
+            ImportWork::$on = false;
         }
     }
 
@@ -75,7 +75,7 @@ class MarkdownImportCountedScalingTest extends TestCase
 
     public function testEveryCounterHasALiveInput(): void
     {
-        $totals = array_fill_keys(array_keys(MarkdownImportWork::counts()), 0);
+        $totals = array_fill_keys(array_keys(ImportWork::counts()), 0);
         foreach (["a *b*\nc\n", "1.  one\n    two\n", "> 1. > nested\n>    ===\n\n\n", self::source('', 2000)] as $source) {
             [$counts] = self::countWork($source);
             foreach ($counts as $name => $work) {
