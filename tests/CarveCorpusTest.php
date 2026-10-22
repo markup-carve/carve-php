@@ -1223,6 +1223,10 @@ class CarveCorpusTest extends TestCase
         'an-autolink-is-opaque-to-the-bracket-scan',
         'the-combined-bold-italic-token-does-not-open-inside-an-open-bare-italic-or-bold',
         'csv-and-tsv-table-bodies',
+        'a-separate-plus-after-content-attaches-a-list-to-a-note-or-description',
+        'a-comment-line-leaves-a-description-s-list-item-open-for-a-fence',
+        'a-quote-prefixed-plus-takes-one-space-after-each-quote-marker-and-attaches-a-quote',
+        'a-quote-opened-on-its-own-line-in-an-item-takes-the-first-block-form',
     ];
 
     /**
@@ -1258,16 +1262,7 @@ class CarveCorpusTest extends TestCase
      *
      * @var array<string, array{reason: string, html: string}>
      */
-    protected const AHEAD_OF_PIN = [
-        '630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-11' => [
-            'reason' => 'A quote marker requires a following space.',
-            'html' => "<p>&gt;&gt;+\nq</p>\n",
-        ],
-        '630-a-continuation-marker-stands-alone-at-column-zero-or-right-after-a-block-opener-12' => [
-            'reason' => 'A quote marker requires a following space.',
-            'html' => "<p>&gt;+\nq</p>\n",
-        ],
-    ];
+    protected const AHEAD_OF_PIN = [];
 
     protected CarveConverter $converter;
 
