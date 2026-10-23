@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Extension;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\Div;
+use MarkupCarve\Carve\Renderer\HtmlLineState;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
@@ -222,12 +223,8 @@ class DetailsExtension implements ExtensionInterface
                 if ($line !== '') {
                     $lines[$i] = $pad . $line;
                 }
-                if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
-                    $inPre = true;
-                }
-            } elseif (str_contains($line, '</pre>')) {
-                $inPre = false;
             }
+            $inPre = HtmlLineState::endsInsidePre($line, $inPre);
         }
 
         return implode("\n", $lines);

@@ -106,8 +106,8 @@ final class HtmlLayoutWriter
         // Added spaces cannot change tag or preformatted transitions, so each
         // line applies the same transition to all enclosing scopes. Merge
         // equal states instead of visiting every ancestor for every raw line.
-        $opensPre = str_contains($line, '<pre') && !str_contains($line, '</pre>');
-        $closesPre = str_contains($line, '</pre>');
+        $opensPre = HtmlLineState::endsInsidePre($line, false);
+        $continuesPre = HtmlLineState::endsInsidePre($line, true);
         $endsInTag = HtmlLineState::endsInsideTag($line, false);
         $endsInOpenTag = HtmlLineState::endsInsideTag($line, true);
         $next = [null, null, null, null];
@@ -116,7 +116,7 @@ final class HtmlLayoutWriter
                 continue;
             }
             if (($state & 2) !== 0) {
-                $target = $closesPre ? $state & 1 : $state;
+                $target = ($state & 1) | ($continuesPre ? 2 : 0);
             } else {
                 $target = (int)(($state & 1) !== 0 ? $endsInOpenTag : $endsInTag)
                 | ($opensPre ? 2 : 0);
