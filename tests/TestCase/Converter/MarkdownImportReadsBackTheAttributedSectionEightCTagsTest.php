@@ -116,6 +116,26 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
         $this->assertSame("substitute {~old~>new~} here\n", $this->round("substitute {~old~>new~} here\n"));
     }
 
+    public function testEditorialHtmlWithCarveDelimitersStaysRaw(): void
+    {
+        $this->assertSame(
+            "a `<del class=\"critic-delete\">`{=html}x{y}`</del>`{=html} b\n",
+            $this->carve("a <del class=\"critic-delete\">x{y}</del> b\n"),
+        );
+        $this->assertSame(
+            "a `<del class=\"critic-delete\">`{=html}x~>y`</del>`{=html}{+z+} b\n",
+            $this->carve("a <del class=\"critic-delete\">x~>y</del><ins>z</ins> b\n"),
+        );
+        $this->assertSame(
+            "a {-x-}{+y{z}+} b\n",
+            $this->carve("a <del class=\"critic-delete\">x</del><ins>y{z}</ins> b\n"),
+        );
+        $this->assertSame(
+            "a {-x-}{+y~>z+} b\n",
+            $this->carve("a <del class=\"critic-delete\">x</del><ins>y~>z</ins> b\n"),
+        );
+    }
+
     /**
      * The control the ruling turns on: §8c's own worked example is a `strike`
      * written as a bare `<del>`, and a bare `<del>` must keep reading back as
