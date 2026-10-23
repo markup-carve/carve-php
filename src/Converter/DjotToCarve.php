@@ -1141,6 +1141,11 @@ class DjotToCarve
         $boundaries = $this->djotTableCellBoundaries($source);
         $plain = Emphasis::pairedOpeners($source, $mask, $boundaries);
         $withQuotes = Emphasis::pairedOpeners($source, $mask, $boundaries, true);
+        $pairedMarkers = [];
+        foreach ($withQuotes as $pairedOpen => $pairedEnd) {
+            $pairedClose = ($source[$pairedEnd - 1] ?? '') === '}' ? $pairedEnd - 2 : $pairedEnd - 1;
+            $pairedMarkers[$pairedOpen] = $pairedMarkers[$pairedClose] = true;
+        }
         $imageLabels = [];
         $this->replaceImageLabels($source, $mask, static function (array $match) use (&$imageLabels): string {
             $imageLabels[] = [$match[1][1], $match[1][1] + strlen($match[1][0])];
@@ -1153,6 +1158,9 @@ class DjotToCarve
         $closingSingles = [];
         $wordSpans = [];
         $wordSpanEnds = [];
+        $droppedAttributes = [];
+        $forcedOpens = [];
+        $forcedCloses = [];
         $imageIndex = 0;
         foreach ($plain as $open => $end) {
             while (isset($imageLabels[$imageIndex]) && $open >= $imageLabels[$imageIndex][1]) {
@@ -1167,18 +1175,34 @@ class DjotToCarve
                     $close--;
                 }
                 if (($source[$close] ?? '') === $source[$open]) {
-                    $escape[$open] = $escape[$close] = true;
+                    $escape[$open] = true;
+                    if (isset($withQuotes[$close])) {
+                        $attribute = ($source[$end] ?? '') === '{' ? $this->readDjotWordAttributes($source, $end) : null;
+                        if ($attribute !== null) {
+                            $droppedAttributes[$end] = $attribute['end'];
+                            $forcedOpens[$close] = true;
+                            $forcedCloses[$withQuotes[$close] - 1] = true;
+                        }
+
+                        continue;
+                    }
+                    $escape[$close] = true;
                     $attributeAt = $end;
-                    while (($source[$attributeAt] ?? '') === $source[$open]) {
-                        $escape[$attributeAt++] = true;
+                    $extraDelimiters = [];
+                    while (str_contains('_*', $source[$attributeAt] ?? ' ') && !isset($withQuotes[$attributeAt])) {
+                        $extraDelimiters[] = $attributeAt++;
                     }
                     if (($source[$attributeAt] ?? '') === '{' && $this->readDjotWordAttributes($source, $attributeAt) !== null) {
+                        foreach ($extraDelimiters as $at) {
+                            $escape[$at] = true;
+                        }
                         $wordEnd = $attributeAt - 1;
                         $wordStart = $close;
-                        if (!str_contains('*_]}', $source[$close - 1] ?? '')) {
-                            while ($wordStart > 0 && preg_match('/[\s*_\]}`]/', $source[$wordStart - 1]) !== 1) {
-                                $wordStart--;
-                            }
+                        while (
+                            $wordStart > 0 && !isset($pairedMarkers[$wordStart - 1])
+                            && preg_match('/[\s\]}`"\x27)]/', $source[$wordStart - 1]) !== 1
+                        ) {
+                            $wordStart--;
                         }
                         if ($wordStart > $open) {
                             $wordSpans[$wordStart] = true;
@@ -1197,7 +1221,14 @@ class DjotToCarve
 
         $result = '';
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
-            $result .= (isset($wordSpans[$i]) ? '[' : '') . (isset($escape[$i]) ? '\\' : '') . (isset($closingSingles[$i]) ? '’' : $source[$i]) . (isset($wordSpanEnds[$i]) ? ']' : '');
+            if (isset($droppedAttributes[$i])) {
+                $i = $droppedAttributes[$i] - 1;
+
+                continue;
+            }
+            $result .= (isset($wordSpans[$i]) ? '[' : '') . (isset($forcedOpens[$i]) ? '{' : '')
+                . (isset($escape[$i]) ? '\\' : '') . (isset($closingSingles[$i]) ? '’' : $source[$i])
+                . (isset($forcedCloses[$i]) ? '}' : '') . (isset($wordSpanEnds[$i]) ? ']' : '');
         }
 
         return $result;
