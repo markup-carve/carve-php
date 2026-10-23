@@ -1101,13 +1101,15 @@ trait BlockListMethods
                     return false;
                 }
                 if ($attachedKind === self::ATTACHED_PENDING) {
-                    $fence = $this->fencedBlockParser->parseCodeFenceOpener(ltrim($line, " \t"));
+                    $fence = $this->fencedBlockParser->parseCodeFenceOpener(ltrim($line, " \t"))
+                        ?? $this->fencedBlockParser->parseRawBlockOpener(ltrim($line, " \t"));
                     if ($fence !== null) {
                         $fenceTakesRest = true;
                         for ($at = $index + 1; $at < $count; $at++) {
                             if (
                                 IndentationHelper::isBlankLine($lines[$at])
-                                || $this->fencedBlockParser->isCodeFenceCloser(ltrim($lines[$at], " \t"), $fence['fence'][0], $fence['length'])
+                                // Only an unindented run closes it; an indented one is payload.
+                                || $this->fencedBlockParser->isCodeFenceCloser($lines[$at], $fence['fence'][0], $fence['length'])
                             ) {
                                 $fenceTakesRest = false;
 
