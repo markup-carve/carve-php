@@ -669,6 +669,7 @@ class DjotToCarve
         $continued = [];
         $sourceOrder = str_contains($source, '[^') ? $this->sourceHeadingOrder($source) : [];
         $headingLines = $sourceOrder === [] ? $this->scanHeadingStartLines($lines) : array_column($sourceOrder, 'line');
+        $sourceHeadingLines = array_fill_keys($headingLines, true);
         foreach ($headingLines as $lineIndex) {
             if (isset($continued[$lineIndex])) {
                 continue;
@@ -681,15 +682,25 @@ class DjotToCarve
                 continue;
             }
             $line = $lines[$lineIndex];
+            if (preg_match('/^((?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?)(#{1,6})[ \t]+/', $line, $headingMarker) !== 1) {
+                continue;
+            }
             $text = preg_replace('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?#{1,6}[ \t]+/', '', $line) ?? $line;
             $next = $lineIndex + 1;
             while (isset($lines[$next]) && trim($lines[$next]) !== '') {
                 if ($this->isDjotHeadingBoundaryLine($lines, $next)) {
                     break;
                 }
-                if (preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$next]) === 1) {
+                if (preg_match('/^((?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?)(#{1,6})[ \t]+/', $lines[$next], $nextMarker) === 1) {
+                    if (
+                        ($sourceOrder !== [] && isset($sourceHeadingLines[$next]))
+                        || $nextMarker[1] !== $headingMarker[1]
+                        || strlen($nextMarker[2]) !== strlen($headingMarker[2])
+                    ) {
+                        break;
+                    }
                     $continued[$next] = true;
-                    $text .= "\n" . (preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $lines[$next]) ?? $lines[$next]);
+                    $text .= "\n" . (preg_replace('/^((?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?)(#{1,6})[ \t]+/', '', $lines[$next]) ?? $lines[$next]);
                     $next++;
 
                     continue;
