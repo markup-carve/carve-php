@@ -22,6 +22,12 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'paired double' => ['## "a"' . "\n", ['a']];
         yield 'paired single inside heading' => ["## a 'b' c\n", ['a-b-c']];
         yield 'paired double inside heading' => ['## a "b" c' . "\n", ['a-b-c']];
+        yield 'double pair after letter' => ['## x"a"' . "\n", ['xa']];
+        yield 'double pair after slash' => ['## a/"b"' . "\n", ['a-b']];
+        yield 'double pair inside strong' => ['## *"a"*' . "\n", ['a']];
+        yield 'single pair in link text' => ["## ['a'](u)\n", ['a']];
+        yield 'single pair in span' => ["## {'a'}\n", ['a']];
+        yield 'tab heading keeps following pairing' => ["##\t'a'\n\n## x 'b' y\n", ['a', 'x-b-y']];
         yield 'paired and apostrophe' => ["## it's 'a'\n", ["it's-a"]];
         yield 'quotes inside code' => ['## `"a"`' . "\n", ['"a"']];
         yield 'quotes in link text' => ['## ["a"](u)' . "\n", ['a']];

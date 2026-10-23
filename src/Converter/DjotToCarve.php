@@ -669,6 +669,10 @@ class DjotToCarve
         $continued = [];
         $sourceOrder = str_contains($source, '[^') ? $this->sourceHeadingOrder($source) : [];
         $headingLines = $sourceOrder === [] ? $this->scanHeadingStartLines($lines) : array_column($sourceOrder, 'line');
+        if ($sourceOrder === []) {
+            $headingLines = array_values(array_unique(array_merge($headingLines, array_column($this->sourceHeadingOrder($source), 'line'))));
+            sort($headingLines);
+        }
         $sourceHeadingLines = array_fill_keys($headingLines, true);
         foreach ($headingLines as $lineIndex) {
             if (isset($continued[$lineIndex])) {
@@ -718,10 +722,15 @@ class DjotToCarve
             foreach ($codeSpans[0] as [$span, $offset]) {
                 $codeRanges[] = [$offset, $offset + strlen($span)];
             }
-            preg_match_all('/\{[^{}]*\}/', $text, $attributeSpans, PREG_OFFSET_CAPTURE);
             $attributeRanges = [];
-            foreach ($attributeSpans[0] as [$span, $offset]) {
-                $attributeRanges[] = [$offset, $offset + strlen($span)];
+            for ($offset = 0, $textLength = strlen($text); $offset < $textLength; $offset++) {
+                if ($text[$offset] !== '{') {
+                    continue;
+                }
+                $attribute = $this->readDjotWordAttributes($text, $offset);
+                if ($attribute !== null) {
+                    $attributeRanges[] = [$offset, $attribute['end']];
+                }
             }
             $visible = [];
             $quotePositions = [];
@@ -760,8 +769,7 @@ class DjotToCarve
                     if ($opener === null) {
                         if (
                             $after === '' || preg_match('/^[\s\x27"]/', $after) === 1
-                            || ($delimiter === "'" && preg_match('/[^\s(-]$/uD', $before) === 1)
-                            || ($delimiter === '"' && preg_match('/[\p{L}\p{N}\/_*\x27"]$/uD', $before) === 1)
+                            || ($delimiter === "'" && preg_match('/[^\s(\[{\-]$/uD', $before) === 1)
                         ) {
                             continue;
                         }
