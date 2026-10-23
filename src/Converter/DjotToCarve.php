@@ -1198,11 +1198,18 @@ class DjotToCarve
 
     private function normalizeDjotQuotesNearSlashes(string $source): string
     {
-        if (!str_contains($source, '/"') && !str_contains($source, "/'") && preg_match('/\/[^\s"]*"/', $source) !== 1) {
+        if (!str_contains($source, '"') && !str_contains($source, "/'")) {
             return $source;
         }
 
         $masked = $this->djotEmphasisMask($source);
+        $imageLabels = [];
+        $this->replaceImageLabels($source, $masked, static function (array $match) use (&$imageLabels): string {
+            $imageLabels[] = [$match[1][1], $match[1][1] + strlen($match[1][0])];
+
+            return $match[0][0];
+        });
+        usort($imageLabels, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
         $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $masked, true), true);
         $delimiterEnds = [];
         foreach (Emphasis::pairedOpeners($source, $masked) as $open => $end) {
@@ -1216,8 +1223,11 @@ class DjotToCarve
         $lastOpener = ['"' => null, "'" => null];
         $brackets = [];
         $edits = [];
+        $provisionalOpeners = [];
         $length = strlen($source);
+        $imageIndex = 0;
         $wordHasSlash = false;
+        $lineStart = 0;
         for ($at = 0; $at < $length; $at++) {
             if (isset($boundaries[$at])) {
                 $openers = [];
@@ -1226,12 +1236,19 @@ class DjotToCarve
                 $wordHasSlash = false;
             }
             $char = $source[$at];
+            if ($char === "\n") {
+                $lineStart = $at + 1;
+            }
             $quoteAfterSlashWord = $char === '"' && $wordHasSlash;
             if ($char === '/' && $masked[$at] === '/') {
                 $wordHasSlash = true;
             } elseif ($char === '"' || $char === "'" || str_contains(" \t\r\n[](){}<>", $char) || $masked[$at] !== $char) {
                 $wordHasSlash = false;
             }
+            while (isset($imageLabels[$imageIndex]) && $at >= $imageLabels[$imageIndex][1]) {
+                $imageIndex++;
+            }
+            $inImageLabel = isset($imageLabels[$imageIndex]) && $at >= $imageLabels[$imageIndex][0];
             if (isset($delimiterEnds[$at])) {
                 $discardAfter = $delimiterEnds[$at];
                 while ($openers !== [] && $openers[array_key_last($openers)]['at'] > $discardAfter) {
@@ -1258,13 +1275,22 @@ class DjotToCarve
             $previousClose = $at > 0 && isset($edits[$at - 1]) && str_contains('”’', $edits[$at - 1]);
             $match = $lastOpener[$char];
             $opener = $match === null ? null : $openers[$match]['at'];
-            if ($quoteAfterSlashWord && $opener === null) {
+            $inHeading = $char === '"' && preg_match('/^[ \t>]*#{1,6}[ \t]/', substr($source, $lineStart, $at - $lineStart)) === 1;
+            if ($char === '"' && $opener === null && ($quoteAfterSlashWord || !$this->omitQuoteDelimiters && !$inImageLabel && !$inHeading && ($source[$at + 1] ?? '') !== '}')) {
                 $edits[$at] = '“';
+                $provisionalOpeners[$at] = $quoteAfterSlashWord || $previousClose;
             }
             if ($opener !== null && $at > $opener + 1 && $before !== '' && !str_contains(" \t\r\n", $before)) {
                 if ($before === '/' || $openers[$match]['forced']) {
                     $edits[$opener] = $char === '"' ? '“' : '‘';
                     $edits[$at] = $char === '"' ? '”' : '’';
+                } elseif (isset($provisionalOpeners[$opener]) && !$provisionalOpeners[$opener]) {
+                    if ($char === '"' && !$this->omitQuoteDelimiters && !$inImageLabel && preg_match('/[A-Za-z0-9`)}\x00]/', $source[$opener - 1] ?? '') === 1) {
+                        $edits[$opener] = '“';
+                        $edits[$at] = '”';
+                    } else {
+                        unset($edits[$opener]);
+                    }
                 }
                 for ($remaining = count($openers); $remaining > $match; $remaining--) {
                     $discarded = array_pop($openers) ?? throw new LogicException('Missing quote opener');
