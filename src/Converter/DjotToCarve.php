@@ -2095,6 +2095,7 @@ class DjotToCarve
                         if ($opener['length'] >= $openDivs[$openIndex]['width']) {
                             $openDivs = array_slice($openDivs, 0, $openIndex);
                             $closed = true;
+
                             break;
                         }
                     }
