@@ -10,6 +10,7 @@ use MarkupCarve\Carve\Node\Block\Comment;
 use MarkupCarve\Carve\Node\Block\DefinitionDescription;
 use MarkupCarve\Carve\Node\Block\DefinitionList;
 use MarkupCarve\Carve\Node\Block\DefinitionTerm;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Node\Block\ListBlock;
 use MarkupCarve\Carve\Node\Document;
 use MarkupCarve\Carve\Node\Inline\SoftBreak;
@@ -382,10 +383,11 @@ final class DefinitionListBuilder
      * @param bool $termHasOwnColumn
      * @param int $count
      * @param int $i
+     * @param bool $inNoteBody
      *
      * @return array<int, string>|null
      */
-    private function definitionBodyAt(array &$lines, int &$i, int $count, bool $termHasOwnColumn, ?int $termColumn): ?array
+    private function definitionBodyAt(array &$lines, int &$i, int $count, bool $termHasOwnColumn, ?int $termColumn, bool $inNoteBody = false): ?array
     {
         if (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, ltrim($lines[$i], " \t")) === 1) {
             $separatorColumn = self::authoredSubjectColumn(
@@ -421,7 +423,9 @@ final class DefinitionListBuilder
             ContainerPrefix::stripQuoteMarkers($this->state->source->sourceLines[$bodySource] ?? ''),
             $bodySubject,
         );
-        if ($termHasOwnColumn && $termColumn !== null && $bodyColumn !== null && $bodyColumn < $termColumn) {
+        // A separator at a note body's own column describes a deeper term there.
+        $atNoteBodyColumn = $inNoteBody && !$folded && $lines[$i] === ltrim($lines[$i], " \t");
+        if ($termHasOwnColumn && $termColumn !== null && $bodyColumn !== null && $bodyColumn < $termColumn && !$atNoteBodyColumn) {
             return null;
         }
 
@@ -469,7 +473,7 @@ final class DefinitionListBuilder
             );
             $termHasOwnColumn = preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($termSourceLine, " \t")) === 1;
             while ($i < $count) {
-                $m = $this->definitionBodyAt($lines, $i, $count, $termHasOwnColumn, $termColumn);
+                $m = $this->definitionBodyAt($lines, $i, $count, $termHasOwnColumn, $termColumn, $parent instanceof Footnote);
                 if ($m === null) {
                     break;
                 }
