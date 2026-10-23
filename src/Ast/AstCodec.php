@@ -1708,9 +1708,8 @@ class AstCodec
      * What is left for it is a tree the parser did not build: an extension or
      * the ProseMirror bridge can hand the encoder adjacent `Text` nodes, and
      * §1a is a property of the WIRE, so the run is joined on the way out
-     * whatever produced it. Until §3a there was a second case - `RawText`
-     * published as `text` and so formed a published run the tree pass had to
-     * leave alone - and it is gone: nothing produces that node any more.
+     * whatever produced it. The ProseMirror bridge or an application may still
+     * supply `RawText`, which publishes as `text` and joins the same run.
      *
      * `escaped_text` is NOT merged: PART 12 §5 keeps it distinct from `text`
      * because an escape is authored form.
@@ -1825,11 +1824,10 @@ class AstCodec
             $type = 'admonition';
         }
         if ($node instanceof RawText) {
-            // Nothing PRODUCES this node since §3a - an unresolved reference is
-            // a link now - but the class is public, so an application or an
-            // extension can still build one, and publishing it would put an
-            // internal type on the wire: `raw_text` is not in the vocabulary,
-            // so the document would be schema-invalid the moment it was saved.
+            // Carve parsing no longer creates this node since §3a, but the
+            // ProseMirror bridge, an application, or an extension can still
+            // build one. Publishing the internal `raw_text` type would make
+            // the document schema-invalid the moment it was saved.
             // PART 12 §5 excludes the node, §1 licenses the mapping ("an
             // implementation whose internals differ MAPS on the way out").
             //

@@ -445,7 +445,8 @@ class AstCodecTest extends TestCase
     /**
      * A payload naming the formatter-internal node is REFUSED (carve-php#1002).
      *
-     * §5 governs what is PUBLISHED, and nothing produces `raw_text` since §3a.
+     * §5 governs what is PUBLISHED. Carve parsing no longer creates `RawText`
+     * since §3a, though the ProseMirror bridge still uses the node internally.
      * The decoder used to read it back anyway, on the grounds that this engine
      * had written such payloads and a stored document cannot be recalled - but
      * the node is not in the vocabulary, neither sibling engine accepts it, and

@@ -9,8 +9,9 @@ use MarkupCarve\Carve\Node\ContentNodeInterface;
 /**
  * Literal inline source preserved for round-trip formatting.
  *
- * @deprecated Nothing produces this node since PART 12 §3a; it exists for
- *             decoding older payloads.
+ * @deprecated Carve parsing no longer creates this node since PART 12 §3a.
+ *             The ProseMirror bridge still uses it for unsupported content,
+ *             and applications may construct it. AST ingest rejects raw_text.
  */
 class RawText extends InlineNode implements ContentNodeInterface
 {
