@@ -206,89 +206,14 @@ final class CarrierStage
             return $markdown;
         }
         $payloads = $this->classifyBareFencePayloads($payloads);
-        $pairs = [];
-        $stack = [];
-        $balanced = true;
-        foreach ($payloads as $at => $payload) {
-            $width = CarrierMarkers::fenceWidth($payload);
-            if ($width === 0) {
-                continue;
-            }
-            if (CarrierMarkers::isCloser($payload)) {
-                $opener = array_pop($stack);
-                if ($opener === null || CarrierMarkers::fenceWidth($payloads[$opener]) !== $width) {
-                    $balanced = false;
-                } else {
-                    $pairs[$opener] = $at;
-                }
-            } else {
-                if ($stack !== [] && $width <= CarrierMarkers::fenceWidth($payloads[end($stack)])) {
-                    $balanced = false;
-                }
-                $stack[] = $at;
-            }
-        }
-        $balanced = $balanced && $stack === [];
-        if ($balanced) {
-            $droppedCaptions = [];
-            foreach ($payloads as $at => $payload) {
-                if (isset($droppedCaptions[$at])) {
-                    continue;
-                }
-                $width = CarrierMarkers::fenceWidth($payload);
-                $opener = $width > 0 && !CarrierMarkers::isCloser($payload);
-                $closer = $pairs[$at] ?? null;
-                if ($opener && $closer !== null) {
-                    $children = (new CarveConverter())->parse($payload . "\n" . $payloads[$closer] . "\n")->getChildren();
-                    $valid = count($children) === 1 && !$children[0] instanceof Paragraph;
-                } elseif (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
-                    $valid = AttributeParser::isValidPayload(substr($payload, 1, -1));
-                } elseif (CarrierMarkers::isCodeFence($payload)) {
-                    $valid = $this->codeFenceCarrierInfo($payload) !== null;
-                } elseif ($this->carrierListStyle($payload) !== null) {
-                    $valid = preg_match('/(?:^|[ \t>])(?:[-+*]|[0-9]+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?$/D', $hosts[$at]) !== 1;
-                } else {
-                    $valid = $width > 0 || CarrierMarkers::isCaption($payload)
-                        || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
-                }
-                if ($depths[$at] > 1 && preg_match('/^::[ \t]/', $payload) !== 1 && $payload !== ':' && $payload !== '') {
-                    $valid = false;
-                }
-                if (!$valid) {
-                    unset($payloads[$at], $depths[$at]);
-                    if ($closer !== null) {
-                        unset($payloads[$closer]);
-                        // A composite figure's caption marker belongs to the pair it follows.
-                        $caption = $closer + 1;
-                        while (isset($lines[$caption]) && trim($this->withoutCarrierHost($lines[$caption], $hosts[$closer])) === '') {
-                            $caption++;
-                        }
-                        if (isset($payloads[$caption]) && CarrierMarkers::isCaption($payloads[$caption]) && $hosts[$caption] === $hosts[$closer]) {
-                            unset($payloads[$caption], $depths[$caption]);
-                            $droppedCaptions[$caption] = true;
-                        }
-                    }
-                    $this->context->carrierDiagnostics[] = new MigrationDiagnostic(
-                        'carrier-marker-dropped',
-                        ($opener ? 'Dropped carrier marker pair with an invalid opener: ' : 'Dropped carrier marker with an invalid payload: ')
-                            . substr($lines[$at], strlen($hosts[$at])),
-                        'warning',
-                        'degraded',
-                        'fallback',
-                        'line:' . $lineNumbers[$at],
-                    );
-                }
-            }
-        }
-        if (
-            !$balanced || !$this->carrierDepthsPair($payloads, $depths)
-            || !$this->carrierSetBalances($payloads, $lines, $hosts, $depths)
-        ) {
+        $validated = $this->validatedCarrierPayloads($payloads, $depths, $hosts, $lines, $lineNumbers);
+        if ($validated === null) {
             $this->context->carrierDamaged = true;
             $this->context->carrierDiagnostics = [];
 
             return $markdown;
         }
+        [$payloads, $depths] = $validated;
 
         $token = 'CARVECARRIER';
         while (str_contains($markdown, $token)) {
@@ -426,6 +351,103 @@ final class CarrierStage
         }
 
         return implode("\n", $out);
+    }
+
+    /**
+     * Records diagnostics for dropped markers; the caller clears them on null.
+     *
+     * @param array<int, string> $payloads
+     * @param array<int, int> $depths
+     * @param array<int, string> $hosts
+     * @param list<string> $lines
+     * @param list<int> $lineNumbers
+     *
+     * @return array{array<int, string>, array<int, int>}|null
+     */
+    private function validatedCarrierPayloads(array $payloads, array $depths, array $hosts, array $lines, array $lineNumbers): ?array
+    {
+        $pairs = [];
+        $stack = [];
+        $balanced = true;
+        foreach ($payloads as $at => $payload) {
+            $width = CarrierMarkers::fenceWidth($payload);
+            if ($width === 0) {
+                continue;
+            }
+            if (CarrierMarkers::isCloser($payload)) {
+                $opener = array_pop($stack);
+                if ($opener === null || CarrierMarkers::fenceWidth($payloads[$opener]) !== $width) {
+                    $balanced = false;
+                } else {
+                    $pairs[$opener] = $at;
+                }
+            } else {
+                if ($stack !== [] && $width <= CarrierMarkers::fenceWidth($payloads[end($stack)])) {
+                    $balanced = false;
+                }
+                $stack[] = $at;
+            }
+        }
+        $balanced = $balanced && $stack === [];
+        if ($balanced) {
+            $droppedCaptions = [];
+            foreach ($payloads as $at => $payload) {
+                if (isset($droppedCaptions[$at])) {
+                    continue;
+                }
+                $width = CarrierMarkers::fenceWidth($payload);
+                $opener = $width > 0 && !CarrierMarkers::isCloser($payload);
+                $closer = $pairs[$at] ?? null;
+                if ($opener && $closer !== null) {
+                    $children = (new CarveConverter())->parse($payload . "\n" . $payloads[$closer] . "\n")->getChildren();
+                    $valid = count($children) === 1 && !$children[0] instanceof Paragraph;
+                } elseif (str_starts_with($payload, '{') && str_ends_with($payload, '}')) {
+                    $valid = AttributeParser::isValidPayload(substr($payload, 1, -1));
+                } elseif (CarrierMarkers::isCodeFence($payload)) {
+                    $valid = $this->codeFenceCarrierInfo($payload) !== null;
+                } elseif ($this->carrierListStyle($payload) !== null) {
+                    $valid = preg_match('/(?:^|[ \t>])(?:[-+*]|[0-9]+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?$/D', $hosts[$at]) !== 1;
+                } else {
+                    $valid = $width > 0 || CarrierMarkers::isCaption($payload)
+                        || preg_match('/^::[ \t]/', $payload) === 1 || $payload === ':' || $payload === '';
+                }
+                if ($depths[$at] > 1 && preg_match('/^::[ \t]/', $payload) !== 1 && $payload !== ':' && $payload !== '') {
+                    $valid = false;
+                }
+                if (!$valid) {
+                    unset($payloads[$at], $depths[$at]);
+                    if ($closer !== null) {
+                        unset($payloads[$closer]);
+                        // A composite figure's caption marker belongs to the pair it follows.
+                        $caption = $closer + 1;
+                        while (isset($lines[$caption]) && trim($this->withoutCarrierHost($lines[$caption], $hosts[$closer])) === '') {
+                            $caption++;
+                        }
+                        if (isset($payloads[$caption]) && CarrierMarkers::isCaption($payloads[$caption]) && $hosts[$caption] === $hosts[$closer]) {
+                            unset($payloads[$caption], $depths[$caption]);
+                            $droppedCaptions[$caption] = true;
+                        }
+                    }
+                    $this->context->carrierDiagnostics[] = new MigrationDiagnostic(
+                        'carrier-marker-dropped',
+                        ($opener ? 'Dropped carrier marker pair with an invalid opener: ' : 'Dropped carrier marker with an invalid payload: ')
+                            . substr($lines[$at], strlen($hosts[$at])),
+                        'warning',
+                        'degraded',
+                        'fallback',
+                        'line:' . $lineNumbers[$at],
+                    );
+                }
+            }
+        }
+        if (
+            !$balanced || !$this->carrierDepthsPair($payloads, $depths)
+            || !$this->carrierSetBalances($payloads, $lines, $hosts, $depths)
+        ) {
+            return null;
+        }
+
+        return [$payloads, $depths];
     }
 
     /**
