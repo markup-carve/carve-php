@@ -12,9 +12,12 @@ use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 final class DjotHeadingIds
 {
     /**
+     * @param string $carve
+     * @param array<int, list<int>> $pairedQuotes
+     *
      * @return array{list<string>, list<string>} Djot ids and Carve ids in document order
      */
-    public static function fromCarve(string $carve): array
+    public static function fromCarve(string $carve, array $pairedQuotes = []): array
     {
         $document = (new BlockParser())->parse(str_replace("\0U\0", "\0", $carve));
         $renderer = new HtmlRenderer();
@@ -24,6 +27,7 @@ final class DjotHeadingIds
         $djotIds = [];
         $carveIds = [];
         $pending = array_reverse($document->getChildren());
+        $headingIndex = 0;
         while ($pending !== []) {
             $node = array_pop($pending);
             $explicit = $node->getAttribute('id');
@@ -31,6 +35,7 @@ final class DjotHeadingIds
                 $used[$explicit] = true;
             }
             if ($node instanceof Heading) {
+                $sourceHeadingIndex = $headingIndex++;
                 $carveIds[] = $tracker->getIdForHeading($node);
                 $descendants = array_reverse($node->getChildren());
                 while ($descendants !== []) {
@@ -47,6 +52,17 @@ final class DjotHeadingIds
                     $djotIds[] = $explicit;
                 } else {
                     $plain = $tracker->getPlainText($node, SmartTypographyMode::Source);
+                    $removeQuotes = $pairedQuotes[$sourceHeadingIndex] ?? [];
+                    if ($removeQuotes !== []) {
+                        preg_match_all('/[\x27"‘’“”]/u', $plain, $quotes, PREG_OFFSET_CAPTURE);
+                        $quotePositions = $quotes[0];
+                        foreach (array_reverse($removeQuotes) as $ordinal) {
+                            if (isset($quotePositions[$ordinal])) {
+                                [$quote, $offset] = $quotePositions[$ordinal];
+                                $plain = substr_replace($plain, '', $offset, strlen($quote));
+                            }
+                        }
+                    }
                     $punctuation = '][~!@#$%^&*(){}`,.<>\\|=+/?';
                     $base = trim(preg_replace('/\s+/u', ' ', strtr($plain, array_fill_keys(str_split($punctuation), ' '))) ?? $plain);
                     $base = str_replace(' ', '-', $base);

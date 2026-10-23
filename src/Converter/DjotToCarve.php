@@ -647,11 +647,55 @@ class DjotToCarve
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
 
+    /**
+     * @return array<int, list<int>>
+     */
+    private function sourcePairedHeadingQuotes(string $source): array
+    {
+        $lines = explode("\n", $source);
+        $pairs = [];
+        foreach ($this->scanHeadingStartLines($lines) as $lineIndex) {
+            $line = $lines[$lineIndex];
+            $text = preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $line) ?? $line;
+            $mask = $this->maskCodeAndDestinations($text);
+            preg_match_all('/[\x27"‘’“”]/u', $text, $quotes, PREG_OFFSET_CAPTURE);
+            $ordinals = [];
+            foreach ($quotes[0] as $ordinal => $quote) {
+                $ordinals[$quote[1]] = $ordinal;
+            }
+            $remove = [];
+            foreach (["'", '"'] as $delimiter) {
+                $pattern = '/(?<![A-Za-z0-9])' . preg_quote($delimiter, '/')
+                    . '(?=\S).*?(?<=\S)' . preg_quote($delimiter, '/')
+                    . '(?![A-Za-z0-9])/s';
+                preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE);
+                foreach ($matches[0] as [$match, $offset]) {
+                    $last = $offset + strlen($match) - 1;
+                    if (
+                        ($mask[$offset] ?? '') !== $delimiter || ($mask[$last] ?? '') !== $delimiter
+                        || $this->isDjotEscaped($text, $offset) || $this->isDjotEscaped($text, $last)
+                    ) {
+                        continue;
+                    }
+                    if (isset($ordinals[$offset], $ordinals[$last])) {
+                        $remove[] = $ordinals[$offset];
+                        $remove[] = $ordinals[$last];
+                    }
+                }
+            }
+            sort($remove);
+            $pairs[] = $remove;
+        }
+
+        return $pairs;
+    }
+
     private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null): string
     {
-        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve);
+        $pairedQuotes = $this->sourcePairedHeadingQuotes($source);
+        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, $pairedQuotes);
         if ($reservationCarve !== null) {
-            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve);
+            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve, $pairedQuotes);
         }
         $this->headingIdSource = new MapIds($djotIds);
         try {
@@ -1201,7 +1245,7 @@ class DjotToCarve
 
     private function normalizeCarveHeadingQuotes(string $carve): string
     {
-        if (!str_contains($carve, '"') || !str_contains($carve, '#')) {
+        if ((!str_contains($carve, '"') && !str_contains($carve, "/'")) || !str_contains($carve, '#')) {
             return $carve;
         }
         $lines = explode("\n", $carve);
@@ -1217,11 +1261,13 @@ class DjotToCarve
             }
         }
         foreach ($lines as $lineNumber => $line) {
-            if (!isset($headingLines[$lineNumber]) || !str_contains($line, '"')) {
+            if (!isset($headingLines[$lineNumber]) || (!str_contains($line, '"') && !str_contains($line, "/'"))) {
                 continue;
             }
             if (preg_match('/^(.*?#{1,6}[ \t]+)(.*)$/', $line, $parts) === 1) {
-                $lines[$lineNumber] = $parts[1] . $this->normalizeDjotQuotesNearSlashes($parts[2]);
+                $lines[$lineNumber] = $parts[1] . $this->normalizeDjotQuotesNearSlashes(
+                    $this->preserveUnpairedDjotSinglesAfterSlash($parts[2]),
+                );
             }
         }
 
