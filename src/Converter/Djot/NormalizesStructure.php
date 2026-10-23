@@ -2124,7 +2124,16 @@ trait NormalizesStructure
                     $removed[$k] = true;
                 }
                 $attrs = $this->djotReferenceAttributeGroups(array_reverse($attributeParts));
-                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $definition[2], 'attrs' => $attrs, 'inherited' => $attrs !== [], 'line' => $n];
+                $url = $definition[2];
+                if (!$aliasesOnly && !$caretOnly) {
+                    $protectedUrl = str_replace('\\', '\\\\', $url);
+                    if ($protectedUrl !== $url) {
+                        $urlAt = strlen($line) - strlen($url) - (str_ends_with($line, "\r") ? 1 : 0);
+                        $lines[$n] = substr_replace($line, $protectedUrl, $urlAt, strlen($url));
+                        $url = $protectedUrl;
+                    }
+                }
+                $definitions[$this->djotReferenceDefinitionKey($definition[1])] = ['url' => $url, 'attrs' => $attrs, 'inherited' => $attrs !== [], 'line' => $n];
                 $definitionLines[$n] = ['key' => $this->djotReferenceDefinitionKey($definition[1]), 'start' => $start, 'labelLength' => strlen($definition[1])];
             }
             $offset += strlen($line) + 1;
