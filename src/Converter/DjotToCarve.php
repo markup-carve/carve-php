@@ -1069,7 +1069,7 @@ class DjotToCarve
                 $delimiterEnds[$end - 1] = $open;
             }
         }
-        /** @var list<array{quote: string, at: int, previous: ?int}> $openers */
+        /** @var list<array{quote: string, at: int, previous: ?int, forced: bool}> $openers */
         $openers = [];
         /** @var array<string, ?int> $lastOpener */
         $lastOpener = ['"' => null, "'" => null];
@@ -1090,10 +1090,10 @@ class DjotToCarve
                     $lastOpener[$discarded['quote']] = $discarded['previous'];
                 }
             }
-            if ($masked[$at] === $char && !$this->isDjotEscaped($source, $at)) {
+            if (($char === '[' || $char === ']') && $masked[$at] === $char && !$this->isDjotEscaped($source, $at)) {
                 if ($char === '[') {
                     $brackets[] = $at;
-                } elseif ($char === ']' && $brackets !== []) {
+                } elseif ($brackets !== []) {
                     $discardAfter = array_pop($brackets);
                     while ($openers !== [] && $openers[array_key_last($openers)]['at'] > $discardAfter) {
                         $discarded = array_pop($openers);
@@ -1106,11 +1106,14 @@ class DjotToCarve
             }
             $before = $at > 0 ? $source[$at - 1] : '';
             $after = $source[$at + 1] ?? '';
+            $previousClose = $at > 0 && isset($edits[$at - 1]) && str_contains('”’', $edits[$at - 1]);
             $match = $lastOpener[$char];
             $opener = $match === null ? null : $openers[$match]['at'];
             if ($opener !== null && $at > $opener + 1 && $before !== '' && !str_contains(" \t\r\n", $before)) {
-                if ($before === '/') {
+                if ($before === '/' || $openers[$match]['forced']) {
                     $edits[$opener] = $char === '"' ? '“' : '‘';
+                }
+                if ($before === '/' || $openers[$match]['forced']) {
                     $edits[$at] = $char === '"' ? '”' : '’';
                 }
                 for ($remaining = count($openers); $remaining > $match; $remaining--) {
@@ -1121,22 +1124,32 @@ class DjotToCarve
                 if ($char === '"') {
                     $edits[$at] = '“';
                     if ($after !== '' && !str_contains(" \t\r\n", $after)) {
-                        $openers[] = ['quote' => $char, 'at' => $at, 'previous' => $lastOpener[$char]];
+                        $openers[] = ['quote' => $char, 'at' => $at, 'previous' => $lastOpener[$char], 'forced' => false];
                         $lastOpener[$char] = count($openers) - 1;
                     }
                 }
             } elseif ($after !== '' && !str_contains(" \t\r\n", $after) && ($char === '"' || $before === '' || str_contains(" \t\r\n\"'-([", $before))) {
-                $openers[] = ['quote' => $char, 'at' => $at, 'previous' => $lastOpener[$char]];
+                $adjacentForced = $char === "'" && $opener === $at - 1 && $match === array_key_last($openers) && $openers[$match]['forced'];
+                if ($previousClose && $char === '"') {
+                    $edits[$at] = '“';
+                }
+                $openers[] = ['quote' => $char, 'at' => $at, 'previous' => $lastOpener[$char], 'forced' => ($previousClose && $char === "'") || $adjacentForced];
                 $lastOpener[$char] = count($openers) - 1;
+            } elseif ($previousClose && $char === '"') {
+                $edits[$at] = '“';
             }
         }
 
-        krsort($edits);
+        ksort($edits);
+        $parts = [];
+        $copied = 0;
         foreach ($edits as $at => $replacement) {
-            $source = substr_replace($source, $replacement, $at, 1);
+            $parts[] = substr($source, $copied, $at - $copied);
+            $parts[] = $replacement;
+            $copied = $at + 1;
         }
 
-        return $source;
+        return $parts === [] ? $source : implode('', $parts) . substr($source, $copied);
     }
 
     private function scanDjotCommentParagraph(string $source, int $start, string $key): bool
