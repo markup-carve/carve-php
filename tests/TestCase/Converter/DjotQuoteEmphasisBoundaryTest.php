@@ -28,6 +28,9 @@ class DjotQuoteEmphasisBoundaryTest extends TestCase
         yield 'paired doubles after a space' => ["_'\"a \"b\"\"_", '<p><em>’“a “b””</em></p>'];
         yield 'unpaired double after a closed pair' => ["_'\"a\" b\"_", '<p><em>’“a” b“</em></p>'];
         yield 'escaped double before closing double' => ["_'\"a\\\"\"_", '<p><em>’“a"”</em></p>'];
+        yield 'opening double after a closed pair' => ["_'\"a\"\"b\"_", '<p><em>’“a”“b”</em></p>'];
+        yield 'double after parenthesis closes' => ["_'\"(\"_", '<p><em>’“(”</em></p>'];
+        yield 'double after bracket closes' => ["_'\"[\"a\"]\"_", '<p><em>’“[”a“]”</em></p>'];
         yield 'paired single after closing single' => ["_''a'_", '<p><em>’‘a’</em></p>'];
         yield 'paired single after two closing singles' => ["_'''a'_", '<p><em>’’‘a’</em></p>'];
         yield 'slash before closing quote' => ["x _a/'_ y", '<p>x <em>a/’</em> y</p>'];

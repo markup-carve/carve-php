@@ -1243,8 +1243,9 @@ class DjotToCarve
                             $previous = $source[$candidate - 1];
                             $adjacentDirection = $previous === '"' && !$this->isDjotEscaped($source, $candidate - 1)
                                 ? ($doubleDirectionsAfterSingles[$candidate - 1] ?? null) : null;
-                            $opens = $adjacentDirection === '“' || ($adjacentDirection === null
-                                && (preg_match('/[\s(\[{\x27]$/uD', substr($source, 0, $candidate)) === 1 || $openDoubles === 0));
+                            $opens = $adjacentDirection === '“' || ($adjacentDirection === '”' && $openDoubles === 0)
+                                || ($adjacentDirection === null
+                                    && (preg_match('/[\s{]$/uD', substr($source, 0, $candidate)) === 1 || $openDoubles === 0));
                             $doubleDirectionsAfterSingles[$candidate] = $opens ? '“' : '”';
                             $openDoubles += $opens ? 1 : ($openDoubles > 0 ? -1 : 0);
                         }
