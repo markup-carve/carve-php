@@ -2159,7 +2159,10 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 if ($needsLooseItem) {
                     $this->recordListTightnessLost($item);
                 }
-                $content = $this->trimNonNbsp($this->renderListItem($item, $node->isTight() && !$needsLooseItem));
+                $content = $this->trimNonNbsp($this->renderListItem(
+                    $item,
+                    $node->isTight() && !$needsLooseItem && !$this->nestedHeadingBeforeCodeFence($item),
+                ));
                 // A definition authored on an item's marker line is collected
                 // into the document, leaving the item empty. Spell it back on
                 // that same marker line. Using `+` for the empty item would
@@ -2581,6 +2584,28 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return $item->isTask();
+    }
+
+    // The compact spelling after a nested heading changes the tree on readback.
+    private function nestedHeadingBeforeCodeFence(ListItem $item): bool
+    {
+        $children = $item->getChildren();
+        foreach ($children as $index => $child) {
+            if (!$child instanceof CodeBlock || !($children[$index - 1] ?? null) instanceof ListBlock) {
+                continue;
+            }
+            $items = $children[$index - 1]->getChildren();
+            $lastItem = $items === [] ? null : $items[array_key_last($items)];
+            if (!$lastItem instanceof ListItem) {
+                continue;
+            }
+            $blocks = $lastItem->getChildren();
+            if ($blocks !== [] && $blocks[array_key_last($blocks)] instanceof Heading) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function renderListItem(ListItem $node, bool $tight = false): string
