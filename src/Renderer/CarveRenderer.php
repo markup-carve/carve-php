@@ -2560,7 +2560,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return false;
     }
 
-    /** Null means no fence; false means a plain item; true means a task item. */
+    /**
+     * Null means no fence; false means a plain item; true means a task item.
+     */
     private function nestedFenceTailIsTask(?Node $previous): ?bool
     {
         if (!$previous instanceof ListBlock) {
