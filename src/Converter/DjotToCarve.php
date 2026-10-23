@@ -457,6 +457,7 @@ class DjotToCarve
         $source = $this->normalizeDjotReferenceUses($this->foldDjotReferences($this->normalizeDjotStructure($source, $strippedDefinitions['isBoundary'], $emptyNote, $holdItemAttributes)), inherited: $inherited);
         $source = $this->normalizeDjotFootnotes($source, $strippedDefinitions['isBoundary'], $inherited, $emptyNote);
         $source = $this->foldHeadingContinuations($this->padDjotCodeSpans($this->escapeDjotNonTableRows($this->normalizeDjotTablePipes($this->normalizeDjotAutolinks($this->normalizeDjotLinks($source, $inherited))))));
+        $source = $this->preserveUnpairedDjotSinglesAfterSlash($source);
         $source = $this->normalizeImageQuoteSpellings($source);
         $collapsedMask = $this->maskCodeAndDestinations($source);
         $collapsedMask = preg_replace_callback('/<[^<>\s]+>/', static fn (array $match): string => preg_match('/[^:]@|[A-Za-z]:/', $match[0]) === 1 ? str_repeat(' ', strlen($match[0])) : $match[0], $collapsedMask) ?? $collapsedMask;
@@ -1124,6 +1125,75 @@ class DjotToCarve
         $this->paragraphStarts[$from] = ['key' => $key, 'result' => $result];
 
         return $result;
+    }
+
+    private function preserveUnpairedDjotSinglesAfterSlash(string $source): string
+    {
+        if ($this->omitQuoteDelimiters || !str_contains($source, "/'")) {
+            return $source;
+        }
+
+        $mask = $this->djotEmphasisMask($source);
+        $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+        $imageQuotes = $this->djotImageQuotePositions($source);
+        $parts = [];
+        $copied = 0;
+        $forcedSingle = false;
+        $opener = null;
+        $headingLines = array_fill_keys($this->scanHeadingStartLines(explode("\n", $source)), true);
+        $line = 0;
+        for ($at = 0, $length = strlen($source); $at < $length; $at++) {
+            if (isset($boundaries[$at])) {
+                $opener = null;
+            }
+            $char = $source[$at];
+            if ($char === "\n") {
+                $line++;
+            }
+            if (isset($headingLines[$line])) {
+                continue;
+            }
+            if ($char === '{' && ($source[$at + 1] ?? '') === "'" && $mask[$at] === '{' && !$this->isDjotEscaped($source, $at)) {
+                $forcedSingle = true;
+            } elseif ($char === "'" && ($source[$at + 1] ?? '') === '}' && $mask[$at] === "'" && !$this->isDjotEscaped($source, $at)) {
+                $forcedSingle = false;
+
+                continue;
+            }
+            if ($char !== "'" || $forcedSingle || isset($imageQuotes[$at]) || $mask[$at] !== "'" || $this->isDjotEscaped($source, $at)) {
+                continue;
+            }
+            $before = $at > 0 ? $source[$at - 1] : '';
+            $after = $source[$at + 1] ?? '';
+            if ($before === "'" && $after !== '' && !str_contains(" \t\r\n", $after)) {
+                $opener = $at;
+
+                continue;
+            }
+            if ($before !== '/' && $opener !== null && !str_contains(" \t\r\n", $before)) {
+                $opener = null;
+
+                continue;
+            }
+            if ($before !== '/' && $after !== '' && !str_contains(" \t\r\n", $after) && ($before === '' || str_contains(" \t\r\n\"'-([", $before))) {
+                $opener = $at;
+
+                continue;
+            }
+            if ($before !== '/') {
+                continue;
+            }
+            if ($opener !== null) {
+                $opener = null;
+
+                continue;
+            }
+            $parts[] = substr($source, $copied, $at - $copied);
+            $parts[] = '’';
+            $copied = $at + 1;
+        }
+
+        return $parts === [] ? $source : implode('', $parts) . substr($source, $copied);
     }
 
     private function normalizeDjotQuotesNearSlashes(string $source): string
@@ -3981,6 +4051,16 @@ class DjotToCarve
                 return '![' . $label . ']';
             }, true);
         }
+        $positions = $this->djotImageQuotePositions($source);
+
+        return $this->normalizeDjotInlineSpellings($source, fn (int $at): bool => $this->omitQuoteDelimiters || isset($positions[$at]));
+    }
+
+    /**
+     * @return array<int, true>
+     */
+    private function djotImageQuotePositions(string $source): array
+    {
         $positions = [];
         if (!$this->omitQuoteDelimiters && str_contains($source, '![')) {
             $mask = $this->maskCodeAndDestinations($source);
@@ -4015,7 +4095,7 @@ class DjotToCarve
             });
         }
 
-        return $this->normalizeDjotInlineSpellings($source, fn (int $at): bool => $this->omitQuoteDelimiters || isset($positions[$at]));
+        return $positions;
     }
 
     private function djotImageLabelAttributes(string $source, bool $flattenAttributeLines = false): string
