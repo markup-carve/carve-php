@@ -1190,12 +1190,20 @@ class DjotToCarve
                         continue;
                     }
                     $escape[$close] = true;
-                    if (($source[$end] ?? '') === $source[$open] && isset($withQuotes[$end])) {
-                        $attribute = ($source[$end + 1] ?? '') === '{' ? $this->readDjotWordAttributes($source, $end + 1) : null;
+                    $attributeAt = $end;
+                    $laterOpen = null;
+                    while (str_contains('_*', $source[$attributeAt] ?? ' ')) {
+                        if (isset($withQuotes[$attributeAt])) {
+                            $laterOpen = $attributeAt;
+                        }
+                        $attributeAt++;
+                    }
+                    if ($laterOpen !== null && ($source[$attributeAt] ?? '') === '{') {
+                        $attribute = $this->readDjotWordAttributes($source, $attributeAt);
                         if ($attribute !== null) {
-                            $droppedAttributes[$end + 1] = $attribute['end'];
-                            $forcedOpens[$end] = true;
-                            $forcedCloses[$withQuotes[$end] - 1] = true;
+                            $droppedAttributes[$attributeAt] = $attribute['end'];
+                            $forcedOpens[$laterOpen] = true;
+                            $forcedCloses[$withQuotes[$laterOpen] - 1] = true;
                         }
                     }
                     $attributeAt = $end;
@@ -1224,6 +1232,17 @@ class DjotToCarve
             }
             if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
                 $closingSingles[$open + 1] = true;
+            }
+        }
+        foreach ($withQuotes as $laterOpen => $laterEnd) {
+            if (!isset($forcedCloses[$laterOpen - 1]) || ($source[$laterOpen + 1] ?? '') !== '{') {
+                continue;
+            }
+            $attribute = $this->readDjotWordAttributes($source, $laterOpen + 1);
+            if ($attribute !== null) {
+                $droppedAttributes[$laterOpen + 1] = $attribute['end'];
+                $forcedOpens[$laterOpen] = true;
+                $forcedCloses[$laterEnd - 1] = true;
             }
         }
         if ($escape === [] && $closingSingles === []) {
