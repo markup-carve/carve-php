@@ -792,6 +792,15 @@ trait BlockListMethods
         }
         $line = $this->state->source->sourceLines[$current] ?? '';
         $opener = $this->state->source->sourceLines[$prior] ?? '';
+        // Below a hosted stacked opener, any non-list block at document column 0 attaches (carve#3421).
+        if (
+            ($line[0] ?? ' ') !== ' ' && $line[0] !== "\t" && $line[0] !== '>'
+            && !$this->isContinuationMarker($line)
+            && ContainerPrefix::quoteContent(ltrim($opener, " \t")) !== null
+            && BlockQuoteBuilder::isStackedFirstBlockQuoteMarker($opener)
+        ) {
+            return $this->listParser->parseListItemMarker($line) === null;
+        }
         $openingBody = $opener;
         $body = $line;
         while (($next = ContainerPrefix::quoteContent($openingBody)) !== null) {
@@ -1290,15 +1299,20 @@ trait BlockListMethods
         }
 
         $probe = [$first];
+        $depth = count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($index - 1)] ?? '', " \t")));
         for ($i = $index; $i < $count; $i++) {
             $line = $lines[$i];
-            if (
-                IndentationHelper::isBlankLine($line)
-                || IndentationHelper::getLeadingColumns($line, $contentIndent + 1) < $contentIndent
-            ) {
+            if (IndentationHelper::isBlankLine($line)) {
                 break;
             }
-            $content = IndentationHelper::stripLeadingColumns($line, $contentIndent);
+            // A lazy line outside the opener's quote does not continue the attribute.
+            if (count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t"))) < $depth) {
+                break;
+            }
+            // Its continuation lines may sit at any column (carve#3421).
+            $content = IndentationHelper::getLeadingColumns($line, $contentIndent + 1) < $contentIndent
+                ? ltrim($line, " \t")
+                : IndentationHelper::stripLeadingColumns($line, $contentIndent);
             $probe[] = $content;
             if (str_contains($content, '}')) {
                 break;

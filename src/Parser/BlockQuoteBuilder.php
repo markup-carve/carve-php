@@ -427,6 +427,25 @@ final class BlockQuoteBuilder
                 continue;
             }
 
+            // A hosted stacked opener's `+` takes any non-list block at document column 0 (carve#3421).
+            if (
+                $content === null && $currentLine !== '' && !in_array($currentLine[0], [' ', "\t", '>'], true)
+                && ($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '') === $currentLine
+                && trim($currentLine) !== '+'
+                && ($this->getListParser)()->parseListItemMarker($currentLine) === null
+                && self::isStackedFirstBlockQuoteMarker($this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '')
+                && $this->sourceLineFor($i - 1) === $this->sourceLineFor($i) - 1
+            ) {
+                $take = $this->firstBlockAttachedExtent($lines, $i, $count);
+                for ($end = $i + $take; $i < $end; $i++) {
+                    $innerLines[] = $lines[$i];
+                    $innerLineMap[] = $this->sourceLineFor($i);
+                }
+                $lazyState['paragraphOpen'] = false;
+
+                continue;
+            }
+
             // Continue with "> " prefix (space required per spec)
             if ($content === null && in_array('note', $lazyState['hosts']['kinds'] ?? [], true)) {
                 $content = $this->blockQuoteLineContent(ltrim($currentLine, " \t"));
@@ -565,6 +584,38 @@ final class BlockQuoteBuilder
             && $decision['owner']['kind'] === 'quote' && $decision['owner']['column'] === $column;
     }
 
+    /**
+     * A stacked opener's `+` takes a follower at document column 0, its line's own column, or the column of the
+     * innermost quote, which owns the `+`; an intervening opener's column is refused (carve#3421).
+     */
+    public static function stackedFollowerEligible(string $opening, string $next): bool
+    {
+        $hostPrefix = preg_match('/^(?:> )*/', $opening, $host) === 1 ? $host[0] : '';
+        $hostDepth = substr_count($hostPrefix, '>');
+        $offset = strlen($hostPrefix);
+        $lineColumn = ContinuationMarkerClassifier::columnAt($opening, $offset + strspn($opening, " \t", $offset));
+        $quoteColumn = ContinuationMarkerClassifier::columnAt($opening, (int)strrpos(rtrim($opening), '>'));
+        $at = 0;
+        for ($level = 0; $level < $hostDepth; $level++) {
+            if (substr($next, $at, 1) !== '>' || !in_array(substr($next, $at + 1, 1), [' ', ''], true)) {
+                // A follower outside the host quotes reaches the innermost quote from document column 0.
+                return $next !== '' && !in_array($next[0], [' ', "\t"], true);
+            }
+            $at += substr($next, $at + 1, 1) === ' ' ? 2 : 1;
+        }
+        $column = ContinuationMarkerClassifier::columnAt($next, $at + strspn($next, " \t", $at));
+
+        return ($hostDepth === 0 && $column === 0) || $column === $lineColumn || $column === $quoteColumn;
+    }
+
+    public static function isStackedFirstBlockQuoteMarker(string $line): bool
+    {
+        return preg_match(
+            '/^[ \t]*(?:(?:[-*] (?:\[[ xX]\] )?|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] )+|: +|\[\^[^\]]+\]: +)(?:> )+\+[ \t]*$/',
+            (string)preg_replace('/^(?:> )+/', '', $line),
+        ) === 1;
+    }
+
     private static function quoteDepth(string $line): int
     {
         $line = ltrim($line, " \t");
@@ -610,6 +661,9 @@ final class BlockQuoteBuilder
         // The first-block form pulls only non-list blocks, at any eligible column (CARVE-P9-067).
         if (($this->getListParser)()->parseListItemMarker(ltrim($next, " \t")) !== null) {
             return false;
+        }
+        if (self::isStackedFirstBlockQuoteMarker($opening)) {
+            return self::stackedFollowerEligible($opening, $next);
         }
 
         if ($column === 0 || $column === IndentationHelper::getLeadingColumns($opening)) {
@@ -707,15 +761,37 @@ final class BlockQuoteBuilder
                 $lazyState['paragraphOpen'] = false;
             }
             if ($nestedFirstBlock) {
+                $origin = 0;
                 [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 if ($attached === [] && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])) {
-                    $take = $this->firstBlockAttachedExtent($lines, $i, $count);
-                    $attached = array_slice($lines, $i, $take);
+                    // A follower at an opener column carries that column on every line of its block.
+                    $origin = str_starts_with(ltrim($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '', " \t"), '>')
+                        ? 0
+                        : IndentationHelper::getLeadingColumns($lines[$i]);
+                    $attachmentLines = $lines;
+                    for ($at = $i; $origin > 0 && $at < $count; $at++) {
+                        if (!IndentationHelper::isBlankLine($attachmentLines[$at]) && IndentationHelper::getLeadingColumns($attachmentLines[$at]) >= $origin) {
+                            $attachmentLines[$at] = IndentationHelper::stripLeadingColumns($attachmentLines[$at], $origin);
+                        }
+                    }
+                    $take = $this->firstBlockAttachedExtent($attachmentLines, $i, $count);
+                    $attached = array_slice($attachmentLines, $i, $take);
                     $attachedLineMap = range($i, $i + $take - 1);
                     $end = $i + $take;
                 }
+                // A quote follower nests inside the innermost quote, which owns the `+` (carve#3421).
+                $quoteFollower = $attached !== []
+                    && ($origin > 0 || IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$this->sourceLineFor($attachedLineMap[0])] ?? ' ') === 0)
+                    && ContainerPrefix::quoteContent($attached[0]) !== null
+                    && !str_starts_with(ltrim($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '', " \t"), '>');
+                if ($quoteFollower) {
+                    array_pop($innerLines);
+                    array_pop($innerLineMap);
+                }
                 foreach ($attached as $index => $attachedLine) {
-                    $innerLines[] = ContainerPrefix::quoteContent($attachedLine) ?? $attachedLine;
+                    $innerLines[] = $quoteFollower
+                        ? str_repeat('> ', $contentQuoteDepth) . $attachedLine
+                        : ContainerPrefix::quoteContent($attachedLine) ?? $attachedLine;
                     $innerLineMap[] = $this->sourceLineFor($attachedLineMap[$index]);
                 }
                 if ($attached !== []) {

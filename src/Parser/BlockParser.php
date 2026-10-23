@@ -449,8 +449,18 @@ class BlockParser
                 $followerColumn = ContinuationMarkerClassifier::columnAt($follower ?? '', strspn($follower ?? '', " \t"));
                 $quoteColumn = ContinuationMarkerClassifier::columnAt($line, (int)strpos($line, '>'));
                 $reason = null;
+                $stacked = BlockQuoteBuilder::isStackedFirstBlockQuoteMarker($line);
                 if ($follower === null || trim($follower) === '') {
                     $reason = $follower === null ? 'document' : 'blank';
+                } elseif (
+                    $stacked && trim(str_replace('>', '', $follower)) !== ''
+                    && $this->listParser->parseListItemMarker(ltrim($follower, " \t")) === null
+                    && !BlockQuoteBuilder::stackedFollowerEligible($line, $follower)
+                    && (ContainerPrefix::quoteContent(ltrim($follower, " \t")) === null || $line[0] === '>'
+                        || $followerColumn > IndentationHelper::getLeadingColumns($line))
+                ) {
+                    // carve#3421: only column 0, the line's column and the owning quote's column take a follower.
+                    $reason = $followerColumn > $quoteColumn ? 'right' : 'left';
                 } elseif (ContainerPrefix::quoteContent(ltrim($follower, " \t")) !== null) {
                     $reason = trim(str_replace('>', '', $follower)) === '' ? 'blank' : null;
                 } elseif ($followerColumn === 0 && $this->listParser->parseListItemMarker($follower) !== null) {
@@ -531,7 +541,36 @@ class BlockParser
             ];
         }
 
-        return $markers;
+        return [...$markers, ...array_values($this->state->session->unclaimedDocumentMarkers)];
+    }
+
+    /**
+     * carve#3421 ruling 5: a document-level `+` no container claims is reported when a block follows it.
+     *
+     * @param array<string> $lines
+     * @param int $end
+     * @param int $start
+     */
+    private function recordUnclaimedDocumentPlus(array $lines, int $start, int $end): void
+    {
+        for ($k = $start; $k < $end; $k++) {
+            $follower = $lines[$k + 1] ?? null;
+            if ($follower === null || preg_match('/^\+[ \t]*$/', $lines[$k]) !== 1 || $follower === '' || strspn($follower, " \t") > 0) {
+                continue;
+            }
+            if (
+                $this->listParser->parseListItemMarker($follower) !== null
+                || $follower[0] !== '%' && $this->startsInterruptingBlock($follower, $lines, $k + 1)
+            ) {
+                $line = $this->sourceLineFor($k);
+                $this->state->session->unclaimedDocumentMarkers[$line] = [
+                    'line' => $line + 1,
+                    'column' => 1,
+                    'host' => 'document',
+                    'reason' => 'unclaimed',
+                ];
+            }
+        }
     }
 
     /**
@@ -4188,6 +4227,9 @@ class BlockParser
             $hasUnclaimedColonFenceLine = $hasUnclaimedColonFenceLine
                 || $this->paragraphHasUnclaimedColonFenceLine($nextLine);
             $i++;
+        }
+        if ($topLevel && !$itemBody) {
+            $this->recordUnclaimedDocumentPlus($lines, $start, $i);
         }
 
         $content = implode("\n", $contentParts);

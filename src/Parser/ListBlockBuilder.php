@@ -1151,6 +1151,24 @@ final class ListBlockBuilder
                 $subLine,
                 max($subIndent, $baseIndent) + 1,
             );
+            // A wrapped attribute opened at the content column is one construct: its later lines sit at any column (carve#3421).
+            $wrappedLength = $lineIndent === $subIndent && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv()
+                && $subOpenCommentLength === null
+                ? $this->wrappedAttributeRunLength($lines, $i, $count)
+                : null;
+            if ($wrappedLength !== null) {
+                for ($end = $i + $wrappedLength; $i < $end; $i++) {
+                    $subLines[] = IndentationHelper::getLeadingColumns($lines[$i], $subIndent + 1) >= $subIndent
+                        ? $subColumn->strip($lines[$i])
+                        : ltrim($lines[$i], " \t");
+                    $subLineMap[] = $this->sourceLineFor($i);
+                }
+                $subTrailingState->openParagraph = false;
+                $subTrailingState->afterInvisible = true;
+                $sawBlankLine = false;
+
+                continue;
+            }
 
             if ($subTermCodeFence !== null && $lineIndent < $subIndent) {
                 $subject = ltrim($subLine, " \t");
@@ -2225,6 +2243,36 @@ final class ListBlockBuilder
     }
 
     /**
+     * The line count of a block attribute that opens on `$lines[$start]` and closes on a later line, or null.
+     *
+     * @param array<string> $lines
+     * @param int $count
+     * @param int $start
+     */
+    private function wrappedAttributeRunLength(array $lines, int $start, int $count): ?int
+    {
+        $first = ltrim($lines[$start], " \t");
+        if (!str_starts_with($first, '{') || ($this->isBlockAttributeLineCallback)($first)) {
+            return null;
+        }
+        $probe = [$first];
+        $depth = count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '', " \t")));
+        for ($at = $start + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]); $at++) {
+            // A lazy line outside the opener's quote does not continue the attribute.
+            if (count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '', " \t"))) < $depth) {
+                break;
+            }
+            $probe[] = ltrim($lines[$at], " \t");
+            if (str_contains($lines[$at], '}')) {
+                break;
+            }
+        }
+        $length = ($this->wrappedBlockAttributeLengthCallback)($probe, 0);
+
+        return $length !== null && $length > 1 ? $length : null;
+    }
+
+    /**
      * @param string $line
      * @param int $contentIndent
      * @param \MarkupCarve\Carve\Parser\TrailingBlockState $trailingState
@@ -2456,6 +2504,15 @@ final class ListBlockBuilder
         $follower = $this->state->source->sourceLines[$this->sourceLineFor($followerIndex)] ?? '';
         preg_match('/^(?:> ?)*/', $opener, $openerPrefix);
         preg_match('/^(?:> ?)*/', $follower, $followerPrefix);
+        // Below a hosted stacked opener, a block at document column 0 reaches the innermost quote (carve#3421).
+        if (
+            ($follower[0] ?? ' ') !== ' ' && $follower[0] !== "\t" && $follower[0] !== '>'
+            && trim($follower) !== '+'
+            && ($this->getListParser)()->parseListItemMarker($follower) === null
+            && BlockQuoteBuilder::isStackedFirstBlockQuoteMarker($opener)
+        ) {
+            return true;
+        }
 
         return substr_count($followerPrefix[0] ?? '', '>') >= substr_count($openerPrefix[0] ?? '', '>');
     }

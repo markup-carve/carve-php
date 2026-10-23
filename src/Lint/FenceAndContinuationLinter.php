@@ -107,6 +107,7 @@ final class FenceAndContinuationLinter
                 'list' => 'a list',
                 'left' => 'a block left of its column',
                 'right' => 'a block right of its column',
+                'unclaimed' => 'a block no open container claims',
                 default => 'no open container at its column',
             };
             $remedy = match ($marker['reason']) {
@@ -114,6 +115,7 @@ final class FenceAndContinuationLinter
                 'document' => 'Add a block after the +, or delete the +.',
                 'sibling', 'list' => 'Use a non-list block after the +, or delete the +.',
                 'left', 'right' => 'Align the next block with the +, or delete the +.',
+                'unclaimed' => 'Delete the +, or write it inside the paragraph text.',
                 default => 'Move the + to a container marker column, or write it as text.',
             };
             $lead = $marker['reason'] === 'wrong-column'
