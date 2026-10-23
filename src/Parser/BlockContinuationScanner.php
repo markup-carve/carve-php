@@ -212,6 +212,8 @@ final class BlockContinuationScanner
                 && $this->state->session->firstBlockMarkerOwner($this->state->source, ($this->getListParser)(), $priorSourceLine) !== null
                 && IndentationHelper::getLeadingColumns($nextLine, $contentIndent) < $contentIndent
                 && !$this->continuationFollowerIsEligible($i)
+                // A refused stacked quote `+` reads like a letter, so its paragraph takes a lazy line (carve#3421).
+                && !BlockQuoteBuilder::isStackedFirstBlockQuoteMarker($this->state->source->sourceLines[$priorSourceLine] ?? '')
             ) {
                 break;
             }
@@ -1347,6 +1349,18 @@ final class BlockContinuationScanner
             $inBlankRun = false;
             $nextIndent = IndentationHelper::getLeadingColumns($nextLine, max($baseIndent, $contentIndent) + 1);
             $nextTrimmed = ltrim($nextLine, " \t");
+            // A wrapped attribute opened at the content column is one construct: its later lines sit at any column (carve#3421).
+            if ($wrappedAttributeLinesRemaining > 0 && $nextIndent < $contentIndent) {
+                $itemLines[] = $nextTrimmed;
+                $itemLineMap[] = $this->sourceLineFor($i);
+                $wrappedAttributeLinesRemaining--;
+                if ($wrappedAttributeLinesRemaining === 0) {
+                    $trailingState->openParagraph = false;
+                }
+                $i++;
+
+                continue;
+            }
             if (
                 $trailingState->fence !== null
                 && $nextIndent >= $contentIndent + $trailingState->fence->column

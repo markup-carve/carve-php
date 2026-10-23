@@ -50,6 +50,15 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'the-column-of-the-quote-that-owns-a-first-block-plus-stays-eligible-at-every-depth',
+        'a-hosted-quote-s-first-block-plus-attaches-any-non-list-block-at-column-zero',
+        'a-quote-follower-below-stacked-quote-openers-in-an-item-is-read-at-its-raw-column',
+        'a-wrapped-attribute-line-opened-at-a-container-s-column-is-one-construct',
+        'a-quote-s-first-block-plus-refuses-a-list-follower-in-every-host',
+        'a-stacked-first-block-plus-takes-a-follower-only-at-column-zero-or-its-line-s-column',
+        'a-wrapped-attribute-line-interrupts-like-a-one-line-attribute-line',
+        'a-first-block-plus-refuses-a-follower-at-an-intervening-column',
+        'a-quote-opened-on-an-item-s-marker-line-attaches-a-quote-at-its-own-depth',
         'a-first-block-marker-does-not-pull-a-column-zero-list-into-a-note-or-description',
         'a-lazy-colon-shaped-line-in-a-quote-paragraph-keeps-no-indentation',
         'a-fence-run-that-dedents-out-of-a-child-keeps-the-outer-item-tight',

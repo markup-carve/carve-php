@@ -721,37 +721,90 @@
       }
     },
     {
-      "name": "nested-quote-sibling-list-item",
-      "description": "A quoted plus followed by a list item at its column in the same quote stays text and is reported (corpus 630-4, carve#3421).",
+      "name": "nested-quote-unclaimed-before-list",
+      "description": "A plus no open container claims is reported; it stays text in the inner quote (corpus 630-4, carve#3421).",
       "source": "> > q\n> > +\n> > - s\n",
       "expected": {
         "findings": [
           {
             "line": 2,
             "column": 5,
-            "includes": ["sibling", "remains text"]
+            "includes": [
+              "sibling",
+              "block quote"
+            ]
           }
         ]
       }
     },
     {
-      "name": "quote-sibling-list-item",
-      "description": "The same shape one quote level up.",
-      "source": "> q\n> +\n> - s\n",
+      "name": "document-unclaimed-before-list",
+      "description": "The top-level twin of corpus 630-4: a plus no open container claims is reported (carve#3421).",
+      "source": "q\n+\n- s\n",
       "expected": {
         "findings": [
           {
             "line": 2,
-            "column": 3,
-            "includes": ["sibling", "remains text"]
+            "column": 1,
+            "includes": [
+              "+"
+            ]
           }
         ]
       }
     },
     {
-      "name": "document-plus-before-list-item",
-      "description": "Without a quote the plus folds into the paragraph and no container is open at its column.",
-      "source": "q\n+\n- s\n",
+      "name": "quote-unclaimed-indented",
+      "description": "A plus past the quote's marker column is claimed by no open container; it is reported and stays text in the quote (corpus 630-5, carve#3421).",
+      "source": "> q\n>   +\n> para\n",
+      "expected": {
+        "findings": [
+          {
+            "line": 2,
+            "column": 5,
+            "includes": [
+              "remains text"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "document-unclaimed-before-table",
+      "description": "A plus no open container claims is reported when a table follows it (carve#3421).",
+      "source": "q\n+\n| a |\n",
+      "expected": {
+        "findings": [
+          {
+            "line": 2,
+            "column": 1,
+            "includes": [
+              "+"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "document-unclaimed-before-heading",
+      "description": "A plus no open container claims is reported when a heading follows it (carve#3421).",
+      "source": "q\n+\n# h\n",
+      "expected": {
+        "findings": [
+          {
+            "line": 2,
+            "column": 1,
+            "includes": [
+              "+"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "document-unclaimed-between-text-lines",
+      "description": "A plus no open container claims between two text lines is paragraph text and is not reported (carve#3421).",
+      "source": "q\n+\npara\n",
       "expected": {
         "findings": []
       }

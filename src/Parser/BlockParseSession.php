@@ -189,6 +189,11 @@ final class BlockParseSession
      */
     public array $refusedContinuationMarkers = [];
 
+    /**
+     * @var array<int, array{line: int, column: int, host: string, reason: string}>
+     */
+    public array $unclaimedDocumentMarkers = [];
+
     public function recordRefusedContinuationMarker(BlockSourceState $source, int $line, string $host): void
     {
         $next = $source->sourceLines[$line + 1] ?? null;
