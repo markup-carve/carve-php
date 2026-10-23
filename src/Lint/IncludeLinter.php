@@ -5,9 +5,16 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Lint;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Extension\AsciiHeadingIdsExtension;
+use MarkupCarve\Carve\Extension\ExtensionInterface;
+use MarkupCarve\Carve\Extension\LowercaseHeadingIdsExtension;
 use MarkupCarve\Carve\Node\Block\CodeBlock;
 use MarkupCarve\Carve\Node\Block\Table;
+use MarkupCarve\Carve\Node\Document;
+use MarkupCarve\Carve\Node\Inline\HeadingRef;
+use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\DelimitedTable;
+use MarkupCarve\Carve\Renderer\CrossReferenceResolver;
 use MarkupCarve\Carve\Transform\IncludeExpander;
 use MarkupCarve\Carve\Transform\IncludeResolverInterface;
 
@@ -28,12 +35,18 @@ final class IncludeLinter
         if ($resolver === null) {
             return $findings;
         }
-        $converter = new CarveConverter();
+        $converter = (new CarveConverter())->addExtensions(array_values(array_filter(
+            $options['extensions'] ?? [],
+            static fn (string|ExtensionInterface $extension): bool => $extension instanceof LowercaseHeadingIdsExtension
+                || $extension instanceof AsciiHeadingIdsExtension,
+        )));
         $converter->getParser()->enablePositionTracking();
         $document = $converter->parse($source);
+        $rootRefs = $this->headingRefs($document);
         $expander = new IncludeExpander($resolver, $sourcePath, source: $source);
         $expander->collectIncluded();
-        $expander->transform($document);
+        $expanded = $expander->transform($document);
+        $findings = $this->dropCrossrefsAnIncludeResolves($findings, $expanded, $converter, $rootRefs);
         $seen = [];
         foreach ($expander->getIncluded() as $entry) {
             $file = $entry['file'];
@@ -97,6 +110,69 @@ final class IncludeLinter
         }
 
         return $findings;
+    }
+
+    /**
+     * A heading an include supplies is a valid cross-reference target once the document is expanded.
+     *
+     * @param list<\MarkupCarve\Carve\Lint\LintWarning> $findings
+     * @param \MarkupCarve\Carve\Node\Document $expanded
+     * @param \MarkupCarve\Carve\CarveConverter $converter
+     * @param list<\MarkupCarve\Carve\Node\Inline\HeadingRef> $rootRefs
+     *
+     * @return list<\MarkupCarve\Carve\Lint\LintWarning>
+     */
+    private function dropCrossrefsAnIncludeResolves(array $findings, Document $expanded, CarveConverter $converter, array $rootRefs): array
+    {
+        $broken = array_filter($findings, static fn (LintWarning $warning): bool => $warning->rule === 'broken-crossref' && $warning->file === null);
+        if ($broken === []) {
+            return $findings;
+        }
+        // Expansion deep-clones nodes but shares their position objects, which identify the root's references.
+        $rootPositions = [];
+        foreach ($rootRefs as $ref) {
+            $pos = $ref->getPos();
+            if ($pos !== null) {
+                $rootPositions[spl_object_id($pos)] = true;
+            }
+        }
+        (new CrossReferenceResolver())->resolveCrossReferenceTargets($expanded, $converter->getHeadingIdTracker());
+        $resolved = [];
+        foreach ($this->headingRefs($expanded) as $ref) {
+            $pos = $ref->getPos();
+            if ($pos !== null && isset($rootPositions[spl_object_id($pos)]) && $ref->getHref() !== null) {
+                $resolved[$pos->startLine . ':' . $pos->startColumn] = true;
+            }
+        }
+
+        return array_values(array_filter(
+            $findings,
+            static fn (LintWarning $warning): bool => !($warning->rule === 'broken-crossref'
+                && $warning->file === null
+                && isset($resolved[$warning->line . ':' . $warning->column])),
+        ));
+    }
+
+    /**
+     * @param \MarkupCarve\Carve\Node\Node $node
+     *
+     * @return list<\MarkupCarve\Carve\Node\Inline\HeadingRef>
+     */
+    private function headingRefs(Node $node): array
+    {
+        $refs = [];
+        $pending = [$node];
+        while ($pending !== []) {
+            $current = array_pop($pending);
+            if ($current instanceof HeadingRef) {
+                $refs[] = $current;
+            }
+            foreach ($current->getChildren() as $child) {
+                $pending[] = $child;
+            }
+        }
+
+        return $refs;
     }
 
     /**
