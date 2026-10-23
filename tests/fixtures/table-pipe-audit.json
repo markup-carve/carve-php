@@ -2793,7 +2793,7 @@
     "name": "autolink-context-http://u/[a](b) dest",
     "source": "[x](<http://u/[a](b)>)\n",
     "contains": [
-      "href=\"%3Chttp://u/[a]%28b%29%3E\""
+      "href=\"%3Chttp://u/[a](b)%3E\""
     ],
     "excludes": [
       "doc-noteref",
@@ -2806,7 +2806,7 @@
     "name": "autolink-context-http://u/[a](b) title",
     "source": "[x](/i \"<http://u/[a](b)>\")\n",
     "contains": [
-      "href=\"/i%20%22%3Chttp://u/[a]%28b%29%3E%22\""
+      "href=\"/i%20%22%3Chttp://u/[a](b)%3E%22\""
     ],
     "excludes": [
       "doc-noteref",
