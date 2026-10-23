@@ -416,29 +416,7 @@ class MarkdownToCarve
         $this->referenceContext->markdownFrontmatterLines = count($frontmatter);
         $this->frontmatterSynthesized = $frontmatter !== [];
         $lines = $this->referenceStage->extractReferenceDefinitions(array_slice($allLines, count($frontmatter)));
-        if (!$this->referenceContext->importingFootnoteBody) {
-            $this->inlineContext->importedFootnoteLabels = [];
-        }
-        $reservedFootnotes = [];
-        preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
-        foreach ($candidates[1] as $label) {
-            if (preg_match('/^carve-import-footnote-(\d+)$/i', LabelKey::normalize($this->inlineStage->decodeLinkTitle($label)), $reserved) === 1) {
-                $reservedFootnotes[(int)$reserved[1]] = true;
-            }
-        }
-        $serial = 1;
-        foreach ($this->inlineContext->markdownFootnoteLabels as $label) {
-            if (!str_contains($label, '|') && $this->inlineStage->decodeLinkTitle($label) === $label) {
-                continue;
-            }
-            $key = $label;
-            if (!isset($this->inlineContext->importedFootnoteLabels[$key])) {
-                while (isset($reservedFootnotes[$serial])) {
-                    $serial++;
-                }
-                $this->inlineContext->importedFootnoteLabels[$key] = 'carve-import-footnote-' . $serial++;
-            }
-        }
+        $this->prepareImportedFootnoteLabels($markdown);
         $result = [];
         // Where $result holds a thematic break this conversion wrote, so the
         // frontmatter-collision guard below respells those lines and no others.
@@ -1889,6 +1867,33 @@ class MarkdownToCarve
         return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($body === ''
             ? $prefix . "\n"
             : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body), $carrierOriginal);
+    }
+
+    private function prepareImportedFootnoteLabels(string $markdown): void
+    {
+        if (!$this->referenceContext->importingFootnoteBody) {
+            $this->inlineContext->importedFootnoteLabels = [];
+        }
+        $reservedFootnotes = [];
+        preg_match_all('/\[\^([^[\]\n]++)\]/', $markdown, $candidates);
+        foreach ($candidates[1] as $label) {
+            if (preg_match('/^carve-import-footnote-(\d+)$/i', LabelKey::normalize($this->inlineStage->decodeLinkTitle($label)), $reserved) === 1) {
+                $reservedFootnotes[(int)$reserved[1]] = true;
+            }
+        }
+        $serial = 1;
+        foreach ($this->inlineContext->markdownFootnoteLabels as $label) {
+            if (!str_contains($label, '|') && $this->inlineStage->decodeLinkTitle($label) === $label) {
+                continue;
+            }
+            $key = $label;
+            if (!isset($this->inlineContext->importedFootnoteLabels[$key])) {
+                while (isset($reservedFootnotes[$serial])) {
+                    $serial++;
+                }
+                $this->inlineContext->importedFootnoteLabels[$key] = 'carve-import-footnote-' . $serial++;
+            }
+        }
     }
 
     /**
