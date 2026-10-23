@@ -1090,11 +1090,41 @@ trait BlockListMethods
         $attachedKind = self::ATTACHED_PENDING;
         $pendingThrough = -1;
         $leadFenceOpen = false;
+        $fenceTakesRest = false;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, $lines, $baseIndent, $contentIndent): bool {
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, &$fenceTakesRest, $lines, $count, $baseIndent, $contentIndent): bool {
+                // An unclosed attached fence takes the rest of its container when no blank line or closer follows.
+                if ($fenceTakesRest) {
+                    return false;
+                }
+                if ($attachedKind === self::ATTACHED_PENDING) {
+                    $fence = $this->fencedBlockParser->parseCodeFenceOpener(ltrim($line, " \t"))
+                        ?? $this->fencedBlockParser->parseRawBlockOpener(ltrim($line, " \t"));
+                    if ($fence !== null) {
+                        $fenceTakesRest = true;
+                        for ($at = $index + 1; $at < $count; $at++) {
+                            if (
+                                IndentationHelper::isBlankLine($lines[$at])
+                                // Only an unindented run closes it; an indented one is payload.
+                                || $this->fencedBlockParser->isCodeFenceCloser($lines[$at], $fence['fence'][0], $fence['length'])
+                            ) {
+                                $fenceTakesRest = false;
+
+                                break;
+                            }
+                        }
+                        if ($fenceTakesRest && $index + 1 < $count) {
+                            $attachedKind = $this->advanceAttachedKind($attachedKind, $pendingThrough, ltrim($line, " \t"), $lines, $index);
+                            $trailingState = $this->advanceTrailingState($trailingState, IndentationHelper::stripLeadingColumns($line, $baseIndent));
+
+                            return false;
+                        }
+                        $fenceTakesRest = false;
+                    }
+                }
                 $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
                 $trimmed = ltrim($line, " \t");
                 $unclosedFences = $this->state->session->unclosedCodeFences;
@@ -1135,11 +1165,20 @@ trait BlockListMethods
                 }
                 // An unmarked indented line continues the open quoted
                 // paragraph. Its block-shaped text is not a new block here.
+                // With a blank or closer ahead, an unclosed lead fence ends at a sibling marker or a `+` (carve#3421).
+                if (
+                    $leadFenceOpen && $trailingState->fence !== null && $lineIndent <= $baseIndent
+                    && ($this->listParser->parseListItemMarker($trimmed) !== null || $this->isContinuationMarker($trimmed))
+                ) {
+                    return true;
+                }
                 // An unclosed fence the block opens with keeps every line up to a blank as payload (carve#3421).
                 $leadFenceOpen = $leadFenceOpen || $attachedKind === self::ATTACHED_PENDING
                     && ($this->fencedBlockParser->parseCodeFenceOpener($trimmed) !== null || $this->fencedBlockParser->parseRawBlockOpener($trimmed) !== null);
                 if (
-                    !($leadFenceOpen && $trailingState->fence !== null)
+                    !($leadFenceOpen && $trailingState->fence !== null
+                        // With a blank or closer ahead, a sibling marker or a `+` still ends the run.
+                        && $this->listParser->parseListItemMarker($trimmed) === null && !$this->isContinuationMarker($trimmed))
                     && !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
                     && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
                 ) {

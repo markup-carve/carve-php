@@ -12,6 +12,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ## [0.1.14] - 2026-10-22
 
 ### Fixes
+- An unclosed fence attached by a list `+` takes the rest of its container when no blank line or closer follows (`  - +` / ```` ``` ```` / `- x`), and otherwise ends at a sibling item (#3753, markup-carve/carve#3421).
 - An unclosed fence attached by a `+` keeps a quote-shaped payload line (`- > +` / ```` ``` ```` / `> x`) instead of dropping it into a new quote (#3752, markup-carve/carve#3421).
 - A quote `+` attaches an attribute-led or unclosed-fence follower whole, a stacked list `+` refuses a follower left of its innermost content column, a hosted stacked quote `+` attaches after a sibling item's lazy line, and a wrapped attribute folds below the column, loosens a list after a blank and ends the outer item from a nested item (#3751, markup-carve/carve#3421).
 - A wrapped block attribute below a container reads like its one-line form, a stacked quote `+` takes a follower only at column 0, its line's column or the owning quote's column (any non-list block at column 0 inside a host quote), and lint reports a document-level `+` before a block (#3749, markup-carve/carve#3421).

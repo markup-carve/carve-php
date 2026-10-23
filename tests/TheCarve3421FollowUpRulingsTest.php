@@ -49,6 +49,13 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'unclosed fence keeps a quoted payload line' => ["- > +\n```\n> x\n", '<ul><li><blockquote><pre><code>&gt; x</code></pre></blockquote></li></ul>'];
         yield 'list plus unclosed fence keeps a quoted payload line' => ["- +\n```\n> x\n\ny\n", '<ul><li><pre><code>&gt; x</code></pre></li></ul><p>y</p>'];
 
+        yield 'unclosed fence takes the rest of an indented list' => ["  - +\n```\n- x\n", '<ul><li><pre><code>- x</code></pre></li></ul>'];
+        yield 'unclosed fence takes following list lines' => ["- +\n```\n- x\n- y\n", '<ul><li><pre><code>- x- y</code></pre></li></ul>'];
+        yield 'unclosed fence ends at a sibling when a blank follows' => ["- +\n```\nx\n- y\n\npara\n", '<ul><li><pre><code>x</code></pre></li><li>y</li></ul><p>para</p>'];
+
+        yield 'unclosed raw fence takes the rest' => ["- +\n```=html\nx\n- y\n", '<ul><li>x- y</li></ul>'];
+        yield 'indented fence run is payload, not a closer' => ["- +\n```\n  ```\n- y\n", '<ul><li><pre><code>  ```- y</code></pre></li></ul>'];
+
         // Ruling 4: the owning quote's column stays eligible.
         yield 'owning quote column' => ["- > > +\n    b\n", '<ul><li><blockquote><blockquote><p>b</p></blockquote></blockquote></li></ul>'];
     }
