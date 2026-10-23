@@ -1168,14 +1168,21 @@ class DjotToCarve
                 }
                 if (($source[$close] ?? '') === $source[$open]) {
                     $escape[$open] = $escape[$close] = true;
-                    if (($source[$end] ?? '') === '{' && $this->readDjotWordAttributes($source, $end) !== null) {
+                    $attributeAt = $end;
+                    while (($source[$attributeAt] ?? '') === $source[$open]) {
+                        $escape[$attributeAt++] = true;
+                    }
+                    if (($source[$attributeAt] ?? '') === '{' && $this->readDjotWordAttributes($source, $attributeAt) !== null) {
+                        $wordEnd = $attributeAt - 1;
                         $wordStart = $close;
-                        while ($wordStart > 0 && preg_match('/[\s]/', $source[$wordStart - 1]) !== 1) {
-                            $wordStart--;
+                        if (!str_contains('*_]}', $source[$close - 1] ?? '')) {
+                            while ($wordStart > 0 && preg_match('/[\s*_\]}`]/', $source[$wordStart - 1]) !== 1) {
+                                $wordStart--;
+                            }
                         }
-                        if ($wordStart < $close && $wordStart > $open) {
+                        if ($wordStart > $open) {
                             $wordSpans[$wordStart] = true;
-                            $wordSpanEnds[$close] = true;
+                            $wordSpanEnds[$wordEnd] = true;
                         }
                     }
                 }

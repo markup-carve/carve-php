@@ -27,6 +27,10 @@ class DjotQuoteEmphasisBoundaryTest extends TestCase
         yield 'explicit emphasis crosses quote' => ['"a {_b" c_}', '<p>“a {_b” c_}</p>'];
         yield 'crossing emphasis with word attribute' => ['"a _b" c_{.x}', '<p>“a _b” <span class="x">c_</span></p>'];
         yield 'crossing strong with word attribute' => ['"a *b" c*{.x}', '<p>“a *b” <span class="x">c*</span></p>'];
+        yield 'braced crossing with attribute' => ['"a {_b" c_}{.x}', '<p>“a {_b” <span class="x">c_}</span></p>'];
+        yield 'braced strong crossing with attribute' => ['"a {*b" c*}{.x}', '<p>“a {*b” <span class="x">c*}</span></p>'];
+        yield 'doubled closer with attribute' => ['"a _b" c__{.x}', '<p>“a _b” <span class="x">c__</span></p>'];
+        yield 'markup before attributed closer' => ['"a _b" *c*_{.x}', '<p>“a _b” <strong>c</strong><span class="x">_</span></p>'];
     }
 
     #[DataProvider('cases')]
