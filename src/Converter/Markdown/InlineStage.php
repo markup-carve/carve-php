@@ -54,7 +54,8 @@ final class InlineStage
             ImportWork::$inlineLines++;
             ImportWork::$inlineBytes += strlen($line);
         }
-        $sourceInput = $line;
+        $work = new InlineWork($line);
+        $sourceInput = $work->sourceInput;
         $foldedSourceLines = [];
         foreach ($this->context->foldedHeadingSources as $heading => $segments) {
             if (str_ends_with($line, $heading)) {
@@ -82,79 +83,16 @@ final class InlineStage
         }
         $bareContentStart = !str_contains(" \t", substr($line, strlen($contentPrefix), 1) ?: 'x');
         $line = ($this->escapeCarveOnlyMarker)($line);
-        $protected = [];
-        $protectedSources = [];
-        $codeFallbacks = [];
-        $protect = function (string $span, ?string $source = null) use (&$protected, &$protectedSources): string {
+        $protected =&$work->protected;
+        $protectedSources =&$work->protectedSources;
+        $codeFallbacks =&$work->codeFallbacks;
+        $protect = static function (string $span, ?string $source = null) use (&$protected, &$protectedSources): string {
             $protected[] = $span;
             $protectedSources[] = $source ?? $span;
 
             return "\x00P" . (count($protected) - 1) . "\x00";
         };
-        if (str_contains($line, '](') && strpbrk($line, '`<') !== false) {
-            preg_match_all('/`+/', $line, $tickRuns, PREG_OFFSET_CAPTURE);
-            $nextTick = [];
-            $codeEnds = [];
-            for ($run = count($tickRuns[0]) - 1; $run >= 0; $run--) {
-                [$ticks, $tickAt] = $tickRuns[0][$run];
-                $width = strlen($ticks);
-                if (isset($nextTick[$width])) {
-                    $codeEnds[$tickAt] = $nextTick[$width] + $width;
-                }
-                $nextTick[$width] = $tickAt;
-            }
-            $opens = [];
-            $glyphs = [];
-            for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-                if ($line[$at] === '`' && isset($codeEnds[$at])) {
-                    $at = $codeEnds[$at] - 1;
-
-                    continue;
-                }
-                if ($line[$at] === '\\') {
-                    $at++;
-
-                    continue;
-                }
-                if ($line[$at] === '[') {
-                    $opens[] = $at;
-
-                    continue;
-                }
-                if ($line[$at] !== ']' || $opens === []) {
-                    continue;
-                }
-                array_pop($opens);
-                $end = $this->markdownActivationTailEnd($line, $at + 1);
-                if ($end === null) {
-                    continue;
-                }
-                $pointy = preg_match('/\G\([ \t\n]*</', $line, offset: $at + 1) === 1;
-                if ($pointy) {
-                    $at = $end;
-
-                    continue;
-                }
-                for ($pos = $at + 2; $pos < $end; $pos++) {
-                    if ($line[$pos] === '`' || $line[$pos] === '<' && preg_match('/\G<\/?[A-Za-z]/', $line, offset: $pos) !== 1) {
-                        $glyphs[$pos] = true;
-                    }
-                }
-                $at = $end;
-            }
-            if ($glyphs !== []) {
-                $native = '';
-                for ($at = 0, $length = strlen($line); $at < $length; $at++) {
-                    $native .= isset($glyphs[$at]) ? $protect($line[$at], $line[$at]) : $line[$at];
-                }
-                $line = $native;
-            }
-        }
-        if (str_contains($line, '\\<')) {
-            $line = preg_replace_callback('/\]\([ \t]*<((?:[^>\n]|\\\\\n)*\\\\<[^>\n]*)>/s', static function (array $match) use ($protect): string {
-                return str_replace('\\<', $protect('\\<', '\\<'), $match[0]);
-            }, $line) ?? $line;
-        }
+        $line = $this->maskDestinationGlyphs($line, $protect);
 
         $definitionPrefix = '[ \t]*(?:>[ \t]*)*' . self::DEFINITION_MARKER;
         $rawDefinition = preg_match('/^' . $definitionPrefix . '\[((?!\^)(?:[^\]\\\\]|\\\\.)+)\]:/', $sourceInput, $definition) === 1;
@@ -1970,6 +1908,23 @@ final class InlineStage
             $line,
         ) ?? $line;
 
+        $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
+
+        return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    /**
+     * Escape Carve spellings after Markdown constructs have been rewritten.
+     *
+     * @param string $line
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(string, int): bool $hasProtectedEscapeBefore
+     * @param bool $table
+     */
+    private function escapeFinalInlineText(string $line, InlineWork $work, Closure $protect, Closure $hasProtectedEscapeBefore, bool $table): string
+    {
+        $protected =&$work->protected;
         $line = $this->escapeCarveConstructsSpelledLikeText($line, $protected);
         $line = $this->escapeTypographicDashes($line);
         $line = preg_replace_callback('/(?<!\\\\)\.{3,}/', static fn (array $run): string => str_replace('.', '\\.', $run[0]), $line) ?? $line;
@@ -2016,20 +1971,97 @@ final class InlineStage
             $line = $this->context->importWriter->spellImportedLiteralBackslashes($line);
         }
 
-        return $this->restoreProtectedInlineOutput($line, $sourceInput, $protected, $codeFallbacks, $table);
+        return $line;
+    }
+
+    /**
+     * Keep code delimiters and angle brackets inside bare link destinations opaque.
+     *
+     * @param string $line
+     * @param \Closure(string, ?string=): string $protect
+     */
+    private function maskDestinationGlyphs(string $line, Closure $protect): string
+    {
+        if (str_contains($line, '](') && strpbrk($line, '`<') !== false) {
+            preg_match_all('/`+/', $line, $tickRuns, PREG_OFFSET_CAPTURE);
+            $nextTick = [];
+            $codeEnds = [];
+            for ($run = count($tickRuns[0]) - 1; $run >= 0; $run--) {
+                [$ticks, $tickAt] = $tickRuns[0][$run];
+                $width = strlen($ticks);
+                if (isset($nextTick[$width])) {
+                    $codeEnds[$tickAt] = $nextTick[$width] + $width;
+                }
+                $nextTick[$width] = $tickAt;
+            }
+            $opens = [];
+            $glyphs = [];
+            for ($at = 0, $length = strlen($line); $at < $length; $at++) {
+                if ($line[$at] === '`' && isset($codeEnds[$at])) {
+                    $at = $codeEnds[$at] - 1;
+
+                    continue;
+                }
+                if ($line[$at] === '\\') {
+                    $at++;
+
+                    continue;
+                }
+                if ($line[$at] === '[') {
+                    $opens[] = $at;
+
+                    continue;
+                }
+                if ($line[$at] !== ']' || $opens === []) {
+                    continue;
+                }
+                array_pop($opens);
+                $end = $this->markdownActivationTailEnd($line, $at + 1);
+                if ($end === null) {
+                    continue;
+                }
+                $pointy = preg_match('/\G\([ \t\n]*</', $line, offset: $at + 1) === 1;
+                if ($pointy) {
+                    $at = $end;
+
+                    continue;
+                }
+                for ($pos = $at + 2; $pos < $end; $pos++) {
+                    if ($line[$pos] === '`' || $line[$pos] === '<' && preg_match('/\G<\/?[A-Za-z]/', $line, offset: $pos) !== 1) {
+                        $glyphs[$pos] = true;
+                    }
+                }
+                $at = $end;
+            }
+            if ($glyphs !== []) {
+                $native = '';
+                for ($at = 0, $length = strlen($line); $at < $length; $at++) {
+                    $native .= isset($glyphs[$at]) ? $protect($line[$at], $line[$at]) : $line[$at];
+                }
+                $line = $native;
+            }
+        }
+        if (str_contains($line, '\\<')) {
+            $line = preg_replace_callback('/\]\([ \t]*<((?:[^>\n]|\\\\\n)*\\\\<[^>\n]*)>/s', static function (array $match) use ($protect): string {
+                return str_replace('\\<', $protect('\\<', '\\<'), $match[0]);
+            }, $line) ?? $line;
+        }
+
+        return $line;
     }
 
     /**
      * Restore protected spans after all inline rewrites have finished.
      *
      * @param string $line
-     * @param string $sourceInput
-     * @param array<string> $protected
-     * @param array<string, \MarkupCarve\Carve\Converter\MigrationDiagnostic> $codeFallbacks
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
      * @param bool $table
      */
-    private function restoreProtectedInlineOutput(string $line, string $sourceInput, array $protected, array $codeFallbacks, bool $table): string
+    private function restoreProtectedInlineOutput(string $line, InlineWork $work, bool $table): string
     {
+        $protected = $work->protected;
+        $codeFallbacks = $work->codeFallbacks;
+        $sourceInput = $work->sourceInput;
         $liveCodeFallbacks = [];
         // Restore stashes and protected spans until stable: a protected or
         // stashed span may itself contain placeholders (e.g. a reference
