@@ -602,7 +602,7 @@ class DjotToCarve
         });
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
-        $source = $this->preserveDjotClosingQuotesAfterSlash($source);
+        $source = $this->normalizeDjotQuotesNearSlashes($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
         $carve = Emphasis::convert($source, $mask, fn (string $plain, array $slashLayout = []): string => $this->rewriteDjotInline($plain, $slashLayout), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
@@ -1086,9 +1086,9 @@ class DjotToCarve
         return $result;
     }
 
-    private function preserveDjotClosingQuotesAfterSlash(string $source): string
+    private function normalizeDjotQuotesNearSlashes(string $source): string
     {
-        if (!str_contains($source, '/"') && !str_contains($source, "/'")) {
+        if (!str_contains($source, '/"') && !str_contains($source, "/'") && preg_match('/\/[^\s"]*"/', $source) !== 1) {
             return $source;
         }
 
@@ -1107,13 +1107,21 @@ class DjotToCarve
         $brackets = [];
         $edits = [];
         $length = strlen($source);
+        $wordHasSlash = false;
         for ($at = 0; $at < $length; $at++) {
             if (isset($boundaries[$at])) {
                 $openers = [];
                 $lastOpener = ['"' => null, "'" => null];
                 $brackets = [];
+                $wordHasSlash = false;
             }
             $char = $source[$at];
+            $quoteAfterSlashWord = $char === '"' && $wordHasSlash;
+            if ($char === '/' && $masked[$at] === '/') {
+                $wordHasSlash = true;
+            } elseif ($char === '"' || $char === "'" || str_contains(" \t\r\n[](){}<>", $char) || $masked[$at] !== $char) {
+                $wordHasSlash = false;
+            }
             if (isset($delimiterEnds[$at])) {
                 $discardAfter = $delimiterEnds[$at];
                 while ($openers !== [] && $openers[array_key_last($openers)]['at'] > $discardAfter) {
@@ -1140,11 +1148,12 @@ class DjotToCarve
             $previousClose = $at > 0 && isset($edits[$at - 1]) && str_contains('”’', $edits[$at - 1]);
             $match = $lastOpener[$char];
             $opener = $match === null ? null : $openers[$match]['at'];
+            if ($quoteAfterSlashWord && $opener === null) {
+                $edits[$at] = '“';
+            }
             if ($opener !== null && $at > $opener + 1 && $before !== '' && !str_contains(" \t\r\n", $before)) {
                 if ($before === '/' || $openers[$match]['forced']) {
                     $edits[$opener] = $char === '"' ? '“' : '‘';
-                }
-                if ($before === '/' || $openers[$match]['forced']) {
                     $edits[$at] = $char === '"' ? '”' : '’';
                 }
                 for ($remaining = count($openers); $remaining > $match; $remaining--) {
