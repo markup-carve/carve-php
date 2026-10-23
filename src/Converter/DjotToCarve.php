@@ -5078,6 +5078,7 @@ class DjotToCarve
             $destination = $this->djotDestinationLines($rawDestination, $owner['depth']);
             $destination = self::trimDjotDestinationPadding($destination);
             $destination = $this->removeDjotDestinationTabs($destination);
+            $destination = $this->preserveDjotBacktickDestinationSlashes($destination);
             if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && !str_contains($authoredLabel, "\n") && str_contains($label, '[')) {
                 $altDefinitions = [];
                 preg_match_all('/\[(carve-djot-pipe-target-[0-9]+)\]/', $label, $altAliases);
