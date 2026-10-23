@@ -50,6 +50,7 @@ class CarveCorpusTest extends TestCase
      * @var array<string>
      */
     protected const IMPLEMENTED = [
+        'a-description-separator-left-of-its-item-s-column-folds-into-the-definition-body',
         'the-column-of-the-quote-that-owns-a-first-block-plus-stays-eligible-at-every-depth',
         'a-hosted-quote-s-first-block-plus-attaches-any-non-list-block-at-column-zero',
         'a-quote-follower-below-stacked-quote-openers-in-an-item-is-read-at-its-raw-column',
