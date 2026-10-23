@@ -145,7 +145,7 @@ trait NormalizesStructure
             return $source;
         }
         $rawDestination = $source;
-        $rawDestination = preg_replace_callback('/\\\\(?:\r?\n|[^\r\n])/', static fn (array $match): string => str_ends_with($match[0], "\n") ? "\n" : $match[0], $rawDestination) ?? $rawDestination;
+        $rawDestination = preg_replace_callback('/[ \t]*\\\\([ \t]*)(\r?\n)|\\\\[^\r\n]/', static fn (array $match): string => isset($match[2]) ? $match[1] . $match[2] : $match[0], $rawDestination) ?? $rawDestination;
         $destination = preg_replace_callback('/\n([ \t]*[^\n]*)/', static function (array $match) use ($depth): string {
             $rest = ltrim($match[1], " \t");
             for ($n = 0; $n < $depth && preg_match('/^>(?:[ \t]|$)/', $rest); $n++) {
@@ -156,6 +156,19 @@ trait NormalizesStructure
         }, $rawDestination) ?? $rawDestination;
 
         return $destination;
+    }
+
+    private function removeDjotDestinationTabs(string $destination): string
+    {
+        if (!str_contains($destination, "\t")) {
+            return $destination;
+        }
+
+        // URL resolution discards tabs. A backslash before a tab is literal
+        // in Djot, so pair an odd run before removing the tab.
+        $destination = preg_replace_callback('/(\\\\+)\t/', static fn (array $match): string => $match[1] . (strlen($match[1]) % 2 === 1 ? '\\' : ''), $destination) ?? $destination;
+
+        return str_replace("\t", '', $destination);
     }
 
     /**

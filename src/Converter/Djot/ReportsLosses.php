@@ -453,9 +453,12 @@ trait ReportsLosses
                     $rawFormatIgnored[] = [$start, $at + 1];
                     $text = substr($source, $start + 1, $at - $start - 1);
                     $destination = isset($destinations[$at + 1])
-                        ? self::trimDjotDestinationPadding($this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth))
+                        ? $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth)
                         : ($definitions[$label ?? ''] ?? null);
-                    if ($destination !== null && $destination !== '' && str_contains($text, "\n") && !$plain) {
+                    if (isset($destinations[$at + 1]) && $destination !== null) {
+                        $destination = self::trimDjotDestinationPadding($destination);
+                    }
+                    if ($destination !== null && str_contains($text, "\n") && !$plain) {
                         $child = $imageChildText($text, $depth);
                         if (preg_match('/\n[ \t]*\n/', $child) === 1) {
                             $add($start, 'An image alternative text with a blank line cannot be spelled in Carve.');
