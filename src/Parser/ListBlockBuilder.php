@@ -45,14 +45,11 @@ final class ListBlockBuilder
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\ListParser $getListParser
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\TableParser $getTableParser
      * @param \Closure(int|null, string, array<string>, int): (?int) $advanceItemCommentFenceCallback
-     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateCallback
-     * @param (\Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, array<string>, int, bool, int, bool): \MarkupCarve\Carve\Parser\TrailingBlockState)|null $advanceTrailingStateWithFenceLookaheadCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock, array<string>, int, int, int, int): (?int) $attachListContinuationCallback
      * @param \Closure(array<string>, int): (int) $blockQuoteExtentThroughDefinitionCallback
      * @param \Closure(string): (?string) $blockQuoteLineContentCallback
      * @param \Closure(array<string>, int, int, int): (array{0: int, 1: array<string>, 2: array<int, int>}) $collectListContinuationBlockCallback
      * @param \Closure(array<string>, int, int, int, int, array<string>, array<int, int>, array<int, true>): (int) $collectMarkerLeadItemCallback
-     * @param (\Closure(array<string>, int, int, int, int, array<string>, array<int, int>, \MarkupCarve\Carve\Parser\TrailingBlockState, bool, array<int, true>, int|null): (array{0: int, 1: \MarkupCarve\Carve\Parser\TrailingBlockState}))|null $collectPlainContinuationCallback
      * @param \Closure(\MarkupCarve\Carve\Node\Block\ListBlock|\MarkupCarve\Carve\Node\Block\DefinitionList): (void) $consumeLooseKeyCallback
      * @param \Closure(array<string>, int, int): (int) $containerExtentBeforeADefinitionCallback
      * @param \Closure(array<string>): (bool) $contentRendersNothingCallback
@@ -85,14 +82,11 @@ final class ListBlockBuilder
         private Closure $getListParser,
         private Closure $getTableParser,
         private Closure $advanceItemCommentFenceCallback,
-        private ?Closure $advanceTrailingStateCallback,
-        private ?Closure $advanceTrailingStateWithFenceLookaheadCallback,
         private Closure $attachListContinuationCallback,
         private Closure $blockQuoteExtentThroughDefinitionCallback,
         private Closure $blockQuoteLineContentCallback,
         private Closure $collectListContinuationBlockCallback,
         private Closure $collectMarkerLeadItemCallback,
-        private ?Closure $collectPlainContinuationCallback,
         private Closure $consumeLooseKeyCallback,
         private Closure $containerExtentBeforeADefinitionCallback,
         private Closure $contentRendersNothingCallback,
@@ -704,9 +698,7 @@ final class ListBlockBuilder
             );
             // A plain word lead opens a paragraph and cannot open a nested block.
             if (
-                $this->advanceTrailingStateCallback === null
-                && $this->advanceTrailingStateWithFenceLookaheadCallback === null
-                && $itemContent !== ''
+                $itemContent !== ''
                 && ctype_alnum($itemContent[0])
                 && strspn($itemContent, 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ') === strlen($itemContent)
             ) {
@@ -1317,7 +1309,7 @@ final class ListBlockBuilder
                     ? ltrim($stripped, " \t") : $stripped;
                 $subLineMap[] = $this->sourceLineFor($i);
                 // AT OR PAST the item's content column, exactly as
-                // in collectPlainListItemContinuation(): an
+                // in BlockContinuationScanner::collectPlainContinuationCore(): an
                 // invisible block here ends the paragraph under it
                 // rather than folding a flush-left line in
                 // (carve-php#1866).
@@ -2197,10 +2189,6 @@ final class ListBlockBuilder
 
     private function advanceTrailingState(TrailingBlockState $state, string $line, bool $atContentColumn = false): TrailingBlockState
     {
-        if ($this->advanceTrailingStateCallback !== null) {
-            return ($this->advanceTrailingStateCallback)($state, $line, $atContentColumn);
-        }
-
         return $this->continuations->advanceTrailingStateCore($state, $line, $atContentColumn);
     }
 
@@ -2222,10 +2210,6 @@ final class ListBlockBuilder
         int $stripColumns = 0,
         bool $closerKnownAhead = false,
     ): TrailingBlockState {
-        if ($this->advanceTrailingStateWithFenceLookaheadCallback !== null) {
-            return ($this->advanceTrailingStateWithFenceLookaheadCallback)($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
-        }
-
         return $this->continuations->advanceTrailingStateWithFenceLookaheadCore($state, $line, $lines, $index, $atContentColumn, $stripColumns, $closerKnownAhead);
     }
 
@@ -2366,10 +2350,6 @@ final class ListBlockBuilder
         array &$authoredBaseEligible = [],
         ?int &$unclosedFenceBase = null,
     ): array {
-        if ($this->collectPlainContinuationCallback !== null) {
-            return ($this->collectPlainContinuationCallback)($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible, $unclosedFenceBase);
-        }
-
         return $this->continuations->collectPlainContinuationCore($lines, $i, $count, $baseIndent, $contentIndent, $itemLines, $itemLineMap, $trailingState, $leadIsBareContinuationMarker, $authoredBaseEligible, $unclosedFenceBase);
     }
 

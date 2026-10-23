@@ -7,7 +7,9 @@ namespace MarkupCarve\Carve\Test\TestCase\Parser;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\ContainerPrefix;
+use MarkupCarve\Carve\Parser\TrailingBlockState;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 /**
  * The block-quote marker rule is asked of `ContainerPrefix`, everywhere.
@@ -29,7 +31,7 @@ use PHPUnit\Framework\TestCase;
  * paragraph a dedented line could fold into?" (PART 1 S4: NO OPEN PARAGRAPH, NO
  * LAZY LINE) - used to be answered by `BlockParser::isEmptyQuoteLine()`, with a
  * fourth open-coded marker walk inside it. The question is now answered by
- * `advanceTrailingBlockState()` RECURSING on the quote's content, so `> # H`
+ * `advanceTrailingStateCore()` RECURSING on the quote's content, so `> # H`
  * and `>` reach the same answer through the heading branch and the blank branch
  * rather than through a marker-only special case (corpus 326-11). The function
  * is gone with its copy; the rows below ask the tracker instead, which is the
@@ -146,19 +148,8 @@ class TheQuoteMarkerRuleIsSpelledOnceTest extends TestCase
      */
     public function testTheEmptinessQuestionAnsweredDirectly(): void
     {
-        $parser = new class extends BlockParser {
-            public function holdsOpenParagraph(string $line): bool
-            {
-                // THE PARSER'S OWN STARTING STATE, not a copy of it. Spelled
-                // out here, this row would keep passing after a field was added
-                // to the tracker and would stop describing what the parser does
-                // - which is the same one-rule-two-spellings failure the rest of
-                // this file is about.
-                $state = $this->advanceTrailingBlockState(self::INITIAL_TRAILING_BLOCK_STATE, $line);
-
-                return $state['openParagraph'];
-            }
-        };
+        $scanner = (new ReflectionMethod(BlockParser::class, 'continuationsMapper'))->invoke(new BlockParser());
+        $holdsOpenParagraph = static fn (string $line): bool => $scanner->advanceTrailingStateCore(new TrailingBlockState(), $line)->openParagraph;
 
         // Written as concatenations so the code sniffer cannot rewrite a
         // control character into the spaces that would silently change what
@@ -170,21 +161,21 @@ class TheQuoteMarkerRuleIsSpelledOnceTest extends TestCase
         // A marker and nothing else, at any depth, with trailing padding: the
         // quote holds no block, so nothing can fold into it.
         foreach (['>', '> ', '> >', '> > ', '>   ', '> >' . $tab] as $line) {
-            $this->assertFalse($parser->holdsOpenParagraph($line), json_encode($line));
+            $this->assertFalse($holdsOpenParagraph($line), json_encode($line));
         }
 
         // A quote whose content is a CLOSED block answers the same way, and
         // that is the generalization: the marker-only rows above are this rule
         // with a blank line one level in.
         foreach (['> # H', '> ---', '> [r]: /u', '> > # H'] as $line) {
-            $this->assertFalse($parser->holdsOpenParagraph($line), json_encode($line));
+            $this->assertFalse($holdsOpenParagraph($line), json_encode($line));
         }
 
         // A marker with PARAGRAPH content, by the LANGUAGE rule rather than by
         // a looser copy of it: `>  >` is one marker and the content ` >`, and a
         // vertical tab is content and not padding.
         foreach (['>  >', '> > q', '> ' . $verticalTab, '> ' . $formFeed, '>   >   '] as $line) {
-            $this->assertTrue($parser->holdsOpenParagraph($line), json_encode($line));
+            $this->assertTrue($holdsOpenParagraph($line), json_encode($line));
         }
 
         // No marker at all - including a blank line, which is what the guard is
@@ -192,10 +183,10 @@ class TheQuoteMarkerRuleIsSpelledOnceTest extends TestCase
         // reads as a quote holding nothing. A blank line holds no paragraph
         // either, so the two answers here are `q` and `>text` being PROSE.
         foreach (['q', '>text'] as $line) {
-            $this->assertTrue($parser->holdsOpenParagraph($line), json_encode($line));
+            $this->assertTrue($holdsOpenParagraph($line), json_encode($line));
         }
         foreach (['', '   ', $tab] as $line) {
-            $this->assertFalse($parser->holdsOpenParagraph($line), json_encode($line));
+            $this->assertFalse($holdsOpenParagraph($line), json_encode($line));
         }
     }
 

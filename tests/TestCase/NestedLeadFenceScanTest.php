@@ -8,6 +8,7 @@ use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Parser\NestedLeadFenceState;
 use PHPUnit\Framework\Attributes\Group;
 use PHPUnit\Framework\TestCase;
+use ReflectionMethod;
 
 class NestedLeadFenceScanTest extends TestCase
 {
@@ -85,27 +86,12 @@ class NestedLeadFenceScanTest extends TestCase
         }
     }
 
-    public function testOverriddenCompleteScanHooksStillRun(): void
-    {
-        $parser = new class extends BlockParser {
-            public int $queries = 0;
-
-            protected function nestedLeadFenceClosure(array $itemLines): ?array
-            {
-                $this->queries++;
-
-                return parent::nestedLeadFenceClosure($itemLines);
-            }
-        };
-        $parser->parse("- - ```\n    ```\n    y\nx\n");
-        $this->assertGreaterThan(0, $parser->queries);
-    }
-
     public function testIncrementalAnswersMatchTheCompleteScanAtEveryPrefix(): void
     {
         $parser = new class extends BlockParser {
             public function check(array $lines): void
             {
+                $scanner = (new ReflectionMethod($this, 'nestedLeadFenceScanner'))->invoke($this);
                 $state = new NestedLeadFenceState();
                 $prefix = [];
                 $this->advanceNestedLeadFenceState($state, $prefix);
@@ -116,8 +102,8 @@ class NestedLeadFenceScanTest extends TestCase
                     $this->advanceNestedLeadFenceState($state, $prefix);
                     $sawClosed = $sawClosed || ($state->closed && $state->onlyBlankBelow);
                     $sawParagraph = $sawParagraph || ($state->closed && $state->trailing->openParagraph);
-                    TestCase::assertSame($this->nestedLeadEndsInAClosedFence($prefix), $state->closed && $state->onlyBlankBelow);
-                    TestCase::assertSame($this->nestedLeadParagraphOpenBelowAClosedFence($prefix), $state->closed && $state->trailing->openParagraph);
+                    TestCase::assertSame($scanner->nestedLeadEndsInAClosedFence($prefix), $state->closed && $state->onlyBlankBelow);
+                    TestCase::assertSame($scanner->nestedLeadParagraphOpenBelowAClosedFence($prefix), $state->closed && $state->trailing->openParagraph);
                 }
                 if ($lines[0] === '- ```' && $lines[2] === '  ```') {
                     TestCase::assertTrue($sawClosed);

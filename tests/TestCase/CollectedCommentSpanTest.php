@@ -39,29 +39,13 @@ class CollectedCommentSpanTest extends TestCase
         }
     }
 
-    public function testOverriddenCommentSpanHookStillRuns(): void
-    {
-        $parser = new class extends BlockParser {
-            public int $queries = 0;
-
-            protected function linesLeaveACommentSpanOpen(array $lines): bool
-            {
-                $this->queries++;
-
-                return parent::linesLeaveACommentSpanOpen($lines);
-            }
-        };
-        $parser->parse("[^a]: %%%\n%% c\n%% c\n");
-        $this->assertGreaterThan(0, $parser->queries);
-    }
-
     public function testAppendedEntriesAndExtendedTailKeepTheCompleteScanAnswer(): void
     {
         $parser = new class extends BlockParser {
             public function check(array $lines, CollectedCommentSpan $scan): bool
             {
                 $result = $this->scanCollectedCommentSpan($lines, $scan);
-                TestCase::assertSame($this->linesLeaveACommentSpanOpen($lines), $result);
+                TestCase::assertSame($this->scanCollectedCommentSpan($lines, new CollectedCommentSpan()), $result);
 
                 return $result;
             }

@@ -19,14 +19,12 @@ final class NestedLeadFenceScanner
      * @param \Closure(): \MarkupCarve\Carve\Parser\Block\FencedBlockParser $getFencedBlockParser
      * @param \Closure(string, int, int): int $listMarkerWidthFor
      * @param \Closure(\MarkupCarve\Carve\Parser\TrailingBlockState, string, bool=): \MarkupCarve\Carve\Parser\TrailingBlockState $advanceTrailingState
-     * @param \Closure(array<string>): (array{0: int, 1: int}|null) $nestedLeadFenceClosure
      */
     public function __construct(
         private readonly Closure $getListParser,
         private readonly Closure $getFencedBlockParser,
         private readonly Closure $listMarkerWidthFor,
         private readonly Closure $advanceTrailingState,
-        private readonly Closure $nestedLeadFenceClosure,
     ) {
     }
 
@@ -150,7 +148,7 @@ final class NestedLeadFenceScanner
      */
     public function nestedLeadEndsInAClosedFence(array $itemLines): bool
     {
-        $closure = ($this->nestedLeadFenceClosure)($itemLines);
+        $closure = $this->nestedLeadFenceClosure($itemLines);
         if ($closure === null) {
             return false;
         }
@@ -172,7 +170,7 @@ final class NestedLeadFenceScanner
      */
     public function nestedLeadParagraphOpenBelowAClosedFence(array $itemLines): bool
     {
-        $closure = ($this->nestedLeadFenceClosure)($itemLines);
+        $closure = $this->nestedLeadFenceClosure($itemLines);
         if ($closure === null) {
             return false;
         }

@@ -10,14 +10,14 @@ use PHPUnit\Framework\TestCase;
 /**
  * A BLANK LINE INSIDE AN OPEN CONTAINER DOES NOT END THE LIST ITEM.
  *
- * `collectPlainListItemContinuation()` kept collecting across a blank line
+ * `collectPlainContinuationCore()` kept collecting across a blank line
  * while a CODE fence was open, and stopped while a `:::` DIV was open. So an
  * item holding an admonition with a blank line in it severed the div at that
  * blank, and the closer below it read as a fresh bare-div OPENER - the document
  * came back with a spurious empty `div` beside the aside. carve-js publishes
  * one aside for the same input. The exact sources are in the test bodies.
  *
- * The state the gate needed was already tracked: `advanceTrailingBlockState()`
+ * The state the gate needed was already tracked: `advanceTrailingStateCore()`
  * maintains `inDiv` right beside `inFence`, and only the blank-line branch was
  * short of the case.
  *
