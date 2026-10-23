@@ -98,6 +98,21 @@ class DjotFootnoteHeadingIdsTest extends TestCase
         }
     }
 
+    public function testFootnoteHeadingOneSpacePastDefinitionStaysInsideNote(): void
+    {
+        foreach (
+            [
+                "# a\n\nr[^n]\n\n[^n]: # a\n\n # a\n\n# a\n",
+                "# a\n\n- r[^n]\n\n  [^n]: # a\n\n   # a\n\n# a\n",
+            ] as $source
+        ) {
+            $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+            preg_match_all('/(?:section|h1) id="([^"]+)/', $html, $ids);
+
+            self::assertSame(['a', 'a-3', 'a-1', 'a-2'], $ids[1]);
+        }
+    }
+
     public function testParagraphHashLineDoesNotShiftReservations(): void
     {
         $source = "# a\n\npara\n# a\n\nr[^n]\n\n[^n]: n {#a-1}\n\n# a\n";

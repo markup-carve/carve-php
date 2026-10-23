@@ -771,11 +771,11 @@ class DjotToCarve
                 $label = $note;
                 $content = substr($body, strlen($header[0]));
                 $heading = preg_match('/^#{1,6}[ \t]/', $content) === 1;
-            } elseif ($note !== '' && strspn($body, " \t") >= $noteIndent + 2 && preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
+            } elseif ($note !== '' && strspn($body, " \t") > $noteIndent && preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
                 $label = $note;
                 $heading = true;
             } else {
-                if (trim($body) !== '' && strspn($body, " \t") < $noteIndent + 2) {
+                if (trim($body) !== '' && strspn($body, " \t") <= $noteIndent) {
                     $note = '';
                 }
                 if (preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
