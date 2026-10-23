@@ -655,10 +655,15 @@ class DjotToCarve
     {
         $lines = explode("\n", $source);
         $pairs = [];
+        $continued = [];
         foreach ($this->scanHeadingStartLines($lines) as $lineIndex) {
+            if (isset($continued[$lineIndex])) {
+                continue;
+            }
             if (
                 $lineIndex > 0 && trim($lines[$lineIndex - 1]) !== ''
                 && preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$lineIndex - 1]) !== 1
+                && preg_match('/^[ \t]*\{[^{}]*\}[ \t]*$/', $lines[$lineIndex - 1]) !== 1
             ) {
                 continue;
             }
@@ -667,7 +672,11 @@ class DjotToCarve
             $next = $lineIndex + 1;
             while (isset($lines[$next]) && trim($lines[$next]) !== '') {
                 if (preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$next]) === 1) {
-                    break;
+                    $continued[$next] = true;
+                    $text .= "\n" . (preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $lines[$next]) ?? $lines[$next]);
+                    $next++;
+
+                    continue;
                 }
                 $text .= "\n" . $lines[$next++];
             }
@@ -720,8 +729,8 @@ class DjotToCarve
                     if ($opener === null) {
                         if (
                             $after === '' || preg_match('/^[\s\x27"]/', $after) === 1
-                            || ($delimiter === "'" && preg_match('/[^\s(-]$/u', $before) === 1)
-                            || ($delimiter === '"' && preg_match('/[\p{L}\p{N}\/_*\x27"]$/u', $before) === 1)
+                            || ($delimiter === "'" && preg_match('/[^\s(-]$/uD', $before) === 1)
+                            || ($delimiter === '"' && preg_match('/[\p{L}\p{N}\/_*\x27"]$/uD', $before) === 1)
                         ) {
                             continue;
                         }
@@ -729,7 +738,7 @@ class DjotToCarve
 
                         continue;
                     }
-                    if (preg_match('/\s$/u', $before) === 1) {
+                    if (preg_match('/\s$/uD', $before) === 1) {
                         continue;
                     }
                     $matchedPairs[] = [$opener, $offset, $quotePositions[$opener], $quotePositions[$offset]];

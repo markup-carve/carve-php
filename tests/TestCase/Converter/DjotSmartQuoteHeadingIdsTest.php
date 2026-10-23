@@ -39,6 +39,10 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'double closer before letter' => ['## "a"b' . "\n", ['ab']];
         yield 'single quote closes inside word' => ["## 'it's a'\n", ["its-a'"]];
         yield 'multiline paired heading' => ["## 'b\nc'\n", ['b-c']];
+        yield 'multiline opening quote after line break' => ["## x\n'a'\n", ['x-a']];
+        yield 'attribute before quoted heading' => ["{#q}\n## 'a'\n\n## 'b'\n", ['q', 'b']];
+        yield 'class before quoted heading' => ["{.c}\n## 'a'\n\n## 'b'\n", ['a', 'b']];
+        yield 'heading marker line continuation' => ["## a\n## 'b'\n", ['a-b']];
         yield 'crossing quote pairs' => ["## a 'b \"c' d\"\n", ['a-b-"c-d"']];
         yield 'authored curly single' => ["## ‘a’\n", ['‘a’']];
         yield 'authored curly double' => ["## “a”\n", ['“a”']];
