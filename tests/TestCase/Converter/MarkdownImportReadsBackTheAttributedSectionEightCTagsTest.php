@@ -116,7 +116,7 @@ class MarkdownImportReadsBackTheAttributedSectionEightCTagsTest extends TestCase
         $this->assertSame("substitute {~old~>new~} here\n", $this->round("substitute {~old~>new~} here\n"));
     }
 
-    public function testEditorialHtmlWithCarveDelimitersStaysRaw(): void
+    public function testEditorialHtmlWithUnsafeCriticBodiesFallsBackSafely(): void
     {
         $this->assertSame(
             "a `<del class=\"critic-delete\">`{=html}x{y}`</del>`{=html} b\n",
