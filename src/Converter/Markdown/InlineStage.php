@@ -768,194 +768,20 @@ final class InlineStage
             }
             $line = $guarded;
         }
-        // PART 11 §8c writes two constructs with no Markdown delimiter spelling
-        // as an ATTRIBUTE-BEARING inline tag: an abbreviation as
-        // `<abbr title="...">` and an editorial comment as
-        // `<span class="critic-comment">`. `$htmlRules` below excludes
-        // attribute-bearing tags because migrating one would drop its
-        // attributes - the Carve construct carries them here, so nothing drops
-        // and the exclusion does not apply (carve#2838). The match is on the
-        // shape §8c emits and refuses anything wider, falling back to the raw
-        // span the rest of this method would otherwise write.
         $hasProtectedEscapeBefore = static function (string $subject, int $offset) use (&$protected): bool {
             $before = substr($subject, max(0, $offset - 32), min(32, $offset));
 
             return preg_match('/\x00P(\d+)\x00$/', $before, $token) === 1
                 && ($protected[(int)$token[1]] ?? '') === '\\';
         };
-        if (!$this->context->convertRawHtml) {
-            $line = preg_replace_callback(
-                '/<span[ \t]+class[ \t]*=[ \t]*"critic-comment"[ \t]*>([^<]*)<\/span[ \t]*>/i',
-                function (array $match) use ($protect, $protectedSources): string {
-                    // CARVE-P3-016 keeps comment content literal.
-                    $rawHtml = false;
-                    $value = preg_replace_callback(
-                        '~\x00P(\d+)\x00|\\\\([!-/:-@\[-\x60{-\x7e])|&(?:#[0-9]{1,8}|#[xX][0-9a-fA-F]{1,8}|[A-Za-z][A-Za-z0-9]{0,31});~',
-                        function (array $part) use ($protectedSources, &$rawHtml): string {
-                            if (($part[1] ?? '') !== '') {
-                                $source = $this->referenceSourceText($part[0], $protectedSources);
-                                if (preg_match('~^\\\\[!-/:-@\[-\x60{-\x7e]$~', $source) === 1) {
-                                    return substr($source, 1);
-                                }
-                                $rawHtml = $rawHtml || str_contains($source, '<');
-
-                                return $source;
-                            }
-
-                            return ($part[2] ?? '') !== '' ? $part[2] : html_entity_decode($part[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                        },
-                        $match[1],
-                    ) ?? $match[1];
-
-                    return $rawHtml || preg_match('/[{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}', $match[0]);
-                },
-                $line,
-            ) ?? $line;
-            // §8c spells a deletion `<del class="critic-delete">`, so it no
-            // longer collides with the bare `<del>` a `strike` falls back to
-            // (carve#2845). The substitution shape is read FIRST: its two
-            // elements are one construct, and the deletion rule alone would
-            // leave a strike beside an unrelated insertion.
-            $delete = '<del[ \t]+class[ \t]*=[ \t]*"critic-delete"[ \t]*>([^<]*)<\/del[ \t]*>';
-            $line = preg_replace_callback(
-                '/' . $delete . '<ins[ \t]*>([^<]*)<\/ins[ \t]*>/i',
-                function (array $match) use ($protect): string {
-                    if ($this->breaksOutOfACriticBody($match[1]) || $this->breaksOutOfACriticBody($match[2])) {
-                        return $match[0];
-                    }
-
-                    return $protect('{~') . $match[1] . $protect('~>') . $match[2] . $protect('~}');
-                },
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/' . $delete . '/i',
-                function (array $match) use ($protect): string {
-                    if ($this->breaksOutOfACriticBody($match[1])) {
-                        return $match[0];
-                    }
-
-                    return $protect('{-') . $match[1] . $protect('-}');
-                },
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/<abbr[ \t]+title[ \t]*=[ \t]*"([^"]*)"[ \t]*>([^<]*)<\/abbr[ \t]*>/i',
-                function (array $match) use ($protect): string {
-                    $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
-                    if (preg_match('/["\\\\\n{}]/', $value) === 1 || preg_match('/[\[\]\\\n]/', $match[2]) === 1) {
-                        return $match[0];
-                    }
-
-                    // The label stays live so the later inline passes still
-                    // convert markup inside it; only the attribute block is
-                    // protected, from the quote escaping further down.
-                    return '[' . $match[2] . ']' . $protect('{abbr=' . CarveRenderer::quoteImportedAttrValue($value) . '}');
-                },
-                $line,
-            ) ?? $line;
-        }
+        $line = $this->rewriteEditorialHtml($line, $work, $protect);
         // Native inline tags with an exact Carve spelling. They are converted by
         // `$htmlRules` later in this method in BOTH modes, so neither the
         // HtmlToCarve import path nor the verbatim raw-HTML path may swallow
         // them first - carve-js converts `<b>`/`<em>`/`<sup>`/... to Carve even
         // when other raw HTML passes through verbatim.
         $nativeInline = 'code|mark|ins|del|s|sup|sub|strong|b|em|i|u';
-        if ($this->context->convertRawHtml) {
-            $htmlBodyIndex = 0;
-            preg_match_all('/CarveHtmlBody(\d+)/', $this->decodeHtmlReferenceText($line), $htmlBodyMatches);
-            $htmlBodyReserved = array_fill_keys(array_map(static fn (string $index): string => 'CarveHtmlBody' . $index, $htmlBodyMatches[1]), true);
-            $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => str_starts_with($span, '<!--')
-                ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
-            $line = preg_replace_callback(
-                '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+(?:"[^"]*"|\'[^\']*\'|[^<>"\'])*?)?>[\s\S]*?<\/\1[ \t]*>/i',
-                function (array $match) use ($protect, &$protectedSources, &$htmlBodyIndex, $htmlBodyReserved): string {
-                    if (preg_match('/^<(?:address|article|aside|blockquote|details|dialog|div|dl|fieldset|figure|footer|form|h[1-6]|header|main|nav|ol|p|pre|script|section|style|table|template|ul|noscript)\b/i', $match[0]) === 1) {
-                        $html = $this->referenceSourceText($match[0], $protectedSources);
-
-                        return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
-                    }
-                    while (isset($htmlBodyReserved['CarveHtmlBody' . $htmlBodyIndex])) {
-                        $htmlBodyIndex++;
-                    }
-                    $marker = 'CarveHtmlBody' . $htmlBodyIndex++;
-                    $opening = $this->htmlTagAt($match[0], 0);
-                    $closing = strripos($match[0], '</');
-                    if ($opening === null || $closing === false) {
-                        return $match[0];
-                    }
-                    $body = substr($match[0], $opening['end'], $closing - $opening['end']);
-                    $depth = 0;
-                    $unbalanced = false;
-                    for ($at = 0, $length = strlen($body); $at < $length; $at++) {
-                        if ($body[$at] === '\\') {
-                            $at++;
-                        } elseif ($body[$at] === '[') {
-                            $depth++;
-                        } elseif ($body[$at] === ']' && --$depth < 0) {
-                            $unbalanced = true;
-
-                            break;
-                        }
-                    }
-                    if ($unbalanced || $depth !== 0) {
-                        $html = $this->referenceSourceText($match[0], $protectedSources);
-
-                        return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
-                    }
-                    $template = substr($match[0], 0, $opening['end']) . $marker . substr($match[0], $closing);
-                    $converted = rtrim((new HtmlToCarve())->convert($template), "\n");
-
-                    $parts = explode($marker, $converted, 2);
-                    if (count($parts) !== 2) {
-                        return $match[0];
-                    }
-
-                    return $protect($parts[0], substr($match[0], 0, $opening['end'])) . $body . $protect($parts[1], substr($match[0], $closing));
-                },
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/<br(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
-                fn (array $match): string => $protect((new HtmlToCarve())->convert($match[0])),
-                $line,
-            ) ?? $line;
-            $line = preg_replace_callback(
-                '/<(?:area|base|col|embed|hr|img|input|link|meta|param|source|track|wbr)(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
-                fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
-                $line,
-            ) ?? $line;
-        } else {
-            $rawInline = function (array $match) use ($protect, &$protected): string {
-                $head = substr($match[0], 0, strcspn($match[0], '>'));
-                preg_match_all('/\x00P(\d+)\x00/', $head, $tokens);
-                foreach ($tokens[1] as $index) {
-                    if (str_starts_with($protected[(int)$index] ?? '', '`')) {
-                        return $match[0];
-                    }
-                }
-
-                return $protect($this->verbatimHtmlInline($match[0]), $match[0]);
-            };
-            $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => $rawInline([$span]));
-            $written = '';
-            for ($i = 0, $length = strlen($line); $i < $length;) {
-                $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
-                if ($tag === null) {
-                    $written .= $line[$i++];
-
-                    continue;
-                }
-                $end = $tag['end'];
-                if (preg_match('~^</?(?:' . $nativeInline . ')>$~i', substr($line, $i, $end - $i)) === 1) {
-                    $written .= substr($line, $i, $end - $i);
-                } else {
-                    $written .= $rawInline([substr($line, $i, $end - $i)]);
-                }
-                $i = $end;
-            }
-            $line = $written;
-        }
+        $line = $this->rewriteInlineHtml($line, $work, $protect, $nativeInline);
 
         $line = preg_replace_callback('/\[\^([^[\]\n]+)\]/', function (array $match) use ($protected, $protect): string {
             $label = $this->referenceSourceText($match[1], $protected);
@@ -1911,6 +1737,241 @@ final class InlineStage
         $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
 
         return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    /**
+     * Rewrite editorial and abbreviation tags before general HTML handling.
+     *
+     * @param string $line
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param \Closure(string, ?string=): string $protect
+     */
+    private function rewriteEditorialHtml(string $line, InlineWork $work, Closure $protect): string
+    {
+        if (!str_contains($line, '<')) {
+            return $line;
+        }
+        $protectedSources = $work->protectedSources;
+        // PART 11 §8c writes two constructs with no Markdown delimiter spelling
+        // as an ATTRIBUTE-BEARING inline tag: an abbreviation as
+        // `<abbr title="...">` and an editorial comment as
+        // `<span class="critic-comment">`. Later native-tag rules exclude
+        // attribute-bearing tags because migrating one would drop its
+        // attributes - the Carve construct carries them here, so nothing drops
+        // and the exclusion does not apply (carve#2838). The match is on the
+        // shape §8c emits and refuses anything wider, leaving the general
+        // inline HTML phase to write the raw span.
+        if (!$this->context->convertRawHtml) {
+            $line = preg_replace_callback(
+                '/<span[ \t]+class[ \t]*=[ \t]*"critic-comment"[ \t]*>([^<]*)<\/span[ \t]*>/i',
+                function (array $match) use ($protect, $protectedSources): string {
+                    // CARVE-P3-016 keeps comment content literal.
+                    $rawHtml = false;
+                    $value = preg_replace_callback(
+                        '~\x00P(\d+)\x00|\\\\([!-/:-@\[-\x60{-\x7e])|&(?:#[0-9]{1,8}|#[xX][0-9a-fA-F]{1,8}|[A-Za-z][A-Za-z0-9]{0,31});~',
+                        function (array $part) use ($protectedSources, &$rawHtml): string {
+                            if (($part[1] ?? '') !== '') {
+                                $source = $this->referenceSourceText($part[0], $protectedSources);
+                                if (preg_match('~^\\\\[!-/:-@\[-\x60{-\x7e]$~', $source) === 1) {
+                                    return substr($source, 1);
+                                }
+                                $rawHtml = $rawHtml || str_contains($source, '<');
+
+                                return $source;
+                            }
+
+                            return ($part[2] ?? '') !== '' ? $part[2] : html_entity_decode($part[0], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                        },
+                        $match[1],
+                    ) ?? $match[1];
+
+                    return $rawHtml || preg_match('/[{}\\\\\n]/', $value) === 1 ? $match[0] : $protect('{#' . $value . '#}', $match[0]);
+                },
+                $line,
+            ) ?? $line;
+            // §8c spells a deletion `<del class="critic-delete">`, so it no
+            // longer collides with the bare `<del>` a `strike` falls back to
+            // (carve#2845). The substitution shape is read FIRST: its two
+            // elements are one construct, and the deletion rule alone would
+            // leave a strike beside an unrelated insertion.
+            $delete = '<del[ \t]+class[ \t]*=[ \t]*"critic-delete"[ \t]*>([^<]*)<\/del[ \t]*>';
+            $line = preg_replace_callback(
+                '/' . $delete . '<ins[ \t]*>([^<]*)<\/ins[ \t]*>/i',
+                function (array $match) use ($protect): string {
+                    if ($this->breaksOutOfACriticBody($match[1]) || $this->breaksOutOfACriticBody($match[2])) {
+                        return $match[0];
+                    }
+
+                    return $protect('{~') . $match[1] . $protect('~>') . $match[2] . $protect('~}');
+                },
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/' . $delete . '/i',
+                function (array $match) use ($protect): string {
+                    if ($this->breaksOutOfACriticBody($match[1])) {
+                        return $match[0];
+                    }
+
+                    return $protect('{-') . $match[1] . $protect('-}');
+                },
+                $line,
+            ) ?? $line;
+            $line = preg_replace_callback(
+                '/<abbr[ \t]+title[ \t]*=[ \t]*"([^"]*)"[ \t]*>([^<]*)<\/abbr[ \t]*>/i',
+                function (array $match) use ($protect): string {
+                    $value = html_entity_decode($match[1], ENT_QUOTES | ENT_HTML5, 'UTF-8');
+                    if (preg_match('/["\\\\\n{}]/', $value) === 1 || preg_match('/[\[\]\\\n]/', $match[2]) === 1) {
+                        return $match[0];
+                    }
+
+                    // The label stays live so the later inline passes still
+                    // convert markup inside it; only the attribute block is
+                    // protected, from the quote escaping further down.
+                    return '[' . $match[2] . ']' . $protect('{abbr=' . CarveRenderer::quoteImportedAttrValue($value) . '}');
+                },
+                $line,
+            ) ?? $line;
+        }
+
+        return $line;
+    }
+
+    /**
+     * Convert or preserve raw inline HTML according to the import mode.
+     *
+     * @param string $line
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param \Closure(string, ?string=): string $protect
+     * @param string $nativeInline
+     */
+    private function rewriteInlineHtml(string $line, InlineWork $work, Closure $protect, string $nativeInline): string
+    {
+        if (!str_contains($line, '<')) {
+            return $line;
+        }
+        if ($this->context->convertRawHtml) {
+            return $this->convertRawInlineHtml($line, $work, $protect, $nativeInline);
+        }
+
+        return $this->preserveRawInlineHtml($line, $work, $protect, $nativeInline);
+    }
+
+    /**
+     * @param string $line
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param \Closure(string, ?string=): string $protect
+     * @param string $nativeInline
+     */
+    private function convertRawInlineHtml(string $line, InlineWork $work, Closure $protect, string $nativeInline): string
+    {
+        $protectedSources =&$work->protectedSources;
+        $htmlBodyIndex = 0;
+        preg_match_all('/CarveHtmlBody(\d+)/', $this->decodeHtmlReferenceText($line), $htmlBodyMatches);
+        $htmlBodyReserved = array_fill_keys(array_map(static fn (string $index): string => 'CarveHtmlBody' . $index, $htmlBodyMatches[1]), true);
+        $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => str_starts_with($span, '<!--')
+            ? '' : $protect(rtrim((new HtmlToCarve())->convert($span), "\n")));
+        $line = preg_replace_callback(
+            '/<(?!(?:' . $nativeInline . ')\b)([A-Za-z][A-Za-z0-9-]*)(?:[ \t]+(?:"[^"]*"|\'[^\']*\'|[^<>"\'])*?)?>[\s\S]*?<\/\1[ \t]*>/i',
+            function (array $match) use ($protect, &$protectedSources, &$htmlBodyIndex, $htmlBodyReserved): string {
+                if (preg_match('/^<(?:address|article|aside|blockquote|details|dialog|div|dl|fieldset|figure|footer|form|h[1-6]|header|main|nav|ol|p|pre|script|section|style|table|template|ul|noscript)\b/i', $match[0]) === 1) {
+                    $html = $this->referenceSourceText($match[0], $protectedSources);
+
+                    return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
+                }
+                while (isset($htmlBodyReserved['CarveHtmlBody' . $htmlBodyIndex])) {
+                    $htmlBodyIndex++;
+                }
+                $marker = 'CarveHtmlBody' . $htmlBodyIndex++;
+                $opening = $this->htmlTagAt($match[0], 0);
+                $closing = strripos($match[0], '</');
+                if ($opening === null || $closing === false) {
+                    return $match[0];
+                }
+                $body = substr($match[0], $opening['end'], $closing - $opening['end']);
+                $depth = 0;
+                $unbalanced = false;
+                for ($at = 0, $length = strlen($body); $at < $length; $at++) {
+                    if ($body[$at] === '\\') {
+                        $at++;
+                    } elseif ($body[$at] === '[') {
+                        $depth++;
+                    } elseif ($body[$at] === ']' && --$depth < 0) {
+                        $unbalanced = true;
+
+                        break;
+                    }
+                }
+                if ($unbalanced || $depth !== 0) {
+                    $html = $this->referenceSourceText($match[0], $protectedSources);
+
+                    return $protect(rtrim((new HtmlToCarve())->convert($html), "\n"), $html);
+                }
+                $template = substr($match[0], 0, $opening['end']) . $marker . substr($match[0], $closing);
+                $converted = rtrim((new HtmlToCarve())->convert($template), "\n");
+
+                $parts = explode($marker, $converted, 2);
+                if (count($parts) !== 2) {
+                    return $match[0];
+                }
+
+                return $protect($parts[0], substr($match[0], 0, $opening['end'])) . $body . $protect($parts[1], substr($match[0], $closing));
+            },
+            $line,
+        ) ?? $line;
+        $line = preg_replace_callback(
+            '/<br(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
+            fn (array $match): string => $protect((new HtmlToCarve())->convert($match[0])),
+            $line,
+        ) ?? $line;
+        $line = preg_replace_callback(
+            '/<(?:area|base|col|embed|hr|img|input|link|meta|param|source|track|wbr)(?:[ \t]+[^<>]*?)?[ \t]*\/?>/i',
+            fn (array $match): string => $protect(rtrim((new HtmlToCarve())->convert($match[0]), "\n")),
+            $line,
+        ) ?? $line;
+
+        return $line;
+    }
+
+    /**
+     * @param string $line
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param \Closure(string, ?string=): string $protect
+     * @param string $nativeInline
+     */
+    private function preserveRawInlineHtml(string $line, InlineWork $work, Closure $protect, string $nativeInline): string
+    {
+        $protected =&$work->protected;
+        $rawInline = function (array $match) use ($protect, &$protected): string {
+            $head = substr($match[0], 0, strcspn($match[0], '>'));
+            preg_match_all('/\x00P(\d+)\x00/', $head, $tokens);
+            foreach ($tokens[1] as $index) {
+                if (str_starts_with($protected[(int)$index] ?? '', '`')) {
+                    return $match[0];
+                }
+            }
+
+            return $protect($this->verbatimHtmlInline($match[0]), $match[0]);
+        };
+        $line = $this->mapOpaqueHtmlFragments($line, fn (string $span): string => $rawInline([$span]));
+        $written = '';
+        for ($i = 0, $length = strlen($line); $i < $length;) {
+            $tag = $line[$i] === '<' ? $this->htmlTagAt($line, $i) : null;
+            if ($tag === null) {
+                $written .= $line[$i++];
+
+                continue;
+            }
+            $end = $tag['end'];
+            if (preg_match('~^</?(?:' . $nativeInline . ')>$~i', substr($line, $i, $end - $i)) === 1) {
+                $written .= substr($line, $i, $end - $i);
+            } else {
+                $written .= $rawInline([substr($line, $i, $end - $i)]);
+            }
+            $i = $end;
+        }
+
+        return $written;
     }
 
     /**
