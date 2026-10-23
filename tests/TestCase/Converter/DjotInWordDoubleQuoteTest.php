@@ -44,7 +44,7 @@ class DjotInWordDoubleQuoteTest extends TestCase
         $renderer = new CarveConverter();
         $cases = [
             ['# ab"c', 'id="ab&quot;c"', '<h1>ab“c</h1>'],
-            ['> # x"y"', 'id="x&quot;y&quot;"', '<h1 id="x&quot;y&quot;">x“y”</h1>'],
+            ['> # x"y"', 'id="xy"', '<h1 id="xy">x“y”</h1>'],
             ["# a\nb\"c", 'id="a-b&quot;c"', '<h1>a b“c</h1>'],
         ];
         foreach ($cases as [$source, $id, $heading]) {
