@@ -1228,6 +1228,7 @@ class DjotToCarve
         $imageIndex = 0;
         $wordHasSlash = false;
         $lineStart = 0;
+        $lineIsHeading = false;
         for ($at = 0; $at < $length; $at++) {
             if (isset($boundaries[$at])) {
                 $openers = [];
@@ -1236,6 +1237,9 @@ class DjotToCarve
                 $wordHasSlash = false;
             }
             $char = $source[$at];
+            if ($at === $lineStart) {
+                $lineIsHeading = preg_match('/\G[ \t>]*#{1,6}[ \t]/', $source, offset: $lineStart) === 1;
+            }
             if ($char === "\n") {
                 $lineStart = $at + 1;
             }
@@ -1275,7 +1279,7 @@ class DjotToCarve
             $previousClose = $at > 0 && isset($edits[$at - 1]) && str_contains('”’', $edits[$at - 1]);
             $match = $lastOpener[$char];
             $opener = $match === null ? null : $openers[$match]['at'];
-            $inHeading = $char === '"' && preg_match('/^[ \t>]*#{1,6}[ \t]/', substr($source, $lineStart, $at - $lineStart)) === 1;
+            $inHeading = $char === '"' && $lineIsHeading;
             if ($char === '"' && $opener === null && ($quoteAfterSlashWord || !$this->omitQuoteDelimiters && !$inImageLabel && !$inHeading && ($source[$at + 1] ?? '') !== '}')) {
                 $edits[$at] = '“';
                 $provisionalOpeners[$at] = $quoteAfterSlashWord || $previousClose;
@@ -1285,7 +1289,7 @@ class DjotToCarve
                     $edits[$opener] = $char === '"' ? '“' : '‘';
                     $edits[$at] = $char === '"' ? '”' : '’';
                 } elseif (isset($provisionalOpeners[$opener]) && !$provisionalOpeners[$opener]) {
-                    if ($char === '"' && !$this->omitQuoteDelimiters && !$inImageLabel && preg_match('/[A-Za-z0-9`)}\x00]/', $source[$opener - 1] ?? '') === 1) {
+                    if ($char === '"' && !$this->omitQuoteDelimiters && !$inImageLabel && preg_match('/[A-Za-z0-9`)}\x00]/', $opener > 0 ? $source[$opener - 1] : '') === 1) {
                         $edits[$opener] = '“';
                         $edits[$at] = '”';
                     } else {
