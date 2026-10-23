@@ -866,6 +866,7 @@ function runMigrateCommand(array $argv): never
     $report = null;
     $checkLoss = false;
     $listTable = false;
+    $djotPhp = false;
     $from = null;
     $input = null;
     $directory = null;
@@ -896,6 +897,8 @@ function runMigrateCommand(array $argv): never
             $checkLoss = true;
         } elseif ($arg === '--list-table') {
             $listTable = true;
+        } elseif ($arg === '--djot-php') {
+            $djotPhp = true;
         } elseif (str_starts_with($arg, '-') && $arg !== '-') {
             fwrite(STDERR, "carve migrate: unknown option: $arg\n");
             exit(2);
@@ -912,6 +915,10 @@ function runMigrateCommand(array $argv): never
     }
     if (!in_array($from, ['html', 'markdown', 'md', 'djot', 'bbcode'], true)) {
         fwrite(STDERR, "carve migrate: unknown source format $from\n");
+        exit(2);
+    }
+    if ($djotPhp && $from !== 'djot') {
+        fwrite(STDERR, "carve migrate: --djot-php requires --from djot\n");
         exit(2);
     }
     if ($directory !== null || $output !== null) {
@@ -941,7 +948,7 @@ function runMigrateCommand(array $argv): never
         } else {
             $converter = match ($from) {
                 'markdown', 'md' => new MarkdownToCarve(),
-                'djot' => new DjotToCarve(),
+                'djot' => new DjotToCarve(djotPhpExtensions: $djotPhp),
                 default => new BbcodeToCarve(),
             };
             $result = $converter->convertWithFidelityReport($source);
@@ -1324,6 +1331,8 @@ Formatter:
 
 Migration (other markup to Carve, on stdout):
   migrate --from FORMAT   html, markdown (md), djot or bbcode
+  migrate --from djot --djot-php
+                         accept djot-php titles and labeled code fences
   migrate --from markdown --directory SOURCE --output TARGET
                          convert a Markdown folder and copy assets
   migrate --mode MODE     HTML only: safe (default), semantic or roundtrip
