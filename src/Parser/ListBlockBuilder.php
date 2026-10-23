@@ -2262,6 +2262,10 @@ final class ListBlockBuilder
             if (count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($at)] ?? '', " \t"))) < $depth) {
                 break;
             }
+            // A `{` cannot continue an attribute, so an unclosed run stops at the next opener.
+            if (str_contains($lines[$at], '{')) {
+                break;
+            }
             $probe[] = ltrim($lines[$at], " \t");
             if (str_contains($lines[$at], '}')) {
                 break;

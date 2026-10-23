@@ -1309,6 +1309,10 @@ trait BlockListMethods
             if (count(ContainerPrefix::quoteStages(ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t"))) < $depth) {
                 break;
             }
+            // A `{` cannot continue an attribute, so an unclosed run stops at the next opener.
+            if (str_contains($line, '{')) {
+                break;
+            }
             // Its continuation lines may sit at any column (carve#3421).
             $content = IndentationHelper::getLeadingColumns($line, $contentIndent + 1) < $contentIndent
                 ? ltrim($line, " \t")
