@@ -3599,19 +3599,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             // different `separatorWidths` and broke `parse(fmt(x)) == parse(x)`.
             // With no field at all the single default cell stands in, which is
             // the pre-existing shape for an importer-forced delimiter row.
-            $separators = [];
-            $cellCount = $columnWidths !== [] ? count($columnWidths) : count($headerCells);
-            for ($index = 0; $index < $cellCount; $index++) {
-                $width = $columnWidths[$index] ?? 3;
-                $alignment = isset($headerCells[$index])
-                    ? $headerCells[$index]->getAlignment()
-                    : TableCell::ALIGN_DEFAULT;
-                if ($width > $this->separatorExpansionRemaining) {
-                    throw new SourceUnspellableException('table', 'separator widths exceed the document expansion budget');
-                }
-                $this->separatorExpansionRemaining -= $width;
-                $separators[] = $this->renderTableSeparator($width, $alignment);
-            }
+            $separators = $this->renderTableSeparators($columnWidths, $headerCells);
             if ($this->alignTables) {
                 array_splice($rowSlots, 1 + count($continuations[0] ?? []), 0, [['prefix' => '|', 'cells' => $separators !== [] ? $separators : ['---'], 'attrs' => '']]);
             } else {
@@ -3619,22 +3607,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
             }
         }
         if ($this->alignTables) {
-            $written = $this->writtenSentinelSpellings();
-            $widths = [];
-            $cellWidths = [];
-            foreach ($rowSlots as $slotIndex => $slot) {
-                foreach ($slot['cells'] as $column => $cell) {
-                    $cellWidths[$slotIndex][$column] = TableDisplayWidth::width(strtr($cell, $written));
-                    $widths[$column] = max($widths[$column] ?? 0, $cellWidths[$slotIndex][$column]);
-                }
-            }
-            foreach ($rowSlots as $slotIndex => $slot) {
-                $cells = [];
-                foreach ($slot['cells'] as $column => $cell) {
-                    $cells[] = $cell . str_repeat(' ', $widths[$column] - $cellWidths[$slotIndex][$column]);
-                }
-                $rows[] = $slot['prefix'] . implode('|', $cells) . '|' . $slot['attrs'];
-            }
+            $rows = $this->alignTableRows($rowSlots);
         }
         if ($node->hasCaption()) {
             $caption = $node->getCaption();
@@ -3644,6 +3617,61 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         }
 
         return implode("\n", $rows);
+    }
+
+    /**
+     * @param array<int, int> $columnWidths
+     * @param list<\MarkupCarve\Carve\Node\Block\TableCell> $headerCells
+     *
+     * @throws \MarkupCarve\Carve\Exception\SourceUnspellableException
+     *
+     * @return list<string>
+     */
+    private function renderTableSeparators(array $columnWidths, array $headerCells): array
+    {
+        $separators = [];
+        $cellCount = $columnWidths !== [] ? count($columnWidths) : count($headerCells);
+        for ($index = 0; $index < $cellCount; $index++) {
+            $width = $columnWidths[$index] ?? 3;
+            $alignment = isset($headerCells[$index])
+                ? $headerCells[$index]->getAlignment()
+                : TableCell::ALIGN_DEFAULT;
+            if ($width > $this->separatorExpansionRemaining) {
+                throw new SourceUnspellableException('table', 'separator widths exceed the document expansion budget');
+            }
+            $this->separatorExpansionRemaining -= $width;
+            $separators[] = $this->renderTableSeparator($width, $alignment);
+        }
+
+        return $separators;
+    }
+
+    /**
+     * @param list<array{prefix: string, cells: array<int, string>, attrs: string}> $rowSlots
+     *
+     * @return list<string>
+     */
+    private function alignTableRows(array $rowSlots): array
+    {
+        $written = $this->writtenSentinelSpellings();
+        $widths = [];
+        $cellWidths = [];
+        foreach ($rowSlots as $slotIndex => $slot) {
+            foreach ($slot['cells'] as $column => $cell) {
+                $cellWidths[$slotIndex][$column] = TableDisplayWidth::width(strtr($cell, $written));
+                $widths[$column] = max($widths[$column] ?? 0, $cellWidths[$slotIndex][$column]);
+            }
+        }
+        $rows = [];
+        foreach ($rowSlots as $slotIndex => $slot) {
+            $cells = [];
+            foreach ($slot['cells'] as $column => $cell) {
+                $cells[] = $cell . str_repeat(' ', $widths[$column] - $cellWidths[$slotIndex][$column]);
+            }
+            $rows[] = $slot['prefix'] . implode('|', $cells) . '|' . $slot['attrs'];
+        }
+
+        return $rows;
     }
 
     /**
