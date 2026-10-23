@@ -3151,7 +3151,7 @@ class DjotToCarve
         for ($i = 0; $i < $length; $i++) {
             if ($masked[$i] === ' ' && $source[$i] !== ' ' && $source[$i] !== "\n") {
                 if ($plain !== '') {
-                    $result .= $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
+                    $result .= $this->escapePlainDjotRun($plain);
                     $plain = '';
                 }
                 $result .= $source[$i];
@@ -3166,10 +3166,57 @@ class DjotToCarve
         }
 
         if ($plain !== '') {
-            $result .= $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
+            $result .= $this->escapePlainDjotRun($plain);
         }
 
         return $result;
+    }
+
+    private function escapePlainDjotRun(string $plain): string
+    {
+        // Djot turns dash runs into punctuation even next to an angle bracket.
+        // Carve checks arrow tokens first, so spell those dash runs as glyphs.
+        if (str_contains($plain, '-')) {
+            preg_match_all('/<-{2,}/', $plain, $leftDashes, PREG_OFFSET_CAPTURE);
+            foreach (array_reverse($leftDashes[0]) as [$run, $at]) {
+                $plain = substr_replace($plain, '<' . $this->djotDashGlyphs(strlen($run) - 1), $at, strlen($run));
+            }
+
+            preg_match_all('/-+>/', $plain, $matches, PREG_OFFSET_CAPTURE);
+            foreach (array_reverse($matches[0]) as [$run, $at]) {
+                $hyphens = strlen($run) - 1;
+                $firstEscaped = $this->isEscapedAt($plain, $at);
+                if ($hyphens >= ($firstEscaped ? 3 : 2)) {
+                    $dash = $this->djotDashGlyphs($hyphens - (int)$firstEscaped);
+                    $plain = substr_replace($plain, ($firstEscaped ? '-' : '') . $dash . '>', $at, strlen($run));
+
+                    continue;
+                }
+                $escapeAt = match (true) {
+                    $firstEscaped && $hyphens === 2 => $at + 1,
+                    !$firstEscaped && $hyphens === 1 => $at,
+                    default => null,
+                };
+                if ($escapeAt !== null && !$this->isEscapedAt($plain, $escapeAt)) {
+                    $plain = substr_replace($plain, '\\', $escapeAt, 0);
+                }
+            }
+        }
+
+        // These Carve smart symbols are plain characters in Djot.
+        $plain = $this->escapeUnlessAlreadyEscaped('/(?:<(?=[-=])|=(?==>)|>(?==)|!(?==)|\+(?=-)|\((?=(?:c|r|tm)\)))/', $plain);
+
+        return $this->escapePlainCarveInlineSyntax($plain, self::HANDLED_DJOT);
+    }
+
+    private function djotDashGlyphs(int $hyphens): string
+    {
+        $emDashes = intdiv($hyphens, 3);
+        if ($hyphens % 3 === 1) {
+            $emDashes--;
+        }
+
+        return str_repeat('—', $emDashes) . str_repeat('–', intdiv($hyphens - $emDashes * 3, 2));
     }
 
     /**
