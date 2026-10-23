@@ -661,9 +661,8 @@ class DjotToCarve
                 continue;
             }
             if (
-                $lineIndex > 0 && trim($lines[$lineIndex - 1]) !== ''
+                $lineIndex > 0 && !$this->isDjotHeadingBoundaryLine($lines[$lineIndex - 1])
                 && preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$lineIndex - 1]) !== 1
-                && preg_match('/^[ \t]*\{[^{}]*\}[ \t]*$/', $lines[$lineIndex - 1]) !== 1
             ) {
                 continue;
             }
@@ -671,6 +670,9 @@ class DjotToCarve
             $text = preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $line) ?? $line;
             $next = $lineIndex + 1;
             while (isset($lines[$next]) && trim($lines[$next]) !== '') {
+                if ($this->isDjotHeadingBoundaryLine($lines[$next])) {
+                    break;
+                }
                 if (preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$next]) === 1) {
                     $continued[$next] = true;
                     $text .= "\n" . (preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $lines[$next]) ?? $lines[$next]);
@@ -770,6 +772,13 @@ class DjotToCarve
         }
 
         return $pairs;
+    }
+
+    private function isDjotHeadingBoundaryLine(string $line): bool
+    {
+        $body = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', $line) ?? $line;
+
+        return trim($body) === '' || preg_match('/^[ \t]*(?:\{[^{}]*\}[ \t]*$|[.#][^{}]*\}[ \t]*$|[-+*][ \t]+|\d+[.)][ \t]+|`{3,}|~{3,}|:{3,}|\|)/', $body) === 1;
     }
 
     private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null, string $rawHeadingSource = ''): string

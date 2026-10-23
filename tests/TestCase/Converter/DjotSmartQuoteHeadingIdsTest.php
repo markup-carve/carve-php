@@ -43,6 +43,13 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'attribute before quoted heading' => ["{#q}\n## 'a'\n\n## 'b'\n", ['q', 'b']];
         yield 'class before quoted heading' => ["{.c}\n## 'a'\n\n## 'b'\n", ['a', 'b']];
         yield 'heading marker line continuation' => ["## a\n## 'b'\n", ['a-b']];
+        yield 'attribute after heading' => ["## 'x'\n\n## 'a'\n{.c}\n## 'b'\n", ['x', 'a', 'b']];
+        yield 'list after heading' => ["## 'a'\n- 'b'\n", ['a']];
+        yield 'quote blank before heading' => ["> ## 'a'\n>\n> ## 'b'\n", ['a', 'b']];
+        yield 'fence before heading' => ["```\nx\n```\n## 'a'\n", ['a']];
+        yield 'div before heading' => ["::: d\n## 'a'\n::: \n", ['a']];
+        yield 'table row before heading' => ["| t |\n## 'a'\n", ['a']];
+        yield 'multiline attribute before heading' => ["{#q\n .c}\n## 'a'\n", ['q']];
         yield 'crossing quote pairs' => ["## a 'b \"c' d\"\n", ['a-b-"c-d"']];
         yield 'authored curly single' => ["## ‘a’\n", ['‘a’']];
         yield 'authored curly double' => ["## “a”\n", ['“a”']];
@@ -58,7 +65,7 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
     public function testHeadingIdsFollowDjotQuotePairing(string $source, array $expected): void
     {
         $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
-        preg_match_all('/<section id="([^"]+)/', $html, $matches);
+        preg_match_all('/<(?:section|h[1-6]) id="([^"]+)/', $html, $matches);
 
         self::assertSame($expected, array_map(static fn (string $id): string => html_entity_decode($id, ENT_QUOTES | ENT_HTML5), $matches[1]));
     }
