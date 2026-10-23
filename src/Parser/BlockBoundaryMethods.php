@@ -291,14 +291,33 @@ trait BlockBoundaryMethods
     protected function contentRendersNothing(array $lines): bool
     {
         $sawLine = false;
-        foreach ($lines as $line) {
+        $lines = array_values($lines);
+        $count = count($lines);
+        for ($k = 0; $k < $count; $k++) {
+            $line = $lines[$k];
             if (IndentationHelper::isBlankLine($line)) {
                 continue;
             }
-            if (!$this->isInvisibleOrAttributeLine($line)) {
+            $sawLine = true;
+            if ($this->isInvisibleOrAttributeLine($line)) {
+                continue;
+            }
+            // A wrapped attribute renders nothing either (carve#3421).
+            $wrapped = null;
+            if (str_starts_with(ltrim($line, " \t"), '{')) {
+                $run = [ltrim($line, " \t")];
+                for ($at = $k + 1; $at < $count && !IndentationHelper::isBlankLine($lines[$at]) && !str_contains($lines[$at], '{'); $at++) {
+                    $run[] = ltrim($lines[$at], " \t");
+                    if (str_contains($lines[$at], '}')) {
+                        break;
+                    }
+                }
+                $wrapped = $this->wrappedBlockAttributeLength($run, 0);
+            }
+            if ($wrapped === null || $wrapped < 2) {
                 return false;
             }
-            $sawLine = true;
+            $k += $wrapped - 1;
         }
 
         return $sawLine;

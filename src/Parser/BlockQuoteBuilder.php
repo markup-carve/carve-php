@@ -267,6 +267,20 @@ final class BlockQuoteBuilder
                         $innerLineMap[] = $this->sourceLineFor($i + 1);
                         $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i + 1, $codeCloserMemo);
                         $i += 2;
+                        // A block attribute attaches forward, so the block it reaches attaches with it.
+                        while ($this->isBlockAttributeLine(trim($nextPhysical)) && $i < $count) {
+                            $nextPhysical = ltrim($this->state->source->sourceLines[$this->sourceLineFor($i)] ?? '', " \t");
+                            $stages = ContainerPrefix::quoteStages($nextPhysical);
+                            if (count($stages) - 1 < $nextDepth || trim($stages[$nextDepth]) === '') {
+                                break;
+                            }
+                            $nextPhysical = $stages[$nextDepth];
+                            $continued = str_repeat('> ', $decision['depth']) . $stages[$decision['depth']];
+                            $innerLines[] = $continued;
+                            $innerLineMap[] = $this->sourceLineFor($i);
+                            $this->trackBlockQuoteLazyState($continued, $lazyState, $lines, $i, $codeCloserMemo);
+                            $i++;
+                        }
                         $fence = ($this->getFencedBlockParser)()->parseCodeFenceOpener($nextPhysical)
                             ?? ($this->getFencedBlockParser)()->parseRawBlockOpener($nextPhysical);
                         $div = $fence === null ? ($this->getFencedBlockParser)()->parseDivFenceOpener($nextPhysical) : null;
@@ -433,6 +447,8 @@ final class BlockQuoteBuilder
                 && ($this->getListParser)()->parseListItemMarker($currentLine) === null
                 && self::isStackedFirstBlockQuoteMarker($this->state->source->sourceLines[$this->sourceLineFor($i) - 1] ?? '')
                 && $this->sourceLineFor($i - 1) === $this->sourceLineFor($i) - 1
+                // An opener folded into a paragraph is text, not an item (`> - # a` / `> b` / `> - > +`).
+                && in_array('item', $lazyState['hosts']['kinds'] ?? [], true)
             ) {
                 $take = $this->firstBlockAttachedExtent($lines, $i, $count);
                 for ($end = $i + $take; $i < $end; $i++) {
@@ -674,15 +690,64 @@ final class BlockQuoteBuilder
     }
 
     /**
+     * An attached run that ends on a block attribute line takes the block the attribute reaches.
+     *
+     * @param array<string> $lines
+     * @param int $end
+     * @param int $count
+     * @param array<string> $attached
+     * @param array<int> $map
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int>}
+     */
+    private function pastTrailingAttribute(array $lines, int $end, int $count, array $attached, array $map): array
+    {
+        $last = $attached === [] ? null : $attached[array_key_last($attached)];
+        if (
+            $last === null || !isset($lines[$end]) || IndentationHelper::isBlankLine($lines[$end])
+            || !$this->isBlockAttributeLine(ltrim(ContainerPrefix::quoteContent(ltrim($last, " \t")) ?? $last, " \t"))
+        ) {
+            return [$end, $attached, $map];
+        }
+        $take = $this->firstBlockAttachedExtent($lines, $end, $count);
+        for ($at = $end; $at < $end + $take; $at++) {
+            $attached[] = $lines[$at];
+            $map[] = $at;
+        }
+
+        return [$end + $take, $attached, $map];
+    }
+
+    /**
      * @param array<string> $lines
      * @param int $count
      * @param int $start
      */
     private function firstBlockAttachedExtent(array $lines, int $start, int $count): int
     {
+        // A block attribute attaches forward, so the attached block is the one it reaches.
+        $subject = ltrim($lines[$start], " \t");
+        if ($this->isBlockAttributeLine(ltrim(ContainerPrefix::quoteContent($subject) ?? $subject, " \t"))) {
+            return isset($lines[$start + 1]) && !IndentationHelper::isBlankLine($lines[$start + 1])
+                ? 1 + $this->firstBlockAttachedExtent($lines, $start + 1, $count)
+                : 1;
+        }
         $fenceEnd = $this->continuations->attachedFencedBlockEnd($lines, $start, $count, null);
         if ($fenceEnd >= $start) {
             return $fenceEnd - $start + 1;
+        }
+        // An unclosed fence takes every line up to a blank one as payload.
+        $opener = ltrim($lines[$start], " \t");
+        if (
+            ($this->getFencedBlockParser)()->parseCodeFenceOpener($opener) !== null
+            || ($this->getFencedBlockParser)()->parseRawBlockOpener($opener) !== null
+        ) {
+            $end = $start + 1;
+            while ($end < $count && !IndentationHelper::isBlankLine($lines[$end])) {
+                $end++;
+            }
+
+            return $end - $start;
         }
         if (!($this->getTableParser)()->isTableRow($lines[$start])) {
             return 1;
@@ -742,6 +807,7 @@ final class BlockQuoteBuilder
                 }
             }
             [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($attachmentLines, $i, $count);
+            [$i, $innerLines, $rawLineMap] = $this->pastTrailingAttribute($attachmentLines, $i, $count, $innerLines, $rawLineMap);
             if ($innerLines === [] && isset($attachmentLines[$i]) && !IndentationHelper::isBlankLine($attachmentLines[$i])) {
                 $take = $this->firstBlockAttachedExtent($attachmentLines, $i, $count);
                 $innerLines = array_slice($attachmentLines, $i, $take);
@@ -761,6 +827,7 @@ final class BlockQuoteBuilder
             if ($nestedFirstBlock) {
                 $origin = 0;
                 [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
+                [$end, $attached, $attachedLineMap] = $this->pastTrailingAttribute($lines, $end, $count, $attached, $attachedLineMap);
                 if ($attached === [] && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])) {
                     // A follower at an opener column carries that column on every line of its block.
                     $origin = str_starts_with(ltrim($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '', " \t"), '>')

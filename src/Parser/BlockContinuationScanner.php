@@ -491,6 +491,7 @@ final class BlockContinuationScanner
                 : null;
             $inlineCodeWithoutCloser = $inlineCodeOpener !== null && strlen($inlineCodeOpener['fence']) >= 4 && $inlineCodeOpener['info'] !== ''
                 && !$this->sourceFenceCloserInView($lines, $i, $inlineCodeOpener, $nextIndent);
+
             $authoredBaseEligible[count($itemLines)] = true;
             $itemLines[] = $stripped;
             $itemLineMap[] = $this->sourceLineFor($i);
@@ -2695,8 +2696,8 @@ final class BlockContinuationScanner
                     // pushing it as its own line let the block parser consume
                     // it and emit nothing at all - the line disappeared
                     // (carve-php#721). Folded into the open paragraph it stays
-                    // the text S4 says it is.
-                    || $this->isFoldableInvisibleLine($nextTrimmed)
+                    // the text S4 says it is. A wrapped attribute folds like its one-line form.
+                    || $this->isFoldableInvisibleLine($nextTrimmed, $lines, $i)
                 )
             ) {
                 $lastEntry = $itemLines[count($itemLines) - 1];
