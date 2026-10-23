@@ -635,12 +635,12 @@ class DjotToCarve
             if ($this->nativeDjotHeadingIds && $this->headingIdSource === null && str_contains($carve, '#')) {
                 $reservedBeforeHeading = [];
                 $sourceHeadingOrder = [];
-                if (str_contains($djot, '[^') && str_contains($djot, '{')) {
+                if (str_contains($djot, '[^')) {
                     [, , $idSource] = $this->splitSiteFrontmatter(str_replace(["\r\n", "\r"], "\n", $djot));
-                    $reservedBeforeHeading = $this->sourceAttributeIdsBeforeHeadings($idSource);
-                    if ($reservedBeforeHeading !== []) {
-                        $sourceHeadingOrder = $this->sourceHeadingOrder($idSource);
+                    if (str_contains($idSource, '{')) {
+                        $reservedBeforeHeading = $this->sourceAttributeIdsBeforeHeadings($idSource);
                     }
+                    $sourceHeadingOrder = $this->sourceHeadingOrder($idSource);
                 }
                 $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve, $reservedBeforeHeading, $sourceHeadingOrder);
                 if ($sourceHeadingOrder !== []) {
@@ -764,7 +764,7 @@ class DjotToCarve
             $body = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $line) ?? $line;
             $heading = false;
             $label = '';
-            if (preg_match('/^\[\^([^\]\n]+)\]:[ \t]*/', $body, $header) === 1) {
+            if (preg_match('/^[ \t]*\[\^([^\]\n]+)\]:[ \t]*/', $body, $header) === 1) {
                 $note = $header[1];
                 $label = $note;
                 $content = substr($body, strlen($header[0]));

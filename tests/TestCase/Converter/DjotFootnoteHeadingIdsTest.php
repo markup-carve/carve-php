@@ -63,6 +63,26 @@ class DjotFootnoteHeadingIdsTest extends TestCase
         self::assertStringContainsString('<h1 id="a-2">a</h1>', $html);
     }
 
+    public function testListFootnoteHeadingWithoutAttributesKeepsFirstId(): void
+    {
+        $source = "# a\n\n- r[^n]\n\n  [^n]: # a\n\n# a\n";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString('<section id="a">', $html);
+        self::assertStringContainsString('<section id="a-2">', $html);
+        self::assertStringContainsString('<h1 id="a-1">a</h1>', $html);
+    }
+
+    public function testListFootnoteHeadingWithReservationKeepsFirstId(): void
+    {
+        $source = "# a\n\n- r[^n]\n\n  [^n]: n {#a-1}\n\n      # a\n\n# a\n";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString('<section id="a">', $html);
+        self::assertStringContainsString('<section id="a-3">', $html);
+        self::assertStringContainsString('<h1 id="a-2">a</h1>', $html);
+    }
+
     public function testParagraphHashLineDoesNotShiftReservations(): void
     {
         $source = "# a\n\npara\n# a\n\nr[^n]\n\n[^n]: n {#a-1}\n\n# a\n";
