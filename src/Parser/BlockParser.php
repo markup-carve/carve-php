@@ -5189,15 +5189,7 @@ class BlockParser
                 return null;
             }
 
-            $caption = new Caption();
-            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
-            $this->inlineParser->parse(
-                $caption,
-                $captionText,
-                $start,
-                true,
-                $this->captionSourceMap($start, $captionLines, $markerWidth),
-            );
+            $caption = $this->parseCaptionNode($captionText, $start, $captionLines, $markerWidth, $i - 1);
             $lastChild->setCaption($caption);
             // The caption is the group's own child written after the closing
             // fence, so the group's span reaches the end of the caption line -
@@ -5223,15 +5215,7 @@ class BlockParser
                 return null;
             }
 
-            $caption = new Caption();
-            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
-            $this->inlineParser->parse(
-                $caption,
-                $captionText,
-                $start,
-                true,
-                $this->captionSourceMap($start, $captionLines, $markerWidth),
-            );
+            $caption = $this->parseCaptionNode($captionText, $start, $captionLines, $markerWidth, $i - 1);
             $lastChild->setCaption($caption);
             // The caption is one of the table's children, and it is written
             // after the last row, so the table's span has to reach the end of
@@ -5255,15 +5239,7 @@ class BlockParser
                 $lastChild->removeAttribute($key);
             }
 
-            $caption = new Caption();
-            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
-            $this->inlineParser->parse(
-                $caption,
-                $captionText,
-                $start,
-                true,
-                $this->captionSourceMap($start, $captionLines, $markerWidth),
-            );
+            $caption = $this->parseCaptionNode($captionText, $start, $captionLines, $markerWidth, $i - 1);
 
             $parent->replaceChild(count($children) - 1, $figure);
             $figure->appendChild($lastChild);
@@ -5291,15 +5267,7 @@ class BlockParser
                 $lastChild->removeAttribute($key);
             }
 
-            $caption = new Caption();
-            $caption->setPos($this->wholeLinesSpan($start, $i - 1));
-            $this->inlineParser->parse(
-                $caption,
-                $captionText,
-                $start,
-                true,
-                $this->captionSourceMap($start, $captionLines, $markerWidth),
-            );
+            $caption = $this->parseCaptionNode($captionText, $start, $captionLines, $markerWidth, $i - 1);
 
             $parent->replaceChild(count($children) - 1, $figure);
             $figure->appendChild($lastChild);
@@ -5358,14 +5326,7 @@ class BlockParser
                 }
 
                 // Create caption
-                $caption = new Caption();
-                $this->inlineParser->parse(
-                    $caption,
-                    $captionText,
-                    $start,
-                    true,
-                    $this->captionSourceMap($start, $captionLines, $markerWidth),
-                );
+                $caption = $this->parseCaptionNode($captionText, $start, $captionLines, $markerWidth, null);
 
                 // Build figure: image + caption
                 $figure->appendChild($image);
@@ -5398,14 +5359,7 @@ class BlockParser
                     $lastChild->removeAttribute($key);
                 }
 
-                $caption = new Caption();
-                $this->inlineParser->parse(
-                    $caption,
-                    $captionText,
-                    $start,
-                    true,
-                    $this->captionSourceMap($start, $captionLines, $markerWidth),
-                );
+                $caption = $this->parseCaptionNode($captionText, $start, $captionLines, $markerWidth, null);
 
                 $parent->replaceChild(count($children) - 1, $figure);
                 $figure->appendChild($lastChild);
@@ -5417,6 +5371,30 @@ class BlockParser
 
         // No valid preceding block for caption - treat as regular paragraph
         return null;
+    }
+
+    /**
+     * @param string $captionText
+     * @param int $start
+     * @param list<string> $captionLines
+     * @param int $markerWidth
+     * @param int|null $lastLine
+     */
+    private function parseCaptionNode(string $captionText, int $start, array $captionLines, int $markerWidth, ?int $lastLine): Caption
+    {
+        $caption = new Caption();
+        if ($lastLine !== null) {
+            $caption->setPos($this->wholeLinesSpan($start, $lastLine));
+        }
+        $this->inlineParser->parse(
+            $caption,
+            $captionText,
+            $start,
+            true,
+            $this->captionSourceMap($start, $captionLines, $markerWidth),
+        );
+
+        return $caption;
     }
 
     protected function appendToLastParagraph(Node $parent, string $content, int $line): void
