@@ -809,143 +809,7 @@ final class InlineStage
         $closers = [];
         $line = $this->protectClosersOfLinksHoldingALink($line, $protected, $protect, $closers);
 
-        // CommonMark links an empty destination; Carve reads `[t]()` as literal
-        // text, so a link is written as its text and an image as its alt text
-        // (markup-carve/carve#2069).
-        $label = '(?<label>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)';
-        $boundarySubject = null;
-        $boundaryLines = [];
-        $imageRanges = [];
-        $autolinkRanges = [];
-        $unwrap = function (array $match, string $title, string $subject, bool $hasTitle = false) use ($protected, $protectedSources, $protect, $sourceInput, $foldedSourceLines, $unwrapEmptyDestinations, &$boundarySubject, &$boundaryLines, &$imageRanges, &$autolinkRanges): string {
-            if (!$unwrapEmptyDestinations) {
-                return $match[0][0];
-            }
-            if ($boundarySubject !== $subject) {
-                $boundarySubject = $subject;
-                $boundaryLines = [];
-                $events = [];
-                preg_match_all('/\n|\x00P(\d+)\x00/', $subject, $events, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
-                $count = 0;
-                $delta = 0;
-                foreach ($events as $event) {
-                    $source = $this->referenceSourceText($event[0][0], $protectedSources);
-                    $count += substr_count($source, "\n");
-                    $delta += strlen($source) - strlen($event[0][0]);
-                    $boundaryLines[] = [$event[0][1] + strlen($event[0][0]) - 1, $count, $delta];
-                }
-                $autolinkRanges = [];
-                $autolinks = [];
-                preg_match_all('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $subject, $autolinks, PREG_OFFSET_CAPTURE);
-                foreach ($autolinks[0] as [$text, $offset]) {
-                    $autolinkRanges[] = [$offset, $offset + strlen($text)];
-                }
-                $imageRanges = [];
-                $images = [];
-                preg_match_all('/!\[(?<description>(?:[^\[\]\n]|(?<nested>\[(?:[^\[\]\n]|(?&nested))*\]))*)\](?:(?<destination>\((?:[^()\n]|\([^()\n]*\))*\))|\[(?<reference>[^\[\]\n]*)\])?/', $subject, $images, PREG_SET_ORDER | PREG_OFFSET_CAPTURE);
-                foreach ($images as $image) {
-                    $reference = isset($image['reference']) && $image['reference'][1] >= 0 && $image['reference'][0] !== '' ? $image['reference'][0] : $image['description'][0];
-                    $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
-                    if (isset($image['destination']) && $image['destination'][1] >= 0 || isset($this->context->definedReferenceLabels[$key])) {
-                        $imageRanges[] = [$image[0][1], $image['description'][1] + strlen($image['description'][0])];
-                    }
-                }
-            }
-            foreach ($autolinkRanges as [$start, $end]) {
-                if ($match[0][1] > $start && $match[0][1] < $end) {
-                    return $match[0][0];
-                }
-            }
-            $low = 0;
-            $high = count($boundaryLines);
-            while ($low < $high) {
-                $mid = ($low + $high) >> 1;
-                if ($boundaryLines[$mid][0] < $match[0][1]) {
-                    $low = $mid + 1;
-                } else {
-                    $high = $mid;
-                }
-            }
-            $sourceLine = $this->context->inlineRunSourceLine === null ? null : $this->context->inlineRunSourceLine + ($boundaryLines[$low - 1][1] ?? 0);
-            $sourceOffset = $match[0][1] + ($boundaryLines[$low - 1][2] ?? 0);
-            if ($foldedSourceLines !== []) {
-                $sourceMatch = $this->referenceSourceText($match[0][0], $protectedSources);
-                $originalOffset = strpos($sourceInput, $sourceMatch);
-                $restoredSubject = $this->referenceSourceText($subject, $protectedSources);
-                if ($originalOffset !== false && substr_count($sourceInput, $sourceMatch) === 1 && substr_count($restoredSubject, $sourceMatch) === 1) {
-                    $sourceOffset = $originalOffset;
-                } elseif ($restoredSubject !== $sourceInput) {
-                    // Earlier rewrites can make a repeated or changed label ambiguous.
-                    // Keep the loss report without claiming an exact source line.
-                    $sourceOffset = null;
-                    $sourceLine = null;
-                }
-                if ($sourceOffset !== null) {
-                    foreach ($foldedSourceLines as $segment) {
-                        if ($segment['offset'] > $sourceOffset) {
-                            break;
-                        }
-                        $sourceLine = $segment['line'];
-                    }
-                }
-            }
-            $insideImage = false;
-            foreach ($imageRanges as [$start, $end]) {
-                if ($match[0][1] > $start && $match[0][1] < $end) {
-                    $insideImage = true;
-
-                    break;
-                }
-            }
-
-            return $this->unwrapEmptyDestination(
-                $match['label'][0],
-                $match[0][0][0] === '!',
-                $title,
-                substr($subject, 0, $match[0][1]),
-                $protected,
-                $protect,
-                $hasTitle,
-            );
-        };
-        if ($this->context->emptyDestinationLabels !== []) {
-            $unwrapReference = function (array $match, string $reference, string $subject) use ($protected, $unwrap): string {
-                $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
-                if (!isset($this->context->emptyDestinationLabels[$key])) {
-                    return $match[0][0];
-                }
-
-                $definition = $this->context->emptyDestinationLabels[$key];
-
-                return $unwrap($match, $definition['title'], $subject, $definition['hasTitle']);
-            };
-            $subject = $line;
-            $line = preg_replace_callback(
-                '/!?\[' . $label . '\](?:\[\]|\[(?<reference>[^[\]\n]+)\])/',
-                fn (array $match): string => $unwrapReference($match, isset($match['reference']) && $match['reference'][1] >= 0 ? $match['reference'][0] : $match['label'][0], $subject),
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-            $subject = $line;
-            $line = preg_replace_callback(
-                '/!?\[(?<label>[^[\]\n]+)\](?![[(:])/',
-                fn (array $match): string => $unwrapReference($match, $match['label'][0], $subject),
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-        $subject = $line;
-        $line = preg_replace_callback(
-            '/!?\[' . $label . '\]\([ \t]*(?:<>(?:[ \t]+(?<title>"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?\)/',
-            fn (array $match): string => $unwrap(
-                $match,
-                isset($match['title']) && $match['title'][1] >= 0 ? $this->decodeLinkTitle(substr($match['title'][0], 1, -1), $protected) : '',
-                $subject,
-                isset($match['title']) && $match['title'][1] >= 0,
-            ),
-            $line,
-            flags: PREG_OFFSET_CAPTURE,
-        ) ?? $line;
+        $line = $this->rewriteEmptyDestinations($line, $work, $protect, $unwrapEmptyDestinations);
 
         $imageLabel = function (string $label) use (&$protected, &$protectedSources): string {
             $alt = $this->plainAltText(substr($label, 2, -1), $protected, $protectedSources);
@@ -1602,141 +1466,97 @@ final class InlineStage
 
         $line = strtr($line, $nativeInlineTags);
 
-        // ==highlight== -> =highlight=. Carve highlight is a single `=`; a
-        // doubled `==x==` is literal text in Carve, so a Markdown highlight
-        // left unchanged would silently mis-render. Off by default: `==x==` is
-        // literal in CommonMark and GFM alike, so converting it unconditionally
-        // invented a highlight the source never had.
-        $replaceNativeInline = static function (string $pattern, string $replacement, string $subject) use ($protect): string {
-            [$open, $close] = explode('$1', $replacement);
-
-            return preg_replace_callback($pattern, static fn (array $match): string => $protect($open) . $match[1] . $protect($close), $subject) ?? $subject;
-        };
-        if ($this->context->convertHighlight) {
-            $line = $replaceNativeInline('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line);
-        }
-
-        // Highlight/super/subscript use the forced brace forms: an HTML tag can
-        // sit intraword (e.g. H<sub>2</sub>O), where a bare ,2, / ^2^ / =2= is
-        // literal in Carve; the {,x,} / {^x^} / {=x=} forms render anywhere.
-        // Highlight is the one of these with a bare Carve form (`=x=`, like
-        // emphasis). In verbatim mode carve-js emits it bare, bracing only when a
-        // word character sits directly against either delimiter - where a bare
-        // `=` would be literal (`a=x=b`). The opt-in HtmlToCarve mode keeps the
-        // always-braced form. The others below have no bare form and are always
-        // braced (sup/sub/ins) or always bare (del/s).
-        if (!$this->context->convertRawHtml) {
-            $line = preg_replace_callback(
-                '/(?:<mark>[^<]+<\/mark>){2,}/i',
-                static fn (array $run): string => preg_replace_callback(
-                    '/<mark>([^<]+)<\/mark>/i',
-                    static fn (array $mark): string => $protect('{=') . $mark[1] . $protect('=}'),
-                    $run[0],
-                ) ?? $run[0],
-                $line,
-            ) ?? $line;
-            $line = $replaceNativeInline('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line);
-            $prefixSubject = $line;
-            $prefixCursor = 0;
-            $prefixTagEnd = 0;
-            $line = preg_replace_callback(
-                '/([!<>=])<mark>([^<]+)<\/mark>/i',
-                function (array $match) use ($protect, $prefixSubject, $hasProtectedEscapeBefore, &$prefixCursor, &$prefixTagEnd): string {
-                    $offset = $match[0][1];
-                    while ($prefixCursor <= $offset) {
-                        $tag = $prefixSubject[$prefixCursor] === '<' ? $this->htmlTagAt($prefixSubject, $prefixCursor) : null;
-                        if ($tag !== null) {
-                            $prefixTagEnd = $tag['end'];
-                            $prefixCursor = $prefixTagEnd;
-                        } else {
-                            $prefixCursor++;
-                        }
-                    }
-                    if ($prefixTagEnd > $offset) {
-                        return $match[0][0];
-                    }
-
-                    if ($hasProtectedEscapeBefore($prefixSubject, $offset)) {
-                        return $match[1][0] . $protect('{=') . $match[2][0] . $protect('=}');
-                    }
-
-                    return $protect('\\' . $match[1][0] . '{=') . $match[2][0] . $protect('=}');
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line);
-            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>/i', '=$1=', $line);
-            // §8c writes `underline` as `<u>`, which this table did not read back
-            // at all (carve#2838). The bare `_x_` form is preferred, braced where
-            // a bare underline would be literal: against a word character, or
-            // around a whitespace-padded body.
-            $line = $replaceNativeInline('/(?<=[A-Za-z0-9])<u>([^<]+)<\/u>/i', '{_$1_}', $line);
-            $line = $replaceNativeInline('/<u>([^<]+)<\/u>(?=[A-Za-z0-9])/i', '{_$1_}', $line);
-            $line = $replaceNativeInline('/<u>(\s[^<]*|[^<]*\s)<\/u>/i', '{_$1_}', $line);
-            $line = $replaceNativeInline('/<u>([^<]+)<\/u>/i', '_$1_', $line);
-        }
-        $htmlRules = [
-            '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
-            '/<u>([^<]+)<\/u>/i' => '{_$1_}',
-            '/<ins>([^<]+)<\/ins>/i' => '{+$1+}',
-            '/<del>([^<]+)<\/del>/i' => '~$1~',
-            '/<s>([^<]+)<\/s>/i' => '~$1~',
-            '/<sup>([^<]+)<\/sup>/i' => '{^$1^}',
-            '/<sub>([^<]+)<\/sub>/i' => '{,$1,}',
-        ];
-        foreach ($htmlRules as $pattern => $replacement) {
-            $line = $replaceNativeInline($pattern, $replacement, $line);
-        }
-        foreach (['strong|b', 'em|i'] as $tagPattern) {
-            $htmlSource = $line;
-            $line = preg_replace_callback(
-                '/<(' . $tagPattern . ')>([^<]+)<\/\1>/i',
-                static function (array $match) use ($htmlSource, $protected): string {
-                    $marker = in_array(strtolower($match[1][0]), ['em', 'i'], true) ? '/' : '*';
-                    $body = $match[2][0];
-                    $offset = $match[0][1];
-                    $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
-                    if ($before === "\x00") {
-                        $start = $offset - 2;
-                        while ($start >= 0 && $htmlSource[$start] !== "\x00") {
-                            $start--;
-                        }
-                        if ($start >= 0 && preg_match('/^\x00P(\d+)\x00$/', substr($htmlSource, $start, $offset - $start), $token)) {
-                            $index = (int)$token[1];
-                            $value = $protected[$index] ?? '';
-                            while (preg_match('/\x00P(\d+)\x00$/', $value, $nested) === 1 && (int)$nested[1] < $index) {
-                                $index = (int)$nested[1];
-                                $value = $protected[$index] ?? '';
-                            }
-                            $before = $value !== '' ? substr($value, -1) : $before;
-                        }
-                    }
-                    $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
-                    $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
-                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1 || ($marker === '/' && $before === '/');
-                    $written = $marker . $body . $marker;
-
-                    return $forced ? '{' . $written . '}' : $written;
-                },
-                $line,
-                flags: PREG_OFFSET_CAPTURE,
-            ) ?? $line;
-        }
-
-        // A bare native tag still standing is unpaired - the paired ones
-        // converted above. carve-js keeps an unpaired `<b>` or `</b>` as an
-        // inline raw span rather than letting it fall through to literal
-        // text that renders escaped.
-        $line = preg_replace_callback(
-            '/<\/?(?:' . $nativeInline . ')>/i',
-            fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]), $match[0]),
-            $line,
-        ) ?? $line;
+        $line = $this->rewriteNativeInlineTags($line, $work, $protect, $hasProtectedEscapeBefore, $nativeInline);
 
         $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
 
         return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    /**
+     * @param string $line
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param \Closure(string, ?string=): string $protect
+     * @param bool $unwrapEmptyDestinations
+     */
+    private function rewriteEmptyDestinations(string $line, InlineWork $work, Closure $protect, bool $unwrapEmptyDestinations): string
+    {
+        $protected =&$work->protected;
+        // CommonMark links an empty destination; Carve reads `[t]()` as literal
+        // text, so a link is written as its text and an image as its alt text
+        // (markup-carve/carve#2069).
+        $label = '(?<label>(?:[^[\]\n]|(?<nest>\[(?:[^[\]\n]|(?&nest))*\]))*)';
+        $boundarySubject = null;
+        $autolinkRanges = [];
+        $unwrap = function (array $match, string $title, string $subject, bool $hasTitle = false) use ($protected, $protect, $unwrapEmptyDestinations, &$boundarySubject, &$autolinkRanges): string {
+            if (!$unwrapEmptyDestinations) {
+                return $match[0][0];
+            }
+            if ($boundarySubject !== $subject) {
+                $boundarySubject = $subject;
+                $autolinkRanges = [];
+                $autolinks = [];
+                preg_match_all('/<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[a-zA-Z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*)>/', $subject, $autolinks, PREG_OFFSET_CAPTURE);
+                foreach ($autolinks[0] as [$text, $offset]) {
+                    $autolinkRanges[] = [$offset, $offset + strlen($text)];
+                }
+            }
+            foreach ($autolinkRanges as [$start, $end]) {
+                if ($match[0][1] > $start && $match[0][1] < $end) {
+                    return $match[0][0];
+                }
+            }
+
+            return $this->unwrapEmptyDestination(
+                $match['label'][0],
+                $match[0][0][0] === '!',
+                $title,
+                substr($subject, 0, $match[0][1]),
+                $protected,
+                $protect,
+                $hasTitle,
+            );
+        };
+        if ($this->context->emptyDestinationLabels !== []) {
+            $unwrapReference = function (array $match, string $reference, string $subject) use ($protected, $unwrap): string {
+                $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($reference, $protected));
+                if (!isset($this->context->emptyDestinationLabels[$key])) {
+                    return $match[0][0];
+                }
+
+                $definition = $this->context->emptyDestinationLabels[$key];
+
+                return $unwrap($match, $definition['title'], $subject, $definition['hasTitle']);
+            };
+            $subject = $line;
+            $line = preg_replace_callback(
+                '/!?\[' . $label . '\](?:\[\]|\[(?<reference>[^[\]\n]+)\])/',
+                fn (array $match): string => $unwrapReference($match, isset($match['reference']) && $match['reference'][1] >= 0 ? $match['reference'][0] : $match['label'][0], $subject),
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+            $subject = $line;
+            $line = preg_replace_callback(
+                '/!?\[(?<label>[^[\]\n]+)\](?![[(:])/',
+                fn (array $match): string => $unwrapReference($match, $match['label'][0], $subject),
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
+        $subject = $line;
+        $line = preg_replace_callback(
+            '/!?\[' . $label . '\]\([ \t]*(?:<>(?:[ \t]+(?<title>"[^"\n]*"|\'[^\'\n]*\'|\([^()\n]*\)))?[ \t]*)?\)/',
+            fn (array $match): string => $unwrap(
+                $match,
+                isset($match['title']) && $match['title'][1] >= 0 ? $this->decodeLinkTitle(substr($match['title'][0], 1, -1), $protected) : '',
+                $subject,
+                isset($match['title']) && $match['title'][1] >= 0,
+            ),
+            $line,
+            flags: PREG_OFFSET_CAPTURE,
+        ) ?? $line;
+
+        return $line;
     }
 
     /**
@@ -1972,6 +1792,151 @@ final class InlineStage
         }
 
         return $written;
+    }
+
+    /**
+     * @param string $line
+     * @param \MarkupCarve\Carve\Converter\Markdown\InlineWork $work
+     * @param \Closure(string, ?string=): string $protect
+     * @param \Closure(string, int): bool $hasProtectedEscapeBefore
+     * @param string $nativeInline
+     */
+    private function rewriteNativeInlineTags(string $line, InlineWork $work, Closure $protect, Closure $hasProtectedEscapeBefore, string $nativeInline): string
+    {
+        // ==highlight== -> =highlight=. Carve highlight is a single `=`; a
+        // doubled `==x==` is literal text in Carve, so a Markdown highlight
+        // left unchanged would silently mis-render. Off by default: `==x==` is
+        // literal in CommonMark and GFM alike, so converting it unconditionally
+        // invented a highlight the source never had.
+        $replaceNativeInline = static function (string $pattern, string $replacement, string $subject) use ($protect): string {
+            [$open, $close] = explode('$1', $replacement);
+
+            return preg_replace_callback($pattern, static fn (array $match): string => $protect($open) . $match[1] . $protect($close), $subject) ?? $subject;
+        };
+        if ($this->context->convertHighlight) {
+            $line = $replaceNativeInline('/==(?!\s)([^=]+?)(?<!\s)==/', '=$1=', $line);
+        }
+
+        // Highlight/super/subscript use the forced brace forms: an HTML tag can
+        // sit intraword (e.g. H<sub>2</sub>O), where a bare ,2, / ^2^ / =2= is
+        // literal in Carve; the {,x,} / {^x^} / {=x=} forms render anywhere.
+        // Highlight is the one of these with a bare Carve form (`=x=`, like
+        // emphasis). In verbatim mode carve-js emits it bare, bracing only when a
+        // word character sits directly against either delimiter - where a bare
+        // `=` would be literal (`a=x=b`). The opt-in HtmlToCarve mode keeps the
+        // always-braced form. The others below have no bare form and are always
+        // braced (sup/sub/ins) or always bare (del/s).
+        if (!$this->context->convertRawHtml) {
+            $line = preg_replace_callback(
+                '/(?:<mark>[^<]+<\/mark>){2,}/i',
+                static fn (array $run): string => preg_replace_callback(
+                    '/<mark>([^<]+)<\/mark>/i',
+                    static fn (array $mark): string => $protect('{=') . $mark[1] . $protect('=}'),
+                    $run[0],
+                ) ?? $run[0],
+                $line,
+            ) ?? $line;
+            $line = $replaceNativeInline('/(?<=\w)<mark>([^<]+)<\/mark>/i', '{=$1=}', $line);
+            $prefixSubject = $line;
+            $prefixCursor = 0;
+            $prefixTagEnd = 0;
+            $line = preg_replace_callback(
+                '/([!<>=])<mark>([^<]+)<\/mark>/i',
+                function (array $match) use ($protect, $prefixSubject, $hasProtectedEscapeBefore, &$prefixCursor, &$prefixTagEnd): string {
+                    $offset = $match[0][1];
+                    while ($prefixCursor <= $offset) {
+                        $tag = $prefixSubject[$prefixCursor] === '<' ? $this->htmlTagAt($prefixSubject, $prefixCursor) : null;
+                        if ($tag !== null) {
+                            $prefixTagEnd = $tag['end'];
+                            $prefixCursor = $prefixTagEnd;
+                        } else {
+                            $prefixCursor++;
+                        }
+                    }
+                    if ($prefixTagEnd > $offset) {
+                        return $match[0][0];
+                    }
+
+                    if ($hasProtectedEscapeBefore($prefixSubject, $offset)) {
+                        return $match[1][0] . $protect('{=') . $match[2][0] . $protect('=}');
+                    }
+
+                    return $protect('\\' . $match[1][0] . '{=') . $match[2][0] . $protect('=}');
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>(?=\w)/i', '{=$1=}', $line);
+            $line = $replaceNativeInline('/<mark>([^<]+)<\/mark>/i', '=$1=', $line);
+            // §8c writes `underline` as `<u>`, which this table did not read back
+            // at all (carve#2838). The bare `_x_` form is preferred, braced where
+            // a bare underline would be literal: against a word character, or
+            // around a whitespace-padded body.
+            $line = $replaceNativeInline('/(?<=[A-Za-z0-9])<u>([^<]+)<\/u>/i', '{_$1_}', $line);
+            $line = $replaceNativeInline('/<u>([^<]+)<\/u>(?=[A-Za-z0-9])/i', '{_$1_}', $line);
+            $line = $replaceNativeInline('/<u>(\s[^<]*|[^<]*\s)<\/u>/i', '{_$1_}', $line);
+            $line = $replaceNativeInline('/<u>([^<]+)<\/u>/i', '_$1_', $line);
+        }
+        $htmlRules = [
+            '/<mark>([^<]+)<\/mark>/i' => '{=$1=}',
+            '/<u>([^<]+)<\/u>/i' => '{_$1_}',
+            '/<ins>([^<]+)<\/ins>/i' => '{+$1+}',
+            '/<del>([^<]+)<\/del>/i' => '~$1~',
+            '/<s>([^<]+)<\/s>/i' => '~$1~',
+            '/<sup>([^<]+)<\/sup>/i' => '{^$1^}',
+            '/<sub>([^<]+)<\/sub>/i' => '{,$1,}',
+        ];
+        foreach ($htmlRules as $pattern => $replacement) {
+            $line = $replaceNativeInline($pattern, $replacement, $line);
+        }
+        foreach (['strong|b', 'em|i'] as $tagPattern) {
+            $protected = $work->protected;
+            $htmlSource = $line;
+            $line = preg_replace_callback(
+                '/<(' . $tagPattern . ')>([^<]+)<\/\1>/i',
+                static function (array $match) use ($htmlSource, $protected): string {
+                    $marker = in_array(strtolower($match[1][0]), ['em', 'i'], true) ? '/' : '*';
+                    $body = $match[2][0];
+                    $offset = $match[0][1];
+                    $before = $offset === 0 ? '' : $htmlSource[$offset - 1];
+                    if ($before === "\x00") {
+                        $start = $offset - 2;
+                        while ($start >= 0 && $htmlSource[$start] !== "\x00") {
+                            $start--;
+                        }
+                        if ($start >= 0 && preg_match('/^\x00P(\d+)\x00$/', substr($htmlSource, $start, $offset - $start), $token)) {
+                            $index = (int)$token[1];
+                            $value = $protected[$index] ?? '';
+                            while (preg_match('/\x00P(\d+)\x00$/', $value, $nested) === 1 && (int)$nested[1] < $index) {
+                                $index = (int)$nested[1];
+                                $value = $protected[$index] ?? '';
+                            }
+                            $before = $value !== '' ? substr($value, -1) : $before;
+                        }
+                    }
+                    $after = $htmlSource[$offset + strlen($match[0][0])] ?? '';
+                    $forced = preg_match('/[A-Za-z0-9]/', $before . $after) === 1 || preg_match('/^\s|\s$/u', $body) === 1
+                        || preg_match('/^[*\/]|[*\/]$/', $body) === 1 || ($marker === '/' && $before === '/');
+                    $written = $marker . $body . $marker;
+
+                    return $forced ? '{' . $written . '}' : $written;
+                },
+                $line,
+                flags: PREG_OFFSET_CAPTURE,
+            ) ?? $line;
+        }
+
+        // A bare native tag still standing is unpaired - the paired ones
+        // converted above. carve-js keeps an unpaired `<b>` or `</b>` as an
+        // inline raw span rather than letting it fall through to literal
+        // text that renders escaped.
+        $line = preg_replace_callback(
+            '/<\/?(?:' . $nativeInline . ')>/i',
+            fn (array $match): string => $protect($this->verbatimHtmlInline($match[0]), $match[0]),
+            $line,
+        ) ?? $line;
+
+        return $line;
     }
 
     /**

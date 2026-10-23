@@ -51,4 +51,13 @@ class MarkdownInlineHtmlEdgesTest extends TestCase
         $this->assertSame('a `y` c', $this->convert("a <code>y</code> c\n"));
         $this->assertSame('a =y= c', $this->convert("a <mark>y</mark> c\n"));
     }
+
+    public function testAdjacentNativeTagsKeepTheirDelimiters(): void
+    {
+        foreach ([false, true] as $convertRawHtml) {
+            $converter = new MarkdownToCarve(convertRawHtml: $convertRawHtml);
+            $this->assertSame("{^2^}*x*\n", $converter->convert("<sup>2</sup><b>x</b>\n"));
+            $this->assertSame("x{=a=}/b/\n", $converter->convert("x<mark>a</mark><em>b</em>\n"));
+        }
+    }
 }
