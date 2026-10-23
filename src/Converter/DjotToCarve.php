@@ -1156,7 +1156,7 @@ class DjotToCarve
         ksort($plain);
         $escape = [];
         $closingSingles = [];
-        $closingDoublesAfterSingles = [];
+        $doubleDirectionsAfterSingles = [];
         $openingSinglesAfterSingles = [];
         $pairedSingleClosesAfterSingles = [];
         $wordSpans = [];
@@ -1236,11 +1236,13 @@ class DjotToCarve
             if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
                 $closingSingles[$open + 1] = true;
                 if (($source[$open + 2] ?? '') === '"') {
+                    $doubleDirectionsAfterSingles[$open + 2] = '“';
                     for ($candidate = $open + 3; $candidate < $end - 1; $candidate++) {
                         if (($source[$candidate] ?? '') === '"' && ($mask[$candidate] ?? '') === '"' && !$this->isDjotEscaped($source, $candidate)) {
-                            $closingDoublesAfterSingles[$candidate] = true;
-
-                            break;
+                            $previous = $source[$candidate - 1];
+                            $doubleDirectionsAfterSingles[$candidate] = $previous === '"'
+                                ? ($doubleDirectionsAfterSingles[$candidate - 1] ?? '“')
+                                : (preg_match('/[\s(\[{\x27]$/uD', substr($source, 0, $candidate)) === 1 ? '“' : '”');
                         }
                     }
                 }
@@ -1284,8 +1286,7 @@ class DjotToCarve
                 . (isset($escape[$i]) ? '\\' : '')
                 . (isset($closingSingles[$i]) || isset($pairedSingleClosesAfterSingles[$i]) ? '’'
                     : (isset($openingSinglesAfterSingles[$i]) ? '‘'
-                        : (isset($closingDoublesAfterSingles[$i]) ? '”'
-                            : (isset($closingSingles[$i - 1]) && $source[$i] === '"' ? '“' : $source[$i]))))
+                        : ($doubleDirectionsAfterSingles[$i] ?? $source[$i])))
                 . (isset($forcedCloses[$i]) ? '}' : '') . (isset($wordSpanEnds[$i]) ? ']' : '');
         }
 
