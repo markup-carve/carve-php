@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter;
 
 use Closure;
+use LogicException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\Djot\Emphasis;
 use MarkupCarve\Carve\Converter\Djot\HeadingTargets;
@@ -586,6 +587,7 @@ class DjotToCarve
         });
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
         [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
+        $source = $this->preserveDjotClosingQuotesAfterSlash($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
         $carve = Emphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
@@ -1045,6 +1047,90 @@ class DjotToCarve
         $this->paragraphStarts[$from] = ['key' => $key, 'result' => $result];
 
         return $result;
+    }
+
+    private function preserveDjotClosingQuotesAfterSlash(string $source): string
+    {
+        if (!str_contains($source, '/"') && !str_contains($source, "/'")) {
+            return $source;
+        }
+
+        $masked = $this->djotEmphasisMask($source);
+        $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $masked, true), true);
+        $delimiterEnds = [];
+        foreach (Emphasis::pairedOpeners($source, $masked) as $open => $end) {
+            if (str_contains('_*~^=', $source[$open])) {
+                $delimiterEnds[$end - 1] = $open;
+            }
+        }
+        /** @var list<array{quote: string, at: int, previous: ?int}> $openers */
+        $openers = [];
+        /** @var array<string, ?int> $lastOpener */
+        $lastOpener = ['"' => null, "'" => null];
+        $brackets = [];
+        $edits = [];
+        $length = strlen($source);
+        for ($at = 0; $at < $length; $at++) {
+            if (isset($boundaries[$at])) {
+                $openers = [];
+                $lastOpener = ['"' => null, "'" => null];
+                $brackets = [];
+            }
+            $char = $source[$at];
+            if (isset($delimiterEnds[$at])) {
+                $discardAfter = $delimiterEnds[$at];
+                while ($openers !== [] && $openers[array_key_last($openers)]['at'] > $discardAfter) {
+                    $discarded = array_pop($openers);
+                    $lastOpener[$discarded['quote']] = $discarded['previous'];
+                }
+            }
+            if ($masked[$at] === $char && !$this->isDjotEscaped($source, $at)) {
+                if ($char === '[') {
+                    $brackets[] = $at;
+                } elseif ($char === ']' && $brackets !== []) {
+                    $discardAfter = array_pop($brackets);
+                    while ($openers !== [] && $openers[array_key_last($openers)]['at'] > $discardAfter) {
+                        $discarded = array_pop($openers);
+                        $lastOpener[$discarded['quote']] = $discarded['previous'];
+                    }
+                }
+            }
+            if (($char !== '"' && $char !== "'") || $masked[$at] !== $char || $this->isDjotEscaped($source, $at)) {
+                continue;
+            }
+            $before = $at > 0 ? $source[$at - 1] : '';
+            $after = $source[$at + 1] ?? '';
+            $match = $lastOpener[$char];
+            $opener = $match === null ? null : $openers[$match]['at'];
+            if ($opener !== null && $at > $opener + 1 && $before !== '' && !str_contains(" \t\r\n", $before)) {
+                if ($before === '/') {
+                    $edits[$opener] = $char === '"' ? '“' : '‘';
+                    $edits[$at] = $char === '"' ? '”' : '’';
+                }
+                for ($remaining = count($openers); $remaining > $match; $remaining--) {
+                    $discarded = array_pop($openers) ?? throw new LogicException('Missing quote opener');
+                    $lastOpener[$discarded['quote']] = $discarded['previous'];
+                }
+            } elseif ($opener === null && $before === '/') {
+                if ($char === '"') {
+                    $edits[$at] = '“';
+                    if ($after !== '' && !str_contains(" \t\r\n", $after)) {
+                        $openers[] = ['quote' => $char, 'at' => $at, 'previous' => $lastOpener[$char]];
+                        $lastOpener[$char] = count($openers) - 1;
+                    }
+                }
+            } elseif ($after !== '' && !str_contains(" \t\r\n", $after) && ($char === '"' || $before === '' || str_contains(" \t\r\n\"'-([", $before))) {
+                $openers[] = ['quote' => $char, 'at' => $at, 'previous' => $lastOpener[$char]];
+                $lastOpener[$char] = count($openers) - 1;
+            }
+        }
+
+        krsort($edits);
+        foreach ($edits as $at => $replacement) {
+            $source = substr_replace($source, $replacement, $at, 1);
+        }
+
+        return $source;
     }
 
     private function scanDjotCommentParagraph(string $source, int $start, string $key): bool
