@@ -2586,7 +2586,9 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return $item->isTask();
     }
 
-    // The compact spelling after a nested heading changes the tree on readback.
+    /**
+     * The compact spelling after a nested heading changes the tree on readback.
+     */
     private function nestedHeadingBeforeCodeFence(ListItem $item): bool
     {
         $children = $item->getChildren();
