@@ -43,112 +43,10 @@ final class Emphasis
 
             return $left ? self::before($source, $offset) : self::after($source, $offset);
         };
-        $runs = [];
-        $pairs = [];
-        $claimed = [];
-        $literalEscapes = [];
-        preg_match_all($strikethrough ? '/\*+|_+|~+/' : '/\*+|_+/', $source, $matches, PREG_OFFSET_CAPTURE);
-        foreach ($matches[0] as [$text, $start]) {
-            if ($text[0] === '~' && strlen($text) > 2) {
-                continue;
-            }
-            $end = $start + strlen($text);
-            if (($source[$start - 1] ?? '') === '\\' && $start > 0) {
-                continue;
-            }
-            preg_match('/.$/us', $neighbor($start, true), $beforeMatch);
-            preg_match('/^./us', $neighbor($end, false), $afterMatch);
-            $before = $beforeMatch[0] ?? '';
-            $after = $afterMatch[0] ?? '';
-            $beforeSpace = $before === '' || preg_match('/\s/u', $before);
-            $afterSpace = $after === '' || preg_match('/\s/u', $after);
-            $beforePunct = (bool)preg_match('/[\p{P}\p{S}]/u', $before);
-            $afterPunct = (bool)preg_match('/[\p{P}\p{S}]/u', $after);
-            $left = !$afterSpace && (!$afterPunct || $beforeSpace || $beforePunct);
-            $right = !$beforeSpace && (!$beforePunct || $afterSpace || $afterPunct);
-            $runs[] = new DelimiterRun(
-                $start,
-                $end,
-                $text[0],
-                $left && ($text[0] !== '_' || !$right || $beforePunct),
-                $right && ($text[0] !== '_' || !$left || $afterPunct),
-            );
-        }
+        $runs = self::delimiterRuns($source, $strikethrough, $neighbor);
         $brackets = self::bracketRuns($source, $protectedSpans);
-        foreach ($runs as $index => $run) {
-            $run->previous = $index - 1;
-            $run->next = $index + 1;
-            $run->scope = self::innermostLink($brackets, $run->start);
-        }
-        $unlink = static function (int $index) use ($runs, $onStep): void {
-            $onStep?->__invoke();
-            $run = $runs[$index];
-            if ($run->previous >= 0) {
-                $runs[$run->previous]->next = $run->next;
-            }
-            if ($run->next < count($runs)) {
-                $runs[$run->next]->previous = $run->previous;
-            }
-            $run->active = false;
-        };
-        $bottoms = [];
-        foreach (array_keys($runs) as $c) {
-            if (!$runs[$c]->active || !$runs[$c]->close) {
-                continue;
-            }
-            while ($runs[$c]->remaining() > 0) {
-                $closer = $runs[$c];
-                $key = $closer->char . ':' . (int)$closer->open . ':' . ($closer->remaining() % 3);
-                $bottom = $bottoms[$key] ?? -1;
-                for ($o = $closer->previous; $o > $bottom; $o = $runs[$o]->previous) {
-                    $onStep?->__invoke();
-                    $opener = $runs[$o];
-                    if (!$opener->active || !$opener->open || $opener->char !== $closer->char || $opener->remaining() === 0) {
-                        continue;
-                    }
-                    // NOT ACROSS A LINK LABEL. See DelimiterRun::$scope.
-                    if ($opener->scope !== $closer->scope) {
-                        continue;
-                    }
-                    $a = $opener->remaining();
-                    $b = $closer->remaining();
-                    if ($closer->char === '~' && $a !== $b) {
-                        continue;
-                    }
-                    if ($closer->char !== '~' && ($opener->close || $closer->open) && ($a + $b) % 3 === 0 && ($a % 3 !== 0 || $b % 3 !== 0)) {
-                        continue;
-                    }
-
-                    break;
-                }
-                if ($o <= $bottom) {
-                    $bottoms[$key] = $c - 1;
-
-                    break;
-                }
-                $width = min($runs[$o]->remaining(), $closer->remaining()) >= 2 ? 2 : 1;
-                $open = $runs[$o]->end - $runs[$o]->right - $width;
-                $pairs[$open] = ['close' => $closer->start + $closer->left, 'width' => $width, 'kind' => $closer->char === '~' ? '~' : ($width === 2 ? '*' : '/'), 'scope' => $closer->scope];
-                for ($k = 0; $k < $width; $k++) {
-                    $claimed[$open + $k] = true;
-                    $claimed[$closer->start + $closer->left + $k] = true;
-                }
-                $runs[$o]->right += $width;
-                $runs[$c]->left += $width;
-                $j = $runs[$o]->next;
-                while ($j !== $c) {
-                    $next = $runs[$j]->next;
-                    $unlink($j);
-                    $j = $next;
-                }
-                if ($runs[$o]->remaining() === 0) {
-                    $unlink($o);
-                }
-                if ($closer->remaining() === 0) {
-                    $unlink($c);
-                }
-            }
-        }
+        [$pairs, $claimed] = self::pairDelimiterRuns($runs, $brackets, $onStep);
+        $literalEscapes = [];
         if ($plainText) {
             $text = '';
             for ($i = 0, $length = strlen($source); $i < $length; $i++) {
@@ -334,6 +232,136 @@ final class Emphasis
         }
 
         return implode('', $output);
+    }
+
+    /**
+     * @param string $source
+     * @param bool $strikethrough
+     * @param \Closure(int, bool): string $neighbor
+     *
+     * @return list<\MarkupCarve\Carve\Converter\Markdown\DelimiterRun>
+     */
+    private static function delimiterRuns(string $source, bool $strikethrough, Closure $neighbor): array
+    {
+        $runs = [];
+        preg_match_all($strikethrough ? '/\*+|_+|~+/' : '/\*+|_+/', $source, $matches, PREG_OFFSET_CAPTURE);
+        foreach ($matches[0] as [$text, $start]) {
+            if ($text[0] === '~' && strlen($text) > 2) {
+                continue;
+            }
+            $end = $start + strlen($text);
+            if (($source[$start - 1] ?? '') === '\\' && $start > 0) {
+                continue;
+            }
+            preg_match('/.$/us', $neighbor($start, true), $beforeMatch);
+            preg_match('/^./us', $neighbor($end, false), $afterMatch);
+            $before = $beforeMatch[0] ?? '';
+            $after = $afterMatch[0] ?? '';
+            $beforeSpace = $before === '' || preg_match('/\s/u', $before);
+            $afterSpace = $after === '' || preg_match('/\s/u', $after);
+            $beforePunct = (bool)preg_match('/[\p{P}\p{S}]/u', $before);
+            $afterPunct = (bool)preg_match('/[\p{P}\p{S}]/u', $after);
+            $left = !$afterSpace && (!$afterPunct || $beforeSpace || $beforePunct);
+            $right = !$beforeSpace && (!$beforePunct || $afterSpace || $afterPunct);
+            $runs[] = new DelimiterRun(
+                $start,
+                $end,
+                $text[0],
+                $left && ($text[0] !== '_' || !$right || $beforePunct),
+                $right && ($text[0] !== '_' || !$left || $afterPunct),
+            );
+        }
+
+        return $runs;
+    }
+
+    /**
+     * @param list<\MarkupCarve\Carve\Converter\Markdown\DelimiterRun> $runs
+     * @param list<array{open: int, close: int, link: bool}> $brackets
+     * @param \Closure|null $onStep
+     *
+     * @return array{array<int, array{close: int, width: int, kind: string, scope: int, hostDepth?: int}>, array<int, true>}
+     */
+    private static function pairDelimiterRuns(array $runs, array $brackets, ?Closure $onStep): array
+    {
+        $pairs = [];
+        $claimed = [];
+        foreach ($runs as $index => $run) {
+            $run->previous = $index - 1;
+            $run->next = $index + 1;
+            $run->scope = self::innermostLink($brackets, $run->start);
+        }
+        $unlink = static function (int $index) use ($runs, $onStep): void {
+            $onStep?->__invoke();
+            $run = $runs[$index];
+            if ($run->previous >= 0) {
+                $runs[$run->previous]->next = $run->next;
+            }
+            if ($run->next < count($runs)) {
+                $runs[$run->next]->previous = $run->previous;
+            }
+            $run->active = false;
+        };
+        $bottoms = [];
+        foreach (array_keys($runs) as $c) {
+            if (!$runs[$c]->active || !$runs[$c]->close) {
+                continue;
+            }
+            while ($runs[$c]->remaining() > 0) {
+                $closer = $runs[$c];
+                $key = $closer->char . ':' . (int)$closer->open . ':' . ($closer->remaining() % 3);
+                $bottom = $bottoms[$key] ?? -1;
+                for ($o = $closer->previous; $o > $bottom; $o = $runs[$o]->previous) {
+                    $onStep?->__invoke();
+                    $opener = $runs[$o];
+                    if (!$opener->active || !$opener->open || $opener->char !== $closer->char || $opener->remaining() === 0) {
+                        continue;
+                    }
+                    // NOT ACROSS A LINK LABEL. See DelimiterRun::$scope.
+                    if ($opener->scope !== $closer->scope) {
+                        continue;
+                    }
+                    $a = $opener->remaining();
+                    $b = $closer->remaining();
+                    if ($closer->char === '~' && $a !== $b) {
+                        continue;
+                    }
+                    if ($closer->char !== '~' && ($opener->close || $closer->open) && ($a + $b) % 3 === 0 && ($a % 3 !== 0 || $b % 3 !== 0)) {
+                        continue;
+                    }
+
+                    break;
+                }
+                if ($o <= $bottom) {
+                    $bottoms[$key] = $c - 1;
+
+                    break;
+                }
+                $width = min($runs[$o]->remaining(), $closer->remaining()) >= 2 ? 2 : 1;
+                $open = $runs[$o]->end - $runs[$o]->right - $width;
+                $pairs[$open] = ['close' => $closer->start + $closer->left, 'width' => $width, 'kind' => $closer->char === '~' ? '~' : ($width === 2 ? '*' : '/'), 'scope' => $closer->scope];
+                for ($k = 0; $k < $width; $k++) {
+                    $claimed[$open + $k] = true;
+                    $claimed[$closer->start + $closer->left + $k] = true;
+                }
+                $runs[$o]->right += $width;
+                $runs[$c]->left += $width;
+                $j = $runs[$o]->next;
+                while ($j !== $c) {
+                    $next = $runs[$j]->next;
+                    $unlink($j);
+                    $j = $next;
+                }
+                if ($runs[$o]->remaining() === 0) {
+                    $unlink($o);
+                }
+                if ($closer->remaining() === 0) {
+                    $unlink($c);
+                }
+            }
+        }
+
+        return [$pairs, $claimed];
     }
 
     /**
