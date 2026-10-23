@@ -17,7 +17,7 @@ class DjotQuoteEmphasisBoundaryTest extends TestCase
     public static function cases(): iterable
     {
         yield 'slash inside quoted emphasis' => ["_'a/'_", '<p><em>’a/’</em></p>'];
-        yield 'isolated quote after emphasis opener' => ["_'_", '<p><em>‘</em></p>'];
+        yield 'isolated quote after emphasis opener' => ["_'_", '<p><em>’</em></p>'];
         yield 'slash before closing quote' => ["x _a/'_ y", '<p>x <em>a/’</em> y</p>'];
         yield 'crossing quote and emphasis' => ['"a _b/" c_', '<p>“a _b/” c_</p>'];
         yield 'slash within paired quotes' => ["_'a/b'_", '<p><em>’a/b’</em></p>'];

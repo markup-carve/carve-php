@@ -1230,11 +1230,7 @@ class DjotToCarve
                     }
                 }
             }
-            if (
-                str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'"
-                && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])
-                && preg_match('/^[\p{L}\p{N}]/u', substr($source, $open + 2)) === 1
-            ) {
+            if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
                 $closingSingles[$open + 1] = true;
             }
         }
