@@ -37,6 +37,8 @@ class DjotQuoteEmphasisBoundaryTest extends TestCase
         yield 'subscript before attributed closer' => ['"a _b" ~c~_{.x}', '<p>“a _b” <sub>c</sub><span class="x">_</span></p>'];
         yield 'doubled closer opens later emphasis' => ['"a _b" c__ d_', '<p>“a _b” c<em>_ d</em></p>'];
         yield 'attributed closer opens later emphasis' => ['"a _b" c_{.x} d_', '<p>“a _b” c<em> d</em></p>'];
+        yield 'later crossing closes forced emphasis' => ['"a _b" c_{.x} "d _e" f_{.y}', '<p>“a _b” c<em class="y"> “d _e” f</em></p>'];
+        yield 'doubled closer drops opener attribute' => ['"a _b" c__{.x} d_', '<p>“a _b” c_<em> d</em></p>'];
     }
 
     #[DataProvider('cases')]

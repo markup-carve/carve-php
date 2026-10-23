@@ -1176,6 +1176,9 @@ class DjotToCarve
                 }
                 if (($source[$close] ?? '') === $source[$open]) {
                     $escape[$open] = true;
+                    if (isset($forcedCloses[$close])) {
+                        continue;
+                    }
                     if (isset($withQuotes[$close])) {
                         $attribute = ($source[$end] ?? '') === '{' ? $this->readDjotWordAttributes($source, $end) : null;
                         if ($attribute !== null) {
@@ -1187,6 +1190,14 @@ class DjotToCarve
                         continue;
                     }
                     $escape[$close] = true;
+                    if (($source[$end] ?? '') === $source[$open] && isset($withQuotes[$end])) {
+                        $attribute = ($source[$end + 1] ?? '') === '{' ? $this->readDjotWordAttributes($source, $end + 1) : null;
+                        if ($attribute !== null) {
+                            $droppedAttributes[$end + 1] = $attribute['end'];
+                            $forcedOpens[$end] = true;
+                            $forcedCloses[$withQuotes[$end] - 1] = true;
+                        }
+                    }
                     $attributeAt = $end;
                     $extraDelimiters = [];
                     while (str_contains('_*', $source[$attributeAt] ?? ' ') && !isset($withQuotes[$attributeAt])) {
