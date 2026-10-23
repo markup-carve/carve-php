@@ -1007,6 +1007,18 @@ class CliTest extends TestCase
         $this->assertSame("::: list-table\n- - a\n\n    b\n:::\n", $result['out']);
     }
 
+    public function testDjotPhpMigrationFlag(): void
+    {
+        $source = "::: tip Live sandbox\nbody\n:::\n";
+        $result = $this->runCliInput(['migrate', '--from', 'djot', '--djot-php'], $source);
+
+        $this->assertSame(0, $result['exit']);
+        $this->assertSame("::: tip \"Live sandbox\"\nbody\n:::\n", $result['out']);
+
+        $invalid = $this->runCliInput(['migrate', '--from', 'markdown', '--djot-php'], 'body');
+        $this->assertSame(2, $invalid['exit']);
+    }
+
     /**
      * @return array<string, array{list<string>, string}>
      */

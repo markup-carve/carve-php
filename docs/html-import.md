@@ -300,8 +300,12 @@ as `carve migrate --from markdown|djot|bbcode`:
 ~~~ bash
 carve migrate --from markdown README.md > README.crv
 carve migrate --from djot notes.dj
+carve migrate --from djot --djot-php blog.dj
 cat post.txt | carve migrate --from bbcode
 ~~~
+
+Use `--djot-php` for djot-php's unquoted admonition titles and labeled code
+fences. In PHP, pass `djotPhpExtensions: true` to `new DjotToCarve()`.
 
 `--mode` and `--adapter` are HTML-only. `--report` and `--check-loss` apply to
 every importer; Markdown, Djot and BBCode fail closed until they provide

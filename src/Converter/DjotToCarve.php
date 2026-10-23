@@ -83,6 +83,10 @@ class DjotToCarve
 
     private bool $nulShielded = false;
 
+    public function __construct(private bool $djotPhpExtensions = false)
+    {
+    }
+
     private string $paragraphContextSource = '';
 
     /**
@@ -2102,12 +2106,65 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $mask = null;
         $boundaries = null;
+        $insideDiv = [];
+        if ($this->djotPhpExtensions) {
+            $mask = $this->maskCodeAndDestinations($source);
+            $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+            $divParser = new FencedBlockParser();
+            $openDivs = [];
+            $scanOffset = 0;
+            foreach ($lines as $lineIndex => $sourceLine) {
+                [$quoteDepth] = $this->quoted($sourceLine);
+                while ($openDivs !== [] && $openDivs[array_key_last($openDivs)]['quoteDepth'] > $quoteDepth) {
+                    array_pop($openDivs);
+                }
+                $insideDiv[$lineIndex] = $openDivs !== [];
+                $contentAt = $this->djotContentStart($sourceLine);
+                $content = substr($sourceLine, $contentAt);
+                $visible = ($mask[$scanOffset + $contentAt] ?? '') === ':';
+                $blockStart = isset($boundaries[$scanOffset]) || $lineIndex === 0 || trim($lines[$lineIndex - 1]) === '';
+                $scanOffset += strlen($sourceLine) + 1;
+                if (!$visible) {
+                    continue;
+                }
+                $opener = $divParser->parseDivFenceOpener($content);
+                if ($opener === null) {
+                    continue;
+                }
+                $closed = false;
+                if (trim(substr($content, $opener['length'])) === '') {
+                    for ($openIndex = count($openDivs) - 1; $openIndex >= 0; $openIndex--) {
+                        if ($openDivs[$openIndex]['quoteDepth'] < $quoteDepth) {
+                            break;
+                        }
+                        if ($opener['length'] >= $openDivs[$openIndex]['width']) {
+                            $openDivs = array_slice($openDivs, 0, $openIndex);
+                            $closed = true;
+
+                            break;
+                        }
+                    }
+                }
+                if (!$closed && $blockStart) {
+                    $openDivs[] = ['width' => $opener['length'], 'quoteDepth' => $quoteDepth];
+                }
+            }
+        }
         $offset = 0;
         foreach ($lines as $index => $line) {
             $start = $offset;
             $offset += strlen($line) + 1;
             $at = $this->djotContentStart($line);
             $prefix = substr($line, 0, $at);
+            if ($this->djotPhpExtensions && !($insideDiv[$index] ?? false) && preg_match('/^(:{3,})[ \t]+(note|tip|warning|danger|info|success|example|quote)[ \t]+([^"\[\]{}\r\n]+)$/', substr($line, $at), $title) === 1) {
+                $mask ??= $this->maskCodeAndDestinations($source);
+                $boundaries ??= array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+                if (($mask[$start + $at] ?? '') === ':' && isset($boundaries[$start])) {
+                    $lines[$index] = $prefix . $title[1] . ' ' . $title[2] . ' "' . rtrim($title[3]) . '"';
+
+                    continue;
+                }
+            }
             if ((str_contains(substr($line, $at), '{') || str_contains(substr($line, $at), '\\')) && preg_match('/^:{3,}[ \t]*(?:[A-Za-z0-9_-]|\\\\[_-])+/', substr($line, $at)) === 1 && preg_match('/^:{3,}[ \t]*[A-Za-z0-9_-]+[ \t]*\r?$/', substr($line, $at)) !== 1) {
                 $mask ??= $this->maskCodeAndDestinations($source);
                 if (($mask[$start + $at] ?? '') === ':') {
@@ -3556,7 +3613,8 @@ class DjotToCarve
     ): string {
         // Stage 1: fenced blocks, line by line.
         $lines = explode("\n", $source);
-        $fenceOpener = '/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|(?:(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*[ \t]*$/';
+        $label = $this->djotPhpExtensions ? '(?:[ \t]+\[[^\]\n]+\])?' : '';
+        $fenceOpener = '/^([ \t]*)(?:(\[\^[^\]\n]+\]:[ \t]*|[-*+][ \t]+(?:\[[ xX]\][ \t]+)?|(?:(?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)[.)]|\((?:[0-9]+|[A-Za-z]|[ivxlcdm]+|[IVXLCDM]+)\)|:)[ \t]+))?(`{3,}|~{3,})[ \t]*=?[A-Za-z0-9_+#.-]*' . $label . '[ \t]*$/';
         $heldFence = null;
         $previousBlock = true;
         $normalizeBoundary = true;
@@ -3783,10 +3841,11 @@ class DjotToCarve
 
                 continue;
             }
-            if (preg_match('/^([ \t]*)(?::[ \t]+)?(`{3,}|~{3,})[ \t]*=?[a-zA-Z0-9_+#.-]*[ \t]*$/', $content, $open)) {
-                $fenceChar = $open[2][0];
-                $fenceLen = strlen($open[2]);
-                $fenceContainer = str_contains($content, ':') ? strlen($open[1]) + 2 : null;
+            $label = $this->djotPhpExtensions ? '(?:[ \t]+\[[^\]\n]+\])?' : '';
+            if (preg_match('/^([ \t]*)(:[ \t]+)?(`{3,}|~{3,})[ \t]*=?[a-zA-Z0-9_+#.-]*' . $label . '[ \t]*$/', $content, $open)) {
+                $fenceChar = $open[3][0];
+                $fenceLen = strlen($open[3]);
+                $fenceContainer = $open[2] !== '' ? strlen($open[1]) + strlen($open[2]) : null;
                 $fenceIndent = $fenceContainer ?? max(3, strlen($open[1]));
                 $fenced[$i] = true;
 
@@ -4696,7 +4755,7 @@ class DjotToCarve
                     $codeFence = ['ch' => $ticks[1][0], 'width' => strlen($ticks[1]), 'depth' => $bodyDepth, 'itemColumn' => $startsItem ? $indent + strlen($marker[0]) : (($active !== null && $depth === $active['depth'] && $indent >= $active['column']) ? $active['column'] : null)];
                     $previousBlock = false;
                 } else {
-                    preg_match('/^(:{3,})(?:[ \t]*[A-Za-z0-9_-]+)?[ \t]*$/', $body, $fence);
+                    preg_match('/^(:{3,})(?:[ \t]*[A-Za-z0-9_-]+(?:[ \t]+"[^"\r\n]*")?)?[ \t]*$/', $body, $fence);
                     $owner = $divs !== [] ? $divs[array_key_last($divs)] : null;
                     $visible = ($mask[$offset + strlen($line) - strlen($body)] ?? '') === ':';
                     if (
@@ -6868,7 +6927,8 @@ class DjotToCarve
 
                     continue;
                 }
-                if (preg_match('/^(`{3,}|~{3,})[ \t]*=?[a-zA-Z0-9_+#.-]*$/', substr($line, $at), $opening) === 1 && ($previousBlock || $item)) {
+                $label = $this->djotPhpExtensions ? '(?:[ \t]+\[[^\]\n]+\])?' : '';
+                if (preg_match('/^(`{3,}|~{3,})[ \t]*=?[a-zA-Z0-9_+#.-]*' . $label . '$/', substr($line, $at), $opening) === 1 && ($previousBlock || $item)) {
                     if (!$item && ($depth < $itemQuote || ($depth === $itemQuote && $indent < $itemColumn))) {
                         $itemColumn = $indent;
                         $itemQuote = $depth;
