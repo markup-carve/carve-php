@@ -204,13 +204,16 @@ class DjotToCarve
         }
         $token = "\0U\0";
 
-        $converted = str_replace($token, "\0", $this->convertDocument(str_replace("\0", $token, $djot), false));
-        if ($this->headingIdSource !== null) {
+        $originalSource = $this->headingIdSource;
+        if ($originalSource !== null) {
             [, , $body] = $this->splitSiteFrontmatter($this->stripFootnoteDefinitionAttributes($djot)['source']);
-            $converted = $this->applyHeadingIdPreservation($converted, $body);
+            $this->headingIdSource = new MapIds($originalSource->idsInOrder($body));
         }
-
-        return $converted;
+        try {
+            return str_replace($token, "\0", $this->convertDocument(str_replace("\0", $token, $djot)));
+        } finally {
+            $this->headingIdSource = $originalSource;
+        }
     }
 
     private function djotImageChainCharacter(string $source, int $at): string
