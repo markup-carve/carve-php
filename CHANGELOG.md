@@ -12,7 +12,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ## [0.1.14] - 2026-10-22
 
 ### Fixes
-- A quote `+` attaches an attribute-led or unclosed-fence follower whole, a stacked list `+` refuses a follower left of its innermost content column, a hosted stacked quote `+` attaches after a sibling item's lazy line, and a wrapped attribute folds below the column, loosens a list after a blank and ends the outer item from a nested item (#PRNUM, markup-carve/carve#3421).
+- A quote `+` attaches an attribute-led or unclosed-fence follower whole, a stacked list `+` refuses a follower left of its innermost content column, a hosted stacked quote `+` attaches after a sibling item's lazy line, and a wrapped attribute folds below the column, loosens a list after a blank and ends the outer item from a nested item (#3751, markup-carve/carve#3421).
 - A wrapped block attribute below a container reads like its one-line form, a stacked quote `+` takes a follower only at column 0, its line's column or the owning quote's column (any non-list block at column 0 inside a host quote), and lint reports a document-level `+` before a block (#3749, markup-carve/carve#3421).
 - Lint no longer reports `continuation-marker-refused` for a stacked `- > +` whose block starts at the column of an opener on that line, which the parser already attaches (markup-carve/carve#3421).
 - A quote-prefixed `+` needs one space after each `>`: `>+`, `>>+` and `>> +` read as text, and a `> +` attaches a following quote to the item, description, note or inner quote at its column (#3725; markup-carve/carve#3421).
