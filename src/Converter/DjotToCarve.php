@@ -649,6 +649,9 @@ class DjotToCarve
     }
 
     /**
+     * @param string $carve
+     * @param string $source
+     * @param string|null $reservationCarve
      * @param array<int, list<string>> $reservedBeforeHeading
      */
     private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null, array $reservedBeforeHeading = []): string

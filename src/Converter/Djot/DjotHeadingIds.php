@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Converter\Djot;
 
-use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\Footnote;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
@@ -15,6 +15,7 @@ final class DjotHeadingIds
     /**
      * @param string $carve
      * @param array<int, list<string>> $reservedBeforeHeading
+     * @param bool $pinnableOnly
      *
      * @return array{list<string>, list<string>} Djot ids and Carve ids in document order
      */
@@ -41,8 +42,13 @@ final class DjotHeadingIds
             $left = $a['node']->getPos();
             $right = $b['node']->getPos();
 
-            return $left->startLine <=> $right->startLine
-                ?: $left->startColumn <=> $right->startColumn
+            $leftLine = $left === null ? PHP_INT_MAX : $left->startLine;
+            $rightLine = $right === null ? PHP_INT_MAX : $right->startLine;
+            $leftColumn = $left === null ? PHP_INT_MAX : $left->startColumn;
+            $rightColumn = $right === null ? PHP_INT_MAX : $right->startColumn;
+
+            return $leftLine <=> $rightLine
+                ?: $leftColumn <=> $rightColumn
                 ?: $a['order'] <=> $b['order'];
         });
         $headingIndex = 0;
@@ -57,7 +63,8 @@ final class DjotHeadingIds
                 foreach ($reservedBeforeHeading[$headingIndex++] ?? [] as $reservedId) {
                     $used[$reservedId] = true;
                 }
-                $line = $lines[$node->getPos()->startLine - 1] ?? '';
+                $position = $node->getPos();
+                $line = $position === null ? '' : ($lines[$position->startLine - 1] ?? '');
                 if ($pinnableOnly && preg_match('/^\[\^[^\]\n]+\]:[ \t]*#{1,6}[ \t]/', $line) === 1) {
                     $unpinable[] = count($carveIds);
                 }
