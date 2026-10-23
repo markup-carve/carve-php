@@ -12,6 +12,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ## [0.1.14] - 2026-10-22
 
 ### Fixes
+- A wrapped block attribute below a container reads like its one-line form, a stacked quote `+` takes a follower only at column 0, its line's column or the owning quote's column (any non-list block at column 0 inside a host quote), and lint reports a document-level `+` before a block (#3749, markup-carve/carve#3421).
 - Lint no longer reports `continuation-marker-refused` for a stacked `- > +` whose block starts at the column of an opener on that line, which the parser already attaches (markup-carve/carve#3421).
 - A quote-prefixed `+` needs one space after each `>`: `>+`, `>>+` and `>> +` read as text, and a `> +` attaches a following quote to the item, description, note or inner quote at its column (#3725; markup-carve/carve#3421).
 - Borrowed HTML keeps Unicode letters and inline markup after inactive extensions register. Autolink fallbacks, link-label parentheses and brackets, angle destinations, bare URLs, paragraph links with pipes, and fixed smart symbols now keep their intended text (#3579, #3581, #3584, #3608, #3612, #3628, #3699).
