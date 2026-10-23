@@ -636,6 +636,7 @@ final class ListBlockBuilder
                 && (($this->getListParser)()->parseListItemMarker($itemContent) !== null || str_starts_with($itemContent, '>'))
                 && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])
                 && $this->continuationMarkerHasIndentedFollower($i, $count, $lines) === false
+                && !$this->stackedListFollowerRefused($listItemSourceLine, $i)
             ) {
                 [$i, $attached, $attachedLineMap] = $this->followerKeepsQuoteDepth($listItemSourceLine, $i)
                     ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent)
@@ -659,10 +660,11 @@ final class ListBlockBuilder
                 // the ordinary collector below is what owns it. The marker is
                 // consumed either way - it is never content - so the fall-
                 // through carries an EMPTY lead rather than a literal `+`.
-                [$i, $attached, $attachedLineMap] = $this->followerKeepsQuoteDepth($listItemSourceLine, $i)
+                $stackedRefused = $this->stackedListFollowerRefused($listItemSourceLine, $i);
+                [$i, $attached, $attachedLineMap] = $this->followerKeepsQuoteDepth($listItemSourceLine, $i) && !$stackedRefused
                     ? $this->collectListContinuationBlock($lines, $i, $count, $baseIndent)
                     : [$i, [], []];
-                $fallsThrough = $attached === []
+                $fallsThrough = $attached === [] && !$stackedRefused
                     && $this->continuationMarkerHasIndentedFollower($i, $count, $lines)
                     && IndentationHelper::getLeadingColumns($lines[$i] ?? '', $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo) + 1)
                         >= $baseIndent + $this->listMarkerWidth($trimmedLine, $itemInfo);
@@ -1144,10 +1146,19 @@ final class ListBlockBuilder
                 max($subIndent, $baseIndent) + 1,
             );
             // A wrapped attribute opened at the content column is one construct: its later lines sit at any column (carve#3421).
-            $wrappedLength = $lineIndent === $subIndent && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv()
-                && $subOpenCommentLength === null
-                ? $this->wrappedAttributeRunLength($lines, $i, $count)
-                : null;
+            $wrappedLength = null;
+            if (str_starts_with(ltrim($subLine, " \t"), '{')) {
+                $subMarker = $subListMarkerLine === null ? null : ($this->getListParser)()->parseListItemMarker(ltrim($subListMarkerLine, " \t"));
+                $nestedContentColumn = $subMarker === null ? null
+                    : $subIndent + IndentationHelper::getLeadingColumns($subListMarkerLine) + $this->listMarkerWidth(ltrim($subListMarkerLine, " \t"), $subMarker);
+                // At a nested item's content column it is one construct for the outer item too (corpus 653-6).
+                $wrappedLength = ($lineIndent === $subIndent
+                        || $nestedContentColumn !== null && IndentationHelper::getLeadingColumns($subLine, $nestedContentColumn + 1) === $nestedContentColumn)
+                    && $subTrailingState->fence === null && !$subTrailingState->hasOpenDiv()
+                    && $subOpenCommentLength === null
+                    ? $this->wrappedAttributeRunLength($lines, $i, $count)
+                    : null;
+            }
             if ($wrappedLength !== null) {
                 for ($end = $i + $wrappedLength; $i < $end; $i++) {
                     $subLines[] = IndentationHelper::getLeadingColumns($lines[$i], $subIndent + 1) >= $subIndent
@@ -2480,6 +2491,26 @@ final class ListBlockBuilder
         $decision = $this->state->session->continuationMarkerDecision($this->state->source, ($this->getListParser)(), $this->sourceLineFor($index));
 
         return $decision['column'] >= 0 && $decision['reason'] !== null;
+    }
+
+    /**
+     * A stacked list `+` (`- - +`) takes a follower only at column 0 or its line's own column (carve#3421 item 5).
+     */
+    private function stackedListFollowerRefused(int $openerSourceLine, int $followerIndex): bool
+    {
+        $opener = (string)preg_replace('/^(?:> )+/', '', $this->state->source->sourceLines[$openerSourceLine] ?? '');
+        if (preg_match('/^[ \t]*(?:(?:[-*] (?:\[[ xX]\] )?|(?:[0-9]+|[ivxlcdm]+|[IVXLCDM]+|[a-z]|[A-Z])[.)] )){2,}\+[ \t]*$/', $opener) !== 1) {
+            return false;
+        }
+        $follower = (string)preg_replace('/^(?:> )+/', '', $this->state->source->sourceLines[$this->sourceLineFor($followerIndex)] ?? '');
+        if (IndentationHelper::isBlankLine($follower)) {
+            return false;
+        }
+        $column = IndentationHelper::getLeadingColumns($follower);
+
+        // At or past the innermost item's content column the line is that item's own content.
+        return $column !== 0 && $column !== IndentationHelper::getLeadingColumns($opener)
+            && $column < ContinuationMarkerClassifier::columnAt($opener, (int)strrpos($opener, '+'));
     }
 
     private function followerKeepsQuoteDepth(int $openerSourceLine, int $followerIndex): bool

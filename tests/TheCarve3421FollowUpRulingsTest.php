@@ -37,6 +37,15 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'hosted heading after a sibling heading' => ["> - a\n> # t\n> - > +\n# h\n", '<blockquote><ul><li>a</li></ul><h1 id="t">t</h1><ul><li><blockquote><h1 id="h">h</h1></blockquote></li></ul></blockquote>'];
         yield 'hosted list follower folds' => ["> - - > +\n- s\n", '<blockquote><ul><li><ul><li><blockquote><p>+- s</p></blockquote></li></ul></li></ul></blockquote>'];
 
+        yield 'wrapped attribute in a nested item' => ["- a\n  - b\n    {.c\n}\npara\n", '<ul><li>a<ul><li>b</li></ul></li></ul><p>para</p>'];
+        yield 'wrapped attribute below the column folds' => ["- a\n {.c\n}\npara\n", '<ul><li>a{.c}para</li></ul>'];
+        yield 'dangling wrapped attribute loosens' => ["- a\n\n  {.c\n}\n- s\n", '<ul><li><p>a</p></li><li><p>s</p></li></ul>'];
+        yield 'attribute follower of a quote plus' => ["> +\n{.c}\npara\n", '<blockquote><p class="c">para</p></blockquote>'];
+        yield 'unclosed fence follower of a quote plus' => ["> +\n```\nx\n\ny\n", '<blockquote><pre><code>x</code></pre></blockquote><p>y</p>'];
+        yield 'stacked list plus at an inner column' => ["- - +\n  # h\n", '<ul><li><ul><li></li></ul><h1 id="h">h</h1></li></ul>'];
+        yield 'hosted heading after a lazy item line' => ["> - a\n> b\n> - > +\n# h\n", '<blockquote><ul><li>ab</li><li><blockquote><h1 id="h">h</h1></blockquote></li></ul></blockquote>'];
+        yield 'opener folded under a heading item stays text' => ["> - # a\n> b\n> - > +\n# h\n", '<blockquote><ul><li><h1 id="a">a</h1></li></ul><p>b- &gt; +</p></blockquote><section id="h"><h1>h</h1></section>'];
+
         // Ruling 4: the owning quote's column stays eligible.
         yield 'owning quote column' => ["- > > +\n    b\n", '<ul><li><blockquote><blockquote><p>b</p></blockquote></blockquote></li></ul>'];
     }
