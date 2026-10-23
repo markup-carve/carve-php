@@ -4766,6 +4766,40 @@ class DjotToCarve
         return $label;
     }
 
+    private static function trimDjotDestinationPadding(string $destination): string
+    {
+        // A browser ignores edge spaces in Djot's href, but Carve would encode them.
+        // Djot unescapes backslash-space; backslash-tab keeps the backslash.
+        while ($destination !== '') {
+            $first = $destination[0];
+            if ($first === ' ' || $first === "\t") {
+                $destination = substr($destination, 1);
+            } elseif ($first === '\\' && ($destination[1] ?? '') === ' ') {
+                $destination = substr($destination, 2);
+            } else {
+                break;
+            }
+        }
+        while ($destination !== '') {
+            $last = strlen($destination) - 1;
+            if ($destination[$last] !== ' ' && $destination[$last] !== "\t") {
+                break;
+            }
+            if ($destination[$last] === "\t") {
+                $destination = substr($destination, 0, $last);
+
+                continue;
+            }
+            $slashes = 0;
+            for ($at = $last - 1; $at >= 0 && $destination[$at] === '\\'; $at--) {
+                $slashes++;
+            }
+            $destination = substr($destination, 0, $last - ($slashes % 2));
+        }
+
+        return $destination;
+    }
+
     /**
      * @param string $source
      * @param array<string, true> $inherited
@@ -4988,6 +5022,7 @@ class DjotToCarve
                 }
             }
             $destination = $this->djotDestinationLines($rawDestination, $owner['depth']);
+            $destination = self::trimDjotDestinationPadding($destination);
             if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && !str_contains($authoredLabel, "\n") && str_contains($label, '[')) {
                 $altDefinitions = [];
                 preg_match_all('/\[(carve-djot-pipe-target-[0-9]+)\]/', $label, $altAliases);

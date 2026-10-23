@@ -89,4 +89,31 @@ class DjotDestinationBoundariesTest extends TestCase
             self::assertSame($expected, (new DjotToCarve())->convert($source));
         }
     }
+
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function paddedDestinationProvider(): iterable
+    {
+        yield 'leading space in absolute link' => ['[x]( https://example.org/x)', '<p><a href="https://example.org/x">x</a></p>'];
+        yield 'leading tab in absolute link' => ["[x](\thttps://example.org/x)", '<p><a href="https://example.org/x">x</a></p>'];
+        yield 'escaped leading space in absolute link' => ['[x](\ https://example.org/x)', '<p><a href="https://example.org/x">x</a></p>'];
+        yield 'trailing space in absolute link' => ['[x](https://example.org/x )', '<p><a href="https://example.org/x">x</a></p>'];
+        yield 'escaped trailing space in absolute link' => ['[x](https://example.org/x\ )', '<p><a href="https://example.org/x">x</a></p>'];
+        yield 'even backslashes before trailing space' => ['[x](a\\\\ )', '<p><a href="a\\">x</a></p>'];
+        yield 'odd backslashes before trailing space' => ['[x](a' . str_repeat('\\', 3) . ' )', '<p><a href="a\\">x</a></p>'];
+        yield 'backslash before trailing tab stays literal' => ["[x](a\\\t)", '<p><a href="a\\">x</a></p>'];
+        yield 'padding after a line break' => ["[x](\n https://example.org/x )", '<p><a href="https://example.org/x">x</a></p>'];
+        yield 'whitespace-only destination' => ['[x]( )', '<p><a href="">x</a></p>'];
+        yield 'leading space in image' => ['![x]( /logo.svg)', '<p><img src="/logo.svg" alt="x"></p>'];
+        yield 'internal space remains in target' => ['[x]( https://example.org/a b )', '<p><a href="https://example.org/a%20b">x</a></p>'];
+    }
+
+    #[DataProvider('paddedDestinationProvider')]
+    public function testDestinationPaddingKeepsTheResolvedUrl(string $source, string $expectedHtml): void
+    {
+        $carve = (new DjotToCarve())->convert($source);
+
+        self::assertSame($expectedHtml, trim((new CarveConverter())->convert($carve)));
+    }
 }
