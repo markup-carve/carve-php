@@ -41,8 +41,8 @@ final class DjotHeadingIds
             $left = $a['node']->getPos();
             $right = $b['node']->getPos();
 
-            return ($left?->startLine ?? PHP_INT_MAX) <=> ($right?->startLine ?? PHP_INT_MAX)
-                ?: ($left?->startColumn ?? PHP_INT_MAX) <=> ($right?->startColumn ?? PHP_INT_MAX)
+            return $left->startLine <=> $right->startLine
+                ?: $left->startColumn <=> $right->startColumn
                 ?: $a['order'] <=> $b['order'];
         });
         $headingIndex = 0;
@@ -57,7 +57,7 @@ final class DjotHeadingIds
                 foreach ($reservedBeforeHeading[$headingIndex++] ?? [] as $reservedId) {
                     $used[$reservedId] = true;
                 }
-                $line = $lines[($node->getPos()?->startLine ?? 1) - 1] ?? '';
+                $line = $lines[$node->getPos()->startLine - 1] ?? '';
                 if ($pinnableOnly && preg_match('/^\[\^[^\]\n]+\]:[ \t]*#{1,6}[ \t]/', $line) === 1) {
                     $unpinable[] = count($carveIds);
                 }
