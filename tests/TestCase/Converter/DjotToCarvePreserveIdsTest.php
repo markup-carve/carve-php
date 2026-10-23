@@ -112,6 +112,78 @@ class DjotToCarvePreserveIdsTest extends TestCase
         $this->assertContains('Setup-2', $ids);
     }
 
+    public function testDefaultImportKeepsDjotIdsForPunctuationAndDuplicates(): void
+    {
+        $source = "### PHP\n\ntext\n\n#### PHP:\n\ntext\n\n### PHP\n";
+        $out = (new DjotToCarve())->convert($source);
+
+        $this->assertSame(['PHP', 'PHP:', 'PHP-1'], $this->carveIds($out));
+        $this->assertStringContainsString('{id="PHP:"}', $out);
+        $this->assertStringContainsString('{#PHP-1}', $out);
+    }
+
+    public function testDefaultImportKeepsExplicitHeadingId(): void
+    {
+        $out = (new DjotToCarve())->convert("{#manual}\n# Hello World\n\n# Hello World");
+
+        $this->assertSame(['manual', 'Hello-World'], $this->carveIds($out));
+        $this->assertSame(1, substr_count($out, '{#manual}'));
+    }
+
+    public function testDefaultImportSkipsHeadingTextInsideFence(): void
+    {
+        $source = "```\n# PHP\n```\n\n# PHP\n\n# PHP\n";
+        $out = (new DjotToCarve())->convert($source);
+
+        $this->assertSame(['PHP', 'PHP-1'], $this->carveIds($out));
+    }
+
+    public function testDefaultImportKeepsIdInsideMixedAttributes(): void
+    {
+        $out = (new DjotToCarve())->convert("{.c #x}\n# Hello\n\n# Hello");
+
+        $this->assertSame(['x', 'Hello'], $this->carveIds($out));
+    }
+
+    public function testDefaultImportKeepsStackedExplicitId(): void
+    {
+        $out = (new DjotToCarve())->convert("{#a}\n{.b}\n# T\n\n# T");
+
+        $this->assertSame(['a', 'T'], $this->carveIds($out));
+    }
+
+    public function testDefaultImportKeepsHeadingOrderWithFootnotes(): void
+    {
+        $source = "x[^n]\n\n[^n]: para\n\n  # A\n\n# A\n\n# B";
+        $out = (new DjotToCarve())->convert($source);
+
+        $this->assertStringNotContainsString("{#A-1}\n# B", $out);
+    }
+
+    public function testSimpleHeadingsAfterApostropheAndUnderscoreKeepDjotIds(): void
+    {
+        $converter = new DjotToCarve();
+
+        $this->assertSame(["A'", 'A'], $this->carveIds($converter->convert("# A'\n\n# A")));
+        $this->assertSame(['a_b', 'a-b'], $this->carveIds($converter->convert("# a_b\n\n# a b")));
+    }
+
+    public function testExplicitIdsOnOtherElementsReserveHeadingSuffixes(): void
+    {
+        $converter = new DjotToCarve();
+
+        $this->assertSame(['PHP-1'], $this->carveIds($converter->convert("{#PHP}\npara\n\n# PHP")));
+        $this->assertSame(['PHP-1'], $this->carveIds($converter->convert("[x]{#PHP}\n\n# PHP")));
+        $this->assertSame(['A', 'A-2'], $this->carveIds($converter->convert("# A\n\n{#A-1}\npara\n\n# A")));
+    }
+
+    public function testIdTextInsideFenceDoesNotReserveHeadingSuffix(): void
+    {
+        $out = (new DjotToCarve())->convert("```\n{#PHP}\n```\n\n# PHP");
+
+        $this->assertSame(['PHP'], $this->carveIds($out));
+    }
+
     public function testEmptyLiveIdLeavesHeadingUntouched(): void
     {
         $djot = "# Hello World\n";

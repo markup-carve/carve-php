@@ -15,6 +15,8 @@ use MarkupCarve\Carve\Converter\Djot\NormalizesStructure;
 use MarkupCarve\Carve\Converter\Djot\PlaceholderPrefix;
 use MarkupCarve\Carve\Converter\Djot\ReportsLosses;
 use MarkupCarve\Carve\Converter\Djot\TightDefinitionDescriptions;
+use MarkupCarve\Carve\Converter\HeadingId\HtmlHeadingIds;
+use MarkupCarve\Carve\Converter\HeadingId\MapIds;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
@@ -602,12 +604,111 @@ class DjotToCarve
             $carve = preg_replace_callback('/(?<![ \t])([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
         }
         if ($preserveHeadingIds) {
-            $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
+            $carve = $this->headingIdSource === null
+                ? $this->preserveGeneratedDjotHeadingIds($carve)
+                : $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
         }
 
         $carve = TightDefinitionDescriptions::normalize($this->genericDjotDivClasses($carve));
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
+    }
+
+    private function preserveGeneratedDjotHeadingIds(string $carve): string
+    {
+        if (
+            !preg_match('/(?:^|\n)[ \t>]*#{1,6}[ \t]/', $carve)
+            || preg_match('/(?:^|\n)[ \t>]*\[\^[^]\n]+\]:/', $carve) === 1
+        ) {
+            return $carve;
+        }
+        $html = (new CarveConverter(smartTypography: false))->convert($carve);
+        preg_match_all('/<h[1-6]\b[^>]*>(.*?)<\/h[1-6]>/s', $html, $headings);
+        $carveIds = HtmlHeadingIds::extract($html);
+        if (count($headings[1]) !== count($carveIds)) {
+            return $carve;
+        }
+        $explicit = [];
+        $simple = [];
+        $lines = explode("\n", $carve);
+        $headingLines = $this->scanHeadingStartLines($lines);
+        $explicitIdsByLine = [];
+        $maskedLines = explode("\n", $this->maskCodeAndDestinations($carve));
+        foreach ($lines as $lineIndex => $sourceLine) {
+            preg_match_all('/\{([^}\n]*)\}/', $sourceLine, $attributes, PREG_OFFSET_CAPTURE);
+            foreach ($attributes[1] as $match) {
+                [$content, $at] = $match;
+                if (($maskedLines[$lineIndex][$at - 1] ?? '') !== '{') {
+                    continue;
+                }
+                $id = AttributeParser::parse($content)['id'] ?? null;
+                if (is_string($id)) {
+                    $explicitIdsByLine[$lineIndex][] = $id;
+                }
+            }
+        }
+        foreach ($headingLines as $index) {
+            $line = $lines[$index];
+            $hasId = $this->hasHeadingIdAttribute($line);
+            $previous = $index - 1;
+            while ($previous >= 0 && preg_match('/^[ \t>]*\{[^}\n]*\}[ \t]*$/', $lines[$previous]) === 1) {
+                $hasId = $hasId || $this->hasHeadingIdAttribute($lines[$previous]);
+                $previous--;
+            }
+            $explicit[] = $hasId;
+            $simple[] = preg_match('/^[ \t>]*#{1,6} +(?>[\pL\pN _:.,!?\x27-]|\\\\_)+[ \t]*$/u', $line) === 1
+                && preg_match('/(?:^|[ \t])\x27/', $line) !== 1;
+        }
+        if (count($explicit) !== count($carveIds)) {
+            return $carve;
+        }
+        $used = [];
+        $ids = [];
+        $scannedLine = 0;
+        foreach ($headings[1] as $index => $content) {
+            for ($line = $scannedLine; $line <= $headingLines[$index]; $line++) {
+                foreach ($explicitIdsByLine[$line] ?? [] as $id) {
+                    $used[$id] = true;
+                }
+            }
+            $scannedLine = $headingLines[$index] + 1;
+            if ($explicit[$index] || !$simple[$index]) {
+                $ids[] = $carveIds[$index];
+                $used[$carveIds[$index]] = true;
+
+                continue;
+            }
+            $text = html_entity_decode(strip_tags($content), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+            $base = trim(preg_replace('/[\]\[~!@#$%^&*(){}`,.<>"\\\\|=+\/?\s]+/u', ' ', $text) ?? $text);
+            $base = preg_replace('/ +/', '-', $base) ?? $base;
+            $id = $base;
+            for ($suffix = 1; $id === '' || isset($used[$id]); $suffix++) {
+                $id = ($base === '' ? 's' : $base) . '-' . $suffix;
+            }
+            $ids[] = $id;
+            $used[$id] = true;
+        }
+        if ($ids === $carveIds) {
+            return $carve;
+        }
+        $this->headingIdSource = new MapIds($ids);
+        try {
+            return $this->applyHeadingIdPreservation($carve, '');
+        } finally {
+            $this->headingIdSource = null;
+        }
+    }
+
+    private function hasHeadingIdAttribute(string $line): bool
+    {
+        preg_match_all('/\{([^}\n]*)\}/', $line, $attributes);
+        foreach ($attributes[1] as $content) {
+            if (preg_match('/(?:^|[ \t])(?:#[A-Za-z0-9_][A-Za-z0-9_-]*|id=(?:"[^"]*"|[^ \t}]+))(?=[ \t]|$)/', $content) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

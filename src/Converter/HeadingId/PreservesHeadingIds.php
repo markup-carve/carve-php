@@ -54,8 +54,8 @@ trait PreservesHeadingIds
     /**
      * Preserve the published heading ids of the source document.
      *
-     * For every heading whose Carve id would differ from the live one, an
-     * explicit `{#id}` block-attribute line is injected above it so Carve
+     * For every heading whose Carve id would differ from the live one,
+     * an explicit id block-attribute line is injected above it so Carve
      * renders the published id verbatim. Pass null to disable (the default).
      *
      * @return $this
@@ -68,7 +68,7 @@ trait PreservesHeadingIds
     }
 
     /**
-     * Inject `{#id}` above each heading whose Carve id differs from the live
+     * Inject an id attribute above each heading whose Carve id differs from the live
      * one. A no-op when preservation is disabled.
      *
      * Headings are paired positionally with the live ids. A heading count
@@ -110,14 +110,17 @@ trait PreservesHeadingIds
                 continue;
             }
             $lineIndex = $headingLines[$k];
-            // Already pinned by an explicit `{#...}` block-attribute line above?
-            $pinned = '/^' . self::LINE_PREFIX . '\{#[^}\s][^}]*\}[ \t]*$/';
+            // Already pinned by an explicit id attribute line above?
+            $pinned = '/^' . self::LINE_PREFIX . '\{(?:#[^}\s][^}]*|id=(?:"[^"\n]*"|[^}\s]+))\}[ \t]*$/';
             if ($lineIndex > 0 && preg_match($pinned, $lines[$lineIndex - 1]) === 1) {
                 continue;
             }
             // Carry the heading's blockquote / indent prefix onto the attr line.
             preg_match('/^(' . self::LINE_PREFIX . ')/', $lines[$lineIndex], $prefix);
-            array_splice($lines, $lineIndex, 0, [($prefix[1] ?? '') . '{#' . $live . '}']);
+            $attribute = preg_match('/^[A-Za-z0-9_][A-Za-z0-9_-]*$/', $live) === 1
+                ? '#' . $live
+                : 'id="' . str_replace(['\\', '"'], ['\\\\', '\\"'], $live) . '"';
+            array_splice($lines, $lineIndex, 0, [($prefix[1] ?? '') . '{' . $attribute . '}']);
         }
 
         return implode("\n", $lines);
@@ -131,7 +134,7 @@ trait PreservesHeadingIds
      *
      * @return array<int, int>
      */
-    private function scanHeadingStartLines(array $lines): array
+    protected function scanHeadingStartLines(array $lines): array
     {
         $headingLines = [];
         $inFence = false;
