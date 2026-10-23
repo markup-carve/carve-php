@@ -5271,7 +5271,7 @@ class DjotToCarve
 
             return substr_count($prefix[0] ?? '', '>');
         }, explode("\n", $source));
-        $stack = $edits = $pendingNotes = [];
+        $stack = $edits = $pendingNotes = $literalNotes = [];
         $pipeTargets = [];
         $pipeDefinitions = [];
         $occupiedLabels = null;
@@ -5458,20 +5458,7 @@ class DjotToCarve
                 }
             }
             $label = $this->djotLinkLabel($source, $mask, $angles, $edits, $owner['at'] + 1, $owner['labelEnd']);
-            $rawDestination = '';
-            for ($at = $owner['target']; $at < $i;) {
-                $end = $literalNotes[$at] ?? null;
-                if ($end !== null && $end <= $i) {
-                    $rawDestination .= preg_replace('/\n[ \t]*/', ' ', str_replace('\\', ($rows[$line] ?? false) ? '\\\\' : '%5C', substr($source, $at, $end - $at)));
-                    $at = $end;
-                } else {
-                    $rawDestination .= $source[$at++];
-                }
-            }
-            $destination = $this->djotDestinationLines($rawDestination, $owner['depth']);
-            $destination = self::trimDjotDestinationPadding($destination);
-            $destination = $this->removeDjotDestinationTabs($destination);
-            $destination = $this->preserveDjotBacktickDestinationSlashes($destination);
+            $destination = $this->djotLinkDestination($source, $owner['target'], $i, $literalNotes, $owner['depth'], $rows[$line] ?? false);
             if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && !str_contains($authoredLabel, "\n") && str_contains($label, '[')) {
                 $altDefinitions = [];
                 preg_match_all('/\[(carve-djot-pipe-target-[0-9]+)\]/', $label, $altAliases);
@@ -5484,8 +5471,7 @@ class DjotToCarve
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
                 $label = preg_replace_callback('/[!-\/:-@\[-`{-~]/', static fn (array $match): string => '\\' . $match[0], $label) ?? $label;
             }
-            $target = preg_replace_callback(($rows[$line] ?? false) && str_contains($destination, '|') ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : (str_contains('()\\', $match[0]) ? '\\' . $match[0] : rawurlencode($match[0])), $destination) ?? $destination;
-            $target = preg_replace('/\](?=[\[{])/', '%5D', $target) ?? $target;
+            $target = self::encodeDjotLinkTarget($destination, $rows[$line] ?? false);
             if (($rows[$line] ?? false) && str_contains($target, '|')) {
                 if (!isset($pipeTargets[$target])) {
                     if ($occupiedLabels === null) {
@@ -5513,11 +5499,19 @@ class DjotToCarve
             $at = $stack[$destinationOwner]['target'] - 1;
             $edits[$at] = ['end' => $at + 1, 'text' => '\\('];
         }
-        $stack = [];
-        $destinationOwner = null;
-        $pendingNotes = [];
+
+        return self::applyDjotLinkEdits($source, $edits, $pipeTargets);
+    }
+
+    /**
+     * @param string $source
+     * @param array<int, array{end: int, text: string}> $edits
+     * @param array<string, string> $pipeTargets
+     */
+    private static function applyDjotLinkEdits(string $source, array $edits, array $pipeTargets): string
+    {
         $output = '';
-        for ($i = 0; $i < $length;) {
+        for ($i = 0, $length = strlen($source); $i < $length;) {
             if (isset($edits[$i])) {
                 $output .= $edits[$i]['text'];
                 $i = $edits[$i]['end'];
@@ -5536,6 +5530,40 @@ class DjotToCarve
         }
 
         return ($definitions !== [] ? implode("\n", $definitions) . "\n\n" : '') . $output;
+    }
+
+    private static function encodeDjotLinkTarget(string $destination, bool $tableRow): string
+    {
+        $target = preg_replace_callback($tableRow && str_contains($destination, '|') ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : (str_contains('()\\', $match[0]) ? '\\' . $match[0] : rawurlencode($match[0])), $destination) ?? $destination;
+
+        return preg_replace('/\](?=[\[{])/', '%5D', $target) ?? $target;
+    }
+
+    /**
+     * @param string $source
+     * @param int $start
+     * @param int $end
+     * @param array<int, int> $literalNotes
+     * @param int $quoteDepth
+     * @param bool $tableRow
+     */
+    private function djotLinkDestination(string $source, int $start, int $end, array $literalNotes, int $quoteDepth, bool $tableRow): string
+    {
+        $rawDestination = '';
+        for ($at = $start; $at < $end;) {
+            $noteEnd = $literalNotes[$at] ?? null;
+            if ($noteEnd !== null && $noteEnd <= $end) {
+                $rawDestination .= preg_replace('/\n[ \t]*/', ' ', str_replace('\\', $tableRow ? '\\\\' : '%5C', substr($source, $at, $noteEnd - $at)));
+                $at = $noteEnd;
+            } else {
+                $rawDestination .= $source[$at++];
+            }
+        }
+        $destination = $this->djotDestinationLines($rawDestination, $quoteDepth);
+        $destination = self::trimDjotDestinationPadding($destination);
+        $destination = $this->removeDjotDestinationTabs($destination);
+
+        return $this->preserveDjotBacktickDestinationSlashes($destination);
     }
 
     private function carryDjotAttributesAcrossDivClosers(string $source): string
