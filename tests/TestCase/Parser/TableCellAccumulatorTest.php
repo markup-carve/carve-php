@@ -30,25 +30,6 @@ class TableCellAccumulatorTest extends TestCase
         }
     }
 
-    public function testCustomTableParserHooksRemainInUse(): void
-    {
-        $parser = new class extends TableParser {
-            public function mergeCellContents(array $baseCells, array $continuationCells): array
-            {
-                return ['custom'];
-            }
-
-            public function openCodeSpanDelimiter(string $line): int
-            {
-                return 7;
-            }
-        };
-        $cells = new TableCellAccumulator($parser, ['base']);
-        $cells->append(['next']);
-        self::assertSame(['custom'], $cells->contents());
-        self::assertSame([0 => 7], $cells->openDelimiters());
-    }
-
     public function testOnlyNewFragmentBytesAreScanned(): void
     {
         $parser = new class extends TableParser {

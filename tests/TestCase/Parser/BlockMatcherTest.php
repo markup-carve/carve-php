@@ -93,7 +93,7 @@ class BlockMatcherTest extends TestCase
             },
         );
 
-        // A legacy callback that appends several sibling blocks keeps them flat —
+        // A pattern callback that appends several sibling blocks keeps them flat;
         // they must NOT be collapsed into a synthetic wrapper <div>.
         $this->assertSame("<p>A</p>\n<p>B</p>", trim($converter->convert('DUO')));
     }

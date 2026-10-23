@@ -14,28 +14,8 @@ use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\TestCase;
 use RuntimeException;
 
-class HtmlNoteScanCompatibilityTest extends TestCase
+class HtmlNoteScanTest extends TestCase
 {
-    public function testCustomNoteHooksStillInspectDescendants(): void
-    {
-        $renderer = new class extends HtmlRenderer {
-            public function detects(Node $node): bool
-            {
-                return $this->holdsANote($node);
-            }
-
-            protected function holdsANote(Node $node): bool
-            {
-                return $node->hasClass('custom-note') || parent::holdsANote($node);
-            }
-        };
-        $document = new Document();
-        $span = new Span();
-        $span->addClass('custom-note');
-        $document->appendChild($span);
-        $this->assertTrue($renderer->detects($document));
-    }
-
     public function testTheFirstReachableNoteStopsTheScan(): void
     {
         $renderer = new class extends HtmlRenderer {

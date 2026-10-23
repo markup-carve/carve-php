@@ -84,7 +84,6 @@ use MarkupCarve\Carve\SafeMode;
 use MarkupCarve\Carve\Transform\BlockImagePromotion;
 use MarkupCarve\Carve\Util\StringUtil;
 use MarkupCarve\Carve\Util\TableWidth;
-use ReflectionMethod;
 
 /**
  * Renders AST to HTML
@@ -2467,11 +2466,6 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
     }
 
     /**
-     * @var bool|null
-     */
-    private ?bool $customNoteScan = null;
-
-    /**
      * @var int
      */
     private const NOTE_SCAN_RECURSION_LIMIT = 32;
@@ -2480,28 +2474,9 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
      * Whether the tree holds a note the endnotes section will carry: a resolved
      * `[^label]` reference or an inline `^[...]` note. A definition nobody
      * references renders no section, and neither does an unresolved reference.
-     * Custom overrides retain recursive descendant dispatch for compatibility.
      */
     protected function holdsANote(Node $node): bool
     {
-        $customScan = $this->customNoteScan ??= (new ReflectionMethod($this, __FUNCTION__))
-            ->getDeclaringClass()->getName() !== self::class;
-        if ($customScan) {
-            if ($node instanceof FootnoteRef) {
-                return !$node->isUnresolved();
-            }
-            if ($node instanceof InlineFootnote) {
-                return true;
-            }
-            foreach ($node->getChildren() as $child) {
-                if (!$child instanceof Footnote && $this->holdsANote($child)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         return $this->holdsANoteBounded($node, 0);
     }
 
