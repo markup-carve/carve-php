@@ -1349,39 +1349,20 @@ class InlineParser
                 }
             }
 
-            // Italic: /text/
-            if ($char === '/') {
+            // Delimited emphasis, underline, strong, strike, and highlight.
+            // Bold-italic above keeps precedence over the single slash.
+            $delimitedNodeClass = match ($char) {
+                '/' => Emphasis::class,
+                '_' => Underline::class,
+                '*' => Strong::class,
+                '~' => Strike::class,
+                '=' => Highlight::class,
+                default => null,
+            };
+            if ($delimitedNodeClass !== null) {
                 $this->flushText($parent, $textBuffer);
                 $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '/', Emphasis::class);
-                if ($result !== null) {
-                    $this->placeAt($result['node'], $pos, $result['pos']);
-                    $parent->appendChild($result['node']);
-                    $pos = $result['pos'];
-
-                    continue;
-                }
-            }
-
-            // Underline: _text_
-            if ($char === '_') {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '_', Underline::class);
-                if ($result !== null) {
-                    $this->placeAt($result['node'], $pos, $result['pos']);
-                    $parent->appendChild($result['node']);
-                    $pos = $result['pos'];
-
-                    continue;
-                }
-            }
-
-            // Strong: *text*
-            if ($char === '*') {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '*', Strong::class);
+                $result = $this->parseDelimited($text, $pos, $char, $delimitedNodeClass);
                 if ($result !== null) {
                     $this->placeAt($result['node'], $pos, $result['pos']);
                     $parent->appendChild($result['node']);
@@ -1408,34 +1389,6 @@ class InlineParser
 
             // NO bare superscript/subscript: `^` and `,` are literal outside the
             // braced forms `{^x^}` / `{,x,}` (grammar PART 9 §9 rationale note).
-
-            // Strikethrough: ~text~
-            if ($char === '~') {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '~', Strike::class);
-                if ($result !== null) {
-                    $this->placeAt($result['node'], $pos, $result['pos']);
-                    $parent->appendChild($result['node']);
-                    $pos = $result['pos'];
-
-                    continue;
-                }
-            }
-
-            // Highlight: =text=
-            if ($char === '=') {
-                $this->flushText($parent, $textBuffer);
-                $textBuffer = '';
-                $result = $this->parseDelimited($text, $pos, '=', Highlight::class);
-                if ($result !== null) {
-                    $this->placeAt($result['node'], $pos, $result['pos']);
-                    $parent->appendChild($result['node']);
-                    $pos = $result['pos'];
-
-                    continue;
-                }
-            }
 
             // Special braced syntax: {+insert+} or {-delete-}. Attribute blocks
             // only attach through explicit inline hosts such as [text]{.class},
