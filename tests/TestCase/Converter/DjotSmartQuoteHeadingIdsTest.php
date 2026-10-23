@@ -55,6 +55,10 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'different heading levels stay separate' => ["## 'a'\n### 'b'\n", ['a', 'b']];
         yield 'footnote definition and top-level heading stay separate' => ["ref[^n]\n\n[^n]: ## x\n## 'b'\n\n## 'c'\n", ['b', 'c', 'x']];
         yield 'quoted footnote and top-level heading stay separate' => ["ref[^n]\n\n[^n]: ## 'a'\n## 'b'\n\n## c\n", ['b', 'c', 'a']];
+        yield 'indented heading line continues pairing' => ["## 'a\n  ## b'\n", ['a-b']];
+        yield 'footnote heading line continues pairing' => ["ref[^n]\n\n[^n]: ## 'a'\n    ## 'b'\n\n## 'c'\n", ['c', 'a-b']];
+        yield 'attribute heading remains counted with footnote' => ["{#q}\n## 'a'\n\nref[^n]\n\n[^n]: ## 'a'\n\n## 'a'\n", ['q', 'a-1', 'a']];
+        yield 'heading in list marker stays counted' => ["- ## 'a'\n\n## 'b'\n", ['a', 'b']];
         yield 'heading after blockquote' => ["> x\n## 'a'\n\n## 'b'\n", ['a', 'b']];
         yield 'pipe text does not start a table' => ["x\n| t\n## 'a'\n\n## 'b'\n", ['b']];
         yield 'attribute fragment stays paragraph text' => ["x\n.y}\n## 'a'\n\n## 'b'\n", ['b']];

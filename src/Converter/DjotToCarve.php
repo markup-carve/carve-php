@@ -682,25 +682,29 @@ class DjotToCarve
                 continue;
             }
             $line = $lines[$lineIndex];
-            if (preg_match('/^((?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?)(#{1,6})[ \t]+/', $line, $headingMarker) !== 1) {
+            $headingPattern = '/^((?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?(?:(?:[-+*]|\d+[.)])[ \t]+)?)(#{1,6})[ \t]+' . '/';
+            if (preg_match($headingPattern, $line, $headingMarker) !== 1) {
                 continue;
             }
-            $text = preg_replace('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?#{1,6}[ \t]+/', '', $line) ?? $line;
+            $text = preg_replace($headingPattern, '', $line) ?? $line;
             $next = $lineIndex + 1;
             while (isset($lines[$next]) && trim($lines[$next]) !== '') {
                 if ($this->isDjotHeadingBoundaryLine($lines, $next)) {
                     break;
                 }
-                if (preg_match('/^((?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?)(#{1,6})[ \t]+/', $lines[$next], $nextMarker) === 1) {
+                if (preg_match($headingPattern, $lines[$next], $nextMarker) === 1) {
+                    $sameQuoteDepth = substr_count($nextMarker[1], '>') === substr_count($headingMarker[1], '>');
+                    $sameListContext = preg_match('/(?:[-+*]|\d+[.)])[ \t]+$/', $nextMarker[1])
+                    === preg_match('/(?:[-+*]|\d+[.)])[ \t]+$/', $headingMarker[1]);
                     if (
                         ($sourceOrder !== [] && isset($sourceHeadingLines[$next]))
-                        || $nextMarker[1] !== $headingMarker[1]
+                        || !$sameQuoteDepth || !$sameListContext
                         || strlen($nextMarker[2]) !== strlen($headingMarker[2])
                     ) {
                         break;
                     }
                     $continued[$next] = true;
-                    $text .= "\n" . (preg_replace('/^((?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?)(#{1,6})[ \t]+/', '', $lines[$next]) ?? $lines[$next]);
+                    $text .= "\n" . (preg_replace($headingPattern, '', $lines[$next]) ?? $lines[$next]);
                     $next++;
 
                     continue;
@@ -961,10 +965,12 @@ class DjotToCarve
         $previous = '';
         $previousHeading = false;
         $previousKey = '';
-        foreach (explode("\n", $source) as $lineNumber => $line) {
+        $lines = explode("\n", $source);
+        foreach ($lines as $lineNumber => $line) {
             $body = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $line) ?? $line;
             $heading = false;
             $label = '';
+            $content = $body;
             if (preg_match('/^[ \t]*\[\^([^\]\n]+)\]:[ \t]*/', $body, $header) === 1) {
                 $note = $header[1];
                 $noteIndent = strspn($body, " \t");
@@ -979,12 +985,17 @@ class DjotToCarve
                     $note = '';
                 }
                 if (preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
+                    $heading = $previous === '' || $previousHeading
+                        || ($lineNumber > 0 && $this->isDjotHeadingBoundaryLine($lines, $lineNumber - 1));
+                } elseif (preg_match('/^[ \t]*(?:[-+*]|\d+[.)])[ \t]+#{1,6}[ \t]/', $body) === 1) {
                     $heading = $previous === '' || $previousHeading;
                 }
             }
             $key = '';
-            if ($heading && preg_match('/^(.*?)(#{1,6})[ \t]+/', $body, $marker) === 1) {
-                $key = $label . "\0" . $marker[1] . "\0" . strlen($marker[2]);
+            if ($heading && preg_match('/^(.*?)(#{1,6})[ \t]+/', $content, $marker) === 1) {
+                preg_match('/^(?:[ \t]*>[ \t]?)*[ \t]*/', $line, $quotePrefix);
+                $listMarker = preg_match('/(?:^|[ \t])(?:[-+*]|\d+[.)])[ \t]+#{1,6}[ \t]/', $content) === 1;
+                $key = $label . "\0" . substr_count($quotePrefix[0] ?? '', '>') . "\0" . ($listMarker ? 'list' : '') . "\0" . strlen($marker[2]);
             }
             if ($heading && !($previousHeading && $key === $previousKey)) {
                 $headings[] = ['line' => $lineNumber, 'note' => $label];
