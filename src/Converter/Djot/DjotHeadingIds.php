@@ -13,7 +13,7 @@ final class DjotHeadingIds
 {
     /**
      * @param string $carve
-     * @param array<int, list<int>> $pairedQuotes
+     * @param array<int, array{remove: list<int>, quotes: list<string>}> $pairedQuotes
      *
      * @return array{list<string>, list<string>} Djot ids and Carve ids in document order
      */
@@ -52,15 +52,15 @@ final class DjotHeadingIds
                     $djotIds[] = $explicit;
                 } else {
                     $plain = $tracker->getPlainText($node, SmartTypographyMode::Source);
-                    $removeQuotes = $pairedQuotes[$sourceHeadingIndex] ?? [];
-                    if ($removeQuotes !== []) {
-                        preg_match_all('/[\x27"‘’“”]/u', $plain, $quotes, PREG_OFFSET_CAPTURE);
-                        $quotePositions = $quotes[0];
-                        foreach (array_reverse($removeQuotes) as $ordinal) {
-                            if (isset($quotePositions[$ordinal])) {
-                                [$quote, $offset] = $quotePositions[$ordinal];
-                                $plain = substr_replace($plain, '', $offset, strlen($quote));
-                            }
+                    $quoteRule = $pairedQuotes[$sourceHeadingIndex] ?? ['remove' => [], 'quotes' => []];
+                    preg_match_all('/[\x27"‘’“”]/u', $plain, $quotes, PREG_OFFSET_CAPTURE);
+                    $quotePositions = $quotes[0];
+                    if (count($quotePositions) === count($quoteRule['quotes'])) {
+                        foreach (array_reverse(array_keys($quotePositions)) as $ordinal) {
+                            [$quote, $offset] = $quotePositions[$ordinal];
+                            $replacement = in_array($ordinal, $quoteRule['remove'], true)
+                                ? '' : $quoteRule['quotes'][$ordinal];
+                            $plain = substr_replace($plain, $replacement, $offset, strlen($quote));
                         }
                     }
                     $punctuation = '][~!@#$%^&*(){}`,.<>\\|=+/?';

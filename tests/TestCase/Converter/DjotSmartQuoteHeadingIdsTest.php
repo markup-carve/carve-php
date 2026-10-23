@@ -26,6 +26,14 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'quotes inside code' => ['## `"a"`' . "\n", ['"a"']];
         yield 'quotes in link text' => ['## ["a"](u)' . "\n", ['a']];
         yield 'authored curly before paired quote' => ['## “x” "a"' . "\n", ['“x”-a']];
+        yield 'quote after slash stays literal' => ["## a/'b'\n", ["a-'b'"]];
+        yield 'quote after strong opener stays literal' => ["## *'a'*\n", ["'a'"]];
+        yield 'quote after emphasis opener stays literal' => ["## _'a'_ b\n", ["'a'-b"]];
+        yield 'empty quote pair stays literal' => ["## '' x\n", ["''-x"]];
+        yield 'quote after unicode letter stays literal' => ["## é'a'\n", ["é'a'"]];
+        yield 'destination quote is not counted' => ["## [x](u'v) 'a'\n", ['x-a']];
+        yield 'attribute quote remains counted' => ["## x{title='t'} 'a'\n", ["x-title-'t'-a"]];
+        yield 'code quote before pair remains counted' => ["## `'` 'a'\n", ["'-a"]];
         yield 'authored curly single' => ["## ‘a’\n", ['‘a’']];
         yield 'authored curly double' => ["## “a”\n", ['“a”']];
         yield 'unmatched single' => ["## a/'\n", ["a-'"]];

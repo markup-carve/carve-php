@@ -634,7 +634,8 @@ class DjotToCarve
         if ($preserveHeadingIds) {
             $originalBody = strtr($djotBody, $dropInherited);
             if ($this->nativeDjotHeadingIds && $this->headingIdSource === null && str_contains($carve, '#')) {
-                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve);
+                [, , $rawHeadingSource] = $this->splitSiteFrontmatter(str_replace(["\r\n", "\r"], "\n", $djot));
+                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve, $rawHeadingSource);
             } else {
                 $carve = $this->applyHeadingIdPreservation($carve, $originalBody);
             }
@@ -648,7 +649,7 @@ class DjotToCarve
     }
 
     /**
-     * @return array<int, list<int>>
+     * @return array<int, array{remove: list<int>, quotes: list<string>}>
      */
     private function sourcePairedHeadingQuotes(string $source): array
     {
@@ -659,40 +660,79 @@ class DjotToCarve
             $text = preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $line) ?? $line;
             $mask = $this->maskCodeAndDestinations($text);
             preg_match_all('/[\x27"‘’“”]/u', $text, $quotes, PREG_OFFSET_CAPTURE);
-            $ordinals = [];
-            foreach ($quotes[0] as $ordinal => $quote) {
-                $ordinals[$quote[1]] = $ordinal;
+            preg_match_all('/(`+).*?\1/s', $text, $codeSpans, PREG_OFFSET_CAPTURE);
+            $codeRanges = [];
+            foreach ($codeSpans[0] as [$span, $offset]) {
+                $codeRanges[] = [$offset, $offset + strlen($span)];
+            }
+            preg_match_all('/\{[^{}]*\}/', $text, $attributeSpans, PREG_OFFSET_CAPTURE);
+            $attributeRanges = [];
+            foreach ($attributeSpans[0] as [$span, $offset]) {
+                $attributeRanges[] = [$offset, $offset + strlen($span)];
+            }
+            $visible = [];
+            $quotePositions = [];
+            foreach ($quotes[0] as [$quote, $offset]) {
+                $inCode = false;
+                foreach ($codeRanges as [$start, $end]) {
+                    if ($offset >= $start && $offset < $end) {
+                        $inCode = true;
+
+                        break;
+                    }
+                }
+                if (substr($mask, $offset, strlen($quote)) !== $quote && !$inCode) {
+                    continue;
+                }
+                $quotePositions[$offset] = count($visible);
+                $visible[] = [$quote, $offset];
             }
             $remove = [];
             foreach (["'", '"'] as $delimiter) {
-                $pattern = '/(?<![A-Za-z0-9])' . preg_quote($delimiter, '/')
-                    . '(?=\S).*?(?<=\S)' . preg_quote($delimiter, '/')
-                    . '(?![A-Za-z0-9])/s';
-                preg_match_all($pattern, $text, $matches, PREG_OFFSET_CAPTURE);
-                foreach ($matches[0] as [$match, $offset]) {
-                    $last = $offset + strlen($match) - 1;
+                $opener = null;
+                foreach ($visible as [$quote, $offset]) {
                     if (
-                        ($mask[$offset] ?? '') !== $delimiter || ($mask[$last] ?? '') !== $delimiter
-                        || $this->isDjotEscaped($text, $offset) || $this->isDjotEscaped($text, $last)
+                        $quote !== $delimiter || ($mask[$offset] ?? '') !== $delimiter
+                        || $this->isDjotEscaped($text, $offset)
                     ) {
                         continue;
                     }
-                    if (isset($ordinals[$offset], $ordinals[$last])) {
-                        $remove[] = $ordinals[$offset];
-                        $remove[] = $ordinals[$last];
+                    foreach ($attributeRanges as [$start, $end]) {
+                        if ($offset >= $start && $offset < $end) {
+                            continue 2;
+                        }
                     }
+                    $before = substr($text, 0, $offset);
+                    $after = substr($text, $offset + 1);
+                    if ($opener === null) {
+                        if (
+                            $after === '' || preg_match('/^[\s\x27"]/', $after) === 1
+                            || preg_match('/[\p{L}\p{N}\/_*\x27"]$/u', $before) === 1
+                        ) {
+                            continue;
+                        }
+                        $opener = $offset;
+
+                        continue;
+                    }
+                    if (preg_match('/\s$/u', $before) === 1 || preg_match('/^[\p{L}\p{N}]/u', $after) === 1) {
+                        continue;
+                    }
+                    $remove[] = $quotePositions[$opener];
+                    $remove[] = $quotePositions[$offset];
+                    $opener = null;
                 }
             }
             sort($remove);
-            $pairs[] = $remove;
+            $pairs[] = ['remove' => $remove, 'quotes' => array_column($visible, 0)];
         }
 
         return $pairs;
     }
 
-    private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null): string
+    private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null, string $rawHeadingSource = ''): string
     {
-        $pairedQuotes = $this->sourcePairedHeadingQuotes($source);
+        $pairedQuotes = $this->sourcePairedHeadingQuotes($rawHeadingSource);
         [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, $pairedQuotes);
         if ($reservationCarve !== null) {
             [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve, $pairedQuotes);
