@@ -41,6 +41,13 @@ trait PreservesHeadingIds
     private const LINE_PREFIX = '[ \t]{0,3}(?:>[ \t]?)*';
 
     /**
+     * A heading after the marker of a list item.
+     *
+     * @var string
+     */
+    private const LIST_HEADING_PREFIX = '[ \t]{0,3}(?:>[ \t]?)*(?:[-*+]|[0-9]+[.)])[ \t]+';
+
+    /**
      * Fenced-code delimiters are column-exact after container prefixes. The
      * preservation scan only models blockquote prefixes; top-level leading
      * whitespace is residual indentation and must not open or close a fence.
@@ -77,9 +84,14 @@ trait PreservesHeadingIds
      * happens. Headings end at the newline now, so that shape does not
      * exist.)
      *
+     * @param string $carve
+     * @param string $originalSource
+     * @param list<string>|null $knownCarveIds
+     * @param bool $strict
+     *
      * @throws \RuntimeException on a heading-count mismatch
      */
-    protected function applyHeadingIdPreservation(string $carve, string $originalSource): string
+    protected function applyHeadingIdPreservation(string $carve, string $originalSource, ?array $knownCarveIds = null, bool $strict = true): string
     {
         $source = $this->headingIdSource;
         if ($source === null) {
@@ -87,13 +99,17 @@ trait PreservesHeadingIds
         }
 
         $liveIds = array_values($source->idsInOrder($originalSource));
-        $carveIds = HtmlHeadingIds::extract((new CarveConverter())->convert($carve));
+        $carveIds = $knownCarveIds ?? HtmlHeadingIds::extract((new CarveConverter())->convert($carve));
 
         $lines = explode("\n", $carve);
         $headingLines = $this->scanHeadingStartLines($lines);
 
         $count = count($headingLines);
         if ($count !== count($carveIds) || $count !== count($liveIds)) {
+            if (!$strict) {
+                return $carve;
+            }
+
             throw new RuntimeException(sprintf(
                 'preserveHeadingIds: heading count mismatch (source lines %d, Carve render %d, '
                 . 'live ids %d). Adjacent or multi-line `#` headings are not supported.',
@@ -110,14 +126,20 @@ trait PreservesHeadingIds
                 continue;
             }
             $lineIndex = $headingLines[$k];
+            if (!$strict && preg_match('/^' . self::LIST_HEADING_PREFIX . '#/', $lines[$lineIndex]) === 1) {
+                continue;
+            }
             // Already pinned by an explicit `{#...}` block-attribute line above?
-            $pinned = '/^' . self::LINE_PREFIX . '\{#[^}\s][^}]*\}[ \t]*$/';
+            $pinned = '/^' . self::LINE_PREFIX . '\{(?:#[^}\s][^}]*|id=(?:"(?:\\\\.|[^"])*"|[^}\s]+))\}[ \t]*$/';
             if ($lineIndex > 0 && preg_match($pinned, $lines[$lineIndex - 1]) === 1) {
                 continue;
             }
             // Carry the heading's blockquote / indent prefix onto the attr line.
             preg_match('/^(' . self::LINE_PREFIX . ')/', $lines[$lineIndex], $prefix);
-            array_splice($lines, $lineIndex, 0, [($prefix[1] ?? '') . '{#' . $live . '}']);
+            $attribute = preg_match('/^[A-Za-z0-9_][A-Za-z0-9_-]*$/D', $live) === 1
+                ? '{#' . $live . '}'
+                : '{id="' . str_replace(['\\', '"'], ['\\\\', '\\"'], $live) . '"}';
+            array_splice($lines, $lineIndex, 0, [($prefix[1] ?? '') . $attribute]);
         }
 
         return implode("\n", $lines);
@@ -161,7 +183,7 @@ trait PreservesHeadingIds
             // read the last two as empty (markup-carve/carve-php#1038).
             if (
                 preg_match(
-                    '/^' . self::LINE_PREFIX . '#{1,6} +.*' . StringUtil::NON_WHITESPACE_CLASS . '.*$/',
+                    '/^(?:' . self::LINE_PREFIX . '|' . self::LIST_HEADING_PREFIX . ')#{1,6} +.*' . StringUtil::NON_WHITESPACE_CLASS . '.*$/',
                     $line,
                 ) === 1
             ) {
