@@ -2126,7 +2126,7 @@ trait NormalizesStructure
                 $attrs = $this->djotReferenceAttributeGroups(array_reverse($attributeParts));
                 $url = $definition[2];
                 if (!$aliasesOnly && !$caretOnly) {
-                    $protectedUrl = str_replace('\\', '\\\\', $url);
+                    $protectedUrl = strtr($url, ['\\' => '\\\\', '(' => '\\(', ')' => '\\)']);
                     if ($protectedUrl !== $url) {
                         $urlAt = strlen($line) - strlen($url) - (str_ends_with($line, "\r") ? 1 : 0);
                         $lines[$n] = substr_replace($line, $protectedUrl, $urlAt, strlen($url));
