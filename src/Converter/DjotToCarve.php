@@ -1156,6 +1156,9 @@ class DjotToCarve
         ksort($plain);
         $escape = [];
         $closingSingles = [];
+        $closingDoublesAfterSingles = [];
+        $openingSinglesAfterSingles = [];
+        $pairedSingleClosesAfterSingles = [];
         $wordSpans = [];
         $wordSpanEnds = [];
         $droppedAttributes = [];
@@ -1232,6 +1235,27 @@ class DjotToCarve
             }
             if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
                 $closingSingles[$open + 1] = true;
+                if (($source[$open + 2] ?? '') === '"') {
+                    for ($candidate = $open + 3; $candidate < $end - 1; $candidate++) {
+                        if (($source[$candidate] ?? '') === '"' && ($mask[$candidate] ?? '') === '"' && !$this->isDjotEscaped($source, $candidate)) {
+                            $closingDoublesAfterSingles[$candidate] = true;
+
+                            break;
+                        }
+                    }
+                }
+                $runStart = $open + 2;
+                $runEnd = $runStart + strspn($source, "'", $runStart);
+                if ($runEnd > $runStart) {
+                    for ($candidate = $runEnd; $candidate < $end - 1; $candidate++) {
+                        if (($source[$candidate] ?? '') === "'" && ($mask[$candidate] ?? '') === "'" && !$this->isDjotEscaped($source, $candidate)) {
+                            $openingSinglesAfterSingles[$runEnd - 1] = true;
+                            $pairedSingleClosesAfterSingles[$candidate] = true;
+
+                            break;
+                        }
+                    }
+                }
             }
         }
         foreach ($withQuotes as $laterOpen => $laterEnd) {
@@ -1257,7 +1281,11 @@ class DjotToCarve
                 continue;
             }
             $result .= (isset($wordSpans[$i]) ? '[' : '') . (isset($forcedOpens[$i]) ? '{' : '')
-                . (isset($escape[$i]) ? '\\' : '') . (isset($closingSingles[$i]) ? '’' : $source[$i])
+                . (isset($escape[$i]) ? '\\' : '')
+                . (isset($closingSingles[$i]) || isset($pairedSingleClosesAfterSingles[$i]) ? '’'
+                    : (isset($openingSinglesAfterSingles[$i]) ? '‘'
+                        : (isset($closingDoublesAfterSingles[$i]) ? '”'
+                            : (isset($closingSingles[$i - 1]) && $source[$i] === '"' ? '“' : $source[$i]))))
                 . (isset($forcedCloses[$i]) ? '}' : '') . (isset($wordSpanEnds[$i]) ? ']' : '');
         }
 
