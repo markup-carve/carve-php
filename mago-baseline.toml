@@ -19,12 +19,6 @@ message = '''Invalid return type for function `MarkupCarve\Carve\Converter\DjotT
 count = 1
 
 [[issues]]
-file = "src/Converter/DjotToCarve.php"
-code = "undefined-variable"
-message = "Undefined variable: `$literalNotes`."
-count = 1
-
-[[issues]]
 file = "src/Converter/HtmlAstBuilder.php"
 code = "invalid-return-statement"
 message = 'Invalid return type for function `MarkupCarve\Carve\Converter\HtmlAstBuilder::children`: expected `list<DOMNode>`, but found `list<DOMNameSpaceNode|DOMNode>`.'
