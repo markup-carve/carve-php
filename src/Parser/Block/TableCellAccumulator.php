@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Parser\Block;
 
-use ReflectionMethod;
-
 /**
  * Collects continuation fragments without rescanning earlier cell text.
  *
@@ -33,26 +31,11 @@ final class TableCellAccumulator
     private array $open = [];
 
     /**
-     * @var array<string>|null
-     */
-    private ?array $legacyCells = null;
-
-    /**
      * @param \MarkupCarve\Carve\Parser\Block\TableParser $parser
      * @param array<string> $cells
      */
     public function __construct(private TableParser $parser, array $cells)
     {
-        if (
-            $parser::class !== TableParser::class && (
-            (new ReflectionMethod($parser, 'mergeCellContents'))->getDeclaringClass()->getName() !== TableParser::class
-            || (new ReflectionMethod($parser, 'openCodeSpanDelimiter'))->getDeclaringClass()->getName() !== TableParser::class
-            )
-        ) {
-            $this->legacyCells = $cells;
-
-            return;
-        }
         $this->append($cells);
     }
 
@@ -63,11 +46,6 @@ final class TableCellAccumulator
      */
     public function append(array $cells): void
     {
-        if ($this->legacyCells !== null) {
-            $this->legacyCells = $this->parser->mergeCellContents($this->legacyCells, $cells);
-
-            return;
-        }
         $line = $this->line++;
         foreach ($cells as $index => $cell) {
             $this->fragments[$index] ??= [];
@@ -91,10 +69,6 @@ final class TableCellAccumulator
      */
     public function openDelimiters(): array
     {
-        if ($this->legacyCells !== null) {
-            $this->updateLegacyDelimiters();
-        }
-
         return $this->open;
     }
 
@@ -103,7 +77,7 @@ final class TableCellAccumulator
      */
     public function contents(): array
     {
-        return $this->legacyCells ?? array_map(static fn (array $fragments): string => implode(' ', $fragments), $this->fragments);
+        return array_map(static fn (array $fragments): string => implode(' ', $fragments), $this->fragments);
     }
 
     /**
@@ -114,9 +88,6 @@ final class TableCellAccumulator
      */
     public function wraps(): array
     {
-        if ($this->legacyCells !== null) {
-            return [];
-        }
         $wraps = [];
         foreach ($this->fragments as $index => $fragments) {
             $offset = 0;
@@ -130,16 +101,5 @@ final class TableCellAccumulator
         }
 
         return $wraps;
-    }
-
-    private function updateLegacyDelimiters(): void
-    {
-        $this->open = [];
-        foreach ($this->legacyCells ?? [] as $index => $cell) {
-            $width = $this->parser->openCodeSpanDelimiter($cell);
-            if ($width > 0) {
-                $this->open[$index] = $width;
-            }
-        }
     }
 }

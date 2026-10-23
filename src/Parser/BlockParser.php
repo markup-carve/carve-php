@@ -769,11 +769,8 @@ class BlockParser
                     return null;
                 }
 
-                // Legacy callbacks append their node(s) to the parent themselves
-                // and return the number of lines consumed. Preserve that contract
-                // verbatim — a pattern emitting several sibling blocks keeps them
-                // flat, with no synthetic wrapper. The dispatcher reads the int
-                // return as "already appended".
+                // Pattern callbacks append their own nodes and return the
+                // number of lines consumed, including for sibling blocks.
                 $parser = $ctx->getBlockParser();
                 $parent = $parser->currentMatcherParent;
                 if ($parent === null) {
@@ -2641,12 +2638,10 @@ class BlockParser
                 if ($result === null) {
                     continue;
                 }
-                // Legacy addBlockPattern callbacks append to $parent themselves
-                // and report only the line count.
+                // Pattern callbacks have already appended their nodes.
                 if (is_int($result)) {
                     return $result;
                 }
-                // Normative matchers return the node for the dispatcher to append.
                 $parent->appendChild($result['node']);
 
                 return $result['linesConsumed'];
