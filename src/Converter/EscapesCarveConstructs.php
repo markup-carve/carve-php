@@ -310,7 +310,7 @@ trait EscapesCarveConstructs
         return $line;
     }
 
-    private function escapeBareOpeners(string $subject, string $delimiter, bool $behindBrace): string
+    private function escapeBareOpeners(string $subject, string $delimiter, bool $behindBrace, ?string $mask = null): string
     {
         if (!str_contains($subject, $delimiter)) {
             return $subject;
@@ -334,7 +334,7 @@ trait EscapesCarveConstructs
             if (!str_contains(" \t\r", $char)) {
                 $lineIsBlank = false;
             }
-            if ($char !== $delimiter || $this->isEscapedAt($subject, $i)) {
+            if ($char !== $delimiter || $mask !== null && $mask[$i] !== $delimiter || $this->isEscapedAt($subject, $i)) {
                 continue;
             }
             $before = $i > 0 ? $subject[$i - 1] : null;

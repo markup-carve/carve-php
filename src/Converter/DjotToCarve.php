@@ -779,6 +779,13 @@ class DjotToCarve
     private function rewriteDjotInline(string $source): string
     {
         $masked = $this->djotEmphasisMask($source);
+        if (str_contains($source, '/')) {
+            $escaped = $this->escapeBareOpeners($source, '/', true, $masked);
+            if ($escaped !== $source) {
+                $source = $escaped;
+                $masked = $this->djotEmphasisMask($source);
+            }
+        }
         $source = $this->escapePlainDjotText($source, $masked);
         $masked = $this->djotEmphasisMask($source);
 
