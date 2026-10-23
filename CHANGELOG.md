@@ -9,7 +9,13 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
-## [0.1.14] - 2026-10-22
+## [0.1.14] - 2026-10-23
+
+### Breaking
+- `carve lint` prints `file:line:col rule — message`, as carve-js and carve-rs do; before, the message followed the rule id after one space. Update anything that parses lint output (#3562, #3559).
+- Converter helper classes moved into `Converter\Markdown`, `Converter\Djot`, `Converter\Html` and `Converter\Bbcode` and dropped the format prefix (`Converter\MarkdownAssessment` is now `Converter\Markdown\Assessment`); the three Djot traits moved with them. Update `use` statements that named them (#3747).
+- Subclass extension points changed. Protected `MarkdownToCarve` helpers and properties moved into import stages or became private, protected `BlockParser` members were removed (subclassing it is outside the extension contract), `TableParser::mergeCellContents()` and `openCodeSpanDelimiter()` overrides no longer steer continuation rows, and `HtmlRenderer::holdsANote()` is called only at the document root. Use the public converter methods or an extension instead (#3740, #3748, #3750, #3666, #3669).
+- Overridable methods gained parameters, so an override must declare them: `CarveConverter::toCarve()` takes `$alignTables`, `CarveRenderer::renderBlocks()` takes `$item`, `BbcodeToCarve::formatAttribution()` takes `$droppedFields`, and `IncludeExpander::regionRange()` is static and takes `$code` (#3546, #3555, #3545, #3544).
 
 ### Fixes
 - A quote opened on an item's marker line starts its AST span at its `>` when its `+` nests a quote follower, and the follower nests three deep inside a host quote too (`> - > > +` / `> > q`) (#3756, #3754, markup-carve/carve#3421).
@@ -17,7 +23,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - An unclosed fence attached by a `+` keeps a quote-shaped payload line (`- > +` / ```` ``` ```` / `> x`) instead of dropping it into a new quote (#3752, markup-carve/carve#3421).
 - A quote `+` attaches an attribute-led or unclosed-fence follower whole, a stacked list `+` refuses a follower left of its innermost content column, a hosted stacked quote `+` attaches after a sibling item's lazy line, and a wrapped attribute folds below the column, loosens a list after a blank and ends the outer item from a nested item (#3751, markup-carve/carve#3421).
 - A wrapped block attribute below a container reads like its one-line form, a stacked quote `+` takes a follower only at column 0, its line's column or the owning quote's column (any non-list block at column 0 inside a host quote), and lint reports a document-level `+` before a block (#3749, markup-carve/carve#3421).
-- Lint no longer reports `continuation-marker-refused` for a stacked `- > +` whose block starts at the column of an opener on that line, which the parser already attaches (markup-carve/carve#3421).
+- Lint no longer reports `continuation-marker-refused` for a stacked `- > +` whose block starts at the column of an opener on that line, which the parser already attaches (#3731; markup-carve/carve#3421).
 - A quote-prefixed `+` needs one space after each `>`: `>+`, `>>+` and `>> +` read as text, and a `> +` attaches a following quote to the item, description, note or inner quote at its column (#3725; markup-carve/carve#3421).
 - Borrowed HTML keeps Unicode letters and inline markup after inactive extensions register. Autolink fallbacks, link-label parentheses and brackets, angle destinations, bare URLs, paragraph links with pipes, and fixed smart symbols now keep their intended text (#3579, #3581, #3584, #3608, #3612, #3628, #3699).
 - Continuation markers and refused `+` lines follow their list or quote column, including relative column zero, open fences and blank followers. Lint reports refusals and the ordered-list and below-content-column traps at the authored column (#3592, #3594, #3596, #3602, #3613, #3624, #3659, #3675, #3678, #3680, #3691).
@@ -27,7 +33,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - Markdown migration keeps destination spelling, trailing spaces and line endings, bounds quoted setext work to its item, and writes nested imports in canonical Carve. The writer keeps its conservative spelling past the nesting cap (#3597, #3615, #3618, #3627, #3640, #3662, #3663, #3670, #3684).
 - Nested admonition titles start at their authored AST position, and code or raw block spans include literal interior payload newlines (#3673, #3697).
 - An unterminated nested fence above an indented `+` ends its code block span, and its inner list, after the payload instead of on the separating blank line (#3718).
-- A block attribute line, reference definition or footnote definition below a refused nested `+` closes the paragraph the `+` folded into instead of folding as text, so `{.c}` reaches the next block (markup-carve/carve#3420).
+- A block attribute line, reference definition or footnote definition below a refused nested `+` closes the paragraph the `+` folded into instead of folding as text, so `{.c}` reaches the next block, also when the `+` paragraph ends at an invisible line (#3730; markup-carve/carve#3420).
 - Unclosed fences, definitions, quotes, and footnotes now stay in their owning list or container. List tightness and caption gaps follow the authored lines (#3538, #3543, #3566, #3567, #3574, markup-carve/carve#3364).
 - A caption after a `+`-attached code, raw or figure-group fence stays with that fence, and a fence-looking line folded into a child item's paragraph no longer keeps the list tight. An unterminated fence on a nested list marker line keeps the blank lines below it (#3576, #3578, #3573, markup-carve/carve#3369, markup-carve/carve#3370).
 - Region markers stay beside their content through `fmt`, and definitions remain inside selected regions (#3555, #3556, #3564, markup-carve/carve#3330, markup-carve/carve#3350).
@@ -36,12 +42,12 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 - `fmt` no longer duplicates a code fence's title attribute as its header (#3554).
 - Markdown migration keeps a destination's brackets and non-ASCII characters as written, assesses standalone images correctly, and resolves case-only heading fragments with a fixup report (#3547, #3552, #3571, #3572, #3577, markup-carve/carve#3323, markup-carve/carve#3372, markup-carve/carve#3373, markup-carve/carve#3378).
 - BBCode migration reads quote attribution fields consistently and reports dropped fields as `bbcode-quote-field-dropped` (#3542, #3545, #3569, markup-carve/carve#3341, markup-carve/carve#3357).
-- `carve lint` output separates the rule id from its message, and `--help` documents `lint --include-root` (#3562, #3559, #3560).
+- `carve --help` documents `lint --include-root` (#3560).
 - Lint reports a first-block `+` in a footnote or description that nothing below can attach: the end of the input, a blank line, or an indented line (#3719; markup-carve/carve#3519).
 - Lint reports a first-block `+` in a footnote or description that is refused because a column-0 list follows it, with the reason `a list` (#3715; markup-carve/carve#3482).
 - A blank line before a `+` that continues a sub-list opened on its parent's marker line (`- - item`) now loosens the outer list in the AST, as the indented spelling already did. HTML is unchanged (#3717).
 - `list-item-block-overindented` no longer fires on a block placed at the content column of a description inside a list item (#3722).
-- A `> +` on its own line in a list item or description, or a `- > +` on the marker line, attaches the block at its own column to that quote, at any item depth (markup-carve/carve#3421).
+- A `> +` on its own line in a list item or description, or a `- > +` on the marker line, attaches the block at its own column to that quote, at any item depth (#3732; markup-carve/carve#3421).
 - Lint reports a quoted `+` followed by a list item at its column in the same quote (`> > +` / `> > - s`) as `continuation-marker-refused`; the `+` stays text (#3733; markup-carve/carve#3421).
 - A wrapped block attribute (`{.c` / `}`) below an item, quote or refused nested `+` paragraph closes it and reaches the next block, as the one-line `{.c}` does; it no longer folds as text or loses its class, also below an item whose last block is a nested list (#3737, #3741; markup-carve/carve#3421).
 - A `> +` below a quote opened on a description's first line (`: > > q`) or on an item's marker line inside a quote (`> - > > q`) attaches its follower like the top-level twin `> > q` / `> +` / `> > r`, instead of folding into one paragraph (#3743; markup-carve/carve#3528).
@@ -59,6 +65,7 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 ### Performance
 - Plain loose bullet lists at the document root now build directly as AST nodes, reducing parse and conversion time without changing output (#3710).
 - Single-line top-level quotes parse with less work, and plain loose bullet lists render straight from their AST nodes, without changing output (#3723, #3726).
+- Tight lists whose items start with emphasis or a code span build on the fast AST path, and tight bullet lists with plain strong spans render directly, without changing output (#3729, #3739).
 - Plain ASCII link destinations, list-item leads, footnote bodies, quoted footnote openers, borrowed HTML and AST HTML rendering avoid repeated scans. Wrapped bullet and ordered lists and escaped AST sources take bounded work (#3598, #3603, #3621, #3629, #3630, #3649, #3681, #3685, #3693, #3698, #3701; ee152759).
 - Runs with many include candidates now advance the source cursor instead of rescanning earlier text (#3565).
 
