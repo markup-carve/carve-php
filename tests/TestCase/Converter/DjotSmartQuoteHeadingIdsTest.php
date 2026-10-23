@@ -28,6 +28,13 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'single pair in link text' => ["## ['a'](u)\n", ['a']];
         yield 'single pair in span' => ["## {'a'}\n", ['a']];
         yield 'tab heading keeps following pairing' => ["##\t'a'\n\n## x 'b' y\n", ['a', 'x-b-y']];
+        yield 'fenced heading text does not affect pairing' => ["```sh\n# install\n```\n\n## 'a'\n", ['a']];
+        yield 'raw fenced heading text does not affect pairing' => ["```=html\n## 'x'\n```\n\n## 'a'\n", ['a']];
+        yield 'single outside double pair' => ["## '\"a\"'\n", ['a']];
+        yield 'double outside single pair' => ["## \"'a'\"\n", ['a']];
+        yield 'two adjacent single pairs' => ["## 'a''b'\n", ['ab']];
+        yield 'nested single pairs' => ["## ''a''\n", ['a']];
+        yield 'autolink quote before pair' => ["## <http://x'y> 'b'\n", ["http:-x'y-b"]];
         yield 'paired and apostrophe' => ["## it's 'a'\n", ["it's-a"]];
         yield 'quotes inside code' => ['## `"a"`' . "\n", ['"a"']];
         yield 'quotes in link text' => ['## ["a"](u)' . "\n", ['a']];

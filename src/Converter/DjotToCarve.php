@@ -732,6 +732,11 @@ class DjotToCarve
                     $attributeRanges[] = [$offset, $attribute['end']];
                 }
             }
+            preg_match_all('/<(?:https?:\/\/|mailto:)[^>\n]*>/i', $text, $autoLinks, PREG_OFFSET_CAPTURE);
+            $autoLinkRanges = [];
+            foreach ($autoLinks[0] as [$link, $offset]) {
+                $autoLinkRanges[] = [$offset, $offset + strlen($link)];
+            }
             $visible = [];
             $quotePositions = [];
             foreach ($quotes[0] as [$quote, $offset]) {
@@ -743,7 +748,15 @@ class DjotToCarve
                         break;
                     }
                 }
-                if (substr($mask, $offset, strlen($quote)) !== $quote && !$inCode) {
+                $inAutoLink = false;
+                foreach ($autoLinkRanges as [$start, $end]) {
+                    if ($offset >= $start && $offset < $end) {
+                        $inAutoLink = true;
+
+                        break;
+                    }
+                }
+                if (substr($mask, $offset, strlen($quote)) !== $quote && !$inCode && !$inAutoLink) {
                     continue;
                 }
                 $quotePositions[$offset] = count($visible);
@@ -751,7 +764,8 @@ class DjotToCarve
             }
             $matchedPairs = [];
             foreach (["'", '"'] as $delimiter) {
-                $opener = null;
+                $openers = [];
+                $lastClosedAt = null;
                 foreach ($visible as [$quote, $offset]) {
                     if (
                         $quote !== $delimiter || ($mask[$offset] ?? '') !== $delimiter
@@ -764,24 +778,36 @@ class DjotToCarve
                             continue 2;
                         }
                     }
+                    foreach ($autoLinkRanges as [$start, $end]) {
+                        if ($offset >= $start && $offset < $end) {
+                            continue 2;
+                        }
+                    }
                     $before = substr($text, 0, $offset);
                     $after = substr($text, $offset + 1);
-                    if ($opener === null) {
+                    if ($openers === []) {
                         if (
-                            $after === '' || preg_match('/^[\s\x27"]/', $after) === 1
-                            || ($delimiter === "'" && preg_match('/[^\s(\[{\-]$/uD', $before) === 1)
+                            $after === '' || preg_match('/^\s/', $after) === 1
+                            || ($delimiter === "'" && $lastClosedAt !== $offset - 1 && !str_ends_with($before, '"')
+                                && preg_match('/[^\s(\[{\-]$/uD', $before) === 1)
                         ) {
                             continue;
                         }
-                        $opener = $offset;
+                        $openers[] = $offset;
+
+                        continue;
+                    }
+                    if ($offset === $openers[count($openers) - 1] + 1) {
+                        $openers[] = $offset;
 
                         continue;
                     }
                     if (preg_match('/\s$/uD', $before) === 1) {
                         continue;
                     }
+                    $opener = array_pop($openers);
                     $matchedPairs[] = [$opener, $offset, $quotePositions[$opener], $quotePositions[$offset]];
-                    $opener = null;
+                    $lastClosedAt = $offset;
                 }
             }
             usort($matchedPairs, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
@@ -805,7 +831,11 @@ class DjotToCarve
                 $remove[] = $pair[3];
             }
             sort($remove);
-            $pairs[] = ['remove' => $remove, 'quotes' => array_column($visible, 0)];
+            $visibleQuotes = [];
+            foreach ($visible as [$quote]) {
+                $visibleQuotes[] = $quote;
+            }
+            $pairs[] = ['remove' => $remove, 'quotes' => $visibleQuotes];
         }
 
         return $pairs;
@@ -973,9 +1003,28 @@ class DjotToCarve
         $previous = '';
         $previousHeading = false;
         $previousKey = '';
+        $fenceChar = '';
+        $fenceLength = 0;
         $lines = explode("\n", $source);
         foreach ($lines as $lineNumber => $line) {
             $body = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $line) ?? $line;
+            if ($fenceLength > 0) {
+                if (preg_match('/^[ \t]*' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}[ \t]*$/', $body) === 1) {
+                    $fenceLength = 0;
+                }
+                $previous = trim($body);
+                $previousHeading = false;
+
+                continue;
+            }
+            if (preg_match('/^[ \t]*(?:(?:[-+*]|\d+[.)])[ \t]+)?(`{3,}|~{3,})/', $body, $fence) === 1) {
+                $fenceChar = $fence[1][0];
+                $fenceLength = strlen($fence[1]);
+                $previous = trim($body);
+                $previousHeading = false;
+
+                continue;
+            }
             $heading = false;
             $label = '';
             $content = $body;
