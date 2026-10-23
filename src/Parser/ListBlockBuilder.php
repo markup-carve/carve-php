@@ -1677,6 +1677,23 @@ final class ListBlockBuilder
                 if ($subTrailingState->fence !== null) {
                     break;
                 }
+                // A description-shaped line here opens nothing in the surviving
+                // context, so it folds into the open paragraph (CARVE-P2-017, carve#3547).
+                if (
+                    !$sawBlankLine
+                    && $subTrailingState->openParagraph
+                    && $subLines !== []
+                    && (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmedLine) === 1
+                        || (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $trimmedLine) === 1
+                            && !$this->blankSinceLastTerm($subLines)))
+                ) {
+                    $subLines[] = BlockGrammar::LAZY_FRAME . $trimmedLine;
+                    $subLineMap[] = $this->sourceLineFor($i);
+                    $subTrailingState = $this->advanceTrailingState($subTrailingState, 'text');
+                    $i++;
+
+                    continue;
+                }
                 if (
                     !$sawBlankLine
                     && $subTermColumn === null
@@ -2269,6 +2286,27 @@ final class ListBlockBuilder
         $length = ($this->wrappedBlockAttributeLengthCallback)($probe, 0);
 
         return $length !== null && $length > 1 ? $length : null;
+    }
+
+    /**
+     * Whether a blank line separates the collected lines from their last term.
+     * A loose definition list reads a term line as its next entry, never as lazy text.
+     *
+     * @param array<int, string> $lines
+     */
+    private function blankSinceLastTerm(array $lines): bool
+    {
+        for ($k = count($lines) - 1; $k >= 0; $k--) {
+            $line = BlockGrammar::stripLazyFrame($lines[$k]);
+            if (IndentationHelper::isBlankLine($line)) {
+                return true;
+            }
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, ltrim($line, " \t")) === 1) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     /**
