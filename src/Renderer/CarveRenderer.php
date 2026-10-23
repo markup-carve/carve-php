@@ -1543,9 +1543,14 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $rendered = $this->renderBlock($block);
                 if (
                     $item !== null && $block instanceof Paragraph
-                    && $previousEmitted instanceof ListBlock && $rendered === '\\+'
+                    && $previousEmitted instanceof ListBlock
                 ) {
-                    $rendered = '+';
+                    $taskFence = $this->nestedFenceTailIsTask($previousEmitted);
+                    if ($taskFence === true && ($rendered === '\\+' || str_starts_with($rendered, "\\+\n"))) {
+                        $rendered = ' +' . substr($rendered, 2);
+                    } elseif ($rendered === '\\+') {
+                        $rendered = '+';
+                    }
                 }
                 $moved = $item !== null
                     && self::spellsSomething($rendered)
@@ -2555,6 +2560,27 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
         return false;
     }
 
+    /** Null means no fence; false means a plain item; true means a task item. */
+    private function nestedFenceTailIsTask(?Node $previous): ?bool
+    {
+        if (!$previous instanceof ListBlock) {
+            return null;
+        }
+        $items = $previous->getChildren();
+        $item = $items === [] ? null : $items[array_key_last($items)];
+        if (!$item instanceof ListItem) {
+            return null;
+        }
+        $children = $item->getChildren();
+        $tail = $children === [] ? null : $children[array_key_last($children)];
+
+        if (!$tail instanceof CodeBlock && !$tail instanceof RawBlock) {
+            return null;
+        }
+
+        return $item->isTask();
+    }
+
     protected function renderListItem(ListItem $node, bool $tight = false): string
     {
         $children = $node->getChildren();
@@ -2618,8 +2644,15 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                 $rendered = $this->atAnAuthoredBodyColumn(
                     fn (): string => $this->renderBlock($child),
                 );
-                if ($child instanceof Paragraph && $rendered === '+' && ($this->listDepth > 1 || $this->indentedHostDepth > 0)) {
-                    $rendered = '\\+';
+                $barePlus = $rendered === '+' || str_starts_with($rendered, "+\n");
+                $escapedPlus = $rendered === '\\+' || str_starts_with($rendered, "\\+\n");
+                if ($child instanceof Paragraph && ($barePlus || $escapedPlus)) {
+                    $taskFence = $this->nestedFenceTailIsTask($previousEmitted);
+                    if ($taskFence === true) {
+                        $rendered = ' +' . substr($rendered, $escapedPlus ? 2 : 1);
+                    } elseif ($taskFence === null && $rendered === '+' && ($this->listDepth > 1 || $this->indentedHostDepth > 0)) {
+                        $rendered = '\\+';
+                    }
                 }
                 if ($rendered === '') {
                     $previous = $child;
