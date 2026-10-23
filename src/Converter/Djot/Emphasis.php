@@ -40,13 +40,14 @@ final class Emphasis
      * @param string $source
      * @param string $mask
      * @param list<int> $cellBoundaries
+     * @param bool $includeQuotes
      *
      * @return array<int, int>
      */
-    public static function pairedOpeners(string $source, string $mask, array $cellBoundaries = []): array
+    public static function pairedOpeners(string $source, string $mask, array $cellBoundaries = [], bool $includeQuotes = false): array
     {
         $paired = [];
-        self::process($source, $mask, static fn (string $plain): string => $plain, [], $paired, cellBoundaries: $cellBoundaries);
+        self::process($source, $mask, static fn (string $plain): string => $plain, [], $paired, cellBoundaries: $cellBoundaries, omitQuoteDelimiters: $includeQuotes);
 
         return $paired ?? [];
     }

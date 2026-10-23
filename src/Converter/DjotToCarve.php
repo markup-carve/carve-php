@@ -611,6 +611,7 @@ class DjotToCarve
         });
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
         [$source, $orphanSpans, $reservedOrphanIds] = $this->consumeOrphanDjotAttributes($source);
+        $source = $this->protectDjotEmphasisCrossingQuotes($source);
         $source = $this->normalizeDjotQuotesNearSlashes($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
@@ -1301,6 +1302,203 @@ class DjotToCarve
         $this->paragraphStarts[$from] = ['key' => $key, 'result' => $result];
 
         return $result;
+    }
+
+    private function protectDjotEmphasisCrossingQuotes(string $source): string
+    {
+        if ($this->omitQuoteDelimiters || (!str_contains($source, '_') && !str_contains($source, '*')) || (!str_contains($source, '"') && !str_contains($source, "'"))) {
+            return $source;
+        }
+
+        $mask = $this->djotEmphasisMask($source);
+        $boundaries = $this->djotTableCellBoundaries($source);
+        $plain = Emphasis::pairedOpeners($source, $mask, $boundaries);
+        $withQuotes = Emphasis::pairedOpeners($source, $mask, $boundaries, true);
+        $pairedMarkers = [];
+        foreach ($withQuotes as $pairedOpen => $pairedEnd) {
+            $pairedClose = ($source[$pairedEnd - 1] ?? '') === '}' ? $pairedEnd - 2 : $pairedEnd - 1;
+            $pairedMarkers[$pairedOpen] = $pairedMarkers[$pairedClose] = true;
+        }
+        $imageLabels = [];
+        $this->replaceImageLabels($source, $mask, static function (array $match) use (&$imageLabels): string {
+            $imageLabels[] = [$match[1][1], $match[1][1] + strlen($match[1][0])];
+
+            return $match[0][0];
+        });
+        usort($imageLabels, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        ksort($plain);
+        $escape = [];
+        $closingSingles = [];
+        $doubleDirectionsAfterSingles = [];
+        $openingSinglesAfterSingles = [];
+        $pairedSingleClosesAfterSingles = [];
+        $wordSpans = [];
+        $wordSpanEnds = [];
+        $droppedAttributes = [];
+        $forcedOpens = [];
+        $forcedCloses = [];
+        $imageIndex = 0;
+        foreach ($plain as $open => $end) {
+            while (isset($imageLabels[$imageIndex]) && $open >= $imageLabels[$imageIndex][1]) {
+                $imageIndex++;
+            }
+            if (isset($imageLabels[$imageIndex]) && $open >= $imageLabels[$imageIndex][0]) {
+                continue;
+            }
+            if (str_contains('_*', $source[$open]) && ($withQuotes[$open] ?? null) !== $end) {
+                $close = $end - 1;
+                if (($source[$close] ?? '') === '}') {
+                    $close--;
+                }
+                if (($source[$close] ?? '') === $source[$open]) {
+                    $escape[$open] = true;
+                    if (isset($forcedCloses[$close])) {
+                        continue;
+                    }
+                    if (isset($withQuotes[$close])) {
+                        $attribute = ($source[$end] ?? '') === '{' ? $this->readDjotWordAttributes($source, $end) : null;
+                        if ($attribute !== null) {
+                            $droppedAttributes[$end] = $attribute['end'];
+                            $forcedOpens[$close] = true;
+                            $forcedCloses[$withQuotes[$close] - 1] = true;
+                        }
+
+                        continue;
+                    }
+                    $escape[$close] = true;
+                    $attributeAt = $end;
+                    $laterOpen = null;
+                    while (str_contains('_*', $source[$attributeAt] ?? ' ')) {
+                        if (isset($withQuotes[$attributeAt])) {
+                            $laterOpen = $attributeAt;
+                        }
+                        $attributeAt++;
+                    }
+                    if ($laterOpen !== null && ($source[$attributeAt] ?? '') === '{') {
+                        $attribute = $this->readDjotWordAttributes($source, $attributeAt);
+                        if ($attribute !== null) {
+                            $droppedAttributes[$attributeAt] = $attribute['end'];
+                            $forcedOpens[$laterOpen] = true;
+                            $forcedCloses[$withQuotes[$laterOpen] - 1] = true;
+                        }
+                    }
+                    $attributeAt = $end;
+                    $extraDelimiters = [];
+                    while (str_contains('_*', $source[$attributeAt] ?? ' ') && !isset($withQuotes[$attributeAt])) {
+                        $extraDelimiters[] = $attributeAt++;
+                    }
+                    if (($source[$attributeAt] ?? '') === '{' && $this->readDjotWordAttributes($source, $attributeAt) !== null) {
+                        foreach ($extraDelimiters as $at) {
+                            $escape[$at] = true;
+                        }
+                        $wordEnd = $attributeAt - 1;
+                        $wordStart = $close;
+                        while (
+                            $wordStart > 0 && !isset($pairedMarkers[$wordStart - 1])
+                            && preg_match('/[\s\]}`"\x27)]/', $source[$wordStart - 1]) !== 1
+                        ) {
+                            $wordStart--;
+                        }
+                        if ($wordStart > $open) {
+                            $wordSpans[$wordStart] = true;
+                            $wordSpanEnds[$wordEnd] = true;
+                        }
+                    }
+                }
+            }
+            if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
+                $closingSingles[$open + 1] = true;
+                if (($source[$open + 2] ?? '') === '"') {
+                    $openDoubles = $this->djotDoubleQuoteDepthBefore($source, $mask, $open + 2);
+                    $firstOpens = $openDoubles === 0;
+                    $doubleDirectionsAfterSingles[$open + 2] = $firstOpens ? '“' : '”';
+                    $openDoubles += $firstOpens
+                        ? (preg_match('/^\S/u', substr($source, $open + 3)) === 1 ? 1 : 0) : -1;
+                    for ($candidate = $open + 3; $candidate < $end - 1; $candidate++) {
+                        if (($source[$candidate] ?? '') === '"' && ($mask[$candidate] ?? '') === '"' && !$this->isDjotEscaped($source, $candidate)) {
+                            $previous = $source[$candidate - 1];
+                            $adjacentDirection = $previous === '"' && !$this->isDjotEscaped($source, $candidate - 1)
+                                ? ($doubleDirectionsAfterSingles[$candidate - 1] ?? null) : null;
+                            $opens = $adjacentDirection === '“' || ($adjacentDirection === '”' && $openDoubles === 0)
+                                || ($adjacentDirection === null
+                                    && (preg_match('/[\s{]$/uD', substr($source, 0, $candidate)) === 1 || $openDoubles === 0));
+                            $doubleDirectionsAfterSingles[$candidate] = $opens ? '“' : '”';
+                            $canOpen = $opens && preg_match('/^\S/u', substr($source, $candidate + 1)) === 1;
+                            $openDoubles += $canOpen ? 1 : (!$opens && $openDoubles > 0 ? -1 : 0);
+                        }
+                    }
+                }
+                $runStart = $open + 2;
+                $runEnd = $runStart + strspn($source, "'", $runStart);
+                if ($runEnd > $runStart) {
+                    for ($candidate = $runEnd; $candidate < $end - 1; $candidate++) {
+                        if (($source[$candidate] ?? '') === "'" && ($mask[$candidate] ?? '') === "'" && !$this->isDjotEscaped($source, $candidate)) {
+                            $openingSinglesAfterSingles[$runEnd - 1] = true;
+                            $pairedSingleClosesAfterSingles[$candidate] = true;
+
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        foreach ($withQuotes as $laterOpen => $laterEnd) {
+            if (!isset($forcedCloses[$laterOpen - 1]) || ($source[$laterOpen + 1] ?? '') !== '{') {
+                continue;
+            }
+            $attribute = $this->readDjotWordAttributes($source, $laterOpen + 1);
+            if ($attribute !== null) {
+                $droppedAttributes[$laterOpen + 1] = $attribute['end'];
+                $forcedOpens[$laterOpen] = true;
+                $forcedCloses[$laterEnd - 1] = true;
+            }
+        }
+        if ($escape === [] && $closingSingles === []) {
+            return $source;
+        }
+
+        $result = '';
+        for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            if (isset($droppedAttributes[$i])) {
+                $i = $droppedAttributes[$i] - 1;
+
+                continue;
+            }
+            $result .= (isset($wordSpans[$i]) ? '[' : '') . (isset($forcedOpens[$i]) ? '{' : '')
+                . (isset($escape[$i]) ? '\\' : '')
+                . (isset($closingSingles[$i]) || isset($pairedSingleClosesAfterSingles[$i]) ? '’'
+                    : (isset($openingSinglesAfterSingles[$i]) ? '‘'
+                        : ($doubleDirectionsAfterSingles[$i] ?? $source[$i])))
+                . (isset($forcedCloses[$i]) ? '}' : '') . (isset($wordSpanEnds[$i]) ? ']' : '');
+        }
+
+        return $result;
+    }
+
+    private function djotDoubleQuoteDepthBefore(string $source, string $mask, int $limit): int
+    {
+        $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+        $directions = [];
+        $depth = 0;
+        for ($at = 0; $at < $limit; $at++) {
+            if (isset($boundaries[$at])) {
+                $depth = 0;
+                $directions = [];
+            }
+            if (($source[$at] ?? '') !== '"' || ($mask[$at] ?? '') !== '"' || $this->isDjotEscaped($source, $at)) {
+                continue;
+            }
+            $previous = $source[$at - 1] ?? '';
+            $adjacent = $previous === '"' && !$this->isDjotEscaped($source, $at - 1)
+                ? ($directions[$at - 1] ?? null) : null;
+            $opens = $adjacent === '“' || ($adjacent === '”' && $depth === 0)
+                || ($adjacent === null && (preg_match('/[\s{]$/uD', substr($source, 0, $at)) === 1 || $depth === 0));
+            $directions[$at] = $opens ? '“' : '”';
+            $canOpen = $opens && preg_match('/^\S/u', substr($source, $at + 1)) === 1;
+            $depth += $canOpen ? 1 : (!$opens && $depth > 0 ? -1 : 0);
+        }
+
+        return $depth;
     }
 
     private function preserveUnpairedDjotSinglesAfterSlash(string $source): string
