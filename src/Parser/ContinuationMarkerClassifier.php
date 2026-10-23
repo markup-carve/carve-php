@@ -13,7 +13,7 @@ use MarkupCarve\Carve\Parser\Utility\LayoutWork;
 final class ContinuationMarkerClassifier
 {
     /**
-     * @var list<array{kind: string, column: int, depth: int, content: int, first: bool}>
+     * @var list<array{kind: string, column: int, depth: int, content: int, first: bool, itemLine?: true}>
      */
     private array $stack = [];
 
@@ -163,6 +163,10 @@ final class ContinuationMarkerClassifier
                     LayoutWork::$markerStackEntriesExamined++;
                 }
                 $entry = $this->stack[$at];
+                // A note opened on an unquoted item's marker line owns no `+` at its column.
+                if (isset($entry['itemLine'])) {
+                    continue;
+                }
                 if (
                     $entry['column'] === $column && $entry['depth'] === $depth
                     && ($entry['kind'] !== 'quote' || $depth === 0 || $deepestQuote > $depth)
@@ -433,7 +437,9 @@ final class ContinuationMarkerClassifier
                     $content = ltrim(substr($inner, $bodyOffset), " \t");
                     $first = self::isPlus($content);
                     $bodyColumn = self::columnAt($inner, $bodyOffset, $innerColumn);
-                    $this->stack[] = ['kind' => 'footnote', 'column' => $innerColumn, 'depth' => $depth, 'content' => $bodyColumn, 'first' => $first];
+                    $this->stack[] = $openedListHere && $depth === 0
+                        ? ['kind' => 'footnote', 'column' => $innerColumn, 'depth' => $depth, 'content' => $bodyColumn, 'first' => $first, 'itemLine' => true]
+                        : ['kind' => 'footnote', 'column' => $innerColumn, 'depth' => $depth, 'content' => $bodyColumn, 'first' => $first];
                     if ($first) {
                         $this->firstBlocks[$index] = $this->stack[array_key_last($this->stack)];
                     }
