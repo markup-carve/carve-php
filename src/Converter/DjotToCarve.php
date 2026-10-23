@@ -7,6 +7,7 @@ namespace MarkupCarve\Carve\Converter;
 use Closure;
 use LogicException;
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\Djot\DjotHeadingIds;
 use MarkupCarve\Carve\Converter\Djot\Emphasis;
 use MarkupCarve\Carve\Converter\Djot\HeadingTargets;
 use MarkupCarve\Carve\Converter\Djot\ImageChildTextRenderer;
@@ -15,6 +16,8 @@ use MarkupCarve\Carve\Converter\Djot\NormalizesStructure;
 use MarkupCarve\Carve\Converter\Djot\PlaceholderPrefix;
 use MarkupCarve\Carve\Converter\Djot\ReportsLosses;
 use MarkupCarve\Carve\Converter\Djot\TightDefinitionDescriptions;
+use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
+use MarkupCarve\Carve\Converter\HeadingId\MapIds;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
@@ -58,13 +61,25 @@ use MarkupCarve\Carve\Util\StringUtil;
 class DjotToCarve
 {
     use EscapesCarveConstructs;
-    use PreservesHeadingIds;
+    use PreservesHeadingIds {
+        preserveHeadingIds as private setHeadingIdSource;
+    }
     use ReportsMigrationFidelity;
     use NormalizesStructure;
     use ReportsLosses;
     use MasksOpaque;
 
     private bool $omitQuoteDelimiters = false;
+
+    private bool $nativeDjotHeadingIds = true;
+
+    public function preserveHeadingIds(?HeadingIdSource $source): self
+    {
+        $this->nativeDjotHeadingIds = false;
+        $this->setHeadingIdSource($source);
+
+        return $this;
+    }
 
     private bool $nulShielded = false;
 
@@ -602,12 +617,28 @@ class DjotToCarve
             $carve = preg_replace_callback('/(?<![ \t])([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
         }
         if ($preserveHeadingIds) {
-            $carve = $this->applyHeadingIdPreservation($carve, strtr($djotBody, $dropInherited));
+            $originalBody = strtr($djotBody, $dropInherited);
+            if ($this->nativeDjotHeadingIds && $this->headingIdSource === null && str_contains($carve, '#')) {
+                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody);
+            } else {
+                $carve = $this->applyHeadingIdPreservation($carve, $originalBody);
+            }
         }
 
         $carve = TightDefinitionDescriptions::normalize($this->genericDjotDivClasses($carve));
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
+    }
+
+    private function applyNativeDjotHeadingIds(string $carve, string $source): string
+    {
+        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve);
+        $this->headingIdSource = new MapIds($djotIds);
+        try {
+            return $this->applyHeadingIdPreservation($carve, $source, $carveIds, false);
+        } finally {
+            $this->headingIdSource = null;
+        }
     }
 
     /**
