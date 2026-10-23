@@ -590,7 +590,7 @@ class DjotToCarve
         $source = $this->preserveDjotClosingQuotesAfterSlash($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
-        $carve = Emphasis::convert($source, $mask, fn (string $plain): string => $this->rewriteDjotInline($plain), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
+        $carve = Emphasis::convert($source, $mask, fn (string $plain, array $slashLayout = []): string => $this->rewriteDjotInline($plain, $slashLayout), $wire ?? [], cellBoundaries: $this->djotTableCellBoundaries($source), omitQuoteDelimiters: $this->omitQuoteDelimiters);
 
         $carve = str_replace($emptyTerm, '%%', $carve);
         $carve = str_replace([$emptyNote, $imageParagraph], ['%%%%', '{%%}'], $carve);
@@ -778,11 +778,17 @@ class DjotToCarve
         }
     }
 
-    private function rewriteDjotInline(string $source): string
+    /**
+     * Rewrite inline text around the protected emphasis delimiters.
+     *
+     * @param string $source
+     * @param array{closers?: array<int, true>} $slashLayout
+     */
+    private function rewriteDjotInline(string $source, array $slashLayout): string
     {
         $masked = $this->djotEmphasisMask($source);
         if (str_contains($source, '/')) {
-            $escaped = $this->escapeBareOpeners($source, '/', true, $masked);
+            $escaped = $this->escapeBareOpeners($source, '/', true, $masked, $slashLayout['closers'] ?? []);
             if ($escaped !== $source) {
                 $source = $escaped;
                 $masked = $this->djotEmphasisMask($source);
