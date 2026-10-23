@@ -96,60 +96,6 @@ final class InlineStage
 
         $definitionPrefix = '[ \t]*(?:>[ \t]*)*' . self::DEFINITION_MARKER;
         $rawDefinition = preg_match('/^' . $definitionPrefix . '\[((?!\^)(?:[^\]\\\\]|\\\\.)+)\]:/', $sourceInput, $definition) === 1;
-        $guardBareLinkPrefix = function (string $before) use ($protect): string {
-            if ($before === '') {
-                return $before;
-            }
-            $last = $before[strlen($before) - 1];
-            if ($last === ']') {
-                $depth = 1;
-                $matchedLabel = false;
-                for ($open = strlen($before) - 2; $open >= 0; $open--) {
-                    if ($before[$open] !== '[' && $before[$open] !== ']') {
-                        continue;
-                    }
-                    $slashes = 0;
-                    for ($escape = $open - 1; $escape >= 0 && $before[$escape] === '\\'; $escape--) {
-                        $slashes++;
-                    }
-                    if ($slashes % 2 !== 0) {
-                        continue;
-                    }
-                    $depth += $before[$open] === '[' ? -1 : 1;
-                    if ($depth === 0) {
-                        $matchedLabel = true;
-                        $label = substr($before, $open + 1, strlen($before) - $open - 2);
-                        $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($label));
-                        $canonical = $this->context->referenceDefinitionLabels[$key] ?? null;
-                        if (
-                            ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($label))
-                            || isset($this->context->emptyDestinationLabels[$key])
-                        ) {
-                            return $before;
-                        }
-
-                        break;
-                    }
-                }
-                if (!$matchedLabel) {
-                    return $before;
-                }
-            }
-            if (!in_array($last, ['!', '^', ']', '\\'], true)) {
-                return $before;
-            }
-            $at = strlen($before) - ($last === '\\' ? 1 : 2);
-            while ($at >= 0 && $before[$at] === '\\') {
-                $at--;
-            }
-            $source = substr($before, $at + 1);
-            $slashes = strlen($source) - ($last === '\\' ? 0 : 1);
-            $written = $last === '\\'
-                ? str_repeat('\\', 2 * intdiv($slashes + 1, 2))
-                : str_repeat('\\', 2 * intdiv($slashes, 2)) . '\\' . $last;
-
-            return substr($before, 0, $at + 1) . $protect($written, $source);
-        };
         $definitionBody = $rawDefinition
             ? (preg_replace('/^' . $definitionPrefix . '(?=\[)/', '', $sourceInput) ?? $sourceInput)
             : '';
@@ -157,52 +103,7 @@ final class InlineStage
             && ReferenceDefinition::read($definitionBody, 0) !== null
             && isset($this->context->referenceDefinitionLabels[$this->normalizeReferenceLabel($this->decodeLinkTitle($definition[1]))]);
         if (!$isReferenceDefinition && (str_contains($sourceInput, ':') || str_contains($sourceInput, 'www.'))) {
-            $cursor = 0;
-            $captured = '';
-            $rawOpaqueEnds = [];
-            $rawUrls = BareLinks::rawUrls($sourceInput, function (int $at) use ($sourceInput, &$rawOpaqueEnds): ?int {
-                $end = $this->opaqueHtmlEnd($sourceInput, $at, $rawOpaqueEnds) ?? ($this->htmlTagAt($sourceInput, $at)['end'] ?? null);
-                if ($end !== null) {
-                    return $end;
-                }
-                if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $sourceInput, $angle, 0, $at) === 1) {
-                    return $at + strlen($angle[0]);
-                }
-
-                return null;
-            }, fn (int $at): ?int => $this->markdownActivationTailEnd($sourceInput, $at));
-            foreach ($rawUrls as $candidate) {
-                $body = substr($sourceInput, $candidate['start'], $candidate['end'] - $candidate['start']);
-                $href = $candidate['prefix'] . $body;
-                $document = new Document();
-                $paragraph = new Paragraph();
-                $link = new Link($href);
-                foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
-                    if ($piece !== '') {
-                        $link->appendChild(new Text($piece));
-                    }
-                }
-                $paragraph->appendChild($link);
-                $document->appendChild($paragraph);
-                $written = rtrim((new CarveRenderer())->render($document), "\n");
-                if (preg_match('/\[[^]]+\]\([^)]*$/', $body) === 1) {
-                    $destinationAt = strrpos($written, '](');
-                    if ($destinationAt !== false) {
-                        $label = substr($written, 0, $destinationAt);
-                        $unclosedAt = strrpos($label, ']\\(');
-                        $bareAt = strrpos($label, '](');
-                        if ($unclosedAt !== false && ($bareAt === false || $bareAt < $unclosedAt)) {
-                            $written = substr_replace($label, '](', $unclosedAt, 3) . substr($written, $destinationAt);
-                        }
-                    }
-                }
-                if ($table) {
-                    $written = ($this->escapeTablePipes)($written);
-                }
-                $captured .= $guardBareLinkPrefix(substr($sourceInput, $cursor, $candidate['start'] - $cursor)) . $protect($written, $body);
-                $cursor = $candidate['end'];
-            }
-            $line = ($this->escapeCarveOnlyMarker)($captured . substr($sourceInput, $cursor));
+            $line = $this->protectBareLinks($sourceInput, $protect, $table);
         }
 
         $preserveReferenceAutolinks = static function (string $value) use ($protect, $table): string {
@@ -1420,7 +1321,7 @@ final class InlineStage
                         $reparseCode = true;
                     }
                 }
-                $protectedUrls .= $guardBareLinkPrefix(substr($line, $urlCursor, $offset - $urlCursor)) . $protect($written) . ($candidate['tail'] ?? '');
+                $protectedUrls .= $this->guardBareLinkPrefix(substr($line, $urlCursor, $offset - $urlCursor), $protect) . $protect($written) . ($candidate['tail'] ?? '');
                 $urlCursor = $candidate['end'];
             }
             $line = $protectedUrls . substr($line, $urlCursor);
@@ -1471,6 +1372,122 @@ final class InlineStage
         $line = $this->escapeFinalInlineText($line, $work, $protect, $hasProtectedEscapeBefore, $table);
 
         return $this->restoreProtectedInlineOutput($line, $work, $table);
+    }
+
+    /**
+     * @param string $before
+     * @param \Closure(string, ?string=): string $protect
+     */
+    private function guardBareLinkPrefix(string $before, Closure $protect): string
+    {
+        if ($before === '') {
+            return $before;
+        }
+        $last = $before[strlen($before) - 1];
+        if ($last === ']') {
+            $depth = 1;
+            $matchedLabel = false;
+            for ($open = strlen($before) - 2; $open >= 0; $open--) {
+                if ($before[$open] !== '[' && $before[$open] !== ']') {
+                    continue;
+                }
+                $slashes = 0;
+                for ($escape = $open - 1; $escape >= 0 && $before[$escape] === '\\'; $escape--) {
+                    $slashes++;
+                }
+                if ($slashes % 2 !== 0) {
+                    continue;
+                }
+                $depth += $before[$open] === '[' ? -1 : 1;
+                if ($depth === 0) {
+                    $matchedLabel = true;
+                    $label = substr($before, $open + 1, strlen($before) - $open - 2);
+                    $key = $this->normalizeReferenceLabel($this->decodeLinkTitle($label));
+                    $canonical = $this->context->referenceDefinitionLabels[$key] ?? null;
+                    if (
+                        ($canonical !== null && $this->normalizeReferenceLabel($canonical) === $this->normalizeReferenceLabel($label))
+                        || isset($this->context->emptyDestinationLabels[$key])
+                    ) {
+                        return $before;
+                    }
+
+                    break;
+                }
+            }
+            if (!$matchedLabel) {
+                return $before;
+            }
+        }
+        if (!in_array($last, ['!', '^', ']', '\\'], true)) {
+            return $before;
+        }
+        $at = strlen($before) - ($last === '\\' ? 1 : 2);
+        while ($at >= 0 && $before[$at] === '\\') {
+            $at--;
+        }
+        $source = substr($before, $at + 1);
+        $slashes = strlen($source) - ($last === '\\' ? 0 : 1);
+        $written = $last === '\\'
+            ? str_repeat('\\', 2 * intdiv($slashes + 1, 2))
+            : str_repeat('\\', 2 * intdiv($slashes, 2)) . '\\' . $last;
+
+        return substr($before, 0, $at + 1) . $protect($written, $source);
+    }
+
+    /**
+     * @param string $sourceInput
+     * @param \Closure(string, ?string=): string $protect
+     * @param bool $table
+     */
+    private function protectBareLinks(string $sourceInput, Closure $protect, bool $table): string
+    {
+        $cursor = 0;
+        $captured = '';
+        $rawOpaqueEnds = [];
+        $rawUrls = BareLinks::rawUrls($sourceInput, function (int $at) use ($sourceInput, &$rawOpaqueEnds): ?int {
+            $end = $this->opaqueHtmlEnd($sourceInput, $at, $rawOpaqueEnds) ?? ($this->htmlTagAt($sourceInput, $at)['end'] ?? null);
+            if ($end !== null) {
+                return $end;
+            }
+            if (preg_match('/\G<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>\s]*|[A-Za-z0-9.!#$%&\x27*+\/=?^_`{|}~-]+@[A-Za-z0-9.-]+)>/', $sourceInput, $angle, 0, $at) === 1) {
+                return $at + strlen($angle[0]);
+            }
+
+            return null;
+        }, fn (int $at): ?int => $this->markdownActivationTailEnd($sourceInput, $at));
+        foreach ($rawUrls as $candidate) {
+            $body = substr($sourceInput, $candidate['start'], $candidate['end'] - $candidate['start']);
+            $href = $candidate['prefix'] . $body;
+            $document = new Document();
+            $paragraph = new Paragraph();
+            $link = new Link($href);
+            foreach (preg_split('/([\[\]])/', $body, flags: PREG_SPLIT_DELIM_CAPTURE) ?: [] as $piece) {
+                if ($piece !== '') {
+                    $link->appendChild(new Text($piece));
+                }
+            }
+            $paragraph->appendChild($link);
+            $document->appendChild($paragraph);
+            $written = rtrim((new CarveRenderer())->render($document), "\n");
+            if (preg_match('/\[[^]]+\]\([^)]*$/', $body) === 1) {
+                $destinationAt = strrpos($written, '](');
+                if ($destinationAt !== false) {
+                    $label = substr($written, 0, $destinationAt);
+                    $unclosedAt = strrpos($label, ']\\(');
+                    $bareAt = strrpos($label, '](');
+                    if ($unclosedAt !== false && ($bareAt === false || $bareAt < $unclosedAt)) {
+                        $written = substr_replace($label, '](', $unclosedAt, 3) . substr($written, $destinationAt);
+                    }
+                }
+            }
+            if ($table) {
+                $written = ($this->escapeTablePipes)($written);
+            }
+            $captured .= $this->guardBareLinkPrefix(substr($sourceInput, $cursor, $candidate['start'] - $cursor), $protect) . $protect($written, $body);
+            $cursor = $candidate['end'];
+        }
+
+        return ($this->escapeCarveOnlyMarker)($captured . substr($sourceInput, $cursor));
     }
 
     /**

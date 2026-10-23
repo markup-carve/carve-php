@@ -17,6 +17,7 @@ use MarkupCarve\Carve\Converter\Markdown\CarrierContext;
 use MarkupCarve\Carve\Converter\Markdown\CarrierStage;
 use MarkupCarve\Carve\Converter\Markdown\DestinationEncoding;
 use MarkupCarve\Carve\Converter\Markdown\EmailText;
+use MarkupCarve\Carve\Converter\Markdown\FenceWork;
 use MarkupCarve\Carve\Converter\Markdown\HeadingFragments;
 use MarkupCarve\Carve\Converter\Markdown\ImportWork;
 use MarkupCarve\Carve\Converter\Markdown\InlineContext;
@@ -421,20 +422,7 @@ class MarkdownToCarve
         // Where $result holds a thematic break this conversion wrote, so the
         // frontmatter-collision guard below respells those lines and no others.
         $breakLines = [];
-        $inCodeBlock = false;
-        $fenceChar = '';
-        $fenceLength = 0;
-        // Leading spaces to strip from the open fence's opener/body/closer, so
-        // the migrated fence sits at its container's content column (see opener).
-        $fenceStrip = 0;
-        // The list item content column an open fence sits in; 0 at top level.
-        $fenceItemCol = 0;
-        // Where the open fence's opener sits in $result, what precedes its
-        // fence run there, and its info string. The opener is rewritten at the
-        // closer, once the body says how long the canonical fence has to be.
-        $fenceOut = -1;
-        $fenceRun = 0;
-        $fenceInfo = '';
+        $fence = new FenceWork();
         // Stack of enclosing list items' content columns (outermost first), so
         // a fence is re-based to the DEEPEST item that still contains it.
         $listCols = [];
@@ -453,7 +441,6 @@ class MarkdownToCarve
         $shiftFrom = 0;
         $shiftCol = 0;
         $shiftBy = 0;
-        $fenceShift = 0;
 
         // Raw-HTML block tracking. `$htmlCloser` is the terminator pattern of an
         // open CommonMark condition 1-5 block (`</script>`, `-->`, ...),
@@ -510,7 +497,7 @@ class MarkdownToCarve
             $this->inlineContext->inlineRunContinuesPrevious = $i > 0
                 && trim($lines[$i - 1]) !== ''
                 && $this->nextLineContinuesThisParagraph($lines[$i - 1], $lines[$i], false);
-            if (!$inCodeBlock && $emptyMarkerColumn !== null && trim($lines[$i]) !== '') {
+            if (!$fence->active && $emptyMarkerColumn !== null && trim($lines[$i]) !== '') {
                 if ($prevBlank && $this->indentWidth($lines[$i]) > $emptyMarkerColumn) {
                     while ($listCols !== [] && end($listCols) > $emptyMarkerColumn) {
                         array_pop($listCols);
@@ -519,10 +506,10 @@ class MarkdownToCarve
                 }
                 $emptyMarkerColumn = null;
             }
-            if (!$inCodeBlock) {
+            if (!$fence->active) {
                 $lines[$i] = $this->normalizeListMarkerPadding($lines[$i], $listCols);
             }
-            $bareMarker = !$inCodeBlock && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1;
+            $bareMarker = !$fence->active && preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])[ \t]*$/', $lines[$i]) === 1;
             $bareParagraphMarker = $bareMarker
                 && $listCols !== []
                 && $this->indentWidth($lines[$i]) >= (int)end($listCols)
@@ -567,7 +554,7 @@ class MarkdownToCarve
             // content, so its width is NOT part of the column); a blank line is
             // transparent; a non-blank line pops items whose content starts to
             // its right. Code content never changes list tracking.
-            if (!$inCodeBlock) {
+            if (!$fence->active) {
                 // Columns, not bytes: a tab advances to the next four-column
                 // stop, so measuring it as one byte put `\tcode` to the LEFT of
                 // a two-column item and popped the item that holds it.
@@ -656,8 +643,8 @@ class MarkdownToCarve
             ) {
                 $result[] = '';
             }
-            $shiftCol = $inCodeBlock ? $fenceItemCol : ($listCols === [] ? 0 : (int)end($listCols));
-            $shiftBy = $inCodeBlock ? $fenceShift : $listMarkers->shiftAt($shiftCol);
+            $shiftCol = $fence->active ? $fence->itemColumn : ($listCols === [] ? 0 : (int)end($listCols));
+            $shiftBy = $fence->active ? $fence->shift : $listMarkers->shiftAt($shiftCol);
 
             if ($bareParagraphMarker) {
                 $text = rtrim(ltrim($line, " \t"), " \t");
@@ -693,7 +680,7 @@ class MarkdownToCarve
             $lazyCol = $listCols === [] ? 0 : (int)end($listCols);
             $lineIndent = $this->indentWidth($line);
             if (
-                !$inCodeBlock
+                !$fence->active
                 && ($lazyAllowed || $lazyQuote !== null)
                 && $listCols !== []
                 && $lineIndent < $lazyCol
@@ -723,7 +710,7 @@ class MarkdownToCarve
             // item's content column: on a line continuing a paragraph no indent
             // is code and none is content, so `fmt` writes the line at the
             // container's column (carve-php#2384).
-            if (!$inCodeBlock && $prevLineType === 'text' && $listCols === [] && $trimmed !== '' && $lineIndent >= 4) {
+            if (!$fence->active && $prevLineType === 'text' && $listCols === [] && $trimmed !== '' && $lineIndent >= 4) {
                 // An ordered marker other than 1 interrupts no paragraph anyway.
                 $opener = preg_match('/^0*(?:[2-9]|1\d)\d*[.)]/', $trimmed) === 1 ? $trimmed : $this->escapeBlockOpener($trimmed);
                 $result[] = $this->inlineStage->convertInlineFormatting($opener, !$this->nextLineContinuesThisParagraph($line, $lines[$i + 1] ?? '', false));
@@ -735,7 +722,7 @@ class MarkdownToCarve
             // content column, not past column 0.
             $fenceContentCol = $listCols === [] ? 0 : (int)end($listCols);
             if (
-                !$inCodeBlock
+                !$fence->active
                 && preg_match('/^([ \t]*)(`{3,}|~{3,})(.*)$/', $line, $matches) === 1
                 && $this->columnWidth($matches[1]) <= $fenceContentCol + 3
                 // A backtick in a backtick fence's info string makes it a code
@@ -748,9 +735,6 @@ class MarkdownToCarve
                     $result[] = '';
                 }
 
-                $inCodeBlock = true;
-                $fenceChar = $matches[2][0];
-                $fenceLength = strlen($matches[2]);
                 $info = $this->fenceLanguage($matches[3], $this->sourceLine($i));
                 // Re-base the fence to its container's content column: strip
                 // only the indentation ABOVE that column. At document level the
@@ -758,13 +742,8 @@ class MarkdownToCarve
                 // fence sitting at its item's content column keeps its place in
                 // the item. The same strip comes off the body and closer.
                 $openerIndent = $this->columnWidth($matches[1]);
-                $fenceStrip = max(0, $openerIndent - $fenceContentCol);
-                $fenceItemCol = $fenceContentCol;
-                $fenceShift = $shiftBy;
-                $fenceOut = count($result);
-                $fenceRun = strlen($matches[2]);
-                $fenceInfo = $info;
-                $result[] = $this->stripColumns($matches[1], $fenceStrip) . $matches[2] . $info;
+                $fence->begin($matches[2], max(0, $openerIndent - $fenceContentCol), $fenceContentCol, $shiftBy, count($result), $info);
+                $result[] = $this->stripColumns($matches[1], $fence->strip) . $matches[2] . $info;
                 $prevLineType = 'code_fence';
 
                 continue;
@@ -772,46 +751,38 @@ class MarkdownToCarve
 
             // A fence in a list item ends where the item does (CommonMark), so
             // a dedented line closes it and is read again outside it.
-            if ($inCodeBlock && $fenceItemCol > 0 && trim($line) !== '' && $this->indentWidth($line) < $fenceItemCol) {
-                $result[] = $this->closeFence($result, $fenceOut, $fenceRun, $fenceInfo, $fenceItemCol);
+            if ($fence->active && $fence->itemColumn > 0 && trim($line) !== '' && $this->indentWidth($line) < $fence->itemColumn) {
+                $result[] = $this->closeFence($result, $fence->outputIndex, $fence->length, $fence->info, $fence->itemColumn);
                 // After a nested item's closer Carve reads the line as lazy content of
                 // the parent item: keep the Markdown blank line, and add one when the line leaves the list.
                 if (count($listCols) > 1 && ($wasPrevBlank || $this->indentWidth($line) < (int)$listCols[0])) {
                     $result[] = '';
                 }
-                $inCodeBlock = false;
-                $fenceChar = '';
-                $fenceLength = 0;
-                $fenceStrip = 0;
-                $fenceItemCol = 0;
+                $fence->end();
                 $i--;
 
                 continue;
             }
 
-            if ($inCodeBlock) {
+            if ($fence->active) {
                 $closerIndent = $this->indentWidth($line);
                 // The strip never reaches below the item's own column: a body
                 // line indented no further than the item keeps its place in it.
-                $lineStrip = min($fenceStrip, max(0, $closerIndent - $fenceItemCol));
+                $lineStrip = min($fence->strip, max(0, $closerIndent - $fence->itemColumn));
                 $dedented = $lineStrip > 0 ? $this->stripColumns($line, $lineStrip) : $line;
                 if (
-                    $closerIndent <= $fenceItemCol + 3
-                    && preg_match('/^' . preg_quote($fenceChar, '/') . '{' . $fenceLength . ',}[ \t]*$/', ltrim($line, " \t")) === 1
+                    $closerIndent <= $fence->itemColumn + 3
+                    && preg_match('/^' . preg_quote($fence->char, '/') . '{' . $fence->length . ',}[ \t]*$/', ltrim($line, " \t")) === 1
                 ) {
-                    $inCodeBlock = false;
-                    $fenceChar = '';
-                    $fenceLength = 0;
-                    $fenceStrip = 0;
-                    $result[] = $this->closeFence($result, $fenceOut, $fenceRun, $fenceInfo, $fenceItemCol);
+                    $result[] = $this->closeFence($result, $fence->outputIndex, $fence->length, $fence->info, $fence->itemColumn);
                     if (
                         $i + 1 < $lineCount && trim($lines[$i + 1]) !== ''
                         && !(preg_match('/^[ \t]*(?:[-*+]|\d{1,9}[.)])(?=[ \t]|$)/', $lines[$i + 1]) === 1
-                            && $this->indentWidth($lines[$i + 1]) < $fenceItemCol)
+                            && $this->indentWidth($lines[$i + 1]) < $fence->itemColumn)
                     ) {
                         $result[] = '';
                     }
-                    $fenceItemCol = 0;
+                    $fence->end();
                     $prevLineType = 'code_fence';
                 } else {
                     $result[] = $dedented;
@@ -1586,16 +1557,10 @@ class MarkdownToCarve
             // its code, read by the fenced-code branch above.
             $itemFence = $this->opensItemFence($body, $isList);
             if ($itemFence !== null) {
-                $fenceOut = count($result);
-                $fenceRun = strlen($itemFence[2]);
-                $fenceInfo = $this->fenceLanguage($itemFence[3], $this->sourceLine($i));
-                $result[] = $itemFence[1] . $itemFence[2] . $fenceInfo;
-                $inCodeBlock = true;
-                $fenceChar = $itemFence[2][0];
-                $fenceLength = strlen($itemFence[2]);
-                $fenceStrip = 0;
-                $fenceItemCol = $listCols === [] ? 0 : (int)end($listCols);
-                $fenceShift = $listMarkers->shiftAt($fenceItemCol);
+                $info = $this->fenceLanguage($itemFence[3], $this->sourceLine($i));
+                $result[] = $itemFence[1] . $itemFence[2] . $info;
+                $itemColumn = $listCols === [] ? 0 : (int)end($listCols);
+                $fence->begin($itemFence[2], 0, $itemColumn, $listMarkers->shiftAt($itemColumn), count($result) - 1, $info);
                 $prevLineType = 'code_fence';
 
                 continue;
@@ -1725,13 +1690,13 @@ class MarkdownToCarve
         $this->applyShift($result, $shiftFrom, $shiftCol, $shiftBy);
         // A fence the document never closed runs to its end and is closed
         // there; the line the final newline leaves stays last.
-        if ($inCodeBlock) {
+        if ($fence->active) {
             $finalNewline = end($lines) === '' && end($result) === '';
             if ($finalNewline) {
                 array_pop($result);
             }
-            $closer = $this->closeFence($result, $fenceOut, $fenceRun, $fenceInfo, $fenceItemCol);
-            $result[] = $this->moveIndent($closer, $fenceItemCol, $fenceItemCol + $fenceShift);
+            $closer = $this->closeFence($result, $fence->outputIndex, $fence->length, $fence->info, $fence->itemColumn);
+            $result[] = $this->moveIndent($closer, $fence->itemColumn, $fence->itemColumn + $fence->shift);
             if ($finalNewline) {
                 $result[] = '';
             }
