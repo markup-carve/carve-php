@@ -51,6 +51,7 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'table row before heading' => ["| t |\n## 'a'\n", ['a']];
         yield 'multiline attribute before heading' => ["{#q\n .c}\n## 'a'\n", ['q']];
         yield 'multiline key attribute before heading' => ["{#q\n title=\"x\"}\n## 'a'\n\n## 'b'\n", ['q', 'b']];
+        yield 'quoted heading inside footnote' => ["## 'a'\n\nref[^n]\n\n[^n]: ## 'a'\n\n## 'a'\n", ['a', 'a-2', 'a-1']];
         yield 'heading after blockquote' => ["> x\n## 'a'\n\n## 'b'\n", ['a', 'b']];
         yield 'pipe text does not start a table' => ["x\n| t\n## 'a'\n\n## 'b'\n", ['b']];
         yield 'attribute fragment stays paragraph text' => ["x\n.y}\n## 'a'\n\n## 'b'\n", ['b']];

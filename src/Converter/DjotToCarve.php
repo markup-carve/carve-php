@@ -635,7 +635,18 @@ class DjotToCarve
             $originalBody = strtr($djotBody, $dropInherited);
             if ($this->nativeDjotHeadingIds && $this->headingIdSource === null && str_contains($carve, '#')) {
                 [, , $rawHeadingSource] = $this->splitSiteFrontmatter(str_replace(["\r\n", "\r"], "\n", $djot));
-                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve, $rawHeadingSource);
+                $reservedBeforeHeading = [];
+                $sourceHeadingOrder = [];
+                if (str_contains($rawHeadingSource, '[^')) {
+                    if (str_contains($rawHeadingSource, '{')) {
+                        $reservedBeforeHeading = $this->sourceAttributeIdsBeforeHeadings($rawHeadingSource);
+                    }
+                    $sourceHeadingOrder = $this->sourceHeadingOrder($rawHeadingSource);
+                }
+                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve, $reservedBeforeHeading, $sourceHeadingOrder, $rawHeadingSource);
+                if ($sourceHeadingOrder !== []) {
+                    $carve = $this->pinSkippedHeadingIds($carve, $reservedBeforeHeading, $sourceHeadingOrder, $rawHeadingSource);
+                }
             } else {
                 $carve = $this->applyHeadingIdPreservation($carve, $originalBody);
             }
@@ -656,19 +667,21 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $pairs = [];
         $continued = [];
-        foreach ($this->scanHeadingStartLines($lines) as $lineIndex) {
+        $sourceOrder = str_contains($source, '[^') ? $this->sourceHeadingOrder($source) : [];
+        $headingLines = $sourceOrder === [] ? $this->scanHeadingStartLines($lines) : array_column($sourceOrder, 'line');
+        foreach ($headingLines as $lineIndex) {
             if (isset($continued[$lineIndex])) {
                 continue;
             }
             if (
-                $lineIndex > 0 && !$this->isDjotHeadingBoundaryLine($lines, $lineIndex - 1)
+                $sourceOrder === [] && $lineIndex > 0 && !$this->isDjotHeadingBoundaryLine($lines, $lineIndex - 1)
                 && preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$lineIndex - 1]) !== 1
                 && !(preg_match('/^[ \t]*>[ \t]*\S/', $lines[$lineIndex - 1]) === 1 && preg_match('/^[ \t]*>/', $lines[$lineIndex]) !== 1)
             ) {
                 continue;
             }
             $line = $lines[$lineIndex];
-            $text = preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $line) ?? $line;
+            $text = preg_replace('/^(?:[ \t]*>[ \t]*)*[ \t]*(?:\[\^[^\]]+\]:[ \t]*)?#{1,6}[ \t]+/', '', $line) ?? $line;
             $next = $lineIndex + 1;
             while (isset($lines[$next]) && trim($lines[$next]) !== '') {
                 if ($this->isDjotHeadingBoundaryLine($lines, $next)) {
@@ -819,16 +832,30 @@ class DjotToCarve
         return false;
     }
 
-    private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null, string $rawHeadingSource = ''): string
-    {
+    /**
+     * @param string $carve
+     * @param string $source
+     * @param string|null $reservationCarve
+     * @param array<int, list<string>> $reservedBeforeHeading
+     * @param list<array{line: int, note: string}> $sourceHeadingOrder
+     * @param string $rawHeadingSource
+     */
+    private function applyNativeDjotHeadingIds(
+        string $carve,
+        string $source,
+        ?string $reservationCarve = null,
+        array $reservedBeforeHeading = [],
+        array $sourceHeadingOrder = [],
+        string $rawHeadingSource = '',
+    ): string {
         $pairedQuotes = $this->sourcePairedHeadingQuotes($rawHeadingSource);
         [$baselineIds] = DjotHeadingIds::fromCarve($carve);
         if (count($pairedQuotes) !== count($baselineIds)) {
             $pairedQuotes = [];
         }
-        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, $pairedQuotes);
-        if ($reservationCarve !== null) {
-            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve, $pairedQuotes);
+        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, pinnableOnly: true, sourceHeadingOrder: $sourceHeadingOrder, pairedQuotes: $pairedQuotes);
+        if ($reservationCarve !== null || $reservedBeforeHeading !== []) {
+            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve ?? $carve, $reservedBeforeHeading, true, $sourceHeadingOrder, $pairedQuotes);
         }
         $this->headingIdSource = new MapIds($djotIds);
         try {
@@ -840,7 +867,7 @@ class DjotToCarve
             }
             for ($attempt = 0, $count = count($djotIds); $attempt <= $count; $attempt++) {
                 $preserved = $this->applyHeadingIdPreservation($carve, $source, array_values($carveIds), false);
-                [, $renderedIds] = DjotHeadingIds::fromCarve($preserved);
+                [, $renderedIds] = DjotHeadingIds::fromCarve($preserved, pinnableOnly: true);
                 if ($renderedIds === $djotIds) {
                     return $preserved;
                 }
@@ -860,6 +887,161 @@ class DjotToCarve
         } finally {
             $this->headingIdSource = null;
         }
+    }
+
+    /**
+     * @param string $carve
+     * @param array<int, list<string>> $reservedBeforeHeading
+     * @param list<array{line: int, note: string}> $sourceHeadingOrder
+     * @param string $rawHeadingSource
+     */
+    private function pinSkippedHeadingIds(string $carve, array $reservedBeforeHeading, array $sourceHeadingOrder, string $rawHeadingSource): string
+    {
+        $pairedQuotes = $this->sourcePairedHeadingQuotes($rawHeadingSource);
+        [$baselineIds] = DjotHeadingIds::fromCarve($carve);
+        if (count($pairedQuotes) !== count($baselineIds)) {
+            $pairedQuotes = [];
+        }
+        [$desiredIds, $carveIds] = DjotHeadingIds::fromCarve($carve, $reservedBeforeHeading, false, $sourceHeadingOrder, $pairedQuotes);
+        $lines = explode("\n", $carve);
+        $headings = [];
+        $pending = (new BlockParser(trackPositions: true))->parse($carve)->getChildren();
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if ($node instanceof Heading && $node->getPos() !== null) {
+                $headings[] = $node->getPos()->startLine - 1;
+            }
+            foreach ($node->getChildren() as $child) {
+                $pending[] = $child;
+            }
+        }
+        sort($headings);
+        $replacements = [];
+        foreach ($headings as $index => $lineIndex) {
+            if (!isset($desiredIds[$index]) || $desiredIds[$index] === ($carveIds[$index] ?? null)) {
+                continue;
+            }
+            $line = $lines[$lineIndex] ?? '';
+            $id = $desiredIds[$index];
+            $attribute = preg_match('/^[A-Za-z0-9_][A-Za-z0-9_-]*$/D', $id) === 1
+                ? '{#' . $id . '}'
+                : '{id="' . str_replace(['\\', '"'], ['\\\\', '\\"'], $id) . '"}';
+            if (preg_match('/^(.*?\[\^[^\]\n]+\]:[ \t]*)(#{1,6}[ \t].*)$/', $line, $parts) === 1) {
+                $replacements[$lineIndex] = $parts[1] . $attribute . "\n    " . $parts[2];
+            } elseif (preg_match('/^([ \t]{4,})(#{1,6}[ \t].*)$/', $line, $parts) === 1) {
+                $replacements[$lineIndex] = $parts[1] . $attribute . "\n" . $parts[1] . $parts[2];
+            }
+        }
+        foreach ($replacements as $lineIndex => $replacement) {
+            $lines[$lineIndex] = $replacement;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return list<array{line: int, note: string}>
+     */
+    private function sourceHeadingOrder(string $source): array
+    {
+        $headings = [];
+        $note = '';
+        $noteIndent = 0;
+        $previous = '';
+        $previousHeading = false;
+        $previousKey = '';
+        foreach (explode("\n", $source) as $lineNumber => $line) {
+            $body = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $line) ?? $line;
+            $heading = false;
+            $label = '';
+            if (preg_match('/^[ \t]*\[\^([^\]\n]+)\]:[ \t]*/', $body, $header) === 1) {
+                $note = $header[1];
+                $noteIndent = strspn($body, " \t");
+                $label = $note;
+                $content = substr($body, strlen($header[0]));
+                $heading = preg_match('/^#{1,6}[ \t]/', $content) === 1;
+            } elseif ($note !== '' && strspn($body, " \t") > $noteIndent && preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
+                $label = $note;
+                $heading = true;
+            } else {
+                if (trim($body) !== '' && strspn($body, " \t") <= $noteIndent) {
+                    $note = '';
+                }
+                if (preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
+                    $heading = $previous === '' || $previousHeading;
+                }
+            }
+            $key = '';
+            if ($heading && preg_match('/^(.*?)(#{1,6})[ \t]+/', $body, $marker) === 1) {
+                $key = $label . "\0" . $marker[1] . "\0" . strlen($marker[2]);
+            }
+            if ($heading && !($previousHeading && $key === $previousKey)) {
+                $headings[] = ['line' => $lineNumber, 'note' => $label];
+            }
+            $previousHeading = $heading;
+            $previousKey = $key;
+            $previous = trim($body);
+        }
+
+        return $headings;
+    }
+
+    /**
+     * @return array<int, list<string>>
+     */
+    private function sourceAttributeIdsBeforeHeadings(string $source): array
+    {
+        if (!str_contains($source, '{') || !str_contains($source, '#')) {
+            return [];
+        }
+        $lines = explode("\n", $source);
+        $headingLines = [];
+        foreach ($this->sourceHeadingOrder($source) as $heading) {
+            $headingLines[$heading['line']] = true;
+        }
+        $mask = $this->maskCodeAndDestinations($source);
+        $reserved = [];
+        $heading = 0;
+        $offset = 0;
+        $attributeEnd = 0;
+        $previousHeadingLine = -2;
+        $previousHeadingKey = '';
+        foreach ($lines as $lineNumber => $line) {
+            $startsHeading = isset($headingLines[$lineNumber]);
+            $headingKey = '';
+            if ($startsHeading && preg_match('/^(.*?)(#{1,6}) +/', $line, $marker) === 1) {
+                $headingKey = $marker[1] . "\0" . strlen($marker[2]);
+            }
+            $continuation = $startsHeading && $previousHeadingLine === $lineNumber - 1 && $headingKey === $previousHeadingKey;
+            $bucket = $continuation ? $heading - 1 : $heading;
+            $local = 0;
+            while (($local = strpos($line, '{', $local)) !== false) {
+                $at = $offset + $local;
+                $local++;
+                if ($at < $attributeEnd || ($mask[$at] ?? '') !== '{' || $this->isDjotEscaped($source, $at)) {
+                    continue;
+                }
+                $attribute = $this->readDjotWordAttributes($source, $at);
+                if ($attribute === null) {
+                    continue;
+                }
+                $attributeEnd = $attribute['end'];
+                $id = AttributeParser::parse(substr($attribute['source'], 1, -1))['id'] ?? null;
+                if (is_string($id) && $id !== '') {
+                    $reserved[$bucket][] = $id;
+                }
+            }
+            if ($startsHeading && !$continuation) {
+                $heading++;
+            }
+            if ($startsHeading) {
+                $previousHeadingLine = $lineNumber;
+                $previousHeadingKey = $headingKey;
+            }
+            $offset += strlen($line) + 1;
+        }
+
+        return $reserved;
     }
 
     /**
@@ -5450,7 +5632,7 @@ class DjotToCarve
 
             return substr_count($prefix[0] ?? '', '>');
         }, explode("\n", $source));
-        $stack = $edits = $pendingNotes = [];
+        $stack = $edits = $pendingNotes = $literalNotes = [];
         $pipeTargets = [];
         $pipeDefinitions = [];
         $occupiedLabels = null;
@@ -5637,20 +5819,7 @@ class DjotToCarve
                 }
             }
             $label = $this->djotLinkLabel($source, $mask, $angles, $edits, $owner['at'] + 1, $owner['labelEnd']);
-            $rawDestination = '';
-            for ($at = $owner['target']; $at < $i;) {
-                $end = $literalNotes[$at] ?? null;
-                if ($end !== null && $end <= $i) {
-                    $rawDestination .= preg_replace('/\n[ \t]*/', ' ', str_replace('\\', ($rows[$line] ?? false) ? '\\\\' : '%5C', substr($source, $at, $end - $at)));
-                    $at = $end;
-                } else {
-                    $rawDestination .= $source[$at++];
-                }
-            }
-            $destination = $this->djotDestinationLines($rawDestination, $owner['depth']);
-            $destination = self::trimDjotDestinationPadding($destination);
-            $destination = $this->removeDjotDestinationTabs($destination);
-            $destination = $this->preserveDjotBacktickDestinationSlashes($destination);
+            $destination = $this->djotLinkDestination($source, $owner['target'], $i, $literalNotes, $owner['depth'], $rows[$line] ?? false);
             if ($owner['at'] > 0 && $source[$owner['at'] - 1] === '!' && !$this->isDjotEscaped($source, $owner['at'] - 1) && !str_contains($authoredLabel, "\n") && str_contains($label, '[')) {
                 $altDefinitions = [];
                 preg_match_all('/\[(carve-djot-pipe-target-[0-9]+)\]/', $label, $altAliases);
@@ -5663,8 +5832,7 @@ class DjotToCarve
                 $label = substr(preg_replace('/ DJOTEND\n?$/', '', $label) ?? $label, 8);
                 $label = preg_replace_callback('/[!-\/:-@\[-`{-~]/', static fn (array $match): string => '\\' . $match[0], $label) ?? $label;
             }
-            $target = preg_replace_callback(($rows[$line] ?? false) && str_contains($destination, '|') ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : (str_contains('()\\', $match[0]) ? '\\' . $match[0] : rawurlencode($match[0])), $destination) ?? $destination;
-            $target = preg_replace('/\](?=[\[{])/', '%5D', $target) ?? $target;
+            $target = self::encodeDjotLinkTarget($destination, $rows[$line] ?? false);
             if (($rows[$line] ?? false) && str_contains($target, '|')) {
                 if (!isset($pipeTargets[$target])) {
                     if ($occupiedLabels === null) {
@@ -5692,11 +5860,19 @@ class DjotToCarve
             $at = $stack[$destinationOwner]['target'] - 1;
             $edits[$at] = ['end' => $at + 1, 'text' => '\\('];
         }
-        $stack = [];
-        $destinationOwner = null;
-        $pendingNotes = [];
+
+        return self::applyDjotLinkEdits($source, $edits, $pipeTargets);
+    }
+
+    /**
+     * @param string $source
+     * @param array<int, array{end: int, text: string}> $edits
+     * @param array<string, string> $pipeTargets
+     */
+    private static function applyDjotLinkEdits(string $source, array $edits, array $pipeTargets): string
+    {
         $output = '';
-        for ($i = 0; $i < $length;) {
+        for ($i = 0, $length = strlen($source); $i < $length;) {
             if (isset($edits[$i])) {
                 $output .= $edits[$i]['text'];
                 $i = $edits[$i]['end'];
@@ -5715,6 +5891,40 @@ class DjotToCarve
         }
 
         return ($definitions !== [] ? implode("\n", $definitions) . "\n\n" : '') . $output;
+    }
+
+    private static function encodeDjotLinkTarget(string $destination, bool $tableRow): string
+    {
+        $target = preg_replace_callback($tableRow && str_contains($destination, '|') ? '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`]/u' : '/\\\\([ \t!-\/:-@\[-`{-~])|[\\\\\s"<>`()]/u', static fn (array $match): string => isset($match[1]) ? (str_contains('()\\', $match[1]) ? '\\' . $match[1] : (str_contains(" \t\"<>`", $match[1]) ? rawurlencode($match[1]) : $match[1])) : (str_contains('()\\', $match[0]) ? '\\' . $match[0] : rawurlencode($match[0])), $destination) ?? $destination;
+
+        return preg_replace('/\](?=[\[{])/', '%5D', $target) ?? $target;
+    }
+
+    /**
+     * @param string $source
+     * @param int $start
+     * @param int $end
+     * @param array<int, int> $literalNotes
+     * @param int $quoteDepth
+     * @param bool $tableRow
+     */
+    private function djotLinkDestination(string $source, int $start, int $end, array $literalNotes, int $quoteDepth, bool $tableRow): string
+    {
+        $rawDestination = '';
+        for ($at = $start; $at < $end;) {
+            $noteEnd = $literalNotes[$at] ?? null;
+            if ($noteEnd !== null && $noteEnd <= $end) {
+                $rawDestination .= preg_replace('/\n[ \t]*/', ' ', str_replace('\\', $tableRow ? '\\\\' : '%5C', substr($source, $at, $noteEnd - $at)));
+                $at = $noteEnd;
+            } else {
+                $rawDestination .= $source[$at++];
+            }
+        }
+        $destination = $this->djotDestinationLines($rawDestination, $quoteDepth);
+        $destination = self::trimDjotDestinationPadding($destination);
+        $destination = $this->removeDjotDestinationTabs($destination);
+
+        return $this->preserveDjotBacktickDestinationSlashes($destination);
     }
 
     private function carryDjotAttributesAcrossDivClosers(string $source): string
