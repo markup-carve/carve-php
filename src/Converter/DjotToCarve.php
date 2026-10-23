@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Converter\Djot\TightDefinitionDescriptions;
 use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
 use MarkupCarve\Carve\Converter\HeadingId\MapIds;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
@@ -633,11 +634,18 @@ class DjotToCarve
             $originalBody = strtr($djotBody, $dropInherited);
             if ($this->nativeDjotHeadingIds && $this->headingIdSource === null && str_contains($carve, '#')) {
                 $reservedBeforeHeading = [];
+                $sourceHeadingOrder = [];
                 if (str_contains($djot, '[^') && str_contains($djot, '{')) {
                     [, , $idSource] = $this->splitSiteFrontmatter(str_replace(["\r\n", "\r"], "\n", $djot));
                     $reservedBeforeHeading = $this->sourceAttributeIdsBeforeHeadings($idSource);
+                    if ($reservedBeforeHeading !== []) {
+                        $sourceHeadingOrder = $this->sourceHeadingOrder($idSource);
+                    }
                 }
-                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve, $reservedBeforeHeading);
+                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve, $reservedBeforeHeading, $sourceHeadingOrder);
+                if ($sourceHeadingOrder !== []) {
+                    $carve = $this->pinSkippedHeadingIds($carve, $reservedBeforeHeading, $sourceHeadingOrder);
+                }
             } else {
                 $carve = $this->applyHeadingIdPreservation($carve, $originalBody);
             }
@@ -653,12 +661,18 @@ class DjotToCarve
      * @param string $source
      * @param string|null $reservationCarve
      * @param array<int, list<string>> $reservedBeforeHeading
+     * @param list<array{line: int, note: string}> $sourceHeadingOrder
      */
-    private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null, array $reservedBeforeHeading = []): string
-    {
-        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, pinnableOnly: true);
+    private function applyNativeDjotHeadingIds(
+        string $carve,
+        string $source,
+        ?string $reservationCarve = null,
+        array $reservedBeforeHeading = [],
+        array $sourceHeadingOrder = [],
+    ): string {
+        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, pinnableOnly: true, sourceHeadingOrder: $sourceHeadingOrder);
         if ($reservationCarve !== null || $reservedBeforeHeading !== []) {
-            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve ?? $carve, $reservedBeforeHeading, true);
+            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve ?? $carve, $reservedBeforeHeading, true, $sourceHeadingOrder);
         }
         $this->headingIdSource = new MapIds($djotIds);
         try {
@@ -693,6 +707,95 @@ class DjotToCarve
     }
 
     /**
+     * @param string $carve
+     * @param array<int, list<string>> $reservedBeforeHeading
+     * @param list<array{line: int, note: string}> $sourceHeadingOrder
+     */
+    private function pinSkippedHeadingIds(string $carve, array $reservedBeforeHeading, array $sourceHeadingOrder): string
+    {
+        [$desiredIds, $carveIds] = DjotHeadingIds::fromCarve($carve, $reservedBeforeHeading, false, $sourceHeadingOrder);
+        $lines = explode("\n", $carve);
+        $headings = [];
+        $pending = (new BlockParser(trackPositions: true))->parse($carve)->getChildren();
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if ($node instanceof Heading && $node->getPos() !== null) {
+                $headings[] = $node->getPos()->startLine - 1;
+            }
+            foreach ($node->getChildren() as $child) {
+                $pending[] = $child;
+            }
+        }
+        sort($headings);
+        $replacements = [];
+        foreach ($headings as $index => $lineIndex) {
+            if (!isset($desiredIds[$index]) || $desiredIds[$index] === ($carveIds[$index] ?? null)) {
+                continue;
+            }
+            $line = $lines[$lineIndex] ?? '';
+            $id = $desiredIds[$index];
+            $attribute = preg_match('/^[A-Za-z0-9_][A-Za-z0-9_-]*$/D', $id) === 1
+                ? '{#' . $id . '}'
+                : '{id="' . str_replace(['\\', '"'], ['\\\\', '\\"'], $id) . '"}';
+            if (preg_match('/^(.*?\[\^[^\]\n]+\]:[ \t]*)(#{1,6}[ \t].*)$/', $line, $parts) === 1) {
+                $replacements[$lineIndex] = $parts[1] . $attribute . "\n    " . $parts[2];
+            } elseif (preg_match('/^([ \t]{4,})(#{1,6}[ \t].*)$/', $line, $parts) === 1) {
+                $replacements[$lineIndex] = $parts[1] . $attribute . "\n" . $parts[1] . $parts[2];
+            }
+        }
+        foreach ($replacements as $lineIndex => $replacement) {
+            $lines[$lineIndex] = $replacement;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * @return list<array{line: int, note: string}>
+     */
+    private function sourceHeadingOrder(string $source): array
+    {
+        $headings = [];
+        $note = '';
+        $previous = '';
+        $previousHeading = false;
+        $previousKey = '';
+        foreach (explode("\n", $source) as $lineNumber => $line) {
+            $body = preg_replace('/^(?:[ \t]*>[ \t]?)*/', '', $line) ?? $line;
+            $heading = false;
+            $label = '';
+            if (preg_match('/^\[\^([^\]\n]+)\]:[ \t]*/', $body, $header) === 1) {
+                $note = $header[1];
+                $label = $note;
+                $content = substr($body, strlen($header[0]));
+                $heading = preg_match('/^#{1,6}[ \t]/', $content) === 1;
+            } elseif ($note !== '' && preg_match('/^[ \t]{2,}#{1,6}[ \t]/', $body) === 1) {
+                $label = $note;
+                $heading = true;
+            } else {
+                if (trim($body) !== '' && preg_match('/^[ \t]{2,}/', $body) !== 1) {
+                    $note = '';
+                }
+                if (preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
+                    $heading = $previous === '' || $previousHeading;
+                }
+            }
+            $key = '';
+            if ($heading && preg_match('/^(.*?)(#{1,6})[ \t]+/', $body, $marker) === 1) {
+                $key = $label . "\0" . $marker[1] . "\0" . strlen($marker[2]);
+            }
+            if ($heading && !($previousHeading && $key === $previousKey)) {
+                $headings[] = ['line' => $lineNumber, 'note' => $label];
+            }
+            $previousHeading = $heading;
+            $previousKey = $key;
+            $previous = trim($body);
+        }
+
+        return $headings;
+    }
+
+    /**
      * @return array<int, list<string>>
      */
     private function sourceAttributeIdsBeforeHeadings(string $source): array
@@ -701,28 +804,11 @@ class DjotToCarve
             return [];
         }
         $lines = explode("\n", $source);
-        $headingLines = array_fill_keys($this->scanHeadingStartLines($lines), true);
-        $mask = $this->maskCodeAndDestinations($source);
-        $note = false;
-        $lineOffset = 0;
-        foreach ($lines as $lineNumber => $line) {
-            $body = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', $line) ?? $line;
-            if (preg_match('/^\[\^[^\]\n]+\]:[ \t]*/', $body, $header) === 1) {
-                $note = true;
-                $content = substr($body, strlen($header[0]));
-                if (preg_match('/^#{1,6}[ \t]/', $content) === 1) {
-                    $headingLines[$lineNumber] = true;
-                }
-            } elseif ($note && preg_match('/^[ \t]{2,}#{1,6}[ \t]/', $body) === 1) {
-                $markerAt = strpos($line, '#');
-                if ($markerAt !== false && ($mask[$lineOffset + $markerAt] ?? '') === '#') {
-                    $headingLines[$lineNumber] = true;
-                }
-            } elseif (trim($body) !== '' && preg_match('/^[ \t]{2,}/', $body) !== 1) {
-                $note = false;
-            }
-            $lineOffset += strlen($line) + 1;
+        $headingLines = [];
+        foreach ($this->sourceHeadingOrder($source) as $heading) {
+            $headingLines[$heading['line']] = true;
         }
+        $mask = $this->maskCodeAndDestinations($source);
         $reserved = [];
         $heading = 0;
         $offset = 0;

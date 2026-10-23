@@ -43,6 +43,45 @@ class DjotFootnoteHeadingIdsTest extends TestCase
         self::assertStringNotContainsString('note {#', $carve);
     }
 
+    public function testFootnoteHeadingInsideBlockquoteKeepsSourceIds(): void
+    {
+        $source = "# a\n\n> r[^n]\n>\n> [^n]: # a\n\n[^m]: m {#a-1} t\n\n# a\n";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString('<section id="a">', $html);
+        self::assertStringContainsString('<section id="a-2">', $html);
+        self::assertStringContainsString('<h1 id="a-1">a</h1>', $html);
+    }
+
+    public function testIndentedFootnoteHeadingInsideBlockquoteKeepsSourceIds(): void
+    {
+        $source = "# a\n\n> r[^n]\n>\n> [^n]: n {#a-1}\n>\n>     # a\n\n# a\n";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString('<section id="a">', $html);
+        self::assertStringContainsString('<section id="a-3">', $html);
+        self::assertStringContainsString('<h1 id="a-2">a</h1>', $html);
+    }
+
+    public function testParagraphHashLineDoesNotShiftReservations(): void
+    {
+        $source = "# a\n\npara\n# a\n\nr[^n]\n\n[^n]: n {#a-1}\n\n# a\n";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString('<section id="a">', $html);
+        self::assertStringContainsString('<section id="a-2">', $html);
+    }
+
+    public function testNestedListHeadingCountsBeforeFootnoteReservation(): void
+    {
+        $source = "# a\n\n- x\n\n  - y\n\n    # a\n\nr[^n]\n\n[^n]: n {#a-1}\n\n# a\n";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString('<section id="a">', $html);
+        self::assertStringContainsString('<h1 id="a-1">a</h1>', $html);
+        self::assertStringContainsString('<section id="a-2">', $html);
+    }
+
     public function testReferenceToLaterHeadingKeepsItsTarget(): void
     {
         $source = "# x\n\nref[^n]\n\n[^n]: note {#x-1} too\n\n# x\n\n[go](#x-2)\n";
