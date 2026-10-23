@@ -1767,7 +1767,7 @@ final class DefinitionListBuilder
                             && ($this->getListParser)()->parseListItemMarker(ltrim($foldedBody[array_key_last($foldedBody)], " \t")) === null
                         ) {
                             $last = count($foldedBody) - 1;
-                            $foldedBody[$last] .= "\n" . ltrim($entry, " \t");
+                            $foldedBody[$last] .= "\n" . ltrim(BlockGrammar::stripLazyFrame(ltrim($entry, " \t")), " \t");
 
                             continue;
                         }
