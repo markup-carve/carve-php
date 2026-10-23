@@ -52,6 +52,24 @@ class DjotDestinationBoundariesTest extends TestCase
         self::assertStringContainsString('href="u%28x%29y"', (new CarveConverter())->convert($converted));
     }
 
+    /**
+     * @return iterable<string, array{string, string}>
+     */
+    public static function parenthesisSpellingProvider(): iterable
+    {
+        yield 'literal pair' => ['[t](u(x)y)', '[t](u\\(x\\)y)'];
+        yield 'nested literal pair' => ['[t](u(x(y))z)', '[t](u\\(x\\(y\\)\\)z)'];
+        yield 'encoded pair' => ['[t](u%28x%29y)', '[t](u%28x%29y)'];
+        yield 'literal image pair' => ['a ![t](u(x)y)', 'a ![t](u\\(x\\)y)'];
+        yield 'encoded image pair' => ['a ![t](u%28x%29y)', 'a ![t](u%28x%29y)'];
+    }
+
+    #[DataProvider('parenthesisSpellingProvider')]
+    public function testDestinationRetainsParenthesisSpelling(string $source, string $expectedCarve): void
+    {
+        self::assertSame($expectedCarve, (new DjotToCarve())->convert($source));
+    }
+
     public function testDestinationMaskKeepsOpaqueParenthesesAndFollowingText(): void
     {
         $converter = new class extends DjotToCarve {
