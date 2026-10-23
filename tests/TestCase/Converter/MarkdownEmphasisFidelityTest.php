@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test\TestCase\Converter;
 
+use ErrorException;
 use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Converter\MarkdownToCarve;
 use PHPUnit\Framework\TestCase;
@@ -76,6 +77,20 @@ class MarkdownEmphasisFidelityTest extends TestCase
         $source = '"hello" \'x\' *word*{title="two words"}';
         $written = (new MarkdownToCarve(convertAttributes: true))->convert($source);
         $this->assertSame('<p>"hello" \'x\' <em title="two words">word</em></p>', rtrim((new CarveConverter())->convert($written), "\n"));
+    }
+
+    public function testAttributePlaceholderIsVisibleToQuoteEscaping(): void
+    {
+        set_error_handler(static function (int $severity, string $message): never {
+            throw new ErrorException($message, 0, $severity);
+        });
+        try {
+            $written = (new MarkdownToCarve(convertAttributes: true))->convert('*a*{.x} and "q"');
+        } finally {
+            restore_error_handler();
+        }
+
+        $this->assertSame('/a/{.x} and \\"q\\"', $written);
     }
 
     public function testFootnoteEmphasisSpansLines(): void
