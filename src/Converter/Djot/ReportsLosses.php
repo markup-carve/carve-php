@@ -453,7 +453,7 @@ trait ReportsLosses
                     $rawFormatIgnored[] = [$start, $at + 1];
                     $text = substr($source, $start + 1, $at - $start - 1);
                     $destination = isset($destinations[$at + 1])
-                        ? $this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth)
+                        ? self::trimDjotDestinationPadding($this->djotDestinationLines(substr($source, $at + 2, $destinations[$at + 1] - $at - 3), $depth))
                         : ($definitions[$label ?? ''] ?? null);
                     if ($destination !== null && $destination !== '' && str_contains($text, "\n") && !$plain) {
                         $child = $imageChildText($text, $depth);
