@@ -158,6 +158,43 @@ trait NormalizesStructure
         return $destination;
     }
 
+    private function preserveDjotBacktickDestinationSlashes(string $destination): string
+    {
+        if (!str_contains($destination, '`')) {
+            return $destination;
+        }
+
+        preg_match_all('/`+/', $destination, $matches, PREG_OFFSET_CAPTURE);
+        $runs = $matches[0];
+        $parts = [];
+        $cursor = 0;
+        for ($i = 0, $count = count($runs); $i < $count; $i++) {
+            [$open, $start] = $runs[$i];
+            if ($this->isDjotEscaped($destination, $start)) {
+                $start++;
+                $open = substr($open, 1);
+                if ($open === '') {
+                    continue;
+                }
+            }
+            for ($j = $i + 1; $j < $count; $j++) {
+                [$close, $end] = $runs[$j];
+                if ($close !== $open) {
+                    continue;
+                }
+                $from = $start + strlen($open);
+                $parts[] = substr($destination, $cursor, $from - $cursor);
+                $parts[] = str_replace('\\', '\\\\', substr($destination, $from, $end - $from));
+                $cursor = $end;
+                $i = $j;
+
+                break;
+            }
+        }
+
+        return implode('', $parts) . substr($destination, $cursor);
+    }
+
     private function removeDjotDestinationTabs(string $destination): string
     {
         if (!str_contains($destination, "\t")) {
