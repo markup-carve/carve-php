@@ -9,6 +9,7 @@ use MarkupCarve\Carve\Event\RenderEvent;
 use MarkupCarve\Carve\Node\Block\Div;
 use MarkupCarve\Carve\Node\Inline\InlineExtension;
 use MarkupCarve\Carve\Node\Node;
+use MarkupCarve\Carve\Renderer\HtmlLineState;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 
 /**
@@ -236,12 +237,8 @@ class SpoilerExtension implements StaticRenderExtensionInterface
                 if ($line !== '') {
                     $lines[$i] = $pad . $line;
                 }
-                if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
-                    $inPre = true;
-                }
-            } elseif (str_contains($line, '</pre>')) {
-                $inPre = false;
             }
+            $inPre = HtmlLineState::endsInsidePre($line, $inPre);
         }
 
         return implode("\n", $lines);

@@ -1958,13 +1958,16 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                 // The <pre> line itself ends outside a tag, so the walk would
                 // pad it and copy the lines through the </pre> line untouched.
                 $preLine = substr($html, $lineStart, $lineEnd - $lineStart);
-                if (!str_contains($preLine, '</pre>')) {
+                if (HtmlLineState::endsInsidePre($preLine, false)) {
                     $close = strpos($html, '</pre>', $lineEnd + 1);
                     $closeEnd = $close === false ? false : strpos($html, "\n", $close);
-                    $at = $closeEnd === false ? $length : $closeEnd + 1;
-                    $out .= $pad . substr($html, $lineStart, $at - $lineStart);
+                    $reopen = $close === false ? false : strpos($html, '<pre', $close + strlen('</pre>'));
+                    if ($reopen === false || ($closeEnd !== false && $reopen > $closeEnd)) {
+                        $at = $closeEnd === false ? $length : $closeEnd + 1;
+                        $out .= $pad . substr($html, $lineStart, $at - $lineStart);
 
-                    continue;
+                        continue;
+                    }
                 }
             }
             [$lines, $at] = $this->indentLinesUntilClean($html, $lineStart, $pad);
@@ -2043,12 +2046,8 @@ class HtmlRenderer implements RendererInterface, RenderLossAwareRendererInterfac
                     $out .= $pad;
                 }
                 $inTag = self::endsInsideTag($line, $inTag);
-                if (str_contains($line, '<pre') && !str_contains($line, '</pre>')) {
-                    $inPre = true;
-                }
-            } elseif (str_contains($line, '</pre>')) {
-                $inPre = false;
             }
+            $inPre = HtmlLineState::endsInsidePre($line, $inPre);
             if ($end === false) {
                 return [$out . $line, $length];
             }

@@ -5,13 +5,70 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Test\TestCase\Renderer;
 
 use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Event\RenderEvent;
+use MarkupCarve\Carve\Extension\DetailsExtension;
+use MarkupCarve\Carve\Extension\SpoilerExtension;
 use MarkupCarve\Carve\Node\Block\ListItem;
+use MarkupCarve\Carve\Renderer\HtmlLayoutWriter;
+use MarkupCarve\Carve\Renderer\HtmlLineState;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 class NestedHtmlIndentScanTest extends TestCase
 {
+    public function testAdjacentHighlightedBlocksKeepTheirCodeWhitespaceInSections(): void
+    {
+        $converter = new CarveConverter();
+        $converter->on('render.code_block', static function (RenderEvent $event): void {
+            $code = htmlspecialchars($event->getNode()->getContent(), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+            $event->setHtml('<pre><code><span>' . $code . '</span></code></pre>');
+            $event->preventDefault();
+        });
+
+        $html = $converter->convert("# Examples\n\n```carve\none\ntwo\n```\n```carve\nthree\nfour\n```\n");
+
+        $this->assertStringContainsString("<span>one\ntwo\n</span>", $html);
+        $this->assertStringContainsString("<span>three\nfour\n</span>", $html);
+        $this->assertStringNotContainsString("three\n  four", $html);
+    }
+
+    public function testAdjacentPreTagsKeepTheWriterInPreformattedMode(): void
+    {
+        $writer = new HtmlLayoutWriter();
+        $writer->pushIndent(2);
+        $writer->write("<pre><code>one\n</code></pre><pre><code>two\nthree\n</code></pre>\n<p>after</p>");
+        $writer->popIndent();
+
+        $this->assertSame(
+            "  <pre><code>one\n</code></pre><pre><code>two\nthree\n</code></pre>\n  <p>after</p>",
+            $writer->finish(),
+        );
+    }
+
+    public function testAClosingPreFollowedByAnotherTagLeavesPreformattedMode(): void
+    {
+        $this->assertFalse(HtmlLineState::endsInsidePre('</pre><preview>', true));
+        $this->assertTrue(HtmlLineState::endsInsidePre('</pre><pre class="x">', true));
+    }
+
+    public function testAdjacentHighlightedBlocksKeepTheirCodeWhitespaceInDisclosures(): void
+    {
+        foreach (['details' => new DetailsExtension(), 'spoiler' => new SpoilerExtension()] as $name => $extension) {
+            $converter = new CarveConverter();
+            $converter->addExtension($extension);
+            $converter->on('render.code_block', static function (RenderEvent $event): void {
+                $event->setHtml('<pre><code><span>' . $event->getNode()->getContent() . '</span></code></pre>');
+                $event->preventDefault();
+            });
+
+            $source = "::: $name\n```\none\n```\n```\nthree\nfour\n```\n:::\n";
+            $html = $converter->convert($source);
+
+            $this->assertStringContainsString("<span>three\nfour\n</span>", $html);
+        }
+    }
+
     public function testIndentPreservesTagContinuationsAndPreformattedPayloads(): void
     {
         $renderer = new class extends HtmlRenderer {
@@ -71,9 +128,13 @@ class NestedHtmlIndentScanTest extends TestCase
             'carriage return is content' => ["<p>a</p>\r\n\r\n<p>b</p>", "  <p>a</p>\r\n  \r\n  <p>b</p>"],
             'one-line pre' => ["<pre><code>x</code></pre>\n<p>a</p>", "  <pre><code>x</code></pre>\n  <p>a</p>"],
             'pre never closed' => ["<p>a</p>\n<pre><code>x\ny\nz", "  <p>a</p>\n  <pre><code>x\ny\nz"],
-            'closer line reopens nothing' => [
+            'closer line opens the next pre' => [
                 "<pre><code>a\n</code></pre><pre><code>b\nc\n</code></pre>\n<p>d</p>",
-                "  <pre><code>a\n</code></pre><pre><code>b\n  c\n  </code></pre>\n  <p>d</p>",
+                "  <pre><code>a\n</code></pre><pre><code>b\nc\n</code></pre>\n  <p>d</p>",
+            ],
+            'one-line pre opens another pre' => [
+                "<pre><code>a</code></pre><pre><code>b\nc\n</code></pre>\n<p>d</p>",
+                "  <pre><code>a</code></pre><pre><code>b\nc\n</code></pre>\n  <p>d</p>",
             ],
             'tag opened on the pre line' => [
                 "<pre title=\"a\nb\"><code>x\n</code></pre>\n<p>c</p>",
