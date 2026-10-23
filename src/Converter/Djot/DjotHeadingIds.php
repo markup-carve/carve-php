@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Converter\Djot;
 
 use MarkupCarve\Carve\Node\Block\Heading;
+use MarkupCarve\Carve\Node\Block\Footnote;
 use MarkupCarve\Carve\Parser\BlockParser;
 use MarkupCarve\Carve\Renderer\HtmlRenderer;
 use MarkupCarve\Carve\Renderer\SmartTypographyMode;
@@ -17,26 +18,48 @@ final class DjotHeadingIds
      *
      * @return array{list<string>, list<string>} Djot ids and Carve ids in document order
      */
-    public static function fromCarve(string $carve, array $reservedBeforeHeading = []): array
+    public static function fromCarve(string $carve, array $reservedBeforeHeading = [], bool $pinnableOnly = false): array
     {
-        $document = (new BlockParser())->parse(str_replace("\0U\0", "\0", $carve));
+        $lines = explode("\n", $carve);
+        $document = (new BlockParser(trackPositions: true))->parse(str_replace("\0U\0", "\0", $carve));
         $renderer = new HtmlRenderer();
         $renderer->render($document);
         $tracker = $renderer->getHeadingIdTracker();
         $used = [];
         $djotIds = [];
         $carveIds = [];
-        $pending = array_reverse($document->getChildren());
-        $headingIndex = 0;
+        $pending = array_map(static fn ($node): array => [$node, false], array_reverse($document->getChildren()));
+        $nodes = [];
         while ($pending !== []) {
-            $node = array_pop($pending);
+            [$node, $inFootnote] = array_pop($pending);
+            $nodes[] = ['node' => $node, 'order' => count($nodes), 'inFootnote' => $inFootnote];
+            foreach (array_reverse($node->getChildren()) as $child) {
+                $pending[] = [$child, $inFootnote || $node instanceof Footnote];
+            }
+        }
+        usort($nodes, static function (array $a, array $b): int {
+            $left = $a['node']->getPos();
+            $right = $b['node']->getPos();
+
+            return ($left?->startLine ?? PHP_INT_MAX) <=> ($right?->startLine ?? PHP_INT_MAX)
+                ?: ($left?->startColumn ?? PHP_INT_MAX) <=> ($right?->startColumn ?? PHP_INT_MAX)
+                ?: $a['order'] <=> $b['order'];
+        });
+        $headingIndex = 0;
+        $unpinable = [];
+        foreach ($nodes as $entry) {
+            $node = $entry['node'];
             $explicit = $node->getAttribute('id');
-            if ($explicit !== null && $explicit !== '') {
+            if ($explicit !== null && $explicit !== '' && !($reservedBeforeHeading !== [] && $entry['inFootnote'])) {
                 $used[$explicit] = true;
             }
             if ($node instanceof Heading) {
                 foreach ($reservedBeforeHeading[$headingIndex++] ?? [] as $reservedId) {
                     $used[$reservedId] = true;
+                }
+                $line = $lines[($node->getPos()?->startLine ?? 1) - 1] ?? '';
+                if ($pinnableOnly && preg_match('/^\[\^[^\]\n]+\]:[ \t]*#{1,6}[ \t]/', $line) === 1) {
+                    $unpinable[] = count($carveIds);
                 }
                 $carveIds[] = $tracker->getIdForHeading($node);
                 $descendants = array_reverse($node->getChildren());
@@ -66,11 +89,12 @@ final class DjotHeadingIds
                     $djotIds[] = $id;
                 }
             }
-            foreach (array_reverse($node->getChildren()) as $child) {
-                $pending[] = $child;
-            }
         }
 
-        return [$djotIds, $carveIds];
+        foreach ($unpinable as $index) {
+            unset($djotIds[$index], $carveIds[$index]);
+        }
+
+        return [array_values($djotIds), array_values($carveIds)];
     }
 }

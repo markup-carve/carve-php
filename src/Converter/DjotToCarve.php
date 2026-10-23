@@ -653,9 +653,9 @@ class DjotToCarve
      */
     private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null, array $reservedBeforeHeading = []): string
     {
-        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve);
+        [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, pinnableOnly: true);
         if ($reservationCarve !== null || $reservedBeforeHeading !== []) {
-            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve ?? $carve, $reservedBeforeHeading);
+            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve ?? $carve, $reservedBeforeHeading, true);
         }
         $this->headingIdSource = new MapIds($djotIds);
         try {
@@ -667,7 +667,7 @@ class DjotToCarve
             }
             for ($attempt = 0, $count = count($djotIds); $attempt <= $count; $attempt++) {
                 $preserved = $this->applyHeadingIdPreservation($carve, $source, array_values($carveIds), false);
-                [, $renderedIds] = DjotHeadingIds::fromCarve($preserved);
+                [, $renderedIds] = DjotHeadingIds::fromCarve($preserved, pinnableOnly: true);
                 if ($renderedIds === $djotIds) {
                     return $preserved;
                 }
@@ -700,6 +700,26 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $headingLines = array_fill_keys($this->scanHeadingStartLines($lines), true);
         $mask = $this->maskCodeAndDestinations($source);
+        $note = false;
+        $lineOffset = 0;
+        foreach ($lines as $lineNumber => $line) {
+            $body = preg_replace('/^(?:[ \t]*>[ \t]*)*/', '', $line) ?? $line;
+            if (preg_match('/^\[\^[^\]\n]+\]:[ \t]*/', $body, $header) === 1) {
+                $note = true;
+                $content = substr($body, strlen($header[0]));
+                if (preg_match('/^#{1,6}[ \t]/', $content) === 1) {
+                    $headingLines[$lineNumber] = true;
+                }
+            } elseif ($note && preg_match('/^[ \t]{2,}#{1,6}[ \t]/', $body) === 1) {
+                $markerAt = strpos($line, '#');
+                if ($markerAt !== false && ($mask[$lineOffset + $markerAt] ?? '') === '#') {
+                    $headingLines[$lineNumber] = true;
+                }
+            } elseif (trim($body) !== '' && preg_match('/^[ \t]{2,}/', $body) !== 1) {
+                $note = false;
+            }
+            $lineOffset += strlen($line) + 1;
+        }
         $reserved = [];
         $heading = 0;
         $offset = 0;

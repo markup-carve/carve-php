@@ -24,6 +24,8 @@ class DjotFootnoteHeadingIdsTest extends TestCase
         yield 'continued heading before note' => ["# x\n# y\n\n[^n]: n {#x-y-1} t\n\n# x y\n", ['x-y', 'x-y-2']];
         yield 'note inside blockquote' => ["# x\n\n> # x\n>\n> [^n]: note {#x-1} too\n\n# x\n", ['x', 'x-2']];
         yield 'block attribute inside note' => ["# x\n\n[^n]: note\n\n    {#x-1}\n    more\n\n# x\n", ['x', 'x-2']];
+        yield 'heading on note definition line' => ["# a\n\nr[^n]\n\n[^n]: # q\n\n# a\n\n[^m]: m {#a-1} t\n\n# a\n", ['a', 'a-1', 'a-2']];
+        yield 'indented heading inside note' => ["# a\n\nr[^n]\n\n[^n]: note {#a-1} x\n\n    # a\n\n# a\n", ['a', 'a-3']];
     }
 
     /**
