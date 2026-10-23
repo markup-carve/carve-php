@@ -71,6 +71,8 @@ class DjotPhpExtensionImportTest extends TestCase
         $this->assertStringContainsString('::: warning "Two title"', $converter->convert($source));
         $nested = "::: foo\n\n:::: tip Inner title\nx\n::::\n:::\n\n::: warning Later title\ny\n:::\n";
         $this->assertStringContainsString('::: warning "Later title"', $converter->convert($nested));
+        $shorterCloser = "::: outer\n\n:::: inner\nx\n:::\n\n::: tip Later title\ny\n:::\n";
+        $this->assertStringContainsString('::: tip "Later title"', $converter->convert($shorterCloser));
         foreach (
             [
                 "Some text\n::: tip Live\nmore\n\n",

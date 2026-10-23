@@ -2086,9 +2086,17 @@ class DjotToCarve
                 if ($opener === null) {
                     continue;
                 }
-                if (trim(substr($content, $opener['length'])) === '' && $openDivs !== [] && $opener['length'] >= $openDivs[array_key_last($openDivs)]['width']) {
-                    array_pop($openDivs);
-                } elseif ($blockStart) {
+                $closed = false;
+                if (trim(substr($content, $opener['length'])) === '') {
+                    for ($openIndex = count($openDivs) - 1; $openIndex >= 0; $openIndex--) {
+                        if ($opener['length'] >= $openDivs[$openIndex]['width']) {
+                            $openDivs = array_slice($openDivs, 0, $openIndex);
+                            $closed = true;
+                            break;
+                        }
+                    }
+                }
+                if (!$closed && $blockStart) {
                     $openDivs[] = ['width' => $opener['length'], 'quoteDepth' => $quoteDepth];
                 }
             }
