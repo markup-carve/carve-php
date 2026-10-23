@@ -409,7 +409,7 @@ final class ListBlockBuilder
                         $list->setTight(false);
                     }
 
-                    [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase, $blankBeforeNestedContinuation] = $this->collectIndentedListContinuation(
+                    $continuation = $this->collectIndentedListContinuation(
                         $lines,
                         $i,
                         $count,
@@ -420,6 +420,15 @@ final class ListBlockBuilder
                         $listInfo,
                         $unclosedFenceBase,
                     );
+                    $i = $continuation->nextIndex;
+                    $subLines = $continuation->lines;
+                    $subLineMap = $continuation->lineMap;
+                    $subEligible = $continuation->eligible;
+                    $subRetainedMarker = $continuation->retainedMarker;
+                    $brokeForParentContent = $continuation->brokeForParentContent;
+                    $lastItemHadBlankAfter = $continuation->lastItemHadBlankAfter;
+                    $unclosedFenceBase = $continuation->unclosedFenceBase;
+                    $blankBeforeNestedContinuation = $continuation->blankBeforeNestedContinuation;
                     if ($blankBeforeNestedContinuation) {
                         $list->setTight(false);
                     }
@@ -995,8 +1004,6 @@ final class ListBlockBuilder
      * @param int $i
      * @param array<string, array<string, list<string>|string>|bool|int|string> $listInfo
      * @param int|null $unclosedFenceBase
-     *
-     * @return array{int, array<string>, array<int, int>, array<int, true>, bool, bool, bool, ?int, bool}
      */
     private function collectIndentedListContinuation(
         array $lines,
@@ -1008,7 +1015,7 @@ final class ListBlockBuilder
         bool $lastItemHadBlankAfter,
         array $listInfo,
         ?int $unclosedFenceBase,
-    ): array {
+    ): IndentedListContinuation {
         // Collect all indented content at this new level. The strip
         // column is the item's content column (body column 0), so
         // residual indent above it is preserved and a block opener
@@ -1829,7 +1836,17 @@ final class ListBlockBuilder
             $subLineMap[] = -1;
         }
 
-        return [$i, $subLines, $subLineMap, $subEligible, $subRetainedMarker, $brokeForParentContent, $lastItemHadBlankAfter, $unclosedFenceBase, $blankBeforeNestedContinuation];
+        return new IndentedListContinuation(
+            $i,
+            $subLines,
+            $subLineMap,
+            $subEligible,
+            $subRetainedMarker,
+            $brokeForParentContent,
+            $lastItemHadBlankAfter,
+            $unclosedFenceBase,
+            $blankBeforeNestedContinuation,
+        );
     }
 
     /**
