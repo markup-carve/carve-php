@@ -83,6 +83,21 @@ class DjotFootnoteHeadingIdsTest extends TestCase
         self::assertStringContainsString('<h1 id="a-2">a</h1>', $html);
     }
 
+    public function testHeadingAfterNestedListFootnoteStaysOutsideNote(): void
+    {
+        foreach (
+            [
+                "# a\n\n- r[^n]\n\n  [^n]: # a\n\n  # a\n\n# a\n",
+                "# a\n\n> - r[^n]\n>\n>   [^n]: # a\n>\n>   # a\n\n# a\n",
+            ] as $source
+        ) {
+            $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+            preg_match_all('/(?:section|h1) id="([^"]+)/', $html, $ids);
+
+            self::assertSame(['a', 'a-2', 'a-3', 'a-1'], $ids[1]);
+        }
+    }
+
     public function testParagraphHashLineDoesNotShiftReservations(): void
     {
         $source = "# a\n\npara\n# a\n\nr[^n]\n\n[^n]: n {#a-1}\n\n# a\n";

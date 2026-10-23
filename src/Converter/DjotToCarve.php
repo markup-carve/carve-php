@@ -757,6 +757,7 @@ class DjotToCarve
     {
         $headings = [];
         $note = '';
+        $noteIndent = 0;
         $previous = '';
         $previousHeading = false;
         $previousKey = '';
@@ -766,14 +767,15 @@ class DjotToCarve
             $label = '';
             if (preg_match('/^[ \t]*\[\^([^\]\n]+)\]:[ \t]*/', $body, $header) === 1) {
                 $note = $header[1];
+                $noteIndent = strspn($body, " \t");
                 $label = $note;
                 $content = substr($body, strlen($header[0]));
                 $heading = preg_match('/^#{1,6}[ \t]/', $content) === 1;
-            } elseif ($note !== '' && preg_match('/^[ \t]{2,}#{1,6}[ \t]/', $body) === 1) {
+            } elseif ($note !== '' && strspn($body, " \t") >= $noteIndent + 2 && preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
                 $label = $note;
                 $heading = true;
             } else {
-                if (trim($body) !== '' && preg_match('/^[ \t]{2,}/', $body) !== 1) {
+                if (trim($body) !== '' && strspn($body, " \t") < $noteIndent + 2) {
                     $note = '';
                 }
                 if (preg_match('/^[ \t]*#{1,6}[ \t]/', $body) === 1) {
