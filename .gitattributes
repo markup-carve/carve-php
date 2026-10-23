@@ -24,5 +24,8 @@ docs/ export-ignore
 .gitmodules export-ignore
 phpcs.xml export-ignore
 phpstan.neon export-ignore
+mago.toml export-ignore
+mago-baseline.toml export-ignore
+scripts/check-mago.sh export-ignore
 renovate.json export-ignore
 bin/gen-translit-map.php export-ignore

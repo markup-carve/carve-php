@@ -85,5 +85,15 @@ jobs:
       - name: Run PHPStan
         run: composer stan
 
+      - name: Check source with Mago
+        run: |
+          archive="$RUNNER_TEMP/mago-1.58.2.tar.gz"
+          curl --fail --location --silent --show-error --retry 3 --retry-all-errors --retry-delay 2 \
+            https://github.com/carthage-software/mago/releases/download/1.58.2/mago-1.58.2-x86_64-unknown-linux-gnu.tar.gz \
+            --output "$archive"
+          echo "80b6e6ed3cd2fe2da348f9cd83d23e638f2ccd44988d48bebd766c20ccd30dc2  $archive" | sha256sum --check
+          tar -xzf "$archive" -C "$RUNNER_TEMP"
+          ./scripts/check-mago.sh "$RUNNER_TEMP/mago-1.58.2-x86_64-unknown-linux-gnu/mago"
+
       - name: Run PHP CS Fixer
         run: composer cs-check
