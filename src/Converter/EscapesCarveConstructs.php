@@ -310,8 +310,22 @@ trait EscapesCarveConstructs
         return $line;
     }
 
-    private function escapeBareOpeners(string $subject, string $delimiter, bool $behindBrace, ?string $mask = null): string
-    {
+    /**
+     * Escape visible delimiters that could open a Carve span.
+     *
+     * @param string $subject
+     * @param string $delimiter
+     * @param bool $behindBrace
+     * @param string|null $mask
+     * @param array<int, true> $extraClosers
+     */
+    private function escapeBareOpeners(
+        string $subject,
+        string $delimiter,
+        bool $behindBrace,
+        ?string $mask = null,
+        array $extraClosers = [],
+    ): string {
         if (!str_contains($subject, $delimiter)) {
             return $subject;
         }
@@ -322,6 +336,9 @@ trait EscapesCarveConstructs
         $lineIsBlank = false;
         for ($i = strlen($subject) - 1; $i >= 0; $i--) {
             $char = $subject[$i];
+            if (isset($extraClosers[$i])) {
+                $closer = $i;
+            }
             if ($char === "\n") {
                 // A pair never spans a blank line.
                 if ($lineIsBlank) {

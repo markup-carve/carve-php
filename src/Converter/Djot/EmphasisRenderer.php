@@ -17,6 +17,11 @@ final class EmphasisRenderer
     private array $literals = [];
 
     /**
+     * @var array<string, true>
+     */
+    private array $bareSlashClosers = [];
+
+    /**
      * @var array<int, string>
      */
     private array $rendered = [];
@@ -37,7 +42,7 @@ final class EmphasisRenderer
      * @param array<int, true> $structural
      * @param array<int, true> $literalBrackets
      * @param array<int, true> $literalDashes
-     * @param \Closure(string): string $convert
+     * @param \Closure(string, array{closers: array<int, true>}=): string $convert
      * @param array<int, array{end: int, source: string, single?: bool}> $attributes
      * @param array<int, true> $validBraces
      * @param array<int, true> $validBraceClosers
@@ -141,7 +146,22 @@ final class EmphasisRenderer
             }
         }
 
-        return strtr(($this->convert)($this->body(0, strlen($this->source), $roots, [])), $this->literals);
+        $body = $this->body(0, strlen($this->source), $roots, []);
+        $closers = [];
+        $cursor = 0;
+        while (($at = strpos($body, $this->literalPrefix, $cursor)) !== false) {
+            $end = strpos($body, "\0", $at + strlen($this->literalPrefix));
+            if ($end === false) {
+                break;
+            }
+            $token = substr($body, $at, $end - $at + 1);
+            if (isset($this->bareSlashClosers[$token])) {
+                $closers[$at] = true;
+            }
+            $cursor = $end + 1;
+        }
+
+        return strtr(($this->convert)($body, ['closers' => $closers]), $this->literals);
     }
 
     private function plain(int $start, int $end): string
@@ -245,8 +265,15 @@ final class EmphasisRenderer
                 || str_starts_with($content, $delimiter) || str_ends_with($content, $delimiter)
                 || ($delimiter === '/' && (($this->source[$pair->start - 1] ?? '') === '/' || ($this->source[$pair->end] ?? '') === '/'))
                 || ($delimiter === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
+        $opening = $this->protect($forced ? '{' . $delimiter : $delimiter);
+        $closing = $this->protect($forced ? $delimiter . '}' : $delimiter);
+        if ($delimiter === '/') {
+            if (!$forced) {
+                $this->bareSlashClosers[$closing] = true;
+            }
+        }
 
-        return $this->protect($forced ? '{' . $delimiter : $delimiter) . $content . $this->protect($forced ? $delimiter . '}' : $delimiter);
+        return $opening . $content . $closing;
     }
 
     private function protect(string $value): string
