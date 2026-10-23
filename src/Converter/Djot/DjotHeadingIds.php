@@ -32,6 +32,17 @@ final class DjotHeadingIds
             }
             if ($node instanceof Heading) {
                 $carveIds[] = $tracker->getIdForHeading($node);
+                $descendants = array_reverse($node->getChildren());
+                while ($descendants !== []) {
+                    $child = array_pop($descendants);
+                    $childId = $child->getAttribute('id');
+                    if ($childId !== null && $childId !== '') {
+                        $used[$childId] = true;
+                    }
+                    foreach (array_reverse($child->getChildren()) as $descendant) {
+                        $descendants[] = $descendant;
+                    }
+                }
                 if ($explicit !== null && $explicit !== '') {
                     $djotIds[] = $explicit;
                 } else {

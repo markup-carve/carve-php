@@ -604,7 +604,7 @@ class DjotToCarve
             return $paragraph . '![' . $token . ']';
         });
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
-        [$source, $orphanSpans] = $this->consumeOrphanDjotAttributes($source);
+        [$source, $orphanSpans, $reservedOrphanIds] = $this->consumeOrphanDjotAttributes($source);
         $source = $this->normalizeDjotQuotesNearSlashes($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
@@ -612,17 +612,23 @@ class DjotToCarve
 
         $carve = str_replace($emptyTerm, '%%', $carve);
         $carve = str_replace([$emptyNote, $imageParagraph], ['%%%%', '{%%}'], $carve);
-        $carve = strtr($carve, $orphanSpans + $strongSpans);
+        $heldOrphans = $orphanSpans;
+        foreach ($reservedOrphanIds as $token => $_) {
+            $heldOrphans[$token] = $token;
+        }
+        $carve = strtr($carve, $heldOrphans + $strongSpans);
         $dropInherited = array_fill_keys(array_keys($inherited), '');
         $carve = strtr($carve, $dropInherited);
         if ($itemAttributeValues !== []) {
             $carve = preg_replace_callback('/^[ \t>]*' . preg_quote($itemAttributePrefix, '/') . '(B?)(\d+)\x00\n(?:[ \t>]*\n)*([ \t>]*)([-*+]|[^ \t\n]+)([ \t]+)/m', static fn (array $match): string => $match[1] === 'B' ? $match[3] . ($itemAttributeValues[(int)$match[2]] ?? '') . "\n" . $match[3] . $match[4] . $match[5] : $match[3] . $match[4] . ($itemAttributeValues[(int)$match[2]] ?? '') . $match[5], $carve) ?? $carve;
             $carve = preg_replace_callback('/(?<![ \t])([ \t]+)((?:\[[ xX]\][ \t]+)?)' . preg_quote($itemAttributePrefix, '/') . '(\d+)\x00/', static fn (array $match): string => ($itemAttributeValues[(int)$match[3]] ?? '') . $match[1] . $match[2], $carve) ?? $carve;
         }
+        $reservationCarve = $reservedOrphanIds === [] ? null : strtr($carve, $reservedOrphanIds);
+        $carve = strtr($carve, array_intersect_key($orphanSpans, $reservedOrphanIds));
         if ($preserveHeadingIds) {
             $originalBody = strtr($djotBody, $dropInherited);
             if ($this->nativeDjotHeadingIds && $this->headingIdSource === null && str_contains($carve, '#')) {
-                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody);
+                $carve = $this->applyNativeDjotHeadingIds($carve, $originalBody, $reservationCarve);
             } else {
                 $carve = $this->applyHeadingIdPreservation($carve, $originalBody);
             }
@@ -633,12 +639,39 @@ class DjotToCarve
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
     }
 
-    private function applyNativeDjotHeadingIds(string $carve, string $source): string
+    private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null): string
     {
         [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve);
+        if ($reservationCarve !== null) {
+            [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve);
+        }
         $this->headingIdSource = new MapIds($djotIds);
         try {
-            return $this->applyHeadingIdPreservation($carve, $source, $carveIds, false);
+            if ($reservationCarve === null) {
+                return $this->applyHeadingIdPreservation($carve, $source, $carveIds, false);
+            }
+            if ($djotIds === $carveIds) {
+                return $carve;
+            }
+            for ($attempt = 0, $count = count($djotIds); $attempt <= $count; $attempt++) {
+                $preserved = $this->applyHeadingIdPreservation($carve, $source, array_values($carveIds), false);
+                [, $renderedIds] = DjotHeadingIds::fromCarve($preserved);
+                if ($renderedIds === $djotIds) {
+                    return $preserved;
+                }
+                $changed = false;
+                foreach ($djotIds as $index => $id) {
+                    if ($id !== ($renderedIds[$index] ?? null) && ($carveIds[$index] ?? null) !== '') {
+                        $carveIds[$index] = '';
+                        $changed = true;
+                    }
+                }
+                if (!$changed) {
+                    break;
+                }
+            }
+
+            return $preserved;
         } finally {
             $this->headingIdSource = null;
         }
@@ -2623,12 +2656,12 @@ class DjotToCarve
     }
 
     /**
-     * @return array{string, array<string, string>}
+     * @return array{string, array<string, string>, array<string, string>}
      */
     private function consumeOrphanDjotAttributes(string $source): array
     {
         if (!str_contains($source, '{')) {
-            return [$source, []];
+            return [$source, [], []];
         }
 
         $maskedSource = preg_replace_callback('/<[A-Za-z][A-Za-z0-9+.-]*:[^<>\\s]*>/', static fn (array $match): string => str_repeat(' ', strlen($match[0])), $this->maskCodeAndDestinations($source)) ?? $source;
@@ -2675,7 +2708,7 @@ class DjotToCarve
         }
         $prefix = PlaceholderPrefix::choose($source, "\x00DJOTORPHAN\x00");
         $out = [];
-        $spaces = [];
+        $spaces = $reservedIds = $unattachedAttrs = [];
         $blockAttributes = [];
         $ownerExits = [];
         $quoteScopeChanges = [];
@@ -2806,6 +2839,7 @@ class DjotToCarve
                         unset($moved[$index]);
                     }
                 }
+                $unattachedAttrs[] = $attrs;
                 $written .= substr($line, $cursor, $at - $cursor) . ($prefix . ($at === $first ? 'L' : 'I'));
                 $cursor = $at + strlen($attrs);
             }
@@ -2820,15 +2854,25 @@ class DjotToCarve
                 continue;
             }
             $written .= substr($line, $cursor);
-            $out[] = preg_replace_callback('/' . preg_quote($prefix, '/') . '([LI])([ \t]*)/', static function (array $match) use (&$spaces, $prefix): string {
-                $token = $prefix . count($spaces) . "\x00";
+            $out[] = preg_replace_callback('/' . preg_quote($prefix, '/') . '([LI])([ \t]*)/', function (array $match) use (&$spaces, &$reservedIds, &$unattachedAttrs, $prefix): string {
+                $index = count($spaces);
+                $token = $prefix . $index . "\x00";
                 $spaces[$token] = $match[1] === 'I' ? $match[2] : ($match[2] === '' ? '{%%}' : '!`' . $match[2] . '`');
+                $attributeSource = $unattachedAttrs[$index];
+                $hasId = str_contains($attributeSource, '#') || str_contains($attributeSource, 'id=');
+                $attribute = $hasId ? $this->readDjotWordAttributes($attributeSource, 0) : null;
+                if ($attribute !== null) {
+                    $id = AttributeParser::parse(substr($attribute['source'], 1, -1))['id'] ?? null;
+                    if (is_string($id) && $id !== '') {
+                        $reservedIds[$token] = '[]{id="' . QuotedSlotEscaper::escape($id, AttributeParser::ESCAPABLE_PUNCTUATION) . '"}';
+                    }
+                }
 
                 return $token;
             }, $written) ?? $written;
         }
 
-        return [implode("\n", $out), $spaces];
+        return [implode("\n", $out), $spaces, $reservedIds];
     }
 
     /**
