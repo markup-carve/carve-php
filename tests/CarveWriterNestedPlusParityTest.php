@@ -18,11 +18,11 @@ final class CarveWriterNestedPlusParityTest extends TestCase
         return [
             'nested literal plus' => [
                 "- a\n  - b\n    - ```\n    +\ntail",
-                "- a\n  - b\n    - ```\n      ```\n    \\+\n\ntail\n",
+                "- a\n  - b\n    - ```\n      ```\n    +\n\ntail\n",
             ],
             'quote hosted literal plus' => [
                 "> - a\n>   - b\n>     - ```\n>     +\n> tail",
-                "> - a\n>   - b\n>     - ```\n>       ```\n>     \\+\n>\n> tail\n",
+                "> - a\n>   - b\n>     - ```\n>       ```\n>     +\n>\n> tail\n",
             ],
             'nested fence payload spacing' => [
                 "- - ```\n\n\n  +\ntail\n",
