@@ -1,0 +1,52 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MarkupCarve\Carve\Test\TestCase\Converter;
+
+use MarkupCarve\Carve\CarveConverter;
+use MarkupCarve\Carve\Converter\DjotToCarve;
+use PHPUnit\Framework\Attributes\DataProvider;
+use PHPUnit\Framework\TestCase;
+
+class DjotFootnoteHeadingIdsTest extends TestCase
+{
+    /**
+     * @return iterable<string, array{string, list<string>}>
+     */
+    public static function cases(): iterable
+    {
+        yield 'referenced note before heading' => ["# x\n\nref[^n]\n\n[^n]: note {#x-1} too\n\n# x\n", ['x', 'x-2']];
+        yield 'unreferenced note before heading' => ["# x\n\n[^n]: note {#x-1} too\n\n# x\n", ['x', 'x-2']];
+        yield 'attached id inside note' => ["# x\n\n[^n]: [note]{#x-1} too\n\n# x\n", ['x', 'x-2']];
+        yield 'note after both headings' => ["# x\n\n# x\n\n[^n]: note {#x-1} too\n", ['x', 'x-1']];
+        yield 'note before first heading' => ["[^n]: note {#x} too\n\n# x\n", ['x-1']];
+        yield 'continued heading before note' => ["# x\n# y\n\n[^n]: n {#x-y-1} t\n\n# x y\n", ['x-y', 'x-y-2']];
+        yield 'note inside blockquote' => ["# x\n\n> # x\n>\n> [^n]: note {#x-1} too\n\n# x\n", ['x', 'x-2']];
+        yield 'block attribute inside note' => ["# x\n\n[^n]: note\n\n    {#x-1}\n    more\n\n# x\n", ['x', 'x-2']];
+    }
+
+    /**
+     * @param string $source
+     * @param list<string> $expected
+     */
+    #[DataProvider('cases')]
+    public function testFootnoteIdsReserveInSourceOrder(string $source, array $expected): void
+    {
+        $carve = (new DjotToCarve())->convert($source);
+        $html = (new CarveConverter())->convert($carve);
+        preg_match_all('/<section id="([^"]+)/', $html, $matches);
+
+        self::assertSame($expected, $matches[1]);
+        self::assertStringNotContainsString('note {#', $carve);
+    }
+
+    public function testReferenceToLaterHeadingKeepsItsTarget(): void
+    {
+        $source = "# x\n\nref[^n]\n\n[^n]: note {#x-1} too\n\n# x\n\n[go](#x-2)\n";
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString('<section id="x-2">', $html);
+        self::assertStringContainsString('href="#x-2"', $html);
+    }
+}

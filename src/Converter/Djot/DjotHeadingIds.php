@@ -12,9 +12,12 @@ use MarkupCarve\Carve\Renderer\SmartTypographyMode;
 final class DjotHeadingIds
 {
     /**
+     * @param string $carve
+     * @param array<int, list<string>> $reservedBeforeHeading
+     *
      * @return array{list<string>, list<string>} Djot ids and Carve ids in document order
      */
-    public static function fromCarve(string $carve): array
+    public static function fromCarve(string $carve, array $reservedBeforeHeading = []): array
     {
         $document = (new BlockParser())->parse(str_replace("\0U\0", "\0", $carve));
         $renderer = new HtmlRenderer();
@@ -24,6 +27,7 @@ final class DjotHeadingIds
         $djotIds = [];
         $carveIds = [];
         $pending = array_reverse($document->getChildren());
+        $headingIndex = 0;
         while ($pending !== []) {
             $node = array_pop($pending);
             $explicit = $node->getAttribute('id');
@@ -31,6 +35,9 @@ final class DjotHeadingIds
                 $used[$explicit] = true;
             }
             if ($node instanceof Heading) {
+                foreach ($reservedBeforeHeading[$headingIndex++] ?? [] as $reservedId) {
+                    $used[$reservedId] = true;
+                }
                 $carveIds[] = $tracker->getIdForHeading($node);
                 $descendants = array_reverse($node->getChildren());
                 while ($descendants !== []) {
