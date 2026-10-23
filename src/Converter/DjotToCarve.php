@@ -1197,6 +1197,8 @@ class DjotToCarve
         }
 
         return $parts === [] ? $source : implode('', $parts) . substr($source, $copied);
+    }
+
     private function normalizeCarveHeadingQuotes(string $carve): string
     {
         if (!str_contains($carve, '"') || !str_contains($carve, '#')) {
