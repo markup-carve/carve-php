@@ -49,4 +49,31 @@ class DjotReferenceDestinationSlashesTest extends TestCase
 
         self::assertStringContainsString('href="a\\\\*b"', $html);
     }
+
+    /**
+     * @return array<string, array{string, bool, string}>
+     */
+    public static function parenthesisDestinations(): array
+    {
+        return [
+            'escaped opener' => ['a\\(b', false, 'a\\(b'],
+            'escaped closer' => ['a\\)b', false, 'a\\)b'],
+            'plain pair' => ['a(b)', false, 'a(b)'],
+            'nested plain pair' => ['a(b(c)d)e', false, 'a(b(c)d)e'],
+            'two slashes before opener' => ['a\\\\(b', false, 'a\\\\(b'],
+            'image escaped opener' => ['a\\(b', true, 'a\\(b'],
+            'percent escapes remain encoded' => ['a%28b%29', false, 'a%28b%29'],
+            'unbalanced parentheses' => ['a)b(', false, 'a)b('],
+            'escaped backtick before parenthesis' => ['a\\`(b', false, 'a\\`(b'],
+        ];
+    }
+
+    #[DataProvider('parenthesisDestinations')]
+    public function testReferenceDestinationKeepsParentheses(string $destination, bool $image, string $expectedUrl): void
+    {
+        $source = ($image ? 'before ![x][r]' : '[x][r]') . "\n\n[r]: " . $destination;
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        self::assertStringContainsString(($image ? 'src' : 'href') . '="' . $expectedUrl . '"', $html);
+    }
 }
