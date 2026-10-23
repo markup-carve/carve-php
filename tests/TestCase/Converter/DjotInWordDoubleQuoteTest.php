@@ -37,4 +37,21 @@ class DjotInWordDoubleQuoteTest extends TestCase
 
         $this->assertSame($expected, trim((new CarveConverter())->convert($carve)));
     }
+
+    public function testHeadingQuoteDirectionKeepsGeneratedIds(): void
+    {
+        $converter = new DjotToCarve();
+        $renderer = new CarveConverter();
+        $cases = [
+            ['# ab"c', 'id="ab&quot;c"', '<h1>ab“c</h1>'],
+            ['> # x"y"', 'id="x&quot;y&quot;"', '<h1 id="x&quot;y&quot;">x“y”</h1>'],
+            ["# a\nb\"c", 'id="a-b&quot;c"', '<h1>a b“c</h1>'],
+        ];
+        foreach ($cases as [$source, $id, $heading]) {
+            $html = $renderer->convert($converter->convert($source));
+
+            $this->assertStringContainsString($id, $html);
+            $this->assertStringContainsString($heading, $html);
+        }
+    }
 }

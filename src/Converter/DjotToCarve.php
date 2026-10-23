@@ -639,6 +639,8 @@ class DjotToCarve
             }
         }
 
+        $carve = $this->normalizeCarveHeadingQuotes($carve);
+
         $carve = TightDefinitionDescriptions::normalize($this->genericDjotDivClasses($carve));
 
         return ($strippedDefinitions['restore'])($frontmatter === '' ? $carve : $frontmatter . $separator . $carve);
@@ -1194,6 +1196,23 @@ class DjotToCarve
         }
 
         return $parts === [] ? $source : implode('', $parts) . substr($source, $copied);
+    private function normalizeCarveHeadingQuotes(string $carve): string
+    {
+        if (!str_contains($carve, '"') || !str_contains($carve, '#')) {
+            return $carve;
+        }
+        $lines = explode("\n", $carve);
+        $headingLines = array_fill_keys($this->scanHeadingStartLines($lines), true);
+        foreach ($lines as $lineNumber => $line) {
+            if (!isset($headingLines[$lineNumber]) || !str_contains($line, '"')) {
+                continue;
+            }
+            if (preg_match('/^(.*?#{1,6}[ \t]+)(.*)$/', $line, $parts) === 1) {
+                $lines[$lineNumber] = $parts[1] . $this->normalizeDjotQuotesNearSlashes($parts[2]);
+            }
+        }
+
+        return implode("\n", $lines);
     }
 
     private function normalizeDjotQuotesNearSlashes(string $source): string
