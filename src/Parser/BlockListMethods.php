@@ -1089,11 +1089,12 @@ trait BlockListMethods
         $trailingState = new TrailingBlockState();
         $attachedKind = self::ATTACHED_PENDING;
         $pendingThrough = -1;
+        $leadFenceOpen = false;
         [$i, $attached, $attachedRawLineMap] = $this->collectAttachedBlock(
             $lines,
             $i,
             $count,
-            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, $lines, $baseIndent, $contentIndent): bool {
+            function (string $line, int $index) use (&$trailingState, &$attachedKind, &$pendingThrough, &$leadFenceOpen, $lines, $baseIndent, $contentIndent): bool {
                 $lineIndent = IndentationHelper::getLeadingColumns($line, $baseIndent + 1);
                 $trimmed = ltrim($line, " \t");
                 $unclosedFences = $this->state->session->unclosedCodeFences;
@@ -1134,8 +1135,12 @@ trait BlockListMethods
                 }
                 // An unmarked indented line continues the open quoted
                 // paragraph. Its block-shaped text is not a new block here.
+                // An unclosed fence the block opens with keeps every line up to a blank as payload (carve#3421).
+                $leadFenceOpen = $leadFenceOpen || $attachedKind === self::ATTACHED_PENDING
+                    && ($this->fencedBlockParser->parseCodeFenceOpener($trimmed) !== null || $this->fencedBlockParser->parseRawBlockOpener($trimmed) !== null);
                 if (
-                    !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
+                    !($leadFenceOpen && $trailingState->fence !== null)
+                    && !($trailingState->quoteParagraph && $lineIndent > $baseIndent)
                     && $this->trailingBlockHasEnded($attachedKind, $trimmed, $lines, $index, $trailingState)
                 ) {
                     return true;
