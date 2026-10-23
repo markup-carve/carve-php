@@ -70,6 +70,14 @@ class ADescriptionSeparatorLeftOfItsItemColumnFoldsIntoTheBodyTest extends TestC
                 "10. item\n\n    :: Term\n    :  Def\n  :  under\n",
                 "<ol start=\"10\">\n  <li>item\n    <dl>\n      <dt>Term</dt>\n      <dd>Def\n:  under</dd>\n    </dl>\n  </li>\n</ol>",
             ],
+            'separator after an unclosed fence line in a loose item' => [
+                "- item\n\n  :: A\n  :  first\n  ```\n :  next\n",
+                "<ul>\n  <li>item\n    <dl>\n      <dt>A</dt>\n      <dd>first\n<code>\n:  next</code></dd>\n    </dl>\n  </li>\n</ul>",
+            ],
+            'separator after an unclosed fence line in a tight item' => [
+                "- item\n  :: A\n  :  first\n  ```\n :  next\n",
+                "<ul>\n  <li>item\n    <dl>\n      <dt>A</dt>\n      <dd>first\n<code>\n:  next</code></dd>\n    </dl>\n  </li>\n</ul>",
+            ],
         ];
     }
 

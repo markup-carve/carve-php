@@ -1683,6 +1683,7 @@ final class ListBlockBuilder
                     !$sawBlankLine
                     && $subTrailingState->openParagraph
                     && $subLines !== []
+                    && !$this->fenceRunSinceLastTerm($subLines)
                     && (preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmedLine) === 1
                         || (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $trimmedLine) === 1
                             && !$this->blankSinceLastTerm($subLines)))
@@ -2286,6 +2287,27 @@ final class ListBlockBuilder
         $length = ($this->wrappedBlockAttributeLengthCallback)($probe, 0);
 
         return $length !== null && $length > 1 ? $length : null;
+    }
+
+    /**
+     * Whether a fence run follows the last term. The run may have opened a code
+     * block rather than continued a paragraph, so the line is left to the paths below.
+     *
+     * @param array<int, string> $lines
+     */
+    private function fenceRunSinceLastTerm(array $lines): bool
+    {
+        for ($k = count($lines) - 1; $k >= 0; $k--) {
+            $line = ltrim(BlockGrammar::stripLazyFrame($lines[$k]), " \t");
+            if (preg_match(BlockGrammar::DEFINITION_TERM_LINE_PREFIX, $line) === 1) {
+                return false;
+            }
+            if (preg_match('/^(`{3,}|~{3,})/', $line) === 1) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
