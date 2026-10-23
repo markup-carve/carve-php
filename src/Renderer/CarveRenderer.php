@@ -2664,6 +2664,7 @@ class CarveRenderer implements RendererInterface, RenderLossAwareRendererInterfa
                     if (
                         $this->quoteHostDepth > 0 && !$child instanceof Paragraph
                         && !$child instanceof CodeBlock
+                        && !$child instanceof Div && !$child instanceof Figure
                     ) {
                         $out .= "\n" . $rendered;
                         $previous = $child;
