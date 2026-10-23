@@ -2089,6 +2089,9 @@ class DjotToCarve
                 $closed = false;
                 if (trim(substr($content, $opener['length'])) === '') {
                     for ($openIndex = count($openDivs) - 1; $openIndex >= 0; $openIndex--) {
+                        if ($openDivs[$openIndex]['quoteDepth'] < $quoteDepth) {
+                            break;
+                        }
                         if ($opener['length'] >= $openDivs[$openIndex]['width']) {
                             $openDivs = array_slice($openDivs, 0, $openIndex);
                             $closed = true;
