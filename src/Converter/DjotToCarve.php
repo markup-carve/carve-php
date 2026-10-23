@@ -611,6 +611,7 @@ class DjotToCarve
         });
         $source = $this->protectAttributedWords($source, $strongSpans, $inherited);
         [$source, $orphanSpans, $reservedOrphanIds] = $this->consumeOrphanDjotAttributes($source);
+        $source = $this->protectDjotEmphasisCrossingQuotes($source);
         $source = $this->normalizeDjotQuotesNearSlashes($source);
         $wire = [];
         $mask = $this->djotEmphasisMask($source, true, $wire);
@@ -1126,6 +1127,53 @@ class DjotToCarve
             $from--;
         }
         $this->paragraphStarts[$from] = ['key' => $key, 'result' => $result];
+
+        return $result;
+    }
+
+    private function protectDjotEmphasisCrossingQuotes(string $source): string
+    {
+        if ($this->omitQuoteDelimiters || (!str_contains($source, '_') && !str_contains($source, '*')) || (!str_contains($source, '"') && !str_contains($source, "'"))) {
+            return $source;
+        }
+
+        $mask = $this->djotEmphasisMask($source);
+        $boundaries = $this->djotTableCellBoundaries($source);
+        $plain = Emphasis::pairedOpeners($source, $mask, $boundaries);
+        $withQuotes = Emphasis::pairedOpeners($source, $mask, $boundaries, true);
+        $imageLabels = [];
+        $this->replaceImageLabels($source, $mask, static function (array $match) use (&$imageLabels): string {
+            $imageLabels[] = [$match[1][1], $match[1][1] + strlen($match[1][0])];
+
+            return $match[0][0];
+        });
+        usort($imageLabels, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+        ksort($plain);
+        $escape = [];
+        $closingSingles = [];
+        $imageIndex = 0;
+        foreach ($plain as $open => $end) {
+            while (isset($imageLabels[$imageIndex]) && $open >= $imageLabels[$imageIndex][1]) {
+                $imageIndex++;
+            }
+            if (isset($imageLabels[$imageIndex]) && $open >= $imageLabels[$imageIndex][0]) {
+                continue;
+            }
+            if ($source[$open] === '_' && ($source[$end - 1] ?? '') === '_' && ($withQuotes[$open] ?? null) !== $end) {
+                $escape[$open] = $escape[$end - 1] = true;
+            }
+            if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
+                $closingSingles[$open + 1] = true;
+            }
+        }
+        if ($escape === [] && $closingSingles === []) {
+            return $source;
+        }
+
+        $result = '';
+        for ($i = 0, $length = strlen($source); $i < $length; $i++) {
+            $result .= (isset($escape[$i]) ? '\\' : '') . (isset($closingSingles[$i]) ? '’' : $source[$i]);
+        }
 
         return $result;
     }

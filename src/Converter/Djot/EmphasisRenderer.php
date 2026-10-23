@@ -264,6 +264,7 @@ final class EmphasisRenderer
                 || preg_match('/^[ \t\r\n]|[ \t\r\n]$/', $content) === 1
                 || str_starts_with($content, $delimiter) || str_ends_with($content, $delimiter)
                 || ($delimiter === '/' && (($this->source[$pair->start - 1] ?? '') === '/' || ($this->source[$pair->end] ?? '') === '/'))
+                || ($delimiter === '/' && (str_ends_with($content, "/'") || str_ends_with($content, '/’')))
                 || ($delimiter === '/' && str_starts_with($content, '*') && str_ends_with($content, '*'));
         $opening = $this->protect($forced ? '{' . $delimiter : $delimiter);
         $closing = $this->protect($forced ? $delimiter . '}' : $delimiter);
