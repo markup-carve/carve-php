@@ -102,7 +102,7 @@ jobs:
       # shard reports. The list must name every shard the script writes.
       - name: Upload coverage to Codecov
         continue-on-error: true
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage-shard-1.xml,./coverage-shard-2.xml,./coverage-shard-3.xml,./coverage-shard-4.xml
