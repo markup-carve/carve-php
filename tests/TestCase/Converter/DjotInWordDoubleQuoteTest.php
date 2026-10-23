@@ -54,4 +54,14 @@ class DjotInWordDoubleQuoteTest extends TestCase
             $this->assertStringContainsString($heading, $html);
         }
     }
+
+    public function testCodeFencesInsideListsKeepQuoteBytes(): void
+    {
+        foreach (["- ```\n  # a\"b\n  ```\n", "1. ```\n   # a\"b\n   ```\n", "- a\n\n  ```\n  # a\"b\n  ```\n"] as $source) {
+            $carve = (new DjotToCarve())->convert($source);
+
+            $this->assertStringContainsString('# a"b', $carve);
+            $this->assertStringNotContainsString('# a“b', $carve);
+        }
+    }
 }

@@ -19,6 +19,7 @@ use MarkupCarve\Carve\Converter\Djot\TightDefinitionDescriptions;
 use MarkupCarve\Carve\Converter\HeadingId\HeadingIdSource;
 use MarkupCarve\Carve\Converter\HeadingId\MapIds;
 use MarkupCarve\Carve\Converter\HeadingId\PreservesHeadingIds;
+use MarkupCarve\Carve\Node\Block\Heading;
 use MarkupCarve\Carve\Node\Block\TableRow;
 use MarkupCarve\Carve\Node\Node;
 use MarkupCarve\Carve\Parser\Block\FencedBlockParser;
@@ -1202,7 +1203,17 @@ class DjotToCarve
             return $carve;
         }
         $lines = explode("\n", $carve);
-        $headingLines = array_fill_keys($this->scanHeadingStartLines($lines), true);
+        $headingLines = [];
+        $pending = (new BlockParser(trackPositions: true))->parse($carve)->getChildren();
+        while ($pending !== []) {
+            $node = array_pop($pending);
+            if ($node instanceof Heading && $node->getPos() !== null) {
+                $headingLines[$node->getPos()->startLine - 1] = true;
+            }
+            foreach ($node->getChildren() as $child) {
+                $pending[] = $child;
+            }
+        }
         foreach ($lines as $lineNumber => $line) {
             if (!isset($headingLines[$lineNumber]) || !str_contains($line, '"')) {
                 continue;
