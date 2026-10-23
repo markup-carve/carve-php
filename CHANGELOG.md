@@ -9,6 +9,9 @@ Entries for 0.1.8 and earlier are in [CHANGELOG-0.1.md](CHANGELOG-0.1.md).
 
 ## [Unreleased]
 
+### Fixes
+- A description separator or tight term line below a list item's content column folds into the open definition body or term as text, after a blank line in the item too (#3762, markup-carve/carve#3547).
+
 ## [0.1.14] - 2026-10-23
 
 ### Breaking
