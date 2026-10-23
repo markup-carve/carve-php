@@ -1739,29 +1739,7 @@ class MarkdownToCarve
 
         $this->appendMovedFootnotesAndDefinitions($result, $hardListBlanks, $markdown);
 
-        $folded = [];
-        $foldedSourceBlanks = [];
-        $foldedHardBlanks = [];
-        for ($at = 0, $count = count($result); $at < $count; $at++) {
-            $line = $result[$at];
-            $child = $result[$at + 1] ?? null;
-            $joined = isset($syntheticEmptyItems[$at]) && is_string($line) && is_string($child)
-                ? CarveRenderer::foldImportedEmptyItem($line, $child) : null;
-            $newAt = count($folded);
-            $folded[] = $joined ?? $line;
-            if (isset($sourceBlanks[$at]) || ($joined !== null && isset($sourceBlanks[$at + 1]))) {
-                $foldedSourceBlanks[$newAt] = true;
-            }
-            if (isset($hardListBlanks[$at]) || ($joined !== null && isset($hardListBlanks[$at + 1]))) {
-                $foldedHardBlanks[$newAt] = true;
-            }
-            if ($joined !== null) {
-                $at++;
-            }
-        }
-        $result = $folded;
-        $sourceBlanks = $foldedSourceBlanks;
-        $hardListBlanks = $foldedHardBlanks;
+        [$result, $sourceBlanks, $hardListBlanks] = $this->foldImportedEmptyItems($result, $syntheticEmptyItems, $sourceBlanks, $hardListBlanks);
 
         $fromSource = [];
         $hardSeparators = [];
@@ -1771,22 +1749,7 @@ class MarkdownToCarve
             }
             $fromSource[] = isset($sourceBlanks[$at]);
         }
-        $assemble = function () use (&$result, $fromSource, $hardSeparators, $markdown): string {
-            [$carve, $writtenBlanks] = $this->joinOutput($result, $fromSource, $hardSeparators);
-            $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
-            $carve = $this->separateLooseItems($carve, $writtenBlanks);
-            $carve = $this->applyHeadingIdPreservation($carve, $markdown);
-            if (!$this->referenceContext->importingFootnoteBody) {
-                $carve = CarveRenderer::trimImportedDocumentEdges($carve, CarveRenderer::importedSourceEndsWithNewline($markdown));
-            }
-
-            // An empty quote line is written as its markers alone, which is what
-            // `carve fmt` writes. The separator space carries no content, so the
-            // markers of a quoted blank code line lose it too.
-            return preg_replace('/^((?:> )*>) $/m', '$1', $carve) ?? $carve;
-        };
-
-        $carve = $assemble();
+        $carve = $this->assembleImportedLines($result, $fromSource, $hardSeparators, $markdown);
         // Frontmatter-collision guard: Carve reads a line-0 `---` as a
         // frontmatter OPEN fence and, with a later closer, swallows everything
         // between as opaque metadata, so a body that opens with a rule and
@@ -1803,7 +1766,7 @@ class MarkdownToCarve
                     $result[$at] = substr($line, 0, -3) . CarveRenderer::FRONTMATTER_SAFE_BREAK_MARKER;
                 }
             }
-            $respelled = $assemble();
+            $respelled = $this->assembleImportedLines($result, $fromSource, $hardSeparators, $markdown);
             if (!CarveRenderer::textOpensFrontmatter($respelled)) {
                 $carve = CarveConverter::toCarve($respelled);
             }
@@ -1867,6 +1830,62 @@ class MarkdownToCarve
         return $this->canonicalImportLayout($this->rewriteSameFileHeadingLinks($body === ''
             ? $prefix . "\n"
             : $prefix . CarveRenderer::BLOCK_SEPARATOR . $body), $carrierOriginal);
+    }
+
+    /**
+     * @param array<int, string|null> $result
+     * @param array<int, true> $syntheticEmptyItems
+     * @param array<int, true> $sourceBlanks
+     * @param array<int, true> $hardListBlanks
+     *
+     * @return array{array<int, string|null>, array<int, true>, array<int, true>}
+     */
+    private function foldImportedEmptyItems(array $result, array $syntheticEmptyItems, array $sourceBlanks, array $hardListBlanks): array
+    {
+        $folded = [];
+        $foldedSourceBlanks = [];
+        $foldedHardBlanks = [];
+        for ($at = 0, $count = count($result); $at < $count; $at++) {
+            $line = $result[$at];
+            $child = $result[$at + 1] ?? null;
+            $joined = isset($syntheticEmptyItems[$at]) && is_string($line) && is_string($child)
+                ? CarveRenderer::foldImportedEmptyItem($line, $child) : null;
+            $newAt = count($folded);
+            $folded[] = $joined ?? $line;
+            if (isset($sourceBlanks[$at]) || ($joined !== null && isset($sourceBlanks[$at + 1]))) {
+                $foldedSourceBlanks[$newAt] = true;
+            }
+            if (isset($hardListBlanks[$at]) || ($joined !== null && isset($hardListBlanks[$at + 1]))) {
+                $foldedHardBlanks[$newAt] = true;
+            }
+            if ($joined !== null) {
+                $at++;
+            }
+        }
+
+        return [$folded, $foldedSourceBlanks, $foldedHardBlanks];
+    }
+
+    /**
+     * @param array<int, string|null> $result
+     * @param array<int, bool> $fromSource
+     * @param array<int, true> $hardSeparators
+     * @param string $markdown
+     */
+    private function assembleImportedLines(array $result, array $fromSource, array $hardSeparators, string $markdown): string
+    {
+        [$carve, $writtenBlanks] = $this->joinOutput($result, $fromSource, $hardSeparators);
+        $carve = str_replace(self::EMPTY_DEFINITION_ITEM_SENTINEL, '%%', $carve);
+        $carve = $this->separateLooseItems($carve, $writtenBlanks);
+        $carve = $this->applyHeadingIdPreservation($carve, $markdown);
+        if (!$this->referenceContext->importingFootnoteBody) {
+            $carve = CarveRenderer::trimImportedDocumentEdges($carve, CarveRenderer::importedSourceEndsWithNewline($markdown));
+        }
+
+        // An empty quote line is written as its markers alone, which is what
+        // `carve fmt` writes. The separator space carries no content, so the
+        // markers of a quoted blank code line lose it too.
+        return preg_replace('/^((?:> )*>) $/m', '$1', $carve) ?? $carve;
     }
 
     private function prepareImportedFootnoteLabels(string $markdown): void
