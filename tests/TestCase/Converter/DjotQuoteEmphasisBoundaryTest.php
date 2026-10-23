@@ -25,6 +25,8 @@ class DjotQuoteEmphasisBoundaryTest extends TestCase
         yield 'single quote before more text' => ["_a/'b_", '<p><em>a/’b</em></p>'];
         yield 'strong crosses quote' => ['"a *b" c*', '<p>“a *b” c*</p>'];
         yield 'explicit emphasis crosses quote' => ['"a {_b" c_}', '<p>“a {_b” c_}</p>'];
+        yield 'crossing emphasis with word attribute' => ['"a _b" c_{.x}', '<p>“a _b” <span class="x">c_</span></p>'];
+        yield 'crossing strong with word attribute' => ['"a *b" c*{.x}', '<p>“a *b” <span class="x">c*</span></p>'];
     }
 
     #[DataProvider('cases')]

@@ -1151,6 +1151,8 @@ class DjotToCarve
         ksort($plain);
         $escape = [];
         $closingSingles = [];
+        $wordSpans = [];
+        $wordSpanEnds = [];
         $imageIndex = 0;
         foreach ($plain as $open => $end) {
             while (isset($imageLabels[$imageIndex]) && $open >= $imageLabels[$imageIndex][1]) {
@@ -1166,6 +1168,16 @@ class DjotToCarve
                 }
                 if (($source[$close] ?? '') === $source[$open]) {
                     $escape[$open] = $escape[$close] = true;
+                    if (($source[$end] ?? '') === '{' && $this->readDjotWordAttributes($source, $end) !== null) {
+                        $wordStart = $close;
+                        while ($wordStart > 0 && preg_match('/[\s]/', $source[$wordStart - 1]) !== 1) {
+                            $wordStart--;
+                        }
+                        if ($wordStart < $close && $wordStart > $open) {
+                            $wordSpans[$wordStart] = true;
+                            $wordSpanEnds[$close] = true;
+                        }
+                    }
                 }
             }
             if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
@@ -1178,7 +1190,7 @@ class DjotToCarve
 
         $result = '';
         for ($i = 0, $length = strlen($source); $i < $length; $i++) {
-            $result .= (isset($escape[$i]) ? '\\' : '') . (isset($closingSingles[$i]) ? '’' : $source[$i]);
+            $result .= (isset($wordSpans[$i]) ? '[' : '') . (isset($escape[$i]) ? '\\' : '') . (isset($closingSingles[$i]) ? '’' : $source[$i]) . (isset($wordSpanEnds[$i]) ? ']' : '');
         }
 
         return $result;
