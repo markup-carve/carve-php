@@ -1,0 +1,151 @@
+variant = "loose"
+
+[[issues]]
+file = "src/Ast/EditorSession.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Ast\EditorSession::position`: expected `array{'endColumn': int, 'endLine': int, 'endOffset': int, 'startColumn': int, 'startLine': int, 'startOffset': int}|null`, but found `array{'endColumn': int, 'endLine': int, 'endOffset': int, 'startColumn': int, 'startLine': int, 'startOffset': int, ...}`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/Djot/NormalizesStructure.php"
+code = "undefined-variable"
+message = "Undefined variable: `$head`."
+count = 4
+
+[[issues]]
+file = "src/Converter/DjotToCarve.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\DjotToCarve::nativeAttributeReader`: expected `(closure(int): array{'end': int, 'source': string}|null)`, but found `(closure(int): array{'end': int, 'parts': list<string>, 'source': string}|null)`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/DjotToCarve.php"
+code = "undefined-variable"
+message = "Undefined variable: `$literalNotes`."
+count = 1
+
+[[issues]]
+file = "src/Converter/HtmlAstBuilder.php"
+code = "invalid-return-statement"
+message = 'Invalid return type for function `MarkupCarve\Carve\Converter\HtmlAstBuilder::children`: expected `list<DOMNode>`, but found `list<DOMNameSpaceNode|DOMNode>`.'
+count = 1
+
+[[issues]]
+file = "src/Converter/HtmlAstBuilder.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\HtmlAstBuilder::coalesceText`: expected `list<array{'type': string, ...<string, mixed>}>`, but found `list<array{'type': string, ...<string, mixed>}|array{'value': mixed}>`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/HtmlAstBuilder.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\HtmlAstBuilder::codeBlock`: expected `array{'attrs'?: array{'classes'?: list<string>, 'id'?: string, 'keyValues'?: array<string, string>, 'order'?: list<string>}, 'content': string, 'lang'?: string, 'type': string('code_block')}`, but found `array{'attrs'?: array{'classes'?: list<string>, 'id'?: string, 'keyValues'?: array<string, string>, 'order'?: list<string>}, 'content': string, 'label'?: string, 'lang'?: string, 'type': string('code_block')}`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/HtmlAstBuilder.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\HtmlAstBuilder::details`: expected `array{'attrs'?: array{'classes'?: list<string>, 'id'?: string, 'keyValues'?: array<string, string>, 'order'?: list<string>}, 'children': list<array{'type': string, ...<string, mixed>}>, 'kind'?: string, 'title'?: list<array{'type': string, ...<string, mixed>}>, 'type': string('admonition')|string('directive')|string('div')}`, but found `array{'children': list<array{'type': string, ...<string, mixed>}>, 'kind': truthy-lowercase-string, 'title'?: non-empty-list<array{'type': string, ...<string, mixed>}>, 'type': truthy-lowercase-string}`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/HtmlAstBuilder.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\HtmlAstBuilder::trimBlockEdges`: expected `list<array{'type': string, ...<string, mixed>}>`, but found `array<non-negative-int, array{'type': string, 'value'?: string, ...<string, mixed>}>|list<array{'type': string, 'value'?: string, ...<string, mixed>}>`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/HtmlImportAstResult.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\HtmlImportAstResult::report`: expected `array{'adapter': string, 'diagnostics': list<array{'code': string, 'message': string, 'path'?: string, 'severity': string}>, 'mode': string}`, but found `array{'adapter': string, 'diagnostics': list<array{'code': string, 'confidence': string, 'fidelity': string, 'message': string, 'path'?: string, 'severity': string}>, 'mode': string}`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/HtmlImportResult.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\HtmlImportResult::report`: expected `array{'adapter': string, 'diagnostics': list<array{'code': string, 'message': string, 'path'?: string, 'severity': string}>, 'mode': string}`, but found `array{'adapter': string, 'diagnostics': list<array{'code': string, 'confidence': string, 'fidelity': string, 'message': string, 'path'?: string, 'severity': string}>, 'mode': string}`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/Markdown/Assessment.php"
+code = "undefined-variable"
+message = "Undefined variable: `$next`."
+count = 1
+
+[[issues]]
+file = "src/Converter/Markdown/InlineStage.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\Markdown\InlineStage::markdownLinkScopes`: expected `array{'active': list<int>, 'literal': array<int, string>}`, but found `array{'active': list<int>, 'literal': array<int, null|string>}`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/Markdown/InlineStage.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Converter\Markdown\InlineStage::plainMarkdownUrlRanges`: expected `list<array{'end': int, 'start': int}>`, but found `list<array{'body'?: string, 'end': int, 'prefix': string, 'start': int, 'tail'?: string}>`.'''
+count = 1
+
+[[issues]]
+file = "src/Converter/Markdown/InlineStage.php"
+code = "undefined-variable"
+message = "Undefined variable: `$following`."
+count = 1
+
+[[issues]]
+file = "src/Converter/MarkdownToCarve.php"
+code = "undefined-variable"
+message = "Undefined variable: `$heldQuote`."
+count = 1
+
+[[issues]]
+file = "src/Extension/CitationsExtension.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Extension\CitationsExtension::parseItem`: expected `array{'key': string, 'locator'?: list<MarkupCarve\Carve\Node\Inline\InlineNode>, 'locatorLabel'?: string, 'locatorValue'?: string, 'prefix'?: list<MarkupCarve\Carve\Node\Inline\InlineNode>, 'suffix'?: list<MarkupCarve\Carve\Node\Inline\InlineNode>, 'suppressAuthor': bool}|null`, but found `array{'key': string, 'locator'?: list<MarkupCarve\Carve\Node\Inline\InlineNode>, 'locatorLabel'?: string, 'locatorValue'?: non-empty-string, 'prefix'?: list<MarkupCarve\Carve\Node\Inline\InlineNode>, 'suffix'?: list<MarkupCarve\Carve\Node\Inline\InlineNode>, 'suppressAuthor': bool, 'type': string('citation')}`.'''
+count = 1
+
+[[issues]]
+file = "src/Lint/LintWarning.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Lint\LintWarning::toArray`: expected `array{'column': int, 'end': int, 'line': int, 'message': string, 'rule': string, 'start': int}`, but found `array{'column': int, 'end': int, 'file'?: string, 'includedBy'?: list<array{'column': int, 'file': string, 'line': int}>, 'line': int, 'message': string, 'rule': string, 'start': int}`.'''
+count = 1
+
+[[issues]]
+file = "src/Parser/BlockContinuationScanner.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Parser\BlockContinuationScanner::itemFenceOpenerAt`: expected `array{'char'?: string, 'fence': string, 'length': int}|null`, but found `array{'char'?: string, 'fence': string, 'format'?: string, 'header'?: null|string, 'indent'?: string, 'info'?: string, 'label'?: null|string, 'length': int}|null`.'''
+count = 1
+
+[[issues]]
+file = "src/Parser/InlineParser.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Parser\InlineParser::parseImage`: expected `array{'node': MarkupCarve\Carve\Node\Inline\Image, 'pos': int}|null`, but found `array{'node': MarkupCarve\Carve\Node\Inline\Image, 'pos': int|null}`.'''
+count = 1
+
+[[issues]]
+file = "src/Parser/InlineParser.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Parser\InlineParser::verbatimCellWraps`: expected `array<array-key, array{'line': int, 'offset': int, 'row'?: int}>|null`, but found `non-empty-list<array{'col'?: positive-int, 'line': int, 'offset': non-negative-int, 'row'?: positive-int}>|null`.'''
+count = 1
+
+[[issues]]
+file = "src/Parser/Utility/BracketScanner.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Parser\Utility\BracketScanner::balancedBracketEnds`: expected `array<int, int|null>`, but found `array<int|string(''), int|null>`.'''
+count = 1
+
+[[issues]]
+file = "src/Parser/Utility/BracketScanner.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Parser\Utility\BracketScanner::balancedBracketEnds`: expected `array<int, int|null>`, but found `non-empty-array<int|string(''), int|null>`.'''
+count = 1
+
+[[issues]]
+file = "src/Renderer/EscapeWindows.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Renderer\EscapeWindows::windowFor`: expected `array<int, array{'hi': int, 'lo': int, 'owner': MarkupCarve\Carve\Node\Node}>|null`, but found `non-empty-list<array{'hi'?: int|null, 'lo': non-negative-int, 'owner'?: MarkupCarve\Carve\Node\Node}>|null`.'''
+count = 1
+
+[[issues]]
+file = "src/Transform/IncludeExpander.php"
+code = "invalid-return-statement"
+message = '''Invalid return type for function `MarkupCarve\Carve\Transform\IncludeExpander::selectIncludeRegion`: expected `array{'end': int, 'ok': true, 'start': int}|array{'ok': false, 'rule': string('include-region-invalid')}`, but found `array{'end': int, 'ok': true, 'start': int}|array{'ok': false, 'rule': string}`.'''
+count = 1

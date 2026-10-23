@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace MarkupCarve\Carve\Util;
 
 use Normalizer;
+use TypeError;
 
 /**
  * String utility functions
@@ -216,6 +217,8 @@ final class StringUtil
      *
      * The substitution character is process-global state in mbstring, so it is
      * set and restored around the one call rather than assumed.
+     *
+     * @throws \TypeError If conversion fails.
      */
     public static function toValidUtf8(string $value): string
     {
@@ -230,7 +233,12 @@ final class StringUtil
         mb_substitute_character(0xFFFD);
 
         try {
-            return mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+            $converted = mb_convert_encoding($value, 'UTF-8', 'UTF-8');
+            if ($converted === false) { // @phpstan-ignore identical.alwaysFalse
+                throw new TypeError('UTF-8 conversion failed.');
+            }
+
+            return $converted;
         } finally {
             mb_substitute_character($previous);
         }
