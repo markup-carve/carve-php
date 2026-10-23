@@ -46,6 +46,9 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
         yield 'hosted heading after a lazy item line' => ["> - a\n> b\n> - > +\n# h\n", '<blockquote><ul><li>ab</li><li><blockquote><h1 id="h">h</h1></blockquote></li></ul></blockquote>'];
         yield 'opener folded under a heading item stays text' => ["> - # a\n> b\n> - > +\n# h\n", '<blockquote><ul><li><h1 id="a">a</h1></li></ul><p>b- &gt; +</p></blockquote><section id="h"><h1>h</h1></section>'];
 
+        yield 'unclosed fence keeps a quoted payload line' => ["- > +\n```\n> x\n", '<ul><li><blockquote><pre><code>&gt; x</code></pre></blockquote></li></ul>'];
+        yield 'list plus unclosed fence keeps a quoted payload line' => ["- +\n```\n> x\n\ny\n", '<ul><li><pre><code>&gt; x</code></pre></li></ul><p>y</p>'];
+
         // Ruling 4: the owning quote's column stays eligible.
         yield 'owning quote column' => ["- > > +\n    b\n", '<ul><li><blockquote><blockquote><p>b</p></blockquote></blockquote></li></ul>'];
     }

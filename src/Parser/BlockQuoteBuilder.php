@@ -719,6 +719,38 @@ final class BlockQuoteBuilder
     }
 
     /**
+     * An attached run that is one unclosed fence opener takes every line up to a blank as payload.
+     *
+     * @param array<string> $lines
+     * @param int $end
+     * @param int $count
+     * @param array<string> $attached
+     * @param array<int> $map
+     *
+     * @return array{0: int, 1: array<string>, 2: array<int>}
+     */
+    private function pastUnclosedFence(array $lines, int $end, int $count, array $attached, array $map): array
+    {
+        if (count($attached) !== 1 || $map === []) {
+            return [$end, $attached, $map];
+        }
+        $start = $map[0];
+        $take = $this->firstBlockAttachedExtent($lines, $start, $count);
+        if ($take <= 1 || $this->continuations->attachedFencedBlockEnd($lines, $start, $count, null) >= $start) {
+            return [$end, $attached, $map];
+        }
+        $opener = ltrim($lines[$start], " \t");
+        if (
+            ($this->getFencedBlockParser)()->parseCodeFenceOpener($opener) === null
+            && ($this->getFencedBlockParser)()->parseRawBlockOpener($opener) === null
+        ) {
+            return [$end, $attached, $map];
+        }
+
+        return [$start + $take, array_slice($lines, $start, $take), range($start, $start + $take - 1)];
+    }
+
+    /**
      * @param array<string> $lines
      * @param int $count
      * @param int $start
@@ -808,6 +840,7 @@ final class BlockQuoteBuilder
             }
             [$i, $innerLines, $rawLineMap] = $this->attachedFlushLeftBlock($attachmentLines, $i, $count);
             [$i, $innerLines, $rawLineMap] = $this->pastTrailingAttribute($attachmentLines, $i, $count, $innerLines, $rawLineMap);
+            [$i, $innerLines, $rawLineMap] = $this->pastUnclosedFence($attachmentLines, $i, $count, $innerLines, $rawLineMap);
             if ($innerLines === [] && isset($attachmentLines[$i]) && !IndentationHelper::isBlankLine($attachmentLines[$i])) {
                 $take = $this->firstBlockAttachedExtent($attachmentLines, $i, $count);
                 $innerLines = array_slice($attachmentLines, $i, $take);
@@ -828,6 +861,7 @@ final class BlockQuoteBuilder
                 $origin = 0;
                 [$end, $attached, $attachedLineMap] = $this->attachedFlushLeftBlock($lines, $i, $count);
                 [$end, $attached, $attachedLineMap] = $this->pastTrailingAttribute($lines, $end, $count, $attached, $attachedLineMap);
+                [$end, $attached, $attachedLineMap] = $this->pastUnclosedFence($lines, $end, $count, $attached, $attachedLineMap);
                 if ($attached === [] && isset($lines[$i]) && !IndentationHelper::isBlankLine($lines[$i])) {
                     // A follower at an opener column carries that column on every line of its block.
                     $origin = str_starts_with(ltrim($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '', " \t"), '>')
