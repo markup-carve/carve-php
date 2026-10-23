@@ -1159,8 +1159,14 @@ class DjotToCarve
             if (isset($imageLabels[$imageIndex]) && $open >= $imageLabels[$imageIndex][0]) {
                 continue;
             }
-            if ($source[$open] === '_' && ($source[$end - 1] ?? '') === '_' && ($withQuotes[$open] ?? null) !== $end) {
-                $escape[$open] = $escape[$end - 1] = true;
+            if (str_contains('_*', $source[$open]) && ($withQuotes[$open] ?? null) !== $end) {
+                $close = $end - 1;
+                if (($source[$close] ?? '') === '}') {
+                    $close--;
+                }
+                if (($source[$close] ?? '') === $source[$open]) {
+                    $escape[$open] = $escape[$close] = true;
+                }
             }
             if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
                 $closingSingles[$open + 1] = true;
