@@ -1236,8 +1236,11 @@ class DjotToCarve
             if (str_contains('_*', $source[$open]) && ($source[$open + 1] ?? '') === "'" && ($mask[$open + 1] ?? '') === "'" && !isset($withQuotes[$open + 1])) {
                 $closingSingles[$open + 1] = true;
                 if (($source[$open + 2] ?? '') === '"') {
-                    $doubleDirectionsAfterSingles[$open + 2] = '“';
-                    $openDoubles = 1;
+                    $openDoubles = $this->djotDoubleQuoteDepthBefore($source, $mask, $open + 2);
+                    $firstOpens = $openDoubles === 0;
+                    $doubleDirectionsAfterSingles[$open + 2] = $firstOpens ? '“' : '”';
+                    $openDoubles += $firstOpens
+                        ? (preg_match('/^\S/u', substr($source, $open + 3)) === 1 ? 1 : 0) : -1;
                     for ($candidate = $open + 3; $candidate < $end - 1; $candidate++) {
                         if (($source[$candidate] ?? '') === '"' && ($mask[$candidate] ?? '') === '"' && !$this->isDjotEscaped($source, $candidate)) {
                             $previous = $source[$candidate - 1];
@@ -1247,7 +1250,8 @@ class DjotToCarve
                                 || ($adjacentDirection === null
                                     && (preg_match('/[\s{]$/uD', substr($source, 0, $candidate)) === 1 || $openDoubles === 0));
                             $doubleDirectionsAfterSingles[$candidate] = $opens ? '“' : '”';
-                            $openDoubles += $opens ? 1 : ($openDoubles > 0 ? -1 : 0);
+                            $canOpen = $opens && preg_match('/^\S/u', substr($source, $candidate + 1)) === 1;
+                            $openDoubles += $canOpen ? 1 : (!$opens && $openDoubles > 0 ? -1 : 0);
                         }
                     }
                 }
@@ -1296,6 +1300,32 @@ class DjotToCarve
         }
 
         return $result;
+    }
+
+    private function djotDoubleQuoteDepthBefore(string $source, string $mask, int $limit): int
+    {
+        $boundaries = array_fill_keys($this->djotInlineBoundaries($source, $mask, true), true);
+        $directions = [];
+        $depth = 0;
+        for ($at = 0; $at < $limit; $at++) {
+            if (isset($boundaries[$at])) {
+                $depth = 0;
+                $directions = [];
+            }
+            if (($source[$at] ?? '') !== '"' || ($mask[$at] ?? '') !== '"' || $this->isDjotEscaped($source, $at)) {
+                continue;
+            }
+            $previous = $source[$at - 1] ?? '';
+            $adjacent = $previous === '"' && !$this->isDjotEscaped($source, $at - 1)
+                ? ($directions[$at - 1] ?? null) : null;
+            $opens = $adjacent === '“' || ($adjacent === '”' && $depth === 0)
+                || ($adjacent === null && (preg_match('/[\s{]$/uD', substr($source, 0, $at)) === 1 || $depth === 0));
+            $directions[$at] = $opens ? '“' : '”';
+            $canOpen = $opens && preg_match('/^\S/u', substr($source, $at + 1)) === 1;
+            $depth += $canOpen ? 1 : (!$opens && $depth > 0 ? -1 : 0);
+        }
+
+        return $depth;
     }
 
     private function preserveUnpairedDjotSinglesAfterSlash(string $source): string
