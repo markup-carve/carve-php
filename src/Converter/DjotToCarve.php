@@ -803,6 +803,10 @@ class DjotToCarve
                         continue;
                     }
                     if (preg_match('/\s$/uD', $before) === 1) {
+                        if ($after !== '' && preg_match('/^\s/', $after) !== 1) {
+                            $openers[] = $offset;
+                        }
+
                         continue;
                     }
                     $opener = array_pop($openers);

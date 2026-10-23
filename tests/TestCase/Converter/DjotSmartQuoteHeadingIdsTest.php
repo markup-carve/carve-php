@@ -34,6 +34,9 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'double outside single pair' => ["## \"'a'\"\n", ['a']];
         yield 'two adjacent single pairs' => ["## 'a''b'\n", ['ab']];
         yield 'nested single pairs' => ["## ''a''\n", ['a']];
+        yield 'nested single after space' => ["## 'a 'b' c'\n", ['a-b-c']];
+        yield 'nested double after space' => ["## \"a \"b\" c\"\n", ['a-b-c']];
+        yield 'unclosed outer single after space' => ["## 'a 'b c'\n", ["'a-b-c"]];
         yield 'autolink quote before pair' => ["## <http://x'y> 'b'\n", ["http:-x'y-b"]];
         yield 'paired and apostrophe' => ["## it's 'a'\n", ["it's-a"]];
         yield 'quotes inside code' => ['## `"a"`' . "\n", ['"a"']];
