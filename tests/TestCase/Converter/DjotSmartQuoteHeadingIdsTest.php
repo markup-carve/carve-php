@@ -34,6 +34,12 @@ class DjotSmartQuoteHeadingIdsTest extends TestCase
         yield 'destination quote is not counted' => ["## [x](u'v) 'a'\n", ['x-a']];
         yield 'attribute quote remains counted' => ["## x{title='t'} 'a'\n", ["x-title-'t'-a"]];
         yield 'code quote before pair remains counted' => ["## `'` 'a'\n", ["'-a"]];
+        yield 'punctuation before single opener' => ["## x]'a'\n", ["x-'a'"]];
+        yield 'closer before letter' => ["## 'a'b\n", ['ab']];
+        yield 'double closer before letter' => ['## "a"b' . "\n", ['ab']];
+        yield 'single quote closes inside word' => ["## 'it's a'\n", ["its-a'"]];
+        yield 'multiline paired heading' => ["## 'b\nc'\n", ['b-c']];
+        yield 'crossing quote pairs' => ["## a 'b \"c' d\"\n", ['a-b-"c-d"']];
         yield 'authored curly single' => ["## ‘a’\n", ['‘a’']];
         yield 'authored curly double' => ["## “a”\n", ['“a”']];
         yield 'unmatched single' => ["## a/'\n", ["a-'"]];

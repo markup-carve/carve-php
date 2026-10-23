@@ -656,8 +656,21 @@ class DjotToCarve
         $lines = explode("\n", $source);
         $pairs = [];
         foreach ($this->scanHeadingStartLines($lines) as $lineIndex) {
+            if (
+                $lineIndex > 0 && trim($lines[$lineIndex - 1]) !== ''
+                && preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$lineIndex - 1]) !== 1
+            ) {
+                continue;
+            }
             $line = $lines[$lineIndex];
             $text = preg_replace('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', '', $line) ?? $line;
+            $next = $lineIndex + 1;
+            while (isset($lines[$next]) && trim($lines[$next]) !== '') {
+                if (preg_match('/^(?:[ \t]*>[ \t]*)*#{1,6}[ \t]+/', $lines[$next]) === 1) {
+                    break;
+                }
+                $text .= "\n" . $lines[$next++];
+            }
             $mask = $this->maskCodeAndDestinations($text);
             preg_match_all('/[\x27"‘’“”]/u', $text, $quotes, PREG_OFFSET_CAPTURE);
             preg_match_all('/(`+).*?\1/s', $text, $codeSpans, PREG_OFFSET_CAPTURE);
@@ -687,7 +700,7 @@ class DjotToCarve
                 $quotePositions[$offset] = count($visible);
                 $visible[] = [$quote, $offset];
             }
-            $remove = [];
+            $matchedPairs = [];
             foreach (["'", '"'] as $delimiter) {
                 $opener = null;
                 foreach ($visible as [$quote, $offset]) {
@@ -707,7 +720,8 @@ class DjotToCarve
                     if ($opener === null) {
                         if (
                             $after === '' || preg_match('/^[\s\x27"]/', $after) === 1
-                            || preg_match('/[\p{L}\p{N}\/_*\x27"]$/u', $before) === 1
+                            || ($delimiter === "'" && preg_match('/[^\s(-]$/u', $before) === 1)
+                            || ($delimiter === '"' && preg_match('/[\p{L}\p{N}\/_*\x27"]$/u', $before) === 1)
                         ) {
                             continue;
                         }
@@ -715,13 +729,32 @@ class DjotToCarve
 
                         continue;
                     }
-                    if (preg_match('/\s$/u', $before) === 1 || preg_match('/^[\p{L}\p{N}]/u', $after) === 1) {
+                    if (preg_match('/\s$/u', $before) === 1) {
                         continue;
                     }
-                    $remove[] = $quotePositions[$opener];
-                    $remove[] = $quotePositions[$offset];
+                    $matchedPairs[] = [$opener, $offset, $quotePositions[$opener], $quotePositions[$offset]];
                     $opener = null;
                 }
+            }
+            usort($matchedPairs, static fn (array $a, array $b): int => $a[0] <=> $b[0]);
+            $accepted = [];
+            foreach ($matchedPairs as $pair) {
+                $crosses = false;
+                foreach ($accepted as $earlier) {
+                    if ($earlier[0] < $pair[0] && $pair[0] < $earlier[1] && $earlier[1] < $pair[1]) {
+                        $crosses = true;
+
+                        break;
+                    }
+                }
+                if (!$crosses) {
+                    $accepted[] = $pair;
+                }
+            }
+            $remove = [];
+            foreach ($accepted as $pair) {
+                $remove[] = $pair[2];
+                $remove[] = $pair[3];
             }
             sort($remove);
             $pairs[] = ['remove' => $remove, 'quotes' => array_column($visible, 0)];
@@ -733,6 +766,10 @@ class DjotToCarve
     private function applyNativeDjotHeadingIds(string $carve, string $source, ?string $reservationCarve = null, string $rawHeadingSource = ''): string
     {
         $pairedQuotes = $this->sourcePairedHeadingQuotes($rawHeadingSource);
+        [$baselineIds] = DjotHeadingIds::fromCarve($carve);
+        if (count($pairedQuotes) !== count($baselineIds)) {
+            $pairedQuotes = [];
+        }
         [$djotIds, $carveIds] = DjotHeadingIds::fromCarve($carve, $pairedQuotes);
         if ($reservationCarve !== null) {
             [$djotIds] = DjotHeadingIds::fromCarve($reservationCarve, $pairedQuotes);
