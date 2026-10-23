@@ -638,6 +638,9 @@ class DjotToCarve
             } else {
                 $carve = $this->applyHeadingIdPreservation($carve, $originalBody);
             }
+            if (str_contains($carve, '#') && str_contains($carve, "/'")) {
+                $carve = $this->preserveUnpairedDjotSinglesAfterSlash($carve, true);
+            }
         }
 
         $carve = $this->normalizeCarveHeadingQuotes($carve);
@@ -1130,7 +1133,7 @@ class DjotToCarve
         return $result;
     }
 
-    private function preserveUnpairedDjotSinglesAfterSlash(string $source): string
+    private function preserveUnpairedDjotSinglesAfterSlash(string $source, bool $headingsOnly = false): string
     {
         if ($this->omitQuoteDelimiters || !str_contains($source, "/'")) {
             return $source;
@@ -1153,7 +1156,7 @@ class DjotToCarve
             if ($char === "\n") {
                 $line++;
             }
-            if (isset($headingLines[$line])) {
+            if (isset($headingLines[$line]) !== $headingsOnly) {
                 continue;
             }
             if ($char === '{' && ($source[$at + 1] ?? '') === "'" && $mask[$at] === '{' && !$this->isDjotEscaped($source, $at)) {

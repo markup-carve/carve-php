@@ -50,4 +50,29 @@ class DjotUnpairedSingleQuoteTest extends TestCase
         self::assertStringContainsString('{id="x-\'y"}', $carve);
         self::assertStringContainsString('<h2>x/’y</h2>', $html);
     }
+
+    /**
+     * @return array<string, array{string, ?string, string}>
+     */
+    public static function headingQuotes(): array
+    {
+        return [
+            'unmatched' => ["## a/'\n", 'a-&apos;', '<h2>a/’</h2>'],
+            'paired' => ["## 'a/'\n", null, '<h2>‘a/’</h2>'],
+            'adjacent double quote' => ["## a/'\"\n", 'a-&apos;&quot;', '<h2>a/’“</h2>'],
+            'paired double quote' => ["## \"a/'\"\n", null, '<h2>“a/’”</h2>'],
+            'explicit ID' => ["{#manual}\n## a/'\n", 'manual', '<h2>a/’</h2>'],
+        ];
+    }
+
+    #[DataProvider('headingQuotes')]
+    public function testHeadingQuoteDirection(string $source, ?string $id, string $heading): void
+    {
+        $html = (new CarveConverter())->convert((new DjotToCarve())->convert($source));
+
+        if ($id !== null) {
+            self::assertStringContainsString('<section id="' . $id . '">', $html);
+        }
+        self::assertStringContainsString($heading, $html);
+    }
 }
