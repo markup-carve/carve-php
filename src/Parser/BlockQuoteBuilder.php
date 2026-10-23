@@ -227,7 +227,9 @@ final class BlockQuoteBuilder
         $this->state->session->pendingAttributeOrder = [];
 
         $parts = [];
+        $this->state->session->nestedQuoteOpenerOffsets = null;
         [$i, $innerLines, $innerLineMap, $lazyState, $codeCloserMemo] = $this->collectBlockQuoteOpening($lines, $start, $content);
+        $nestedOpenerOffsets = $this->takeNestedOpenerOffsets();
         $lazyStateActive = $i !== $start + 1
             || in_array('note', $lazyState['hosts']['kinds'] ?? [], true)
             || self::mayOpenQuotedHost($content);
@@ -531,6 +533,9 @@ final class BlockQuoteBuilder
         foreach ($parts as [$partLines, $partLineMap]) {
             $this->parseBlocks($blockQuote, $partLines, 0, $partLineMap);
         }
+        if ($nestedOpenerOffsets !== null) {
+            $this->startNestedQuotesAtTheirOpeners($blockQuote, $nestedOpenerOffsets[0], $nestedOpenerOffsets[1]);
+        }
         // A DANGLING ATTRIBUTE LINE BELONGS TO THIS CONTAINER AND DIES AT ITS
         // BOUNDARY (§15 A4: a pending run that reaches the end with no block
         // element to attach to is dropped). The state is parser-global, so
@@ -596,6 +601,49 @@ final class BlockQuoteBuilder
 
         return $decision['reason'] === null && $decision['owner'] !== null
             && $decision['owner']['kind'] === 'quote' && $decision['owner']['column'] === $column;
+    }
+
+    /**
+     * Restart the spans of the quotes a stacked opener nests at their `>` markers on the opener line.
+     *
+     * @param \MarkupCarve\Carve\Node\Node $quote
+     * @param int $line
+     * @param array<int> $offsets
+     */
+    private function startNestedQuotesAtTheirOpeners(Node $quote, int $line, array $offsets): void
+    {
+        $index = $this->state->source->positionIndex;
+        $lineStart = $this->state->source->lineStartOffsets[$line] ?? null;
+        if ($index === null || $lineStart === null) {
+            return;
+        }
+        $node = $quote;
+        foreach ($offsets as $offset) {
+            $node = $node->getChildren()[0] ?? null;
+            $pos = $node?->getPos();
+            if (!$node instanceof BlockQuote || $pos === null) {
+                return;
+            }
+            $node->setPos($index->span(
+                $lineStart + $offset,
+                $pos->endOffset,
+                $line + 1,
+                $pos->endLine,
+                $lineStart,
+                $this->state->source->lineStartOffsets[$pos->endLine - 1] ?? $lineStart,
+            ));
+        }
+    }
+
+    /**
+     * @return array{0: int, 1: array<int>}|null
+     */
+    private function takeNestedOpenerOffsets(): ?array
+    {
+        $offsets = $this->state->session->nestedQuoteOpenerOffsets;
+        $this->state->session->nestedQuoteOpenerOffsets = null;
+
+        return $offsets;
     }
 
     /**
@@ -879,13 +927,30 @@ final class BlockQuoteBuilder
                     $end = $i + $take;
                 }
                 // A quote follower nests inside the innermost quote, which owns the `+` (carve#3421).
+                // Host quote prefixes count as the document's edge (`> - > > +` / `> > q`).
+                $openerSourceLine = $this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '';
+                $hostPrefix = preg_match('/^(?:> )*/', $openerSourceLine, $hostMatch) === 1 ? $hostMatch[0] : '';
+                $followerSource = $attached === [] ? '' : $this->state->source->sourceLines[$this->sourceLineFor($attachedLineMap[0])] ?? '';
                 $quoteFollower = $attached !== []
-                    && ($origin > 0 || IndentationHelper::getLeadingColumns($this->state->source->sourceLines[$this->sourceLineFor($attachedLineMap[0])] ?? ' ') === 0)
+                    && str_starts_with($followerSource, $hostPrefix)
+                    && ($origin > 0 || IndentationHelper::getLeadingColumns(substr($followerSource, strlen($hostPrefix))) === 0)
                     && ContainerPrefix::quoteContent($attached[0]) !== null
-                    && !str_starts_with(ltrim($this->state->source->sourceLines[$this->sourceLineFor($start)] ?? '', " \t"), '>');
+                    && !str_starts_with(ltrim(substr($openerSourceLine, strlen($hostPrefix)), " \t"), '>')
+                    // This quote opens past the host prefixes, not as one of them.
+                    && strlen(rtrim($openerSourceLine, " \t")) - strlen(rtrim($content, " \t")) > strlen($hostPrefix);
                 if ($quoteFollower) {
                     array_pop($innerLines);
                     array_pop($innerLineMap);
+                    // The nested quotes still open at their `>` on the opener line (PART 12 §4).
+                    $openerLine = $this->sourceLineFor($start);
+                    $openerSource = rtrim($this->state->source->sourceLines[$openerLine] ?? '', " \t");
+                    $markerAt = strlen($openerSource) - strlen(rtrim($content, " \t"));
+                    $openerOffsets = [];
+                    for ($level = 0; $level < $contentQuoteDepth && ($markerWidth = ContainerPrefix::quoteMarkerWidth($openerSource, $markerAt)) !== null; $level++) {
+                        $openerOffsets[] = $markerAt;
+                        $markerAt += $markerWidth + strspn($openerSource, " \t", $markerAt + $markerWidth);
+                    }
+                    $this->state->session->nestedQuoteOpenerOffsets = [$openerLine, $openerOffsets];
                 }
                 foreach ($attached as $index => $attachedLine) {
                     $innerLines[] = $quoteFollower

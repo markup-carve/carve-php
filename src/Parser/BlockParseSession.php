@@ -194,6 +194,13 @@ final class BlockParseSession
      */
     public array $unclaimedDocumentMarkers = [];
 
+    /**
+     * The opener line and `>` offsets of quotes a stacked `+` nests, handed from collection to span assignment.
+     *
+     * @var array{0: int, 1: array<int>}|null
+     */
+    public ?array $nestedQuoteOpenerOffsets = null;
+
     public function recordRefusedContinuationMarker(BlockSourceState $source, int $line, string $host): void
     {
         $next = $source->sourceLines[$line + 1] ?? null;

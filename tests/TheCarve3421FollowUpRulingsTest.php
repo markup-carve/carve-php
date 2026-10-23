@@ -26,6 +26,7 @@ class TheCarve3421FollowUpRulingsTest extends TestCase
 
         // Ruling 2: a quote follower nests inside the innermost quote; an intervening column is refused.
         yield 'quote follower at column 0' => ["- > > +\n> q\n", '<ul><li><blockquote><blockquote><blockquote><p>q</p></blockquote></blockquote></blockquote></li></ul>'];
+        yield 'hosted quote follower at column 0' => ["> - > > +\n> > q\n", '<blockquote><ul><li><blockquote><blockquote><blockquote><p>q</p></blockquote></blockquote></blockquote></li></ul></blockquote>'];
         yield 'quote follower at an intervening column' => ["- > > +\n  > q\n", '<ul><li><blockquote><blockquote><p>+q</p></blockquote></blockquote></li></ul>'];
         yield 'heading at an intervening column' => ["- > > +\n  # h\n", '<ul><li><blockquote><blockquote><p>+</p></blockquote></blockquote><h1 id="h">h</h1></li></ul>'];
         yield 'hosted follower at an intervening column' => ["> - > > +\n>   b\n", '<blockquote><ul><li><blockquote><blockquote><p>+b</p></blockquote></blockquote></li></ul></blockquote>'];
