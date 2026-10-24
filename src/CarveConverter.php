@@ -551,6 +551,8 @@ class CarveConverter
 
     /**
      * Convert with a bounded report of raw formats omitted by this target.
+     *
+     * @throws \MarkupCarve\Carve\Exception\RenderLossException
      */
     public function convertWithReport(string $source, bool $strictLosses = false, int $maxRenderLosses = 100): RenderResult
     {
@@ -564,6 +566,7 @@ class CarveConverter
             if ($strictLosses && $rendered->totalLosses > 0) {
                 throw new RenderLossException($rendered);
             }
+
             return $rendered;
         }
         $losses = $rendered->losses;
@@ -593,6 +596,7 @@ class CarveConverter
         if ($strictLosses) {
             throw new RenderLossException($result);
         }
+
         return $result;
     }
 

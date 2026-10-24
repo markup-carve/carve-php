@@ -4,15 +4,17 @@ declare(strict_types=1);
 
 namespace MarkupCarve\Carve\Test;
 
-use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Ast\AstCodec;
+use MarkupCarve\Carve\CarveConverter;
 use MarkupCarve\Carve\Renderer\MarkdownRenderer;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class MarkdownRenderLossParityTest extends TestCase
 {
-    /** @return array<string, array{string, list<string>}> */
+    /**
+     * @return array<string, array{string, list<string>}>
+     */
     public static function sources(): array
     {
         return [
@@ -48,7 +50,8 @@ final class MarkdownRenderLossParityTest extends TestCase
     public function testRawInlineUsesInlineNodeType(): void
     {
         $document = (new AstCodec())->decode([
-            'type' => 'document', 'srcByteLength' => 0,
+            'type' => 'document',
+            'srcByteLength' => 0,
             'children' => [['type' => 'paragraph', 'children' => [['type' => 'raw_inline', 'format' => 'html', 'content' => '<b>x</b>']]]],
         ]);
         $report = (new CarveConverter(renderer: new MarkdownRenderer()))->renderWithReport($document);

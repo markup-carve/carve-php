@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use MarkupCarve\Carve\Node\Block\ListItem;
 use MarkupCarve\Carve\Node\Block\TableCell;
 use MarkupCarve\Carve\Node\Block\TableRow;
+use MarkupCarve\Carve\Node\Inline\RawInline;
 use MarkupCarve\Carve\Node\Node;
 use SplObjectStorage;
 
@@ -150,7 +151,7 @@ trait RenderLossCollectorTrait
         $loss = [
             'code' => $code,
             'target' => 'markdown',
-            'nodeType' => $node instanceof \MarkupCarve\Carve\Node\Inline\RawInline ? 'inline' : 'block',
+            'nodeType' => $node instanceof RawInline ? 'inline' : 'block',
             'message' => $messages[$code],
         ];
         if ($node->getPos() !== null) {
