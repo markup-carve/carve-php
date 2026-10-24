@@ -1803,6 +1803,13 @@ class DjotToCarve
 
                 continue;
             }
+            if ($char === "'" && $forcedSingle && ($source[$at - 1] ?? '') === '/' && $mask[$at] === "'" && !$this->isDjotEscaped($source, $at)) {
+                $parts[] = substr($source, $copied, $at - $copied);
+                $parts[] = '‘';
+                $copied = $at + 1;
+
+                continue;
+            }
             if ($char !== "'" || $forcedSingle || isset($imageQuotes[$at]) || $mask[$at] !== "'" || $this->isDjotEscaped($source, $at)) {
                 continue;
             }

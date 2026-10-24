@@ -11,3 +11,17 @@ Use the paragraph's definition-list ancestry when protecting its lines, and prot
 ## Scope
 
 The rule applies to any literal colon marker line inside a definition list, regardless of the listed corpus's indentation, tabs, or nested term shape.
+
+# Quote flanking after a slash
+
+## Quote root cause
+
+The inline parser treats a slash as an opening context for a straight quote. Its follow-up rule for closing quotes after a dash does not include slash. A quote after the final slash in a path therefore opens when the next character is punctuation or the end of the inline source.
+
+## Quote change
+
+Apply the existing dash follow-up rule to slash. Keep the same next-character classification for both characters. When Djot explicitly forces an opening single quote after a slash, spell that imported quote as the opening glyph so the generic parser rule cannot reverse it. Add parser and importer regressions for both contexts.
+
+## Quote scope
+
+This changes quote direction based on the neighboring characters, not on any path, URL, or corpus spelling. Djot's explicit opening quote remains an opening quote. The rule covers every slash followed by a straight quote under the normative typography rule.
