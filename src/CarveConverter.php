@@ -576,7 +576,12 @@ class CarveConverter
                 'pos' => $span->toArray(),
             ];
         }
-        usort($losses, static fn (array $a, array $b): int => ($a['pos']['startOffset'] ?? PHP_INT_MAX) <=> ($b['pos']['startOffset'] ?? PHP_INT_MAX));
+        usort($losses, static function (array $a, array $b): int {
+            $aPosition = is_array($a['pos'] ?? null) ? $a['pos'] : [];
+            $bPosition = is_array($b['pos'] ?? null) ? $b['pos'] : [];
+
+            return ($aPosition['startOffset'] ?? PHP_INT_MAX) <=> ($bPosition['startOffset'] ?? PHP_INT_MAX);
+        });
         $total = $rendered->totalLosses + count($dangling);
         $result = new RenderResult(
             $rendered->value,
