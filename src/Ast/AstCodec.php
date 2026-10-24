@@ -2446,13 +2446,6 @@ class AstCodec
             }
 
             $horizontal = [];
-            if ($headRows > 0) {
-                foreach ($node->getColumns() as $column => $definition) {
-                    if (isset($definition['align'])) {
-                        $horizontal[$column] = $definition['align'];
-                    }
-                }
-            }
             $vertical = [];
             foreach (array_slice($rows, 0, $headRows) as $row) {
                 foreach ($row->getChildren() as $column => $cell) {
