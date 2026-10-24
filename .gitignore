@@ -27,3 +27,5 @@
 /tmp/
 /vendor/
 vendor/
+
+/_*.crv
