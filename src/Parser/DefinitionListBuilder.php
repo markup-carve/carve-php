@@ -580,11 +580,8 @@ final class DefinitionListBuilder
                 $detachedFootnoteMap = [];
                 $bodyAtColumnBlock = false;
                 $attachedDefinitionListOpen = false;
-                $bodyListContentColumns = [];
-                $bodyDescriptionContentColumns = [];
+                $bodyFrames = new DefinitionBodyFrameState();
                 $preReleaseListEntries = [];
-                $releasedListLine = null;
-                $releasedBlockBase = null;
                 $syntheticTermColumns = [];
                 $reachedTermColumn = null;
                 $noteBodyColumn = null;
@@ -950,14 +947,14 @@ final class DefinitionListBuilder
                     if ($marker !== null) {
                         $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
                         if (
-                            $bodyDescriptionContentColumns !== []
-                            && $contColumn < $bodyDescriptionContentColumns[array_key_last($bodyDescriptionContentColumns)]
+                            $bodyFrames->descriptionContentColumns !== []
+                            && $contColumn < $bodyFrames->descriptionContentColumns[array_key_last($bodyFrames->descriptionContentColumns)]
                             && $contColumn >= $continuationColumn
                             && $bodyNestedState->fence === null
                         ) {
                             // CARVE-P2-017: the inner body cannot withhold this outer column.
-                            while ($bodyDescriptionContentColumns !== [] && $contColumn < $bodyDescriptionContentColumns[array_key_last($bodyDescriptionContentColumns)]) {
-                                array_pop($bodyDescriptionContentColumns);
+                            while ($bodyFrames->descriptionContentColumns !== [] && $contColumn < $bodyFrames->descriptionContentColumns[array_key_last($bodyFrames->descriptionContentColumns)]) {
+                                array_pop($bodyFrames->descriptionContentColumns);
                             }
                             $releasedMarkerEntry = true;
                             $body[] = '';
@@ -1220,23 +1217,23 @@ final class DefinitionListBuilder
                                     && ($lastOpenerIsParagraph ??= $this->bodyEntryStartsParagraph($body[$lastBodyKey])),
                             ];
                         }
-                        if ($releasedListLine === $i) {
-                            $releasedBlockBase = $contColumn - $continuationColumn;
-                            $releasedListLine = null;
+                        if ($bodyFrames->releasedListLine === $i) {
+                            $bodyFrames->releasedBlockBase = $contColumn - $continuationColumn;
+                            $bodyFrames->releasedListLine = null;
                         }
                         if (
                             $noteReleased && $i > 0 && IndentationHelper::isBlankLine($lines[$i - 1])
                             && $this->lineOpensBlockForLooseness($trimmedCont, true)
                         ) {
                             // DEFINITION EXTENT: the released note no longer owns this opener.
-                            $releasedBlockBase = $contColumn - $continuationColumn;
+                            $bodyFrames->releasedBlockBase = $contColumn - $continuationColumn;
                         }
                         $stripColumns = $continuationColumn;
                         if (
-                            $releasedBlockBase !== null
-                            && ($contColumn >= $continuationColumn + $releasedBlockBase || $bodyNestedState->fence !== null)
+                            $bodyFrames->releasedBlockBase !== null
+                            && ($contColumn >= $continuationColumn + $bodyFrames->releasedBlockBase || $bodyNestedState->fence !== null)
                         ) {
-                            $stripColumns += $releasedBlockBase;
+                            $stripColumns += $bodyFrames->releasedBlockBase;
                         }
                         $entry = (new IndentedContainerColumn($stripColumns))->strip($contLine);
                         if (
@@ -1398,14 +1395,14 @@ final class DefinitionListBuilder
                         $reachesOuterBody = false;
                         $opensBlock = false;
                         if (
-                            $bodyListContentColumns !== []
-                            && $entryColumn < $bodyListContentColumns[array_key_last($bodyListContentColumns)]
+                            $bodyFrames->listContentColumns !== []
+                            && $entryColumn < $bodyFrames->listContentColumns[array_key_last($bodyFrames->listContentColumns)]
                         ) {
                             $opensBlock = $this->startsInterruptingBlock($trimmedCont, $lines, $i);
                             if ($opensBlock || $entryMarker !== null) {
                                 // CARVE-P2-017: leave each nested body whose content column the opener misses.
-                                while ($bodyListContentColumns !== [] && $entryColumn < $bodyListContentColumns[array_key_last($bodyListContentColumns)]) {
-                                    array_pop($bodyListContentColumns);
+                                while ($bodyFrames->listContentColumns !== [] && $entryColumn < $bodyFrames->listContentColumns[array_key_last($bodyFrames->listContentColumns)]) {
+                                    array_pop($bodyFrames->listContentColumns);
                                 }
                                 $reachesOuterBody = true;
                             }
@@ -1414,7 +1411,7 @@ final class DefinitionListBuilder
                             $entry = ltrim($entry, " \t");
                         }
                         if ($entryMarker !== null) {
-                            $bodyListContentColumns[] = $entryColumn + $this->continuations->listMarkerWidth($trimmedCont, $entryMarker);
+                            $bodyFrames->listContentColumns[] = $entryColumn + $this->continuations->listMarkerWidth($trimmedCont, $entryMarker);
                         }
                         if ($termPastTheColumn && $definitionPastTheColumn) {
                             // CARVE-P2-017: end the folded paragraph before parsing the reached term.
@@ -1433,7 +1430,7 @@ final class DefinitionListBuilder
                             $bodyNestedState->fence === null
                             && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $trimmedCont, $descriptionMatch) === 1
                         ) {
-                            $bodyDescriptionContentColumns[] = $contColumn + 1 + strlen($descriptionMatch[1]);
+                            $bodyFrames->descriptionContentColumns[] = $contColumn + 1 + strlen($descriptionMatch[1]);
                         }
                         $i++;
 
@@ -1463,33 +1460,13 @@ final class DefinitionListBuilder
                         if ($after !== null && !IndentationHelper::isBlankLine($after) && $afterIndent >= $continuationColumn) {
                             $afterColumn = IndentationHelper::getLeadingColumns($after);
                             $this->descriptionBodyNestedColumn($bodyNestedState, $bodyNestedCursor, $body, $bodyLazy);
-                            if (
-                                $releasedBlockBase !== null && $afterColumn < $continuationColumn + $releasedBlockBase
-                                && $bodyNestedState->fence === null
-                            ) {
-                                $releasedBlockBase = null;
-                            }
-                            while (
-                                $bodyDescriptionContentColumns !== []
-                                && $afterColumn < $bodyDescriptionContentColumns[array_key_last($bodyDescriptionContentColumns)]
-                            ) {
-                                array_pop($bodyDescriptionContentColumns);
-                                $releasedListLine = $look;
-                            }
-                            if (
-                                $bodyListContentColumns !== []
-                                && $afterColumn - $continuationColumn < $bodyListContentColumns[array_key_last($bodyListContentColumns)]
-                                && ($noteBodyColumn === null || $afterColumn < $noteBodyColumn)
-                            ) {
-                                // CARVE-P2-017: release list frames the postblank line misses.
-                                while (
-                                    $bodyListContentColumns !== []
-                                    && $afterColumn - $continuationColumn < $bodyListContentColumns[array_key_last($bodyListContentColumns)]
-                                ) {
-                                    array_pop($bodyListContentColumns);
-                                }
-                                $releasedListLine = $look;
-                            }
+                            $bodyFrames->releaseAfterBlank(
+                                $afterColumn,
+                                $continuationColumn,
+                                $noteBodyColumn,
+                                $bodyNestedState->fence !== null,
+                                $look,
+                            );
                             $formABlockOpen = $bodyNestedState->fence !== null;
                             for (; $i < $look; $i++) {
                                 $body[] = $this->blankLineResidue($lines[$i], $continuationColumn, $bodyNestedState);
