@@ -472,6 +472,8 @@ final class BlockQuoteBuilder
             ) {
                 $content = null;
             }
+            $lastQuoteSourceLine = $innerLineMap[array_key_last($innerLineMap) ?? 0] ?? -1;
+            $lastQuoteLineWasLazy = isset($this->state->session->blockQuoteLazySourceLines[$lastQuoteSourceLine]);
             if ($content !== null) {
                 $innerLines[] = $content;
                 $innerLineMap[] = $this->sourceLineFor($i);
@@ -488,7 +490,8 @@ final class BlockQuoteBuilder
                     && $this->lastQuoteLineIsBareTerm($innerLines))
                 && !(IndentationHelper::getLeadingColumns($currentLine) === 0
                     && preg_match(BlockGrammar::DEFINITION_BODY_PATTERN, $currentLine) === 1
-                    && $this->lastQuoteLineIsATerm($innerLines))
+                    && $this->lastQuoteLineIsATerm($innerLines)
+                    && !$lastQuoteLineWasLazy)
                 && ((($lazyState['hosts']['inlineFenceJustClosed'] ?? false) && !$this->markerLineDiv($innerLines))
                     || !(($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['literal'] ?? false)
                         && ($lazyState['colonClaims'][array_key_last($lazyState['colonClaims']) ?? 0]['base'] ?? 0) > 0))
