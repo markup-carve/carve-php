@@ -170,42 +170,15 @@ final class ReferenceStage
             // A LIST MARKER INSIDE AN OPEN FENCE IS VERBATIM CONTENT, so only
             // the quote prefix keeps coming off there - stripping a marker
             // would let a `- ```` line inside the fence read as its closer.
-            $blockContent = $fence !== null && strspn($line, ' ') >= $blockIndent
-                ? substr($line, $blockIndent)
-                : $content;
-            while ($listIndent > 0) {
-                if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
-                    $blockContent = substr($blockContent, strlen($nested[1]));
-
-                    continue;
-                }
-                if ($fence !== null) {
-                    break;
-                }
-                // `- - -` is a thematic break, not two nested items.
-                if (
-                    preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $blockContent) === 1
-                    || preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?=\S)/', $blockContent, $inner) !== 1
-                ) {
-                    break;
-                }
-                $blockContent = substr($blockContent, strlen($inner[0]));
-            }
-            // The content column EVERY prefix on the line put the body at,
-            // which is what a continuation line of this item is read against.
-            // `$listIndent` only counts the first marker, so a body six columns
-            // in under `- - - ` would otherwise read as code.
-            if ($opensItem) {
-                $blockIndent = strlen($line) - strlen($blockContent);
-            } elseif ($listIndent === 0) {
-                $blockIndent = 0;
-            }
-            if (!$opensItem && $blockIndent > $listIndent && strspn($line, ' ') >= $blockIndent) {
-                $blockContent = substr($line, $blockIndent);
-                if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
-                    $blockContent = substr($blockContent, strlen($nested[1]));
-                }
-            }
+            [$blockContent, $blockIndent] = $this->referenceBlockContent(
+                $line,
+                $content,
+                $quote,
+                $listIndent,
+                $blockIndent,
+                $opensItem,
+                $fence !== null,
+            );
             if ($fence !== null) {
                 if (preg_match('/^ {0,3}(`{3,}|~{3,})[ \t]*$/', $blockContent, $close) === 1 && $close[1][0] === $fence[0] && strlen($close[1]) >= strlen($fence)) {
                     $fence = null;
@@ -660,6 +633,73 @@ final class ReferenceStage
             }
         }
 
+        $kept = $this->resolveBareReferenceHeads($kept, $bareReferenceHeads, $authoredDefinitions);
+
+        $this->inlineContext->definedReferenceLabels = $defined;
+        $this->inlineContext->referenceDefinitionLabels = $labels;
+        $this->inlineContext->authoredReferenceLabelKeys = $authoredDefinitions;
+
+        return $kept;
+    }
+
+    /**
+     * @return array{string, int}
+     */
+    private function referenceBlockContent(
+        string $line,
+        string $content,
+        string $quote,
+        int $listIndent,
+        int $blockIndent,
+        bool $opensItem,
+        bool $insideFence,
+    ): array {
+        $blockContent = $insideFence && strspn($line, ' ') >= $blockIndent
+            ? substr($line, $blockIndent)
+            : $content;
+        while ($listIndent > 0) {
+            if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
+                $blockContent = substr($blockContent, strlen($nested[1]));
+
+                continue;
+            }
+            if ($insideFence) {
+                break;
+            }
+            // `- - -` is a thematic break, not two nested items.
+            if (
+                preg_match('/^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/', $blockContent) === 1
+                || preg_match('/^ {0,3}(?:[-*+]|[0-9]{1,9}[.)])[ \t]+(?=\S)/', $blockContent, $inner) !== 1
+            ) {
+                break;
+            }
+            $blockContent = substr($blockContent, strlen($inner[0]));
+        }
+        // Count every prefix, including nested list markers, for the body's column.
+        if ($opensItem) {
+            $blockIndent = strlen($line) - strlen($blockContent);
+        } elseif ($listIndent === 0) {
+            $blockIndent = 0;
+        }
+        if (!$opensItem && $blockIndent > $listIndent && strspn($line, ' ') >= $blockIndent) {
+            $blockContent = substr($line, $blockIndent);
+            if (preg_match($quote, $blockContent, $nested) === 1 && $nested[1] !== '') {
+                $blockContent = substr($blockContent, strlen($nested[1]));
+            }
+        }
+
+        return [$blockContent, $blockIndent];
+    }
+
+    /**
+     * @param array<string> $kept
+     * @param array<int, array{string, int, int}> $bareReferenceHeads
+     * @param array<string, true> $authoredDefinitions
+     *
+     * @return array<string>
+     */
+    private function resolveBareReferenceHeads(array $kept, array $bareReferenceHeads, array $authoredDefinitions): array
+    {
         foreach ($bareReferenceHeads as $index => [$rawLabel, $marker, $labelLength]) {
             if (isset($authoredDefinitions[$rawLabel])) {
                 $kept[$index] = substr_replace($kept[$index], '[]', $marker + $labelLength + 2, 0);
@@ -667,10 +707,6 @@ final class ReferenceStage
                 $kept[$index] = substr_replace($kept[$index], '\\', $marker, 0);
             }
         }
-
-        $this->inlineContext->definedReferenceLabels = $defined;
-        $this->inlineContext->referenceDefinitionLabels = $labels;
-        $this->inlineContext->authoredReferenceLabelKeys = $authoredDefinitions;
 
         return $kept;
     }
