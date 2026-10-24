@@ -1077,81 +1077,30 @@ final class BlockQuoteBuilder
         }
         unset($heldColon);
         $paragraph = $state['paragraphOpen'];
-        if (
-            $afterComment && ($host['kinds'][array_key_last($host['kinds']) ?? 0] ?? null) === 'item'
-            && $column > 0 && $column < $host['columns'][array_key_last($host['columns'])]
-            && (
-                $this->advanceTrailingState(new TrailingBlockState(), $text, true)->openParagraph
-                || ($this->getListParser)()->parseListItemMarker($text) !== null
-                || $column < ($host['columns'][1] ?? 0)
-                || ($state['colonClaims'] !== [] && ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
-            )
-        ) {
+        if ($this->commentReopensQuotedParagraph($afterComment, $host['kinds'], $host['columns'], $column, $text, $state['colonClaims'] !== [])) {
             $state['paragraphOpen'] = true;
 
             return true;
         }
         $leftOfOutermost = $host['markers'] !== [] && $column < min($host['markers']);
-        $lazyMarker = false;
-        if ($paragraph && !$leftOfOutermost && ($this->getListParser)()->parseListItemMarker($text) !== null) {
-            $structuralMarker = false;
-            foreach ($host['markers'] as $i => $markerColumn) {
-                $structuralMarker = $structuralMarker || ($column <= $markerColumn && $column >= $host['columns'][$i]);
-            }
-            $lazyMarker = !$structuralMarker && $column < $host['columns'][array_key_last($host['columns'])];
-        }
+        $lazyMarker = $this->isLazyQuotedMarker($paragraph, $leftOfOutermost, $text, $column, $host['markers'], $host['columns']);
         $foldedText = $paragraph
             && (($this->getListParser)()->parseListItemMarker($text) === null || $lazyMarker)
             && !$this->endsBlockQuote($content, true, $lines, $index);
         // A note body can indent the next quote marker beyond the quote prefix.
         $nextQuoted = isset($lines[$index + 1]) ? $this->blockQuoteLineContent(ltrim($lines[$index + 1], " \t")) : null;
-        if (
-            $host['markers'] !== []
-            && ($column === $host['columns'][array_key_last($host['columns'])]
-                || $column === ($host['descriptionColumn'] ?? PHP_INT_MAX))
-            && ($this->isReferenceDefinitionLine($text) || $this->isBlockAttributeLine($text))
-            && !(
-                preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $text) === 1
-                && $nextQuoted !== null
-                && IndentationHelper::getLeadingColumns($nextQuoted) >= $column + BlockGrammar::FOOTNOTE_BODY_COLUMN
-            )
-        ) {
+        if ($this->quotedDefinitionEndsParagraph($host['markers'], $host['columns'], $host['descriptionColumn'] ?? null, $column, $text, $nextQuoted)) {
             $state['paragraphOpen'] = false;
 
             return true;
         }
-        foreach ($host['kinds'] as $hostIndex => $kind) {
-            if (
-                $kind === 'note' && !($host['noteBodyBroken'][$hostIndex] ?? false)
-                && $column === $host['columns'][$hostIndex + 1]
-                && (preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $text) === 1
-                    || ($this->getTableParser)()->isTableRow($text))
-            ) {
-                $foldedText = false;
-
-                break;
-            }
+        if ($this->noteHostStopsFold($host['kinds'], $host['columns'], $host['noteBodyBroken'] ?? [], $column, $text)) {
+            $foldedText = false;
         }
         // A fence with a closer at its own column interrupts the paragraph of
         // a deeper host it no longer reaches (`CARVE-P0-014`); it is not text.
-        if ($foldedText && $column < $host['columns'][array_key_last($host['columns'])] && ($text[0] === '`' || $text[0] === '~')) {
-            $run = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
-                ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
-            // The closer may also sit at the content column of the host the
-            // fence lands in.
-            $owner = 0;
-            foreach ($host['columns'] as $hostColumn) {
-                $owner = $hostColumn <= $column ? max($owner, $hostColumn) : $owner;
-            }
-            if (
-                $run !== null
-                && (
-                    $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $column)
-                    || ($owner > 0 && $owner < $column && $this->quotedCodeFenceHasCloser($lines, $index, $state['innerDepth'] + 1, $run['char'] ?? $run['fence'][0], $run['length'], $memo, $owner))
-                )
-            ) {
-                $foldedText = false;
-            }
+        if ($foldedText && $this->quotedFenceInterruptsFold($text, $column, $host['columns'], $lines, $index, $state['innerDepth'], $memo)) {
+            $foldedText = false;
         }
         $lazyMarker = $lazyMarker && $foldedText;
         while (
@@ -1407,6 +1356,137 @@ final class BlockQuoteBuilder
         }
 
         return false;
+    }
+
+    /**
+     * @param bool $afterComment
+     * @param list<string> $kinds
+     * @param non-empty-list<int> $columns
+     * @param int $column
+     * @param string $text
+     * @param bool $hasColonClaim
+     */
+    private function commentReopensQuotedParagraph(bool $afterComment, array $kinds, array $columns, int $column, string $text, bool $hasColonClaim): bool
+    {
+        return $afterComment && ($kinds[array_key_last($kinds) ?? 0] ?? null) === 'item'
+            && $column > 0 && $column < $columns[array_key_last($columns)]
+            && (
+                $this->advanceTrailingState(new TrailingBlockState(), $text, true)->openParagraph
+                || ($this->getListParser)()->parseListItemMarker($text) !== null
+                || $column < ($columns[1] ?? 0)
+                || ($hasColonClaim && ($this->getFencedBlockParser)()->isCodeFenceHead($text, 0))
+            );
+    }
+
+    /**
+     * @param list<int> $markers
+     * @param non-empty-list<int> $columns
+     * @param int|null $descriptionColumn
+     * @param int $column
+     * @param string $text
+     * @param string|null $nextQuoted
+     */
+    private function quotedDefinitionEndsParagraph(
+        array $markers,
+        array $columns,
+        ?int $descriptionColumn,
+        int $column,
+        string $text,
+        ?string $nextQuoted,
+    ): bool {
+        return $markers !== []
+            && ($column === $columns[array_key_last($columns)] || $column === ($descriptionColumn ?? PHP_INT_MAX))
+            && ($this->isReferenceDefinitionLine($text) || $this->isBlockAttributeLine($text))
+            && !(
+                preg_match(BlockGrammar::FOOTNOTE_DEFINITION_PATTERN, $text) === 1
+                && $nextQuoted !== null
+                && IndentationHelper::getLeadingColumns($nextQuoted) >= $column + BlockGrammar::FOOTNOTE_BODY_COLUMN
+            );
+    }
+
+    /**
+     * @param list<string> $kinds
+     * @param non-empty-list<int> $columns
+     * @param array<int, bool> $noteBodyBroken
+     * @param int $column
+     * @param string $text
+     */
+    private function noteHostStopsFold(array $kinds, array $columns, array $noteBodyBroken, int $column, string $text): bool
+    {
+        foreach ($kinds as $index => $kind) {
+            if (
+                $kind === 'note' && !($noteBodyBroken[$index] ?? false)
+                && $column === $columns[$index + 1]
+                && (preg_match('/^#{1,6} .*' . StringUtil::NON_WHITESPACE_CLASS . '/', $text) === 1
+                    || ($this->getTableParser)()->isTableRow($text))
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param bool $paragraph
+     * @param bool $leftOfOutermost
+     * @param string $text
+     * @param int $column
+     * @param list<int> $markers
+     * @param non-empty-list<int> $columns
+     */
+    private function isLazyQuotedMarker(bool $paragraph, bool $leftOfOutermost, string $text, int $column, array $markers, array $columns): bool
+    {
+        if (!$paragraph || $leftOfOutermost || ($this->getListParser)()->parseListItemMarker($text) === null) {
+            return false;
+        }
+
+        foreach ($markers as $i => $markerColumn) {
+            if ($column <= $markerColumn && $column >= $columns[$i]) {
+                return false;
+            }
+        }
+
+        return $column < $columns[array_key_last($columns)];
+    }
+
+    /**
+     * @param string $text
+     * @param int $column
+     * @param non-empty-list<int> $columns
+     * @param array<string> $lines
+     * @param int $index
+     * @param int $innerDepth
+     * @param array<string, array{from:int, end:int, maxRun:int, inlineBoundary:bool, inlineChecked:bool}> $memo
+     */
+    private function quotedFenceInterruptsFold(
+        string $text,
+        int $column,
+        array $columns,
+        array $lines,
+        int $index,
+        int $innerDepth,
+        array &$memo,
+    ): bool {
+        if ($column >= $columns[array_key_last($columns)] || ($text[0] !== '`' && $text[0] !== '~')) {
+            return false;
+        }
+
+        $run = ($this->getFencedBlockParser)()->parseRawBlockOpener($text)
+            ?? ($this->getFencedBlockParser)()->parseCodeFenceOpener($text);
+        if ($run === null) {
+            return false;
+        }
+
+        $owner = 0;
+        foreach ($columns as $hostColumn) {
+            $owner = $hostColumn <= $column ? max($owner, $hostColumn) : $owner;
+        }
+        $char = $run['char'] ?? $run['fence'][0];
+
+        return $this->quotedCodeFenceHasCloser($lines, $index, $innerDepth + 1, $char, $run['length'], $memo, $column)
+            || ($owner > 0 && $owner < $column
+                && $this->quotedCodeFenceHasCloser($lines, $index, $innerDepth + 1, $char, $run['length'], $memo, $owner));
     }
 
     /**
