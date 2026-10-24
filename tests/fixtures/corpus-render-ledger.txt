@@ -1,5 +1,5 @@
-# Regenerate with `php bin/render-ledger.php`.
-# Regenerate with `php bin/render-ledger.php`.
+# carve-php non-HTML render ledger.
+# <slug> md:<digest> txt:<digest> ansi:<digest>, sha-256 truncated to 16 hex.
 # Regenerate with `php bin/render-ledger.php`.
 01-emphasis md:d5d7ee17615105e9 txt:80a8419726311419 ansi:683288d5c9760c62
 01-emphasis-10 md:30b8aa92efc67d28 txt:30b8aa92efc67d28 ansi:30b8aa92efc67d28
